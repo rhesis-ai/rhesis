@@ -58,18 +58,6 @@ export const GlossaryPage = () => {
     return Array.from(letters).sort()
   }, [filteredTerms])
 
-  // Handle related term click - scroll to term
-  const handleTermClick = termId => {
-    const element = document.getElementById(termId)
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      // Briefly highlight the term
-      element.style.boxShadow = '0 0 0 3px var(--nextra-primary-hue)'
-      setTimeout(() => {
-        element.style.boxShadow = 'none'
-      }, 2000)
-    }
-  }
 
   const statsStyles = {
     fontSize: '0.875rem',
@@ -103,7 +91,6 @@ export const GlossaryPage = () => {
         categories={categories}
         selectedCategory={selectedCategory}
         onCategoryChange={setSelectedCategory}
-        onTermClick={handleTermClick}
       />
     </div>
   )

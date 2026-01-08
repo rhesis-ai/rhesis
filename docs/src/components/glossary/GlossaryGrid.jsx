@@ -15,14 +15,12 @@ import GlossaryCard from './GlossaryCard'
  * @param {Array} props.categories - Available categories for filtering
  * @param {string} props.selectedCategory - Currently selected category filter
  * @param {Function} props.onCategoryChange - Callback when category filter changes
- * @param {Function} props.onTermClick - Callback when a related term is clicked
  */
 export const GlossaryGrid = ({
   terms,
   categories,
   selectedCategory,
   onCategoryChange,
-  onTermClick,
 }) => {
   // Group terms by first letter
   const groupedTerms = terms.reduce((acc, term) => {
@@ -154,7 +152,7 @@ export const GlossaryGrid = ({
           <h2 style={letterHeaderStyles}>{letter}</h2>
           <div style={gridStyles}>
             {groupedTerms[letter].map(term => (
-              <GlossaryCard key={term.id} term={term} onTermClick={onTermClick} />
+              <GlossaryCard key={term.id} term={term} />
             ))}
           </div>
         </div>

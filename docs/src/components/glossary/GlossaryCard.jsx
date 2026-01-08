@@ -14,9 +14,8 @@ import glossaryData from '../../../content/glossary/glossary-terms.json'
  *
  * @param {Object} props - Component props
  * @param {Object} props.term - Term object containing id, term, definition, category, relatedTerms, docLinks, aliases
- * @param {Function} props.onTermClick - Callback when a related term is clicked
  */
-export const GlossaryCard = ({ term, onTermClick }) => {
+export const GlossaryCard = ({ term }) => {
   // Helper function to get the actual term name from the glossary data
   const getTermNameById = id => {
     const foundTerm = glossaryData.terms.find(t => t.id === id)
@@ -31,6 +30,8 @@ export const GlossaryCard = ({ term, onTermClick }) => {
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
+    textDecoration: 'none',
+    color: 'inherit',
   }
 
   const termTitleStyles = {
@@ -93,18 +94,20 @@ export const GlossaryCard = ({ term, onTermClick }) => {
 
   const relatedTermStyles = {
     fontSize: '0.875rem',
-    color: 'var(--nextra-primary-hue)',
+    color: '#0ea5e9',
     textDecoration: 'none',
-    padding: '0.25rem 0.5rem',
-    borderRadius: '4px',
-    border: '1px solid var(--nextra-border)',
+    padding: '0.375rem 0.75rem',
+    borderRadius: '16px',
+    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+    border: 'none',
     transition: 'all 0.2s',
     cursor: 'pointer',
     display: 'inline-block',
+    fontWeight: '500',
   }
 
   return (
-    <div style={cardStyles} id={term.id}>
+    <Link href={`/glossary/${term.id}`} style={cardStyles} id={term.id}>
       <div>
         <h3 style={termTitleStyles}>{term.term}</h3>
 
@@ -137,7 +140,12 @@ export const GlossaryCard = ({ term, onTermClick }) => {
             </div>
             <div style={linkListStyles}>
               {term.docLinks.map((link, index) => (
-                <Link key={index} href={link} style={linkStyles}>
+                <Link 
+                  key={index} 
+                  href={link} 
+                  style={linkStyles}
+                  onClick={e => e.stopPropagation()}
+                >
                   {link}
                 </Link>
               ))}
@@ -150,28 +158,30 @@ export const GlossaryCard = ({ term, onTermClick }) => {
             <div style={sectionTitleStyles}>Related Terms</div>
             <div style={linkListStyles}>
               {term.relatedTerms.map(relatedId => (
-                <button
+                <Link
                   key={relatedId}
-                  onClick={() => onTermClick && onTermClick(relatedId)}
-                  style={{
-                    ...relatedTermStyles,
-                    background: 'none',
-                  }}
+                  href={`/glossary/${relatedId}`}
+                  style={relatedTermStyles}
+                  onClick={e => e.stopPropagation()}
                   onMouseEnter={e => {
-                    e.currentTarget.style.backgroundColor = 'var(--nextra-primary-hue-light)'
+                    e.currentTarget.style.backgroundColor = '#0ea5e9'
+                    e.currentTarget.style.color = '#ffffff'
+                    e.currentTarget.style.transform = 'translateY(-1px)'
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.backgroundColor = 'rgba(14, 165, 233, 0.1)'
+                    e.currentTarget.style.color = '#0ea5e9'
+                    e.currentTarget.style.transform = 'translateY(0)'
                   }}
                 >
                   {getTermNameById(relatedId)}
-                </button>
+                </Link>
               ))}
             </div>
           </div>
         )}
       </div>
-    </div>
+    </Link>
   )
 }
 
