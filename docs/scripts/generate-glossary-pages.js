@@ -19,7 +19,32 @@ const glossaryDir = path.join(__dirname, '../content/glossary')
 // Read glossary data
 const glossaryData = JSON.parse(fs.readFileSync(glossaryDataPath, 'utf8'))
 
-console.log(`Generating pages for ${glossaryData.terms.length} glossary terms...`)
+// Clean up old term directories before generating new ones
+console.log('Cleaning up old glossary pages...')
+const currentTermIds = new Set(glossaryData.terms.map(t => t.id))
+const filesInGlossary = fs.readdirSync(glossaryDir)
+
+// Files/directories to preserve
+const preservedItems = new Set([
+  'index.mdx',
+  'glossary-terms.json',
+  '.README.md',
+  'README.md',
+  '_meta.tsx'
+])
+
+filesInGlossary.forEach(item => {
+  const itemPath = path.join(glossaryDir, item)
+  const isDirectory = fs.statSync(itemPath).isDirectory()
+  
+  // Only clean up directories that aren't in the current term list
+  if (isDirectory && !currentTermIds.has(item) && !preservedItems.has(item)) {
+    console.log(`  Removing old directory: ${item}`)
+    fs.rmSync(itemPath, { recursive: true, force: true })
+  }
+})
+
+console.log(`\nGenerating pages for ${glossaryData.terms.length} glossary terms...`)
 
 // Generate a page for each term
 glossaryData.terms.forEach(term => {

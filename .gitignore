@@ -224,6 +224,7 @@ docs/content/glossary/*/
 docs/content/glossary/_meta.tsx
 !docs/content/glossary/index.mdx
 !docs/content/glossary/glossary-terms.json
+!docs/content/glossary/.README.md
 
 # Debug logs
 npm-debug.log*
