@@ -16,12 +16,7 @@ import GlossaryCard from './GlossaryCard'
  * @param {string} props.selectedCategory - Currently selected category filter
  * @param {Function} props.onCategoryChange - Callback when category filter changes
  */
-export const GlossaryGrid = ({
-  terms,
-  categories,
-  selectedCategory,
-  onCategoryChange,
-}) => {
+export const GlossaryGrid = ({ terms, categories, selectedCategory, onCategoryChange }) => {
   // Group terms by first letter
   const groupedTerms = terms.reduce((acc, term) => {
     const firstLetter = term.term.charAt(0).toUpperCase()

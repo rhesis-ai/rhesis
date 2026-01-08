@@ -52,3 +52,17 @@ export const metadata = {
 
 console.log(`\n✅ Successfully generated ${glossaryData.terms.length} glossary term pages!`)
 
+// Generate _meta.tsx to hide all term pages from navigation
+console.log('\nGenerating _meta.tsx...')
+
+const metaContent = `export default {
+${glossaryData.terms.map(term => `  "${term.id}": {
+    display: "hidden",
+  },`).join('\n')}
+};
+`
+
+const metaPath = path.join(glossaryDir, '_meta.tsx')
+fs.writeFileSync(metaPath, metaContent, 'utf8')
+console.log(`✓ Created _meta.tsx with ${glossaryData.terms.length} hidden term entries`)
+
