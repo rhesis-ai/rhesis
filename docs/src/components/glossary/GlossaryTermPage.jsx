@@ -1,11 +1,55 @@
-'use client'
-
 import React from 'react'
 import Link from 'next/link'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import LabelIcon from '@mui/icons-material/Label'
 import LinkIcon from '@mui/icons-material/Link'
+import { CodeBlock } from '../CodeBlock'
+import { InteractiveLink } from './InteractiveLink'
 import glossaryData from '../../../content/glossary/glossary-terms.json'
+
+/**
+ * Process markdown content to extract code blocks and render them with CodeBlock
+ */
+async function renderMarkdownWithCodeBlocks(markdown) {
+  // Split by code blocks
+  const parts = []
+  const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g
+  let lastIndex = 0
+  let match
+
+  while ((match = codeBlockRegex.exec(markdown)) !== null) {
+    // Add markdown before code block
+    if (match.index > lastIndex) {
+      parts.push({
+        type: 'markdown',
+        content: markdown.slice(lastIndex, match.index),
+      })
+    }
+
+    // Add code block
+    const language = match[1] || 'text'
+    const code = match[2]
+    parts.push({
+      type: 'code',
+      language,
+      code,
+    })
+
+    lastIndex = match.index + match[0].length
+  }
+
+  // Add remaining markdown
+  if (lastIndex < markdown.length) {
+    parts.push({
+      type: 'markdown',
+      content: markdown.slice(lastIndex),
+    })
+  }
+
+  return parts
+}
 
 /**
  * GlossaryTermPage Component
@@ -16,7 +60,7 @@ import glossaryData from '../../../content/glossary/glossary-terms.json'
  * @param {Object} props - Component props
  * @param {string} props.termId - The ID of the term to display
  */
-export const GlossaryTermPage = ({ termId }) => {
+export const GlossaryTermPage = async ({ termId }) => {
   const term = glossaryData.terms.find(t => t.id === termId)
 
   if (!term) {
@@ -76,11 +120,26 @@ export const GlossaryTermPage = ({ termId }) => {
     transition: 'all 0.2s',
   }
 
+  const definitionBoxStyles = {
+    padding: '1.5rem',
+    backgroundColor: 'rgba(14, 165, 233, 0.05)',
+    border: '2px solid rgba(14, 165, 233, 0.2)',
+    borderRadius: '8px',
+    marginBottom: '2.5rem',
+  }
+
   const definitionStyles = {
-    fontSize: '1.125rem',
+    fontSize: '1.25rem',
     lineHeight: '1.7',
     color: 'var(--nextra-content-color)',
-    marginBottom: '2rem',
+    margin: 0,
+    fontWeight: '500',
+  }
+
+  const extendedContentStyles = {
+    fontSize: '1rem',
+    lineHeight: '1.8',
+    color: 'var(--nextra-content-color)',
   }
 
   const aliasesStyles = {
@@ -137,36 +196,183 @@ export const GlossaryTermPage = ({ termId }) => {
 
   return (
     <div style={containerStyles}>
-      <Link
-        href="/glossary"
-        style={backLinkStyles}
-        onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
-        onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-      >
+      <InteractiveLink href="/glossary" style={backLinkStyles} hoverStyle={{ opacity: '0.7' }}>
         <ArrowBackIcon style={{ fontSize: '18px' }} />
         Back to Glossary
-      </Link>
+      </InteractiveLink>
 
-      <Link
+      <InteractiveLink
         href={`/glossary?category=${encodeURIComponent(term.category)}`}
         style={categoryBadgeStyles}
-        onMouseEnter={e => {
-          e.currentTarget.style.backgroundColor = '#0ea5e9'
-          e.currentTarget.style.color = '#ffffff'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.backgroundColor = 'transparent'
-          e.currentTarget.style.color = '#0ea5e9'
+        hoverStyle={{
+          backgroundColor: '#0ea5e9',
+          color: '#ffffff',
         }}
       >
         <LabelIcon style={{ fontSize: '14px' }} />
         {term.category}
-      </Link>
+      </InteractiveLink>
 
-      <p style={definitionStyles}>{term.definition}</p>
+      <div style={definitionBoxStyles}>
+        <p style={definitionStyles}>{term.definition}</p>
+      </div>
 
       {term.aliases && term.aliases.length > 0 && (
         <div style={aliasesStyles}>Also known as: {term.aliases.join(', ')}</div>
+      )}
+
+      {term.extendedContent && (
+        <div style={extendedContentStyles}>
+          {await (async () => {
+            const parts = await renderMarkdownWithCodeBlocks(term.extendedContent)
+            return parts.map((part, index) => {
+              if (part.type === 'code') {
+                return (
+                  <CodeBlock key={index} language={part.language} filename={part.language}>
+                    {part.code}
+                  </CodeBlock>
+                )
+              }
+              return (
+                <ReactMarkdown
+                  key={index}
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    h2: ({ node, ...props }) => (
+                      <h2
+                        style={{
+                          fontSize: '1.5rem',
+                          fontWeight: '600',
+                          marginTop: '2rem',
+                          marginBottom: '1rem',
+                          color: 'var(--nextra-content-color)',
+                        }}
+                        {...props}
+                      />
+                    ),
+                    h3: ({ node, ...props }) => (
+                      <h3
+                        style={{
+                          fontSize: '1.25rem',
+                          fontWeight: '600',
+                          marginTop: '1.5rem',
+                          marginBottom: '0.75rem',
+                          color: 'var(--nextra-content-color)',
+                        }}
+                        {...props}
+                      />
+                    ),
+                    p: ({ node, ...props }) => (
+                      <p
+                        style={{
+                          marginBottom: '1rem',
+                          lineHeight: '1.8',
+                        }}
+                        {...props}
+                      />
+                    ),
+                    ul: ({ node, ...props }) => (
+                      <ul
+                        style={{
+                          marginBottom: '1rem',
+                          paddingLeft: '1.5rem',
+                          listStyleType: 'disc',
+                        }}
+                        {...props}
+                      />
+                    ),
+                    ol: ({ node, ...props }) => (
+                      <ol
+                        style={{
+                          marginBottom: '1rem',
+                          paddingLeft: '1.5rem',
+                        }}
+                        {...props}
+                      />
+                    ),
+                    li: ({ node, ...props }) => (
+                      <li
+                        style={{
+                          marginBottom: '0.5rem',
+                        }}
+                        {...props}
+                      />
+                    ),
+                    code: ({ node, inline, className, children, ...props }) => {
+                      // Only inline code here, block code is handled separately
+                      if (inline) {
+                        return (
+                          <code
+                            style={{
+                              backgroundColor: 'rgba(14, 165, 233, 0.1)',
+                              padding: '0.2rem 0.4rem',
+                              borderRadius: '4px',
+                              fontSize: '0.9em',
+                              fontFamily: 'monospace',
+                            }}
+                            {...props}
+                          >
+                            {children}
+                          </code>
+                        )
+                      }
+                      return null // Block code blocks are extracted and rendered separately
+                    },
+                    pre: () => null, // Pre blocks are extracted and rendered separately
+                    table: ({ node, ...props }) => (
+                      <div style={{ overflowX: 'auto', marginBottom: '1.5rem' }}>
+                        <table
+                          style={{
+                            width: '100%',
+                            borderCollapse: 'collapse',
+                            fontSize: '0.95rem',
+                          }}
+                          {...props}
+                        />
+                      </div>
+                    ),
+                    th: ({ node, ...props }) => (
+                      <th
+                        style={{
+                          border: '1px solid var(--nextra-border)',
+                          padding: '0.75rem',
+                          backgroundColor: 'rgba(14, 165, 233, 0.05)',
+                          textAlign: 'left',
+                          fontWeight: '600',
+                        }}
+                        {...props}
+                      />
+                    ),
+                    td: ({ node, ...props }) => (
+                      <td
+                        style={{
+                          border: '1px solid var(--nextra-border)',
+                          padding: '0.75rem',
+                        }}
+                        {...props}
+                      />
+                    ),
+                    blockquote: ({ node, ...props }) => (
+                      <blockquote
+                        style={{
+                          borderLeft: '4px solid #0ea5e9',
+                          paddingLeft: '1rem',
+                          marginLeft: 0,
+                          marginBottom: '1rem',
+                          fontStyle: 'italic',
+                          color: 'var(--nextra-content-secondary)',
+                        }}
+                        {...props}
+                      />
+                    ),
+                  }}
+                >
+                  {part.content}
+                </ReactMarkdown>
+              )
+            })
+          })()}
+        </div>
       )}
 
       {term.docLinks && term.docLinks.length > 0 && (
@@ -177,16 +383,15 @@ export const GlossaryTermPage = ({ termId }) => {
           </h2>
           <div style={linkListStyles}>
             {term.docLinks.map(link => (
-              <Link
+              <InteractiveLink
                 key={link}
                 href={link}
                 style={docLinkStyles}
-                onMouseEnter={e => (e.currentTarget.style.opacity = '0.7')}
-                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                hoverStyle={{ opacity: '0.7' }}
               >
                 <LinkIcon style={{ fontSize: '16px' }} />
                 {link}
-              </Link>
+              </InteractiveLink>
             ))}
           </div>
         </div>
@@ -197,23 +402,18 @@ export const GlossaryTermPage = ({ termId }) => {
           <h2 style={sectionTitleStyles}>Related Terms</h2>
           <div style={relatedTermsGridStyles}>
             {term.relatedTerms.map(relatedId => (
-              <Link
+              <InteractiveLink
                 key={relatedId}
                 href={`/glossary/${relatedId}`}
                 style={relatedTermLinkStyles}
-                onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = '#0ea5e9'
-                  e.currentTarget.style.color = '#ffffff'
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = 'rgba(14, 165, 233, 0.1)'
-                  e.currentTarget.style.color = '#0ea5e9'
-                  e.currentTarget.style.transform = 'translateY(0)'
+                hoverStyle={{
+                  backgroundColor: '#0ea5e9',
+                  color: '#ffffff',
+                  transform: 'translateY(-2px)',
                 }}
               >
                 {getTermNameById(relatedId)}
-              </Link>
+              </InteractiveLink>
             ))}
           </div>
         </div>
