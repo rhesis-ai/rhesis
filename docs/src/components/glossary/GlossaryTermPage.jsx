@@ -49,7 +49,7 @@ export const GlossaryTermPage = ({ termId }) => {
     color: '#0ea5e9',
     textDecoration: 'none',
     fontSize: '0.875rem',
-    marginBottom: '2rem',
+    marginBottom: '1.5rem',
     transition: 'opacity 0.2s',
   }
 
@@ -57,13 +57,14 @@ export const GlossaryTermPage = ({ termId }) => {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '0.25rem',
-    padding: '0.25rem 0.75rem',
-    fontSize: '0.75rem',
+    padding: '0.375rem 0.875rem',
+    fontSize: '0.8rem',
     fontWeight: '500',
     borderRadius: '12px',
-    backgroundColor: '#0ea5e9',
-    color: 'white',
-    marginBottom: '1rem',
+    backgroundColor: 'transparent',
+    color: '#0ea5e9',
+    border: '1.5px solid #0ea5e9',
+    marginBottom: '1.5rem',
   }
 
   const definitionStyles = {
