@@ -2,8 +2,11 @@ Search for items matching the query using available tools.
 
 Return JSON array: [{"id": "item_id", "url": "item_url", "title": "Item Title"}]
 
+If no items are found, always return only an empty array: []
+
 Rules:
 - Only include items actually found by the API
 - The id field is required for each item
 - If you encounter recoverable errors (rate limits, temporary failures), you may retry
 - If you get partial results, return what you found
+- Never return a response that is not a valid JSON array

@@ -243,7 +243,7 @@ export function MCPConnectionDialog({
 
     // In create mode, we need to validate required fields first
     if (!isEditMode) {
-      if (!provider || !name || (requiresToken && !authToken)) {
+      if (!provider || (requiresToken && !authToken)) {
         setError('Please fill in all required fields before testing.');
         return;
       }
@@ -613,7 +613,6 @@ export function MCPConnectionDialog({
                     disabled={
                       testingConnection ||
                       loading ||
-                      !name ||
                       (requiresToken && !authToken) ||
                       (isCustomProvider && !toolMetadata.trim())
                     }
