@@ -9,8 +9,5 @@ export default {
     type: "separator",
   },
   guides: "Guides",
-  glossary: {
-    title: "Glossary",
-    type: "page",
-  },
+  glossary: "Glossary",
 };

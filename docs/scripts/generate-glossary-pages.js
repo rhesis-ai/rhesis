@@ -13,11 +13,17 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // Paths
-const glossaryDataPath = path.join(__dirname, '../content/glossary/glossary-terms.json')
+const glossaryDataPath = path.join(__dirname, '../content/glossary/glossary-terms.jsonl')
 const glossaryDir = path.join(__dirname, '../content/glossary')
 
-// Read glossary data
-const glossaryData = JSON.parse(fs.readFileSync(glossaryDataPath, 'utf8'))
+// Read and parse JSONL data (one JSON object per line)
+const glossaryDataRaw = fs.readFileSync(glossaryDataPath, 'utf8')
+const glossaryData = {
+  terms: glossaryDataRaw
+    .trim()
+    .split('\n')
+    .map(line => JSON.parse(line))
+}
 
 // Clean up old term directories before generating new ones
 console.log('Cleaning up old glossary pages...')
@@ -27,7 +33,7 @@ const filesInGlossary = fs.readdirSync(glossaryDir)
 // Files/directories to preserve
 const preservedItems = new Set([
   'index.mdx',
-  'glossary-terms.json',
+  'glossary-terms.jsonl',
   '.README.md',
   'README.md',
   '_meta.tsx'

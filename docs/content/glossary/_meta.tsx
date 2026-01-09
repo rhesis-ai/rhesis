@@ -89,4 +89,88 @@ export default {
   "metric-scope": {
     display: "hidden",
   },
+  "regression-testing": {
+    display: "hidden",
+  },
+  "hallucination": {
+    display: "hidden",
+  },
+  "edge-case": {
+    display: "hidden",
+  },
+  "ground-truth": {
+    display: "hidden",
+  },
+  "false-positive": {
+    display: "hidden",
+  },
+  "containment-rate": {
+    display: "hidden",
+  },
+  "latency": {
+    display: "hidden",
+  },
+  "graceful-degradation": {
+    display: "hidden",
+  },
+  "smoke-testing": {
+    display: "hidden",
+  },
+  "baseline": {
+    display: "hidden",
+  },
+  "intent-understanding": {
+    display: "hidden",
+  },
+  "out-of-scope-query": {
+    display: "hidden",
+  },
+  "utterance": {
+    display: "hidden",
+  },
+  "context-switching": {
+    display: "hidden",
+  },
+  "fallback-behavior": {
+    display: "hidden",
+  },
+  "ambiguity-handling": {
+    display: "hidden",
+  },
+  "context-window": {
+    display: "hidden",
+  },
+  "turn-taking": {
+    display: "hidden",
+  },
+  "confidence-score": {
+    display: "hidden",
+  },
+  "precision-and-recall": {
+    display: "hidden",
+  },
+  "f1-score": {
+    display: "hidden",
+  },
+  "confusion-matrix": {
+    display: "hidden",
+  },
+  "a-b-testing": {
+    display: "hidden",
+  },
+  "overfitting": {
+    display: "hidden",
+  },
+  "prompt-injection": {
+    display: "hidden",
+  },
+  "retrieval-augmented-generation": {
+    display: "hidden",
+  },
+  "chain-of-thought": {
+    display: "hidden",
+  },
+  "temperature": {
+    display: "hidden",
+  },
 };

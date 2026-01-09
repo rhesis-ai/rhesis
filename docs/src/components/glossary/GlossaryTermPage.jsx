@@ -7,7 +7,15 @@ import LabelIcon from '@mui/icons-material/Label'
 import LinkIcon from '@mui/icons-material/Link'
 import { CodeBlock } from '../CodeBlock'
 import { InteractiveLink } from './InteractiveLink'
-import glossaryData from '../../../content/glossary/glossary-terms.json'
+import glossaryDataRaw from '../../../content/glossary/glossary-terms.jsonl'
+
+// Parse JSONL format (one JSON object per line)
+const glossaryData = {
+  terms: glossaryDataRaw
+    .trim()
+    .split('\n')
+    .map(line => JSON.parse(line)),
+}
 
 /**
  * Simple hash function to generate stable keys from content
@@ -116,6 +124,7 @@ export const GlossaryTermPage = async ({ termId }) => {
     color: '#0ea5e9',
     textDecoration: 'none',
     fontSize: '0.875rem',
+    marginTop: '1.5rem',
     marginBottom: '1.5rem',
     transition: 'opacity 0.2s',
     width: 'fit-content',
@@ -147,11 +156,11 @@ export const GlossaryTermPage = async ({ termId }) => {
   }
 
   const definitionStyles = {
-    fontSize: '1.25rem',
+    fontSize: '1.1rem',
     lineHeight: '1.7',
     color: 'var(--nextra-content-color)',
     margin: 0,
-    fontWeight: '500',
+    fontWeight: '400',
   }
 
   const extendedContentStyles = {

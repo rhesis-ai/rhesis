@@ -6,7 +6,15 @@ import MenuBookIcon from '@mui/icons-material/MenuBook'
 import GlossarySearch from './GlossarySearch'
 import AlphabetNav from './AlphabetNav'
 import GlossaryGrid from './GlossaryGrid'
-import glossaryData from '../../../content/glossary/glossary-terms.json'
+import glossaryDataRaw from '../../../content/glossary/glossary-terms.jsonl'
+
+// Parse JSONL format (one JSON object per line)
+const glossaryData = {
+  terms: glossaryDataRaw
+    .trim()
+    .split('\n')
+    .map(line => JSON.parse(line)),
+}
 
 /**
  * GlossaryPage Component
@@ -72,6 +80,7 @@ export const GlossaryPage = () => {
   const statsStyles = {
     fontSize: '0.875rem',
     color: 'var(--nextra-content-secondary)',
+    marginTop: '1.5rem',
     marginBottom: '2rem',
   }
 

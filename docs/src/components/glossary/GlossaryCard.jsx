@@ -4,7 +4,15 @@ import React from 'react'
 import Link from 'next/link'
 import LinkIcon from '@mui/icons-material/Link'
 import LabelIcon from '@mui/icons-material/Label'
-import glossaryData from '../../../content/glossary/glossary-terms.json'
+import glossaryDataRaw from '../../../content/glossary/glossary-terms.jsonl'
+
+// Parse JSONL format (one JSON object per line)
+const glossaryData = {
+  terms: glossaryDataRaw
+    .trim()
+    .split('\n')
+    .map(line => JSON.parse(line)),
+}
 
 /**
  * GlossaryCard Component
