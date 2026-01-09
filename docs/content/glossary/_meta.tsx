@@ -1,4 +1,5 @@
 export default {
+  index: "Terms",
   "organization": {
     display: "hidden",
   },
