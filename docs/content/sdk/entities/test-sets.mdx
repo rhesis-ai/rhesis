@@ -2,11 +2,11 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Test Sets & Tests
 
-Test sets are collections of individual tests used to evaluate AI applications. Tests contain prompts, expected behaviors, and metadata for categorization.
+Test sets are collections of individual test entities used to evaluate AI applications. Each test entity contains a prompt, expected behaviors, and metadata for categorization.
 
 ## TestSet
 
-A `TestSet` groups related tests together. Test sets can be created programmatically, generated with [synthesizers](/sdk/synthesizers), or imported from CSV files.
+A `TestSet` groups related tests together. Test sets can be created programmatically, generated with [synthesizers](/sdk/synthesizers), imported from CSV files, or generated directly in the platform and then downloaded into the SDK using `pull()`.
 
 ### Properties
 
