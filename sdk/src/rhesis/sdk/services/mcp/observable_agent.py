@@ -68,8 +68,7 @@ class ObservableMCPAgent(MCPAgent):
             verbose=verbose,
         )
 
-        # Extract model metadata once during initialization for observability
-        self.model_provider = getattr(self.model, "provider", None) or "unknown"
+        # Extract model name once during initialization for observability
         self.model_name = getattr(self.model, "model_name", None) or str(type(self.model).__name__)
 
     @observe(span_name="function.mcp_agent_run")
@@ -118,7 +117,6 @@ class ObservableMCPAgent(MCPAgent):
 
         # Add LLM-specific attributes
         span.set_attribute("ai.operation.type", "llm.invoke")
-        span.set_attribute("ai.model.provider", self.model_provider)
         span.set_attribute("ai.model.name", self.model_name)
         span.set_attribute("ai.agent.iteration", iteration)
 
@@ -204,7 +202,6 @@ class ObservableMCPAgent(MCPAgent):
         # Add tool-specific attributes
         span.set_attribute("ai.operation.type", "tool.invoke")
         span.set_attribute("ai.tool.name", tool_call.tool_name)
-        span.set_attribute("ai.tool.type", "mcp")
 
         # Add tool arguments for debugging
         if tool_call.arguments:
@@ -215,7 +212,7 @@ class ObservableMCPAgent(MCPAgent):
 
             # Add tool attributes
             if result.success:
-                span.set_attribute("ai.tool.output_size", len(result.content))
+                span.set_attribute("ai.tool.output", result.content)
             else:
                 span.set_attribute("ai.tool.error", result.error or "Unknown error")
 
