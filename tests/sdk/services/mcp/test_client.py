@@ -96,11 +96,21 @@ class TestMCPClient:
         mock_session.__aenter__ = AsyncMock()
         mock_session.initialize = AsyncMock()
 
-        with patch(
-            "rhesis.sdk.services.mcp.client.streamablehttp_client", return_value=mock_context
-        ):
-            with patch("rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session):
-                await client.connect()
+        # Mock httpx.AsyncClient to prevent real HTTP requests
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        with patch("rhesis.sdk.services.mcp.client.httpx.AsyncClient", return_value=mock_client):
+            with patch(
+                "rhesis.sdk.services.mcp.client.streamablehttp_client", return_value=mock_context
+            ):
+                with patch("rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session):
+                    await client.connect()
 
         assert client.session == mock_session
 
@@ -122,9 +132,19 @@ class TestMCPClient:
         mock_session.__aenter__ = AsyncMock()
         mock_session.initialize = AsyncMock()
 
-        with patch("rhesis.sdk.services.mcp.client.sse_client", return_value=mock_context):
-            with patch("rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session):
-                await client.connect()
+        # Mock httpx.AsyncClient to prevent real HTTP requests
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.get = AsyncMock(return_value=mock_response)
+
+        with patch("rhesis.sdk.services.mcp.client.httpx.AsyncClient", return_value=mock_client):
+            with patch("rhesis.sdk.services.mcp.client.sse_client", return_value=mock_context):
+                with patch("rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session):
+                    await client.connect()
 
         assert client.session == mock_session
 

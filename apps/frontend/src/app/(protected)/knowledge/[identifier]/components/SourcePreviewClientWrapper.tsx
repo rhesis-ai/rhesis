@@ -13,6 +13,7 @@ import {
   Stack,
   Collapse,
   Avatar,
+  CircularProgress,
 } from '@mui/material';
 import { Source } from '@/utils/api-client/interfaces/source';
 import { PageContainer } from '@toolpad/core/PageContainer';
@@ -27,6 +28,9 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
 import InfoIcon from '@mui/icons-material/Info';
 import ArticleIcon from '@mui/icons-material/Article';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import { useRouter } from 'next/navigation';
 import {
   formatFileSize,
   formatDate,
@@ -62,41 +66,47 @@ export default function SourcePreviewClientWrapper({
   currentUserName,
   currentUserPicture,
 }: SourcePreviewClientWrapperProps) {
-  const [content] = useState<string>(source.content || '');
-  const [isContentExpanded, setIsContentExpanded] = useState(!!source.content);
+  const [localSource, setLocalSource] = useState<Source>(source);
+  const [content, setContent] = useState<string>(localSource.content || '');
+  const [isContentExpanded, setIsContentExpanded] = useState(
+    !!localSource.content
+  );
   const notifications = useNotifications();
   const theme = useTheme();
   const [isEditing, setIsEditing] = useState<EditableSectionType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isConnectionInvalid, setIsConnectionInvalid] = useState(false);
+  const router = useRouter();
 
   // Refs for uncontrolled text fields
   const titleRef = useRef<HTMLInputElement>(null);
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const descriptionRef = useRef<HTMLInputElement>(null);
 
-  const displayTitle = truncateFilename(source.title);
+  const displayTitle = truncateFilename(localSource.title);
 
   // Determine the type to display
   const getDisplayType = (): string | null => {
     // First check source_metadata.source_type (for MCP imports like Notion)
-    if (source.source_metadata?.source_type) {
-      return source.source_metadata.source_type;
+    if (localSource.source_metadata?.source_type) {
+      return localSource.source_metadata.source_type;
     }
 
     // Check if this is a Tool source type (MCP/API imports)
     if (
-      source.source_type?.type_value === 'Tool' &&
-      source.source_metadata?.provider
+      localSource.source_type?.type_value === 'Tool' &&
+      localSource.source_metadata?.provider
     ) {
       // Capitalize the provider name (e.g., "notion" -> "Notion")
       return (
-        source.source_metadata.provider.charAt(0).toUpperCase() +
-        source.source_metadata.provider.slice(1)
+        localSource.source_metadata.provider.charAt(0).toUpperCase() +
+        localSource.source_metadata.provider.slice(1)
       );
     }
 
     // Fall back to file extension for document sources
     const fileExtension = getFileExtension(
-      source.source_metadata?.original_filename
+      localSource.source_metadata?.original_filename
     );
 
     // Return null if no valid type found
@@ -108,7 +118,7 @@ export default function SourcePreviewClientWrapper({
   };
 
   const displayType = getDisplayType();
-  const hasSize = source.source_metadata?.file_size != null;
+  const hasSize = localSource.source_metadata?.file_size != null;
   const hasType = displayType != null;
 
   const handleCopyContentBlock = async () => {
@@ -132,13 +142,14 @@ export default function SourcePreviewClientWrapper({
       const sourcesClient = clientFactory.getSourcesClient();
 
       // Get file content as blob to preserve binary data
-      const blob = await sourcesClient.getSourceContentBlob(source.id);
+      const blob = await sourcesClient.getSourceContentBlob(localSource.id);
 
       // Create download link with proper filename
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = source.source_metadata?.original_filename || source.title;
+      link.download =
+        localSource.source_metadata?.original_filename || localSource.title;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -156,20 +167,120 @@ export default function SourcePreviewClientWrapper({
     }
   };
 
+  const handleUpdateFromMCP = async () => {
+    if (!sessionToken || isUpdating) return;
+
+    // Check if this is an MCP source
+    if (localSource.source_type?.type_value !== 'Tool') {
+      return;
+    }
+
+    const metadata = localSource.source_metadata || {};
+    const mcpToolId = metadata.mcp_tool_id;
+    const mcpId = metadata.mcp_id;
+    const mcpUrl = metadata.url;
+
+    if (!mcpToolId || (!mcpId && !mcpUrl)) {
+      notifications.show('Missing MCP source information', {
+        severity: 'error',
+        autoHideDuration: 3000,
+      });
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const servicesClient = clientFactory.getServicesClient();
+      const sourcesClient = clientFactory.getSourcesClient();
+
+      // Extract content from MCP (will fail with 404 if tool is deleted)
+      const extractOptions: { url?: string; id?: string } = {};
+      if (mcpUrl) {
+        extractOptions.url = mcpUrl;
+      } else if (mcpId) {
+        extractOptions.id = mcpId;
+      }
+
+      const extractResult = await servicesClient.extractMCP(
+        extractOptions,
+        mcpToolId
+      );
+
+      // Connection is valid, reset invalid state
+      setIsConnectionInvalid(false);
+
+      // Update source with new content
+      await sourcesClient.updateSource(localSource.id, {
+        content: extractResult.content,
+      });
+
+      // Refetch updated source (refetch pattern - no useEffect sync needed)
+      const updatedSource = await sourcesClient.getSourceWithContent(
+        localSource.id
+      );
+      setLocalSource(updatedSource);
+      setContent(updatedSource.content || '');
+
+      // Refresh server component for page title, etc.
+      router.refresh();
+
+      notifications.show('Source updated successfully', {
+        severity: 'success',
+        autoHideDuration: 2000,
+      });
+    } catch (error: any) {
+      // Handle errors (404 for deleted tool, or other failures)
+      const is404Error = error?.status === 404;
+      const backendMessage = error?.data?.detail || '';
+      const isDeletedToolError =
+        is404Error && backendMessage.includes('has been deleted');
+
+      if (is404Error || isDeletedToolError) {
+        setIsConnectionInvalid(true);
+        // Show user-friendly message for deleted tools, keeping backend message for debugging
+        const userFriendlyMessage = isDeletedToolError
+          ? 'The MCP tool associated with this source is no longer available. Please re-import the source.'
+          : backendMessage ||
+            'The MCP tool associated with this source is no longer available. Please re-import the source.';
+        notifications.show(userFriendlyMessage, {
+          severity: 'error',
+          autoHideDuration: 5000,
+        });
+      } else {
+        // Handle other errors normally
+        // Use error.data.detail (backend message) instead of error.message
+        // (which includes "API error: 503 -" prefix)
+        const errorMessage =
+          error?.data?.detail ||
+          (error instanceof Error
+            ? error.message
+            : 'Failed to update source from MCP');
+
+        notifications.show(errorMessage, {
+          severity: 'error',
+          autoHideDuration: 3000,
+        });
+      }
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleEdit = useCallback(
     (section: EditableSectionType) => {
       setIsEditing(section);
       // Populate refs with current values when entering edit mode
       if (section === 'general') {
         if (titleRef.current) {
-          titleRef.current.value = source.title || '';
+          titleRef.current.value = localSource.title || '';
         }
         if (descriptionRef.current) {
-          descriptionRef.current.value = source.description || '';
+          descriptionRef.current.value = localSource.description || '';
         }
       }
     },
-    [source]
+    [localSource]
   );
 
   const handleCancelEdit = useCallback(() => {
@@ -198,14 +309,17 @@ export default function SourcePreviewClientWrapper({
       // Collect values from refs
       const fieldValues = collectFieldValues();
 
-      await sourcesClient.updateSource(source.id, {
+      await sourcesClient.updateSource(localSource.id, {
         title: fieldValues.title,
         description: fieldValues.description,
       });
 
-      // Update the source object to reflect changes
-      source.title = fieldValues.title || source.title;
-      source.description = fieldValues.description || source.description;
+      // Update local source state
+      setLocalSource(prev => ({
+        ...prev,
+        title: fieldValues.title || prev.title,
+        description: fieldValues.description || prev.description,
+      }));
       setIsEditing(null);
 
       notifications.show('Source updated successfully', {
@@ -218,7 +332,7 @@ export default function SourcePreviewClientWrapper({
     } finally {
       setIsSaving(false);
     }
-  }, [sessionToken, source, collectFieldValues, notifications]);
+  }, [sessionToken, localSource, collectFieldValues, notifications]);
 
   // EditableSection component
   const EditableSection = React.memo(
@@ -432,7 +546,7 @@ export default function SourcePreviewClientWrapper({
       title={displayTitle}
       breadcrumbs={[
         { title: 'Knowledge', path: '/knowledge' },
-        { title: displayTitle, path: `/knowledge/${source.id}` },
+        { title: displayTitle, path: `/knowledge/${localSource.id}` },
       ]}
     >
       <Stack direction="column" spacing={3}>
@@ -460,21 +574,75 @@ export default function SourcePreviewClientWrapper({
             <Box sx={{ display: 'flex', gap: 1 }}>
               {!isEditing && (
                 <>
-                  <Button
-                    startIcon={<DownloadIcon />}
-                    onClick={handleDownloadFile}
-                    variant="outlined"
-                    size="small"
-                    sx={{
-                      color: theme.palette.text.secondary,
-                      borderColor: theme.palette.divider,
-                      '&:hover': {
-                        borderColor: theme.palette.text.secondary,
-                      },
-                    }}
-                  >
-                    Download
-                  </Button>
+                  {localSource.source_type?.type_value === 'Tool' ? (
+                    <>
+                      <Button
+                        startIcon={
+                          isUpdating ? (
+                            <CircularProgress size={16} />
+                          ) : (
+                            <RefreshIcon />
+                          )
+                        }
+                        onClick={handleUpdateFromMCP}
+                        variant="outlined"
+                        size="small"
+                        disabled={isUpdating || isConnectionInvalid}
+                        sx={{
+                          color: theme.palette.text.secondary,
+                          borderColor: theme.palette.divider,
+                          '&:hover': {
+                            borderColor: theme.palette.text.secondary,
+                          },
+                          '&:disabled': {
+                            opacity: 0.6,
+                          },
+                        }}
+                      >
+                        {isUpdating ? 'Updating...' : 'Update'}
+                      </Button>
+                      {localSource.source_metadata?.url &&
+                        localSource.source_metadata?.provider && (
+                          <Button
+                            startIcon={<OpenInNewIcon />}
+                            href={localSource.source_metadata.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            variant="outlined"
+                            size="small"
+                            sx={{
+                              color: theme.palette.text.secondary,
+                              borderColor: theme.palette.divider,
+                              '&:hover': {
+                                borderColor: theme.palette.text.secondary,
+                              },
+                            }}
+                          >
+                            View in{' '}
+                            {localSource.source_metadata.provider
+                              .charAt(0)
+                              .toUpperCase() +
+                              localSource.source_metadata.provider.slice(1)}
+                          </Button>
+                        )}
+                    </>
+                  ) : (
+                    <Button
+                      startIcon={<DownloadIcon />}
+                      onClick={handleDownloadFile}
+                      variant="outlined"
+                      size="small"
+                      sx={{
+                        color: theme.palette.text.secondary,
+                        borderColor: theme.palette.divider,
+                        '&:hover': {
+                          borderColor: theme.palette.text.secondary,
+                        },
+                      }}
+                    >
+                      Download
+                    </Button>
+                  )}
                   <Button
                     startIcon={<EditIcon />}
                     onClick={() => handleEdit('general')}
@@ -513,23 +681,23 @@ export default function SourcePreviewClientWrapper({
               >
                 <InfoRow label="Title">
                   <TextField
-                    key={`title-${source.id}`}
+                    key={`title-${localSource.id}`}
                     fullWidth
                     required
                     inputRef={titleRef}
-                    defaultValue={source.title || ''}
+                    defaultValue={localSource.title || ''}
                     placeholder="Enter source title"
                   />
                 </InfoRow>
 
                 <InfoRow label="Description">
                   <TextField
-                    key={`description-${source.id}`}
+                    key={`description-${localSource.id}`}
                     fullWidth
                     multiline
                     rows={4}
                     inputRef={descriptionRef}
-                    defaultValue={source.description || ''}
+                    defaultValue={localSource.description || ''}
                     placeholder="Enter source description"
                   />
                 </InfoRow>
@@ -579,11 +747,13 @@ export default function SourcePreviewClientWrapper({
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               <InfoRow label="Title">
-                <Typography>{source.title || 'Untitled Source'}</Typography>
+                <Typography>
+                  {localSource.title || 'Untitled Source'}
+                </Typography>
               </InfoRow>
 
               <InfoRow label="Description">
-                <Typography>{source.description || '-'}</Typography>
+                <Typography>{localSource.description || '-'}</Typography>
               </InfoRow>
             </Box>
           )}
@@ -602,7 +772,7 @@ export default function SourcePreviewClientWrapper({
                 {hasSize && (
                   <InfoRow label="Size">
                     <Typography variant="body1" color="text.primary">
-                      {formatFileSize(source.source_metadata?.file_size)}
+                      {formatFileSize(localSource.source_metadata?.file_size)}
                     </Typography>
                   </InfoRow>
                 )}
@@ -618,27 +788,37 @@ export default function SourcePreviewClientWrapper({
                 <InfoRow label="Added by">
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Avatar
-                      src={source.user?.picture}
-                      alt={source.user?.name || source.user?.email || 'Unknown'}
+                      src={localSource.user?.picture}
+                      alt={
+                        localSource.user?.name ||
+                        localSource.user?.email ||
+                        'Unknown'
+                      }
                       sx={{
                         width: 24,
                         height: 24,
                         fontSize: theme => theme.typography.caption.fontSize,
                       }}
                     >
-                      {(source.user?.name || source.user?.email || 'U')
+                      {(
+                        localSource.user?.name ||
+                        localSource.user?.email ||
+                        'U'
+                      )
                         .charAt(0)
                         .toUpperCase()}
                     </Avatar>
                     <Typography variant="body1" color="text.primary">
-                      {source.user?.name || source.user?.email || 'Unknown'}
+                      {localSource.user?.name ||
+                        localSource.user?.email ||
+                        'Unknown'}
                     </Typography>
                   </Box>
                 </InfoRow>
 
                 <InfoRow label="Added on">
                   <Typography variant="body1" color="text.primary">
-                    {formatDate(source.created_at)}
+                    {formatDate(localSource.created_at)}
                   </Typography>
                 </InfoRow>
               </Box>
@@ -649,7 +829,7 @@ export default function SourcePreviewClientWrapper({
           <InfoRow label="Tags">
             <SourceTags
               sessionToken={sessionToken}
-              source={source}
+              source={localSource}
               disableEdition={isEditing === 'general'}
             />
           </InfoRow>
@@ -755,7 +935,7 @@ export default function SourcePreviewClientWrapper({
         >
           <CommentsWrapper
             entityType="Source"
-            entityId={source.id}
+            entityId={localSource.id}
             sessionToken={sessionToken}
             currentUserId={currentUserId}
             currentUserName={currentUserName}

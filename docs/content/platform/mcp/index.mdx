@@ -22,17 +22,31 @@ Watch this video to see how to connect your Notion workspace and export pages as
 
 
 
-### Notion Setup
+### Add a MCP Connection to Notion
 
-1. Create a Notion integration at [https://www.notion.so/profile/integrations](https://www.notion.so/profile/integrations). In the "Access" section, grant permissions to the pages and databases you want to export.
-2. Copy the integration token (begins with `ntn_`)
+1. Create a Notion integration at [https://www.notion.so/profile/integrations](https://www.notion.so/profile/integrations).
+2. After creating the integration, click on the "Integration" tab to grant access to the pages and teamspaces you want to export from.
+2. Copy the integration token (it begins with `ntn_`)
 3. In Rhesis, navigate to the MCP page and click "Add MCP Server"
 4. Select "Notion" as the provider type
 5. Enter a connection name and paste the token
 6. Test the connection
 7. Save
 
-### Custom MCP Servers
+## Add a MCP Connection to GitHub
+
+1. Log in to GitHub and click your profile picture → Settings.
+2. Select "Developer Settings" from the left sidebar
+3. From there, click on "Personal Access Tokens" → "Tokens (classics)"
+4. Click on "Generate new token" → "Generate new token (classics)"
+5. Choose the scopes required. For Rhesis, you will need to select repo (permission to full access to repositories).
+6. In Rhesis, go to the MCP page and click "Add MCP Server."
+7. Select GitHub as the provider type.
+8. Enter the connection name and paste the token.
+9. Test the connection
+10. Save
+
+### Add a MCP Connection to Custom MCP Servers
 
 1. Select "Custom" as the provider type
 2. Enter a connection name
