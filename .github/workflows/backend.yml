@@ -276,7 +276,7 @@ jobs:
             --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
-            --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
+            --vpc-connector=redis-connector${{ env.REGION == 'europe-west4' && '-eu-4' || '' }} \
             --vpc-egress=private-ranges-only \
             --max-retries=0 \
             --task-timeout=10m \
@@ -424,7 +424,7 @@ jobs:
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
               --project=${{ env.PROJECT_ID }} \
-              --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
+              --vpc-connector=redis-connector${{ env.REGION == 'europe-west4' && '-eu-4' || '' }} \
               --vpc-egress=private-ranges-only \
               --region=${{ env.REGION }} \
               --platform=managed \
@@ -500,7 +500,7 @@ jobs:
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
               --project=${{ env.PROJECT_ID }} \
-              --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
+              --vpc-connector=redis-connector${{ env.REGION == 'europe-west4' && '-eu-4' || '' }} \
               --vpc-egress=private-ranges-only \
               --region=${{ env.REGION }} \
               --platform=managed \
@@ -685,7 +685,7 @@ jobs:
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }} \
             --project=${{ env.PROJECT_ID }} \
-            --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
+            --vpc-connector=redis-connector${{ env.REGION == 'europe-west4' && '-eu-4' || '' }} \
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
@@ -765,7 +765,7 @@ jobs:
           gcloud run deploy ${{ env.SERVICE_NAME }} \
             --image=${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }} \
             --project=${{ env.PROJECT_ID }} \
-            --vpc-connector=redis-connector${{ env.REGION == 'europe-west3' && '-eu' || '' }} \
+            --vpc-connector=redis-connector${{ env.REGION == 'europe-west4' && '-eu-4' || '' }} \
             --vpc-egress=private-ranges-only \
             --region=${{ env.REGION }} \
             --platform=managed \
