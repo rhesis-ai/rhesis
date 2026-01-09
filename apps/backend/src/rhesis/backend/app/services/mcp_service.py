@@ -1,6 +1,7 @@
 """MCP service for generic integration using MCPAgent."""
 
 import json
+import os
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -14,12 +15,14 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.logging import logger
+from rhesis.sdk import RhesisClient
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientFactory
 from rhesis.sdk.services.mcp.exceptions import (
     MCPApplicationError,
     MCPConfigurationError,
     MCPError,
 )
+from rhesis.sdk.services.mcp.observable_agent import ObservableMCPAgent
 
 # Initialize Jinja2 environment for loading prompt templates
 TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
@@ -82,6 +85,51 @@ def handle_mcp_exception(e: Exception, operation: str) -> HTTPException:
         status_code=500,
         detail=f"An unexpected error occurred during {operation}. Please try again.",
     )
+
+
+def _create_rhesis_client():
+    """
+    Create RhesisClient from environment variables if available.
+
+    Returns:
+        RhesisClient instance if credentials are available, None otherwise
+    """
+    project_id = os.getenv("RHESIS_PROJECT_ID")
+    api_key = os.getenv("RHESIS_API_KEY")
+
+    if not project_id or not api_key:
+        logger.debug("RhesisClient not initialized: missing RHESIS_PROJECT_ID or RHESIS_API_KEY")
+        return None
+
+    try:
+        client = RhesisClient(
+            project_id=project_id,
+            api_key=api_key,
+            environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
+            base_url=os.getenv("RHESIS_BASE_URL", "http://localhost:8080"),
+        )
+        logger.info("RhesisClient initialized successfully for MCP observability")
+        return client
+    except Exception as e:
+        logger.warning(f"Failed to initialize RhesisClient: {e}")
+        return None
+
+
+def _get_agent_class():
+    """
+    Determine which agent class to use based on RhesisClient availability.
+
+    Returns:
+        ObservableMCPAgent if RhesisClient is available, otherwise MCPAgent
+    """
+    rhesis_client = _create_rhesis_client()
+
+    if rhesis_client is not None:
+        logger.info("Using ObservableMCPAgent for MCP operations (observability enabled)")
+        return ObservableMCPAgent
+    else:
+        logger.info("Using standard MCPAgent for MCP operations (observability disabled)")
+        return MCPAgent
 
 
 def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_id: str = None):
@@ -248,7 +296,10 @@ async def search_mcp(
     client, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
 
     search_prompt = jinja_env.get_template("mcp_search_prompt.jinja2").render()
-    agent = MCPAgent(
+
+    # Use dynamic agent class based on RhesisClient availability
+    AgentClass = _get_agent_class()
+    agent = AgentClass(
         model=model,
         mcp_client=client,
         system_prompt=search_prompt,
@@ -322,7 +373,10 @@ async def extract_mcp(
     extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(
         item_id=item_id, item_url=item_url, provider=provider
     )
-    agent = MCPAgent(
+
+    # Use dynamic agent class based on RhesisClient availability
+    AgentClass = _get_agent_class()
+    agent = AgentClass(
         model=model,
         mcp_client=client,
         system_prompt=extract_prompt,
@@ -385,7 +439,9 @@ async def query_mcp(
     if not system_prompt:
         system_prompt = jinja_env.get_template("mcp_default_query_prompt.jinja2").render()
 
-    agent = MCPAgent(
+    # Use dynamic agent class based on RhesisClient availability
+    AgentClass = _get_agent_class()
+    agent = AgentClass(
         model=model,
         mcp_client=client,
         system_prompt=system_prompt,
