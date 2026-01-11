@@ -12,9 +12,9 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Paths
-const glossaryDataPath = path.join(__dirname, '../content/glossary/glossary-terms.jsonl')
-const glossaryDir = path.join(__dirname, '../content/glossary')
+// Paths - use process.cwd() to work from where npm runs (works in both local and Docker)
+const glossaryDataPath = path.join(process.cwd(), 'content/glossary/glossary-terms.jsonl')
+const glossaryDir = path.join(process.cwd(), 'content/glossary')
 
 // Read and parse JSONL data (one JSON object per line)
 const glossaryDataRaw = fs.readFileSync(glossaryDataPath, 'utf8')
