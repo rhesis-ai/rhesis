@@ -32,6 +32,7 @@ COPY src/app ./app
 COPY src/components ./components
 COPY src/lib ./lib
 COPY content ./content
+COPY content /content
 COPY src/styles ./styles
 COPY scripts /scripts
 
