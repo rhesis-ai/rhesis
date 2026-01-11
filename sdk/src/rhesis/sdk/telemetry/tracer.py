@@ -1,6 +1,7 @@
 """Core tracing functionality using OpenTelemetry."""
 
 import inspect
+import json
 import logging
 from collections.abc import Callable, Generator
 from importlib.metadata import PackageNotFoundError, version
@@ -188,8 +189,6 @@ class Tracer:
             kwargs: Keyword arguments
             max_length: Max chars per attribute (default 2000)
         """
-        import json
-
         try:
             # Intelligently serialize args
             if args:
@@ -216,6 +215,68 @@ class Tracer:
             logger.warning(f"Failed to capture function inputs: {e}")
             # Don't fail tracing if serialization fails
 
+    def _capture_function_result(self, span: trace.Span, result: Any) -> None:
+        """
+        Serialize and capture function result as span attributes.
+
+        Uses smart serialization for consistency with inputs.
+
+        Args:
+            span: OpenTelemetry span
+            result: Function result to serialize and capture
+        """
+        serialized_result = self._serialize_arg_for_trace(result)
+        result_str = (
+            json.dumps(serialized_result)
+            if not isinstance(serialized_result, str)
+            else serialized_result
+        )
+        if len(result_str) <= 2000:
+            # Store full result if it fits
+            span.set_attribute(AIAttributes.FUNCTION_RESULT, result_str)
+        # Always store preview (first 1000 chars)
+        span.set_attribute(AIAttributes.FUNCTION_RESULT_PREVIEW, result_str[:1000])
+
+    def _setup_span_attributes(
+        self,
+        span: trace.Span,
+        function_name: str,
+        args: tuple,
+        kwargs: dict,
+        extra_attributes: Optional[dict] = None,
+    ) -> None:
+        """
+        Set up all span attributes using AIAttributes constants.
+
+        Args:
+            span: OpenTelemetry span
+            function_name: Name of the function
+            args: Positional arguments
+            kwargs: Keyword arguments
+            extra_attributes: Optional dictionary of additional span attributes
+        """
+        # Set basic attributes with constants
+        span.set_attribute(AIAttributes.FUNCTION_NAME, function_name)
+        span.set_attribute(AIAttributes.FUNCTION_ARGS_COUNT, len(args))
+        span.set_attribute(AIAttributes.FUNCTION_KWARGS_COUNT, len(kwargs))
+
+        # Capture function inputs
+        self._capture_function_inputs(span, args, kwargs)
+
+        # Set extra attributes
+        if extra_attributes:
+            for key, value in extra_attributes.items():
+                span.set_attribute(key, value)
+
+        # Inject test context if present
+        test_context = get_test_execution_context()
+        if test_context:
+            self._set_test_context_attributes(span, test_context)
+            logger.debug(
+                f"Injected test context into span: "
+                f"run={test_context.get(TestContextConstants.Fields.TEST_RUN_ID)}"
+            )
+
     def trace_execution(
         self,
         function_name: str,
@@ -240,10 +301,6 @@ class Tracer:
         Returns:
             Function result (or wrapped generator)
         """
-        # Read test execution context from context variable (set by executor)
-        # NO LONGER extracted from kwargs - it's not there anymore
-        test_context = get_test_execution_context()
-
         # Determine span name
         final_span_name = span_name or f"function.{function_name}"
 
@@ -252,29 +309,11 @@ class Tracer:
             name=final_span_name,
             kind=trace.SpanKind.INTERNAL,
         ) as span:
-            # Set basic attributes
-            span.set_attribute("function.name", function_name)
-            span.set_attribute("function.args_count", len(args))
-            span.set_attribute("function.kwargs_count", len(kwargs))
-
-            # Capture function inputs as attributes
-            self._capture_function_inputs(span, args, kwargs)
-
-            # Set extra attributes if provided (for @observe decorator)
-            if extra_attributes:
-                for key, value in extra_attributes.items():
-                    span.set_attribute(key, value)
-
-            # Inject test execution context as span attributes if present
-            if test_context:
-                self._set_test_context_attributes(span, test_context)
-                logger.debug(
-                    f"Injected test context into span: "
-                    f"run={test_context.get(TestContextConstants.Fields.TEST_RUN_ID)}"
-                )
+            # Set up span attributes
+            self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
 
             try:
-                # Execute function (kwargs no longer has _rhesis_test_context)
+                # Execute function
                 result = func(*args, **kwargs)
 
                 # Handle generator functions
@@ -284,22 +323,7 @@ class Tracer:
 
                 # Handle regular functions
                 span.set_status(trace.Status(trace.StatusCode.OK))
-
-                # Add result as structured attribute (with truncation for large results)
-                # Use smart serialization for consistency with inputs
-                import json
-
-                serialized_result = self._serialize_arg_for_trace(result)
-                result_str = (
-                    json.dumps(serialized_result)
-                    if not isinstance(serialized_result, str)
-                    else serialized_result
-                )
-                if len(result_str) <= 2000:
-                    # Store full result if it fits
-                    span.set_attribute(AIAttributes.FUNCTION_RESULT, result_str)
-                # Always store preview (first 1000 chars)
-                span.set_attribute(AIAttributes.FUNCTION_RESULT_PREVIEW, result_str[:1000])
+                self._capture_function_result(span, result)
 
                 return result
 
@@ -333,9 +357,6 @@ class Tracer:
         Returns:
             Function result
         """
-        # Read test execution context from context variable
-        test_context = get_test_execution_context()
-
         # Determine span name
         final_span_name = span_name or f"function.{function_name}"
 
@@ -344,26 +365,8 @@ class Tracer:
             name=final_span_name,
             kind=trace.SpanKind.INTERNAL,
         ) as span:
-            # Set basic attributes
-            span.set_attribute("function.name", function_name)
-            span.set_attribute("function.args_count", len(args))
-            span.set_attribute("function.kwargs_count", len(kwargs))
-
-            # Capture function inputs as attributes
-            self._capture_function_inputs(span, args, kwargs)
-
-            # Set extra attributes if provided (for @observe decorator)
-            if extra_attributes:
-                for key, value in extra_attributes.items():
-                    span.set_attribute(key, value)
-
-            # Inject test execution context as span attributes if present
-            if test_context:
-                self._set_test_context_attributes(span, test_context)
-                logger.debug(
-                    f"Injected test context into span: "
-                    f"run={test_context.get(TestContextConstants.Fields.TEST_RUN_ID)}"
-                )
+            # Set up span attributes
+            self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
 
             try:
                 # Execute async function
@@ -371,22 +374,7 @@ class Tracer:
 
                 # Handle result
                 span.set_status(trace.Status(trace.StatusCode.OK))
-
-                # Add result as structured attribute (with truncation for large results)
-                # Use smart serialization for consistency with inputs
-                import json
-
-                serialized_result = self._serialize_arg_for_trace(result)
-                result_str = (
-                    json.dumps(serialized_result)
-                    if not isinstance(serialized_result, str)
-                    else serialized_result
-                )
-                if len(result_str) <= 2000:
-                    # Store full result if it fits
-                    span.set_attribute(AIAttributes.FUNCTION_RESULT, result_str)
-                # Always store preview (first 1000 chars)
-                span.set_attribute(AIAttributes.FUNCTION_RESULT_PREVIEW, result_str[:1000])
+                self._capture_function_result(span, result)
 
                 return result
 
@@ -432,7 +420,7 @@ class Tracer:
 
             # Generator completed successfully
             span.set_status(trace.Status(trace.StatusCode.OK))
-            span.set_attribute("function.output_chunks", len(collected_output))
+            span.set_attribute(AIAttributes.FUNCTION_OUTPUT_CHUNKS, len(collected_output))
 
         except Exception as e:
             # Generator failed

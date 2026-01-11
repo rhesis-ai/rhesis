@@ -89,6 +89,18 @@ class AIAttributes:
     TOOL_INPUT_CONTENT = "ai.tool.input"
     TOOL_OUTPUT_CONTENT = "ai.tool.output"
 
+    # Function I/O attributes (semantic layer)
+    FUNCTION_ARGS = "function.args"
+    FUNCTION_KWARGS = "function.kwargs"
+    FUNCTION_RESULT = "function.result"
+    FUNCTION_RESULT_PREVIEW = "function.result_preview"
+
+    # Function metadata attributes (semantic layer)
+    FUNCTION_NAME = "function.name"
+    FUNCTION_ARGS_COUNT = "function.args_count"
+    FUNCTION_KWARGS_COUNT = "function.kwargs_count"
+    FUNCTION_OUTPUT_CHUNKS = "function.output_chunks"
+
 
 class AIEvents:
     """AI semantic convention event names."""
