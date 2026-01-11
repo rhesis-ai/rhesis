@@ -1,5 +1,8 @@
 {
   "scripts": {
+    "generate-glossary": "node ../scripts/generate-glossary-pages.js",
+    "prebuild": "npm run generate-glossary",
+    "predev": "npm run generate-glossary",
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start -p 3001",
@@ -23,6 +26,8 @@
     "nextra-theme-docs": "^4.6.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "shiki": "^3.20.0"
   },
   "devDependencies": {

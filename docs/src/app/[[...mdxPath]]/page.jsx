@@ -1,4 +1,5 @@
 import { generateStaticParamsFor, importPage } from 'nextra/pages'
+import { notFound } from 'next/navigation'
 import { useMDXComponents as getMDXComponents } from '../../mdx-components'
 import { generatePageMetadata } from '../../lib/metadata'
 import { siteConfig } from '../../lib/site-config'
@@ -19,19 +20,8 @@ export async function generateMetadata(props) {
 
     return enhancedMetadata
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.warn('Failed to load metadata for path:', params.mdxPath, error)
-
-    // Fallback metadata with basic SEO
-    const urlPath = params.mdxPath ? params.mdxPath.join('/') : ''
-    return generatePageMetadata(
-      {
-        title: 'Rhesis Documentation',
-        description: siteConfig.siteDescription,
-      },
-      urlPath,
-      siteConfig
-    )
+    // For actual MDX pages that don't exist, trigger Next.js 404
+    notFound()
   }
 }
 
@@ -48,15 +38,7 @@ export default async function Page(props) {
       </Wrapper>
     )
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.warn('Failed to load page for path:', params.mdxPath, error)
-    return (
-      <Wrapper toc={[]} metadata={{ title: 'Page Not Found' }} sourceCode="">
-        <div>
-          <h1>Page Not Found</h1>
-          <p>The requested page could not be found.</p>
-        </div>
-      </Wrapper>
-    )
+    // For actual MDX pages that don't exist, trigger Next.js 404
+    notFound()
   }
 }

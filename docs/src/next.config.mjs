@@ -23,6 +23,12 @@ export default withNextra({
     const ourMermaidPath = path.resolve(__dirname, 'components/MermaidWrapper.jsx')
     config.resolve.alias['@theguild/remark-mermaid/mermaid'] = ourMermaidPath
 
+    // Add support for .jsonl files (JSONL - JSON Lines format)
+    config.module.rules.push({
+      test: /\.jsonl$/,
+      type: 'asset/source',
+    })
+
     return config
   },
 })
