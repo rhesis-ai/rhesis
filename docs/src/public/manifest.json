@@ -1,0 +1,16 @@
+{
+  "name": "Rhesis Documentation",
+  "short_name": "Rhesis Docs",
+  "description": "Documentation for Rhesis AI Testing Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}
