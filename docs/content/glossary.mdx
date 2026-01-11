@@ -4,8 +4,11 @@ description: A comprehensive reference of terms and concepts used throughout the
 ---
 
 import { GlossaryPage } from '@/components/glossary/GlossaryPage'
+import { Suspense } from 'react'
 
 # Glossary
 
-<GlossaryPage />
+<Suspense fallback={<div>Loading glossary...</div>}>
+  <GlossaryPage />
+</Suspense>
 
