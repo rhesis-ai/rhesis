@@ -85,6 +85,7 @@ console.log(`\n✅ Successfully generated ${glossaryData.terms.length} glossary 
 console.log('\nGenerating _meta.tsx...')
 
 const metaContent = `export default {
+  index: "Terms",
 ${glossaryData.terms.map(term => `  "${term.id}": {
     display: "hidden",
   },`).join('\n')}
