@@ -286,7 +286,15 @@ class Tracer:
                 span.set_status(trace.Status(trace.StatusCode.OK))
 
                 # Add result as structured attribute (with truncation for large results)
-                result_str = str(result)
+                # Use smart serialization for consistency with inputs
+                import json
+
+                serialized_result = self._serialize_arg_for_trace(result)
+                result_str = (
+                    json.dumps(serialized_result)
+                    if not isinstance(serialized_result, str)
+                    else serialized_result
+                )
                 if len(result_str) <= 2000:
                     # Store full result if it fits
                     span.set_attribute(AIAttributes.FUNCTION_RESULT, result_str)
@@ -365,7 +373,15 @@ class Tracer:
                 span.set_status(trace.Status(trace.StatusCode.OK))
 
                 # Add result as structured attribute (with truncation for large results)
-                result_str = str(result)
+                # Use smart serialization for consistency with inputs
+                import json
+
+                serialized_result = self._serialize_arg_for_trace(result)
+                result_str = (
+                    json.dumps(serialized_result)
+                    if not isinstance(serialized_result, str)
+                    else serialized_result
+                )
                 if len(result_str) <= 2000:
                     # Store full result if it fits
                     span.set_attribute(AIAttributes.FUNCTION_RESULT, result_str)
