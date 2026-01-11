@@ -33,6 +33,7 @@ COPY src/components ./components
 COPY src/lib ./lib
 COPY content ./content
 COPY src/styles ./styles
+COPY scripts /scripts
 
 # Set build environment variables
 ENV NEXT_TELEMETRY_DISABLED=1
