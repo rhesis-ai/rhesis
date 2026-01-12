@@ -2,11 +2,10 @@
 Utilities for the Rhesis release tool including logging, colors, and prerequisites checking.
 """
 
-import os
-import subprocess
-import urllib.request
-import urllib.error
 import json
+import subprocess
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Optional
 

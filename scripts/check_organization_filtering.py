@@ -14,13 +14,11 @@ Exit codes:
     2: Script error
 """
 
-import ast
-import os
+import argparse
 import re
 import sys
 from pathlib import Path
-from typing import List, Dict, Set, Tuple
-import argparse
+from typing import Dict, List
 
 
 class OrganizationFilterChecker:

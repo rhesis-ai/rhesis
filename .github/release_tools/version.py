@@ -3,16 +3,11 @@ Version management functionality for the Rhesis release tool.
 """
 
 import json
-import re
-import os
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 from .config import COMPONENTS, PLATFORM_VERSION_FILE
-from .utils import success, error, warn, info
-
-
+from .utils import error, success
 
 
 def get_current_version(component: str, repo_root: Path) -> str:

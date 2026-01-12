@@ -14,7 +14,6 @@ from typing import Dict, List, Optional
 
 from rhesis.polyphemus.models import LazyModelLoader
 from rhesis.polyphemus.schemas import GenerateRequest, Message
-
 from rhesis.sdk.models import BaseLLM
 
 logger = logging.getLogger("rhesis-polyphemus")

@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from .config import COMPONENTS, PLATFORM_CHANGELOG, format_component_name
-from .utils import info, warn, success, call_gemini_api
-from .git_ops import get_last_tag, get_commits_since_tag
+from .git_ops import get_commits_since_tag, get_last_tag
+from .utils import call_gemini_api, info, success, warn
 
 
 def generate_changelog_with_llm(api_key: str, component: str, version: str, 

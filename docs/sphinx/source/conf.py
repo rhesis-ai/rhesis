@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 import os
-import sys
 import re
+import sys
 from datetime import datetime
 
 sys.path.insert(0, os.path.abspath('../../../sdk/src'))
@@ -182,6 +182,7 @@ nitpick_ignore = [
 
 # Set up a warning filter to ignore docutils warnings
 import warnings
+
 warnings.filterwarnings('ignore', category=UserWarning, module='docutils')
 
 # Configure intersphinx mapping to Python standard library and other packages
