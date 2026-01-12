@@ -57,15 +57,13 @@ def test_manager_uses_telemetry_tracer(manager):
 def test_initialize(mock_create_task, mock_ws_class, manager):
     """Test manager initialization."""
     mock_ws_instance = Mock()
+    # Make connect() return an AsyncMock to avoid coroutine warnings
+    mock_ws_instance.connect = AsyncMock()
     mock_ws_class.return_value = mock_ws_instance
 
-    # Mock create_task to consume the coroutine and return a mock task
-    def create_task_side_effect(coro):
-        # Close the coroutine to avoid warning
-        coro.close()
-        return Mock(spec=["cancel"])
-
-    mock_create_task.side_effect = create_task_side_effect
+    # Mock create_task to return a mock task
+    mock_task = Mock(spec=["cancel"])
+    mock_create_task.return_value = mock_task
 
     manager.initialize()
 
@@ -79,15 +77,15 @@ def test_initialize(mock_create_task, mock_ws_class, manager):
 def test_initialize_idempotent(mock_create_task, manager):
     """Test that calling initialize multiple times is safe."""
 
-    # Mock create_task to consume the coroutine and return a mock task
-    def create_task_side_effect(coro):
-        # Close the coroutine to avoid warning
-        coro.close()
-        return Mock(spec=["cancel"])
+    # Mock create_task to return a mock task
+    mock_task = Mock(spec=["cancel"])
+    mock_create_task.return_value = mock_task
 
-    mock_create_task.side_effect = create_task_side_effect
+    with patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class:
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_class.return_value = mock_ws_instance
 
-    with patch("rhesis.sdk.connector.manager.WebSocketConnection"):
         manager.initialize()
         manager.initialize()
 
@@ -99,15 +97,15 @@ def test_initialize_idempotent(mock_create_task, manager):
 def test_register_function(mock_create_task, manager, sample_function):
     """Test function registration."""
 
-    # Mock create_task to consume the coroutine and return a mock task
-    def create_task_side_effect(coro):
-        # Close the coroutine to avoid warning
-        coro.close()
-        return Mock(spec=["cancel"])
+    # Mock create_task to return a mock task
+    mock_task = Mock(spec=["cancel"])
+    mock_create_task.return_value = mock_task
 
-    mock_create_task.side_effect = create_task_side_effect
+    with patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class:
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_class.return_value = mock_ws_instance
 
-    with patch("rhesis.sdk.connector.manager.WebSocketConnection"):
         manager.register_function("sample_func", sample_function, {"desc": "test"})
 
         assert manager._initialized
