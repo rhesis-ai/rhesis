@@ -6,6 +6,7 @@ import pytest
 
 from rhesis.sdk import decorators
 from rhesis.sdk.decorators import observe
+from rhesis.sdk.decorators import _state as decorators_state
 from rhesis.sdk.telemetry.schemas import AIOperationType
 
 
@@ -39,8 +40,8 @@ class TestObserveWithOTEL:
     def test_observe_raises_error_without_client_initialization(self):
         """Test @observe raises RuntimeError when RhesisClient not initialized."""
         # Save current client state and clear it
-        original_client = decorators._default_client
-        decorators._default_client = None
+        original_client = decorators_state._default_client
+        decorators_state._default_client = None
 
         try:
             # Define function with @observe (should succeed - decorator applied)
@@ -55,11 +56,11 @@ class TestObserveWithOTEL:
                 uninit_function(5)
         finally:
             # Restore original client state
-            decorators._default_client = original_client
+            decorators_state._default_client = original_client
 
     def test_observe_creates_span_with_default_name(self, mock_client_with_tracer):
         """Test @observe creates OTEL span with default function name."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe()
         def helper_function(x: int) -> int:
@@ -73,11 +74,11 @@ class TestObserveWithOTEL:
         call_args = mock_client_with_tracer._tracer.trace_execution.call_args
         assert call_args[0][4] == "function.helper_function"  # span_name
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_with_custom_span_name(self, mock_client_with_tracer):
         """Test @observe with custom span name."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe(span_name="ai.llm.invoke")
         def call_llm(prompt: str) -> str:
@@ -90,11 +91,11 @@ class TestObserveWithOTEL:
         call_args = mock_client_with_tracer._tracer.trace_execution.call_args
         assert call_args[0][4] == "ai.llm.invoke"  # span_name
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_with_constant_span_name(self, mock_client_with_tracer):
         """Test @observe with AIOperationType constant."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe(span_name=AIOperationType.TOOL_INVOKE)
         def execute_tool(input_str: str) -> dict:
@@ -107,11 +108,11 @@ class TestObserveWithOTEL:
         call_args = mock_client_with_tracer._tracer.trace_execution.call_args
         assert call_args[0][4] == "ai.tool.invoke"  # span_name
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_sets_custom_attributes(self, mock_client_with_tracer):
         """Test @observe sets custom attributes on span."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe(model="gpt-4", temperature=0.7, max_tokens=150)
         def llm_call(prompt: str) -> str:
@@ -125,11 +126,11 @@ class TestObserveWithOTEL:
         extra_attrs = call_args[0][5]  # extra_attributes
         assert extra_attrs == {"model": "gpt-4", "temperature": 0.7, "max_tokens": 150}
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_records_exception(self, mock_client_with_tracer):
         """Test @observe records exceptions to span."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe()
         def failing_function():
@@ -139,11 +140,11 @@ class TestObserveWithOTEL:
         with pytest.raises(ValueError, match="Test error"):
             failing_function()
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_sets_success_status(self, mock_client_with_tracer):
         """Test @observe sets OK status on success."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe()
         def successful_function(x: int) -> int:
@@ -155,7 +156,7 @@ class TestObserveWithOTEL:
         # Function executed successfully
         mock_client_with_tracer._tracer.trace_execution.assert_called_once()
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_preserves_function_metadata(self):
         """Test @observe preserves function name and docstring."""
@@ -171,7 +172,7 @@ class TestObserveWithOTEL:
 
     def test_observe_with_custom_name_parameter(self, mock_client_with_tracer):
         """Test @observe with name parameter sets attribute."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe(name="custom_operation")
         def internal_func(x: int) -> int:
@@ -184,4 +185,4 @@ class TestObserveWithOTEL:
         call_args = mock_client_with_tracer._tracer.trace_execution.call_args
         assert call_args[0][0] == "custom_operation"  # function_name
 
-        decorators._default_client = None
+        decorators_state._default_client = None

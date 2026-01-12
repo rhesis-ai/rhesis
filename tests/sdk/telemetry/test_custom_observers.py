@@ -6,6 +6,7 @@ import pytest
 
 from rhesis.sdk import decorators
 from rhesis.sdk.decorators import ObserverBuilder, create_observer
+from rhesis.sdk.decorators import _state as decorators_state
 from rhesis.sdk.telemetry.attributes import AIAttributes
 
 
@@ -140,7 +141,7 @@ class TestCreateObserver:
             side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
         )
 
-        with patch("rhesis.sdk.decorators._default_client", mock_client):
+        with patch("rhesis.sdk.decorators._state._default_client", mock_client):
             # Create observer with custom method
             observer = create_observer("test")
             observer.add_method("query", "ai.database.query", operation_type="database.query")
@@ -168,7 +169,7 @@ class TestCreateObserver:
             side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
         )
 
-        with patch("rhesis.sdk.decorators._default_client", mock_client):
+        with patch("rhesis.sdk.decorators._state._default_client", mock_client):
             # Create observer with base attributes
             observer = create_observer("test", {"env": "prod", "service": "base"})
             observer.add_method(
@@ -266,7 +267,7 @@ class TestObserverBuilder:
             side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
         )
 
-        with patch("rhesis.sdk.decorators._default_client", mock_client):
+        with patch("rhesis.sdk.decorators._state._default_client", mock_client):
             # Build observer
             observer = (
                 ObserverBuilder("ml")
@@ -305,8 +306,8 @@ class TestCustomObserverIntegration:
     def test_custom_observer_without_client_raises_error(self):
         """Test custom observer raises RuntimeError when client not initialized."""
         # Save current client state and clear it
-        original_client = decorators._default_client
-        decorators._default_client = None
+        original_client = decorators_state._default_client
+        decorators_state._default_client = None
 
         try:
             observer = create_observer("test")
@@ -322,7 +323,7 @@ class TestCustomObserverIntegration:
 
         finally:
             # Restore original client state
-            decorators._default_client = original_client
+            decorators_state._default_client = original_client
 
     def test_multiple_custom_observers(self):
         """Test multiple custom observers work independently."""
@@ -332,7 +333,7 @@ class TestCustomObserverIntegration:
             side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
         )
 
-        with patch("rhesis.sdk.decorators._default_client", mock_client):
+        with patch("rhesis.sdk.decorators._state._default_client", mock_client):
             # Create multiple observers
             db_observer = create_observer("db", {"service": "db-service"})
             db_observer.add_method("query", "ai.database.query")

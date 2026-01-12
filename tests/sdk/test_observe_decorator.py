@@ -11,7 +11,7 @@ from rhesis.sdk.decorators import observe
 @pytest.fixture
 def mock_client():
     """Create a mock RhesisClient for testing."""
-    with patch("rhesis.sdk.decorators._default_client") as mock:
+    with patch("rhesis.sdk.decorators._state._default_client") as mock:
         client = MagicMock(spec=RhesisClient)
 
         # Mock the tracer
@@ -27,14 +27,14 @@ def mock_client():
         mock.return_value = client
 
         # Set _default_client
-        import rhesis.sdk.decorators as decorators_module
+        import rhesis.sdk.decorators._state as decorators_state
 
-        decorators_module._default_client = client
+        decorators_state._default_client = client
 
         yield client
 
         # Cleanup
-        decorators_module._default_client = None
+        decorators_state._default_client = None
 
 
 def test_observe_decorator_basic(mock_client):
