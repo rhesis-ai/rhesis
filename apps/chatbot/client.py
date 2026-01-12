@@ -324,26 +324,11 @@ class ChatResponse(BaseModel):
     message: str
     session_id: str
     context: List[str]
-    use_case: str
-    intent: Optional[dict] = None
+    metadata: dict
 
 
-@endpoint(
-    name="chat",
-    description="Chat with the insurance assistant",
-    request_mapping={
-        "message": "{{ input }}",
-        "session_id": "{{ session_id }}",
-        "use_case": "{{ use_case | default('insurance') }}",
-        "conversation_history": "{{ conversation_history | default([]) }}",
-    },
-    response_mapping={
-        "output": "{{ message }}",
-        "context": "{{ context | tojson }}",
-        "metadata": "{{ {'session_id': session_id, 'use_case': use_case, 'intent': intent} | tojson }}",
-    },
-)
-def chat(
+@endpoint()
+async def chat(
     message: str,
     session_id: Optional[str] = None,
     use_case: str = "insurance",
@@ -359,7 +344,7 @@ def chat(
         conversation_history: Previous conversation messages
 
     Returns:
-        ChatResponse with message, session_id, context, use_case, intent
+        ChatResponse with message, session_id, context, and metadata (use_case, intent)
     """
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
@@ -383,8 +368,7 @@ def chat(
         message=response_text,
         session_id=session_id or str(uuid.uuid4()),
         context=context_fragments,
-        use_case=use_case,
-        intent=intent_result,
+        metadata={"use_case": use_case, "intent": intent_result},
     )
 
 
@@ -451,7 +435,7 @@ async def chat_endpoint(
         conversation_history = sessions[session_id].messages.copy()
 
         # Call the endpoint function
-        result = chat(
+        result = await chat(
             message=chat_request.message,
             session_id=session_id,
             use_case=use_case,
