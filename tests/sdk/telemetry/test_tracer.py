@@ -588,3 +588,50 @@ class TestTracer:
         # Verify it's formatted like inputs (with JSON.dumps)
         # Not like the old format: str(dict) = "{'intent': 'informational', 'confidence': 'low'}"
         assert result_str == '{"intent": "informational", "confidence": "low"}'
+
+    @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
+    def test_serialize_pydantic_models(self, mock_get_provider):
+        """Test that Pydantic models are serialized using model_dump()."""
+        from pydantic import BaseModel
+
+        mock_provider = MagicMock()
+        mock_tracer = MagicMock()
+        mock_span = MagicMock()
+        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
+        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
+        mock_provider.get_tracer.return_value = mock_tracer
+        mock_get_provider.return_value = mock_provider
+
+        tracer = Tracer(
+            api_key="test-key",
+            project_id="test-project",
+            environment="test",
+            base_url="http://localhost:8080",
+        )
+
+        # Create a Pydantic model
+        class IntentResult(BaseModel):
+            intent: str
+            confidence: str
+
+        def test_func(prompt: str) -> IntentResult:
+            return IntentResult(intent="informational", confidence="high")
+
+        tracer.trace_execution("test_func", test_func, ("What is insurance?",), {})
+
+        # Verify output is serialized as dict from Pydantic model
+        import json
+
+        result_calls = [
+            call
+            for call in mock_span.set_attribute.call_args_list
+            if call[0][0] == AIAttributes.FUNCTION_RESULT
+        ]
+        assert len(result_calls) == 1
+
+        result_str = result_calls[0][0][1]
+        parsed_result = json.loads(result_str)
+
+        # Should be the dict representation of the Pydantic model
+        assert parsed_result == {"intent": "informational", "confidence": "high"}
+        assert result_str == '{"intent": "informational", "confidence": "high"}'

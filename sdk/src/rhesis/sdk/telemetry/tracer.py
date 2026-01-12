@@ -126,6 +126,24 @@ class Tracer:
                 serialized["..."] = f"({len(arg) - 10} more items)"
             return serialized
 
+        # Handle Pydantic models (v2 and v1)
+        # Check for Pydantic v2 first (model_dump), then v1 (dict)
+        if hasattr(arg, "model_dump"):
+            # Pydantic v2
+            try:
+                return arg.model_dump()
+            except Exception:
+                pass
+        elif hasattr(arg, "dict") and callable(getattr(arg, "dict", None)):
+            # Pydantic v1 - but check it's actually a Pydantic model
+            # (many objects have a dict method, so we need to be careful)
+            try:
+                # Check if this looks like a Pydantic model
+                if hasattr(arg, "__fields__") or hasattr(arg, "model_fields"):
+                    return arg.dict()
+            except Exception:
+                pass
+
         # For objects, try multiple strategies
         try:
             obj_repr = repr(arg)
