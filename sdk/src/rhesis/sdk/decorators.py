@@ -5,12 +5,6 @@ from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING, Optional
 
-from opentelemetry import trace
-from opentelemetry.trace import SpanKind, Status, StatusCode
-
-from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
-from rhesis.sdk.telemetry.context import get_test_execution_context
-
 if TYPE_CHECKING:
     from rhesis.sdk.client import Client
 
@@ -100,43 +94,10 @@ class ObserveDecorator:
                             "    client = RhesisClient(api_key='...', project_id='...')\n"
                         )
 
-                    # Test context is now in contextvars, NOT in kwargs
-                    test_context = get_test_execution_context()
-
-                    tracer = trace.get_tracer(__name__)
-
-                    with tracer.start_as_current_span(
-                        name=final_span_name,
-                        kind=SpanKind.INTERNAL,
-                    ) as span:
-                        span.set_attribute("function.name", func_name)
-                        for key, value in attributes.items():
-                            span.set_attribute(key, value)
-
-                        # Inject test execution context as span attributes if present
-                        if test_context:
-                            attrs = TestContextConstants.SpanAttributes
-                            fields = TestContextConstants.Fields
-                            span.set_attribute(
-                                attrs.TEST_RUN_ID, test_context.get(fields.TEST_RUN_ID)
-                            )
-                            span.set_attribute(attrs.TEST_ID, test_context.get(fields.TEST_ID))
-                            span.set_attribute(
-                                attrs.TEST_CONFIGURATION_ID,
-                                test_context.get(fields.TEST_CONFIGURATION_ID),
-                            )
-                            result_id = test_context.get(fields.TEST_RESULT_ID)
-                            if result_id:
-                                span.set_attribute(attrs.TEST_RESULT_ID, result_id)
-
-                        try:
-                            result = await func(*args, **kwargs)
-                            span.set_status(Status(StatusCode.OK))
-                            return result
-                        except Exception as e:
-                            span.set_status(Status(StatusCode.ERROR, str(e)))
-                            span.record_exception(e)
-                            raise
+                    # Use tracer.trace_execution_async() for consistent I/O capture
+                    return await _default_client._tracer.trace_execution_async(
+                        func_name, func, args, kwargs, final_span_name, attributes
+                    )
 
                 return async_wrapper
 
@@ -154,62 +115,11 @@ class ObserveDecorator:
                             "    client = RhesisClient(api_key='...', project_id='...')\n"
                         )
 
-                    # Test context is now in contextvars, NOT in kwargs
-                    test_context = get_test_execution_context()
-
-                    tracer = trace.get_tracer(__name__)
-
-                    # Create span and keep context active during generator consumption
-                    span = tracer.start_span(name=final_span_name, kind=SpanKind.INTERNAL)
-
-                    # Import context module for explicit context management
-                    from opentelemetry import context as otel_context
-
-                    # Make this span the active span using OpenTelemetry's trace API
-                    # This ensures child spans created by @observe() see this as their parent
-                    token = otel_context.attach(trace.set_span_in_context(span))
-
-                    try:
-                        span.set_attribute("function.name", func_name)
-                        for key, value in attributes.items():
-                            span.set_attribute(key, value)
-
-                        # Inject test execution context as span attributes if present
-                        if test_context:
-                            attrs = TestContextConstants.SpanAttributes
-                            fields = TestContextConstants.Fields
-                            span.set_attribute(
-                                attrs.TEST_RUN_ID, test_context.get(fields.TEST_RUN_ID)
-                            )
-                            span.set_attribute(attrs.TEST_ID, test_context.get(fields.TEST_ID))
-                            span.set_attribute(
-                                attrs.TEST_CONFIGURATION_ID,
-                                test_context.get(fields.TEST_CONFIGURATION_ID),
-                            )
-                            result_id = test_context.get(fields.TEST_RESULT_ID)
-                            if result_id:
-                                span.set_attribute(attrs.TEST_RESULT_ID, result_id)
-
-                        # Yield from the generator while keeping span context active
-                        generator = func(*args, **kwargs)
-                        chunk_count = 0
-                        for item in generator:
-                            chunk_count += 1
-                            yield item
-
-                        # Generator completed successfully
-                        span.set_attribute("generator.chunks", chunk_count)
-                        span.set_status(Status(StatusCode.OK))
-
-                    except Exception as e:
-                        span.set_status(Status(StatusCode.ERROR, str(e)))
-                        span.record_exception(e)
-                        raise
-
-                    finally:
-                        # End span and detach context after generator is fully consumed
-                        span.end()
-                        otel_context.detach(token)
+                    # Use tracer.trace_execution() which handles generators via _wrap_generator()
+                    # This ensures consistent I/O capture for generators
+                    return _default_client._tracer.trace_execution(
+                        func_name, func, args, kwargs, final_span_name, attributes
+                    )
 
                 return generator_wrapper
 
@@ -227,43 +137,10 @@ class ObserveDecorator:
                             "    client = RhesisClient(api_key='...', project_id='...')\n"
                         )
 
-                    # Test context is now in contextvars, NOT in kwargs
-                    test_context = get_test_execution_context()
-
-                    tracer = trace.get_tracer(__name__)
-
-                    with tracer.start_as_current_span(
-                        name=final_span_name,
-                        kind=SpanKind.INTERNAL,
-                    ) as span:
-                        span.set_attribute("function.name", func_name)
-                        for key, value in attributes.items():
-                            span.set_attribute(key, value)
-
-                        # Inject test execution context as span attributes if present
-                        if test_context:
-                            attrs = TestContextConstants.SpanAttributes
-                            fields = TestContextConstants.Fields
-                            span.set_attribute(
-                                attrs.TEST_RUN_ID, test_context.get(fields.TEST_RUN_ID)
-                            )
-                            span.set_attribute(attrs.TEST_ID, test_context.get(fields.TEST_ID))
-                            span.set_attribute(
-                                attrs.TEST_CONFIGURATION_ID,
-                                test_context.get(fields.TEST_CONFIGURATION_ID),
-                            )
-                            result_id = test_context.get(fields.TEST_RESULT_ID)
-                            if result_id:
-                                span.set_attribute(attrs.TEST_RESULT_ID, result_id)
-
-                        try:
-                            result = func(*args, **kwargs)
-                            span.set_status(Status(StatusCode.OK))
-                            return result
-                        except Exception as e:
-                            span.set_status(Status(StatusCode.ERROR, str(e)))
-                            span.record_exception(e)
-                            raise
+                    # Use tracer.trace_execution() for consistent I/O capture
+                    return _default_client._tracer.trace_execution(
+                        func_name, func, args, kwargs, final_span_name, attributes
+                    )
 
                 return sync_wrapper
 
@@ -934,26 +811,44 @@ def endpoint(
         if response_mapping:
             enriched_metadata["response_mapping"] = response_mapping
 
+        # Helper to select appropriate tracer (connector manager takes precedence)
+        def get_tracer_method(is_async: bool):
+            """Get the appropriate trace execution method."""
+            if _default_client._connector_manager:
+                return (
+                    _default_client._connector_manager.trace_execution_async
+                    if is_async
+                    else _default_client._connector_manager.trace_execution
+                )
+            return (
+                _default_client._tracer.trace_execution_async
+                if is_async
+                else _default_client._tracer.trace_execution
+            )
+
+        # Handle async functions
+        if inspect.iscoroutinefunction(func):
+            trace_func = get_tracer_method(is_async=True)
+
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                if not observe:
+                    return await func(*args, **kwargs)
+                return await trace_func(func_name, func, args, kwargs, span_name)
+
+            _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
+            return wrapper
+
+        # Handle sync functions
+        trace_func = get_tracer_method(is_async=False)
+
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Skip tracing if observe=False
             if not observe:
                 return func(*args, **kwargs)
+            return trace_func(func_name, func, args, kwargs, span_name)
 
-            # Trace using connector manager if available (remote test execution)
-            if _default_client._connector_manager:
-                return _default_client._connector_manager.trace_execution(
-                    func_name, func, args, kwargs, span_name
-                )
-
-            # Otherwise trace directly using client's tracer (direct HTTP calls)
-            # This ensures @endpoint functions are always traced, creating a root span
-            # for child @observe() decorated functions to nest under
-            return _default_client._tracer.trace_execution(func_name, func, args, kwargs, span_name)
-
-        # Register the WRAPPER (not the original func) so remote test execution uses traced version
         _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
-
         return wrapper
 
     return decorator

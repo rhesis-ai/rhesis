@@ -132,74 +132,71 @@ class TestCreateObserver:
 
         assert result is observer
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_custom_method_creates_span(self, mock_get_tracer):
+    def test_custom_method_creates_span(self):
         """Test custom method creates OpenTelemetry span."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
-
-        # Create observer with custom method
-        observer = create_observer("test")
-        observer.add_method("query", "ai.database.query", operation_type="database.query")
-
-        # Define function with custom decorator
-        @observer.query(table="users")
-        def test_query():
-            return "result"
-
-        # Execute function
-        result = test_query()
-
-        assert result == "result"
-
-        # Verify span creation
-        mock_tracer.start_as_current_span.assert_called_once()
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == "ai.database.query"
-
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_attribute_precedence(self, mock_get_tracer):
-        """Test attribute precedence: base < default < call-time."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
-
-        # Create observer with base attributes
-        observer = create_observer("test", {"env": "prod", "service": "base"})
-        observer.add_method(
-            "query",
-            "ai.database.query",
-            operation_type="database.query",
-            service="default",  # Should override base
-            table="default_table",
+        # Setup mock client with tracer
+        mock_client = MagicMock()
+        mock_client._tracer.trace_execution = MagicMock(
+            side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
         )
 
-        # Define function with call-time attributes
-        @observer.query(table="users")  # Should override default
-        def test_query():
-            return "result"
+        with patch("rhesis.sdk.decorators._default_client", mock_client):
+            # Create observer with custom method
+            observer = create_observer("test")
+            observer.add_method("query", "ai.database.query", operation_type="database.query")
 
-        # Execute function
-        test_query()
+            # Define function with custom decorator
+            @observer.query(table="users")
+            def test_query():
+                return "result"
 
-        # Verify attributes were set with correct precedence
-        set_attribute_calls = mock_span.set_attribute.call_args_list
-        actual_attributes = {call[0][0]: call[0][1] for call in set_attribute_calls}
+            # Execute function
+            result = test_query()
 
-        # Check precedence: call-time > default > base
-        assert actual_attributes["env"] == "prod"  # From base (not overridden)
-        assert actual_attributes["service"] == "default"  # Default overrides base
-        assert actual_attributes["table"] == "users"  # Call-time overrides default
-        assert actual_attributes[AIAttributes.OPERATION_TYPE] == "database.query"
+            assert result == "result"
+
+            # Verify trace_execution was called
+            mock_client._tracer.trace_execution.assert_called_once()
+            call_args = mock_client._tracer.trace_execution.call_args
+            assert call_args[0][4] == "ai.database.query"  # span_name is 5th argument
+
+    def test_attribute_precedence(self):
+        """Test attribute precedence: base < default < call-time."""
+        # Setup mock client with tracer
+        mock_client = MagicMock()
+        mock_client._tracer.trace_execution = MagicMock(
+            side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
+        )
+
+        with patch("rhesis.sdk.decorators._default_client", mock_client):
+            # Create observer with base attributes
+            observer = create_observer("test", {"env": "prod", "service": "base"})
+            observer.add_method(
+                "query",
+                "ai.database.query",
+                operation_type="database.query",
+                service="default",  # Should override base
+                table="default_table",
+            )
+
+            # Define function with call-time attributes
+            @observer.query(table="users")  # Should override default
+            def test_query():
+                return "result"
+
+            # Execute function
+            test_query()
+
+            # Verify trace_execution was called with correct attributes
+            mock_client._tracer.trace_execution.assert_called_once()
+            call_args = mock_client._tracer.trace_execution.call_args
+            attributes = call_args[0][5]  # attributes is 6th argument
+
+            # Check precedence: call-time > default > base
+            assert attributes["env"] == "prod"  # From base (not overridden)
+            assert attributes["service"] == "default"  # Default overrides base
+            assert attributes["table"] == "users"  # Call-time overrides default
+            assert attributes[AIAttributes.OPERATION_TYPE] == "database.query"
 
 
 class TestObserverBuilder:
@@ -261,48 +258,45 @@ class TestObserverBuilder:
         assert hasattr(observer, "http_call")
         assert hasattr(observer, "webhook")
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_built_observer_works(self, mock_get_tracer):
+    def test_built_observer_works(self):
         """Test observer built from builder works correctly."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
-
-        # Build observer
-        observer = (
-            ObserverBuilder("ml")
-            .with_base_attributes(framework="pytorch")
-            .add_method("train", "ai.ml.train", operation_type="ml.train", phase="training")
-            .build()
+        # Setup mock client with tracer
+        mock_client = MagicMock()
+        mock_client._tracer.trace_execution = MagicMock(
+            side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
         )
 
-        # Define function with built observer
-        @observer.train(epochs=10)
-        def train_model():
-            return "trained"
+        with patch("rhesis.sdk.decorators._default_client", mock_client):
+            # Build observer
+            observer = (
+                ObserverBuilder("ml")
+                .with_base_attributes(framework="pytorch")
+                .add_method("train", "ai.ml.train", operation_type="ml.train", phase="training")
+                .build()
+            )
 
-        # Execute function
-        result = train_model()
+            # Define function with built observer
+            @observer.train(epochs=10)
+            def train_model():
+                return "trained"
 
-        assert result == "trained"
+            # Execute function
+            result = train_model()
 
-        # Verify span creation
-        mock_tracer.start_as_current_span.assert_called_once()
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == "ai.ml.train"
+            assert result == "trained"
 
-        # Verify attributes include base, default, and call-time
-        set_attribute_calls = mock_span.set_attribute.call_args_list
-        actual_attributes = {call[0][0]: call[0][1] for call in set_attribute_calls}
+            # Verify trace_execution was called
+            mock_client._tracer.trace_execution.assert_called_once()
+            call_args = mock_client._tracer.trace_execution.call_args
+            assert call_args[0][4] == "ai.ml.train"  # span_name is 5th argument
 
-        assert actual_attributes["framework"] == "pytorch"  # Base attribute
-        assert actual_attributes["phase"] == "training"  # Default attribute
-        assert actual_attributes["epochs"] == 10  # Call-time attribute
-        assert actual_attributes[AIAttributes.OPERATION_TYPE] == "ml.train"
+            # Verify attributes include base, default, and call-time
+            attributes = call_args[0][5]  # attributes is 6th argument
+
+            assert attributes["framework"] == "pytorch"  # Base attribute
+            assert attributes["phase"] == "training"  # Default attribute
+            assert attributes["epochs"] == 10  # Call-time attribute
+            assert attributes[AIAttributes.OPERATION_TYPE] == "ml.train"
 
 
 class TestCustomObserverIntegration:
@@ -330,45 +324,43 @@ class TestCustomObserverIntegration:
             # Restore original client state
             decorators._default_client = original_client
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_multiple_custom_observers(self, mock_get_tracer):
+    def test_multiple_custom_observers(self):
         """Test multiple custom observers work independently."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
+        # Setup mock client with tracer
+        mock_client = MagicMock()
+        mock_client._tracer.trace_execution = MagicMock(
+            side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
+        )
 
-        # Create multiple observers
-        db_observer = create_observer("db", {"service": "db-service"})
-        db_observer.add_method("query", "ai.database.query")
+        with patch("rhesis.sdk.decorators._default_client", mock_client):
+            # Create multiple observers
+            db_observer = create_observer("db", {"service": "db-service"})
+            db_observer.add_method("query", "ai.database.query")
 
-        api_observer = create_observer("api", {"service": "api-service"})
-        api_observer.add_method("http_call", "ai.api.http")
+            api_observer = create_observer("api", {"service": "api-service"})
+            api_observer.add_method("http_call", "ai.api.http")
 
-        # Define functions with different observers
-        @db_observer.query(table="users")
-        def get_user():
-            return "user"
+            # Define functions with different observers
+            @db_observer.query(table="users")
+            def get_user():
+                return "user"
 
-        @api_observer.http_call(method="GET")
-        def call_api():
-            return "response"
+            @api_observer.http_call(method="GET")
+            def call_api():
+                return "response"
 
-        # Execute functions
-        get_user()
-        call_api()
+            # Execute functions
+            get_user()
+            call_api()
 
-        # Verify both spans were created
-        assert mock_tracer.start_as_current_span.call_count == 2
+            # Verify both traces were executed
+            assert mock_client._tracer.trace_execution.call_count == 2
 
-        # Check span names
-        call_args_list = mock_tracer.start_as_current_span.call_args_list
-        span_names = [call[1]["name"] for call in call_args_list]
-        assert "ai.database.query" in span_names
-        assert "ai.api.http" in span_names
+            # Check span names
+            call_args_list = mock_client._tracer.trace_execution.call_args_list
+            span_names = [call[0][4] for call in call_args_list]  # span_name is 5th argument
+            assert "ai.database.query" in span_names
+            assert "ai.api.http" in span_names
 
     def test_custom_observer_docstring_generation(self):
         """Test custom methods have helpful docstrings."""

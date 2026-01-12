@@ -495,7 +495,7 @@ def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
     name="recognize_intent",
     description="Classify user intent from a prompt",
     request_mapping={
-        "prompt": "{{ prompt }}",
+        "prompt": "{{ input }}",
         "use_case": "{{ use_case | default('insurance') }}",
     },
     response_mapping={

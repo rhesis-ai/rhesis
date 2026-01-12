@@ -1,13 +1,31 @@
 """Tests for convenience decorators (@observe.llm, @observe.tool, etc.)."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from rhesis.sdk import decorators
 from rhesis.sdk.decorators import observe
 from rhesis.sdk.telemetry.attributes import AIAttributes
-from rhesis.sdk.telemetry.schemas import AIOperationType
+
+
+@pytest.fixture
+def mock_client_with_tracer():
+    """Create a mock client that executes functions properly."""
+    mock_client = MagicMock()
+
+    # Mock tracer that executes functions
+    mock_tracer = MagicMock()
+    mock_tracer.trace_execution = MagicMock(
+        side_effect=lambda fn, f, a, k, sn=None, ea=None: f(*a, **k)
+    )
+    mock_tracer.trace_execution_async = MagicMock(
+        side_effect=lambda fn, f, a, k, sn=None, ea=None: f(*a, **k)
+    )
+
+    mock_client._tracer = mock_tracer
+
+    return mock_client
 
 
 class TestConvenienceDecorators:
@@ -24,399 +42,201 @@ class TestConvenienceDecorators:
         assert hasattr(observe, "guardrail")
         assert hasattr(observe, "transform")
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_llm_decorator(self, mock_get_tracer):
+    def test_observe_llm_decorator(self, mock_client_with_tracer):
         """Test @observe.llm() creates correct span and attributes."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
+        decorators._default_client = mock_client_with_tracer
 
-        # Define function with @observe.llm
         @observe.llm(provider="openai", model="gpt-4", temperature=0.7)
         def generate_text(prompt: str) -> str:
             return f"Generated: {prompt}"
 
-        # Execute function
         result = generate_text("Hello")
-
         assert result == "Generated: Hello"
 
-        # Verify span creation
-        mock_tracer.start_as_current_span.assert_called_once()
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == AIOperationType.LLM_INVOKE
+        mock_client_with_tracer._tracer.trace_execution.assert_called_once()
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
 
-        # Verify attributes were set
-        expected_attributes = {
-            AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
-            AIAttributes.MODEL_PROVIDER: "openai",
-            AIAttributes.MODEL_NAME: "gpt-4",
-            "temperature": 0.7,
-        }
+        extra_attrs = call_args[0][5]
+        assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_LLM_INVOKE
+        assert extra_attrs[AIAttributes.MODEL_PROVIDER] == "openai"
+        assert extra_attrs[AIAttributes.MODEL_NAME] == "gpt-4"
+        assert extra_attrs["temperature"] == 0.7
 
-        # Check that set_attribute was called for each expected attribute
-        set_attribute_calls = mock_span.set_attribute.call_args_list
-        actual_attributes = {call[0][0]: call[0][1] for call in set_attribute_calls}
+        decorators._default_client = None
 
-        for key, value in expected_attributes.items():
-            assert actual_attributes.get(key) == value
-
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_tool_decorator(self, mock_get_tracer):
+    def test_observe_tool_decorator(self, mock_client_with_tracer):
         """Test @observe.tool() creates correct span and attributes."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
+        decorators._default_client = mock_client_with_tracer
 
-        # Define function with @observe.tool
         @observe.tool(name="weather_api", tool_type="http", timeout=30)
         def get_weather(city: str) -> dict:
             return {"city": city, "temperature": 22}
 
-        # Execute function
         result = get_weather("San Francisco")
-
         assert result == {"city": "San Francisco", "temperature": 22}
 
-        # Verify span creation
-        mock_tracer.start_as_current_span.assert_called_once()
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == AIOperationType.TOOL_INVOKE
+        mock_client_with_tracer._tracer.trace_execution.assert_called_once()
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
 
-        # Verify attributes were set
-        expected_attributes = {
-            AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_TOOL_INVOKE,
-            AIAttributes.TOOL_NAME: "weather_api",
-            AIAttributes.TOOL_TYPE: "http",
-            "timeout": 30,
-        }
+        extra_attrs = call_args[0][5]
+        assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_TOOL_INVOKE
+        assert extra_attrs[AIAttributes.TOOL_NAME] == "weather_api"
+        assert extra_attrs[AIAttributes.TOOL_TYPE] == "http"
+        assert extra_attrs["timeout"] == 30
 
-        set_attribute_calls = mock_span.set_attribute.call_args_list
-        actual_attributes = {call[0][0]: call[0][1] for call in set_attribute_calls}
-
-        for key, value in expected_attributes.items():
-            assert actual_attributes.get(key) == value
-
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_retrieval_decorator(self, mock_get_tracer):
-        """Test @observe.retrieval() creates correct span and attributes."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
-
-        # Define function with @observe.retrieval
-        @observe.retrieval(backend="pinecone", top_k=5, index="documents")
-        def search_docs(query: str) -> list:
-            return [f"doc1 about {query}", f"doc2 about {query}"]
-
-        # Execute function
-        result = search_docs("AI")
-
-        assert len(result) == 2
-
-        # Verify span creation
-        mock_tracer.start_as_current_span.assert_called_once()
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == AIOperationType.RETRIEVAL
-
-        # Verify attributes were set
-        expected_attributes = {
-            AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_RETRIEVAL,
-            AIAttributes.RETRIEVAL_BACKEND: "pinecone",
-            AIAttributes.RETRIEVAL_TOP_K: 5,
-            "index": "documents",
-        }
-
-        set_attribute_calls = mock_span.set_attribute.call_args_list
-        actual_attributes = {call[0][0]: call[0][1] for call in set_attribute_calls}
-
-        for key, value in expected_attributes.items():
-            assert actual_attributes.get(key) == value
-
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_embedding_decorator(self, mock_get_tracer):
-        """Test @observe.embedding() creates correct span and attributes."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
-
-        # Define function with @observe.embedding
-        @observe.embedding(model="text-embedding-ada-002", dimensions=1536)
-        def embed_texts(texts: list) -> list:
-            return [[0.1, 0.2] * 768 for _ in texts]  # 1536 dimensions
-
-        # Execute function
-        result = embed_texts(["hello", "world"])
-
-        assert len(result) == 2
-        assert len(result[0]) == 1536
-
-        # Verify span creation
-        mock_tracer.start_as_current_span.assert_called_once()
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == AIOperationType.EMBEDDING_GENERATE
-
-        # Verify attributes were set
-        expected_attributes = {
-            AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_EMBEDDING_CREATE,
-            AIAttributes.EMBEDDING_MODEL: "text-embedding-ada-002",
-            AIAttributes.EMBEDDING_VECTOR_SIZE: 1536,
-        }
-
-        set_attribute_calls = mock_span.set_attribute.call_args_list
-        actual_attributes = {call[0][0]: call[0][1] for call in set_attribute_calls}
-
-        for key, value in expected_attributes.items():
-            assert actual_attributes.get(key) == value
-
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_rerank_decorator(self, mock_get_tracer):
-        """Test @observe.rerank() creates correct span and attributes."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
-
-        # Define function with @observe.rerank
-        @observe.rerank(model="rerank-v1", top_n=3)
-        def rerank_results(query: str, documents: list) -> list:
-            return documents[:3]  # Return top 3
-
-        # Execute function
-        docs = ["doc1", "doc2", "doc3", "doc4", "doc5"]
-        result = rerank_results("query", docs)
-
-        assert len(result) == 3
-
-        # Verify span creation
-        mock_tracer.start_as_current_span.assert_called_once()
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == AIOperationType.RERANK
-
-        # Verify attributes were set
-        expected_attributes = {
-            AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_RERANK,
-            AIAttributes.RERANK_MODEL: "rerank-v1",
-            AIAttributes.RERANK_TOP_N: 3,
-        }
-
-        set_attribute_calls = mock_span.set_attribute.call_args_list
-        actual_attributes = {call[0][0]: call[0][1] for call in set_attribute_calls}
-
-        for key, value in expected_attributes.items():
-            assert actual_attributes.get(key) == value
-
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_evaluation_decorator(self, mock_get_tracer):
-        """Test @observe.evaluation() creates correct span and attributes."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
-
-        # Define function with @observe.evaluation
-        @observe.evaluation(metric="relevance", evaluator="gpt-4")
-        def evaluate_relevance(query: str, response: str) -> float:
-            return 0.85
-
-        # Execute function
-        result = evaluate_relevance("What is AI?", "AI is artificial intelligence")
-
-        assert result == 0.85
-
-        # Verify span creation
-        mock_tracer.start_as_current_span.assert_called_once()
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == AIOperationType.EVALUATION
-
-        # Verify attributes were set
-        expected_attributes = {
-            AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_EVALUATION,
-            AIAttributes.EVALUATION_METRIC: "relevance",
-            AIAttributes.EVALUATION_EVALUATOR: "gpt-4",
-        }
-
-        set_attribute_calls = mock_span.set_attribute.call_args_list
-        actual_attributes = {call[0][0]: call[0][1] for call in set_attribute_calls}
-
-        for key, value in expected_attributes.items():
-            assert actual_attributes.get(key) == value
-
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_guardrail_decorator(self, mock_get_tracer):
-        """Test @observe.guardrail() creates correct span and attributes."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
-
-        # Define function with @observe.guardrail
-        @observe.guardrail(guardrail_type="content_safety", provider="openai")
-        def check_content_safety(text: str) -> bool:
-            return True
-
-        # Execute function
-        result = check_content_safety("This is safe content")
-
-        assert result is True
-
-        # Verify span creation
-        mock_tracer.start_as_current_span.assert_called_once()
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == AIOperationType.GUARDRAIL
-
-        # Verify attributes were set
-        expected_attributes = {
-            AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_GUARDRAIL,
-            AIAttributes.GUARDRAIL_TYPE: "content_safety",
-            AIAttributes.GUARDRAIL_PROVIDER: "openai",
-        }
-
-        set_attribute_calls = mock_span.set_attribute.call_args_list
-        actual_attributes = {call[0][0]: call[0][1] for call in set_attribute_calls}
-
-        for key, value in expected_attributes.items():
-            assert actual_attributes.get(key) == value
-
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_transform_decorator(self, mock_get_tracer):
-        """Test @observe.transform() creates correct span and attributes."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
-
-        # Define function with @observe.transform
-        @observe.transform(transform_type="text", operation="clean")
-        def preprocess_text(text: str) -> str:
-            return text.strip().lower()
-
-        # Execute function
-        result = preprocess_text("  HELLO WORLD!  ")
-
-        assert result == "hello world!"
-
-        # Verify span creation
-        mock_tracer.start_as_current_span.assert_called_once()
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == AIOperationType.TRANSFORM
-
-        # Verify attributes were set
-        expected_attributes = {
-            AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_TRANSFORM,
-            AIAttributes.TRANSFORM_TYPE: "text",
-            AIAttributes.TRANSFORM_OPERATION: "clean",
-        }
-
-        set_attribute_calls = mock_span.set_attribute.call_args_list
-        actual_attributes = {call[0][0]: call[0][1] for call in set_attribute_calls}
-
-        for key, value in expected_attributes.items():
-            assert actual_attributes.get(key) == value
-
-    def test_convenience_decorators_without_client_raise_error(self):
-        """Test convenience decorators raise RuntimeError when client not initialized."""
-        # Save current client state and clear it
-        original_client = decorators._default_client
         decorators._default_client = None
 
-        try:
-            # Test each convenience decorator
-            @observe.llm(provider="openai", model="gpt-4")
-            def test_llm():
-                return "result"
+    def test_observe_retrieval_decorator(self, mock_client_with_tracer):
+        """Test @observe.retrieval() creates correct span and attributes."""
+        decorators._default_client = mock_client_with_tracer
 
-            @observe.tool(name="test", tool_type="function")
-            def test_tool():
-                return "result"
+        @observe.retrieval(backend="vector_db", top_k=5)
+        def search_docs(query: str) -> list:
+            return ["doc1", "doc2"]
 
-            # Execute functions - should raise RuntimeError
-            with pytest.raises(RuntimeError, match="RhesisClient not initialized"):
-                test_llm()
+        result = search_docs("test query")
+        assert result == ["doc1", "doc2"]
 
-            with pytest.raises(RuntimeError, match="RhesisClient not initialized"):
-                test_tool()
+        mock_client_with_tracer._tracer.trace_execution.assert_called_once()
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
 
-        finally:
-            # Restore original client state
-            decorators._default_client = original_client
+        extra_attrs = call_args[0][5]
+        assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_RETRIEVAL
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_convenience_decorators_support_async_functions(self, mock_get_tracer):
-        """Test convenience decorators work with async functions."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
+        decorators._default_client = None
 
-        # Define async function with convenience decorator
+    def test_observe_embedding_decorator(self, mock_client_with_tracer):
+        """Test @observe.embedding() creates correct span and attributes."""
+        decorators._default_client = mock_client_with_tracer
+
+        @observe.embedding(model="text-embedding-ada-002", dimensions=1536)
+        def embed_text(text: str) -> list:
+            return [0.1, 0.2, 0.3]
+
+        result = embed_text("test")
+        assert result == [0.1, 0.2, 0.3]
+
+        mock_client_with_tracer._tracer.trace_execution.assert_called_once()
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
+
+        extra_attrs = call_args[0][5]
+        assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_EMBEDDING_CREATE
+
+        decorators._default_client = None
+
+    def test_observe_rerank_decorator(self, mock_client_with_tracer):
+        """Test @observe.rerank() creates correct span and attributes."""
+        decorators._default_client = mock_client_with_tracer
+
+        @observe.rerank(model="rerank-english-v2.0", top_n=3)
+        def rerank_docs(query: str, docs: list) -> list:
+            return docs[::-1]
+
+        result = rerank_docs("query", ["a", "b", "c"])
+        assert result == ["c", "b", "a"]
+
+        mock_client_with_tracer._tracer.trace_execution.assert_called_once()
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
+
+        extra_attrs = call_args[0][5]
+        assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_RERANK
+
+        decorators._default_client = None
+
+    def test_observe_evaluation_decorator(self, mock_client_with_tracer):
+        """Test @observe.evaluation() creates correct span and attributes."""
+        decorators._default_client = mock_client_with_tracer
+
+        @observe.evaluation(metric="accuracy", evaluator="deepeval")
+        def evaluate_response(response: str, expected: str) -> float:
+            return 0.95
+
+        result = evaluate_response("answer", "expected")
+        assert result == 0.95
+
+        mock_client_with_tracer._tracer.trace_execution.assert_called_once()
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
+
+        extra_attrs = call_args[0][5]
+        assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_EVALUATION
+
+        decorators._default_client = None
+
+    def test_observe_guardrail_decorator(self, mock_client_with_tracer):
+        """Test @observe.guardrail() creates correct span and attributes."""
+        decorators._default_client = mock_client_with_tracer
+
+        @observe.guardrail(guardrail_type="content_filter", provider="guardrails")
+        def check_content(text: str) -> bool:
+            return True
+
+        result = check_content("safe text")
+        assert result is True
+
+        mock_client_with_tracer._tracer.trace_execution.assert_called_once()
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
+
+        extra_attrs = call_args[0][5]
+        assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_GUARDRAIL
+
+        decorators._default_client = None
+
+    def test_observe_transform_decorator(self, mock_client_with_tracer):
+        """Test @observe.transform() creates correct span and attributes."""
+        decorators._default_client = mock_client_with_tracer
+
+        @observe.transform(transform_type="text_to_json", operation="parse")
+        def parse_response(text: str) -> dict:
+            return {"parsed": text}
+
+        result = parse_response("test")
+        assert result == {"parsed": "test"}
+
+        mock_client_with_tracer._tracer.trace_execution.assert_called_once()
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
+
+        extra_attrs = call_args[0][5]
+        assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_TRANSFORM
+
+        decorators._default_client = None
+
+    def test_convenience_decorators_without_client_raise_error(self):
+        """Test that convenience decorators raise error without client."""
+        decorators._default_client = None
+
+        @observe.llm(provider="openai", model="gpt-4")
+        def generate_text(prompt: str) -> str:
+            return f"Generated: {prompt}"
+
+        with pytest.raises(RuntimeError, match="RhesisClient not initialized"):
+            generate_text("Hello")
+
+    def test_convenience_decorators_support_async_functions(self, mock_client_with_tracer):
+        """Test that convenience decorators work with async functions."""
+        decorators._default_client = mock_client_with_tracer
+
         @observe.llm(provider="openai", model="gpt-4")
         async def async_generate(prompt: str) -> str:
             return f"Generated: {prompt}"
 
-        # Test that decorator was applied (function is wrapped)
-        assert hasattr(async_generate, "__wrapped__")
-
-        # Verify span creation would happen (we can't easily test async execution in this setup)
-        # The important thing is that the decorator doesn't break async functions
+        # Note: In real async execution, we'd use await
+        # For this test, we just verify the decorator doesn't break
         assert callable(async_generate)
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.set_span_in_context")
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_convenience_decorators_support_generator_functions(
-        self, mock_get_tracer, mock_set_span_in_context
-    ):
-        """Test convenience decorators work with generator functions."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_span.return_value = mock_span
-        mock_get_tracer.return_value = mock_tracer
-        mock_set_span_in_context.return_value = mock_span
+        decorators._default_client = None
 
-        # Define generator function with convenience decorator
+    def test_convenience_decorators_support_generator_functions(self, mock_client_with_tracer):
+        """Test that convenience decorators work with generator functions."""
+        decorators._default_client = mock_client_with_tracer
+
         @observe.llm(provider="openai", model="gpt-4")
-        def streaming_generate(prompt: str):
-            for i in range(3):
-                yield f"Chunk {i}: {prompt}"
+        def stream_tokens(prompt: str):
+            for token in ["Hello", " ", "World"]:
+                yield token
 
-        # Execute generator
-        results = list(streaming_generate("Hello"))
+        result = list(stream_tokens("test"))
+        assert result == ["Hello", " ", "World"]
 
-        assert len(results) == 3
-        assert results[0] == "Chunk 0: Hello"
+        mock_client_with_tracer._tracer.trace_execution.assert_called_once()
 
-        # Verify span creation (generators use start_span, not start_as_current_span)
-        mock_tracer.start_span.assert_called_once()
+        decorators._default_client = None

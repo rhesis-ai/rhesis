@@ -306,3 +306,30 @@ class ConnectorManager:
             Function result (or wrapped generator)
         """
         return self._tracer.trace_execution(function_name, func, args, kwargs, span_name)
+
+    async def trace_execution_async(
+        self,
+        function_name: str,
+        func: Callable,
+        args: tuple,
+        kwargs: dict,
+        span_name: str | None = None,
+    ) -> Any:
+        """
+        Trace async function execution and send telemetry to backend.
+
+        Delegates to the Tracer for actual tracing logic.
+
+        Args:
+            function_name: Name of the function being traced
+            func: The async function to execute
+            args: Positional arguments
+            kwargs: Keyword arguments
+            span_name: Optional custom span name (e.g., 'ai.llm.invoke')
+
+        Returns:
+            Function result
+        """
+        return await self._tracer.trace_execution_async(
+            function_name, func, args, kwargs, span_name
+        )
