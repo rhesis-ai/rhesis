@@ -1,0 +1,199 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Test Runs & Results
+
+Test runs track the execution of tests against endpoints. Each run produces test results containing the endpoint's response, evaluation metrics, and review status.
+
+## TestRun
+
+A `TestRun` represents a batch execution of tests. When you execute a test set against an endpoint, a test run is created to track the execution.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `name` | `str` | Display name |
+| `test_configuration_id` | `str` | Associated test configuration |
+| `status_id` | `str` | Current execution status |
+| `user_id` | `str` | User who initiated the run |
+| `organization_id` | `str` | Organization ID |
+| `owner_id` | `str` | Owner of the test run |
+| `assignee_id` | `str` | Assigned reviewer |
+| `attributes` | `dict` | Custom attributes |
+
+### Fetching Test Runs
+
+<CodeBlock filename="fetch_test_runs.py" language="python">
+{`from rhesis.sdk.entities import TestRuns
+
+# List all test runs
+for run in TestRuns.all():
+    print(f"{run.name}: {run.status_id}")
+
+# Get by ID
+run = TestRuns.pull(id="run-123")
+
+# Filter by status
+completed_runs = TestRuns.all(filter="status_id eq 'completed'")`}
+</CodeBlock>
+
+### Getting Test Results
+
+Retrieve all results for a test run:
+
+<CodeBlock filename="get_results.py" language="python">
+{`from rhesis.sdk.entities import TestRuns
+
+run = TestRuns.pull(id="run-123")
+results = run.get_test_results()
+
+for result in results:
+    print(f"Test: {result['test_id']}")
+    print(f"Output: {result['test_output']}")
+    print(f"Metrics: {result['test_metrics']}")`}
+</CodeBlock>
+
+## TestResult
+
+A `TestResult` contains the output and evaluation for a single test execution.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `test_run_id` | `str` | Parent test run |
+| `test_id` | `str` | Executed test |
+| `prompt_id` | `str` | Test prompt |
+| `status_id` | `str` | Result status |
+| `status` | `Status` | Status object with name/description |
+| `test_output` | `dict` | Endpoint response data |
+| `test_metrics` | `dict` | Evaluation metric scores |
+| `test_reviews` | `dict` | Human review data |
+| `test_configuration_id` | `str` | Test configuration used |
+
+### Fetching Test Results
+
+<CodeBlock filename="fetch_results.py" language="python">
+{`from rhesis.sdk.entities import TestResults
+
+# Get all results
+all_results = TestResults.all()
+
+# Get by ID
+result = TestResults.pull(id="result-123")
+
+# Filter by test run
+run_results = TestResults.all(filter="test_run_id eq 'run-123'")
+
+# Filter by status
+failed_results = TestResults.all(filter="status_id eq 'failed'")`}
+</CodeBlock>
+
+### Working with Results
+
+<CodeBlock filename="analyze_results.py" language="python">
+{`from rhesis.sdk.entities import TestResults
+
+result = TestResults.pull(id="result-123")
+
+# Access output
+if result.test_output:
+    print(f"Response: {result.test_output.get('output')}")
+    print(f"Session: {result.test_output.get('session_id')}")
+
+# Access metrics
+if result.test_metrics:
+    for metric_name, score in result.test_metrics.items():
+        print(f"{metric_name}: {score}")
+
+# Check status
+if result.status:
+    print(f"Status: {result.status.name}")`}
+</CodeBlock>
+
+## TestConfiguration
+
+A `TestConfiguration` defines the settings for test execution, linking test sets to endpoints with specific parameters.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `endpoint_id` | `str` | Target endpoint (required) |
+| `test_set_id` | `str` | Test set to execute |
+| `category_id` | `str` | Filter by category |
+| `topic_id` | `str` | Filter by topic |
+| `prompt_id` | `str` | Specific prompt |
+| `use_case_id` | `str` | Associated use case |
+| `status_id` | `str` | Configuration status |
+| `attributes` | `dict` | Custom settings |
+
+### Creating Test Configurations
+
+<CodeBlock filename="create_config.py" language="python">
+{`from rhesis.sdk.entities import TestConfiguration
+
+config = TestConfiguration(
+    endpoint_id="endpoint-123",
+    test_set_id="test-set-456",
+    attributes={
+        "timeout": 30,
+        "retry_count": 3,
+    }
+)
+
+config.push()
+print(f"Created configuration: {config.id}")`}
+</CodeBlock>
+
+### Getting Test Runs for a Configuration
+
+<CodeBlock filename="config_runs.py" language="python">
+{`from rhesis.sdk.entities import TestConfigurations
+
+config = TestConfigurations.pull(id="config-123")
+runs = config.get_test_runs()
+
+for run in runs:
+    print(f"Run: {run['id']} - Status: {run['status_id']}")`}
+</CodeBlock>
+
+## Complete Workflow Example
+
+<CodeBlock filename="complete_workflow.py" language="python">
+{`from rhesis.sdk.entities import TestSets, Endpoints, TestRuns, TestResults
+
+# 1. Get test set and endpoint
+test_set = TestSets.pull(name="Safety Evaluation")
+endpoint = Endpoints.pull(name="Production Chatbot")
+
+# 2. Execute tests (creates a test run)
+execution = test_set.execute(endpoint)
+print(f"Execution started: {execution}")
+
+# 3. Later: fetch the test run
+# (In practice, you'd get the run ID from the execution response or webhook)
+runs = TestRuns.all(filter="contains(name, 'Safety')")
+latest_run = runs[0] if runs else None
+
+if latest_run:
+    # 4. Get results
+    results = latest_run.get_test_results()
+    
+    # 5. Analyze results
+    passed = sum(1 for r in results if r.get('status_id') == 'passed')
+    failed = sum(1 for r in results if r.get('status_id') == 'failed')
+    
+    print(f"Passed: {passed}, Failed: {failed}")`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next Steps** - Create [Test Sets](/sdk/entities/test-sets) for evaluation
+  - Configure [Endpoints](/sdk/entities/endpoints) to test against
+  - Use [Metrics](/sdk/metrics) to evaluate test results
+</Callout>

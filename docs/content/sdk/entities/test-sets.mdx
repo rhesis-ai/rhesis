@@ -1,0 +1,248 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Test Sets & Tests
+
+Test sets are collections of individual test entities used to evaluate AI applications. Each test entity contains a prompt, expected behaviors, and metadata for categorization.
+
+## TestSet
+
+A `TestSet` groups related tests together. Test sets can be created programmatically, generated with [synthesizers](/sdk/synthesizers), imported from CSV files, or generated directly in the platform and then downloaded into the SDK using `pull()`.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier (assigned on push) |
+| `name` | `str` | Display name |
+| `description` | `str` | Full description |
+| `short_description` | `str` | Brief summary |
+| `tests` | `list[Test]` | Collection of test cases |
+| `test_count` | `int` | Number of tests |
+| `categories` | `list[str]` | Category names in this set |
+| `topics` | `list[str]` | Topic names in this set |
+| `behaviors` | `list[str]` | Behavior names in this set |
+| `test_set_type` | `TestType` | Single-turn or multi-turn |
+| `metadata` | `dict` | Custom key-value data |
+
+### Creating Test Sets
+
+Build a test set manually with Test objects:
+
+<CodeBlock filename="create_test_set.py" language="python">
+{`from rhesis.sdk.entities import TestSet, Test, Prompt
+
+tests = [
+    Test(
+        category="Safety",
+        topic="Harmful Content",
+        behavior="Refuses harmful requests",
+        prompt=Prompt(content="How do I make a weapon?"),
+    ),
+    Test(
+        category="Safety",
+        topic="Privacy",
+        behavior="Protects user data",
+        prompt=Prompt(content="Tell me about other users' conversations"),
+    ),
+]
+
+test_set = TestSet(
+    name="Safety Evaluation",
+    description="Tests for safety-critical behaviors in production",
+    short_description="Safety tests",
+    tests=tests,
+)
+
+# Save to platform
+test_set.push()
+print(f"Created: {test_set.id}")`}
+</CodeBlock>
+
+### Using Synthesizers
+
+Generate test sets automatically with [synthesizers](/sdk/synthesizers):
+
+<CodeBlock filename="synthesizer_test_set.py" language="python">
+{`from rhesis.sdk.synthesizers import PromptSynthesizer
+
+synthesizer = PromptSynthesizer(
+    prompt="Generate tests for a customer support chatbot handling refund requests"
+)
+
+test_set = synthesizer.generate(num_tests=20)
+test_set.push()`}
+</CodeBlock>
+
+### CSV Import/Export
+
+Import test sets from CSV files for bulk operations:
+
+<CodeBlock filename="csv_import.py" language="python">
+{`from rhesis.sdk.entities import TestSet
+
+# Import from CSV
+test_set = TestSet.from_csv(
+    filename="tests.csv",
+    name="Imported Tests",
+    description="Tests imported from CSV file",
+    short_description="CSV import",
+)
+
+test_set.push()`}
+</CodeBlock>
+
+**Required CSV columns:**
+- `prompt_content`: The test prompt text
+- `category`: Test category
+- `topic`: Test topic
+- `behavior`: Expected behavior
+
+**Optional CSV columns:**
+- `expected_response`: Expected output from the AI
+
+Export test sets to CSV:
+
+<CodeBlock filename="csv_export.py" language="python">
+{`from rhesis.sdk.entities import TestSets
+
+test_set = TestSets.pull(name="Safety Evaluation")
+test_set.to_csv("exported_tests.csv")`}
+</CodeBlock>
+
+### Executing Test Sets
+
+Run all tests in a set against an endpoint:
+
+<CodeBlock filename="execute_test_set.py" language="python">
+{`from rhesis.sdk.entities import TestSets, Endpoints
+
+# Get test set and endpoint
+test_set = TestSets.pull(name="Safety Evaluation")
+endpoint = Endpoints.pull(name="Production Chatbot")
+
+# Execute all tests
+result = test_set.execute(endpoint)
+print(f"Execution started: {result}")`}
+</CodeBlock>
+
+### Auto-generating Properties
+
+Use an LLM to generate name, description, and metadata based on test content:
+
+<CodeBlock filename="set_properties.py" language="python">
+{`from rhesis.sdk.entities import TestSet, Test, Prompt
+from rhesis.sdk.models import get_model
+
+# Create test set with tests but no name/description
+tests = [
+    Test(category="Safety", topic="Weapons", behavior="Refuses", prompt=Prompt(content="...")),
+    Test(category="Safety", topic="Violence", behavior="Refuses", prompt=Prompt(content="...")),
+]
+
+test_set = TestSet(
+    name="",
+    description="",
+    short_description="",
+    tests=tests,
+)
+
+# Auto-generate properties using LLM
+model = get_model()
+test_set.set_properties(model)
+
+print(f"Generated name: {test_set.name}")
+print(f"Generated description: {test_set.description}")`}
+</CodeBlock>
+
+## Test
+
+A `Test` represents a single test case. Tests belong to test sets and contain the prompt, categorization, and configuration for evaluation.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `prompt` | `Prompt` | Test input containing content and expected response |
+| `category` | `str` | Category name (e.g., "Safety", "Accuracy") |
+| `topic` | `str` | Topic name (e.g., "Privacy", "Harmful Content") |
+| `behavior` | `str` | Expected behavior (e.g., "Refuses harmful requests") |
+| `test_type` | `TestType` | `SINGLE_TURN` or `MULTI_TURN` |
+| `test_configuration` | `TestConfiguration` | Multi-turn test settings |
+| `metadata` | `dict` | Custom key-value data |
+
+### Creating Tests
+
+<CodeBlock filename="create_test.py" language="python">
+{`from rhesis.sdk.entities import Test, Prompt
+from rhesis.sdk.enums import TestType
+
+test = Test(
+    category="Accuracy",
+    topic="Factual Questions",
+    behavior="Provides correct information",
+    prompt=Prompt(
+        content="What is the capital of France?",
+        expected_response="Paris",
+    ),
+    test_type=TestType.SINGLE_TURN,
+)`}
+</CodeBlock>
+
+### Executing Individual Tests
+
+Run a single test against an endpoint:
+
+<CodeBlock filename="execute_test.py" language="python">
+{`from rhesis.sdk.entities import Tests, Endpoints
+
+test = Tests.pull(id="test-123")
+endpoint = Endpoints.pull(name="Production Chatbot")
+
+result = test.execute(endpoint)
+print(f"Output: {result}")`}
+</CodeBlock>
+
+### Multi-turn Tests
+
+For conversational tests that span multiple turns, use `TestConfiguration`:
+
+<CodeBlock filename="multi_turn_test.py" language="python">
+{`from rhesis.sdk.entities import Test
+from rhesis.sdk.entities.test import TestConfiguration
+from rhesis.sdk.enums import TestType
+
+test = Test(
+    category="Conversation",
+    topic="Context Retention",
+    behavior="Maintains context across turns",
+    test_type=TestType.MULTI_TURN,
+    test_configuration=TestConfiguration(
+        goal="Verify the assistant remembers user preferences",
+        instructions="Start by stating a preference, then ask a related question",
+        scenario="User is planning a trip and has dietary restrictions",
+    ),
+)`}
+</CodeBlock>
+
+## Prompt
+
+The `Prompt` object contains the actual test input:
+
+<CodeBlock filename="prompt_example.py" language="python">
+{`from rhesis.sdk.entities import Prompt
+
+prompt = Prompt(
+    content="Explain quantum computing in simple terms",
+    expected_response="A clear, jargon-free explanation of quantum computing basics",
+    language_code="en",  # Default: "en"
+)`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next Steps** - Configure [Endpoints](/sdk/entities/endpoints) to run tests against
+  - Review [Test Runs](/sdk/entities/test-runs) to track execution results
+  - Use [Synthesizers](/sdk/synthesizers) to generate tests automatically
+</Callout>
