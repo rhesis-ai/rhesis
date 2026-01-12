@@ -4,8 +4,9 @@ Association Relationship Fixtures
 Fixtures for creating many-to-many and association relationships.
 """
 
+from typing import Any, Dict
+
 import pytest
-from typing import Dict, Any
 from fastapi.testclient import TestClient
 
 

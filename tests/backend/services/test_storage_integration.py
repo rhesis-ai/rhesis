@@ -12,6 +12,7 @@ from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 from rhesis.backend.app.services.storage_service import StorageService
 
 from .base import BaseStorageIntegrationTests, StorageIntegrationTestMixin

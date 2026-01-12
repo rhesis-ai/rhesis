@@ -17,15 +17,14 @@ Run with: python -m pytest tests/backend/routes/test_prompt_template.py -v
 """
 
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
 
 import pytest
 from faker import Faker
 from fastapi import status
-from fastapi.testclient import TestClient
 
-from .endpoints import APIEndpoints
 from .base import BaseEntityRouteTests, BaseEntityTests
+from .endpoints import APIEndpoints
 from .fixtures.data_factories import PromptTemplateDataFactory
 
 # Initialize Faker

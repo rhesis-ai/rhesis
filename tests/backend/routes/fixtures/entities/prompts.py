@@ -7,6 +7,7 @@ Fixtures for creating prompt entities and related relationships.
 import pytest
 from faker import Faker
 from sqlalchemy.orm import Session
+
 from rhesis.backend.app.models.prompt import Prompt
 
 fake = Faker()

@@ -4,11 +4,11 @@ import json
 from unittest.mock import Mock, patch
 
 import pytest
+
 from rhesis.penelope.context import TestContext, TestState
 from rhesis.penelope.executor import TurnExecutor
 from rhesis.penelope.schemas import AssistantMessage, ToolMessage
 from rhesis.penelope.tools.base import Tool, ToolResult
-
 from rhesis.sdk.models.base import BaseLLM
 
 

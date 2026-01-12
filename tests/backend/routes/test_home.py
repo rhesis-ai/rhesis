@@ -5,8 +5,9 @@ Tests for the home router endpoints including authentication scenarios,
 response formats, and user experience flows.
 """
 
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
 from fastapi import status
 from fastapi.testclient import TestClient
 
@@ -432,9 +433,10 @@ class TestHomeIntegration:
 
         Verifies proper access control behavior.
         """
+        from fastapi import HTTPException
+
         from rhesis.backend.app.auth.user_utils import require_current_user
         from rhesis.backend.app.main import app
-        from fastapi import HTTPException
 
         # Step 1: Unauthenticated access should fail
         def mock_require_user_fail():
@@ -498,6 +500,7 @@ class TestHomePerformance:
         Should respond quickly even with authentication overhead.
         """
         import time
+
         from rhesis.backend.app.auth.user_utils import require_current_user
         from rhesis.backend.app.main import app
 

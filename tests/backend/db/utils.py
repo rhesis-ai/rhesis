@@ -9,12 +9,11 @@ pytest from attempting to collect the utility classes as tests.
 """
 
 import os
-import tempfile
-from typing import Generator, Optional
 from contextlib import contextmanager
+from typing import Generator, Optional
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from rhesis.backend.app.database import Base
 

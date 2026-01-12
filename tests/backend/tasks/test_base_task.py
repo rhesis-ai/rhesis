@@ -9,14 +9,14 @@ This module tests the BaseTask class including:
 - Task decorators and utilities
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
 from contextlib import contextmanager
-from sqlalchemy.orm import Session
-from celery import Task
 from typing import Optional, Tuple
+from unittest.mock import Mock, patch
 
-from rhesis.backend.tasks.base import BaseTask, email_notification
+import pytest
+from sqlalchemy.orm import Session
+
+from rhesis.backend.tasks.base import email_notification
 
 
 class MockTask:

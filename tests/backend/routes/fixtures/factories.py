@@ -16,11 +16,10 @@ Usage:
         # Automatic cleanup happens after test
 """
 
-import pytest
-from typing import Dict, Any, List, Optional, Protocol
-from fastapi.testclient import TestClient
+from typing import Any, Dict, List, Protocol
+
 from fastapi import status
-import uuid
+from fastapi.testclient import TestClient
 
 from ..endpoints import APIEndpoints
 

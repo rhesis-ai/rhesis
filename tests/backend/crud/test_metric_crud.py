@@ -31,8 +31,9 @@ class TestMetricOperations:
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         """Test successful metric retrieval with relationships"""
-        from tests.backend.routes.fixtures.data_factories import MetricDataFactory
         import uuid
+
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory
 
         # Create metric using data factory
         metric_data = MetricDataFactory.sample_data()
@@ -65,8 +66,9 @@ class TestMetricOperations:
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         """Test successful metrics listing"""
-        from tests.backend.routes.fixtures.data_factories import MetricDataFactory
         import uuid
+
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory
 
         # Create multiple metrics using data factory
         metric_data_1 = MetricDataFactory.sample_data()
@@ -111,11 +113,12 @@ class TestBehaviorMetricOperations:
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         """Test successful behavior addition to metric"""
-        from tests.backend.routes.fixtures.data_factories import (
-            MetricDataFactory,
-            BehaviorDataFactory,
-        )
         import uuid
+
+        from tests.backend.routes.fixtures.data_factories import (
+            BehaviorDataFactory,
+            MetricDataFactory,
+        )
 
         # Create metric and behavior using data factories
         metric_data = MetricDataFactory.sample_data()
@@ -160,11 +163,12 @@ class TestBehaviorMetricOperations:
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         """Test adding duplicate behavior to metric"""
-        from tests.backend.routes.fixtures.data_factories import (
-            MetricDataFactory,
-            BehaviorDataFactory,
-        )
         import uuid
+
+        from tests.backend.routes.fixtures.data_factories import (
+            BehaviorDataFactory,
+            MetricDataFactory,
+        )
 
         # Create metric and behavior using data factories
         metric_data = MetricDataFactory.sample_data()
@@ -208,11 +212,12 @@ class TestBehaviorMetricOperations:
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         """Test successful behavior removal from metric"""
-        from tests.backend.routes.fixtures.data_factories import (
-            MetricDataFactory,
-            BehaviorDataFactory,
-        )
         import uuid
+
+        from tests.backend.routes.fixtures.data_factories import (
+            BehaviorDataFactory,
+            MetricDataFactory,
+        )
 
         # Create metric and behavior using data factories
         metric_data = MetricDataFactory.sample_data()
@@ -266,11 +271,12 @@ class TestBehaviorMetricOperations:
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         """Test behavior removal with non-existent association"""
-        from tests.backend.routes.fixtures.data_factories import (
-            MetricDataFactory,
-            BehaviorDataFactory,
-        )
         import uuid
+
+        from tests.backend.routes.fixtures.data_factories import (
+            BehaviorDataFactory,
+            MetricDataFactory,
+        )
 
         # Create metric and behavior but no association using data factories
         metric_data = MetricDataFactory.sample_data()
@@ -316,8 +322,9 @@ class TestBehaviorMetricOperations:
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         """Test behavior removal with non-existent behavior"""
-        from tests.backend.routes.fixtures.data_factories import MetricDataFactory
         import uuid
+
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory
 
         # Create metric using data factory
         metric_data = MetricDataFactory.sample_data()

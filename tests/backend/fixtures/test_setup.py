@@ -13,16 +13,16 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 # Import backend modules
-from rhesis.backend.app import models, crud
-from rhesis.backend.app.database import get_database_url, get_db
-from rhesis.backend.app.schemas import UserCreate, OrganizationCreate
+from rhesis.backend.app import crud, models
+from rhesis.backend.app.auth.token_utils import generate_api_token
+from rhesis.backend.app.database import get_database_url
+from rhesis.backend.app.schemas import OrganizationCreate, UserCreate
 from rhesis.backend.app.schemas.token import TokenCreate
 from rhesis.backend.app.services.organization import load_initial_data
-from rhesis.backend.app.auth.token_utils import generate_api_token
 from rhesis.backend.app.utils.encryption import hash_token
 
 

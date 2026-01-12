@@ -5,7 +5,7 @@ This module provides intelligent auto-detection of user relationship fields
 (user_id, owner_id, assignee_id) for entity test classes using multiple strategies.
 """
 
-from typing import Dict, Any, Set
+from typing import Any, Dict, Set
 
 
 class UserFieldDetector:
@@ -87,9 +87,9 @@ class UserFieldDetector:
             # Try different import paths where models might be located
             import_paths = [
                 f"rhesis.backend.app.models.{test_class.entity_name}",
-                f"rhesis.backend.app.models",
+                "rhesis.backend.app.models",
                 f"apps.backend.src.rhesis.backend.app.models.{test_class.entity_name}",
-                f"apps.backend.src.rhesis.backend.app.models",
+                "apps.backend.src.rhesis.backend.app.models",
             ]
 
             model_class = None

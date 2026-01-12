@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from pydantic import BaseModel
+
 from rhesis.sdk.models import LiteLLM
 
 

@@ -100,8 +100,9 @@ class TestTagOperations:
     ):
         """Test successful tag removal from entity"""
         # Create tag using data factory
-        from tests.backend.routes.fixtures.data_factories import TagDataFactory
         import uuid
+
+        from tests.backend.routes.fixtures.data_factories import TagDataFactory
 
         tag_data = TagDataFactory.sample_data()
         tag_data.update(

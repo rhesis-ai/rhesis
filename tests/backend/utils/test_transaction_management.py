@@ -17,18 +17,17 @@ Functions tested from app/utils/crud_utils.py:
 Run with: python -m pytest tests/backend/utils/test_transaction_management.py -v
 """
 
-import pytest
 import uuid
-from unittest.mock import patch, MagicMock
+
+import pytest
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 
 from rhesis.backend.app import models
 from rhesis.backend.app.utils import crud_utils
 from tests.backend.routes.fixtures.data_factories import (
     BehaviorDataFactory,
-    TopicDataFactory,
     CategoryDataFactory,
+    TopicDataFactory,
 )
 
 
@@ -41,7 +40,6 @@ class TestCRUDUtilsTransactionManagement:
     def test_create_db_item_commits_on_success(self, test_db: Session):
         """Test that _create_db_item_with_transaction commits automatically on success"""
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
-        import uuid
 
         # Create test organization and user
         unique_id = str(uuid.uuid4())[:8]
@@ -75,7 +73,6 @@ class TestCRUDUtilsTransactionManagement:
     def test_create_db_item_with_commit_false_still_persists(self, test_db: Session):
         """Test that _create_db_item_with_transaction still persists data when commit=False (session context manager handles commit)"""
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
-        import uuid
 
         # Create test organization and user
         unique_id = str(uuid.uuid4())[:8]
@@ -110,7 +107,6 @@ class TestCRUDUtilsTransactionManagement:
     def test_update_item_commits_on_success(self, test_db: Session):
         """Test that update_item commits automatically on success"""
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
-        import uuid
 
         # Create test organization and user
         unique_id = str(uuid.uuid4())[:8]
@@ -155,7 +151,6 @@ class TestCRUDUtilsTransactionManagement:
     def test_delete_item_commits_on_success(self, test_db: Session):
         """Test that delete_item commits automatically on success"""
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
-        import uuid
 
         # Create test organization and user
         unique_id = str(uuid.uuid4())[:8]
@@ -200,7 +195,6 @@ class TestCRUDUtilsTransactionManagement:
     def test_create_item_commits_on_success(self, test_db: Session):
         """Test that create_item commits automatically on success"""
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
-        import uuid
 
         # Create test organization and user
         unique_id = str(uuid.uuid4())[:8]
@@ -233,7 +227,6 @@ class TestCRUDUtilsTransactionManagement:
     def test_get_or_create_entity_commits_on_create(self, test_db: Session):
         """Test that get_or_create_entity commits automatically when creating new entity"""
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
-        import uuid
 
         # Create test organization and user
         unique_id = str(uuid.uuid4())[:8]
@@ -266,7 +259,6 @@ class TestCRUDUtilsTransactionManagement:
     def test_get_or_create_entity_returns_existing(self, test_db: Session):
         """Test that get_or_create_entity returns existing entity without creating duplicate"""
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
-        import uuid
 
         # Create test organization and user
         unique_id = str(uuid.uuid4())[:8]
@@ -310,7 +302,6 @@ class TestCRUDUtilsTransactionManagement:
     def test_multiple_operations_transaction_isolation(self, test_db: Session):
         """Test that multiple CRUD utility operations maintain proper transaction isolation"""
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
-        import uuid
 
         # Create test organization and user
         unique_id = str(uuid.uuid4())[:8]
@@ -361,7 +352,6 @@ class TestCRUDUtilsTransactionManagement:
     def test_update_item_with_invalid_id_returns_none(self, test_db: Session):
         """Test that update_item returns None for non-existent item without causing transaction issues"""
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
-        import uuid
 
         # Create test organization and user
         unique_id = str(uuid.uuid4())[:8]
@@ -392,7 +382,6 @@ class TestCRUDUtilsTransactionManagement:
     def test_delete_item_with_invalid_id_returns_none(self, test_db: Session):
         """Test that delete_item returns None for non-existent item without causing transaction issues"""
         from tests.backend.fixtures.test_setup import create_test_organization_and_user
-        import uuid
 
         # Create test organization and user
         unique_id = str(uuid.uuid4())[:8]

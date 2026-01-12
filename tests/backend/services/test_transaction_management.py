@@ -18,23 +18,17 @@ Functions tested from services:
 Run with: python -m pytest tests/backend/services/test_transaction_management.py -v
 """
 
-import pytest
 import uuid
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 
-from rhesis.backend.app import models, schemas
+import pytest
+from sqlalchemy.orm import Session
+
+from rhesis.backend.app import models
 from rhesis.backend.app.models.status import Status
 from rhesis.backend.app.models.test import test_test_set_association
-from rhesis.backend.app.services import test_set as test_set_service
-from rhesis.backend.app.services import test as test_service
 from rhesis.backend.app.services import organization as organization_service
-from tests.backend.routes.fixtures.data_factories import TestDataFactory, generate_test_data
-from tests.backend.routes.fixtures.entities.test_sets import db_test_set, db_test_set_with_tests
-from tests.backend.routes.fixtures.entities.test_runs import db_test_run, db_test_run_running
-from tests.backend.routes.fixtures.entities.tests import db_test
-from tests.backend.routes.fixtures.entities.users import db_user
-from tests.backend.routes.fixtures.entities.statuses import db_status
+from rhesis.backend.app.services import test as test_service
+from rhesis.backend.app.services import test_set as test_set_service
 
 
 @pytest.mark.unit

@@ -16,9 +16,8 @@ Usage:
     Use factory fixtures for entity creation, data fixtures for test data.
 """
 
+
 import pytest
-from typing import Generator, Dict, Any
-from fastapi.testclient import TestClient
 
 # Import all fixtures from the enhanced fixtures package
 try:
@@ -27,46 +26,11 @@ except AttributeError:
     # Fallback to direct imports if __all__ export fails
     pass
 
-from .fixtures.factories import EntityFactory
 from .fixtures.data_factories import generate_test_data
 
 # Explicit imports for all fixtures to ensure availability
-from .fixtures.factory_fixtures import (
-    behavior_factory,
-    topic_factory,
-    category_factory,
-    comment_factory,
-    metric_factory,
-    dimension_factory,
-    endpoint_factory,
-    model_factory,
-    project_factory,
-    prompt_factory,
-    behavior_data,
-    minimal_behavior_data,
-    behavior_update_data,
-    topic_data,
-    minimal_topic_data,
-    topic_update_data,
-    category_data,
-    metric_data,
-    model_data,
-    dimension_data,
-    project_data,
-    minimal_project_data,
-    project_update_data,
-    prompt_data,
-    minimal_prompt_data,
-    prompt_update_data,
-    # Composite fixtures
-    behavior_with_metrics,
-    large_entity_batch,
-    topic_hierarchy,
-)
-
 # Import entity fixtures
 from .fixtures.entities import *
-
 
 # === ENHANCED DATA FIXTURES ===
 

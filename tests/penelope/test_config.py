@@ -3,6 +3,7 @@
 import logging
 
 import pytest
+
 from rhesis.penelope.config import PenelopeConfig
 
 

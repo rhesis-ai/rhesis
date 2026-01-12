@@ -3,10 +3,10 @@
 from unittest.mock import Mock, patch
 
 import pytest
+
 from rhesis.penelope.agent import PenelopeAgent, _create_default_model
 from rhesis.penelope.context import TestContext, TestState
 from rhesis.penelope.targets.base import Target
-
 from rhesis.sdk.metrics.providers.native import GoalAchievementJudge
 from rhesis.sdk.models.base import BaseLLM
 

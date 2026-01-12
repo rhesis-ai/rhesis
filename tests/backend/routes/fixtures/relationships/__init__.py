@@ -10,9 +10,9 @@ Modules:
 - associations.py: Many-to-many associations between entities
 """
 
+from .associations import *
 from .demographics import *
 from .hierarchies import *
-from .associations import *
 
 __all__ = [
     # Demographic relationships

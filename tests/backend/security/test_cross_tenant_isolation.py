@@ -6,13 +6,12 @@ different organizations (tenants) and prevent unauthorized cross-tenant data acc
 """
 
 import uuid
-import pytest
-from sqlalchemy.orm import Session
 from unittest.mock import Mock
 
-from rhesis.backend.app import models, crud
+import pytest
+
+from rhesis.backend.app import crud, models
 from rhesis.backend.app.services.task_management import validate_task_organization_constraints
-from rhesis.backend.app.auth.permissions import ResourcePermission
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
 

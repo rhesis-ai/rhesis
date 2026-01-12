@@ -5,8 +5,9 @@ These tests verify the current behavior of functions before they are refactored
 to use the new direct parameter passing approach.
 """
 
+from unittest.mock import ANY, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, ANY
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models

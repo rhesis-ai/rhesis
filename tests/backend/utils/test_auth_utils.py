@@ -9,24 +9,25 @@ This module tests authentication utility functions including:
 - Tenant context setting in authentication flows
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from fastapi import Request, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
 from contextlib import contextmanager
-from jose import JWTError
 from datetime import datetime, timezone
+from unittest.mock import Mock, patch
+
+import pytest
+from fastapi import HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials
+from jose import JWTError
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.auth_utils import (
-    get_current_user,
-    verify_jwt_token,
-    validate_token,
     get_authenticated_user_with_context,
+    get_current_user,
     get_secret_key,
+    validate_token,
+    verify_jwt_token,
 )
-from rhesis.backend.app.models.user import User
 from rhesis.backend.app.models.token import Token
+from rhesis.backend.app.models.user import User
 
 
 class TestGetSecretKey:

@@ -1,8 +1,8 @@
 """Tests for prompt loader."""
 
-import pytest
 from pathlib import Path
-from rhesis.penelope.prompts.loader import PromptLoader, get_loader, render_template
+
+from rhesis.penelope.prompts.loader import PromptLoader, get_loader
 
 
 def test_prompt_loader_initialization_default():

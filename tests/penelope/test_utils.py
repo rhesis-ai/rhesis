@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
+
 from rhesis.penelope.utils import (
     GoalAchievedCondition,
     MaxIterationsCondition,
@@ -146,7 +147,7 @@ def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
 
 def test_goal_achieved_condition_should_stop_goal_impossible(sample_test_state):
     """Test GoalAchievedCondition stops when goal is impossible (low score after 5+ turns)."""
-    from rhesis.penelope.context import Turn, ToolExecution
+    from rhesis.penelope.context import ToolExecution, Turn
     from rhesis.penelope.schemas import AssistantMessage, FunctionCall, MessageToolCall, ToolMessage
 
     mock_result = Mock()

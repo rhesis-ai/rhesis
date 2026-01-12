@@ -13,9 +13,8 @@ Usage:
     response = client.get(APIEndpoints.TOPICS.list)
 """
 
-from enum import Enum
 from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 class EndpointBase:

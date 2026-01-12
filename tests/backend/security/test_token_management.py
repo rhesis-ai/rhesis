@@ -6,11 +6,12 @@ including token scoping, revocation, and organization-based access control.
 """
 
 import uuid
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import models, crud
+from rhesis.backend.app import crud
 
 
 @pytest.mark.security
@@ -110,9 +111,10 @@ class TestTokenOrganizationSecurity:
         )
 
         # Create a token with organization scoping
+        import secrets
+
         from rhesis.backend.app.schemas.token import TokenCreate
         from rhesis.backend.app.utils.encryption import hash_token
-        import secrets
 
         token_value = secrets.token_urlsafe(32)
         token_data = TokenCreate(
@@ -159,9 +161,10 @@ class TestTokenOrganizationSecurity:
         )
 
         # Create a token in org1
+        import secrets
+
         from rhesis.backend.app.schemas.token import TokenCreate
         from rhesis.backend.app.utils.encryption import hash_token
-        import secrets
 
         token_value1 = secrets.token_urlsafe(32)
         token_data = TokenCreate(

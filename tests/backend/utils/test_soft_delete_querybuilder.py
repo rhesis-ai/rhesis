@@ -8,20 +8,20 @@ These tests verify the QueryBuilder's soft deletion capabilities including:
 - Method chaining with other QueryBuilder methods
 """
 
+
 import pytest
-from datetime import datetime
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.database import without_soft_delete_filter
 from rhesis.backend.app.utils import crud_utils
 from rhesis.backend.app.utils.model_utils import QueryBuilder
-from rhesis.backend.app.database import without_soft_delete_filter
 
 # Use existing data factories
 from tests.backend.routes.fixtures.data_factories import (
     BehaviorDataFactory,
-    TopicDataFactory,
     CategoryDataFactory,
+    TopicDataFactory,
 )
 
 

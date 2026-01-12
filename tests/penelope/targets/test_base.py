@@ -1,6 +1,7 @@
 """Tests for base Target class."""
 
 import pytest
+
 from rhesis.penelope.targets.base import Target, TargetResponse
 
 

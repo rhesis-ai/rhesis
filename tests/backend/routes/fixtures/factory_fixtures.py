@@ -17,31 +17,30 @@ Usage:
         # All cleaned up automatically
 """
 
-import pytest
 from typing import Generator
+
+import pytest
 from fastapi.testclient import TestClient
 
-from .factories import (
-    EntityFactory,
-    BehaviorFactory,
-    TopicFactory,
-    create_behavior_factory,
-    create_topic_factory,
-    create_generic_factory,
-)
+from ..endpoints import APIEndpoints
 from .data_factories import (
     BehaviorDataFactory,
-    TopicDataFactory,
     CategoryDataFactory,
-    CommentDataFactory,
+    DimensionDataFactory,
     MetricDataFactory,
     ModelDataFactory,
-    DimensionDataFactory,
     ProjectDataFactory,
     PromptDataFactory,
+    TopicDataFactory,
 )
-from ..endpoints import APIEndpoints
-
+from .factories import (
+    BehaviorFactory,
+    EntityFactory,
+    TopicFactory,
+    create_behavior_factory,
+    create_generic_factory,
+    create_topic_factory,
+)
 
 # === ENTITY FACTORY FIXTURES ===
 

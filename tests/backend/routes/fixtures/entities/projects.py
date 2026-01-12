@@ -7,6 +7,7 @@ Fixtures for creating project entities and related relationships.
 import pytest
 from faker import Faker
 from sqlalchemy.orm import Session
+
 from rhesis.backend.app.models.project import Project
 
 fake = Faker()

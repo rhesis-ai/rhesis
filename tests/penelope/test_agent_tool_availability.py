@@ -5,8 +5,9 @@ These tests validate that the LLM receives information about available tools,
 preventing issues where the LLM hallucinates non-existent tool names.
 """
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from rhesis.penelope.agent import PenelopeAgent
 from rhesis.penelope.targets.base import Target, TargetResponse

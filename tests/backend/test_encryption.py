@@ -1,15 +1,17 @@
 import os
+
 import pytest
 from cryptography.fernet import Fernet
+
 from rhesis.backend.app.utils.encryption import (
-    encrypt,
-    decrypt,
-    is_encrypted,
-    get_encryption_key,
-    EncryptionKeyNotFoundError,
-    EncryptionError,
     DecryptionError,
     EncryptedString,
+    EncryptionError,
+    EncryptionKeyNotFoundError,
+    decrypt,
+    encrypt,
+    get_encryption_key,
+    is_encrypted,
 )
 
 
