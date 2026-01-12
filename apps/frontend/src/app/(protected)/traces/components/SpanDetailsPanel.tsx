@@ -346,7 +346,8 @@ export default function SpanDetailsPanel({
                                   : theme.palette.grey[100],
                               borderRadius: theme => theme.shape.borderRadius,
                               overflow: 'auto',
-                              fontSize: theme => theme.typography.body2.fontSize,
+                              fontSize: theme =>
+                                theme.typography.body2.fontSize,
                               fontFamily: 'monospace',
                               margin: 0,
                               maxHeight: 200,
@@ -377,7 +378,8 @@ export default function SpanDetailsPanel({
                                   : theme.palette.grey[100],
                               borderRadius: theme => theme.shape.borderRadius,
                               overflow: 'auto',
-                              fontSize: theme => theme.typography.body2.fontSize,
+                              fontSize: theme =>
+                                theme.typography.body2.fontSize,
                               fontFamily: 'monospace',
                               margin: 0,
                               maxHeight: 200,
