@@ -28,6 +28,7 @@ async def generate(
 
     Requires API key authentication via Bearer token.
     Rate limited to 100 requests per day per authenticated user.
+    Users with @rhesis.ai email addresses are exempt from rate limiting.
 
     Accepts:
         {

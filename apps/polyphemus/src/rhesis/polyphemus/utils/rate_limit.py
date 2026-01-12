@@ -62,8 +62,16 @@ async def check_rate_limit(
     Rate limit dependency that runs after authentication.
 
     This ensures request.state.user_id is set before rate limiting is checked.
+
+    Users with email addresses ending in @rhesis.ai are exempt from rate limiting.
     """
     user_id = str(current_user.id)
+
+    # Skip rate limiting for users with @rhesis.ai email addresses
+    if current_user.email.endswith("@rhesis.ai"):
+        logger.info(f"Rate limit bypassed for @rhesis.ai user: {current_user.email}")
+        return current_user
+
     identifier = f"user:{user_id}"
 
     # Manually perform rate limit check using slowapi's internal limiter
