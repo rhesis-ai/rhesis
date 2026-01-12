@@ -394,6 +394,8 @@ __all__ = [
     "dimension_factory",
     "demographic_factory",
     "endpoint_factory",
+    "project_factory",
+    "prompt_factory",
     # Data fixtures
     "behavior_data",
     "minimal_behavior_data",
@@ -405,6 +407,12 @@ __all__ = [
     "metric_data",
     "model_data",
     "dimension_data",
+    "project_data",
+    "minimal_project_data",
+    "project_update_data",
+    "prompt_data",
+    "minimal_prompt_data",
+    "prompt_update_data",
     # Edge case fixtures
     "long_name_behavior_data",
     "special_chars_behavior_data",
