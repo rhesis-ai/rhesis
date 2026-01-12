@@ -9,20 +9,19 @@ This module tests user utility functions including:
 - Tenant context setting in user authentication flows
 """
 
-import pytest
 import uuid
-from unittest.mock import Mock, patch, MagicMock
-from fastapi import Request, HTTPException
+from datetime import datetime, timezone
+from unittest.mock import Mock, patch
+
+import pytest
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from contextlib import contextmanager
-from datetime import datetime, timezone
 
 from rhesis.backend.app.auth.user_utils import (
     find_or_create_user,
+    get_authenticated_user_with_context,
     get_current_user,
     get_user_from_jwt,
-    get_authenticated_user_with_context,
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas import UserCreate
@@ -212,7 +211,6 @@ class TestGetCurrentUser:
     async def test_get_current_user_without_organization(self, test_db: Session):
         """Test get_current_user with user having no organization - should return None"""
         from rhesis.backend.app import crud
-        from rhesis.backend.app.schemas import UserCreate
 
         # Create a user WITHOUT an organization (unique email for each run)
         user_data = UserCreate(

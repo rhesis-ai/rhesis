@@ -6,6 +6,7 @@ import pytest
 
 from rhesis.sdk import decorators
 from rhesis.sdk.decorators import observe
+from rhesis.sdk.decorators import _state as decorators_state
 from rhesis.sdk.telemetry.attributes import AIAttributes
 
 
@@ -44,7 +45,7 @@ class TestConvenienceDecorators:
 
     def test_observe_llm_decorator(self, mock_client_with_tracer):
         """Test @observe.llm() creates correct span and attributes."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe.llm(provider="openai", model="gpt-4", temperature=0.7)
         def generate_text(prompt: str) -> str:
@@ -62,11 +63,11 @@ class TestConvenienceDecorators:
         assert extra_attrs[AIAttributes.MODEL_NAME] == "gpt-4"
         assert extra_attrs["temperature"] == 0.7
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_tool_decorator(self, mock_client_with_tracer):
         """Test @observe.tool() creates correct span and attributes."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe.tool(name="weather_api", tool_type="http", timeout=30)
         def get_weather(city: str) -> dict:
@@ -84,11 +85,11 @@ class TestConvenienceDecorators:
         assert extra_attrs[AIAttributes.TOOL_TYPE] == "http"
         assert extra_attrs["timeout"] == 30
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_retrieval_decorator(self, mock_client_with_tracer):
         """Test @observe.retrieval() creates correct span and attributes."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe.retrieval(backend="vector_db", top_k=5)
         def search_docs(query: str) -> list:
@@ -103,11 +104,11 @@ class TestConvenienceDecorators:
         extra_attrs = call_args[0][5]
         assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_RETRIEVAL
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_embedding_decorator(self, mock_client_with_tracer):
         """Test @observe.embedding() creates correct span and attributes."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe.embedding(model="text-embedding-ada-002", dimensions=1536)
         def embed_text(text: str) -> list:
@@ -122,11 +123,11 @@ class TestConvenienceDecorators:
         extra_attrs = call_args[0][5]
         assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_EMBEDDING_CREATE
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_rerank_decorator(self, mock_client_with_tracer):
         """Test @observe.rerank() creates correct span and attributes."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe.rerank(model="rerank-english-v2.0", top_n=3)
         def rerank_docs(query: str, docs: list) -> list:
@@ -141,11 +142,11 @@ class TestConvenienceDecorators:
         extra_attrs = call_args[0][5]
         assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_RERANK
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_evaluation_decorator(self, mock_client_with_tracer):
         """Test @observe.evaluation() creates correct span and attributes."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe.evaluation(metric="accuracy", evaluator="deepeval")
         def evaluate_response(response: str, expected: str) -> float:
@@ -160,11 +161,11 @@ class TestConvenienceDecorators:
         extra_attrs = call_args[0][5]
         assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_EVALUATION
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_guardrail_decorator(self, mock_client_with_tracer):
         """Test @observe.guardrail() creates correct span and attributes."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe.guardrail(guardrail_type="content_filter", provider="guardrails")
         def check_content(text: str) -> bool:
@@ -179,11 +180,11 @@ class TestConvenienceDecorators:
         extra_attrs = call_args[0][5]
         assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_GUARDRAIL
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_observe_transform_decorator(self, mock_client_with_tracer):
         """Test @observe.transform() creates correct span and attributes."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe.transform(transform_type="text_to_json", operation="parse")
         def parse_response(text: str) -> dict:
@@ -198,11 +199,11 @@ class TestConvenienceDecorators:
         extra_attrs = call_args[0][5]
         assert extra_attrs[AIAttributes.OPERATION_TYPE] == AIAttributes.OPERATION_TRANSFORM
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_convenience_decorators_without_client_raise_error(self):
         """Test that convenience decorators raise error without client."""
-        decorators._default_client = None
+        decorators_state._default_client = None
 
         @observe.llm(provider="openai", model="gpt-4")
         def generate_text(prompt: str) -> str:
@@ -213,7 +214,7 @@ class TestConvenienceDecorators:
 
     def test_convenience_decorators_support_async_functions(self, mock_client_with_tracer):
         """Test that convenience decorators work with async functions."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe.llm(provider="openai", model="gpt-4")
         async def async_generate(prompt: str) -> str:
@@ -223,11 +224,11 @@ class TestConvenienceDecorators:
         # For this test, we just verify the decorator doesn't break
         assert callable(async_generate)
 
-        decorators._default_client = None
+        decorators_state._default_client = None
 
     def test_convenience_decorators_support_generator_functions(self, mock_client_with_tracer):
         """Test that convenience decorators work with generator functions."""
-        decorators._default_client = mock_client_with_tracer
+        decorators_state._default_client = mock_client_with_tracer
 
         @observe.llm(provider="openai", model="gpt-4")
         def stream_tokens(prompt: str):
@@ -239,4 +240,4 @@ class TestConvenienceDecorators:
 
         mock_client_with_tracer._tracer.trace_execution.assert_called_once()
 
-        decorators._default_client = None
+        decorators_state._default_client = None

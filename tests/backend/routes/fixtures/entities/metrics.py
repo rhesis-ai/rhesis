@@ -4,12 +4,13 @@ Metric Fixtures
 Fixtures for creating metric entities.
 """
 
-import pytest
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
+
+import pytest
+from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
-from faker import Faker
 
 from ...endpoints import APIEndpoints
 

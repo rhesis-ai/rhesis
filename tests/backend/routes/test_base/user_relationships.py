@@ -6,7 +6,6 @@ This module provides comprehensive testing for user relationship fields
 assignment changes, and validation scenarios.
 """
 
-import uuid
 
 import pytest
 from faker import Faker

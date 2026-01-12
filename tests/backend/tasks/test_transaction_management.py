@@ -16,20 +16,16 @@ Functions tested from tasks:
 Run with: python -m pytest tests/backend/tasks/test_transaction_management.py -v
 """
 
-import pytest
 import uuid
 from datetime import datetime
+
+import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.tasks.execution import result_processor
 from rhesis.backend.tasks.enums import RunStatus
+from rhesis.backend.tasks.execution import result_processor
 from tests.backend.routes.fixtures.data_factories import TestDataFactory
-from tests.backend.routes.fixtures.entities.test_sets import db_test_set, db_test_set_with_tests
-from tests.backend.routes.fixtures.entities.test_runs import db_test_run, db_test_run_running
-from tests.backend.routes.fixtures.entities.tests import db_test
-from tests.backend.routes.fixtures.entities.users import db_user
-from tests.backend.routes.fixtures.entities.statuses import db_status
 
 
 @pytest.mark.unit
@@ -159,7 +155,7 @@ class TestTaskTransactionManagement:
             # Simulate an error that would have triggered manual rollback before refactoring
             raise Exception("Simulated task execution error")
 
-        except Exception as e:
+        except Exception:
             # After refactoring, we don't manually call db.rollback()
             # The session context manager should handle this
 

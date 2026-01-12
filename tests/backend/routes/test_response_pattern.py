@@ -17,16 +17,15 @@ Run with: python -m pytest tests/backend/routes/test_response_pattern.py -v
 """
 
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
 
 import pytest
 from faker import Faker
 from fastapi import status
-from fastapi.testclient import TestClient
 
-from .endpoints import APIEndpoints
 from .base import BaseEntityRouteTests, BaseEntityTests
-from .fixtures.data_factories import ResponsePatternDataFactory, BehaviorDataFactory
+from .endpoints import APIEndpoints
+from .fixtures.data_factories import BehaviorDataFactory, ResponsePatternDataFactory
 
 # Initialize Faker
 fake = Faker()
@@ -46,7 +45,6 @@ class ResponsePatternTestMixin:
 
     def _create_test_behavior(self, behavior_factory):
         """Create a behavior for this specific test using factory"""
-        from .fixtures.data_factories import BehaviorDataFactory
 
         # Create a behavior using the factory (automatic cleanup)
         behavior = behavior_factory.create(BehaviorDataFactory.minimal_data())
@@ -89,8 +87,8 @@ class ResponsePatternTestMixin:
     def _get_behavior_from_context(self):
         """Get behavior_id from pytest context when called from base tests"""
         import inspect
+
         from .fixtures.factories import create_behavior_factory
-        from .fixtures.data_factories import BehaviorDataFactory
 
         # Look through the call stack to find the authenticated_client
         for frame_info in inspect.stack():

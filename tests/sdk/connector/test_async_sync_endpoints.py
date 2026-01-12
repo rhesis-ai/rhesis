@@ -11,7 +11,7 @@ from rhesis.sdk.decorators import endpoint
 @pytest.fixture
 def mock_client():
     """Create a mock RhesisClient for testing."""
-    with patch("rhesis.sdk.decorators._default_client") as mock:
+    with patch("rhesis.sdk.decorators._state._default_client") as mock:
         mock._connector_manager = None
         mock._tracer = Mock()
         mock._tracer.trace_execution = Mock(
@@ -327,7 +327,7 @@ class TestEndpointDecoratorEdgeCases:
 
     def test_endpoint_without_client_raises_error(self):
         """Test that using @endpoint without RhesisClient raises error."""
-        with patch("rhesis.sdk.decorators._default_client", None):
+        with patch("rhesis.sdk.decorators._state._default_client", None):
             with pytest.raises(RuntimeError, match="RhesisClient not initialized"):
 
                 @endpoint()

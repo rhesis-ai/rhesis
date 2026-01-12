@@ -5,30 +5,27 @@ These tests verify the current behavior of functions before they are refactored
 to use the new direct parameter passing approach.
 """
 
-import pytest
 import uuid
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import models, schemas
+from rhesis.backend.app import models
 from rhesis.backend.app.services import test as test_service
-from rhesis.backend.app.constants import EntityType
-
-# Import fixtures from routes package
-from tests.backend.routes.fixtures.entities.users import db_user, test_organization
-from tests.backend.routes.fixtures.entities.statuses import test_type_lookup, db_status
 from tests.backend.routes.fixtures.data_factories import (
     BehaviorDataFactory,
-    TopicDataFactory,
     CategoryDataFactory,
     PromptDataFactory,
+    TopicDataFactory,
 )
+
+# Import fixtures from routes package
 
 
 # Use existing data factories instead of custom ones
 def create_test_set_data(**overrides):
     """Create test set data using existing patterns."""
-    from tests.backend.routes.fixtures.data_factories import generate_test_data
     from faker import Faker
 
     fake = Faker()

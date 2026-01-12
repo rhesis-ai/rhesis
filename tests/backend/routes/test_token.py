@@ -19,16 +19,15 @@ Run with: python -m pytest tests/backend/routes/test_token.py -v
 """
 
 import uuid
-from typing import Dict, Any
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from typing import Any, Dict
 
 import pytest
 from faker import Faker
 from fastapi import status
-from fastapi.testclient import TestClient
 
-from .endpoints import APIEndpoints
 from .base import BaseEntityTests
+from .endpoints import APIEndpoints
 from .fixtures.data_factories import TokenDataFactory
 
 # Initialize Faker

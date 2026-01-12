@@ -13,6 +13,6 @@ All fixtures are imported and available through the main conftest.py file.
 
 # Import all fixtures to make them available when importing from this package
 from .auth import *
-from .client import *
 from .cleanup import *
+from .client import *
 from .database import *

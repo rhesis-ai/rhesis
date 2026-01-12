@@ -6,15 +6,18 @@ test databases are properly configured and isolated from production.
 """
 
 import os
+
 import pytest
 from sqlalchemy import text
 
 from rhesis.backend.app.database import SQLALCHEMY_DATABASE_URL, get_database_url
 from tests.backend.db.utils import (
+    DatabaseTestDataManager as TestDataManager,
+)
+from tests.backend.db.utils import (
     assert_test_database_used,
     get_test_database_stats,
     setup_test_environment,
-    DatabaseTestDataManager as TestDataManager,
 )
 
 

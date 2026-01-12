@@ -5,11 +5,10 @@ Git operations for the Rhesis release tool.
 import hashlib
 import re
 import subprocess
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from .config import COMPONENT_PATHS
-from .utils import info, warn, error, success
+from .utils import error, info, success, warn
 
 
 def get_last_tag(component: str) -> Optional[str]:

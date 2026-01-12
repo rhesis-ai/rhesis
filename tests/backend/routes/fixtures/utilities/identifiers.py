@@ -4,8 +4,9 @@
 Fixtures for generating test identifiers, UUIDs, and ID-related test data.
 """
 
-import pytest
 import uuid
+
+import pytest
 
 
 @pytest.fixture

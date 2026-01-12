@@ -3,19 +3,16 @@ Publishing functionality for the Rhesis release tool.
 Handles tag creation, pushing tags, and creating GitHub releases.
 """
 
-import subprocess
-import json
-import urllib.request
-import urllib.error
-import sys
 import os
+import re
+import subprocess
+import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-import re 
-from .config import COMPONENTS, PLATFORM_VERSION_FILE, format_component_name
-from .version import get_current_version
-from .utils import info, warn, error, success, log
+from typing import Dict, List, Optional
 
+from .config import COMPONENTS, format_component_name
+from .utils import error, info, log, success, warn
+from .version import get_current_version
 
 
 def find_repository_root() -> Path:
@@ -320,7 +317,7 @@ def publish_releases(repo_root: Path, dry_run: bool = False) -> bool:
         info("DRY RUN - Would create the following tags:")
         for component, version, tag_name in tags_to_create:
             info(f"  {tag_name}")
-            info(f"    • Create and push tag")
+            info("    • Create and push tag")
             latest_info = " (marked as latest)" if component == "platform" else ""
             info(f"    • Create GitHub release{latest_info}")
         return True

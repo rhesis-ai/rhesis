@@ -7,16 +7,13 @@ Contains the essential structure and common helper methods used by all test clas
 
 import uuid
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Type, Optional
+from typing import Any, Dict, Optional
 
-import pytest
 from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from ..endpoints import APIEndpoints
-from ..faker_utils import TestDataGenerator
-from ..fixtures.data_factories import get_factory, generate_test_data
+from ..fixtures.data_factories import get_factory
 
 # Initialize Faker
 fake = Faker()

@@ -1,7 +1,6 @@
 """
 Custom Sphinx extension to fix Client references in BaseEntity.
 """
-import re
 from sphinx.util import logging
 
 logger = logging.getLogger(__name__)

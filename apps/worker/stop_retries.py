@@ -40,12 +40,13 @@ Requirements:
 - Python environment with access to rhesis.backend.worker
 """
 
-import sys
 import os
-from pathlib import Path
-from dotenv import load_dotenv
-from datetime import datetime
+import sys
 import time
+from datetime import datetime
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Load .env from apps/backend directory
 backend_dir = Path(__file__).parent.parent / "backend"
@@ -55,6 +56,7 @@ if env_file.exists():
     load_dotenv(env_file)
 
 from celery.result import AsyncResult
+
 from rhesis.backend.worker import app as celery_app
 
 

@@ -19,15 +19,16 @@ Examples:
 """
 
 import argparse
+import inspect
 import json
 import sys
 import time
-import inspect
-from typing import Any, Dict, Optional
+from typing import Optional
+
+from rhesis.backend.tasks import task_launcher
 
 # Import the Celery app and task_launcher
 from rhesis.backend.worker import app as celery_app
-from rhesis.backend.tasks import task_launcher
 
 
 class MockUser:
@@ -162,11 +163,11 @@ def run_task(task_name: str, organization_id: str, user_id: str,
             # Use the original task_launcher for non-bound tasks
             result = task_launcher(task, current_user=mock_user, **kwargs)
             
-        print(f"\nTask submitted successfully!")
+        print("\nTask submitted successfully!")
         print(f"Task ID: {result.id}")
         
         if wait:
-            print(f"\nWaiting for task to complete...")
+            print("\nWaiting for task to complete...")
             if timeout:
                 print(f"Timeout: {timeout} seconds")
             else:

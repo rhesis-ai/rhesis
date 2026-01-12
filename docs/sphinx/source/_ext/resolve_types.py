@@ -2,7 +2,6 @@
 Custom Sphinx extension to handle ambiguous type references.
 """
 
-from docutils import nodes
 from sphinx.util import logging
 
 logger = logging.getLogger(__name__)

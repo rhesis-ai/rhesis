@@ -1,8 +1,9 @@
 """Tests for infinite loop prevention mechanisms in Penelope."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
+
 from rhesis.penelope.agent import PenelopeAgent
 from rhesis.penelope.config import PenelopeConfig
 from rhesis.penelope.context import TestContext, TestState, ToolExecution

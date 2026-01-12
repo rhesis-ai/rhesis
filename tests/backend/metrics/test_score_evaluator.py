@@ -4,8 +4,8 @@ Tests for ScoreEvaluator - validates score evaluation logic for categorical and 
 
 import pytest
 
-from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.constants import ScoreType, ThresholdOperator
+from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 
 
 class TestScoreEvaluator:

@@ -15,25 +15,24 @@ Categories:
 🔑 Authenticated Fixtures: The actual authenticated user from API key
 """
 
-import pytest
-import os
-from typing import Dict, Any, Optional
+from typing import Any, Dict
 from unittest.mock import Mock
-from sqlalchemy.orm import Session
+
+import pytest
 from faker import Faker
 
 # Import models (adjust path as needed)
 try:
-    from rhesis.backend.app.models.user import User
-    from rhesis.backend.app.models.organization import Organization
     from rhesis.backend.app import crud
+    from rhesis.backend.app.models.organization import Organization
+    from rhesis.backend.app.models.user import User
 except ImportError:
     # Fallback for tests that don't need real models
     from typing import TYPE_CHECKING
 
     if TYPE_CHECKING:
-        from rhesis.backend.app.models.user import User
         from rhesis.backend.app.models.organization import Organization
+        from rhesis.backend.app.models.user import User
     else:
         User = None
         Organization = None
@@ -150,8 +149,8 @@ def db_user(test_db, test_org_id):
     if User is None:
         pytest.skip("User model not available")
 
-    import uuid
     import time
+    import uuid
 
     # Generate truly unique data to avoid conflicts between tests
     unique_suffix = f"{int(time.time() * 1000000)}"  # microsecond timestamp

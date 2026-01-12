@@ -15,8 +15,9 @@ Functions tested from routers:
 Run with: python -m pytest tests/backend/routes/test_transaction_management.py -v
 """
 
-import pytest
 import uuid
+
+import pytest
 from fastapi.testclient import TestClient
 
 from rhesis.backend.app import models

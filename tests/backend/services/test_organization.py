@@ -5,18 +5,18 @@ These tests verify the current behavior of functions before they are refactored
 to use the new direct parameter passing approach.
 """
 
-import pytest
-import uuid
 import json
 import os
-from unittest.mock import patch, MagicMock, mock_open
+import uuid
+from unittest.mock import mock_open, patch
+
+import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.services import organization as organization_service
 
 # Use existing data factories from the established pattern
-from tests.backend.routes.fixtures.data_factories import OrganizationDataFactory
 
 
 @pytest.mark.unit
@@ -115,7 +115,6 @@ class TestLoadInitialData:
     ):
         """Integration test: load_initial_data with custom file path that contains minimal data."""
         import tempfile
-        import os
 
         # Create a temporary file with minimal valid initial data
         minimal_data = {
@@ -236,7 +235,6 @@ class TestLoadInitialData:
         self, test_db: Session, authenticated_user_id, test_org_id
     ):
         """Integration test that actually loads real initial data into the database."""
-        import os
         import json
 
         # Load the actual initial data to use as reference
@@ -353,7 +351,7 @@ class TestLoadInitialData:
         )
         assert org_specific_statuses > 0, "Should have organization-specific statuses"
 
-        print(f"✅ Integration test passed! Function works correctly with direct parameter passing")
+        print("✅ Integration test passed! Function works correctly with direct parameter passing")
         print(f"📊 Total records: {final_status_count} statuses, {final_behavior_count} behaviors")
         print(f"🏢 Organization-specific statuses: {org_specific_statuses}")
         print(f"📋 Expected data types: {list(expected_initial_data.keys())}")

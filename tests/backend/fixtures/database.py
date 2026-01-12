@@ -9,14 +9,13 @@ This module contains all database-related fixtures for testing, including:
 Extracted from conftest.py for better modularity and maintainability.
 """
 
-import os
+from uuid import UUID
+
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from uuid import UUID
 
 from rhesis.backend.app.database import Base, get_database_url
-
 
 # Test database configuration - use the same logic as main database file
 # This ensures consistency between test and production database connections
@@ -65,9 +64,9 @@ def setup_test_database():
 def test_db(test_org_id, authenticated_user_id):
     """🗄️ Provide a database session for testing - allows service code to manage transactions."""
     from rhesis.backend.app.database import (
-        clear_tenant_context,
         _current_tenant_organization_id,
         _current_tenant_user_id,
+        clear_tenant_context,
     )
 
     # Create session but let service code manage transactions (like production)
@@ -80,7 +79,7 @@ def test_db(test_org_id, authenticated_user_id):
                 db.execute(
                     text('SET "app.current_organization" = :org_id'), {"org_id": test_org_id}
                 )
-            except (ValueError, TypeError) as e:
+            except (ValueError, TypeError):
                 raise ValueError(f"Invalid test_org_id: {test_org_id}")
 
         if authenticated_user_id:
@@ -89,7 +88,7 @@ def test_db(test_org_id, authenticated_user_id):
                 db.execute(
                     text('SET "app.current_user" = :user_id'), {"user_id": authenticated_user_id}
                 )
-            except (ValueError, TypeError) as e:
+            except (ValueError, TypeError):
                 raise ValueError(f"Invalid authenticated_user_id: {authenticated_user_id}")
 
         # Store in context vars for any legacy code that might need it

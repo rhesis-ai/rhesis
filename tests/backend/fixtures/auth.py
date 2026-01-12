@@ -10,13 +10,13 @@ Extracted from conftest.py for better modularity and maintainability.
 """
 
 import os
-import pytest
-from datetime import datetime
 import uuid
-from typing import Tuple, Optional
+from datetime import datetime
+from typing import Optional, Tuple
+
+import pytest
 
 from .database import TestingSessionLocal
-
 
 # Global session authentication cache
 _session_auth_cache: Optional[Tuple[str, str, str]] = None  # (org_id, user_id, token)
@@ -240,9 +240,10 @@ def project_entity_type(test_db, test_org_id, authenticated_user_id):
 @pytest.fixture
 def secondary_org_id(test_db):
     """🏢 Secondary organization ID for multi-org testing."""
-    from tests.backend.fixtures.test_setup import create_test_organization_and_user
-    from datetime import datetime
     import uuid
+    from datetime import datetime
+
+    from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
     # Create a secondary organization
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

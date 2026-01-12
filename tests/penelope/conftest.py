@@ -11,7 +11,6 @@ if "OPENAI_API_KEY" not in os.environ:
     os.environ["OPENAI_API_KEY"] = "mock-api-key-for-testing"
 from rhesis.penelope.targets.base import Target, TargetResponse
 from rhesis.penelope.tools.base import Tool, ToolResult
-
 from rhesis.sdk.models.base import BaseLLM
 
 

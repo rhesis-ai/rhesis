@@ -10,17 +10,12 @@ Run with: python -m pytest tests/backend/routes/test_auth.py -v
 
 import os
 import uuid
-from unittest.mock import Mock, patch, AsyncMock
-from urllib.parse import parse_qs, urlparse
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
-from jose import jwt
-from sqlalchemy.orm import Session
-
-from .faker_utils import TestDataGenerator
 
 # Initialize Faker
 fake = Faker()

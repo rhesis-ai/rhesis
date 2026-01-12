@@ -2,6 +2,7 @@
 
 import pytest
 from pydantic import ValidationError
+
 from rhesis.penelope.schemas import (
     AnalyzeResponseParams,
     AssistantMessage,

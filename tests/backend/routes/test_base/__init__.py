@@ -48,19 +48,19 @@ class TestMyEntity(BaseEntityRouteTests):
 """
 
 # Core base class and utilities
+from .authentication import BaseAuthenticationTests
 from .core import BaseEntityTests
 
 # Individual test class modules
 from .crud import BaseCRUDTests
-from .user_relationships import BaseUserRelationshipTests
-from .list_operations import BaseListOperationTests
-from .authentication import BaseAuthenticationTests
 from .edge_cases import BaseEdgeCaseTests
-from .performance import BasePerformanceTests
 from .health import BaseHealthTests
+from .list_operations import BaseListOperationTests
+from .performance import BasePerformanceTests
 
 # User field auto-detection
 from .user_detection import UserFieldDetector
+from .user_relationships import BaseUserRelationshipTests
 
 
 # Composite test class that includes all standard tests

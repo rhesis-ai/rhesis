@@ -5,7 +5,6 @@ This module provides comprehensive testing for list operations including
 pagination, sorting, filtering, and user-based filtering.
 """
 
-import uuid
 
 import pytest
 from faker import Faker

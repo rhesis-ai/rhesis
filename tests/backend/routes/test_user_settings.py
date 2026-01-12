@@ -18,12 +18,10 @@ Run with: python -m pytest tests/backend/routes/test_user_settings.py -v
 """
 
 import uuid
-from typing import Dict, Any
 
 import pytest
 from faker import Faker
 from fastapi import status
-from fastapi.testclient import TestClient
 
 # Initialize Faker
 fake = Faker()

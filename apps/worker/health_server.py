@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
+import json
+import logging
 import os
 import signal
-import sys
-import json
 import subprocess
-import time
+import sys
 import threading
+import time
 from datetime import datetime
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import logging
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
 
 # Set up logging
@@ -392,8 +392,9 @@ class HealthHandler(BaseHTTPRequestHandler):
         except Exception as e:
             # Fallback to direct Redis test if Celery method fails
             try:
-                import redis
                 from urllib.parse import urlparse
+
+                import redis
                 
                 broker_url = os.getenv("BROKER_URL", "")
                 if not broker_url:

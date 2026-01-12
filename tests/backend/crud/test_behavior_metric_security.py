@@ -32,8 +32,8 @@ class TestBehaviorMetricSecurity:
     ):
         """🔒 SECURITY: Test that users cannot add behaviors from other organizations to their metrics"""
         from tests.backend.routes.fixtures.data_factories import (
-            MetricDataFactory,
             BehaviorDataFactory,
+            MetricDataFactory,
         )
 
         # Create two separate organizations
@@ -86,8 +86,8 @@ class TestBehaviorMetricSecurity:
     ):
         """🔒 SECURITY: Test that users cannot add behaviors to metrics from other organizations"""
         from tests.backend.routes.fixtures.data_factories import (
-            MetricDataFactory,
             BehaviorDataFactory,
+            MetricDataFactory,
         )
 
         # Create two separate organizations
@@ -131,8 +131,8 @@ class TestBehaviorMetricSecurity:
     ):
         """🔒 SECURITY: Test that users cannot remove behaviors from metrics in other organizations"""
         from tests.backend.routes.fixtures.data_factories import (
-            MetricDataFactory,
             BehaviorDataFactory,
+            MetricDataFactory,
         )
 
         # Create two separate organizations
