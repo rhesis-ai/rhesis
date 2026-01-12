@@ -15,7 +15,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
 from rhesis.backend.logging import logger
-from rhesis.sdk import RhesisClient
+from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientFactory
 from rhesis.sdk.services.mcp.exceptions import (
     MCPApplicationError,
@@ -32,6 +32,18 @@ jinja_env = jinja2.Environment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
+
+# Initialize RhesisClient at module level for @endpoint decorators
+try:
+    RHESIS_CLIENT = RhesisClient(
+        project_id=os.environ["RHESIS_PROJECT_ID"],
+        api_key=os.environ["RHESIS_API_KEY"],
+        environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
+        base_url=os.getenv("RHESIS_BASE_URL", "http://localhost:8080"),
+    )
+except Exception as e:
+    logger.warning(f"Failed to initialize RhesisClient: {e}")
+    RHESIS_CLIENT = None
 
 
 def handle_mcp_exception(e: Exception, operation: str) -> HTTPException:
@@ -87,34 +99,6 @@ def handle_mcp_exception(e: Exception, operation: str) -> HTTPException:
     )
 
 
-def _create_rhesis_client():
-    """
-    Create RhesisClient from environment variables if available.
-
-    Returns:
-        RhesisClient instance if credentials are available, None otherwise
-    """
-    project_id = os.getenv("RHESIS_PROJECT_ID")
-    api_key = os.getenv("RHESIS_API_KEY")
-
-    if not project_id or not api_key:
-        logger.debug("RhesisClient not initialized: missing RHESIS_PROJECT_ID or RHESIS_API_KEY")
-        return None
-
-    try:
-        client = RhesisClient(
-            project_id=project_id,
-            api_key=api_key,
-            environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
-            base_url=os.getenv("RHESIS_BASE_URL", "http://localhost:8080"),
-        )
-        logger.info("RhesisClient initialized successfully for MCP observability")
-        return client
-    except Exception as e:
-        logger.warning(f"Failed to initialize RhesisClient: {e}")
-        return None
-
-
 def _get_agent_class():
     """
     Determine which agent class to use based on RhesisClient availability.
@@ -122,7 +106,7 @@ def _get_agent_class():
     Returns:
         ObservableMCPAgent if RhesisClient is available, otherwise MCPAgent
     """
-    rhesis_client = _create_rhesis_client()
+    rhesis_client = RHESIS_CLIENT
 
     if rhesis_client is not None:
         logger.info("Using ObservableMCPAgent for MCP operations (observability enabled)")
