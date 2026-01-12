@@ -61,7 +61,7 @@ env:
 
 jobs:
   test:
-    name: 🧪 Backend Tests (${{ inputs.test_markers == 'custom' && inputs.custom_markers || inputs.test_markers }})
+    name: 🧪 Backend Tests (${{ inputs.test_markers == 'custom' && inputs.custom_markers || inputs.test_markers || 'all' }})
     runs-on: ubuntu-latest
 
     # 👇 Only apply environment when running on GitHub (not act)

@@ -1,6 +1,7 @@
 """Core tracing functionality using OpenTelemetry."""
 
 import inspect
+import json
 import logging
 from collections.abc import Callable, Generator
 from importlib.metadata import PackageNotFoundError, version
@@ -8,6 +9,7 @@ from typing import Any, Optional
 
 from opentelemetry import trace
 
+from rhesis.sdk.telemetry.attributes import AIAttributes
 from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
 from rhesis.sdk.telemetry.context import get_test_execution_context
 from rhesis.sdk.telemetry.provider import get_tracer_provider
@@ -88,6 +90,211 @@ class Tracer:
         if result_id:
             span.set_attribute(attrs.TEST_RESULT_ID, result_id)
 
+    def _serialize_arg_for_trace(self, arg: Any, max_length: int = 200) -> Any:
+        """
+        Intelligently serialize an argument for tracing.
+
+        Extracts useful information from objects automatically without
+        requiring users to implement __repr__. This provides good UX by
+        making traces informative without requiring any setup.
+
+        Args:
+            arg: The argument to serialize
+            max_length: Maximum length for string representations
+
+        Returns:
+            A JSON-serializable representation of the argument
+        """
+        # Handle primitives directly
+        if isinstance(arg, (str, int, float, bool, type(None))):
+            return arg
+
+        # Handle collections recursively (but limit depth)
+        if isinstance(arg, (list, tuple)):
+            # Limit collection size to prevent huge payloads
+            items = arg[:10] if len(arg) > 10 else arg
+            serialized = [self._serialize_arg_for_trace(item, max_length) for item in items]
+            if len(arg) > 10:
+                serialized.append(f"... ({len(arg) - 10} more items)")
+            return serialized
+
+        if isinstance(arg, dict):
+            # Limit dict size to prevent huge payloads
+            items = list(arg.items())[:10]
+            serialized = {k: self._serialize_arg_for_trace(v, max_length) for k, v in items}
+            if len(arg) > 10:
+                serialized["..."] = f"({len(arg) - 10} more items)"
+            return serialized
+
+        # Handle Pydantic models (v2 and v1)
+        # Check for Pydantic v2 first (model_dump), then v1 (dict)
+        if hasattr(arg, "model_dump"):
+            # Pydantic v2
+            try:
+                return arg.model_dump()
+            except Exception:
+                pass
+        elif hasattr(arg, "dict") and callable(getattr(arg, "dict", None)):
+            # Pydantic v1 - but check it's actually a Pydantic model
+            # (many objects have a dict method, so we need to be careful)
+            try:
+                # Check if this looks like a Pydantic model
+                if hasattr(arg, "__fields__") or hasattr(arg, "model_fields"):
+                    return arg.dict()
+            except Exception:
+                pass
+
+        # For objects, try multiple strategies
+        try:
+            obj_repr = repr(arg)
+
+            # If object has custom __repr__ (not default), use it
+            # Default repr looks like: <module.ClassName object at 0x...>
+            if not (obj_repr.startswith("<") and " object at 0x" in obj_repr):
+                # Looks like a custom repr - use it
+                return obj_repr[:max_length] if len(obj_repr) > max_length else obj_repr
+
+            # Otherwise, extract useful info automatically
+            result = {
+                "_class": type(arg).__qualname__,
+            }
+
+            # Try to extract a few useful public attributes
+            try:
+                # Get public attributes (not starting with _)
+                public_attrs = {}
+                for k, v in vars(arg).items():
+                    if not k.startswith("_"):
+                        # Only include simple types to keep payload small
+                        if isinstance(v, (str, int, float, bool, type(None))):
+                            public_attrs[k] = v
+                        elif isinstance(v, (list, tuple, dict)):
+                            # Include abbreviated form of collections
+                            if len(str(v)) < 100:
+                                public_attrs[k] = v
+                            else:
+                                public_attrs[k] = f"<{type(v).__name__} with {len(v)} items>"
+
+                if public_attrs:
+                    result["_attributes"] = public_attrs
+            except (TypeError, AttributeError):
+                # Object might not have __dict__ (e.g., slots, builtins)
+                pass
+
+            return result
+
+        except Exception:
+            # If all else fails, return a safe fallback
+            return f"<{type(arg).__qualname__}>"
+
+    def _capture_function_inputs(
+        self, span: trace.Span, args: tuple, kwargs: dict, max_length: int = 2000
+    ) -> None:
+        """
+        Capture function inputs as span attributes with intelligent serialization.
+
+        Automatically extracts useful information from objects (including self)
+        without requiring users to implement __repr__. This follows industry
+        standards (keeping self in traces) while providing great UX.
+
+        Follows semantic layer conventions:
+        - function.args: JSON-serialized positional arguments (including self)
+        - function.kwargs: JSON-serialized keyword arguments
+
+        Args:
+            span: OpenTelemetry span
+            args: Positional arguments (including self if instance method)
+            kwargs: Keyword arguments
+            max_length: Max chars per attribute (default 2000)
+        """
+        try:
+            # Intelligently serialize args
+            if args:
+                serialized_args = [self._serialize_arg_for_trace(arg) for arg in args]
+                args_str = json.dumps(serialized_args)
+                if len(args_str) > max_length:
+                    args_str = args_str[:max_length] + "...[truncated]"
+                span.set_attribute(AIAttributes.FUNCTION_ARGS, args_str)
+
+            # Serialize kwargs (exclude internal Rhesis fields)
+            if kwargs:
+                # Filter out internal fields like _rhesis_*
+                filtered_kwargs = {k: v for k, v in kwargs.items() if not k.startswith("_rhesis")}
+                if filtered_kwargs:
+                    serialized_kwargs = {
+                        k: self._serialize_arg_for_trace(v) for k, v in filtered_kwargs.items()
+                    }
+                    kwargs_str = json.dumps(serialized_kwargs)
+                    if len(kwargs_str) > max_length:
+                        kwargs_str = kwargs_str[:max_length] + "...[truncated]"
+                    span.set_attribute(AIAttributes.FUNCTION_KWARGS, kwargs_str)
+
+        except Exception as e:
+            logger.warning(f"Failed to capture function inputs: {e}")
+            # Don't fail tracing if serialization fails
+
+    def _capture_function_result(self, span: trace.Span, result: Any) -> None:
+        """
+        Serialize and capture function result as span attributes.
+
+        Uses smart serialization for consistency with inputs.
+
+        Args:
+            span: OpenTelemetry span
+            result: Function result to serialize and capture
+        """
+        serialized_result = self._serialize_arg_for_trace(result)
+        result_str = (
+            json.dumps(serialized_result)
+            if not isinstance(serialized_result, str)
+            else serialized_result
+        )
+        if len(result_str) <= 2000:
+            # Store full result if it fits
+            span.set_attribute(AIAttributes.FUNCTION_RESULT, result_str)
+        # Always store preview (first 1000 chars)
+        span.set_attribute(AIAttributes.FUNCTION_RESULT_PREVIEW, result_str[:1000])
+
+    def _setup_span_attributes(
+        self,
+        span: trace.Span,
+        function_name: str,
+        args: tuple,
+        kwargs: dict,
+        extra_attributes: Optional[dict] = None,
+    ) -> None:
+        """
+        Set up all span attributes using AIAttributes constants.
+
+        Args:
+            span: OpenTelemetry span
+            function_name: Name of the function
+            args: Positional arguments
+            kwargs: Keyword arguments
+            extra_attributes: Optional dictionary of additional span attributes
+        """
+        # Set basic attributes with constants
+        span.set_attribute(AIAttributes.FUNCTION_NAME, function_name)
+        span.set_attribute(AIAttributes.FUNCTION_ARGS_COUNT, len(args))
+        span.set_attribute(AIAttributes.FUNCTION_KWARGS_COUNT, len(kwargs))
+
+        # Capture function inputs
+        self._capture_function_inputs(span, args, kwargs)
+
+        # Set extra attributes
+        if extra_attributes:
+            for key, value in extra_attributes.items():
+                span.set_attribute(key, value)
+
+        # Inject test context if present
+        test_context = get_test_execution_context()
+        if test_context:
+            self._set_test_context_attributes(span, test_context)
+            logger.debug(
+                f"Injected test context into span: "
+                f"run={test_context.get(TestContextConstants.Fields.TEST_RUN_ID)}"
+            )
+
     def trace_execution(
         self,
         function_name: str,
@@ -95,6 +302,7 @@ class Tracer:
         args: tuple,
         kwargs: dict,
         span_name: Optional[str] = None,
+        extra_attributes: Optional[dict] = None,
     ) -> Any:
         """
         Trace function execution with OTEL spans.
@@ -106,14 +314,11 @@ class Tracer:
             kwargs: Keyword arguments
             span_name: Optional custom span name (e.g., 'ai.llm.invoke')
                       Defaults to 'function.<name>' if not provided
+            extra_attributes: Optional dictionary of additional span attributes
 
         Returns:
             Function result (or wrapped generator)
         """
-        # Read test execution context from context variable (set by executor)
-        # NO LONGER extracted from kwargs - it's not there anymore
-        test_context = get_test_execution_context()
-
         # Determine span name
         final_span_name = span_name or f"function.{function_name}"
 
@@ -122,21 +327,11 @@ class Tracer:
             name=final_span_name,
             kind=trace.SpanKind.INTERNAL,
         ) as span:
-            # Set basic attributes
-            span.set_attribute("function.name", function_name)
-            span.set_attribute("function.args_count", len(args))
-            span.set_attribute("function.kwargs_count", len(kwargs))
-
-            # Inject test execution context as span attributes if present
-            if test_context:
-                self._set_test_context_attributes(span, test_context)
-                logger.debug(
-                    f"Injected test context into span: "
-                    f"run={test_context.get(TestContextConstants.Fields.TEST_RUN_ID)}"
-                )
+            # Set up span attributes
+            self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
 
             try:
-                # Execute function (kwargs no longer has _rhesis_test_context)
+                # Execute function
                 result = func(*args, **kwargs)
 
                 # Handle generator functions
@@ -146,10 +341,58 @@ class Tracer:
 
                 # Handle regular functions
                 span.set_status(trace.Status(trace.StatusCode.OK))
+                self._capture_function_result(span, result)
 
-                # Add result preview (limited size)
-                result_str = str(result)[:1000]
-                span.set_attribute("function.result_preview", result_str)
+                return result
+
+            except Exception as e:
+                # Record error
+                span.set_status(trace.Status(trace.StatusCode.ERROR, description=str(e)))
+                span.record_exception(e)
+                raise
+
+    async def trace_execution_async(
+        self,
+        function_name: str,
+        func: Callable,
+        args: tuple,
+        kwargs: dict,
+        span_name: Optional[str] = None,
+        extra_attributes: Optional[dict] = None,
+    ) -> Any:
+        """
+        Trace async function execution with OTEL spans.
+
+        Args:
+            function_name: Name of the function
+            func: The async function to execute
+            args: Positional arguments
+            kwargs: Keyword arguments
+            span_name: Optional custom span name (e.g., 'ai.llm.invoke')
+                      Defaults to 'function.<name>' if not provided
+            extra_attributes: Optional dictionary of additional span attributes
+
+        Returns:
+            Function result
+        """
+        # Determine span name
+        final_span_name = span_name or f"function.{function_name}"
+
+        # Start OTEL span
+        with self.tracer.start_as_current_span(
+            name=final_span_name,
+            kind=trace.SpanKind.INTERNAL,
+        ) as span:
+            # Set up span attributes
+            self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
+
+            try:
+                # Execute async function
+                result = await func(*args, **kwargs)
+
+                # Handle result
+                span.set_status(trace.Status(trace.StatusCode.OK))
+                self._capture_function_result(span, result)
 
                 return result
 
@@ -195,7 +438,7 @@ class Tracer:
 
             # Generator completed successfully
             span.set_status(trace.Status(trace.StatusCode.OK))
-            span.set_attribute("function.output_chunks", len(collected_output))
+            span.set_attribute(AIAttributes.FUNCTION_OUTPUT_CHUNKS, len(collected_output))
 
         except Exception as e:
             # Generator failed

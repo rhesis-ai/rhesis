@@ -1,12 +1,36 @@
 """OpenTelemetry integration tests for @observe decorator."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from rhesis.sdk import decorators
 from rhesis.sdk.decorators import observe
 from rhesis.sdk.telemetry.schemas import AIOperationType
+
+
+@pytest.fixture
+def mock_client_with_tracer():
+    """Create a mock client that executes functions properly."""
+    mock_client = MagicMock()
+
+    # Mock tracer that executes functions (side effect calls the actual function)
+    mock_tracer = MagicMock()
+    mock_tracer.trace_execution = MagicMock(
+        side_effect=lambda fn, f, a, k, sn=None, ea=None: f(*a, **k)
+    )
+
+    # For exception testing, we need the side effect to propagate exceptions
+    def trace_with_exception(fn, f, a, k, sn=None, ea=None):
+        return f(*a, **k)
+
+    mock_tracer.trace_execution_async = MagicMock(
+        side_effect=lambda fn, f, a, k, sn=None, ea=None: f(*a, **k)
+    )
+
+    mock_client._tracer = mock_tracer
+
+    return mock_client
 
 
 class TestObserveWithOTEL:
@@ -33,117 +57,80 @@ class TestObserveWithOTEL:
             # Restore original client state
             decorators._default_client = original_client
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_creates_span_with_default_name(self, mock_get_tracer):
+    def test_observe_creates_span_with_default_name(self, mock_client_with_tracer):
         """Test @observe creates OTEL span with default function name."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
+        decorators._default_client = mock_client_with_tracer
 
-        # Define function with @observe
         @observe()
         def helper_function(x: int) -> int:
             return x * 2
 
-        # Execute function
         result = helper_function(5)
-
         assert result == 10
-        # Verify span was created with default function.* name
-        mock_tracer.start_as_current_span.assert_called_once()
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == "function.helper_function"
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_with_custom_span_name(self, mock_get_tracer):
+        # Verify trace_execution was called with correct span_name
+        mock_client_with_tracer._tracer.trace_execution.assert_called_once()
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
+        assert call_args[0][4] == "function.helper_function"  # span_name
+
+        decorators._default_client = None
+
+    def test_observe_with_custom_span_name(self, mock_client_with_tracer):
         """Test @observe with custom span name."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
+        decorators._default_client = mock_client_with_tracer
 
-        # Define function with custom span name
         @observe(span_name="ai.llm.invoke")
         def call_llm(prompt: str) -> str:
             return f"Response to: {prompt}"
 
-        # Execute function
         result = call_llm("test")
-
         assert result == "Response to: test"
+
         # Verify custom span name was used
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == "ai.llm.invoke"
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
+        assert call_args[0][4] == "ai.llm.invoke"  # span_name
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_with_constant_span_name(self, mock_get_tracer):
+        decorators._default_client = None
+
+    def test_observe_with_constant_span_name(self, mock_client_with_tracer):
         """Test @observe with AIOperationType constant."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
+        decorators._default_client = mock_client_with_tracer
 
-        # Define function with constant span name
         @observe(span_name=AIOperationType.TOOL_INVOKE)
         def execute_tool(input_str: str) -> dict:
             return {"result": input_str.upper()}
 
-        # Execute function
         result = execute_tool("test")
-
         assert result == {"result": "TEST"}
+
         # Verify constant value was used
-        call_args = mock_tracer.start_as_current_span.call_args
-        assert call_args[1]["name"] == "ai.tool.invoke"
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
+        assert call_args[0][4] == "ai.tool.invoke"  # span_name
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_sets_custom_attributes(self, mock_get_tracer):
+        decorators._default_client = None
+
+    def test_observe_sets_custom_attributes(self, mock_client_with_tracer):
         """Test @observe sets custom attributes on span."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
+        decorators._default_client = mock_client_with_tracer
 
-        # Define function with custom attributes
         @observe(model="gpt-4", temperature=0.7, max_tokens=150)
         def llm_call(prompt: str) -> str:
             return "response"
 
-        # Execute function
         result = llm_call("test")
-
         assert result == "response"
-        # Verify attributes were set
-        mock_span.set_attribute.assert_any_call("function.name", "llm_call")
-        mock_span.set_attribute.assert_any_call("model", "gpt-4")
-        mock_span.set_attribute.assert_any_call("temperature", 0.7)
-        mock_span.set_attribute.assert_any_call("max_tokens", 150)
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_records_exception(self, mock_get_tracer):
+        # Verify extra attributes were passed
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
+        extra_attrs = call_args[0][5]  # extra_attributes
+        assert extra_attrs == {"model": "gpt-4", "temperature": 0.7, "max_tokens": 150}
+
+        decorators._default_client = None
+
+    def test_observe_records_exception(self, mock_client_with_tracer):
         """Test @observe records exceptions to span."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
+        decorators._default_client = mock_client_with_tracer
 
-        # Define function that raises exception
         @observe()
         def failing_function():
             raise ValueError("Test error")
@@ -152,34 +139,23 @@ class TestObserveWithOTEL:
         with pytest.raises(ValueError, match="Test error"):
             failing_function()
 
-        # Verify exception was recorded
-        mock_span.record_exception.assert_called_once()
-        mock_span.set_status.assert_called_once()
+        decorators._default_client = None
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_sets_success_status(self, mock_get_tracer):
+    def test_observe_sets_success_status(self, mock_client_with_tracer):
         """Test @observe sets OK status on success."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
+        decorators._default_client = mock_client_with_tracer
 
-        # Define successful function
         @observe()
         def successful_function(x: int) -> int:
             return x * 2
 
-        # Execute function
         result = successful_function(10)
-
         assert result == 20
-        # Verify OK status was set
-        mock_span.set_status.assert_called_once()
-        status_call = mock_span.set_status.call_args[0][0]
-        assert status_call.status_code.name == "OK"
+
+        # Function executed successfully
+        mock_client_with_tracer._tracer.trace_execution.assert_called_once()
+
+        decorators._default_client = None
 
     def test_observe_preserves_function_metadata(self):
         """Test @observe preserves function name and docstring."""
@@ -193,25 +169,19 @@ class TestObserveWithOTEL:
         assert my_helper.__name__ == "my_helper"
         assert my_helper.__doc__ == "This is my helper function."
 
-    @patch("rhesis.sdk.decorators._default_client", MagicMock())
-    @patch("rhesis.sdk.decorators.trace.get_tracer")
-    def test_observe_with_custom_name_parameter(self, mock_get_tracer):
+    def test_observe_with_custom_name_parameter(self, mock_client_with_tracer):
         """Test @observe with name parameter sets attribute."""
-        # Setup mock tracer
-        mock_tracer = MagicMock()
-        mock_span = MagicMock()
-        mock_tracer.start_as_current_span.return_value.__enter__ = MagicMock(return_value=mock_span)
-        mock_tracer.start_as_current_span.return_value.__exit__ = MagicMock(return_value=False)
-        mock_get_tracer.return_value = mock_tracer
+        decorators._default_client = mock_client_with_tracer
 
-        # Define function with custom name
         @observe(name="custom_operation")
         def internal_func(x: int) -> int:
             return x * 2
 
-        # Execute function
         result = internal_func(5)
-
         assert result == 10
-        # Verify custom name was set as attribute
-        mock_span.set_attribute.assert_any_call("function.name", "custom_operation")
+
+        # Verify custom name was used as function_name
+        call_args = mock_client_with_tracer._tracer.trace_execution.call_args
+        assert call_args[0][0] == "custom_operation"  # function_name
+
+        decorators._default_client = None

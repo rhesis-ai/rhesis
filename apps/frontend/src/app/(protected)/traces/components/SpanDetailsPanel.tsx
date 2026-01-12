@@ -101,6 +101,41 @@ export default function SpanDetailsPanel({
     }
   });
 
+  // Extract I/O attributes for prominent display
+  const inputArgs = functionAttributes['function.args'];
+  const inputKwargs = functionAttributes['function.kwargs'];
+  const outputResult =
+    functionAttributes['function.result'] ||
+    functionAttributes['function.result_preview'];
+
+  // Parse JSON if needed
+  const parseIfJSON = (value: any) => {
+    if (
+      typeof value === 'string' &&
+      (value.startsWith('[') || value.startsWith('{'))
+    ) {
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    }
+    return value;
+  };
+
+  const parsedArgs = inputArgs ? parseIfJSON(inputArgs) : null;
+  const parsedKwargs = inputKwargs ? parseIfJSON(inputKwargs) : null;
+  const parsedOutput = outputResult ? parseIfJSON(outputResult) : null;
+
+  // Remove I/O from function attributes (displayed separately)
+  const {
+    'function.args': _,
+    'function.kwargs': __,
+    'function.result': ___,
+    'function.result_preview': ____,
+    ...otherFunctionAttributes
+  } = functionAttributes;
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Tabs Header */}
@@ -270,6 +305,135 @@ export default function SpanDetailsPanel({
               </CardContent>
             </Card>
 
+            {/* Input/Output Card - Featured prominently */}
+            {(parsedArgs || parsedKwargs || parsedOutput) && (
+              <Card
+                variant="outlined"
+                sx={{
+                  mb: 2,
+                  backgroundColor: theme => theme.palette.success.main + '08',
+                  borderColor: theme => theme.palette.success.main + '30',
+                  borderWidth: 2,
+                }}
+              >
+                <CardContent>
+                  {/* Inputs */}
+                  {(parsedArgs || parsedKwargs) && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Input
+                      </Typography>
+                      {parsedArgs && (
+                        <Box sx={{ mb: 1 }}>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ display: 'block', mb: 0.5 }}
+                          >
+                            Arguments (positional):
+                          </Typography>
+                          <Box
+                            component="pre"
+                            sx={{
+                              p: 1.5,
+                              backgroundColor: theme =>
+                                theme.palette.mode === 'dark'
+                                  ? theme.palette.grey[800]
+                                  : theme.palette.grey[100],
+                              borderRadius: theme => theme.shape.borderRadius,
+                              overflow: 'auto',
+                              fontSize: theme =>
+                                theme.typography.body2.fontSize,
+                              fontFamily: 'monospace',
+                              margin: 0,
+                              maxHeight: 200,
+                            }}
+                          >
+                            {typeof parsedArgs === 'string'
+                              ? parsedArgs
+                              : JSON.stringify(parsedArgs, null, 2)}
+                          </Box>
+                        </Box>
+                      )}
+                      {parsedKwargs && (
+                        <Box>
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ display: 'block', mb: 0.5 }}
+                          >
+                            Keyword arguments:
+                          </Typography>
+                          <Box
+                            component="pre"
+                            sx={{
+                              p: 1.5,
+                              backgroundColor: theme =>
+                                theme.palette.mode === 'dark'
+                                  ? theme.palette.grey[800]
+                                  : theme.palette.grey[100],
+                              borderRadius: theme => theme.shape.borderRadius,
+                              overflow: 'auto',
+                              fontSize: theme =>
+                                theme.typography.body2.fontSize,
+                              fontFamily: 'monospace',
+                              margin: 0,
+                              maxHeight: 200,
+                            }}
+                          >
+                            {typeof parsedKwargs === 'string'
+                              ? parsedKwargs
+                              : JSON.stringify(parsedKwargs, null, 2)}
+                          </Box>
+                        </Box>
+                      )}
+                    </Box>
+                  )}
+
+                  {(parsedArgs || parsedKwargs) && parsedOutput && (
+                    <Divider sx={{ my: 2 }} />
+                  )}
+
+                  {/* Output */}
+                  {parsedOutput && (
+                    <Box>
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Output
+                      </Typography>
+                      <Box
+                        component="pre"
+                        sx={{
+                          p: 1.5,
+                          backgroundColor: theme =>
+                            theme.palette.mode === 'dark'
+                              ? theme.palette.grey[800]
+                              : theme.palette.grey[100],
+                          borderRadius: theme => theme.shape.borderRadius,
+                          overflow: 'auto',
+                          fontSize: theme => theme.typography.body2.fontSize,
+                          fontFamily: 'monospace',
+                          margin: 0,
+                          maxHeight: 300,
+                        }}
+                      >
+                        {typeof parsedOutput === 'string'
+                          ? parsedOutput
+                          : JSON.stringify(parsedOutput, null, 2)}
+                      </Box>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* LLM Attributes */}
             {Object.keys(llmAttributes).length > 0 && (
               <Accordion
@@ -291,8 +455,8 @@ export default function SpanDetailsPanel({
               </Accordion>
             )}
 
-            {/* Function Attributes */}
-            {Object.keys(functionAttributes).length > 0 && (
+            {/* Function Attributes - Metadata only (I/O shown above) */}
+            {Object.keys(otherFunctionAttributes).length > 0 && (
               <Accordion
                 defaultExpanded
                 sx={{
@@ -303,12 +467,12 @@ export default function SpanDetailsPanel({
               >
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Typography variant="subtitle2">
-                    Function Attributes (
-                    {Object.keys(functionAttributes).length})
+                    Function Metadata (
+                    {Object.keys(otherFunctionAttributes).length})
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <AttributesTable attributes={functionAttributes} />
+                  <AttributesTable attributes={otherFunctionAttributes} />
                 </AccordionDetails>
               </Accordion>
             )}

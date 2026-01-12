@@ -1,6 +1,6 @@
 """End-to-end tests for @endpoint with OTEL integration."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -8,13 +8,23 @@ from rhesis.sdk import RhesisClient
 from rhesis.sdk.decorators import endpoint
 
 
+@patch("rhesis.sdk.connector.manager.WebSocketConnection")
 @patch("rhesis.sdk.connector.manager.asyncio.create_task")
 class TestEndpointWithOTEL:
     """End-to-end tests for @endpoint decorator with OpenTelemetry."""
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_endpoint_uses_telemetry_default_span_name(self, mock_get_provider, mock_create_task):
+    def test_endpoint_uses_telemetry_default_span_name(
+        self, mock_get_provider, mock_create_task, mock_ws_class
+    ):
         """Test @endpoint uses telemetry with default span name."""
+        # Setup WebSocketConnection mock
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_instance.websocket = None  # Prevent premature registration calls
+        mock_ws_class.return_value = mock_ws_instance
+        mock_create_task.return_value = Mock(spec=["cancel"])
+
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -46,8 +56,17 @@ class TestEndpointWithOTEL:
         assert call_args[1]["name"] == "function.process_data"
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_endpoint_with_custom_span_name(self, mock_get_provider, mock_create_task):
+    def test_endpoint_with_custom_span_name(
+        self, mock_get_provider, mock_create_task, mock_ws_class
+    ):
         """Test @endpoint with custom span name."""
+        # Setup WebSocketConnection mock
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_instance.websocket = None  # Prevent premature registration calls
+        mock_ws_class.return_value = mock_ws_instance
+        mock_create_task.return_value = Mock(spec=["cancel"])
+
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -78,8 +97,15 @@ class TestEndpointWithOTEL:
         assert call_args[1]["name"] == "ai.llm.invoke"
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_endpoint_with_tool_span_name(self, mock_get_provider, mock_create_task):
+    def test_endpoint_with_tool_span_name(self, mock_get_provider, mock_create_task, mock_ws_class):
         """Test @endpoint with tool operation span name."""
+        # Setup WebSocketConnection mock
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_instance.websocket = None  # Prevent premature registration calls
+        mock_ws_class.return_value = mock_ws_instance
+        mock_create_task.return_value = Mock(spec=["cancel"])
+
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -109,8 +135,17 @@ class TestEndpointWithOTEL:
         assert call_args[1]["name"] == "ai.tool.invoke"
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_endpoint_records_function_attributes(self, mock_get_provider, mock_create_task):
+    def test_endpoint_records_function_attributes(
+        self, mock_get_provider, mock_create_task, mock_ws_class
+    ):
         """Test @endpoint records function metadata as span attributes."""
+        # Setup WebSocketConnection mock
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_instance.websocket = None  # Prevent premature registration calls
+        mock_ws_class.return_value = mock_ws_instance
+        mock_create_task.return_value = Mock(spec=["cancel"])
+
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -141,7 +176,7 @@ class TestEndpointWithOTEL:
 
     @pytest.mark.skip(reason="Class-level mock prevents testing no-client scenario")
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_endpoint_without_client(self, mock_get_provider, mock_create_task):
+    def test_endpoint_without_client(self, mock_get_provider, mock_create_task, mock_ws_class):
         """Test @endpoint falls back when client not initialized."""
         # Don't create a client - decorator should handle gracefully
 
@@ -156,8 +191,17 @@ class TestEndpointWithOTEL:
                 return "result"
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_endpoint_preserves_function_metadata(self, mock_get_provider, mock_create_task):
+    def test_endpoint_preserves_function_metadata(
+        self, mock_get_provider, mock_create_task, mock_ws_class
+    ):
         """Test @endpoint preserves function name and docstring."""
+        # Setup WebSocketConnection mock
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_instance.websocket = None  # Prevent premature registration calls
+        mock_ws_class.return_value = mock_ws_instance
+        mock_create_task.return_value = Mock(spec=["cancel"])
+
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -184,8 +228,17 @@ class TestEndpointWithOTEL:
         assert my_function.__doc__ == "This is my function."
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_endpoint_with_generator_function(self, mock_get_provider, mock_create_task):
+    def test_endpoint_with_generator_function(
+        self, mock_get_provider, mock_create_task, mock_ws_class
+    ):
         """Test @endpoint with generator functions."""
+        # Setup WebSocketConnection mock
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_instance.websocket = None  # Prevent premature registration calls
+        mock_ws_class.return_value = mock_ws_instance
+        mock_create_task.return_value = Mock(spec=["cancel"])
+
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -215,8 +268,15 @@ class TestEndpointWithOTEL:
         mock_span.set_attribute.assert_any_call("function.output_chunks", 3)
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_endpoint_with_observe_false(self, mock_get_provider, mock_create_task):
+    def test_endpoint_with_observe_false(self, mock_get_provider, mock_create_task, mock_ws_class):
         """Test @endpoint(observe=False) skips tracing."""
+        # Setup WebSocketConnection mock
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_instance.websocket = None  # Prevent premature registration calls
+        mock_ws_class.return_value = mock_ws_instance
+        mock_create_task.return_value = Mock(spec=["cancel"])
+
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -246,8 +306,17 @@ class TestEndpointWithOTEL:
         mock_tracer.start_as_current_span.assert_not_called()
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_endpoint_with_observe_true_explicit(self, mock_get_provider, mock_create_task):
+    def test_endpoint_with_observe_true_explicit(
+        self, mock_get_provider, mock_create_task, mock_ws_class
+    ):
         """Test @endpoint(observe=True) creates spans."""
+        # Setup WebSocketConnection mock
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_instance.websocket = None  # Prevent premature registration calls
+        mock_ws_class.return_value = mock_ws_instance
+        mock_create_task.return_value = Mock(spec=["cancel"])
+
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
@@ -277,8 +346,17 @@ class TestEndpointWithOTEL:
         mock_tracer.start_as_current_span.assert_called_once()
 
     @patch("rhesis.sdk.telemetry.tracer.get_tracer_provider")
-    def test_endpoint_observe_default_is_true(self, mock_get_provider, mock_create_task):
+    def test_endpoint_observe_default_is_true(
+        self, mock_get_provider, mock_create_task, mock_ws_class
+    ):
         """Test @endpoint() traces by default (backwards compatible)."""
+        # Setup WebSocketConnection mock
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_instance.websocket = None  # Prevent premature registration calls
+        mock_ws_class.return_value = mock_ws_instance
+        mock_create_task.return_value = Mock(spec=["cancel"])
+
         # Setup mock provider
         mock_provider = MagicMock()
         mock_tracer = MagicMock()
