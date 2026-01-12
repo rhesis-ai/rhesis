@@ -31,6 +31,7 @@ from .fixtures.data_factories import generate_test_data
 # Explicit imports for all fixtures to ensure availability
 # Import entity fixtures
 from .fixtures.entities import *
+from .fixtures.factory_fixtures import *
 
 # === ENHANCED DATA FIXTURES ===
 
