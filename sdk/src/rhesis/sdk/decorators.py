@@ -811,26 +811,44 @@ def endpoint(
         if response_mapping:
             enriched_metadata["response_mapping"] = response_mapping
 
+        # Helper to select appropriate tracer (connector manager takes precedence)
+        def get_tracer_method(is_async: bool):
+            """Get the appropriate trace execution method."""
+            if _default_client._connector_manager:
+                return (
+                    _default_client._connector_manager.trace_execution_async
+                    if is_async
+                    else _default_client._connector_manager.trace_execution
+                )
+            return (
+                _default_client._tracer.trace_execution_async
+                if is_async
+                else _default_client._tracer.trace_execution
+            )
+
+        # Handle async functions
+        if inspect.iscoroutinefunction(func):
+            trace_func = get_tracer_method(is_async=True)
+
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                if not observe:
+                    return await func(*args, **kwargs)
+                return await trace_func(func_name, func, args, kwargs, span_name)
+
+            _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
+            return wrapper
+
+        # Handle sync functions
+        trace_func = get_tracer_method(is_async=False)
+
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Skip tracing if observe=False
             if not observe:
                 return func(*args, **kwargs)
+            return trace_func(func_name, func, args, kwargs, span_name)
 
-            # Trace using connector manager if available (remote test execution)
-            if _default_client._connector_manager:
-                return _default_client._connector_manager.trace_execution(
-                    func_name, func, args, kwargs, span_name
-                )
-
-            # Otherwise trace directly using client's tracer (direct HTTP calls)
-            # This ensures @endpoint functions are always traced, creating a root span
-            # for child @observe() decorated functions to nest under
-            return _default_client._tracer.trace_execution(func_name, func, args, kwargs, span_name)
-
-        # Register the WRAPPER (not the original func) so remote test execution uses traced version
         _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
-
         return wrapper
 
     return decorator
