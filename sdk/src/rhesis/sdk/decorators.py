@@ -690,6 +690,7 @@ def endpoint(
     response_mapping: dict | None = None,
     span_name: str | None = None,
     observe: bool = True,
+    bind: dict | None = None,
     **metadata,
 ) -> Callable:
     """
@@ -727,6 +728,19 @@ def endpoint(
                 "context": "$.sources",
                 "metadata": "$.stats"
             }
+        bind: Infrastructure dependencies to inject into the function (optional)
+            Binds parameters that won't appear in the remote function signature.
+            Useful for database connections, auth context, configuration, etc.
+            Supports both static values and callables (evaluated at call time).
+            Example: {
+                "db": lambda: get_db_session(),  # Fresh connection per call
+                "config": AppConfig(),           # Static singleton
+                "user": lambda: get_current_user()  # Runtime context
+            }
+            Bound parameters are:
+            - Excluded from the registered function signature
+            - Automatically injected when the function is called
+            - Evaluated at call time if callable, used directly if static
         **metadata: Additional metadata about the function
 
     Returns:
@@ -778,6 +792,31 @@ def endpoint(
             # Registered for remote testing but NOT traced
             return x * 2
 
+        # Example 5: Binding infrastructure dependencies
+        @endpoint(
+            bind={
+                "db": lambda: get_db_session(),  # Fresh session per call
+                "config": AppConfig(),           # Static singleton
+            }
+        )
+        def query_data(db, config, input: str) -> dict:
+            # db and config are injected, only input appears in remote signature
+            results = db.query(config.table, input)
+            return {"output": format_results(results)}
+
+        # Example 6: Binding with FastAPI-style dependencies
+        @endpoint(
+            bind={
+                "db": lambda: next(get_db()),  # Generator-based dependency
+                "user": lambda: get_current_user_context(),
+            }
+        )
+        async def authenticated_query(db, user, input: str) -> dict:
+            # Automatically inject auth context and database
+            if not user.is_authenticated:
+                return {"output": "Unauthorized"}
+            return {"output": db.query_for_user(user.id, input)}
+
     Field Separation:
         REQUEST fields (function inputs):
         - input: User query/message (required in API request)
@@ -811,6 +850,28 @@ def endpoint(
         if response_mapping:
             enriched_metadata["response_mapping"] = response_mapping
 
+        # Store bound parameters and exclusion list
+        if bind:
+            enriched_metadata["_bound_params"] = list(bind.keys())
+
+        # Helper to inject bound parameters
+        def inject_bound_params(kwargs: dict) -> dict:
+            """Inject bound parameters into kwargs."""
+            if not bind:
+                return kwargs
+
+            injected_kwargs = kwargs.copy()
+            for param_name, param_value in bind.items():
+                # Don't override if already provided
+                if param_name not in injected_kwargs:
+                    # Call if callable, use directly otherwise
+                    if callable(param_value):
+                        injected_kwargs[param_name] = param_value()
+                    else:
+                        injected_kwargs[param_name] = param_value
+
+            return injected_kwargs
+
         # Helper to select appropriate tracer (connector manager takes precedence)
         def get_tracer_method(is_async: bool):
             """Get the appropriate trace execution method."""
@@ -832,6 +893,9 @@ def endpoint(
 
             @wraps(func)
             async def wrapper(*args, **kwargs):
+                # Inject bound parameters
+                kwargs = inject_bound_params(kwargs)
+
                 if not observe:
                     return await func(*args, **kwargs)
                 return await trace_func(func_name, func, args, kwargs, span_name)
@@ -844,6 +908,9 @@ def endpoint(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
+            # Inject bound parameters
+            kwargs = inject_bound_params(kwargs)
+
             if not observe:
                 return func(*args, **kwargs)
             return trace_func(func_name, func, args, kwargs, span_name)
