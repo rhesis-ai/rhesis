@@ -344,9 +344,9 @@ export default function SpanDetailsPanel({
                                 theme.palette.mode === 'dark'
                                   ? theme.palette.grey[800]
                                   : theme.palette.grey[100],
-                              borderRadius: 1,
+                              borderRadius: theme => theme.shape.borderRadius,
                               overflow: 'auto',
-                              fontSize: '0.875rem',
+                              fontSize: theme => theme.typography.body2.fontSize,
                               fontFamily: 'monospace',
                               margin: 0,
                               maxHeight: 200,
@@ -375,9 +375,9 @@ export default function SpanDetailsPanel({
                                 theme.palette.mode === 'dark'
                                   ? theme.palette.grey[800]
                                   : theme.palette.grey[100],
-                              borderRadius: 1,
+                              borderRadius: theme => theme.shape.borderRadius,
                               overflow: 'auto',
-                              fontSize: '0.875rem',
+                              fontSize: theme => theme.typography.body2.fontSize,
                               fontFamily: 'monospace',
                               margin: 0,
                               maxHeight: 200,
@@ -414,9 +414,9 @@ export default function SpanDetailsPanel({
                             theme.palette.mode === 'dark'
                               ? theme.palette.grey[800]
                               : theme.palette.grey[100],
-                          borderRadius: 1,
+                          borderRadius: theme => theme.shape.borderRadius,
                           overflow: 'auto',
-                          fontSize: '0.875rem',
+                          fontSize: theme => theme.typography.body2.fontSize,
                           fontFamily: 'monospace',
                           margin: 0,
                           maxHeight: 300,
