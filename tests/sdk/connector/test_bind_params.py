@@ -20,9 +20,9 @@ def mock_client(monkeypatch):
     )
 
     # Mock the default client
-    import rhesis.sdk.decorators as decorators
+    import rhesis.sdk.decorators._state as decorators_state
 
-    monkeypatch.setattr(decorators, "_default_client", client)
+    monkeypatch.setattr(decorators_state, "_default_client", client)
 
     return client
 
