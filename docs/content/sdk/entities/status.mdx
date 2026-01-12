@@ -1,0 +1,73 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Status
+
+Statuses track the state of entities throughout the platform. Each status is scoped to an **entity type**, meaning different entities have different applicable statuses.
+
+## Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `name` | `str` | Status name |
+| `description` | `str` | Status description |
+
+## Built-in Status Values
+
+The platform provides predefined statuses for different entity types:
+
+| Entity Type | Statuses | Description |
+|-------------|----------|-------------|
+| **General** | `Active`, `Inactive`, `Archived` | Common states for most entities |
+| **TestRun** | `Pending`, `Running`, `Progress`, `Completed`, `Failed` | Test run execution states |
+| **TestResult** | `Pass`, `Fail`, `Error`, `Review` | Individual test outcomes |
+| **Test** | `New`, `Test`, `Review` | Test lifecycle states |
+| **TestSet** | `New`, `Review`, `Approved` | Test set approval workflow |
+
+<Callout type="info">
+  **Note**: `TestRun` status reflects execution completion, not test assertion results. A `Completed` test run means all tests executed successfully, even if some tests failed their assertions.
+</Callout>
+
+## Working with Statuses
+
+<CodeBlock filename="statuses.py" language="python">
+{`from rhesis.sdk.entities import Statuses, Status
+
+# List all statuses
+for status in Statuses.all():
+    print(f"{status.name}: {status.description}")
+
+# Get by name
+passed = Statuses.pull(name="Pass")
+
+# Create custom status
+new_status = Status(
+    name="Needs Review",
+    description="Test result requires human review"
+)
+new_status.push()`}
+</CodeBlock>
+
+## Filtering by Status
+
+<CodeBlock filename="filter_by_status.py" language="python">
+{`from rhesis.sdk.entities import TestResults, TestRuns
+
+# Get passed test results
+passed_results = TestResults.all(filter="status/name eq 'Pass'")
+print(f"Passed tests: {len(list(passed_results))}")
+
+# Get failed test results
+failed_results = TestResults.all(filter="status/name eq 'Fail'")
+
+# Get completed test runs
+completed_runs = TestRuns.all(filter="status/name eq 'Completed'")`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next Steps** - Track execution with [Test Runs](/sdk/entities/test-runs)
+  - Review [Test Attributes](/sdk/entities/test-attributes) for organizing tests
+  - See the [Entities Overview](/sdk/entities) for common operations
+</Callout>

@@ -10,4 +10,8 @@ export default {
   },
   guides: "Guides",
   glossary: "Glossary",
+  sdk_reference: {
+    title: "SDK Reference",
+    href: "https://rhesis-sdk.readthedocs.io/en/latest/",
+  },
 };

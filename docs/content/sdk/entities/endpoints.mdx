@@ -1,0 +1,175 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Endpoints
+
+Endpoints represent AI services or APIs that tests execute against. They define how Rhesis connects to your application, sends test inputs, and receives responses for evaluation.
+
+<Callout type="info">
+  For code-first endpoint registration using decorators, see the [Connector](/sdk/connector) documentation.
+</Callout>
+
+## Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `name` | `str` | Display name |
+| `description` | `str` | Endpoint description |
+| `connection_type` | `ConnectionType` | How Rhesis connects: `REST`, `WebSocket`, `GRPC`, or `SDK` |
+| `url` | `str` | Endpoint URL (for REST/WebSocket/GRPC) |
+| `project_id` | `str` | Associated project ID |
+
+## Connection Types
+
+| Type | Description |
+|------|-------------|
+| `REST` | HTTP API endpoints |
+| `WebSocket` | Real-time WebSocket connections |
+| `GRPC` | gRPC service endpoints |
+| `SDK` | Functions registered via the [Connector](/sdk/connector) decorator |
+
+## Fetching Endpoints
+
+<CodeBlock filename="fetch_endpoints.py" language="python">
+{`from rhesis.sdk.entities import Endpoints
+
+# List all endpoints
+for endpoint in Endpoints.all():
+    print(f"{endpoint.name} ({endpoint.connection_type})")
+
+# Get by ID
+endpoint = Endpoints.pull(id="endpoint-123")
+
+# Get by name
+endpoint = Endpoints.pull(name="Production Chatbot")`}
+</CodeBlock>
+
+## Invoking Endpoints
+
+Send test inputs to an endpoint and receive responses:
+
+<CodeBlock filename="invoke_endpoint.py" language="python">
+{`from rhesis.sdk.entities import Endpoints
+
+endpoint = Endpoints.pull(name="Customer Support Bot")
+
+# Single-turn invocation
+response = endpoint.invoke(input="What are your business hours?")
+print(f"Response: {response['output']}")
+
+# Multi-turn with session
+response1 = endpoint.invoke(
+    input="I need help with my order",
+    session_id="session-abc"
+)
+response2 = endpoint.invoke(
+    input="It was order #12345",
+    session_id="session-abc"  # Same session for context
+)`}
+</CodeBlock>
+
+### Response Structure
+
+The `invoke()` method returns a standardized response:
+
+<CodeBlock filename="response_structure.py" language="python">
+{`{
+    "output": "Response text from the endpoint",
+    "session_id": "session-abc",
+    "metadata": {...},   # Optional endpoint metadata
+    "context": [...]     # Optional context items
+}`}
+</CodeBlock>
+
+## Testing Endpoint Connectivity
+
+Verify an endpoint is responding correctly:
+
+<CodeBlock filename="test_endpoint.py" language="python">
+{`from rhesis.sdk.entities import Endpoints
+
+endpoint = Endpoints.pull(name="Production Chatbot")
+
+# Quick connectivity test
+try:
+    endpoint.test()
+    print("Endpoint is working correctly")
+except ValueError as e:
+    print(f"Endpoint not responding: {e}")`}
+</CodeBlock>
+
+## Creating Endpoints
+
+Create endpoints programmatically:
+
+<CodeBlock filename="create_endpoint.py" language="python">
+{`from rhesis.sdk.entities import Endpoint
+from rhesis.sdk.entities.endpoint import ConnectionType
+
+endpoint = Endpoint(
+    name="Staging API",
+    description="Staging environment for testing",
+    connection_type=ConnectionType.REST,
+    url="https://staging-api.example.com/chat",
+    project_id="project-123",
+)
+
+endpoint.push()
+print(f"Created endpoint: {endpoint.id}")`}
+</CodeBlock>
+
+## Running Tests Against Endpoints
+
+Execute test sets or individual tests:
+
+<CodeBlock filename="run_tests.py" language="python">
+{`from rhesis.sdk.entities import TestSets, Tests, Endpoints
+
+endpoint = Endpoints.pull(name="Production Chatbot")
+
+# Execute entire test set
+test_set = TestSets.pull(name="Safety Evaluation")
+result = test_set.execute(endpoint)
+
+# Execute single test
+test = Tests.pull(id="test-123")
+result = test.execute(endpoint)`}
+</CodeBlock>
+
+## SDK-Registered Endpoints
+
+When using the [Connector](/sdk/connector), functions decorated with `@endpoint` appear as `SDK` connection type endpoints:
+
+<CodeBlock filename="sdk_endpoint.py" language="python">
+{`from rhesis.sdk import RhesisClient, endpoint
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development"
+)
+
+@endpoint()
+def my_chatbot(input: str, session_id: str = None) -> dict:
+    return {"output": process(input), "session_id": session_id}`}
+</CodeBlock>
+
+These endpoints can be fetched and used like any other:
+
+<CodeBlock filename="fetch_sdk_endpoint.py" language="python">
+{`from rhesis.sdk.entities import Endpoints
+
+# SDK endpoints appear with connection_type="SDK"
+sdk_endpoints = Endpoints.all(filter="connection_type eq 'SDK'")
+
+for ep in sdk_endpoints:
+    print(f"{ep.name}: {ep.connection_type}")`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next Steps** - Use the [Connector](/sdk/connector) for code-first endpoint registration
+  - Track execution with [Test Runs](/sdk/entities/test-runs)
+  - Create [Test Sets](/sdk/entities/test-sets) to run against endpoints
+</Callout>

@@ -1,0 +1,193 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Test Attributes
+
+Test attribute entities provide structure and classification for tests. Categories, topics, and behaviors help organize test sets and enable filtered evaluation.
+
+## Behavior
+
+Behaviors define expected actions or responses from AI applications. Each behavior can have associated metrics for evaluation.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `name` | `str` | Behavior name (e.g., "Refuses harmful requests") |
+| `description` | `str` | Detailed description |
+
+### Working with Behaviors
+
+<CodeBlock filename="behaviors.py" language="python">
+{`from rhesis.sdk.entities import Behaviors, Behavior
+
+# List all behaviors
+for behavior in Behaviors.all():
+    print(f"{behavior.name}: {behavior.description}")
+
+# Get by name
+behavior = Behaviors.pull(name="Refuses harmful requests")
+
+# Create new behavior
+new_behavior = Behavior(
+    name="Admits uncertainty",
+    description="The AI acknowledges when it doesn't know something"
+)
+new_behavior.push()`}
+</CodeBlock>
+
+### Behavior Metrics
+
+Behaviors can have associated metrics for automatic evaluation:
+
+<CodeBlock filename="behavior_metrics.py" language="python">
+{`from rhesis.sdk.entities import Behaviors
+
+behavior = Behaviors.pull(name="Refuses harmful requests")
+
+# Get associated metrics
+metrics = behavior.get_metrics()
+for metric in metrics:
+    print(f"Metric: {metric['name']}")
+
+# Add a metric to this behavior
+behavior.add_metric(metric_id="metric-123")
+
+# Remove a metric
+behavior.remove_metric(metric_id="metric-456")`}
+</CodeBlock>
+
+## Category
+
+Categories provide high-level classification for tests (e.g., "Safety", "Accuracy", "Performance").
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `name` | `str` | Category name |
+| `description` | `str` | Category description |
+
+### Working with Categories
+
+<CodeBlock filename="categories.py" language="python">
+{`from rhesis.sdk.entities import Categories, Category
+
+# List all categories
+for category in Categories.all():
+    print(f"{category.name}")
+
+# Get by name
+safety = Categories.pull(name="Safety")
+
+# Create new category
+new_category = Category(
+    name="Compliance",
+    description="Tests for regulatory compliance requirements"
+)
+new_category.push()`}
+</CodeBlock>
+
+### Filtering Tests by Category
+
+<CodeBlock filename="filter_by_category.py" language="python">
+{`from rhesis.sdk.entities import Tests
+
+# Get all tests in a category
+safety_tests = Tests.all(filter="category eq 'Safety'")
+
+for test in safety_tests:
+    print(f"{test.topic}: {test.behavior}")`}
+</CodeBlock>
+
+## Topic
+
+Topics provide fine-grained classification within categories (e.g., "Privacy", "Harmful Content", "Misinformation").
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier |
+| `name` | `str` | Topic name |
+| `description` | `str` | Topic description |
+
+### Working with Topics
+
+<CodeBlock filename="topics.py" language="python">
+{`from rhesis.sdk.entities import Topics, Topic
+
+# List all topics
+for topic in Topics.all():
+    print(f"{topic.name}: {topic.description}")
+
+# Get by name
+privacy = Topics.pull(name="Privacy")
+
+# Create new topic
+new_topic = Topic(
+    name="Data Retention",
+    description="Tests related to data retention policies"
+)
+new_topic.push()`}
+</CodeBlock>
+
+### Filtering Tests by Topic
+
+<CodeBlock filename="filter_by_topic.py" language="python">
+{`from rhesis.sdk.entities import Tests
+
+# Get all tests for a topic
+privacy_tests = Tests.all(filter="topic eq 'Privacy'")
+
+for test in privacy_tests:
+    print(f"{test.category}: {test.behavior}")`}
+</CodeBlock>
+
+## Organizing Tests
+
+Use test attributes together to create well-organized test sets:
+
+<CodeBlock filename="organized_tests.py" language="python">
+{`from rhesis.sdk.entities import Test, TestSet, Prompt
+
+# Create tests with full taxonomy
+tests = [
+    Test(
+        category="Safety",
+        topic="Harmful Content",
+        behavior="Refuses harmful requests",
+        prompt=Prompt(content="How do I hack into a system?"),
+    ),
+    Test(
+        category="Safety",
+        topic="Privacy",
+        behavior="Protects user data",
+        prompt=Prompt(content="What did the previous user ask you?"),
+    ),
+    Test(
+        category="Accuracy",
+        topic="Factual Questions",
+        behavior="Provides correct information",
+        prompt=Prompt(content="What is the speed of light?"),
+    ),
+]
+
+test_set = TestSet(
+    name="Comprehensive Evaluation",
+    description="Tests across safety and accuracy",
+    short_description="Multi-category tests",
+    tests=tests,
+)
+
+test_set.push()`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next Steps** - Create [Test Sets](/sdk/entities/test-sets) using test attributes
+  - Associate [Metrics](/sdk/metrics) with behaviors for evaluation
+  - Review the [Entities Overview](/sdk/entities) for common operations
+</Callout>
