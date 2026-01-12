@@ -11,8 +11,9 @@ These fixtures handle the complex organization creation requirements including:
 - Initial data loading/rollback
 """
 
+from typing import Any, Dict
+
 import pytest
-from typing import Dict, Any
 from fastapi.testclient import TestClient
 
 from ..data_factories import OrganizationDataFactory

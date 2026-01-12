@@ -64,13 +64,17 @@ class FunctionRegistry:
         """
         metadata_list = []
         for name, func in self._functions.items():
-            signature = self._get_signature(func)
+            # Get exclusion list from metadata
+            func_metadata = self._metadata.get(name, {})
+            exclude_params = func_metadata.get("_bound_params", [])
+
+            signature = self._get_signature(func, exclude_params=exclude_params)
             metadata_list.append(
                 FunctionMetadata(
                     name=name,
                     parameters=signature["parameters"],
                     return_type=signature["return_type"],
-                    metadata=self._metadata.get(name, {}),
+                    metadata=func_metadata,
                 )
             )
         return metadata_list
@@ -84,17 +88,21 @@ class FunctionRegistry:
         """
         return len(self._functions)
 
-    def _get_signature(self, func: Callable) -> dict[str, Any]:
+    def _get_signature(
+        self, func: Callable, exclude_params: list[str] | None = None
+    ) -> dict[str, Any]:
         """
         Extract function signature.
 
         Args:
             func: Function to inspect
+            exclude_params: List of parameter names to exclude from signature
 
         Returns:
             Dictionary with parameters and return type
         """
         sig = inspect.signature(func)
+        exclude_params = exclude_params or []
 
         return {
             "parameters": {
@@ -109,6 +117,7 @@ class FunctionRegistry:
                     ),
                 }
                 for name, param in sig.parameters.items()
+                if name not in exclude_params  # Filter out excluded parameters
             },
             "return_type": (
                 str(sig.return_annotation)

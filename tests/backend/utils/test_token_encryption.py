@@ -1,13 +1,12 @@
-import pytest
-import os
-from cryptography.fernet import Fernet
-from sqlalchemy import text
 from datetime import datetime, timedelta, timezone
 
-from rhesis.backend.app.models.token import Token
-from rhesis.backend.app.utils.encryption import is_encrypted, hash_token
-from tests.backend.routes.fixtures.data_factories import BaseDataFactory
+import pytest
 from faker import Faker
+from sqlalchemy import text
+
+from rhesis.backend.app.models.token import Token
+from rhesis.backend.app.utils.encryption import hash_token, is_encrypted
+from tests.backend.routes.fixtures.data_factories import BaseDataFactory
 
 fake = Faker()
 

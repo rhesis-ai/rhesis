@@ -1,6 +1,7 @@
 """Tests for base Tool class."""
 
 import pytest
+
 from rhesis.penelope.tools.base import Tool, ToolResult
 
 

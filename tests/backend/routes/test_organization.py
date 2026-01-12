@@ -16,15 +16,15 @@ Run with: python -m pytest tests/backend/routes/test_organization.py -v
 """
 
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
 
 import pytest
 from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from .endpoints import APIEndpoints
 from .base import BaseEntityRouteTests, BaseEntityTests
+from .endpoints import APIEndpoints
 from .fixtures.data_factories import OrganizationDataFactory
 from .fixtures.entities.organizations import *
 
@@ -263,6 +263,7 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
     def _get_authenticated_user_id(self) -> str | None:
         """Get the authenticated user ID from the API key, similar to authenticated_user fixture"""
         import os
+
         from rhesis.backend.app import crud
         from rhesis.backend.app.database import SessionLocal
 

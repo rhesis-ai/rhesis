@@ -4,11 +4,12 @@
 Fixtures for creating parent-child hierarchical relationships.
 """
 
+from typing import Any, Dict
+
 import pytest
-from typing import Dict, Any
+from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
-from faker import Faker
 
 from ...endpoints import APIEndpoints
 

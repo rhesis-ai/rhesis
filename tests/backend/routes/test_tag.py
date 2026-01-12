@@ -18,16 +18,15 @@ Run with: python -m pytest tests/backend/routes/test_tag.py -v
 """
 
 import uuid
-from typing import Dict, Any
+from typing import Any, Dict
 
 import pytest
 from faker import Faker
 from fastapi import status
-from fastapi.testclient import TestClient
 
-from .endpoints import APIEndpoints
 from .base import BaseEntityRouteTests, BaseEntityTests
-from .fixtures.data_factories import TagDataFactory, BehaviorDataFactory, ProjectDataFactory
+from .endpoints import APIEndpoints
+from .fixtures.data_factories import BehaviorDataFactory, ProjectDataFactory, TagDataFactory
 
 # Initialize Faker
 fake = Faker()

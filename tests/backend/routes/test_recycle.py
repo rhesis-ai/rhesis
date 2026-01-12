@@ -20,10 +20,9 @@ from rhesis.backend.app.utils import crud_utils
 # Use existing data factories and fixtures
 from tests.backend.routes.fixtures.data_factories import (
     BehaviorDataFactory,
-    TopicDataFactory,
     CategoryDataFactory,
+    TopicDataFactory,
 )
-from tests.backend.routes.endpoints import APIEndpoints
 
 
 @pytest.mark.integration

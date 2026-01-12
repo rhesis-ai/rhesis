@@ -17,31 +17,30 @@ Usage:
         # All cleaned up automatically
 """
 
-import pytest
 from typing import Generator
+
+import pytest
 from fastapi.testclient import TestClient
 
-from .factories import (
-    EntityFactory,
-    BehaviorFactory,
-    TopicFactory,
-    create_behavior_factory,
-    create_topic_factory,
-    create_generic_factory,
-)
+from ..endpoints import APIEndpoints
 from .data_factories import (
     BehaviorDataFactory,
-    TopicDataFactory,
     CategoryDataFactory,
-    CommentDataFactory,
+    DimensionDataFactory,
     MetricDataFactory,
     ModelDataFactory,
-    DimensionDataFactory,
     ProjectDataFactory,
     PromptDataFactory,
+    TopicDataFactory,
 )
-from ..endpoints import APIEndpoints
-
+from .factories import (
+    BehaviorFactory,
+    EntityFactory,
+    TopicFactory,
+    create_behavior_factory,
+    create_generic_factory,
+    create_topic_factory,
+)
 
 # === ENTITY FACTORY FIXTURES ===
 
@@ -395,6 +394,8 @@ __all__ = [
     "dimension_factory",
     "demographic_factory",
     "endpoint_factory",
+    "project_factory",
+    "prompt_factory",
     # Data fixtures
     "behavior_data",
     "minimal_behavior_data",
@@ -406,6 +407,12 @@ __all__ = [
     "metric_data",
     "model_data",
     "dimension_data",
+    "project_data",
+    "minimal_project_data",
+    "project_update_data",
+    "prompt_data",
+    "minimal_prompt_data",
+    "prompt_update_data",
     # Edge case fixtures
     "long_name_behavior_data",
     "special_chars_behavior_data",

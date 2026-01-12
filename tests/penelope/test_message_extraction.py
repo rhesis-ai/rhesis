@@ -1,6 +1,7 @@
 """Tests for message extraction from target interactions."""
 
 import pytest
+
 from rhesis.penelope.context import TestContext, TestState, ToolExecution, ToolType
 from rhesis.penelope.schemas import (
     AssistantMessage,

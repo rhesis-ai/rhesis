@@ -14,8 +14,8 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.services import recycle as recycle_service
 from rhesis.backend.app.database import without_soft_delete_filter
+from rhesis.backend.app.services import recycle as recycle_service
 
 
 @pytest.fixture

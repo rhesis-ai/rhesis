@@ -6,10 +6,11 @@ including tag management, test set services, and other service-level operations.
 """
 
 import uuid
+
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import models, crud
+from rhesis.backend.app import crud, models
 from tests.backend.routes.fixtures.data_factories import TagDataFactory
 
 

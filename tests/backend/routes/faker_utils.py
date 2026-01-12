@@ -14,9 +14,10 @@ Features:
 - Special case generators for edge testing
 """
 
-from faker import Faker
-from typing import Dict, Any, Optional, List
 import uuid
+from typing import Any, Dict, List, Optional
+
+from faker import Faker
 
 # Initialize Faker instance with consistent seed for reproducible tests
 fake = Faker()

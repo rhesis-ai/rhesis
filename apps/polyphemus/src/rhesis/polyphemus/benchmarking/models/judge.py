@@ -1,4 +1,3 @@
-from .deep_hermes3 import DeepHermes3
 from rhesis.sdk.models import GeminiLLM
 
 

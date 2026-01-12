@@ -1,13 +1,14 @@
 """Tests for Penelope evaluation module."""
 
-import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
+import pytest
+
+from rhesis.penelope.context import TestContext, TestState
 from rhesis.penelope.evaluation import GoalEvaluator
-from rhesis.penelope.context import TestState, TestContext
 from rhesis.sdk.metrics.base import MetricResult
+from rhesis.sdk.metrics.conversational import AssistantMessage, ConversationHistory, UserMessage
 from rhesis.sdk.metrics.providers.native import GoalAchievementJudge
-from rhesis.sdk.metrics.conversational import ConversationHistory, UserMessage, AssistantMessage
 
 
 @pytest.fixture

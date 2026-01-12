@@ -4,8 +4,9 @@
 Mock fixtures for internal services and business logic components.
 """
 
-import pytest
 from unittest.mock import Mock
+
+import pytest
 from faker import Faker
 
 fake = Faker()

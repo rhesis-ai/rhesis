@@ -12,9 +12,9 @@ Extracted from conftest.py for better modularity and maintainability.
 import pytest
 from fastapi.testclient import TestClient
 
-from rhesis.backend.app.main import app
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.main import app
 
 
 @pytest.fixture
@@ -54,10 +54,10 @@ def authenticated_client(client, rhesis_api_key):
 @pytest.fixture
 def superuser_client(test_db, client):
     """🔑 FastAPI test client with superuser authentication."""
-    from rhesis.backend.app import models
-    from tests.backend.fixtures.test_setup import create_test_organization_and_user
-    from datetime import datetime
     import uuid
+    from datetime import datetime
+
+    from tests.backend.fixtures.test_setup import create_test_organization_and_user
 
     # Create a superuser
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

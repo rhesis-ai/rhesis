@@ -6,11 +6,11 @@ Sends email notifications to hello@rhesis.ai when users exceed their rate limits
 
 import os
 import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from datetime import datetime
-from fastapi import Request
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
+from fastapi import Request
 
 # SMTP Configuration
 SMTP_HOST = os.getenv("SMTP_HOST")

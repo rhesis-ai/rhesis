@@ -1,12 +1,13 @@
-import pytest
 import os
+
+import pytest
 from cryptography.fernet import Fernet
+from faker import Faker
 from sqlalchemy import text
 
 from rhesis.backend.app.models.model import Model
 from rhesis.backend.app.utils.encryption import is_encrypted
 from tests.backend.routes.fixtures.data_factories import BaseDataFactory
-from faker import Faker
 
 fake = Faker()
 

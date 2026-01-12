@@ -5,8 +5,18 @@ Uses Rhesis brand colors for syntax highlighting.
 
 from pygments.style import Style
 from pygments.token import (
-    Comment, Error, Generic, Keyword, Literal, Name, Number, Operator,
-    Punctuation, String, Text, Whitespace
+    Comment,
+    Error,
+    Generic,
+    Keyword,
+    Literal,
+    Name,
+    Number,
+    Operator,
+    Punctuation,
+    String,
+    Text,
+    Whitespace,
 )
 
 

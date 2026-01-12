@@ -1,6 +1,5 @@
 """Tests for flexible conversation field support in Penelope."""
 
-import pytest
 from rhesis.penelope.schemas import SendMessageParams
 
 

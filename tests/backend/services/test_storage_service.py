@@ -8,9 +8,10 @@ with factory-based data generation and base class inheritance.
 
 import os
 from typing import Any, Dict
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
+
 from rhesis.backend.app.services.storage_service import StorageService
 
 from .base import BaseStorageServiceTests, StorageServiceTestMixin

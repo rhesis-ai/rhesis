@@ -17,9 +17,9 @@ Functions tested from auth utilities:
 Run with: python -m pytest tests/backend/auth/test_transaction_management.py -v
 """
 
-import pytest
 import uuid
-from datetime import datetime, timezone
+
+import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models

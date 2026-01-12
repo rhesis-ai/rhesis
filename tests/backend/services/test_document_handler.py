@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import UploadFile
+
 from rhesis.backend.app.services.handlers.document import DocumentHandler
 
 from .base import BaseDocumentHandlerTests, DocumentHandlerTestMixin

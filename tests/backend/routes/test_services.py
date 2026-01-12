@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+
 from rhesis.backend.app.routers.services import generate_content_endpoint
 from rhesis.backend.app.schemas.services import GenerateContentRequest
 

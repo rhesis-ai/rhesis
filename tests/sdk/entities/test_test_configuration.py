@@ -3,7 +3,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.sdk.client import Endpoints
 from rhesis.sdk.entities.test_configuration import TestConfiguration
 
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"

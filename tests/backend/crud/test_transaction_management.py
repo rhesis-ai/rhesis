@@ -23,21 +23,19 @@ Functions tested from app/crud.py:
 Run with: python -m pytest tests/backend/crud/test_transaction_management.py -v
 """
 
-import pytest
 import uuid
 from unittest.mock import patch
-from sqlalchemy.orm import Session
+
+import pytest
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.constants import EntityType
 from tests.backend.routes.fixtures.data_factories import (
+    CommentDataFactory,
     OrganizationDataFactory,
     TagDataFactory,
-    BehaviorDataFactory,
-    MetricDataFactory,
-    CommentDataFactory,
-    TestDataFactory,
 )
 
 

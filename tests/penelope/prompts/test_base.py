@@ -2,6 +2,7 @@
 
 import pytest
 from pydantic import ValidationError
+
 from rhesis.penelope.prompts.base import PromptTemplate, TemplateFormat
 
 

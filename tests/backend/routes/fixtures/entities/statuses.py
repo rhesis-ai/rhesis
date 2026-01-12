@@ -7,6 +7,7 @@ Fixtures for creating status entities and related type lookups.
 import pytest
 from faker import Faker
 from sqlalchemy.orm import Session
+
 from rhesis.backend.app.models.status import Status
 from rhesis.backend.app.models.type_lookup import TypeLookup
 

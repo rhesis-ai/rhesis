@@ -3,6 +3,7 @@ CLI interface for the Rhesis release tool.
 """
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -10,7 +11,6 @@ from pathlib import Path
 from .processor import ReleaseProcessor
 from .publish import publish_releases
 from .utils import error
-import json
 
 
 def create_argument_parser() -> argparse.ArgumentParser:

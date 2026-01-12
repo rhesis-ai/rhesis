@@ -7,16 +7,15 @@ with base test classes. This ensures uniformity across all backend route impleme
 Run with: python -m pytest tests/backend/routes/test_dimension.py -v
 """
 
-import uuid
-from typing import Dict, Any
+from typing import Any, Dict
 
 import pytest
 from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from .endpoints import APIEndpoints
 from .base import BaseEntityRouteTests, BaseEntityTests
+from .endpoints import APIEndpoints
 from .faker_utils import TestDataGenerator, generate_dimension_data
 
 # Initialize Faker
