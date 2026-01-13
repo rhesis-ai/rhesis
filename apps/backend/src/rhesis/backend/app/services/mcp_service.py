@@ -231,7 +231,7 @@ def _get_mcp_client_from_params(
     name="search_mcp",
     bind={
         **get_test_context(),
-        "tool_id": os.environ["RHESIS_TOOL_ID"],
+        "tool_id": os.getenv("RHESIS_TOOL_ID"),
     },
     request_mapping={
         "query": "{{ input }}",
@@ -310,7 +310,7 @@ async def search_mcp(
     name="extract_mcp",
     bind={
         **get_test_context(),
-        "tool_id": os.environ["RHESIS_TOOL_ID"],
+        "tool_id": os.getenv("RHESIS_TOOL_ID"),
     },
     request_mapping={
         "query": "{{ input }}",
@@ -392,7 +392,7 @@ async def extract_mcp(
     name="query_mcp",
     bind={
         **get_test_context(),
-        "tool_id": os.environ["RHESIS_TOOL_ID"],
+        "tool_id": os.getenv("RHESIS_TOOL_ID"),
     },
     request_mapping={
         "query": "{{ input }}",
