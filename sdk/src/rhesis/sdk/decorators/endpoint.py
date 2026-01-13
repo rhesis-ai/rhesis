@@ -178,16 +178,28 @@ def endpoint(
         if bind:
             enriched_metadata["_bound_params"] = list(bind.keys())
 
+        # Get function signature to map positional args to parameter names
+        func_sig = inspect.signature(func)
+        param_names = list(func_sig.parameters.keys())
+
         # Helper to inject bound parameters
-        def inject_bound_params(kwargs: dict) -> dict:
-            """Inject bound parameters into kwargs."""
+        def inject_bound_params(args: tuple, kwargs: dict) -> dict:
+            """Inject bound parameters into kwargs, excluding those already provided."""
             if not bind:
                 return kwargs
 
+            # Determine which parameters are already provided
+            provided_params = set(kwargs.keys())
+
+            # Map positional args to parameter names
+            for i, arg_value in enumerate(args):
+                if i < len(param_names):
+                    provided_params.add(param_names[i])
+
             injected_kwargs = kwargs.copy()
             for param_name, param_value in bind.items():
-                # Don't override if already provided
-                if param_name not in injected_kwargs:
+                # Don't inject if already provided (either as positional arg or kwarg)
+                if param_name not in provided_params:
                     # Call if callable, use directly otherwise
                     if callable(param_value):
                         injected_kwargs[param_name] = param_value()
@@ -217,8 +229,8 @@ def endpoint(
 
             @wraps(func)
             async def wrapper(*args, **kwargs):
-                # Inject bound parameters
-                kwargs = inject_bound_params(kwargs)
+                # Inject bound parameters (excluding those already provided)
+                kwargs = inject_bound_params(args, kwargs)
 
                 if not observe:
                     return await func(*args, **kwargs)
@@ -232,8 +244,8 @@ def endpoint(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Inject bound parameters
-            kwargs = inject_bound_params(kwargs)
+            # Inject bound parameters (excluding those already provided)
+            kwargs = inject_bound_params(args, kwargs)
 
             if not observe:
                 return func(*args, **kwargs)
