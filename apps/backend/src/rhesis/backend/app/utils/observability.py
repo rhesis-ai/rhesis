@@ -42,8 +42,8 @@ def initialize_rhesis_client() -> Optional[RhesisClient]:
 
 def _get_context():
     """Get fresh context values."""
-    org_id = os.environ["RHESIS_ORGANIZATION_ID"]
-    user_id = os.environ["RHESIS_USER_ID"]
+    org_id = os.getenv("RHESIS_ORGANIZATION_ID")
+    user_id = os.getenv("RHESIS_USER_ID")
     db = SessionLocal()
     user = crud.get_user_by_id(db, user_id)
     _set_session_variables(db, org_id, user_id)
@@ -94,8 +94,8 @@ def get_test_context() -> Dict[str, any]:
         - user: Callable returning User object from database
     """
     # Static values from environment
-    org_id = os.environ["RHESIS_ORGANIZATION_ID"]
-    user_id = os.environ["RHESIS_USER_ID"]
+    org_id = os.getenv("RHESIS_ORGANIZATION_ID")
+    user_id = os.getenv("RHESIS_USER_ID")
 
     def _get_shared_context():
         """Get or create shared context for this invocation (per async task)."""
