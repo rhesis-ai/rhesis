@@ -14,8 +14,9 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
+from rhesis.backend.app.utils.observability import get_test_context
 from rhesis.backend.logging import logger
-from rhesis.sdk import RhesisClient, endpoint
+from rhesis.sdk.decorators import endpoint
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientFactory
 from rhesis.sdk.services.mcp.exceptions import (
     MCPApplicationError,
@@ -32,18 +33,6 @@ jinja_env = jinja2.Environment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
-
-# Initialize RhesisClient at module level for @endpoint decorators
-try:
-    RHESIS_CLIENT = RhesisClient(
-        project_id=os.environ["RHESIS_PROJECT_ID"],
-        api_key=os.environ["RHESIS_API_KEY"],
-        environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
-        base_url=os.getenv("RHESIS_BASE_URL", "http://localhost:8080"),
-    )
-except Exception as e:
-    logger.warning(f"Failed to initialize RhesisClient: {e}")
-    RHESIS_CLIENT = None
 
 
 def handle_mcp_exception(e: Exception, operation: str) -> HTTPException:
@@ -106,7 +95,7 @@ def _get_agent_class():
     Returns:
         ObservableMCPAgent if RhesisClient is available, otherwise MCPAgent
     """
-    rhesis_client = RHESIS_CLIENT
+    from rhesis.backend.app.utils.observability import rhesis_client
 
     if rhesis_client is not None:
         logger.info("Using ObservableMCPAgent for MCP operations (observability enabled)")
@@ -238,6 +227,17 @@ def _get_mcp_client_from_params(
     return client
 
 
+@endpoint(
+    name="search_mcp",
+    bind={
+        **get_test_context(),
+        "tool_id": os.environ["RHESIS_TOOL_ID"],
+    },
+    request_mapping={
+        "query": "{{ input }}",
+    },
+    response_mapping={},
+)
 async def search_mcp(
     query: str, tool_id: str, db: Session, user: User, organization_id: str, user_id: str = None
 ) -> List[Dict[str, str]]:
@@ -306,6 +306,17 @@ async def search_mcp(
         raise ValueError(f"Agent returned invalid JSON: {str(e)}")
 
 
+@endpoint(
+    name="extract_mcp",
+    bind={
+        **get_test_context(),
+        "tool_id": os.environ["RHESIS_TOOL_ID"],
+    },
+    request_mapping={
+        "query": "{{ input }}",
+    },
+    response_mapping={},
+)
 async def extract_mcp(
     item_id: Optional[str] = None,
     item_url: Optional[str] = None,
@@ -377,6 +388,17 @@ async def extract_mcp(
     return result.final_answer
 
 
+@endpoint(
+    name="query_mcp",
+    bind={
+        **get_test_context(),
+        "tool_id": os.environ["RHESIS_TOOL_ID"],
+    },
+    request_mapping={
+        "query": "{{ input }}",
+    },
+    response_mapping={},
+)
 async def query_mcp(
     query: str,
     tool_id: str,
