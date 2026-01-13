@@ -103,6 +103,10 @@ frontend:
       value: "http://localhost:3000"
     - name: BACKEND_URL
       value: "http://backend:8080"
+    - name: HOSTNAME
+      value: "0.0.0.0"
+    - name: PORT
+      value: "3000"
 
 # Worker configuration for local development
 worker:
