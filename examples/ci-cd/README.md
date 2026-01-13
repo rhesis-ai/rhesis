@@ -11,7 +11,7 @@ Complete examples for integrating Rhesis SDK into your CI/CD pipeline.
 
 1. Copy `rhesis-tests.yml` to `.github/workflows/rhesis-tests.yml` in your repository
 2. Copy `run_rhesis_tests.py` to `.github/scripts/run_rhesis_tests.py` in your repository
-3. Configure secrets in your CI/CD platform (see [CI/CD Integration Guide](/guides/ci-cd-integration))
+3. Configure secrets in your CI/CD platform (see [CI/CD Integration Guide](https://docs.rhesis.ai/guides/ci-cd-integration))
 
 ## Customization
 
@@ -54,5 +54,5 @@ if failure_rate > failure_threshold:
 
 ## Documentation
 
-For detailed setup instructions, see the [CI/CD Integration Guide](/guides/ci-cd-integration).
+For detailed setup instructions, see the [CI/CD Integration Guide](https://dev-docs.rhesis.ai/guides/ci-cd-integration).
 
