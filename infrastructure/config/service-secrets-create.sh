@@ -311,6 +311,8 @@ SERVICE_VARS=(
   # Polyphemus service variables
   "POLYPHEMUS_REGION"
   "DEFAULT_MODEL"
+  "MODEL_BUCKET"
+  "MODEL_PATH"
 )
 
 # Set environment-specific secrets
