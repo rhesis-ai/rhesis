@@ -6,6 +6,9 @@ import requests
 
 from rhesis.sdk.config import get_api_key, get_base_url
 
+# Check if connector should be disabled
+CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLE", "0") == "1"
+
 
 class HTTPStatus:
     """HTTP status codes for consistent testing.
@@ -45,7 +48,70 @@ class Methods(Enum):
     DELETE = "DELETE"
 
 
+class DisabledClient:
+    """
+    No-op client implementation used when RHESIS_CONNECTOR_DISABLE=1.
+
+    This client accepts all initialization parameters and method calls but
+    performs no actual operations. It's used to allow code to run without
+    connector/observability overhead in test and CI environments.
+
+    All methods return None or appropriate no-op values to ensure calling
+    code doesn't break.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """Accept any initialization parameters but do nothing."""
+        pass
+
+    def __getattr__(self, name):
+        """
+        Handle any method call as a no-op.
+
+        This ensures all Client methods work without needing to explicitly
+        implement each one in DisabledClient.
+
+        Returns:
+            A function that accepts any arguments and returns None
+        """
+
+        def noop(*args, **kwargs):
+            return None
+
+        return noop
+
+    @property
+    def base_url(self) -> str:
+        """Return empty string for base_url property."""
+        return ""
+
+    @property
+    def project_id(self) -> Optional[str]:
+        """Return None for project_id property."""
+        return None
+
+    @property
+    def environment(self) -> str:
+        """Return empty string for environment property."""
+        return ""
+
+
 class Client:
+    def __new__(cls, *args, **kwargs):
+        """
+        Create either a real Client or DisabledClient based on environment flag.
+
+        When RHESIS_CONNECTOR_DISABLE=1, returns a DisabledClient that performs
+        no operations. Otherwise, creates a normal Client instance.
+        """
+        if CONNECTOR_DISABLED:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.debug("⏭️  Rhesis connector disabled (RHESIS_CONNECTOR_DISABLE=1)")
+            return DisabledClient()
+        return super().__new__(cls)
+
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -55,6 +121,9 @@ class Client:
     ):
         """
         Initialize the Rhesis client.
+
+        Note: This __init__ will NOT be called when RHESIS_CONNECTOR_DISABLE=1
+        since __new__ returns a DisabledClient instance instead.
 
         Args:
             api_key: Optional API key. If not provided, will try to get it from
