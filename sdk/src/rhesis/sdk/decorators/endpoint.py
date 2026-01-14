@@ -4,7 +4,7 @@ import inspect
 from collections.abc import Callable
 from functools import wraps
 
-from ._state import get_default_client
+from ._state import get_default_client, is_client_disabled
 
 
 def endpoint(
@@ -158,6 +158,11 @@ def endpoint(
     """
 
     def decorator(func: Callable) -> Callable:
+        # If client is disabled, return the original function unmodified
+        # This completely bypasses all decorator overhead
+        if is_client_disabled():
+            return func
+
         _default_client = get_default_client()
         if _default_client is None:
             raise RuntimeError(

@@ -5,7 +5,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Optional
 
-from ._state import get_default_client
+from ._state import get_default_client, is_client_disabled
 
 
 class ObserveDecorator:
@@ -62,6 +62,11 @@ class ObserveDecorator:
         """
 
         def decorator(func: Callable) -> Callable:
+            # If client is disabled, return the original function unmodified
+            # This completely bypasses all decorator overhead
+            if is_client_disabled():
+                return func
+
             func_name = name or func.__name__
             final_span_name = span_name or f"function.{func_name}"
 

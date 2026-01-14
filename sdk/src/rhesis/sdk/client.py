@@ -56,13 +56,27 @@ class DisabledClient:
     performs no actual operations. It's used to allow code to run without
     connector/observability overhead in test and CI environments.
 
-    All methods return None or appropriate no-op values to ensure calling
-    code doesn't break.
+    When DisabledClient is active:
+    - @endpoint and @observe decorators return the original function unmodified
+    - No telemetry initialization occurs
+    - No connector manager is created
+    - All method calls are no-ops
     """
 
     def __init__(self, *args, **kwargs):
-        """Accept any initialization parameters but do nothing."""
-        pass
+        """Accept any initialization parameters and register as default client."""
+        from rhesis.sdk import decorators
+
+        decorators._register_default_client(self)
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info("✅ DisabledClient initialized successfully")
+
+    @property
+    def is_disabled(self) -> bool:
+        """Return True to indicate this is a disabled client."""
+        return True
 
     def __getattr__(self, name):
         """
@@ -108,7 +122,7 @@ class Client:
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.debug("⏭️  Rhesis connector disabled (RHESIS_CONNECTOR_DISABLE=1)")
+            logger.info("⏭️  Rhesis connector disabled (RHESIS_CONNECTOR_DISABLE=1)")
             return DisabledClient()
         return super().__new__(cls)
 
@@ -159,6 +173,11 @@ class Client:
 
         # Automatically register as default client (transparent)
         self._register_as_default()
+
+    @property
+    def is_disabled(self) -> bool:
+        """Return False to indicate this is an active client."""
+        return False
 
     @property
     def base_url(self) -> str:

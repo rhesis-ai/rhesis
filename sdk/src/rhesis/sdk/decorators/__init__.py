@@ -14,7 +14,7 @@ Backward compatible imports:
 # Re-export for backward compatibility
 # Import _state module itself for test monkeypatching
 from . import _state
-from ._state import _register_default_client, get_default_client
+from ._state import _register_default_client, get_default_client, is_client_disabled
 from .builders import ObserverBuilder, create_observer
 from .endpoint import collaborate, endpoint
 from .observe import observe
@@ -30,5 +30,6 @@ __all__ = [
     # Internal (for SDK use)
     "_register_default_client",
     "get_default_client",
+    "is_client_disabled",
     "_state",
 ]
