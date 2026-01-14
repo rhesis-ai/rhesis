@@ -14,8 +14,9 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
-from rhesis.backend.app.utils.observability import conditional_endpoint, get_test_context
+from rhesis.backend.app.utils.observability import get_test_context
 from rhesis.backend.logging import logger
+from rhesis.sdk.decorators import endpoint
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientFactory
 from rhesis.sdk.services.mcp.exceptions import (
     MCPApplicationError,
@@ -226,7 +227,7 @@ def _get_mcp_client_from_params(
     return client
 
 
-@conditional_endpoint(
+@endpoint(
     name="search_mcp",
     bind={
         **get_test_context(),
@@ -305,7 +306,7 @@ async def search_mcp(
         raise ValueError(f"Agent returned invalid JSON: {str(e)}")
 
 
-@conditional_endpoint(
+@endpoint(
     name="extract_mcp",
     bind={
         **get_test_context(),
@@ -388,7 +389,7 @@ async def extract_mcp(
     return result.final_answer
 
 
-@conditional_endpoint(
+@endpoint(
     name="query_mcp",
     bind={
         **get_test_context(),
