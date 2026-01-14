@@ -5,7 +5,7 @@ from contextvars import ContextVar
 from typing import Dict, Optional
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.database import SessionLocal, _set_session_variables
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.logging import logger
 from rhesis.sdk import RhesisClient
 
@@ -46,24 +46,6 @@ def initialize_rhesis_client() -> Optional[RhesisClient]:
         return None
 
 
-def _get_context():
-    """Get fresh context values."""
-    org_id = os.getenv("RHESIS_ORGANIZATION_ID")
-    user_id = os.getenv("RHESIS_USER_ID")
-    db = SessionLocal()
-    user = crud.get_user_by_id(db, user_id)
-    _set_session_variables(db, org_id, user_id)
-    return {
-        "db": db,
-        "user": user,
-        "organization_id": org_id,
-        "user_id": user_id,
-    }
-
-
-# Context variable to store context per async task/invocation
-_context_var: ContextVar[Optional[Dict[str, any]]] = ContextVar("test_context", default=None)
-
 # Initialize RhesisClient at module import time (required for @endpoint decorators)
 # This happens before decorators are evaluated, so the client is available when needed
 try:
@@ -75,14 +57,11 @@ except Exception as e:
 
 def get_test_context() -> Dict[str, any]:
     """
-    Get test context bindings for endpoint decorator.
+    Get test context bindings for endpoint decorator with proper resource management.
 
-    Returns a dictionary with a mix of static values and callables:
-    - Static values (organization_id, user_id): From environment variables
-    - Callables (db, user): Fresh database session and user object per invocation
-
-    The context is created once per invocation (per async task) and shared
-    across all bind parameters, ensuring efficiency while maintaining freshness.
+    Uses generator functions (yield) to provide dependencies that need cleanup.
+    The @endpoint decorator will automatically handle them as context managers,
+    just like FastAPI does. Database sessions are properly closed after use.
 
     The dictionary can be unpacked directly in @endpoint bind parameter:
         @endpoint(
@@ -96,8 +75,8 @@ def get_test_context() -> Dict[str, any]:
         Dictionary with bindings suitable for @endpoint bind parameter:
         - organization_id: Static organization ID from environment
         - user_id: Static user ID from environment
-        - db: Callable returning fresh database session
-        - user: Callable returning User object from database
+        - db: Generator-based dependency for database session (auto-cleanup)
+        - user: Generator-based dependency for User object (auto-cleanup)
     """
     # Static values from environment
     org_id = os.getenv("RHESIS_ORGANIZATION_ID")
@@ -107,17 +86,32 @@ def get_test_context() -> Dict[str, any]:
     if not org_id or not user_id:
         return {}
 
-    def _get_shared_context():
-        """Get or create shared context for this invocation (per async task)."""
-        context = _context_var.get()
-        if context is None:
-            context = _get_context()
-            _context_var.set(context)
-        return context
+    def db_dependency():
+        """
+        Generator-based dependency for database session.
+
+        The session is automatically closed when the generator exits,
+        preventing connection leaks.
+        """
+        with get_db_with_tenant_variables(org_id, user_id) as db:
+            yield db
+            # Cleanup happens automatically when generator is closed
+
+    def user_dependency():
+        """
+        Generator-based dependency for user object.
+
+        Creates a fresh database session to fetch the user, then
+        automatically closes it to prevent connection leaks.
+        """
+        with get_db_with_tenant_variables(org_id, user_id) as db:
+            user = crud.get_user_by_id(db, user_id)
+            yield user
+            # Cleanup happens automatically when generator is closed
 
     return {
-        "organization_id": org_id,
-        "user_id": user_id,
-        "db": lambda: _get_shared_context()["db"],
-        "user": lambda: _get_shared_context()["user"],
+        "organization_id": org_id,  # Static value
+        "user_id": user_id,  # Static value
+        "db": db_dependency,  # Generator (treated as context manager)
+        "user": user_dependency,  # Generator (treated as context manager)
     }

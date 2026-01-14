@@ -13,6 +13,7 @@ def mock_client():
     with patch("rhesis.sdk.decorators._state._default_client") as mock:
         mock._connector_manager = None
         mock._tracer = Mock()
+        mock.is_disabled = False  # Ensure client is enabled
 
         # The wrapper already calls inject_bound_params and modifies kwargs
         # So we just need to call the function with the provided args and kwargs

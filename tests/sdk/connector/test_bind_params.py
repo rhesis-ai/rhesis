@@ -14,6 +14,7 @@ def mock_client(monkeypatch):
     client = MagicMock(spec=RhesisClient)
     client._connector_manager = None
     client._tracer = MagicMock()
+    client.is_disabled = False  # Ensure client is enabled
     client._tracer.trace_execution = lambda name, func, args, kwargs, span: func(*args, **kwargs)
     client._tracer.trace_execution_async = lambda name, func, args, kwargs, span: func(
         *args, **kwargs

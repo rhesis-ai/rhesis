@@ -127,15 +127,21 @@ def endpoint(
             results = db.query(config.table, input)
             return {"output": format_results(results)}
 
-        # Example 6: Binding with FastAPI-style dependencies
+        # Example 6: Binding with FastAPI-style generator dependencies
+        def get_db():
+            '''Generator that yields database session with auto-cleanup'''
+            with database.get_session() as session:
+                yield session
+                # Cleanup happens automatically
+
         @endpoint(
             bind={
-                "db": lambda: next(get_db()),  # Generator-based dependency
+                "db": get_db,  # Generator-based dependency (auto-cleanup)
                 "user": lambda: get_current_user_context(),
             }
         )
         async def authenticated_query(db, user, input: str) -> dict:
-            # Automatically inject auth context and database
+            # Database connection is automatically closed after execution
             if not user.is_authenticated:
                 return {"output": "Unauthorized"}
             return {"output": db.query_for_user(user.id, input)}
@@ -188,10 +194,27 @@ def endpoint(
         param_names = list(func_sig.parameters.keys())
 
         # Helper to inject bound parameters
-        def inject_bound_params(args: tuple, kwargs: dict) -> dict:
-            """Inject bound parameters into kwargs, excluding those already provided."""
+        def inject_bound_params(args, kwargs):
+            """
+            Inject bound parameters into kwargs, handling generators as context managers.
+
+            This function detects generator-based dependencies (like FastAPI's Depends
+            with yield) and properly manages their lifecycle. Generators are advanced to
+            get their yielded value, and the generator objects are returned for cleanup
+            after the function executes.
+
+            Args:
+                args: Positional arguments passed to the function
+                kwargs: Keyword arguments passed to the function
+
+            Returns:
+                tuple: (injected_kwargs, cleanup_generators)
+                    - injected_kwargs: kwargs with bound parameters injected
+                    - cleanup_generators: list of generators that need cleanup for
+                      resource management
+            """
             if not bind:
-                return kwargs
+                return kwargs, []
 
             # Determine which parameters are already provided
             provided_params = set(kwargs.keys())
@@ -202,16 +225,27 @@ def endpoint(
                     provided_params.add(param_names[i])
 
             injected_kwargs = kwargs.copy()
+            cleanup_generators = []
+
             for param_name, param_value in bind.items():
                 # Don't inject if already provided (either as positional arg or kwarg)
                 if param_name not in provided_params:
                     # Call if callable, use directly otherwise
                     if callable(param_value):
-                        injected_kwargs[param_name] = param_value()
+                        result = param_value()
+
+                        # Check if it's a generator (context manager-like dependency)
+                        if inspect.isgenerator(result):
+                            # Get the yielded value (the actual dependency)
+                            injected_kwargs[param_name] = next(result)
+                            # Store generator for cleanup (will trigger finally block)
+                            cleanup_generators.append(result)
+                        else:
+                            injected_kwargs[param_name] = result
                     else:
                         injected_kwargs[param_name] = param_value
 
-            return injected_kwargs
+            return injected_kwargs, cleanup_generators
 
         # Helper to select appropriate tracer (connector manager takes precedence)
         def get_tracer_method(is_async: bool):
@@ -234,12 +268,28 @@ def endpoint(
 
             @wraps(func)
             async def wrapper(*args, **kwargs):
-                # Inject bound parameters (excluding those already provided)
-                kwargs = inject_bound_params(args, kwargs)
+                # Inject bound parameters and get generators that need cleanup
+                kwargs, cleanup_generators = inject_bound_params(args, kwargs)
 
-                if not observe:
-                    return await func(*args, **kwargs)
-                return await trace_func(func_name, func, args, kwargs, span_name)
+                try:
+                    if not observe:
+                        return await func(*args, **kwargs)
+                    return await trace_func(func_name, func, args, kwargs, span_name)
+                finally:
+                    # Cleanup all generators (closes database connections, file handles, etc.)
+                    for gen in cleanup_generators:
+                        try:
+                            # Advance generator to trigger finally block and cleanup
+                            next(gen)
+                        except StopIteration:
+                            # Expected - generator is exhausted after cleanup
+                            pass
+                        except Exception as e:
+                            # Log cleanup errors but don't fail the request
+                            # This prevents cleanup errors from masking the actual response
+                            import logging
+
+                            logging.warning(f"Error cleaning up generator dependency: {e}")
 
             _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
             return wrapper
@@ -249,12 +299,28 @@ def endpoint(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Inject bound parameters (excluding those already provided)
-            kwargs = inject_bound_params(args, kwargs)
+            # Inject bound parameters and get generators that need cleanup
+            kwargs, cleanup_generators = inject_bound_params(args, kwargs)
 
-            if not observe:
-                return func(*args, **kwargs)
-            return trace_func(func_name, func, args, kwargs, span_name)
+            try:
+                if not observe:
+                    return func(*args, **kwargs)
+                return trace_func(func_name, func, args, kwargs, span_name)
+            finally:
+                # Cleanup all generators (closes database connections, file handles, etc.)
+                for gen in cleanup_generators:
+                    try:
+                        # Advance generator to trigger finally block and cleanup
+                        next(gen)
+                    except StopIteration:
+                        # Expected - generator is exhausted after cleanup
+                        pass
+                    except Exception as e:
+                        # Log cleanup errors but don't fail the request
+                        # This prevents cleanup errors from masking the actual response
+                        import logging
+
+                        logging.warning(f"Error cleaning up generator dependency: {e}")
 
         _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
         return wrapper
