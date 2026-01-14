@@ -1,0 +1,19 @@
+name: Peqy Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  peqy-review:
+    name: Run Peqy Review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trigger Peqy Review
+        uses: peqy/action@main
+        with:
+          api-key: ${{ secrets.PEQY_API_KEY }}
