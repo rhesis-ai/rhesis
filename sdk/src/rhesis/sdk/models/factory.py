@@ -26,7 +26,7 @@ DEFAULT_MODELS = {
     "openai": "gpt-4o",
     "openrouter": "openai/gpt-4o-mini",
     "perplexity": "sonar-pro",
-    "polyphemus": "",  # Polyphemus uses API's default model
+    "polyphemus": "default",  # Polyphemus default model
     "replicate": "llama-2-70b-chat",
     "together_ai": "togethercomputer/llama-2-70b-chat",
     "vertex_ai": "gemini-2.0-flash",  # Best performance - avoid 2.5-flash
@@ -261,9 +261,20 @@ def get_model(
         cfg = config
     else:
         cfg = ModelConfig()
+
+    # Case: special rhesis-hosted models like "rhesis/polyphemus"
+    if provider and provider.startswith("rhesis/"):
+        model_variant = provider.split("/", 1)[1]  # e.g., "polyphemus"
+        if model_variant == "polyphemus":
+            provider = "polyphemus"
+            model_name = model_name or "default"  # Polyphemus default model
+        else:
+            # Unknown rhesis variant, treat as regular rhesis with model name
+            provider = "rhesis"
+            model_name = model_name or model_variant
     # Case: shorthand string like "provider/model"
-    if provider and "/" in provider and model_name is None:
-        # split only first "/" so that names like "rhesis/rhesis-default" still work
+    elif provider and "/" in provider and model_name is None:
+        # split only first "/" so that names like "openai/gpt-4" still work
         prov, model = provider.split("/", 1)
         provider, model_name = prov, model
 

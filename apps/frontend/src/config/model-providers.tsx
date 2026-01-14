@@ -71,7 +71,13 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
   ),
   polyphemus: (
-    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
+    <Image
+      src="/logos/polyphemus-logo-favicon-transparent.svg"
+      alt="Polyphemus"
+      width={32}
+      height={32}
+      style={{ width: '32px', height: '32px' }}
+    />
   ),
   replicate: <SiReplicate className="h-8 w-8" />,
   rhesis: (

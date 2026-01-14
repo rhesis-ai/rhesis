@@ -18,7 +18,7 @@ from rhesis.backend.app.utils.crud_utils import (
     get_or_create_topic,
     get_or_create_type_lookup,
 )
-from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.model_utils import QueryBuilder, create_default_rhesis_model
 
 
 def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
@@ -641,59 +641,42 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     db.execute(behavior_metric_association.insert().values(**association_values))
                     db.flush()
 
-        # Process default Rhesis model
-        print("Processing default Rhesis model...")
-        # Get the Rhesis provider type
-        rhesis_provider_type = get_or_create_type_lookup(
+        # Process default Rhesis models
+        print("Processing default Rhesis models...")
+
+        # Create Rhesis Default model
+        rhesis_model = create_default_rhesis_model(
             db=db,
-            type_name="ProviderType",
-            type_value="rhesis",
+            provider_value="rhesis",
+            model_name="default",
+            name="Rhesis Default",
+            description="Default Rhesis-hosted model. No API key required.",
+            icon="rhesis",
             organization_id=organization_id,
             user_id=user_id,
             commit=False,
         )
+        print(f"Created Rhesis Default model with ID: {rhesis_model.id}")
 
-        # Get Available status for the model
-        available_status = get_or_create_status(
+        # Create Polyphemus model
+        polyphemus_model = create_default_rhesis_model(
             db=db,
-            name="Available",
-            entity_type="Model",
+            provider_value="polyphemus",
+            model_name="default",
+            name="Rhesis Polyphemus",
+            description="Polyphemus adversarial model hosted by Rhesis. No API key required.",
+            icon="polyphemus",
             organization_id=organization_id,
             user_id=user_id,
             commit=False,
         )
-
-        # Create the default Rhesis model
-        default_model_data = {
-            "name": "Rhesis Default",
-            "model_name": "default",
-            "description": "Default Rhesis-hosted model. No API key required.",
-            "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
-            "provider_type_id": rhesis_provider_type.id,
-            "status_id": available_status.id,
-            "key": "",  # Empty string for system model - backend uses its own key
-            "endpoint": None,  # Uses internal infrastructure
-            "is_protected": True,  # System model - cannot be deleted
-            "user_id": uuid.UUID(user_id),
-            "owner_id": uuid.UUID(user_id),
-        }
-
-        default_model = get_or_create_entity(
-            db=db,
-            model=models.Model,
-            entity_data=default_model_data,
-            organization_id=organization_id,
-            user_id=user_id,
-            commit=False,
-        )
-
-        print(f"Created default Rhesis model with ID: {default_model.id}")
+        print(f"Created Polyphemus model with ID: {polyphemus_model.id}")
 
         # Flush all changes to ensure they're persisted
         db.flush()
 
-        # Return the default model ID so it can be set in user settings
-        return str(default_model.id)
+        # Return the Rhesis model ID as the default (not Polyphemus)
+        return str(rhesis_model.id)
 
     except Exception:
         # Let the calling code handle transaction rollback

@@ -368,3 +368,106 @@ def apply_optimized_loads(
             query = query.options(joinedload(relationship_attr))
 
     return query
+
+
+def create_default_rhesis_model(
+    db: Session,
+    provider_value: str,
+    model_name: str,
+    name: str,
+    description: str,
+    icon: str,
+    organization_id: str,
+    user_id: str,
+    commit: bool = False,
+):
+    """
+    Create a default Rhesis-hosted model (Rhesis or Polyphemus).
+
+    This utility function centralizes the creation logic for default system models
+    to avoid duplication between onboarding and migration code.
+
+    Args:
+        db: Database session
+        provider_value: Provider type value ("rhesis" or "polyphemus")
+        model_name: Model name to use (e.g., "default" for Rhesis, "" for Polyphemus)
+        name: Human-readable name for the model (maps to 'name' field in DB)
+        description: Description of the model
+        icon: Icon identifier for the frontend
+        organization_id: Organization ID to associate with the model
+        user_id: User ID to associate with the model
+        commit: Whether to commit the transaction (default: False)
+
+    Returns:
+        The created Model instance
+
+    Example:
+        >>> rhesis_model = create_default_rhesis_model(
+        ...     db=db,
+        ...     provider_value="rhesis",
+        ...     model_name="default",
+        ...     name="Rhesis Default",
+        ...     description="Default Rhesis-hosted model. No API key required.",
+        ...     icon="rhesis",
+        ...     organization_id=org_id,
+        ...     user_id=user_id
+        ... )
+    """
+    # Import here to avoid circular import
+    import uuid as uuid_module
+
+    from rhesis.backend.app import models
+    from rhesis.backend.app.constants import EntityType
+    from rhesis.backend.app.utils.crud_utils import (
+        get_or_create_entity,
+        get_or_create_status,
+        get_or_create_type_lookup,
+    )
+
+    # Get or create the provider type
+    provider_type = get_or_create_type_lookup(
+        db=db,
+        type_name="ProviderType",
+        type_value=provider_value,
+        organization_id=organization_id,
+        user_id=user_id,
+        commit=False,
+    )
+
+    # Get or create the Available status for Model entity type
+    available_status = get_or_create_status(
+        db=db,
+        name="Available",
+        entity_type=EntityType.MODEL,
+        description="Model is ready and can be used",
+        organization_id=organization_id,
+        user_id=user_id,
+        commit=False,
+    )
+
+    # Build model data
+    model_data = {
+        "name": name,
+        "model_name": model_name,
+        "description": description,
+        "icon": icon,
+        "provider_type_id": provider_type.id,
+        "status_id": available_status.id,
+        "key": "",  # Empty string for system model - backend uses its own key
+        "endpoint": None,  # Uses internal infrastructure
+        "is_protected": True,  # System model - cannot be deleted
+        "user_id": uuid_module.UUID(user_id),
+        "owner_id": uuid_module.UUID(user_id),
+    }
+
+    # Create the model
+    model = get_or_create_entity(
+        db=db,
+        model=models.Model,
+        entity_data=model_data,
+        organization_id=organization_id,
+        user_id=user_id,
+        commit=commit,
+    )
+
+    return model
