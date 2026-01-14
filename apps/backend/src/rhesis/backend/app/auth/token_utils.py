@@ -11,6 +11,9 @@ from rhesis.backend.app.auth.constants import ACCESS_TOKEN_EXPIRE_MINUTES, ALGOR
 from rhesis.backend.app.models.user import User
 from rhesis.backend.logging import logger
 
+# Service delegation token expiration time
+SERVICE_DELEGATION_EXPIRE_MINUTES = 5
+
 
 def get_secret_key() -> str:
     """Get JWT secret key from environment"""
@@ -49,6 +52,41 @@ def create_session_token(user: User) -> str:
 
     encoded_jwt = jwt.encode(to_encode, get_secret_key(), algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def create_service_delegation_token(
+    user: User,
+    target_service: str,
+    expires_minutes: int = SERVICE_DELEGATION_EXPIRE_MINUTES,
+) -> str:
+    """
+    Create short-lived JWT token for service-to-service delegation.
+
+    Args:
+        user: User on whose behalf the request is made
+        target_service: Target service name (e.g., "polyphemus")
+        expires_minutes: Token lifetime (default: 5 minutes)
+
+    Returns:
+        JWT token string
+    """
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(minutes=expires_minutes)
+
+    payload = {
+        "type": "service_delegation",
+        "target_service": target_service,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "organization_id": str(user.organization_id) if user.organization_id else None,
+        },
+        "iat": now,
+        "exp": expire,
+        "nbf": now,
+    }
+
+    return jwt.encode(payload, get_secret_key(), algorithm=ALGORITHM)
 
 
 def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) -> Dict[str, Any]:

@@ -143,6 +143,12 @@ cp .env.example .env
 
 **Note**: The `.env` file contains essential configuration including database credentials, API keys, and other environment-specific settings.
 
+### Key Environment Variables
+
+- `JWT_SECRET_KEY`: Required for authentication tokens and service delegation
+- `POLYPHEMUS_URL`: URL of the Polyphemus service (default: `https://polyphemus.rhesis.ai`)
+  - For local development: `http://localhost:8000`
+
 ## 📋 Need Help?
 
 ### Complete Setup Guide

@@ -6,6 +6,7 @@ Helper functions for managing user-configured LLM models for different purposes
 """
 
 import logging
+import os
 from typing import Union
 
 from sqlalchemy.orm import Session
@@ -75,6 +76,37 @@ def _is_rhesis_system_model(provider: str, api_key: str) -> bool:
         True if this is a Rhesis system model, False otherwise
     """
     return provider == "rhesis" and not api_key
+
+
+def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
+    """
+    Create Polyphemus client with delegation token.
+
+    Uses service delegation tokens to allow the backend to call Polyphemus
+    on behalf of a user while maintaining user attribution.
+
+    Args:
+        user: User on whose behalf the request is made
+        model_name: Polyphemus model name (e.g., "default")
+        **kwargs: Additional arguments to pass to PolyphemusLLM
+
+    Returns:
+        Configured PolyphemusLLM instance
+    """
+    from rhesis.backend.app.auth.token_utils import create_service_delegation_token
+    from rhesis.sdk.models.providers.polyphemus import PolyphemusLLM
+
+    delegation_token = create_service_delegation_token(user, "polyphemus")
+    polyphemus_url = os.environ.get("POLYPHEMUS_URL", "https://polyphemus.rhesis.ai")
+
+    logger.info(f"[LLM_UTILS] Creating Polyphemus client with delegation for user: {user.email}")
+
+    return PolyphemusLLM(
+        model_name=model_name,
+        api_key=delegation_token,
+        base_url=polyphemus_url,
+        **kwargs,
+    )
 
 
 def _fetch_and_configure_model(
