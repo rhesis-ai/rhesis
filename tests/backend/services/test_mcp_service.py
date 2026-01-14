@@ -26,6 +26,7 @@ from rhesis.backend.app.services.mcp_service import (
     run_mcp_authentication_test,
     search_mcp,
 )
+from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.mcp.exceptions import (
     MCPApplicationError,
     MCPConfigurationError,
@@ -409,7 +410,8 @@ class TestSearchMCP:
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
-        mock_model = Mock()
+        # Create a proper mock that inherits from BaseLLM
+        mock_model = Mock(spec=BaseLLM)
         mock_get_model.return_value = mock_model
 
         mock_client = Mock()
@@ -458,7 +460,7 @@ class TestSearchMCP:
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
-        mock_get_model.return_value = Mock()
+        mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_get_client.return_value = (Mock(), "notion")
         mock_template = Mock()
         mock_template.render.return_value = "Search prompt"
@@ -489,7 +491,7 @@ class TestSearchMCP:
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
-        mock_get_model.return_value = Mock()
+        mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_get_client.return_value = (Mock(), "notion")
         mock_template = Mock()
         mock_template.render.return_value = "Search prompt"
@@ -528,7 +530,7 @@ class TestExtractMCP:
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
-        mock_get_model.return_value = Mock()
+        mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
         mock_get_tool_config.return_value = (
             mock_client,
@@ -579,7 +581,7 @@ class TestExtractMCP:
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
-        mock_get_model.return_value = Mock()
+        mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
         mock_get_tool_config.return_value = (
             mock_client,
@@ -654,7 +656,7 @@ class TestQueryMCP:
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
-        mock_get_model.return_value = Mock()
+        mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
         mock_get_client.return_value = (mock_client, "notion")
 
@@ -702,7 +704,7 @@ class TestQueryMCP:
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
-        mock_get_model.return_value = Mock()
+        mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
         mock_get_client.return_value = (mock_client, "notion")
 
@@ -738,7 +740,7 @@ class TestQueryMCP:
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
-        mock_get_model.return_value = Mock()
+        mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
         mock_get_client.return_value = (mock_client, "notion")
 
@@ -784,7 +786,7 @@ class TestTestMCPAuthentication:
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
-        mock_get_model.return_value = Mock()
+        mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
         mock_get_client.return_value = (mock_client, "notion")
 
@@ -829,7 +831,7 @@ class TestTestMCPAuthentication:
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
-        mock_get_model.return_value = Mock()
+        mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_get_client_from_params.return_value = Mock()
 
         mock_template = Mock()
@@ -873,7 +875,7 @@ class TestTestMCPAuthentication:
         db = Mock(spec=Session)
         user = Mock(spec=User)
 
-        mock_get_model.return_value = Mock()
+        mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_get_client.return_value = (Mock(), "notion")
         mock_template = Mock()
         mock_template.render.return_value = "Auth test prompt"

@@ -93,11 +93,11 @@ def _get_agent_class():
     Determine which agent class to use based on RhesisClient availability.
 
     Returns:
-        ObservableMCPAgent if RhesisClient is available, otherwise MCPAgent
+        ObservableMCPAgent if RhesisClient is available and not disabled, otherwise MCPAgent
     """
     from rhesis.backend.app.utils.observability import rhesis_client
 
-    if rhesis_client is not None:
+    if rhesis_client is not None and not getattr(rhesis_client, "is_disabled", False):
         logger.info("Using ObservableMCPAgent for MCP operations (observability enabled)")
         return ObservableMCPAgent
     else:
