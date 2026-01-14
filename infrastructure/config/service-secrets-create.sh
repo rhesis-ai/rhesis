@@ -76,6 +76,9 @@ function show_usage() {
   echo "  STORAGE_SERVICE_ACCOUNT_KEY   Google Cloud Storage service account key (Base64 encoded JSON)"
   echo "  LOCAL_STORAGE_PATH            Local storage path for temporary files"
   echo "  OTEL_DEPLOYMENT_TYPE          Deployment type (cloud or self-hosted)"
+  echo "  REGION                        GCP region"
+  echo "  CLOUDSQL_INSTANCE             Cloud SQL instance name"
+  echo "  VPC_CONNECTOR_NAME            VPC connector name"
   echo ""
   echo "  # Analytics Database (Telemetry Processor)"
   echo "  ANALYTICS_DATABASE_URL        Full analytics database URL (alternative to individual vars)"
@@ -120,6 +123,8 @@ function show_usage() {
   echo "  DATABASE_URL                  Database URL for frontend"
   echo "  POLYPHEMUS_REGION             GCP region for Polyphemus Cloud Run deployment"
   echo "  DEFAULT_MODEL                 Default model for Polyphemus"
+  echo "  MODEL_BUCKET                  Model bucket for Polyphemus"
+  echo "  MODEL_PATH                    Model path for Polyphemus"
   echo ""
   echo -e "${BLUE}Example:${NC}"
   echo "  $0 --repo myuser/myrepo"
@@ -266,6 +271,9 @@ SERVICE_VARS=(
   "STORAGE_SERVICE_URI"
   "STORAGE_SERVICE_ACCOUNT_KEY"
   "LOCAL_STORAGE_PATH"
+  "VPC_CONNECTOR_NAME"
+  "REGION"
+  "CLOUDSQL_INSTANCE"
   
   # Analytics Database (Telemetry Processor)
   "ANALYTICS_DATABASE_URL"
@@ -311,6 +319,8 @@ SERVICE_VARS=(
   # Polyphemus service variables
   "POLYPHEMUS_REGION"
   "DEFAULT_MODEL"
+  "MODEL_BUCKET"
+  "MODEL_PATH"
 )
 
 # Set environment-specific secrets
