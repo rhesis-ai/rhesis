@@ -4308,7 +4308,7 @@ requires-dist = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.5.2"
+version = "0.6.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "deepeval" },

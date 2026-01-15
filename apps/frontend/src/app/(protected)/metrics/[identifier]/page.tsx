@@ -416,7 +416,7 @@ export default function MetricDetailPage() {
           await tagsClient.assignTagToEntity(EntityType.METRIC, metric.id, {
             name: tagName,
             organization_id: metric.organization_id,
-            user_id: session.user?.id,
+            user_id: session.user?.id as UUID | undefined,
           });
         }
       }
