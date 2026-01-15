@@ -113,7 +113,7 @@ jobs:
       DB_ENCRYPTION_KEY: ${{ secrets.DB_ENCRYPTION_KEY }}
 
       # Observability (disable connector functionalities)
-      RHESIS_CONNECTOR_DISABLE: "1"
+      RHESIS_CONNECTOR_DISABLE: "true"
 
     services:
       postgres:

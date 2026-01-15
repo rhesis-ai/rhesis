@@ -238,9 +238,9 @@ def test_send_request_all_methods(mock_request):
 
 
 def test_disabled_client(monkeypatch):
-    """Test that RHESIS_CONNECTOR_DISABLE=1 creates a DisabledClient."""
+    """Test that RHESIS_CONNECTOR_DISABLE=true creates a DisabledClient."""
     # Enable connector disable flag
-    monkeypatch.setenv("RHESIS_CONNECTOR_DISABLE", "1")
+    monkeypatch.setenv("RHESIS_CONNECTOR_DISABLE", "true")
 
     # Need to reload the module to pick up the new environment variable
     import importlib

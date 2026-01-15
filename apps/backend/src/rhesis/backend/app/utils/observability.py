@@ -1,7 +1,6 @@
 """Observability utilities for Rhesis backend."""
 
 import os
-from contextvars import ContextVar
 from functools import partial
 from typing import Dict, Optional
 
@@ -18,7 +17,7 @@ def initialize_rhesis_client() -> Optional[RhesisClient]:
     """
     Initialize RhesisClient for observability.
 
-    When RHESIS_CONNECTOR_DISABLE=1, this will return a DisabledClient that
+    When RHESIS_CONNECTOR_DISABLE=true, this will return a DisabledClient that
     performs no operations but maintains the same interface.
 
     Returns:
@@ -30,7 +29,7 @@ def initialize_rhesis_client() -> Optional[RhesisClient]:
         return rhesis_client
 
     try:
-        # Note: When RHESIS_CONNECTOR_DISABLE=1, RhesisClient() returns a DisabledClient
+        # Note: When RHESIS_CONNECTOR_DISABLE=true, RhesisClient() returns a DisabledClient
         # that accepts any parameters and performs no operations
         rhesis_client = RhesisClient(
             project_id=os.getenv("RHESIS_PROJECT_ID"),

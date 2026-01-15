@@ -7,7 +7,7 @@ import requests
 from rhesis.sdk.config import get_api_key, get_base_url
 
 # Check if connector should be disabled
-CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLE", "0") == "1"
+CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLE", "false") == "true"
 
 
 class HTTPStatus:
@@ -50,7 +50,7 @@ class Methods(Enum):
 
 class DisabledClient:
     """
-    No-op client implementation used when RHESIS_CONNECTOR_DISABLE=1.
+    No-op client implementation used when RHESIS_CONNECTOR_DISABLE=true.
 
     This client accepts all initialization parameters and method calls but
     performs no actual operations. It's used to allow code to run without
@@ -115,14 +115,14 @@ class Client:
         """
         Create either a real Client or DisabledClient based on environment flag.
 
-        When RHESIS_CONNECTOR_DISABLE=1, returns a DisabledClient that performs
+        When RHESIS_CONNECTOR_DISABLE=true, returns a DisabledClient that performs
         no operations. Otherwise, creates a normal Client instance.
         """
         if CONNECTOR_DISABLED:
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.info("⏭️  Rhesis connector disabled (RHESIS_CONNECTOR_DISABLE=1)")
+            logger.info("⏭️  Rhesis connector disabled (RHESIS_CONNECTOR_DISABLE=true)")
             return DisabledClient()
         return super().__new__(cls)
 
