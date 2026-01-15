@@ -290,6 +290,3 @@ For cloud deployments, telemetry is always enabled as part of the Terms & Condit
 </svg> Germany**
 
 Learn more at [rhesis.ai](https://rhesis.ai)
-
-
-- check changes 
