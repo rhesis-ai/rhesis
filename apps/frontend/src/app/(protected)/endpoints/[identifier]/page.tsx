@@ -79,7 +79,17 @@ export default function EndpointPage({ params }: PageProps) {
     fetchEndpoint();
   }, [identifier, session, status]);
 
-  if (status === 'loading' || loading || !identifier) {
+  if (status === 'unauthenticated') {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography color="error">
+          Authentication required. Please log in.
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (status === 'loading' || loading || !identifier || (!endpoint && !error)) {
     return (
       <Box
         sx={{
@@ -91,16 +101,6 @@ export default function EndpointPage({ params }: PageProps) {
       >
         <CircularProgress size={24} sx={{ mr: 1 }} />
         <Typography>Loading endpoint...</Typography>
-      </Box>
-    );
-  }
-
-  if (status === 'unauthenticated') {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="error">
-          Authentication required. Please log in.
-        </Typography>
       </Box>
     );
   }
