@@ -2,6 +2,7 @@
 
 import os
 from contextvars import ContextVar
+from functools import partial
 from typing import Dict, Optional
 
 from rhesis.backend.app import crud
@@ -86,17 +87,6 @@ def get_test_context() -> Dict[str, any]:
     if not org_id or not user_id:
         return {}
 
-    def db_dependency():
-        """
-        Generator-based dependency for database session.
-
-        The session is automatically closed when the generator exits,
-        preventing connection leaks.
-        """
-        with get_db_with_tenant_variables(org_id, user_id) as db:
-            yield db
-            # Cleanup happens automatically when generator is closed
-
     def user_dependency():
         """
         Generator-based dependency for user object.
@@ -107,11 +97,11 @@ def get_test_context() -> Dict[str, any]:
         with get_db_with_tenant_variables(org_id, user_id) as db:
             user = crud.get_user_by_id(db, user_id)
             yield user
-            # Cleanup happens automatically when generator is closed
 
     return {
         "organization_id": org_id,  # Static value
         "user_id": user_id,  # Static value
-        "db": db_dependency,  # Generator (treated as context manager)
-        "user": user_dependency,  # Generator (treated as context manager)
+        # Use partial to bind parameters - decorator handles context manager cleanup
+        "db": partial(get_db_with_tenant_variables, org_id, user_id),
+        "user": user_dependency,  # Generator-based dependency
     }
