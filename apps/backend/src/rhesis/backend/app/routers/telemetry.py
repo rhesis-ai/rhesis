@@ -18,7 +18,7 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceSource,
     TraceSummary,
 )
-from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
+from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 
 # Legacy alias for backward compatibility
 TraceResponse = TraceIngestResponse

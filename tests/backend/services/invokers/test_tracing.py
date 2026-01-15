@@ -130,7 +130,7 @@ async def test_create_invocation_trace_success():
 
     # Mock EnrichmentService
     with patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService"
     ) as mock_service_class:
         # Create a mock instance that will be returned
         mock_service = MagicMock()
@@ -205,7 +205,7 @@ async def test_create_invocation_trace_error():
     org_id = str(uuid4())
 
     with patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService"
     ) as mock_service_class:
         mock_service = MagicMock()
         mock_service_class.return_value = mock_service
@@ -250,7 +250,7 @@ async def test_create_invocation_trace_without_test_context():
     org_id = str(uuid4())
 
     with patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService"
     ) as mock_service_class:
         mock_service = MagicMock()
         mock_service_class.return_value = mock_service
@@ -316,7 +316,7 @@ async def test_create_invocation_trace_output_truncation():
     large_output = "x" * 2000
 
     with patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService"
     ) as mock_service_class:
         mock_service = MagicMock()
         mock_service_class.return_value = mock_service
@@ -370,7 +370,7 @@ async def test_create_invocation_trace_span_name_format():
         }
 
         with patch(
-            "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+            "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService"
         ) as mock_service_class:
             mock_service = MagicMock()
             mock_service_class.return_value = mock_service
@@ -425,7 +425,7 @@ async def test_create_invocation_trace_with_none_project_id():
     org_id = str(uuid4())
 
     with patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService"
     ) as mock_service_class:
         mock_service = MagicMock()
         mock_service_class.return_value = mock_service

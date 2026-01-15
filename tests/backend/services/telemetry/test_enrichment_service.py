@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 import pytest
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
+from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 
 
 @pytest.mark.unit
@@ -85,7 +85,7 @@ class TestEnrichmentService:
         assert result is False
 
     @patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
     @patch("rhesis.backend.tasks.telemetry.enrich.enrich_trace_async")
     def test_enrich_traces_async_success(
@@ -113,9 +113,9 @@ class TestEnrichmentService:
         assert mock_async_task.delay.call_count == 2
 
     @patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
-    @patch("rhesis.backend.app.services.telemetry.enrichment_service.TraceEnricher")
+    @patch("rhesis.backend.app.services.telemetry.enrichment.service.TraceEnricher")
     def test_enrich_traces_sync_fallback(
         self, mock_enricher_class, mock_check_workers, enrichment_service
     ):
@@ -141,10 +141,10 @@ class TestEnrichmentService:
         assert mock_enricher.enrich_trace.call_count == 2
 
     @patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
     @patch("rhesis.backend.tasks.telemetry.enrich.enrich_trace_async")
-    @patch("rhesis.backend.app.services.telemetry.enrichment_service.TraceEnricher")
+    @patch("rhesis.backend.app.services.telemetry.enrichment.service.TraceEnricher")
     def test_enrich_traces_async_fallback_to_sync(
         self, mock_enricher_class, mock_async_task, mock_check_workers, enrichment_service
     ):
@@ -173,9 +173,9 @@ class TestEnrichmentService:
         mock_enricher.enrich_trace.assert_called_once_with("trace1", project_id, organization_id)
 
     @patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
-    @patch("rhesis.backend.app.services.telemetry.enrichment_service.TraceEnricher")
+    @patch("rhesis.backend.app.services.telemetry.enrichment.service.TraceEnricher")
     def test_enrich_traces_sync_failure(
         self, mock_enricher_class, mock_check_workers, enrichment_service
     ):
@@ -201,9 +201,9 @@ class TestEnrichmentService:
         assert sync_count == 1
 
     @patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
-    @patch("rhesis.backend.app.services.telemetry.enrichment_service.TraceEnricher")
+    @patch("rhesis.backend.app.services.telemetry.enrichment.service.TraceEnricher")
     def test_enrich_traces_sync_no_data(
         self, mock_enricher_class, mock_check_workers, enrichment_service
     ):
@@ -241,10 +241,10 @@ class TestEnrichmentService:
         assert sync_count == 0
 
     @patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
     @patch("rhesis.backend.tasks.telemetry.enrich.enrich_trace_async")
-    @patch("rhesis.backend.app.services.telemetry.enrichment_service.TraceEnricher")
+    @patch("rhesis.backend.app.services.telemetry.enrichment.service.TraceEnricher")
     def test_enrich_traces_mixed_success_failure(
         self, mock_enricher_class, mock_async_task, mock_check_workers, enrichment_service
     ):
@@ -273,9 +273,9 @@ class TestEnrichmentService:
         assert async_count == 1  # First trace succeeded async
         assert sync_count == 1  # Second trace fell back to sync
 
-    @patch("rhesis.backend.app.services.telemetry.enrichment_service.logger")
+    @patch("rhesis.backend.app.services.telemetry.enrichment.service.logger")
     @patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
     @patch("rhesis.backend.tasks.telemetry.enrich.enrich_trace_async")
     def test_enrich_traces_logging(
@@ -301,11 +301,11 @@ class TestEnrichmentService:
             "Enqueued async enrichment for trace trace1 (task: task-123)"
         )
 
-    @patch("rhesis.backend.app.services.telemetry.enrichment_service.logger")
+    @patch("rhesis.backend.app.services.telemetry.enrichment.service.logger")
     @patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
-    @patch("rhesis.backend.app.services.telemetry.enrichment_service.TraceEnricher")
+    @patch("rhesis.backend.app.services.telemetry.enrichment.service.TraceEnricher")
     def test_enrich_traces_sync_logging(
         self, mock_enricher_class, mock_check_workers, mock_logger, enrichment_service
     ):
@@ -332,7 +332,7 @@ class TestEnrichmentService:
 
     @patch("rhesis.backend.tasks.telemetry.enrich.enrich_trace_async")
     @patch(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available"
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available"
     )
     def test_enrich_traces_checks_workers_once(
         self, mock_check_workers, mock_async_task, enrichment_service

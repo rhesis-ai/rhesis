@@ -1003,7 +1003,7 @@ class TestQueryEdgeCases:
 
         # Mock enrichment to add cost data
         with patch(
-            "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService._check_workers_available",
+            "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService._check_workers_available",
             return_value=False,
         ):
             # This will trigger sync enrichment
