@@ -8,7 +8,17 @@ Extract the full content of the item with ID: {{ item_id }}
 Use the method parameter, which specifies the read operation to perform.
 Use get to retrieve the full details of the issue.
 {% elif provider == "notion" %}
-For Notion, retrieve the page content without using the notion-fetch tool.
+You must first determine the Notion object type before selecting any tool.
+
+- If the object is a PAGE:
+  - Retrieve the page content.
+  - Include all text blocks, headings, lists, and nested blocks.
+- If the object is a DATABASE (data source):
+  - Retrieve the database schema.
+  - Query the database to retrieve all rows.
+  - Represent each row as a section with its properties.
+- If the URL refers to a DATABASE VIEW:
+  - Treat it as a database and ignore the view configuration.
 {% endif %}
 
 Return the content as markdown text, including all text, headings, and lists.
