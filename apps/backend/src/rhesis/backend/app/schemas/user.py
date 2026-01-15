@@ -93,6 +93,14 @@ class OnboardingProgress(BaseModel):
     last_updated: Optional[datetime] = None
 
 
+class PolyphemusAccess(BaseModel):
+    """Polyphemus access tracking"""
+
+    granted_at: Optional[datetime] = Field(None, description="When access was granted")
+    revoked_at: Optional[datetime] = Field(None, description="When access was revoked")
+    requested_at: Optional[datetime] = Field(None, description="When access was requested")
+
+
 class UserSettings(BaseModel):
     """Complete user settings schema"""
 
@@ -105,6 +113,9 @@ class UserSettings(BaseModel):
     localization: Optional[LocalizationSettings] = Field(default_factory=LocalizationSettings)
     privacy: Optional[PrivacySettings] = Field(default_factory=PrivacySettings)
     onboarding: Optional[OnboardingProgress] = Field(default_factory=OnboardingProgress)
+    polyphemus_access: Optional[PolyphemusAccess] = Field(
+        None, description="Polyphemus access information"
+    )
 
 
 class UserSettingsUpdate(BaseModel):
@@ -118,6 +129,7 @@ class UserSettingsUpdate(BaseModel):
     localization: Optional[LocalizationSettings] = None
     privacy: Optional[PrivacySettings] = None
     onboarding: Optional[OnboardingProgress] = None
+    polyphemus_access: Optional[PolyphemusAccess] = None
 
 
 # User schemas

@@ -60,13 +60,13 @@ export class BaseApiClient {
     // Check if error has a status code
     if (error instanceof Error && 'status' in error) {
       const status = (error as any).status;
-      
+
       // Don't retry client errors (4xx) - these indicate problems that won't be fixed by retrying
       // This includes: 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, etc.
       if (status >= 400 && status < 500) {
         return false;
       }
-      
+
       // Retry server errors (5xx) - these might be transient
       if (status >= 500 && status < 600) {
         return true;
@@ -91,7 +91,7 @@ export class BaseApiClient {
     ) {
       return true;
     }
-    
+
     // Don't retry by default
     return false;
   }
