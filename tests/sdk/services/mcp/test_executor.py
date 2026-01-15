@@ -235,7 +235,7 @@ class TestToolExecutor:
 
     @pytest.mark.asyncio
     async def test_execute_tool_json_error_with_status_code_field(self, executor, mock_mcp_client):
-        """Test parsing error with status_code field instead of status"""
+        """Test parsing error with status_code field instead of status (404 is recoverable)"""
         tool_call = ToolCall(tool_name="test_tool", arguments="{}")
 
         mock_result = Mock()
@@ -246,10 +246,12 @@ class TestToolExecutor:
 
         mock_mcp_client.call_tool.return_value = mock_result
 
-        with pytest.raises(MCPApplicationError) as exc_info:
-            await executor.execute_tool(tool_call)
+        # 404 is recoverable, so it returns ToolResult with success=False
+        result = await executor.execute_tool(tool_call)
 
-        assert exc_info.value.status_code == 404
+        assert result.success is False
+        assert "404" in result.error
+        assert "Not found" in result.error
 
     @pytest.mark.asyncio
     async def test_execute_tool_json_error_with_message_field(self, executor, mock_mcp_client):
