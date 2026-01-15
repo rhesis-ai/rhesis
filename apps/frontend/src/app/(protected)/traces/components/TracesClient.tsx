@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, Alert } from '@mui/material';
+import { Box, Typography, Alert, Button } from '@mui/material';
 import TracesTable from './TracesTable';
 import TraceFilters from './TraceFilters';
 import TraceDrawer from './TraceDrawer';
@@ -23,6 +23,9 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
+  
+  // Track if we've encountered a fatal error to prevent infinite retries
+  const [hasFatalError, setHasFatalError] = useState(false);
 
   // Drawer state
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
@@ -38,6 +41,11 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
   });
 
   const fetchTraces = useCallback(async () => {
+    // Don't fetch if we've encountered a fatal error
+    if (hasFatalError) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -47,16 +55,24 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
       const response = await client.listTraces(filters);
       setTraces(response.traces);
       setTotalCount(response.total);
+      // Clear fatal error flag on successful fetch
+      setHasFatalError(false);
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to fetch traces';
       setError(errorMsg);
       notifications.show(errorMsg, { severity: 'error' });
       setTraces([]);
       setTotalCount(0);
+      
+      // Check if this is a fatal error (4xx client errors) that shouldn't be retried
+      const isFatalError = err.status && err.status >= 400 && err.status < 500;
+      if (isFatalError) {
+        setHasFatalError(true);
+      }
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, filters, notifications]);
+  }, [sessionToken, filters, notifications, hasFatalError]);
 
   useEffect(() => {
     fetchTraces();
@@ -75,6 +91,8 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
   };
 
   const handlePageChange = (newPage: number) => {
+    // Clear fatal error flag when changing pages (allow retry)
+    setHasFatalError(false);
     setFilters(prev => ({
       ...prev,
       offset: newPage * (prev.limit || 50),
@@ -82,24 +100,55 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
   };
 
   const handlePageSizeChange = (newSize: number) => {
+    // Clear fatal error flag when changing page size (allow retry)
+    setHasFatalError(false);
     setFilters(prev => ({
       ...prev,
       limit: newSize,
       offset: 0,
     }));
   };
+  
+  const handleRetry = () => {
+    // Clear the fatal error flag and retry
+    setHasFatalError(false);
+    setError(null);
+    fetchTraces();
+  };
 
   return (
     <>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2 }} 
+          onClose={() => {
+            setError(null);
+            setHasFatalError(false);
+          }}
+          action={
+            hasFatalError ? (
+              <Button
+                color="inherit"
+                size="small"
+                onClick={handleRetry}
+              >
+                Retry
+              </Button>
+            ) : undefined
+          }
+        >
           {error}
         </Alert>
       )}
 
       <TraceFilters
         filters={filters}
-        onFiltersChange={setFilters}
+        onFiltersChange={(newFilters) => {
+          // Clear fatal error flag when filters change (allow new query)
+          setHasFatalError(false);
+          setFilters(newFilters);
+        }}
         sessionToken={sessionToken}
       />
 
