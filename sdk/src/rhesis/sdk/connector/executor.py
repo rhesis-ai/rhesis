@@ -7,6 +7,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+from rhesis.sdk.connector.schemas import TestStatus
 from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
 from rhesis.sdk.telemetry.context import set_test_execution_context
 
@@ -82,7 +83,7 @@ class TestExecutor:
                 duration_ms = (time.time() - start_time) * 1000
 
                 return {
-                    "status": "success",
+                    "status": TestStatus.SUCCESS,
                     "output": result,
                     "error": None,
                     "duration_ms": duration_ms,
@@ -99,7 +100,7 @@ class TestExecutor:
             set_test_execution_context(None)
 
             return {
-                "status": "error",
+                "status": TestStatus.ERROR,
                 "output": None,
                 "error": str(e),
                 "duration_ms": duration_ms,
