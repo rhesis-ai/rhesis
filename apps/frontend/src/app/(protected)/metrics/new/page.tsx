@@ -255,10 +255,11 @@ export default function NewMetricPage() {
         (step, index) => `Step ${index + 1}:\n${step.trim()}`
       );
 
-      // Create the metric request object (without tags - they'll be added separately)
+      // Create the metric request object (tags will be added separately)
       const metricRequest: MetricCreate = {
         name: formData.name,
         description: formData.description || '',
+        tags: [], // Tags will be assigned separately after creation
         evaluation_prompt: formData.evaluation_prompt,
         evaluation_steps: formattedSteps.join(STEP_SEPARATOR),
         reasoning: formData.reasoning || '',
