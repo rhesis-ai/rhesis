@@ -199,14 +199,12 @@ class TestWebSocketConnectionRetry:
 
     @pytest.mark.asyncio
     async def test_transient_error_retries(self):
-        """Test that transient errors (500) trigger retries."""
+        """Test that transient errors (500) trigger retries and enter slow retry mode."""
         callback_called = False
-        callback_message = None
 
         def on_failed(message):
-            nonlocal callback_called, callback_message
+            nonlocal callback_called
             callback_called = True
-            callback_message = message
 
         connection = WebSocketConnection(
             url="ws://test.example.com/ws",
@@ -225,28 +223,33 @@ class TestWebSocketConnectionRetry:
             # Start connection (runs in background task)
             await connection.connect()
 
-            # Wait for connection task to complete
-            if connection._connection_task:
-                await wait_for_task_completion(connection._connection_task)
-
-            # Wait for terminal state
-            final_states = [ConnectionState.FAILED, ConnectionState.DISCONNECTED]
+            # Wait for initial fast retries to complete
+            # With exponential backoff (1s, 2s, 4s), we need to wait ~7 seconds for 3 retries
+            # But we can check incrementally
+            max_wait = 10.0
             start_time = asyncio.get_event_loop().time()
-            while connection.state not in final_states:
-                if (asyncio.get_event_loop().time() - start_time) > 2.0:
+
+            while mock_connect.call_count < 3:
+                if (asyncio.get_event_loop().time() - start_time) > max_wait:
                     break
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(0.1)
 
-            # Should retry up to max_retries (3 in this case)
-            assert mock_connect.call_count == 3
+            # Should have retried max_retries times (3 in this case)
+            assert mock_connect.call_count == 3, (
+                f"Expected 3 retries, got {mock_connect.call_count}"
+            )
 
-            # Should have called failure callback
-            assert callback_called, "Failure callback was not called"
-            assert callback_message is not None
-            assert "Connection failed" in callback_message or "Server error" in callback_message
+            # Connection should still be active (in RECONNECTING state for slow retry mode)
+            # Not in FAILED state because transient errors don't cause permanent failure
+            assert connection.state == ConnectionState.RECONNECTING, (
+                f"Expected RECONNECTING state for slow retry, got {connection.state}"
+            )
 
-            # Cleanup
-            connection._connection_task = None  # Already completed
+            # Failure callback should NOT be called for transient errors
+            # (only called for permanent failures like 401/403)
+            assert not callback_called, "Failure callback should not be called for transient errors"
+
+            # Cleanup - stop the retry loop
             await connection.disconnect()
 
     @pytest.mark.asyncio
@@ -285,9 +288,13 @@ class TestWebSocketConnectionRetry:
             if call_count < 3:
                 # First 2 attempts fail with transient error
                 raise websockets.exceptions.InvalidStatusCode(500, {"status": "500"})
-
-            # Third attempt succeeds
-            return MockWebSocket()
+            elif call_count == 3:
+                # Third attempt succeeds
+                return MockWebSocket()
+            else:
+                # After first successful connection closes, prevent infinite reconnection
+                # by raising an error that will be handled by the retry loop
+                raise websockets.exceptions.InvalidStatusCode(500, {"status": "500"})
 
         with patch(
             "rhesis.sdk.connector.connection.websockets.connect",
@@ -300,7 +307,7 @@ class TestWebSocketConnectionRetry:
             state_reached = await wait_for_state(connection, ConnectionState.CONNECTED, timeout=5.0)
             assert state_reached, f"Expected CONNECTED state, got {connection.state}"
 
-            # Should have tried 3 times
+            # Should have tried 3 times to reach first successful connection
             assert call_count == 3
 
             # Should NOT have called failure callback (succeeded eventually)
@@ -309,14 +316,16 @@ class TestWebSocketConnectionRetry:
             # Should have called on_connect callback
             assert mock_on_connect.called
 
-            # Signal close and cleanup
+            # Disconnect before closing websocket to prevent reconnection loop
+            await connection.disconnect()
+
+            # Now signal close to clean up the websocket
             close_event.set()
             await asyncio.sleep(0.05)  # Brief wait for iterator to complete
-            await connection.disconnect()
 
     @pytest.mark.asyncio
     async def test_max_retries_configuration(self, mock_on_message):
-        """Test that max_retries configuration is respected."""
+        """Test that max_retries configuration is respected for fast retries."""
         max_retries = 5
         connection = WebSocketConnection(
             url="ws://test.example.com/ws",
@@ -333,28 +342,28 @@ class TestWebSocketConnectionRetry:
             # Start connection
             await connection.connect()
 
-            # Wait for connection task to complete
-            if connection._connection_task:
-                await wait_for_task_completion(connection._connection_task, timeout=30.0)
-
-            # Wait for final state (FAILED or DISCONNECTED indicates completion)
-            final_states = [ConnectionState.FAILED, ConnectionState.DISCONNECTED]
+            # Wait for fast retries to complete
+            # With exponential backoff (1s, 2s, 4s, 8s, 16s), need to wait ~31 seconds for 5 retries
+            # But we can check incrementally
+            max_wait = 35.0
             start_time = asyncio.get_event_loop().time()
-            while connection.state not in final_states:
-                if (asyncio.get_event_loop().time() - start_time) > 2.0:
+
+            while mock_connect.call_count < max_retries:
+                if (asyncio.get_event_loop().time() - start_time) > max_wait:
                     break
-                await asyncio.sleep(0.05)
+                await asyncio.sleep(0.1)
 
-            # Should retry exactly max_retries times
-            assert mock_connect.call_count == max_retries
+            # Should retry exactly max_retries times in the fast retry phase
+            assert mock_connect.call_count == max_retries, (
+                f"Expected {max_retries} fast retries, got {mock_connect.call_count}"
+            )
 
-            # Should be in a terminal state
-            assert connection.state in final_states, (
-                f"Expected terminal state, got {connection.state}"
+            # Should be in RECONNECTING state (entering slow retry mode)
+            assert connection.state == ConnectionState.RECONNECTING, (
+                f"Expected RECONNECTING for slow retry, got {connection.state}"
             )
 
             # Cleanup
-            connection._connection_task = None  # Already completed
             await connection.disconnect()
 
     @pytest.mark.asyncio
