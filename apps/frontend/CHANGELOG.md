@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-01-15
+
+### Added
+
+- Added comprehensive telemetry traces UI with filtering and visualization capabilities. (#1088)
+- Added GitHub MCP provider. (#1078)
+
+### Changed
+
+- Improved MCP connection stability and reliability. (#1089)
+- Enhanced SDK tracing with asynchronous support, smart serialization, and improved I/O display. (#1111)
+- Integrated test execution into the organization onboarding process. (#1074)
+- Improved frontend consistency across various sections. (#1074)
+
 ## [0.5.4] - 2025-12-18
 
 ### Added

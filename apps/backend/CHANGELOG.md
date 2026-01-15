@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-01-15
+
+### Added
+- Added comprehensive OpenTelemetry integration for enhanced observability, including traces, filtering, and visualization in the UI.
+- Added Chatbot Intent Recognition feature.
+- Added Github MCP Provider.
+
+### Changed
+- Improved MCP connection stability and added multi-transport support.
+- Integrated test execution into the organization onboarding process.
+- Improved Dockerfile.dev for faster builds with better layer caching and dependency installation.
+
+### Fixed
+- Resolved Cloud Run deployment issues related to port configuration, image caching, and UV detection.
+
+
 ## [0.5.4] - 2025-12-18
 
 ### Added

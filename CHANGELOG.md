@@ -13,6 +13,51 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-01-15
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.0**
+- **Frontend 0.6.0**
+- **SDK 0.6.0**
+- **Polyphemus 0.2.4**
+
+### Summary of Changes
+
+**Backend v0.6.0:**
+- Enhanced connectivity with MCP (Multi Cloud Provider) including Github support and multi-transport capabilities.
+- Improved observability with comprehensive OpenTelemetry integration for tracing, visualization, and filtering.
+- Chatbot intent recognition added.
+- Streamlined organization onboarding with integrated test execution.
+
+
+**Frontend v0.6.0:**
+- Enhanced SDK tracing with improved visualization and filtering in the UI.
+- Improved MCP connection stability and added a new GitHub MCP provider.
+- Integrated test execution into the organization onboarding process.
+
+
+**SDK v0.6.0:**
+- Added dependency injection support with `bind` parameter in endpoint decorators.
+- Enhanced SDK tracing with async support, smart serialization, and improved I/O display.
+- Introduced OpenTelemetry integration for basic telemetry.
+- Added Chatbot Intent Recognition functionality.
+
+
+**Polyphemus v0.2.4:**
+- Added `bind` parameter to endpoint decorator for dependency injection.
+- Introduced Bucket Model for improved data management.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.5.4] - 2025-12-18
 
 ### Platform Release

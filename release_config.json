@@ -1,7 +1,0 @@
-{
-  "platform": "patch",
-  "backend": "minor",
-  "frontend": "minor",
-  "sdk": "minor",
-  "polyphemus": "patch"
-}
