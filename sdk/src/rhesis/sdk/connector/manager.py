@@ -12,8 +12,9 @@ from rhesis.sdk.connector.schemas import (
     ExecuteTestMessage,
     RegisterMessage,
     TestResultMessage,
+    TestStatus,
 )
-from rhesis.sdk.connector.types import MessageType
+from rhesis.sdk.connector.types import Environment, MessageType, RetryConfig
 from rhesis.sdk.telemetry import Tracer
 
 logger = logging.getLogger(__name__)
@@ -42,13 +43,12 @@ class ConnectorManager:
             ValueError: If environment is not valid
         """
         # Validate and normalize environment
-        valid_environments = ["production", "staging", "development", "local"]
         environment = environment.lower()  # Normalize to lowercase
 
-        if environment not in valid_environments:
+        if environment not in Environment.ALL:
             raise ValueError(
                 f"Invalid environment: '{environment}'. "
-                f"Valid environments: {', '.join(valid_environments)}"
+                f"Valid environments: {', '.join(Environment.ALL)}"
             )
 
         self.api_key = api_key
@@ -117,7 +117,8 @@ class ConnectorManager:
     async def _handle_connect(self) -> None:
         """Handle successful connection/reconnection - send registration."""
         try:
-            await asyncio.sleep(0.5)  # Brief delay to ensure connection is stable
+            # Brief delay to ensure connection is stable
+            await asyncio.sleep(RetryConfig.REGISTRATION_DELAY)
             await self._send_registration()
         except Exception as e:
             logger.error(f"Error handling connection: {e}")
@@ -150,11 +151,11 @@ class ConnectorManager:
         """
         message_type = message.get("type")
 
-        if message_type == MessageType.EXECUTE_TEST:
+        if message_type == MessageType.EXECUTE_TEST.value:
             await self._handle_test_request(message)
-        elif message_type == MessageType.PING:
+        elif message_type == MessageType.PING.value:
             await self._handle_ping()
-        elif message_type in ("connected", "registered"):
+        elif message_type in (MessageType.CONNECTED.value, MessageType.REGISTERED.value):
             # Acknowledgment messages from backend - no action needed
             logger.debug(f"Received acknowledgment: {message_type}")
         else:
@@ -179,7 +180,7 @@ class ConnectorManager:
             if not self._registry.has(function_name):
                 await self._send_test_result(
                     test_run_id,
-                    status="error",
+                    status=TestStatus.ERROR,
                     error=f"Function '{function_name}' not found in registry",
                     duration_ms=0,
                 )
@@ -204,7 +205,7 @@ class ConnectorManager:
     async def _send_test_result(
         self,
         test_run_id: str,
-        status: str,
+        status: TestStatus,
         output: Any = None,
         error: str | None = None,
         duration_ms: float = 0,
@@ -246,7 +247,7 @@ class ConnectorManager:
         )
 
         try:
-            await self._connection.send({"type": MessageType.PONG})
+            await self._connection.send({"type": MessageType.PONG.value})
             logger.debug(
                 f"Pong sent successfully [project={self.project_id}, env={self.environment}]"
             )
