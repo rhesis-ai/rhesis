@@ -1,0 +1,44 @@
+name: Rhesis LLM Testing
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  llm-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install Rhesis SDK
+        run: |
+          pip install rhesis-sdk
+      
+      - name: Run Rhesis Tests
+        env:
+          RHESIS_API_KEY: ${{ secrets.RHESIS_API_KEY }}
+          RHESIS_ENDPOINT_ID: ${{ secrets.RHESIS_ENDPOINT_ID }}
+          RHESIS_TEST_SET_ID: ${{ secrets.RHESIS_TEST_SET_ID }}
+          RHESIS_BASE_URL: ${{ secrets.RHESIS_BASE_URL }}
+        run: |
+          python .github/scripts/run_rhesis_tests.py
+      
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rhesis-test-results
+          path: test-results.json
+          retention-days: 30
+

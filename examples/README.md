@@ -1,6 +1,6 @@
 # Rhesis SDK Examples
 
-Jupyter notebooks demonstrating key Rhesis SDK features and integrations.
+Jupyter notebooks and scripts demonstrating key Rhesis SDK features and integrations.
 
 ## Notebooks
 
@@ -11,6 +11,10 @@ Jupyter notebooks demonstrating key Rhesis SDK features and integrations.
   - `endpoint-testing.ipynb` - Test live endpoints through Rhesis platform
   - `langchain-integration.ipynb` - Test LangChain chains and agents
   - `langgraph-integration.ipynb` - Test LangGraph agents and workflows
+
+## CI/CD Integration
+
+- **`ci-cd/run_rhesis_tests.py`** - Complete test runner script for CI/CD pipelines. See the [CI/CD Integration Guide](/guides/ci-cd-integration) for setup instructions.
 
 ## Setup
 
