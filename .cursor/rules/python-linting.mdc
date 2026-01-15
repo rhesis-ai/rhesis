@@ -1,0 +1,79 @@
+---
+alwaysApply: true
+---
+
+# Python Code Quality Rules
+
+## Ruff Linting and Formatting
+
+When modifying Python files, always run ruff checks and formatting:
+
+### 1. Check for linting issues
+```bash
+uvx ruff check <path/to/file.py>
+```
+
+### 2. Auto-format the code
+```bash
+uvx ruff format <path/to/file.py>
+```
+
+### 3. Check again to verify
+```bash
+uvx ruff check <path/to/file.py>
+```
+
+## When to Run Ruff
+
+- **Always** after creating or modifying Python files
+- **Before** completing a task involving Python code
+- **When** the user requests code formatting or linting
+
+## Fixing Line Length Issues
+
+If ruff reports line length violations (E501), fix them by:
+
+1. Breaking long strings into multiple lines:
+   ```python
+   # Bad
+   raise HTTPException(detail="This is a very long error message that exceeds the limit")
+   
+   # Good
+   raise HTTPException(
+       detail=(
+           "This is a very long error message "
+           "that is now split across lines"
+       )
+   )
+   ```
+
+2. Breaking long f-strings:
+   ```python
+   # Bad
+   logger.info(f"Processing {count} items for user {user_id} with status {status}")
+   
+   # Good
+   logger.info(
+       f"Processing {count} items for user {user_id} "
+       f"with status {status}"
+   )
+   ```
+
+3. Breaking long function calls:
+   ```python
+   # Bad
+   result = some_function(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+   
+   # Good
+   result = some_function(
+       arg1, arg2, arg3, arg4,
+       arg5, arg6, arg7, arg8
+   )
+   ```
+
+## Expected Behavior
+
+- All ruff checks should pass (`All checks passed!`)
+- Code should be consistently formatted
+- Maximum line length: 100 characters
+- No unused imports or variables
