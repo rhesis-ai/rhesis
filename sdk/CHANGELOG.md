@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-01-15
+
+### Added
+- Implemented continuous slow retry mode for connector resilience. This new mode allows the SDK to automatically retry failed connector operations with increasing delays, improving stability and reliability in unstable network environments. (#1123)
+
+
 ## [0.6.0] - 2026-01-15
 
 ### Added
