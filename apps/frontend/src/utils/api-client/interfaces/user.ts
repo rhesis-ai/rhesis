@@ -57,6 +57,12 @@ export interface OnboardingProgress {
   last_updated?: string;
 }
 
+export interface PolyphemusAccess {
+  granted_at?: string;
+  revoked_at?: string;
+  requested_at?: string;
+}
+
 export interface UserSettings {
   version: number;
   models?: ModelsSettings;
@@ -65,6 +71,7 @@ export interface UserSettings {
   localization?: LocalizationSettings;
   privacy?: PrivacySettings;
   onboarding?: OnboardingProgress;
+  polyphemus_access?: PolyphemusAccess;
 }
 
 export interface UserSettingsUpdate {
@@ -74,6 +81,7 @@ export interface UserSettingsUpdate {
   localization?: LocalizationSettings;
   privacy?: PrivacySettings;
   onboarding?: OnboardingProgress;
+  polyphemus_access?: PolyphemusAccess;
 }
 
 // User Interfaces
