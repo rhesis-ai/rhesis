@@ -79,6 +79,7 @@ function show_usage() {
   echo "  REGION                        GCP region"
   echo "  CLOUDSQL_INSTANCE             Cloud SQL instance name"
   echo "  VPC_CONNECTOR_NAME            VPC connector name"
+  echo "  RHESIS_CONNECTOR_DISABLED      Rhesis connector disabled (true or false)"
   echo ""
   echo "  # Analytics Database (Telemetry Processor)"
   echo "  ANALYTICS_DATABASE_URL        Full analytics database URL (alternative to individual vars)"
@@ -274,7 +275,7 @@ SERVICE_VARS=(
   "VPC_CONNECTOR_NAME"
   "REGION"
   "CLOUDSQL_INSTANCE"
-  
+  "RHESIS_CONNECTOR_DISABLED"
   # Analytics Database (Telemetry Processor)
   "ANALYTICS_DATABASE_URL"
   "ANALYTICS_DB_USER"
