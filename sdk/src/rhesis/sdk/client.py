@@ -27,6 +27,7 @@ class Endpoints(Enum):
     METRICS = "metrics"
     HEALTH = "health"
     CATEGORIES = "categories"
+    PROJECTS = "projects"
     STATUSES = "statuses"
     TEST_SETS = "test_sets"
     TESTS = "tests"

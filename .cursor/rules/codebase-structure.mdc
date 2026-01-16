@@ -1,0 +1,494 @@
+---
+description: Apply when navigating or understanding the codebase structure
+alwaysApply: false
+---
+
+# Codebase Directory Structure
+
+This document provides detailed directory trees for the main components of the Rhesis platform.
+
+---
+
+## Backend (`apps/backend/`)
+
+FastAPI-based REST API with Celery task processing.
+
+```
+apps/backend/
+├── pyproject.toml              # Python package configuration and dependencies (uv)
+├── uv.lock                     # Locked dependency versions
+├── Makefile                    # Build automation: test, lint, format
+├── Dockerfile                  # Production container image
+├── Dockerfile.dev              # Development container with hot-reload
+├── start.sh                    # Container entrypoint script
+├── migrate.sh                  # Database migration runner
+├── CHANGELOG.md                # Version history and release notes
+├── CONTRIBUTING.md             # Development guidelines
+├── README.md                   # Project overview and setup
+│
+└── src/rhesis/backend/         # Main source code
+    │
+    ├── app/                    # FastAPI application core
+    │   ├── main.py             # FastAPI entry point, router registration
+    │   ├── database.py         # SQLAlchemy engine, session management
+    │   ├── dependencies.py     # Dependency injection (auth, db sessions)
+    │   ├── crud.py             # Generic CRUD operations base
+    │   ├── constants.py        # Application-wide constants
+    │   ├── error_handlers.py   # Global exception handlers
+    │   │
+    │   ├── auth/               # Authentication & authorization
+    │   │   ├── oauth.py        # OAuth2 flow implementation
+    │   │   ├── permissions.py  # Role-based permission checks
+    │   │   ├── decorators.py   # Auth decorators for routes
+    │   │   ├── token_utils.py  # JWT token generation/parsing
+    │   │   ├── token_validation.py  # Token verification logic
+    │   │   ├── user_utils.py   # User lookup helpers
+    │   │   ├── auth_utils.py   # General auth utilities
+    │   │   └── url_utils.py    # Auth URL builders
+    │   │
+    │   ├── config/             # Application configuration
+    │   │   └── cascade_config.py  # Cascade delete/update rules
+    │   │
+    │   ├── middleware/         # FastAPI middleware
+    │   │   └── organization_filter.py  # Multi-tenant org filtering
+    │   │
+    │   ├── models/             # SQLAlchemy ORM models (39 files)
+    │   │   ├── base.py         # Base model with common fields
+    │   │   ├── mixins.py       # Reusable mixins (timestamps, soft delete)
+    │   │   ├── user.py, organization.py, project.py
+    │   │   ├── test.py, test_set.py, test_run.py, test_result.py
+    │   │   ├── endpoint.py, prompt.py, metric.py
+    │   │   └── ...             # Other domain models
+    │   │
+    │   ├── schemas/            # Pydantic request/response schemas (43 files)
+    │   │   ├── base.py         # Base schema with common fields
+    │   │   └── ...             # Corresponding schemas for each model
+    │   │
+    │   ├── routers/            # FastAPI route handlers (40 files)
+    │   │   ├── base.py         # Base router with common CRUD endpoints
+    │   │   ├── auth.py         # Authentication endpoints
+    │   │   ├── test.py, test_run.py, telemetry.py
+    │   │   └── ...             # Other resource routers
+    │   │
+    │   ├── services/           # Business logic layer (87 files)
+    │   │   ├── test_execution.py   # Test execution orchestration
+    │   │   ├── test_run.py         # Test run management
+    │   │   ├── organization.py     # Org provisioning
+    │   │   ├── task_management.py  # Celery task management
+    │   │   │
+    │   │   ├── connector/      # External system connectors
+    │   │   │   ├── manager.py, handler.py
+    │   │   │   ├── handlers/   # Connector implementations
+    │   │   │   └── mapping/    # Data mapping between systems
+    │   │   │
+    │   │   ├── endpoint/       # Endpoint testing services
+    │   │   │   ├── service.py  # Endpoint validation and testing
+    │   │   │   └── validation.py
+    │   │   │
+    │   │   ├── invokers/       # Target system invocation
+    │   │   │   ├── base.py     # Base invoker interface
+    │   │   │   ├── rest_invoker.py, sdk_invoker.py, websocket_invoker.py
+    │   │   │   ├── auth/       # Invoker authentication
+    │   │   │   ├── conversation/  # Multi-turn handling
+    │   │   │   └── templating/    # Request/response templating
+    │   │   │
+    │   │   ├── stats/          # Statistics calculation
+    │   │   │   └── calculator.py, test_result.py
+    │   │   │
+    │   │   ├── telemetry/      # Telemetry processing
+    │   │   │   ├── enricher.py, tree_builder.py, linking_service.py
+    │   │   │
+    │   │   └── handlers/       # Document handlers
+    │   │
+    │   ├── templates/          # Jinja2 prompt templates (*.jinja2)
+    │   │
+    │   ├── utils/              # Utility functions (18 files)
+    │   │   ├── crud_utils.py, odata.py, encryption.py, rate_limit.py
+    │   │
+    │   └── integrations/
+    │       └── mcp_connect.py  # MCP protocol integration
+    │
+    ├── alembic/                # Database migrations
+    │   ├── env.py              # Alembic environment config
+    │   ├── versions/           # Migration scripts (115+ files)
+    │   ├── templates/          # SQL templates for migrations
+    │   └── utils/              # Migration utilities
+    │
+    ├── tasks/                  # Celery background tasks
+    │   ├── base.py             # Base task class
+    │   ├── enums.py            # Task status enums
+    │   │
+    │   ├── execution/          # Test execution tasks
+    │   │   ├── orchestration.py, parallel.py, sequential.py
+    │   │   ├── evaluation.py   # Metric evaluation tasks
+    │   │   ├── result_processor.py
+    │   │   └── executors/      # Execution strategies
+    │   │       ├── single_turn.py, multi_turn.py
+    │   │
+    │   └── telemetry/
+    │       └── enrich.py       # Span enrichment tasks
+    │
+    ├── metrics/                # Evaluation metrics
+    │   ├── evaluator.py        # Metric evaluation engine
+    │   ├── score_evaluator.py  # Score calculation
+    │   ├── deepeval/, ragas/, rhesis/  # Metric providers
+    │
+    ├── notifications/
+    │   └── email/              # Email notifications
+    │       ├── service.py, smtp.py, template_service.py
+    │       └── templates/      # Email templates (*.jinja2)
+    │
+    ├── telemetry/              # OpenTelemetry instrumentation
+    │   ├── instrumentation.py, middleware.py
+    │
+    ├── logging/
+    │   └── rhesis_logger.py    # Custom logger setup
+    │
+    └── worker.py               # Celery worker entry point
+```
+
+### Key Patterns
+- **Layered Architecture**: routers → services → models/crud
+- **Multi-tenancy**: Organization-based data isolation via middleware
+- **Background Processing**: Celery tasks for test execution and telemetry
+- **Metrics Evaluation**: Pluggable evaluators (DeepEval, RAGAS, custom)
+- **Invokers**: Abstraction for calling targets (REST, SDK, WebSocket)
+
+---
+
+## SDK (`sdk/`)
+
+Python SDK for interacting with Rhesis platform and running evaluations.
+
+```
+sdk/
+├── pyproject.toml              # Package configuration (uv)
+├── uv.lock                     # Locked dependencies
+├── Makefile                    # Build automation
+├── CHANGELOG.md                # Version history
+├── CONTRIBUTING.md             # Contribution guidelines
+├── README.md                   # SDK documentation
+│
+└── src/rhesis/sdk/             # Main source code
+    │
+    ├── client.py               # Main RhesisClient for API communication
+    ├── config.py               # SDK configuration management
+    ├── cli.py                  # Command-line interface
+    ├── enums.py                # SDK enumerations
+    ├── errors.py               # Custom exception classes
+    ├── utils.py                # General utilities
+    │
+    ├── entities/               # API entity wrappers
+    │   ├── base_entity.py      # Base entity class
+    │   ├── base_collection.py  # Collection operations
+    │   ├── test.py             # Test entity
+    │   ├── test_set.py         # TestSet entity
+    │   ├── test_run.py         # TestRun entity
+    │   ├── test_result.py      # TestResult entity
+    │   ├── test_configuration.py
+    │   ├── endpoint.py         # Endpoint entity
+    │   ├── prompt.py           # Prompt entity
+    │   ├── behavior.py, category.py, topic.py, status.py
+    │
+    ├── decorators/             # Function decorators
+    │   ├── endpoint.py         # @endpoint decorator for wrapping functions
+    │   ├── observe.py          # @observe decorator for telemetry
+    │   ├── builders.py         # Decorator builders
+    │   └── _state.py           # Decorator state management
+    │
+    ├── connector/              # Bidirectional connector for test execution
+    │   ├── connection.py       # WebSocket/HTTP connection
+    │   ├── executor.py         # Test executor
+    │   ├── manager.py          # Connection manager
+    │   ├── registry.py         # Endpoint registry
+    │   ├── schemas.py          # Connector schemas
+    │   └── types.py            # Type definitions
+    │
+    ├── metrics/                # Evaluation metrics
+    │   ├── base.py             # Base metric interface
+    │   ├── factory.py          # Metric factory
+    │   ├── constants.py        # Metric constants
+    │   ├── utils.py            # Metric utilities
+    │   │
+    │   ├── config/             # Metric configurations
+    │   │
+    │   ├── conversational/     # Multi-turn metrics
+    │   │
+    │   └── providers/          # Metric implementations
+    │       ├── deepeval/       # DeepEval metrics
+    │       │   ├── metrics.py, conversational_metrics.py
+    │       │   ├── metric_base.py, factory.py
+    │       │
+    │       ├── ragas/          # RAGAS metrics
+    │       │   ├── metrics.py, metric_base.py, factory.py
+    │       │
+    │       └── native/         # Built-in Rhesis metrics
+    │           ├── base.py, factory.py
+    │           ├── categorical_judge.py, numeric_judge.py
+    │           ├── conversational_judge.py, goal_achievement_judge.py
+    │           └── templates/  # Jinja templates for prompts
+    │
+    ├── models/                 # LLM model providers
+    │   ├── base.py             # Base model interface
+    │   ├── factory.py          # Model factory
+    │   ├── utils.py            # Model utilities
+    │   │
+    │   └── providers/          # Provider implementations
+    │       ├── openai.py       # OpenAI
+    │       ├── anthropic.py    # Anthropic Claude
+    │       ├── gemini.py       # Google Gemini
+    │       ├── vertex_ai.py    # Google Vertex AI
+    │       ├── mistral.py      # Mistral AI
+    │       ├── cohere.py       # Cohere
+    │       ├── groq.py         # Groq
+    │       ├── ollama.py       # Ollama (local)
+    │       ├── litellm.py      # LiteLLM (unified)
+    │       ├── together_ai.py  # Together AI
+    │       ├── huggingface.py  # HuggingFace
+    │       ├── replicate.py    # Replicate
+    │       ├── openrouter.py   # OpenRouter
+    │       ├── perplexity.py   # Perplexity
+    │       ├── polyphemus.py   # Rhesis Polyphemus
+    │       └── native.py       # Native implementation
+    │
+    ├── synthesizers/           # Test data generation
+    │   ├── base.py             # Base synthesizer
+    │   ├── synthesizer.py      # Main synthesizer
+    │   ├── config_synthesizer.py    # Config generation
+    │   ├── context_synthesizer.py   # Context generation
+    │   ├── prompt_synthesizer.py    # Prompt generation
+    │   ├── utils.py            # Synthesizer utilities
+    │   ├── assets/             # Jinja templates
+    │   └── multi_turn/         # Multi-turn synthesis
+    │
+    ├── services/               # SDK services
+    │   ├── chunker.py          # Text chunking
+    │   ├── extractor.py        # Data extraction
+    │   └── mcp/                # MCP integration
+    │
+    ├── telemetry/              # OpenTelemetry integration
+    │   ├── tracer.py           # Span creation
+    │   ├── provider.py         # OTEL provider setup
+    │   ├── exporter.py         # Span exporter to Rhesis
+    │   ├── observer.py         # Observation utilities
+    │   ├── context.py          # Context propagation
+    │   ├── attributes.py       # Span attributes
+    │   ├── constants.py        # Telemetry constants
+    │   ├── schemas.py          # Telemetry schemas
+    │   │
+    │   ├── integrations/       # Framework integrations
+    │   │   ├── base.py         # Base integration
+    │   │   ├── langchain.py    # LangChain integration
+    │   │   ├── langgraph.py    # LangGraph integration
+    │   │   └── autogen.py      # AutoGen integration
+    │   │
+    │   └── utils/              # Telemetry utilities
+    │
+    └── adaptive_testing/       # Adaptive test generation
+        └── client/, utils/
+```
+
+### Key Patterns
+- **Entity Pattern**: Pythonic wrappers for API resources
+- **Provider Pattern**: Pluggable LLM and metric providers
+- **Decorator Pattern**: `@endpoint` and `@observe` for instrumentation
+- **Connector**: Bidirectional communication for test execution
+
+---
+
+## Frontend (`apps/frontend/`)
+
+Next.js 14+ application with App Router and Material UI.
+
+```
+apps/frontend/
+├── package.json                # Dependencies and scripts
+├── package-lock.json           # Locked versions
+├── next.config.mjs             # Next.js configuration
+├── tsconfig.json               # TypeScript configuration
+├── eslint.config.mjs           # ESLint configuration
+├── jest.config.js              # Jest test configuration
+├── Makefile                    # Build automation
+├── Dockerfile                  # Production container
+├── start.sh                    # Container entrypoint
+├── CHANGELOG.md                # Version history
+├── CONTRIBUTING.md             # Contribution guidelines
+├── README.md                   # Frontend documentation
+│
+├── public/                     # Static assets
+│   ├── logos/                  # Brand logos and icons
+│   ├── fonts/                  # Custom fonts (Be Vietnam Pro, Sora)
+│   └── elements/               # SVG elements
+│
+├── scripts/                    # Build/dev scripts
+│   ├── generate-templates.js   # Template generation
+│   └── validate.sh             # Validation scripts
+│
+└── src/
+    │
+    ├── app/                    # Next.js App Router pages
+    │   ├── layout.tsx          # Root layout
+    │   ├── page.tsx            # Landing page
+    │   │
+    │   ├── auth/               # Authentication pages
+    │   │   └── signin/, error/
+    │   │
+    │   ├── api/                # API routes
+    │   │
+    │   └── (protected)/        # Authenticated routes
+    │       ├── layout.tsx      # Protected layout with nav
+    │       │
+    │       ├── dashboard/      # Dashboard views
+    │       │   └── components/ # DashboardKPIs, ActivityTimeline
+    │       │
+    │       ├── projects/       # Project management
+    │       │   ├── [identifier]/  # Dynamic project routes
+    │       │   ├── components/    # Project components
+    │       │   └── create-new/    # Project creation wizard
+    │       │
+    │       ├── tests/          # Test management
+    │       │   ├── [identifier]/  # Test detail views
+    │       │   ├── components/    # Test components
+    │       │   ├── new-generated/ # AI test generation
+    │       │   └── new-manual/    # Manual test creation
+    │       │
+    │       ├── test-sets/      # Test set management
+    │       │   ├── [identifier]/
+    │       │   └── components/
+    │       │
+    │       ├── test-runs/      # Test execution runs
+    │       │   ├── [identifier]/  # Run details, results
+    │       │   └── components/
+    │       │
+    │       ├── test-results/   # Test result views
+    │       │   └── components/
+    │       │
+    │       ├── endpoints/      # Endpoint configuration
+    │       │   ├── [identifier]/, new/, swagger/
+    │       │   └── components/
+    │       │
+    │       ├── metrics/        # Metric management
+    │       │   ├── [identifier]/, new/
+    │       │   └── components/
+    │       │
+    │       ├── behaviors/      # Behavior management
+    │       │   └── components/
+    │       │
+    │       ├── traces/         # Telemetry traces
+    │       │   └── components/
+    │       │
+    │       ├── knowledge/      # Knowledge base
+    │       │   ├── [identifier]/
+    │       │   └── components/
+    │       │
+    │       ├── models/         # Model configuration
+    │       │   └── components/
+    │       │
+    │       ├── mcp/            # MCP integration
+    │       │   └── components/
+    │       │
+    │       ├── tokens/         # API token management
+    │       │   └── components/
+    │       │
+    │       ├── tasks/          # Task management
+    │       │   ├── [identifier]/
+    │       │   └── components/
+    │       │
+    │       ├── organizations/  # Organization management
+    │       │   ├── [identifier]/, settings/, team/
+    │       │   └── components/
+    │       │
+    │       ├── onboarding/     # User onboarding flow
+    │       │   └── components/
+    │       │
+    │       └── generation/     # AI generation tools
+    │
+    ├── components/             # Shared components
+    │   ├── common/             # Reusable UI components
+    │   │   ├── BaseDataGrid.tsx    # Data grid wrapper
+    │   │   ├── BaseDrawer.tsx      # Slide-out drawer
+    │   │   ├── BaseTable.tsx       # Table component
+    │   │   ├── BaseChartsGrid.tsx  # Chart grid
+    │   │   ├── BaseLineChart.tsx, BasePieChart.tsx, BaseScatterChart.tsx
+    │   │   ├── ActionBar.tsx       # Page action bar
+    │   │   ├── SearchAndFilterBar.tsx
+    │   │   ├── StatusChip.tsx      # Status indicators
+    │   │   ├── EntityCard.tsx      # Entity display card
+    │   │   ├── DeleteModal.tsx     # Confirmation modal
+    │   │   ├── FeedbackModal.tsx   # User feedback
+    │   │   ├── ConversationHistory.tsx  # Chat display
+    │   │   ├── DragAndDropUpload.tsx
+    │   │   ├── NotificationContext.tsx
+    │   │   └── ErrorBoundary.tsx
+    │   │
+    │   ├── auth/               # Auth components
+    │   ├── layout/             # Layout components
+    │   ├── navigation/         # Nav components
+    │   ├── comments/           # Comment system
+    │   ├── tasks/              # Task components
+    │   ├── onboarding/         # Onboarding components
+    │   └── providers/          # Context providers
+    │
+    ├── utils/                  # Utility functions
+    │   ├── api-client/         # Backend API clients
+    │   │   ├── base-client.ts      # Base HTTP client
+    │   │   ├── client-factory.ts   # Client factory
+    │   │   ├── config.ts           # API configuration
+    │   │   ├── tests-client.ts, test-runs-client.ts, ...
+    │   │   └── interfaces/         # TypeScript interfaces (31 files)
+    │   │
+    │   ├── date-utils.ts       # Date formatting
+    │   ├── odata-filter.ts     # OData query building
+    │   ├── validation.ts       # Form validation
+    │   ├── trace-utils.ts      # Trace utilities
+    │   ├── status-colors.ts    # Status color mapping
+    │   └── ...
+    │
+    ├── hooks/                  # Custom React hooks
+    │   ├── useComments.ts      # Comments hook
+    │   ├── useTasks.ts         # Tasks hook
+    │   ├── useOnboardingTour.ts
+    │   ├── useDocumentTitle.ts
+    │   └── useGridStateStorage.ts
+    │
+    ├── contexts/               # React contexts
+    │   └── OnboardingContext.tsx
+    │
+    ├── config/                 # App configuration
+    │   ├── test-templates.ts   # Test templates
+    │   ├── model-providers.tsx # LLM provider config
+    │   ├── mcp-providers.tsx   # MCP provider config
+    │   └── onboarding-tours.ts
+    │
+    ├── constants/              # Application constants
+    │   ├── paths.ts            # Route paths
+    │   ├── auth.ts             # Auth constants
+    │   ├── test-types.ts       # Test type definitions
+    │   └── ...
+    │
+    ├── types/                  # TypeScript type definitions
+    │
+    ├── styles/                 # CSS and theme
+    │   ├── theme.ts            # MUI theme configuration
+    │   ├── fonts.css           # Font definitions
+    │   └── *.module.css        # Component styles
+    │
+    ├── actions/                # Server actions
+    │   ├── auth.ts, auth/signin.ts
+    │   └── endpoints/
+    │
+    ├── lib/
+    │   └── telemetry.ts        # Client telemetry
+    │
+    ├── middleware.ts           # Next.js middleware (auth)
+    │
+    └── auth.ts                 # NextAuth configuration
+```
+
+### Key Patterns
+- **App Router**: File-based routing with layouts
+- **Route Groups**: `(protected)` for authenticated routes
+- **Dynamic Routes**: `[identifier]` for entity pages
+- **Component Co-location**: Components next to pages
+- **API Client Layer**: Typed clients for backend communication
+- **Server Actions**: For auth and mutations
