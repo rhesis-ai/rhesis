@@ -8,6 +8,111 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.5.5] - 2026-01-15
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.0**
+- **Frontend 0.6.0**
+- **SDK 0.6.0**
+- **Polyphemus 0.2.4**
+
+### Summary
+
+This major release introduces two significant features: **Enhanced SDK Tracing** for comprehensive observability and a **New Interactive Glossary** with 50+ AI testing terms. The SDK tracing provides deep insights into your application under test, revealing its inner workings and execution flow with async support and smart serialization, while the glossary makes it easier for teams to understand and adopt AI testing best practices.
+
+**Important**: As of version 0.5.5, all production services for the cloud version of Rhesis are now hosted in European data centers, ensuring data sovereignty and compliance with European data protection regulations.
+
+### Featured Capabilities
+
+**Enhanced SDK Tracing**
+
+The SDK now includes comprehensive tracing capabilities that provide deep visibility into your application under test (the target) and its inner workings:
+
+- **Application Insights**: Gain visibility into your target application's execution flow, function calls, and internal state
+- **Execution Flow Visualization**: See how your application processes requests, including all intermediate steps and decision points
+- **Async Support**: Full support for asynchronous operations with proper trace propagation across async boundaries
+- **Smart Serialization**: Intelligent handling of complex objects and data structures in traces, making internal state visible
+- **Improved I/O Display**: Enhanced visualization of inputs and outputs at each step of your application's execution
+- **OpenTelemetry Integration**: Basic telemetry support for standard observability tools
+- **Advanced Filtering**: Filter traces by status, duration, and custom attributes in the frontend
+- **Dependency Injection**: New `bind` parameter in endpoint decorators for cleaner code organization
+
+**New Interactive Glossary**
+
+The platform now includes a comprehensive glossary at [docs.rhesis.ai/glossary](https://docs.rhesis.ai/glossary) with 50+ carefully curated terms covering:
+
+- **Configuration Concepts**: Organization, Project, Endpoint, Model, API Tokens
+- **Testing Fundamentals**: Single-turn tests, Multi-turn tests, Metrics, Behaviors, Test Sets
+- **Advanced Testing**: Penelope agent, RAG systems, Chain-of-Thought, Prompt Injection
+- **Quality Metrics**: Precision/Recall, F1 Score, Confusion Matrix, Confidence Scores
+- **Development Tools**: SDK integration, MCP protocol, Test Generation
+- **Results Analysis**: Baseline comparison, Regression testing, A/B testing
+
+Each glossary entry includes:
+- Clear definitions and extended explanations
+- Practical examples and use cases
+- Code snippets demonstrating implementation
+- Related terms for deeper exploration
+- Links to relevant documentation sections
+
+### Backend Highlights
+- **Infrastructure**: All production services now hosted in European data centers for enhanced data sovereignty and GDPR compliance
+- Enhanced connectivity with MCP including GitHub support and multi-transport capabilities
+- Improved observability with comprehensive OpenTelemetry integration for tracing, visualization, and filtering
+- Added Chatbot Intent Recognition functionality
+- Streamlined organization onboarding with integrated test execution
+- Enhanced documentation infrastructure for glossary integration
+
+### Frontend Highlights
+- Enhanced SDK tracing with improved visualization and filtering in the UI
+- Improved MCP connection stability and added new GitHub MCP provider
+- Integrated test execution into organization onboarding process
+- Added interactive glossary page with search and filtering
+- Implemented glossary term cross-referencing throughout documentation
+
+### SDK Highlights
+- Added dependency injection support with `bind` parameter in endpoint decorators
+- Enhanced SDK tracing with async support, smart serialization, and improved I/O display
+- Introduced OpenTelemetry integration for basic telemetry
+- Added Chatbot Intent Recognition functionality
+- Updated SDK documentation with glossary term links
+
+### Polyphemus Highlights
+- Added `bind` parameter to endpoint decorator for dependency injection
+- Introduced Bucket Model for improved data management
+
+## [0.5.4] - 2025-12-18
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.5.4**
+- **Frontend 0.5.4**
+- **SDK 0.5.2**
+- **Polyphemus 0.2.3**
+
+### Summary
+
+This release adds a new Polyphemus provider with schema support across the platform. The documentation receives enhancements including comprehensive guides and improved SDK metrics documentation. SDK improvements focus on enhanced MCP error handling and improved metric creation capabilities with support for categories and threshold operators.
+
+### Backend Highlights
+- Added new Polyphemus provider with schema definition support
+- Enhanced provider configuration for Polyphemus integration
+
+### Frontend Highlights
+- Added new Polyphemus provider with schema support
+- Documentation improvements including enhanced guides and SDK metrics
+- Dependency updates for Next.js (16.0.7 → 16.0.10) and Nodemailer (6.10.1 → 7.0.11)
+
+### SDK Highlights
+- Added new Polyphemus provider with schema support
+- Improved MCP error handling and usability
+- Enhanced metric creation with support for categories and threshold operators
+- Improved generation prompts using research-backed Chain-of-Thought techniques
+- Hotfix for MCP compatibility issues with `npx` and `bunx`
+
 ## [0.5.3] - 2025-12-11
 
 ### Platform Release
@@ -205,6 +310,34 @@ Connect your Notion workspace directly to your testing pipeline:
 - Improved synthesizers functionality
 - Refactored base entity structure
 - Updated MCP Tool Database functionality
+
+## [0.4.3] - 2025-11-17
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.4.3**
+- **Frontend 0.4.3**
+- **SDK 0.4.2**
+
+### Summary
+
+This release focuses on improving multi-turn conversation handling with centralized conversation tracking and fixes critical deployment issues in the frontend Docker image.
+
+### Backend Highlights
+- Added centralized conversation tracking for improved multi-turn conversation handling
+- Enhanced conversation state management across test executions
+
+### Frontend Highlights
+- Fixed Docker image build failure during local deployment
+- Resolved file ownership issue (chown bug) affecting containerized deployments
+
+### SDK Highlights
+- Added support for custom HTTP headers in API requests
+- Improved error handling for network requests with more descriptive error messages
+- Updated internal retry mechanism for failed API calls
+- Fixed date parsing issues in certain locales
+- Resolved bug causing occasional crashes when handling large data responses
 
 ## [0.4.2] - 2025-11-13
 
