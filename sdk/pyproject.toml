@@ -107,7 +107,23 @@ all = [
     "langgraph>=0.0.26",
     "pyautogen>=0.2.0",
 ]
-
+adaptive-testing = [
+    "aiohttp",
+    "aiohttp_security",
+    "aiohttp_session",
+    "appdirs",
+    "cryptography",
+    "diskcache",
+    "nest_asyncio",
+    "numpy",
+    "pandas",
+    "profanity",
+    "pyyaml",
+    "transformers",
+    "scikit-learn",
+    "litellm",
+    "torch",
+]
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",

@@ -1,0 +1,3 @@
+,topic,input,output,label,labeler,description,model score
+a2f2b98f884741f28fbfc6763a765779,/Poland,,,topic_marker,anonymous,,
+0ec34a6d14ff48e29a6d0f9e39fd7045,/Poland,Kielce is close to Krakow </s></s> Warsaw is close to Gdansk,NEUTRAL,pass,scored,,0

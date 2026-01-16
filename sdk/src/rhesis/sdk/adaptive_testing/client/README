@@ -1,0 +1,13 @@
+To build the client run the following in the client directory:
+
+> npm install
+
+> npx webpack
+
+This will create the dist/build.js file.
+
+When doing dev use:
+
+npx webpack --watch
+
+to auto-rebuild the bundle when the JS code changes.
