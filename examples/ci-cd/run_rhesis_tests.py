@@ -10,33 +10,22 @@ import sys
 import time
 from datetime import datetime
 
-from rhesis.sdk.client import Client, Endpoints, Methods
-from rhesis.sdk.entities import Endpoint, TestRun, TestSet
+from rhesis.sdk.entities import Endpoints, TestRun, TestRuns, TestSets
 
 
 def poll_for_test_run(test_configuration_id, timeout=600):
     """Poll for test run to appear after execution."""
     print(f"⏳ Polling for test run (timeout: {timeout}s)...")
-    client = Client()
     start_time = time.time()
     poll_count = 0
 
     while time.time() - start_time < timeout:
         poll_count += 1
-        response = client.send_request(
-            endpoint=Endpoints.TEST_RUNS,
-            method=Methods.GET,
-            params={"$filter": f"test_configuration_id eq '{test_configuration_id}'"},
-        )
+        test_runs = TestRuns.all(filter=f"test_configuration_id eq '{test_configuration_id}'")
 
-        test_runs = response.get("value", []) if isinstance(response, dict) else response
-
-        if test_runs and len(test_runs) > 0:
-            test_run_id = (
-                test_runs[0].get("id") if isinstance(test_runs[0], dict) else test_runs[0].id
-            )
-            print(f"✓ Test run found: {test_run_id}")
-            return test_run_id
+        if test_runs:
+            print(f"✓ Test run found: {test_runs[0].id}")
+            return test_runs[0].id
 
         print(f"  Poll {poll_count}: Waiting for test run...")
         time.sleep(10)
@@ -50,21 +39,15 @@ def wait_for_completion(test_run, timeout=1800):
     start_time = time.time()
     poll_count = 0
 
-    completion_statuses = ["completed", "finished", "done", "failed", "error", "success"]
-
     while time.time() - start_time < timeout:
         poll_count += 1
         test_run.pull()
-        status = str(test_run.status_id or "").lower()
+        status = test_run.status.value if test_run.status else ""
 
         print(f"  Poll {poll_count}: Status = {status}")
 
-        if any(complete in status for complete in completion_statuses):
+        if status in ["Completed", "Partial", "Failed"]:
             print(f"✓ Test run completed with status: {status}")
-            return
-
-        if status not in ["running", "pending", "queued", "in_progress"]:
-            print(f"✓ Test run finished with status: {status}")
             return
 
         time.sleep(30)
@@ -75,36 +58,25 @@ def wait_for_completion(test_run, timeout=1800):
 def get_test_results(test_run_id):
     """Retrieve and analyze test results."""
     print("📊 Retrieving test results...")
-    client = Client()
-
-    response = client.send_request(
-        endpoint=Endpoints.TEST_RESULTS,
-        method=Methods.GET,
-        params={"$filter": f"test_run_id eq '{test_run_id}'"},
-    )
-
-    test_results = response.get("value", []) if isinstance(response, dict) else response
-
-    if not test_results:
-        print("⚠️  No test results found")
-        return {"total": 0, "passed": 0, "failed": 0, "success_rate": 0.0, "failed_tests": []}
+    test_run = TestRun(id=test_run_id)
+    test_results = test_run.get_test_results()
 
     total = len(test_results)
     failed_tests = []
     passed_tests = []
 
     for result in test_results:
-        status_id = result.get("status_id") if isinstance(result, dict) else result.status_id
+        status = result["status"]["name"]
         test_id = (
             result.get("test_id", result.get("id", "unknown"))
             if isinstance(result, dict)
             else result.test_id
         )
 
-        is_failed = any(fail_word in str(status_id).lower() for fail_word in ["fail", "error"])
+        is_failed = any(fail_word in str(status).lower() for fail_word in ["fail", "error"])
 
         if is_failed:
-            failed_tests.append({"test_id": test_id, "status": status_id})
+            failed_tests.append({"test_id": test_id, "status": status})
         else:
             passed_tests.append(test_id)
 
@@ -158,43 +130,29 @@ def main():
     print("=" * 60)
 
     # Get configuration from environment
-    endpoint_id = os.getenv("RHESIS_ENDPOINT_ID")
-    test_set_id = os.getenv("RHESIS_TEST_SET_ID")
+    endpoint_name = os.getenv("RHESIS_ENDPOINT_NAME")
+    test_set_name = os.getenv("RHESIS_TEST_SET_NAME")
 
-    if not endpoint_id or not test_set_id:
-        print("❌ Error: RHESIS_ENDPOINT_ID and RHESIS_TEST_SET_ID must be set")
+    if not endpoint_name or not test_set_name:
+        print("❌ Error: RHESIS_ENDPOINT_NAME and RHESIS_TEST_SET_NAME must be set")
         sys.exit(1)
 
     try:
         # Step 1: Get endpoint
-        print(f"\n📍 Step 1: Retrieving endpoint {endpoint_id}")
-        endpoint = Endpoint(id=endpoint_id)
-        endpoint.pull()
+        print(f"\n📍 Step 1: Retrieving endpoint {endpoint_name}")
+        endpoint = Endpoints.pull(name=endpoint_name)
         print(f"✓ Endpoint retrieved: {endpoint.name}")
 
         # Step 2: Get test set
-        print(f"\n📦 Step 2: Retrieving test set {test_set_id}")
-        client = Client()
-        test_set_data = client.send_request(
-            endpoint=Endpoints.TEST_SETS, method=Methods.GET, url_params=test_set_id
-        )
-        test_set = TestSet(
-            id=test_set_data.get("id", test_set_id),
-            name=test_set_data.get("name", "Test Set"),
-            description=test_set_data.get("description", ""),
-            short_description=test_set_data.get("short_description", ""),
-            test_set_type=None,
-        )
+        print(f"\n📦 Step 2: Retrieving test set {test_set_name}")
+        test_set = TestSets.pull(name=test_set_name)
         print(f"✓ Test set retrieved: {test_set.name}")
 
         # Step 3: Execute test set
         print("\n▶️  Step 3: Executing test set against endpoint")
         execution_response = test_set.execute(endpoint=endpoint)
-        test_configuration_id = (
-            execution_response.get("test_configuration_id")
-            if isinstance(execution_response, dict)
-            else execution_response.test_configuration_id
-        )
+        test_configuration_id = execution_response.get("test_configuration_id")
+
         print(f"✓ Test execution initiated (config: {test_configuration_id})")
 
         # Step 4: Poll for test run

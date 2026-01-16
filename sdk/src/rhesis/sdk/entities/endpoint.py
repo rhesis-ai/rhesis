@@ -1,10 +1,12 @@
 from enum import Enum
 from typing import Any, ClassVar, Dict, Optional
 
-from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.client import Client, Methods
+from rhesis.sdk.client import Endpoints as ApiEndpoints
+from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 
-ENDPOINT = Endpoints.ENDPOINTS
+ENDPOINT = ApiEndpoints.ENDPOINTS
 
 
 class ConnectionType(str, Enum):
@@ -39,7 +41,7 @@ class Endpoint(BaseEntity):
         ...     print(endpoint.fields.get('name'))
     """
 
-    endpoint: ClassVar[Endpoints] = ENDPOINT
+    endpoint: ClassVar[ApiEndpoints] = ENDPOINT
     name: Optional[str] = None
     description: Optional[str] = None
     # Required field - must be one of: "REST", "WebSocket", "GRPC", "SDK"
@@ -111,3 +113,8 @@ class Endpoint(BaseEntity):
         if result is None:
             raise ValueError("Endpoint is not answering")
         print("Endpoint is working correctly")
+
+
+class Endpoints(BaseCollection):
+    endpoint = ENDPOINT
+    entity_class = Endpoint
