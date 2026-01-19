@@ -249,9 +249,6 @@ async def generate_text(request: GenerateRequest) -> Dict:
         "top_p": top_p,  # Nucleus sampling
         "repetition_penalty": repetition_penalty,  # Penalize repetition
         "no_repeat_ngram_size": 3,  # Prevent repeating 3-grams
-        # GPU optimization flags
-        "use_cache": True,  # Enable KV-cache for faster generation
-        "pad_token_id": None,  # Will be set by model if needed
     }
 
     # Add top_k if provided
