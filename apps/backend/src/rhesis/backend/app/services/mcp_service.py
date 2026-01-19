@@ -277,7 +277,13 @@ async def search_mcp(
         ... )
         >>> print(results[0]["title"])
     """
+    if not user_id:
+        raise ValueError("user_id is required")
+
     user = crud.get_user_by_id(db, user_id)
+    if not user:
+        raise ValueError(f"User not found: {user_id}")
+
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
@@ -367,7 +373,13 @@ async def extract_mcp(
     if not item_id and not item_url:
         raise ValueError("Either 'item_id' or 'item_url' must be provided")
 
+    if not user_id:
+        raise ValueError("user_id is required")
+
     user = crud.get_user_by_id(db, user_id)
+    if not user:
+        raise ValueError(f"User not found: {user_id}")
+
     model = get_user_generation_model(db, user)
 
     # Load MCP client and provider from database tool configuration
@@ -447,7 +459,13 @@ async def query_mcp(
         ...     "tool-uuid-123", db, org_id, user_id
         ... )
     """
+    if not user_id:
+        raise ValueError("user_id is required")
+
     user = crud.get_user_by_id(db, user_id)
+    if not user:
+        raise ValueError(f"User not found: {user_id}")
+
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
