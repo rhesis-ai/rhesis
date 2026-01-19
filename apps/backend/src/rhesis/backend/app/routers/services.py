@@ -658,7 +658,6 @@ async def query_mcp_server(
             query=request.query,
             tool_id=request.tool_id,
             db=db,
-            user=current_user,
             organization_id=organization_id,
             user_id=user_id,
             system_prompt=request.system_prompt,

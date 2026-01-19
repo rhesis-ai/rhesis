@@ -62,7 +62,7 @@ class DisabledClient:
     This client accepts all initialization parameters and method calls but
     performs no actual operations. It's used to allow code to run without
     connector/observability overhead in test and CI environments.
-    
+
     Enabled with: RHESIS_CONNECTOR_DISABLE=true|1|yes|on (case-insensitive)
 
     When DisabledClient is active:
@@ -124,8 +124,8 @@ class Client:
         """
         Create either a real Client or DisabledClient based on environment flag.
 
-        When RHESIS_CONNECTOR_DISABLE is enabled (true|1|yes|on), returns a 
-        DisabledClient that performs no operations. Otherwise, creates a normal 
+        When RHESIS_CONNECTOR_DISABLE is enabled (true|1|yes|on), returns a
+        DisabledClient that performs no operations. Otherwise, creates a normal
         Client instance.
         """
         if CONNECTOR_DISABLED:
@@ -316,7 +316,7 @@ class Client:
         if self._connector_manager is None:
             if not self.project_id:
                 raise RuntimeError(
-                    "@collaborate requires project_id parameter or "
+                    "@endpoint requires project_id parameter or "
                     "RHESIS_PROJECT_ID environment variable"
                 )
             from rhesis.sdk.connector.manager import ConnectorManager
