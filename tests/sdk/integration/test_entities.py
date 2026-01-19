@@ -280,13 +280,13 @@ def test_status_delete(db_cleanup):
 # ============================================================================
 
 
-def test_endpoint(db_cleanup):
+def test_endpoint(db_cleanup, test_project_id):
     endpoint = Endpoint(
         name="Test Endpoint",
         description="Test Endpoint Description",
         connection_type="REST",
         url="https://api.example.com/test",
-        project_id="12340000-0000-4000-8000-000000001234",
+        project_id=test_project_id,
     )
 
     result = endpoint.push()
@@ -298,13 +298,13 @@ def test_endpoint(db_cleanup):
     assert result["url"] == "https://api.example.com/test"
 
 
-def test_endpoint_push_pull(db_cleanup):
+def test_endpoint_push_pull(db_cleanup, test_project_id):
     endpoint = Endpoint(
         name="Test push pull endpoint",
         description="Test push pull endpoint description",
         connection_type="REST",
         url="https://api.example.com/push-pull",
-        project_id="12340000-0000-4000-8000-000000001234",
+        project_id=test_project_id,
     )
     endpoint.push()
 
@@ -316,13 +316,13 @@ def test_endpoint_push_pull(db_cleanup):
     assert pulled_endpoint.url == "https://api.example.com/push-pull"
 
 
-def test_endpoint_delete(db_cleanup):
+def test_endpoint_delete(db_cleanup, test_project_id):
     endpoint = Endpoint(
         name="Test endpoint to delete",
         description="Test endpoint to delete description",
         connection_type="REST",
         url="https://api.example.com/delete",
-        project_id="12340000-0000-4000-8000-000000001234",
+        project_id=test_project_id,
     )
 
     endpoint.push()
@@ -337,14 +337,14 @@ def test_endpoint_delete(db_cleanup):
 # ============================================================================
 
 
-def test_test_run(db_cleanup):
+def test_test_run(db_cleanup, test_project_id):
     # Create endpoint first (required for test configuration)
     endpoint = Endpoint(
         name="Test Endpoint for TestRun",
         description="Test Endpoint Description",
         connection_type="REST",
         url="https://example.com/api",
-        project_id="12340000-0000-4000-8000-000000001234",
+        project_id=test_project_id,
     )
     endpoint.push()
 
@@ -367,14 +367,14 @@ def test_test_run(db_cleanup):
     assert result["name"] == "Test Run"
 
 
-def test_test_run_push_pull(db_cleanup):
+def test_test_run_push_pull(db_cleanup, test_project_id):
     # Create endpoint first
     endpoint = Endpoint(
         name="Test Endpoint for TestRun Push Pull",
         description="Test Endpoint Description",
         connection_type="REST",
         url="https://example.com/api",
-        project_id="12340000-0000-4000-8000-000000001234",
+        project_id=test_project_id,
     )
     endpoint.push()
 
@@ -397,14 +397,14 @@ def test_test_run_push_pull(db_cleanup):
     assert pulled_test_run.name == "Test push pull test run"
 
 
-def test_test_run_delete(db_cleanup):
+def test_test_run_delete(db_cleanup, test_project_id):
     # Create endpoint first
     endpoint = Endpoint(
         name="Test Endpoint for TestRun Delete",
         description="Test Endpoint Description",
         connection_type="REST",
         url="https://example.com/api",
-        project_id="12340000-0000-4000-8000-000000001234",
+        project_id=test_project_id,
     )
     endpoint.push()
 

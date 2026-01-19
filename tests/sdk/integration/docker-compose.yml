@@ -64,6 +64,7 @@ services:
     container_name: rhesis-backend-test
     environment:
       <<: [*database-config, *redis-config, *backend-config]
+      QUICK_START: "true"  # Enables automatic creation of test user, org, and token
     ports:
       - "10001:8080"
     depends_on:
