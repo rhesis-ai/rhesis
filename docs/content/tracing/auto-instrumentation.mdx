@@ -1,0 +1,184 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Auto-Instrumentation
+
+Zero-config tracing for LangChain and LangGraph applications.
+
+## Overview
+
+Auto-instrumentation automatically traces all LLM calls, tool invocations, and chain executions without modifying your code.
+
+<Mermaid chart={`flowchart LR
+    AI["auto_instrument()"] --> LC["LangChain"]
+    AI --> LG["LangGraph"]
+    
+    LC --> T["Automatic Traces"]
+    LG --> T`} />
+
+## LangChain
+
+### Installation
+
+<CodeBlock filename="terminal" language="bash">
+{`pip install "rhesis-sdk[langchain]>=0.6.0"`}
+</CodeBlock>
+
+### Usage
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient
+from rhesis.sdk.telemetry import auto_instrument
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Initialize Rhesis
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+)
+
+# Enable auto-instrumentation
+auto_instrument()
+
+# Use LangChain normally - all calls are traced
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
+response = llm.invoke("Explain quantum computing")`}
+</CodeBlock>
+
+### What Gets Traced
+
+- LLM invocations with token counts
+- Prompt templates and chains (LCEL)
+- Tool calls with inputs and outputs
+- Streaming responses
+- Errors and exceptions
+
+### LCEL Chain Example
+
+<CodeBlock filename="chain.py" language="python">
+{`from langchain_core.prompts import ChatPromptTemplate
+
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You explain concepts in a {style} way."),
+    ("user", "Explain {topic}"),
+])
+
+chain = prompt | llm
+
+# Automatically traced
+result = chain.invoke({"topic": "Machine Learning", "style": "simple"})`}
+</CodeBlock>
+
+### Tools Example
+
+<CodeBlock filename="tools.py" language="python">
+{`from langchain_core.tools import tool
+
+@tool
+def calculator(expression: str) -> str:
+    """Evaluate a mathematical expression."""
+    return str(eval(expression))
+
+# Tool calls are automatically traced
+result = calculator.invoke({"expression": "2 + 2 * 3"})`}
+</CodeBlock>
+
+## LangGraph
+
+### Installation
+
+<CodeBlock filename="terminal" language="bash">
+{`pip install "rhesis-sdk[langgraph]>=0.6.0"`}
+</CodeBlock>
+
+### Usage
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient
+from rhesis.sdk.telemetry import auto_instrument
+from langgraph.graph import StateGraph, START, END
+from typing_extensions import TypedDict, Annotated
+from langgraph.graph.message import add_messages
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+)
+
+# Enable LangGraph instrumentation
+auto_instrument("langgraph")
+
+class State(TypedDict):
+    messages: Annotated[list, add_messages]
+
+def researcher(state: State):
+    response = llm.invoke(state["messages"][-1].content)
+    return {"messages": [response]}
+
+def analyst(state: State):
+    response = llm.invoke(f"Analyze: {state['messages'][-1].content}")
+    return {"messages": [response]}
+
+# Build graph
+workflow = StateGraph(State)
+workflow.add_node("researcher", researcher)
+workflow.add_node("analyst", analyst)
+workflow.add_edge(START, "researcher")
+workflow.add_edge("researcher", "analyst")
+workflow.add_edge("analyst", END)
+
+app = workflow.compile()
+
+# All nodes and LLM calls are traced
+result = app.invoke({"messages": ["What are the benefits of LangGraph?"]})`}
+</CodeBlock>
+
+## Trace Output
+
+<Mermaid chart={`flowchart TD
+    subgraph Trace["Trace: User Query"]
+        R["ai.llm.invoke\\n(researcher)"]
+        A["ai.llm.invoke\\n(analyst)"]
+        T["ai.tool.invoke\\n(if used)"]
+    end
+    
+    R --> A
+    A --> T`} />
+
+Auto-instrumentation creates spans following semantic conventions with attributes:
+- Model name and provider
+- Token counts (input/output)
+- Tool names and types
+
+## Combining with Decorators
+
+Auto-instrumentation works alongside `@observe` and `@endpoint`:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient, endpoint
+from rhesis.sdk.telemetry import auto_instrument
+
+client = RhesisClient(...)
+auto_instrument()
+
+@endpoint()
+def chat_handler(input: str) -> dict:
+    # This function traced by @endpoint
+    # Internal LangChain calls traced by auto-instrumentation
+    chain = prompt | llm
+    return {"output": chain.invoke({"message": input})}`}
+</CodeBlock>
+
+## Supported Frameworks
+
+| Framework | Extra | Status |
+|-----------|-------|--------|
+| LangChain | `langchain` | Supported |
+| LangGraph | `langgraph` | Supported |
+
+---
+
+<Callout type="info">
+  **Related:** 
+  - [Setup](/tracing/setup) - Initial configuration
+  - [Connector](/sdk/connector) - Register functions as endpoints
+</Callout>

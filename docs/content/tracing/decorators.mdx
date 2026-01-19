@@ -1,0 +1,221 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Decorators
+
+Two decorators are available: `@observe` for tracing-only and `@endpoint` for remote testing with automatic tracing.
+
+## @endpoint
+
+Functions decorated with `@endpoint` are **automatically traced**. Use this for functions that need remote testing capability.
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import endpoint
+
+@endpoint()
+def chat(input: str, session_id: str = None) -> dict:
+    # Automatically traced + registered for remote testing
+    return {"output": process_message(input), "session_id": session_id}`}
+</CodeBlock>
+
+See the [Connector documentation](/sdk/connector) for full details on `@endpoint`.
+
+### Disabling Tracing
+
+To register for remote testing without tracing:
+
+<CodeBlock filename="app.py" language="python">
+{`@endpoint(observe=False)
+def no_trace_endpoint(x: int) -> int:
+    return x * 2`}
+</CodeBlock>
+
+## @observe
+
+Use `@observe` for functions that only need tracing (no remote testing):
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import observe
+
+@observe()
+def internal_helper(data: str) -> str:
+    return data.upper()`}
+</CodeBlock>
+
+## Convenience Decorators
+
+Pre-configured decorators for common AI operations, organized by category.
+
+### AI Model Operations
+
+#### @observe.llm()
+
+For language model calls.
+
+<CodeBlock filename="app.py" language="python">
+{`@observe.llm(provider="openai", model="gpt-4")
+def generate(prompt: str) -> str:
+    return openai.chat.completions.create(...)`}
+</CodeBlock>
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `provider` | Yes | Provider name (openai, anthropic, google) |
+| `model` | Yes | Model name (gpt-4, claude-3-opus) |
+
+#### @observe.embedding()
+
+For embedding generation.
+
+<CodeBlock filename="app.py" language="python">
+{`@observe.embedding(model="text-embedding-ada-002", dimensions=1536)
+def embed_texts(texts: list) -> list:
+    return embedding_model.encode(texts)`}
+</CodeBlock>
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `model` | Yes | Embedding model name |
+| `dimensions` | No | Vector dimensions |
+
+### Tool & Retrieval
+
+#### @observe.tool()
+
+For tool/function execution.
+
+<CodeBlock filename="app.py" language="python">
+{`@observe.tool(name="weather_api", tool_type="http")
+def get_weather(city: str) -> dict:
+    return requests.get(f"api/{city}").json()`}
+</CodeBlock>
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `name` | Yes | Tool name |
+| `tool_type` | Yes | Type (http, function, database) |
+
+#### @observe.retrieval()
+
+For vector search and knowledge base queries.
+
+<CodeBlock filename="app.py" language="python">
+{`@observe.retrieval(backend="pinecone", top_k=5)
+def search_docs(query: str) -> list:
+    return vector_db.search(query, k=5)`}
+</CodeBlock>
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `backend` | Yes | Backend name (pinecone, weaviate, chroma) |
+| `top_k` | No | Number of results |
+
+#### @observe.rerank()
+
+For reranking search results.
+
+<CodeBlock filename="app.py" language="python">
+{`@observe.rerank(model="rerank-v1", top_n=10)
+def rerank_documents(query: str, docs: list) -> list:
+    return reranker.rerank(query, docs, top_n=10)`}
+</CodeBlock>
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `model` | Yes | Reranker model name |
+| `top_n` | No | Number of results to return |
+
+### Quality & Safety
+
+#### @observe.evaluation()
+
+For response evaluation and scoring.
+
+<CodeBlock filename="app.py" language="python">
+{`@observe.evaluation(metric="relevance", evaluator="gpt-4")
+def evaluate_relevance(query: str, response: str) -> float:
+    return evaluator.score_relevance(query, response)`}
+</CodeBlock>
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `metric` | Yes | Metric name (relevance, faithfulness) |
+| `evaluator` | Yes | Evaluator model/service |
+
+#### @observe.guardrail()
+
+For content safety and moderation.
+
+<CodeBlock filename="app.py" language="python">
+{`@observe.guardrail(guardrail_type="content_safety", provider="openai")
+def check_content_safety(text: str) -> bool:
+    return safety_checker.is_safe(text)`}
+</CodeBlock>
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `guardrail_type` | Yes | Type (content_safety, pii_detection, toxicity) |
+| `provider` | Yes | Provider name |
+
+### Data Processing
+
+#### @observe.transform()
+
+For data transformation and preprocessing.
+
+<CodeBlock filename="app.py" language="python">
+{`@observe.transform(transform_type="text", operation="clean")
+def preprocess_text(text: str) -> str:
+    return clean_and_normalize(text)`}
+</CodeBlock>
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `transform_type` | Yes | Type (text, image, audio) |
+| `operation` | Yes | Operation (clean, normalize, tokenize) |
+
+## Comparison
+
+| Feature | `@observe` | `@endpoint` |
+|---------|------------|-------------|
+| Traces execution | Yes | Yes (default) |
+| Remote testing | No | Yes |
+| Use case | Internal helpers | Public APIs, endpoints |
+
+## Usage Pattern
+
+<Mermaid chart={`flowchart TD
+    E["@endpoint\\nchat()"] --> O1["@observe\\nbuild_context()"]
+    E --> O2["@observe.llm\\ngenerate_response()"]
+    O1 --> O3["@observe.retrieval\\nsearch_docs()"]`} />
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import endpoint, observe
+
+# Public API - remote testing + automatic tracing
+@endpoint()
+def chat(input: str) -> dict:
+    context = build_context(input)
+    response = generate_response(input, context)
+    return {"output": response}
+
+# Internal helper - tracing only
+@observe()
+def build_context(message: str) -> list:
+    return search_docs(message)
+
+# LLM call - convenience decorator
+@observe.llm(provider="openai", model="gpt-4")
+def generate_response(message: str, context: list) -> str:
+    return llm.generate(message, context=context)
+
+# Retrieval - convenience decorator
+@observe.retrieval(backend="pinecone", top_k=5)
+def search_docs(query: str) -> list:
+    return vector_db.search(query)`}
+</CodeBlock>
+
+---
+
+<Callout type="info">
+  **Next:** Learn about [custom spans](/tracing/custom-spans) for advanced attribute configuration.
+</Callout>
