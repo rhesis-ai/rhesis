@@ -2,10 +2,11 @@
 
 import pytest
 
+from tests.sdk.conftest import RHESIS_API_KEY
+
 
 @pytest.fixture(autouse=True)
 def set_connector_env_vars(monkeypatch):
-    """Set environment variables for connector tests."""
-    monkeypatch.setenv("RHESIS_API_KEY", "rh-test-token")
+    monkeypatch.setenv("RHESIS_API_KEY", RHESIS_API_KEY)
     monkeypatch.setenv("RHESIS_PROJECT_ID", "test-project-id")
     monkeypatch.setenv("RHESIS_ENVIRONMENT", "test")

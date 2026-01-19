@@ -1,4 +1,3 @@
-import os
 from enum import Enum
 from unittest.mock import MagicMock, patch
 
@@ -8,8 +7,7 @@ from requests.exceptions import HTTPError
 from rhesis.sdk.client import HTTPStatus
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
-
-os.environ["RHESIS_BASE_URL"] = "http://test:8000"
+from tests.sdk.conftest import RHESIS_API_KEY, RHESIS_BASE_URL
 
 
 class TestEndpoint(Enum):
@@ -35,9 +33,9 @@ def test_all(mock_request):
 
     mock_request.assert_called_once_with(
         method="GET",
-        url="http://test:8000/test",
+        url=f"{RHESIS_BASE_URL}/test",
         headers={
-            "Authorization": "Bearer rh-test-token",
+            "Authorization": f"Bearer {RHESIS_API_KEY}",
             "Content-Type": "application/json",
         },
         json=None,
@@ -51,9 +49,9 @@ def test_exists(mock_request):
 
     mock_request.assert_called_once_with(
         method="GET",
-        url="http://test:8000/test/10",
+        url=f"{RHESIS_BASE_URL}/test/10",
         headers={
-            "Authorization": "Bearer rh-test-token",
+            "Authorization": f"Bearer {RHESIS_API_KEY}",
             "Content-Type": "application/json",
         },
         json=None,
@@ -92,9 +90,9 @@ def test_pull_with_name(mock_request):
 
     mock_request.assert_called_once_with(
         method="GET",
-        url="http://test:8000/test",
+        url=f"{RHESIS_BASE_URL}/test",
         headers={
-            "Authorization": "Bearer rh-test-token",
+            "Authorization": f"Bearer {RHESIS_API_KEY}",
             "Content-Type": "application/json",
         },
         json=None,

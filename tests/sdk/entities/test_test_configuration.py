@@ -1,11 +1,9 @@
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rhesis.sdk.entities.test_configuration import TestConfiguration
-
-os.environ["RHESIS_BASE_URL"] = "http://test:8000"
+from tests.sdk.conftest import RHESIS_API_KEY, RHESIS_BASE_URL
 
 
 @pytest.fixture
@@ -61,9 +59,9 @@ def test_get_test_runs(mock_request, test_configuration):
     # Verify the request was made correctly
     mock_request.assert_called_once_with(
         method="GET",
-        url="http://test:8000/test_runs",
+        url=f"{RHESIS_BASE_URL}/test_runs",
         headers={
-            "Authorization": "Bearer rh-test-token",
+            "Authorization": f"Bearer {RHESIS_API_KEY}",
             "Content-Type": "application/json",
         },
         json=None,
@@ -78,4 +76,3 @@ def test_get_test_runs_without_id(test_configuration_without_id):
     """Test get_test_runs raises ValueError when ID is None."""
     with pytest.raises(ValueError, match="Test configuration ID is required"):
         test_configuration_without_id.get_test_runs()
-

@@ -6,13 +6,16 @@ import pytest
 
 from rhesis.sdk.services.extractor import SourceSpecification, SourceType
 
+RHESIS_API_KEY = "rh-local-token"
+RHESIS_BASE_URL = "http://test:8000"
+GEMINI_API_KEY = "test_api_key"
 
-# RHESIS_API_KEY should not be changed as it is used in integration tests auth
+
 @pytest.fixture(autouse=True)
 def set_api_keys(monkeypatch):
-    """Automatically set API keys for all SDK tests."""
-    monkeypatch.setenv("RHESIS_API_KEY", "rh-test-token")
-    monkeypatch.setenv("GEMINI_API_KEY", "test_api_key")
+    monkeypatch.setenv("RHESIS_API_KEY", RHESIS_API_KEY)
+    monkeypatch.setenv("RHESIS_BASE_URL", RHESIS_BASE_URL)
+    monkeypatch.setenv("GEMINI_API_KEY", GEMINI_API_KEY)
 
 
 # Fixtures for source specifications

@@ -1,4 +1,3 @@
-import os
 from enum import Enum
 from typing import ClassVar, Optional
 from unittest.mock import MagicMock, patch
@@ -8,8 +7,7 @@ from requests.exceptions import HTTPError
 
 from rhesis.sdk.client import HTTPStatus
 from rhesis.sdk.entities.base_entity import BaseEntity
-
-os.environ["RHESIS_BASE_URL"] = "http://test:8000"
+from tests.sdk.conftest import RHESIS_API_KEY, RHESIS_BASE_URL
 
 
 class TestEndpoint(Enum):
@@ -43,9 +41,9 @@ def test_delete_by_id(mock_request, test_entity):
     test_entity._delete(record_id)
     mock_request.assert_called_once_with(
         method="DELETE",
-        url="http://test:8000/test/1",
+        url=f"{RHESIS_BASE_URL}/test/1",
         headers={
-            "Authorization": "Bearer rh-test-token",
+            "Authorization": f"Bearer {RHESIS_API_KEY}",
             "Content-Type": "application/json",
         },
         json=None,
@@ -71,9 +69,9 @@ def test_push_with_id(mock_request, test_entity):
     test_entity.push()
     mock_request.assert_called_once_with(
         method="PUT",
-        url="http://test:8000/test/1",
+        url=f"{RHESIS_BASE_URL}/test/1",
         headers={
-            "Authorization": "Bearer rh-test-token",
+            "Authorization": f"Bearer {RHESIS_API_KEY}",
             "Content-Type": "application/json",
         },
         json={"name": "Test", "description": "Test", "id": 1},
@@ -86,9 +84,9 @@ def test_push_without_id(mock_request, test_entity_without_id):
     test_entity_without_id.push()
     mock_request.assert_called_once_with(
         method="POST",
-        url="http://test:8000/test",
+        url=f"{RHESIS_BASE_URL}/test",
         headers={
-            "Authorization": "Bearer rh-test-token",
+            "Authorization": f"Bearer {RHESIS_API_KEY}",
             "Content-Type": "application/json",
         },
         json={"name": "Test", "description": "Test", "id": None},
@@ -106,9 +104,9 @@ def test_pull_by_id(mock_request, test_entity):
     test_entity._pull(1)
     mock_request.assert_called_once_with(
         method="GET",
-        url="http://test:8000/test/1",
+        url=f"{RHESIS_BASE_URL}/test/1",
         headers={
-            "Authorization": "Bearer rh-test-token",
+            "Authorization": f"Bearer {RHESIS_API_KEY}",
             "Content-Type": "application/json",
         },
         json=None,

@@ -1,12 +1,10 @@
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rhesis.sdk.entities.status import Status
 from rhesis.sdk.entities.test_result import TestResult
-
-os.environ["RHESIS_BASE_URL"] = "http://test:8000"
+from tests.sdk.conftest import RHESIS_API_KEY, RHESIS_BASE_URL
 
 
 @pytest.fixture
@@ -75,9 +73,9 @@ def test_pull_test_result_with_nested_status(mock_request, test_result_data):
     # Verify the request
     mock_request.assert_called_once_with(
         method="GET",
-        url="http://test:8000/test_results/result-123",
+        url=f"{RHESIS_BASE_URL}/test_results/result-123",
         headers={
-            "Authorization": "Bearer rh-test-token",
+            "Authorization": f"Bearer {RHESIS_API_KEY}",
             "Content-Type": "application/json",
         },
         json=None,
@@ -98,4 +96,3 @@ def test_test_result_model_dump_includes_status(test_result_with_status):
     assert dumped["status"] is not None
     assert dumped["status"]["name"] == "Passed"
     assert dumped["status"]["id"] == "status-678"
-
