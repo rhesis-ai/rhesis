@@ -17,7 +17,7 @@ def initialize_rhesis_client() -> Optional[RhesisClient]:
     """
     Initialize RhesisClient for observability.
 
-    When RHESIS_CONNECTOR_DISABLE is enabled (true|1|yes|on), this will return a 
+    When RHESIS_CONNECTOR_DISABLE is enabled (true|1|yes|on), this will return a
     DisabledClient that performs no operations but maintains the same interface.
 
     Returns:
@@ -59,6 +59,11 @@ def get_test_context() -> Dict[str, any]:
     """
     Get test context bindings for endpoint decorator with proper resource management.
 
+    **DEVELOPMENT USE ONLY**: This function is used by Rhesis developers during
+    development to enable remote testing of @endpoint decorated functions. It is
+    automatically disabled in production environments (returns empty dict when
+    RHESIS_ORGANIZATION_ID or RHESIS_USER_ID are not set).
+
     Uses bind_context and generator functions to provide dependencies that need cleanup.
     The @endpoint decorator will automatically handle them as context managers,
     just like FastAPI does. Database sessions are properly closed after use.
@@ -77,6 +82,8 @@ def get_test_context() -> Dict[str, any]:
         - user_id: Static user ID from environment
         - db: Context manager for database session (auto-cleanup via bind_context)
         - user: Generator-based dependency for User object (auto-cleanup)
+
+        Returns empty dict in production (when env vars are not set).
     """
     # Static values from environment
     org_id = os.getenv("RHESIS_ORGANIZATION_ID")

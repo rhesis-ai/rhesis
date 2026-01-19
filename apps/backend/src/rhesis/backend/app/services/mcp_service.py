@@ -230,6 +230,9 @@ def _get_mcp_client_from_params(
 @endpoint(
     name="search_mcp",
     bind={
+        # DEVELOPMENT ONLY: get_test_context() provides test bindings for remote testing.
+        # Disabled by default in production (returns empty dict when env vars not set).
+        # Only used by Rhesis developers during development.
         **get_test_context(),
         "tool_id": os.getenv("RHESIS_TOOL_ID"),
     },
@@ -309,6 +312,9 @@ async def search_mcp(
 @endpoint(
     name="extract_mcp",
     bind={
+        # DEVELOPMENT ONLY: get_test_context() provides test bindings for remote testing.
+        # Disabled by default in production (returns empty dict when env vars not set).
+        # Only used by Rhesis developers during development.
         **get_test_context(),
         "tool_id": os.getenv("RHESIS_TOOL_ID"),
     },
@@ -392,6 +398,9 @@ async def extract_mcp(
 @endpoint(
     name="query_mcp",
     bind={
+        # DEVELOPMENT ONLY: get_test_context() provides test bindings for remote testing.
+        # Disabled by default in production (returns empty dict when env vars not set).
+        # Only used by Rhesis developers during development.
         **get_test_context(),
         "tool_id": os.getenv("RHESIS_TOOL_ID"),
     },
