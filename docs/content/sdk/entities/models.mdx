@@ -1,0 +1,177 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Model Entity
+
+The Model entity represents an LLM configuration stored in the Rhesis platform. Models contain the provider, model name, and API key needed to connect to LLM services. Once saved, models can be set as defaults for test generation or evaluation, and can be converted to ready-to-use LLM instances.
+
+<Callout type="info">
+  **Note**: The Model entity is different from the [Models module](/sdk/models). The entity stores configurations in the platform, while the module provides LLM client implementations for making API calls.
+</Callout>
+
+## Creating a Model
+
+Create a model configuration using a provider name (the SDK automatically resolves it to the correct provider type):
+
+<CodeBlock filename="create_model.py" language="python">
+{`from rhesis.sdk.entities import Model
+
+model = Model(
+    name="GPT-4 Production",
+    provider="openai",
+    model_name="gpt-4",
+    key="sk-..."
+)
+model.push()
+
+print(f"Created model: {model.id}")`}
+</CodeBlock>
+
+### Supported Providers
+
+| Provider | Description |
+|----------|-------------|
+| `openai` | OpenAI models (GPT-4, GPT-3.5, etc.) |
+| `anthropic` | Anthropic Claude models |
+| `gemini` | Google Gemini models |
+| `mistral` | Mistral AI models |
+| `cohere` | Cohere models |
+| `groq` | Groq inference |
+| `vertex_ai` | Google Vertex AI |
+| `together_ai` | Together AI models |
+| `replicate` | Replicate hosted models |
+| `perplexity` | Perplexity AI |
+| `ollama` | Local Ollama models |
+| `vllm` | Self-hosted vLLM |
+
+List all available providers:
+
+<CodeBlock filename="list_providers.py" language="python">
+{`from rhesis.sdk.entities import Models
+
+providers = Models.list_providers()
+print(providers)
+# ['openai', 'anthropic', 'gemini', 'mistral', ...]`}
+</CodeBlock>
+
+## Fetching Models
+
+<CodeBlock filename="fetch_models.py" language="python">
+{`from rhesis.sdk.entities import Models
+
+# Get all models
+all_models = Models.all()
+for m in all_models:
+    print(f"{m.name}: {m.provider}/{m.model_name}")
+
+# Get by ID
+model = Models.pull(id="abc123")
+
+# Get by name (case-insensitive)
+model = Models.pull(name="GPT-4 Production")`}
+</CodeBlock>
+
+## Setting Default Models
+
+Set a model as the default for test generation or evaluation tasks. This updates your user settings.
+
+<CodeBlock filename="set_defaults.py" language="python">
+{`from rhesis.sdk.entities import Models
+
+model = Models.pull(name="GPT-4 Production")
+
+# Set as default for test generation
+model.set_default_generation()
+
+# Set as default for evaluation (LLM as Judge)
+model.set_default_evaluation()`}
+</CodeBlock>
+
+## Converting to LLM Instance
+
+Convert a Model entity to a ready-to-use LLM instance for making API calls:
+
+<CodeBlock filename="to_llm_instance.py" language="python">
+{`from rhesis.sdk.entities import Models
+
+# Pull model configuration from platform
+model = Models.pull(name="GPT-4 Production")
+
+# Convert to LLM instance
+llm = model.get_model_instance()
+
+# Use the LLM
+response = llm.generate("What is the capital of France?")
+print(response)`}
+</CodeBlock>
+
+This is useful when you want to store model configurations centrally and retrieve them for use in different scripts or applications.
+
+## Saving LLM Configurations
+
+You can also save an existing LLM instance to the platform:
+
+<CodeBlock filename="push_llm.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+# Create an LLM instance
+llm = get_model("openai", "gpt-4", api_key="sk-...")
+
+# Save to platform as a Model entity
+model = llm.push(name="My GPT-4 Production")
+
+# Now you can use entity features
+model.set_default_generation()`}
+</CodeBlock>
+
+## Complete Workflow Example
+
+<CodeBlock filename="complete_workflow.py" language="python">
+{`from rhesis.sdk.entities import Model, Models
+
+# Create and save a model configuration
+model = Model(
+    name="Claude for Evaluation",
+    provider="anthropic",
+    model_name="claude-3-opus-20240229",
+    key="sk-ant-..."
+)
+model.push()
+
+# Set as default for evaluation
+model.set_default_evaluation()
+
+# Later, retrieve and use the model
+model = Models.pull(name="Claude for Evaluation")
+llm = model.get_model_instance()
+
+# Use with metrics or synthesizers
+from rhesis.sdk.synthesizers import PromptSynthesizer
+
+synthesizer = PromptSynthesizer(
+    prompt="Generate test cases for a customer support chatbot",
+    model=llm
+)
+test_set = synthesizer.generate()`}
+</CodeBlock>
+
+## Model Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `str` | Unique identifier (set after push) |
+| `name` | `str` | Human-readable name |
+| `description` | `str` | Optional description (auto-generated if not provided) |
+| `provider` | `str` | Provider name (e.g., "openai", "anthropic") |
+| `model_name` | `str` | Model identifier (e.g., "gpt-4", "claude-3-opus-20240229") |
+| `key` | `str` | API key for the provider |
+| `provider_type_id` | `str` | Auto-resolved from provider name |
+| `status_id` | `str` | Optional status reference |
+
+---
+
+<Callout type="default">
+  **Next Steps**
+  - Learn about [LLM providers](/sdk/models) for direct model usage
+  - Use models with [Synthesizers](/sdk/synthesizers) for test generation
+  - Configure [Metrics](/sdk/metrics) with model-based evaluation
+</Callout>
