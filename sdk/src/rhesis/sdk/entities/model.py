@@ -1,8 +1,11 @@
-from typing import Any, ClassVar, Dict, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional
 
 from pydantic import model_validator
 
 from rhesis.sdk.client import Client, Endpoints, Methods
+
+if TYPE_CHECKING:
+    from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 
@@ -162,6 +165,32 @@ class Model(BaseEntity):
             url_params="settings",
             data={"models": {"evaluation": {"model_id": self.id}}},
         )
+
+    def get_model_instance(self) -> "BaseLLM":
+        """Create an LLM instance configured with this model's settings.
+
+        Returns a ready-to-use LLM client that can generate text using
+        the provider, model name, and API key from this entity.
+
+        Returns:
+            BaseLLM: Ready-to-use LLM instance
+
+        Raises:
+            ValueError: If provider or model_name is not set
+
+        Example:
+            >>> model = Models.pull(name="GPT-4 Production")
+            >>> llm = model.get_model_instance()
+            >>> response = llm.generate("Hello, how are you?")
+        """
+        if not self.provider:
+            raise ValueError("Provider is required to create an LLM instance")
+        if not self.model_name:
+            raise ValueError("Model name is required to create an LLM instance")
+
+        from rhesis.sdk.models.factory import get_model
+
+        return get_model(provider=self.provider, model_name=self.model_name, api_key=self.key)
 
 
 class Models(BaseCollection):
