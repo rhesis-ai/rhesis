@@ -8,7 +8,7 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
-## [0.5.5] - 2026-01-15
+## [0.6.0] - 2026-01-15
 
 ### Platform Release
 
@@ -20,15 +20,15 @@ This release includes the following component versions:
 
 ### Summary
 
-This major release introduces two significant features: **Enhanced SDK Tracing** for comprehensive observability and a **New Interactive Glossary** with 50+ AI testing terms. The SDK tracing provides deep insights into your application under test, revealing its inner workings and execution flow with async support and smart serialization, while the glossary makes it easier for teams to understand and adopt AI testing best practices.
+This major release introduces two significant features: **Enhanced Tracing** for comprehensive observability and a **New Interactive Glossary** with 50+ AI testing terms. The SDK tracing provides deep insights into your application under test, revealing its inner workings and execution flow with async support and smart serialization, while the glossary makes it easier for teams to understand and adopt AI testing best practices.
 
-**Important**: As of version 0.5.5, all production services for the cloud version of Rhesis are now hosted in European data centers, ensuring data sovereignty and compliance with European data protection regulations.
+**Important**: As of version 0.6.0, all production services for the cloud version of Rhesis are now hosted in European data centers, ensuring data sovereignty and compliance with European data protection regulations.
 
 ### Featured Capabilities
 
-**Enhanced SDK Tracing**
+**Enhanced Tracing**
 
-The SDK now includes comprehensive tracing capabilities that provide deep visibility into your application under test (the target) and its inner workings:
+The SDK now includes comprehensive tracing capabilities that provide deep observability into your application under test (the target) and its inner workings:
 
 - **Application Insights**: Gain visibility into your target application's execution flow, function calls, and internal state
 - **Execution Flow Visualization**: See how your application processes requests, including all intermediate steps and decision points
@@ -63,21 +63,17 @@ Each glossary entry includes:
 - Improved observability with comprehensive OpenTelemetry integration for tracing, visualization, and filtering
 - Added Chatbot Intent Recognition functionality
 - Streamlined organization onboarding with integrated test execution
-- Enhanced documentation infrastructure for glossary integration
 
 ### Frontend Highlights
 - Enhanced SDK tracing with improved visualization and filtering in the UI
 - Improved MCP connection stability and added new GitHub MCP provider
 - Integrated test execution into organization onboarding process
 - Added interactive glossary page with search and filtering
-- Implemented glossary term cross-referencing throughout documentation
 
 ### SDK Highlights
 - Added dependency injection support with `bind` parameter in endpoint decorators
 - Enhanced SDK tracing with async support, smart serialization, and improved I/O display
 - Introduced OpenTelemetry integration for basic telemetry
-- Added Chatbot Intent Recognition functionality
-- Updated SDK documentation with glossary term links
 
 ### Polyphemus Highlights
 - Added `bind` parameter to endpoint decorator for dependency injection
