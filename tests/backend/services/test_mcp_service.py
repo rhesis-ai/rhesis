@@ -395,20 +395,25 @@ class TestGetMCPClientFromParams:
 class TestSearchMCP:
     """Test search_mcp function"""
 
+    @patch("rhesis.backend.app.services.mcp_service.crud")
     @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
     async def test_search_success(
-        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class
+        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class, mock_crud
     ):
         """Test successfully search and return list of results"""
         # Setup
         tool_id = "test-tool-id"
         org_id = "test-org-id"
+        user_id = "test-user-id"
         query = "Find pages about authentication"
         db = Mock(spec=Session)
-        user = Mock(spec=User)
+
+        # Mock user lookup
+        mock_user = Mock(spec=User)
+        mock_crud.get_user_by_id.return_value = mock_user
 
         # Create a proper mock that inherits from BaseLLM
         mock_model = Mock(spec=BaseLLM)
@@ -428,7 +433,7 @@ class TestSearchMCP:
         mock_agent_class.return_value = mock_agent
 
         # Execute
-        result = await search_mcp(query, tool_id, db, user, org_id)
+        result = await search_mcp(query, tool_id, db, org_id, user_id)
 
         # Assert
         assert isinstance(result, list)
@@ -437,6 +442,7 @@ class TestSearchMCP:
         assert result[0]["url"] == "http://example.com"
         assert result[0]["title"] == "Test"
 
+        mock_crud.get_user_by_id.assert_called_once_with(db, user_id)
         mock_agent_class.assert_called_once_with(
             model=mock_model,
             mcp_client=mock_client,
@@ -446,20 +452,22 @@ class TestSearchMCP:
         )
         mock_agent.run_async.assert_called_once_with(query)
 
+    @patch("rhesis.backend.app.services.mcp_service.crud")
     @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
     async def test_search_invalid_json(
-        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class
+        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class, mock_crud
     ):
         """Test raises ValueError when agent returns invalid JSON"""
         tool_id = "test-tool-id"
         org_id = "test-org-id"
+        user_id = "test-user-id"
         query = "Find pages"
         db = Mock(spec=Session)
-        user = Mock(spec=User)
 
+        mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_get_client.return_value = (Mock(), "notion")
         mock_template = Mock()
@@ -473,24 +481,26 @@ class TestSearchMCP:
         mock_agent_class.return_value = mock_agent
 
         with pytest.raises(ValueError) as exc_info:
-            await search_mcp(query, tool_id, db, user, org_id)
+            await search_mcp(query, tool_id, db, org_id, user_id)
 
         assert "invalid json" in str(exc_info.value).lower()
 
+    @patch("rhesis.backend.app.services.mcp_service.crud")
     @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
     async def test_search_non_list_format(
-        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class
+        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class, mock_crud
     ):
         """Test raises ValueError when agent returns non-list format"""
         tool_id = "test-tool-id"
         org_id = "test-org-id"
+        user_id = "test-user-id"
         query = "Find pages"
         db = Mock(spec=Session)
-        user = Mock(spec=User)
 
+        mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_get_client.return_value = (Mock(), "notion")
         mock_template = Mock()
@@ -504,7 +514,7 @@ class TestSearchMCP:
         mock_agent_class.return_value = mock_agent
 
         with pytest.raises(ValueError) as exc_info:
-            await search_mcp(query, tool_id, db, user, org_id)
+            await search_mcp(query, tool_id, db, org_id, user_id)
 
         assert "expected a list" in str(exc_info.value).lower()
 
@@ -515,21 +525,23 @@ class TestSearchMCP:
 class TestExtractMCP:
     """Test extract_mcp function"""
 
+    @patch("rhesis.backend.app.services.mcp_service.crud")
     @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
     async def test_extract_success_with_url(
-        self, mock_jinja_env, mock_get_model, mock_get_tool_config, mock_agent_class
+        self, mock_jinja_env, mock_get_model, mock_get_tool_config, mock_agent_class, mock_crud
     ):
         """Test successfully extract content using URL and return markdown string"""
         # Setup
         item_url = "https://notion.so/page-123"
         tool_id = "test-tool-id"
         org_id = "test-org-id"
+        user_id = "test-user-id"
         db = Mock(spec=Session)
-        user = Mock(spec=User)
 
+        mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
         mock_get_tool_config.return_value = (
@@ -549,11 +561,12 @@ class TestExtractMCP:
 
         # Execute
         result = await extract_mcp(
-            item_url=item_url, tool_id=tool_id, db=db, user=user, organization_id=org_id
+            item_url=item_url, tool_id=tool_id, db=db, organization_id=org_id, user_id=user_id
         )
 
         # Assert
         assert result == "# Extracted Content\n\nThis is the content."
+        mock_crud.get_user_by_id.assert_called_once_with(db, user_id)
         mock_template.render.assert_called_once_with(
             item_id=None, item_url=item_url, provider="notion"
         )
@@ -566,21 +579,23 @@ class TestExtractMCP:
         )
         mock_agent.run_async.assert_called_once_with(f"Extract content from item {item_url}")
 
+    @patch("rhesis.backend.app.services.mcp_service.crud")
     @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
     async def test_extract_success_with_id(
-        self, mock_jinja_env, mock_get_model, mock_get_tool_config, mock_agent_class
+        self, mock_jinja_env, mock_get_model, mock_get_tool_config, mock_agent_class, mock_crud
     ):
         """Test successfully extract content using ID and return markdown string"""
         # Setup
         item_id = "page-123"
         tool_id = "test-tool-id"
         org_id = "test-org-id"
+        user_id = "test-user-id"
         db = Mock(spec=Session)
-        user = Mock(spec=User)
 
+        mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
         mock_get_tool_config.return_value = (
@@ -600,11 +615,12 @@ class TestExtractMCP:
 
         # Execute
         result = await extract_mcp(
-            item_id=item_id, tool_id=tool_id, db=db, user=user, organization_id=org_id
+            item_id=item_id, tool_id=tool_id, db=db, organization_id=org_id, user_id=user_id
         )
 
         # Assert
         assert result == "# Extracted Content\n\nThis is the content."
+        mock_crud.get_user_by_id.assert_called_once_with(db, user_id)
         mock_template.render.assert_called_once_with(
             item_id=item_id, item_url=None, provider="notion"
         )
@@ -617,23 +633,17 @@ class TestExtractMCP:
         )
         mock_agent.run_async.assert_called_once_with(f"Extract content from item {item_id}")
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
-    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
-    @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
-    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
-    async def test_extract_fails_without_id_or_url(
-        self, mock_jinja_env, mock_get_model, mock_get_tool_config, mock_agent_class
-    ):
+    async def test_extract_fails_without_id_or_url(self):
         """Test that extract_mcp raises ValueError when neither id nor url is provided"""
         # Setup
         tool_id = "test-tool-id"
         org_id = "test-org-id"
+        user_id = "test-user-id"
         db = Mock(spec=Session)
-        user = Mock(spec=User)
 
         # Execute & Assert
         with pytest.raises(ValueError, match="Either 'item_id' or 'item_url' must be provided"):
-            await extract_mcp(tool_id=tool_id, db=db, user=user, organization_id=org_id)
+            await extract_mcp(tool_id=tool_id, db=db, organization_id=org_id, user_id=user_id)
 
 
 @pytest.mark.unit
@@ -642,20 +652,22 @@ class TestExtractMCP:
 class TestQueryMCP:
     """Test query_mcp function"""
 
+    @patch("rhesis.backend.app.services.mcp_service.crud")
     @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
     async def test_query_with_default_prompt(
-        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class
+        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class, mock_crud
     ):
         """Test successfully execute query with default prompt"""
         tool_id = "test-tool-id"
         org_id = "test-org-id"
+        user_id = "test-user-id"
         query = "Create a page"
         db = Mock(spec=Session)
-        user = Mock(spec=User)
 
+        mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
         mock_get_client.return_value = (mock_client, "notion")
@@ -675,12 +687,13 @@ class TestQueryMCP:
         mock_agent_class.return_value = mock_agent
 
         # Execute
-        result = await query_mcp(query, tool_id, db, user, org_id)
+        result = await query_mcp(query, tool_id, db, org_id, user_id)
 
         # Assert
         assert isinstance(result, dict)
         assert result["final_answer"] == "Page created"
         assert result["success"] is True
+        mock_crud.get_user_by_id.assert_called_once_with(db, user_id)
         mock_template.render.assert_called_once()
         mock_agent_class.assert_called_once_with(
             model=mock_get_model.return_value,
@@ -690,20 +703,22 @@ class TestQueryMCP:
             verbose=False,
         )
 
+    @patch("rhesis.backend.app.services.mcp_service.crud")
     @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     async def test_query_with_custom_prompt(
-        self, mock_get_model, mock_get_client, mock_agent_class
+        self, mock_get_model, mock_get_client, mock_agent_class, mock_crud
     ):
         """Test successfully execute query with custom system_prompt"""
         tool_id = "test-tool-id"
         org_id = "test-org-id"
+        user_id = "test-user-id"
         query = "Create a page"
         custom_prompt = "Custom system prompt"
         db = Mock(spec=Session)
-        user = Mock(spec=User)
 
+        mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
         mock_get_client.return_value = (mock_client, "notion")
@@ -715,7 +730,7 @@ class TestQueryMCP:
         mock_agent_class.return_value = mock_agent
 
         # Execute
-        result = await query_mcp(query, tool_id, db, user, org_id, system_prompt=custom_prompt)
+        await query_mcp(query, tool_id, db, org_id, user_id, system_prompt=custom_prompt)
 
         # Assert
         mock_agent_class.assert_called_once_with(
@@ -726,20 +741,22 @@ class TestQueryMCP:
             verbose=False,
         )
 
+    @patch("rhesis.backend.app.services.mcp_service.crud")
     @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
     async def test_query_with_custom_max_iterations(
-        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class
+        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class, mock_crud
     ):
         """Test successfully execute query with custom max_iterations"""
         tool_id = "test-tool-id"
         org_id = "test-org-id"
+        user_id = "test-user-id"
         query = "Create a page"
         db = Mock(spec=Session)
-        user = Mock(spec=User)
 
+        mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
         mock_get_client.return_value = (mock_client, "notion")
@@ -755,7 +772,7 @@ class TestQueryMCP:
         mock_agent_class.return_value = mock_agent
 
         # Execute
-        result = await query_mcp(query, tool_id, db, user, org_id, max_iterations=20)
+        await query_mcp(query, tool_id, db, org_id, user_id, max_iterations=20)
 
         # Assert
         mock_agent_class.assert_called_once_with(
