@@ -69,7 +69,12 @@ export function extractDescription(content) {
  * @param {string} sourceCode - Optional MDX source code for description extraction
  * @returns {object} - Enhanced metadata object for Next.js
  */
-export function generatePageMetadata(baseMetadata, urlPath, config = siteConfig, sourceCode = null) {
+export function generatePageMetadata(
+  baseMetadata,
+  urlPath,
+  config = siteConfig,
+  sourceCode = null
+) {
   const title = baseMetadata?.title || config.siteName
 
   // Try to get description from: 1) metadata, 2) extracted from content, 3) site default
