@@ -242,7 +242,7 @@ def _get_mcp_client_from_params(
     response_mapping={},
 )
 async def search_mcp(
-    query: str, tool_id: str, db: Session, organization_id: str, user_id: str = None
+    query: str, tool_id: str, db: Session, organization_id: str, user_id: str
 ) -> List[Dict[str, str]]:
     """
     Search MCP server for items matching query.
@@ -415,7 +415,7 @@ async def query_mcp(
     tool_id: str,
     db: Session,
     organization_id: str,
-    user_id: str = None,
+    user_id: str,
     system_prompt: Optional[str] = None,
     max_iterations: int = 10,
 ) -> Dict[str, Any]:

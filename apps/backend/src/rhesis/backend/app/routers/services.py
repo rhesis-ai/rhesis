@@ -562,9 +562,7 @@ async def search_mcp_server(
     """
     try:
         organization_id, user_id = tenant_context
-        return await search_mcp(
-            request.query, request.tool_id, db, current_user, organization_id, user_id
-        )
+        return await search_mcp(request.query, request.tool_id, db, organization_id, user_id)
     except Exception as e:
         raise handle_mcp_exception(e, "search")
 
@@ -611,7 +609,6 @@ async def extract_mcp_item(
             item_url=request.url,
             tool_id=request.tool_id,
             db=db,
-            user=current_user,
             organization_id=organization_id,
             user_id=user_id,
         )
