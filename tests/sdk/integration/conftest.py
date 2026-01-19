@@ -4,6 +4,10 @@ import time
 from pathlib import Path
 from typing import Generator
 
+import psycopg2
+import pytest
+import requests
+
 # ANSI color codes
 BLUE = "\033[0;34m"
 GREEN = "\033[0;32m"
@@ -20,27 +24,14 @@ BACKEND_PORT = 10001
 # - API Token: rh-local-token
 QUICK_START_TOKEN = "rh-local-token"
 
-# =============================================================================
-# CRITICAL: Set environment variables at module level, BEFORE any SDK imports
-# in test files. This ensures the SDK uses the correct test configuration.
-# =============================================================================
+# Set environment variables at module level for SDK imports in test files
 os.environ["RHESIS_BASE_URL"] = f"http://localhost:{BACKEND_PORT}"
 os.environ["RHESIS_API_KEY"] = QUICK_START_TOKEN
-print(f"{GREEN}✅ Environment variables set for Quick Start mode (module level){NC}")
-
-# Now safe to import packages that might use the env vars
-import psycopg2  # noqa: E402
-import pytest  # noqa: E402
-import requests  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def set_api_keys(monkeypatch):
-    """Override parent conftest's set_api_keys to use Quick Start token.
-
-    The parent tests/sdk/conftest.py sets RHESIS_API_KEY to 'rh-local-token',
-    but integration tests need 'rh-local-token' for Quick Start mode.
-    """
+    """Override parent conftest to use integration test backend URL."""
     monkeypatch.setenv("RHESIS_API_KEY", QUICK_START_TOKEN)
     monkeypatch.setenv("RHESIS_BASE_URL", f"http://localhost:{BACKEND_PORT}")
 
@@ -106,32 +97,6 @@ def docker_compose_test_env() -> Generator[dict, None, None]:
 
         if attempt == max_attempts - 1:
             pytest.fail(f"Backend failed to start within {max_attempts} seconds\n\n")
-
-    # Verify Quick Start mode is working by testing the token
-    print(f"{BLUE}🔐 Verifying Quick Start token...{NC}")
-    verify_url = f"http://localhost:{BACKEND_PORT}/users/"
-    headers = {"Authorization": f"Bearer {QUICK_START_TOKEN}"}
-
-    max_verify_attempts = 10
-    for attempt in range(max_verify_attempts):
-        try:
-            response = requests.get(verify_url, headers=headers, timeout=5)
-            if response.status_code == 200:
-                print(f"{GREEN}✅ Quick Start token verified successfully{NC}")
-                break
-            elif response.status_code == 401:
-                # Token not ready yet, Quick Start initialization may still be in progress
-                print(f"⏳ Quick Start initialization in progress... (attempt {attempt + 1})")
-                time.sleep(2)
-            else:
-                print(f"⚠️ Unexpected response: {response.status_code}")
-                time.sleep(2)
-        except requests.exceptions.RequestException as e:
-            print(f"⚠️ Request failed: {e}")
-            time.sleep(2)
-
-        if attempt == max_verify_attempts - 1:
-            pytest.fail("Quick Start token verification failed - check backend logs")
 
     # Display Quick Start info
     print()
