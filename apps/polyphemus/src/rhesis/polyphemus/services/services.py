@@ -25,7 +25,8 @@ _model_cache: dict[str, BaseLLM] = {}
 _model_lock = asyncio.Lock()
 
 # Thread pool executor for running blocking operations
-_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="polyphemus-generate")
+# Increased workers for better throughput with async requests
+_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="polyphemus-generate")
 
 # Default model identifier - can be overridden via environment variable
 DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "huggingface/distilgpt2")
@@ -237,7 +238,7 @@ async def generate_text(request: GenerateRequest) -> Dict:
         if llm.model is None or llm.tokenizer is None:
             raise RuntimeError("Model or tokenizer not loaded. Please check model initialization.")
 
-    # Build generation kwargs
+    # Build generation kwargs with optimizations for FP16 and GPU performance
     gen_kwargs = {
         "prompt": prompt,
         "system_prompt": system_prompt,
@@ -248,6 +249,9 @@ async def generate_text(request: GenerateRequest) -> Dict:
         "top_p": top_p,  # Nucleus sampling
         "repetition_penalty": repetition_penalty,  # Penalize repetition
         "no_repeat_ngram_size": 3,  # Prevent repeating 3-grams
+        # GPU optimization flags
+        "use_cache": True,  # Enable KV-cache for faster generation
+        "pad_token_id": None,  # Will be set by model if needed
     }
 
     # Add top_k if provided

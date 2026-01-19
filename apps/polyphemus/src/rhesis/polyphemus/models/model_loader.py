@@ -130,21 +130,24 @@ class LazyModelLoader(BaseLLM):
                 # No MODEL_PATH set - will download from HuggingFace Hub
                 logger.info("No MODEL_PATH set, will use HuggingFace Hub")
 
-            # Configure load_kwargs for memory optimization
-            # Use 'dtype' instead of deprecated 'torch_dtype'
+            # Configure load_kwargs for optimal GPU performance
+            # Use FP16 for best performance on L4 GPU
+            # Enable caching and optimizations
             # Note: device_map is handled automatically by HuggingFace SDK, don't set it here
             import torch
 
             default_load_kwargs = {
-                "dtype": torch.float16,
+                "torch_dtype": torch.float16,  # FP16 for faster inference on GPU
+                "use_cache": True,  # Enable KV-cache for faster generation
+                "low_cpu_mem_usage": True,  # Optimize CPU memory during loading
             }
 
             # Allow override via environment variable for advanced configurations
             # Support both base64-encoded (LOAD_KWARGS_B64) and plain JSON (LOAD_KWARGS)
-            # Note: Do NOT include device_map (SDK handles it automatically)
             # Examples:
             # - 8-bit: LOAD_KWARGS='{"load_in_8bit": true}'
             # - 4-bit: LOAD_KWARGS='{"load_in_4bit": true}'
+            # - FP16: LOAD_KWARGS='{"torch_dtype":"float16","use_cache":true}'
             load_kwargs_env = os.environ.get("LOAD_KWARGS_B64") or os.environ.get("LOAD_KWARGS")
             if load_kwargs_env:
                 import base64
@@ -159,6 +162,18 @@ class LazyModelLoader(BaseLLM):
                         load_kwargs_json = load_kwargs_env
 
                     parsed_kwargs = json.loads(load_kwargs_json)
+
+                    # Handle torch_dtype string conversion
+                    if "torch_dtype" in parsed_kwargs:
+                        dtype_str = parsed_kwargs["torch_dtype"]
+                        if isinstance(dtype_str, str):
+                            if dtype_str == "float16" or dtype_str == "fp16":
+                                parsed_kwargs["torch_dtype"] = torch.float16
+                            elif dtype_str == "float32" or dtype_str == "fp32":
+                                parsed_kwargs["torch_dtype"] = torch.float32
+                            elif dtype_str == "bfloat16" or dtype_str == "bf16":
+                                parsed_kwargs["torch_dtype"] = torch.bfloat16
+
                     # Merge with defaults, allowing override
                     default_load_kwargs.update(parsed_kwargs)
                     logger.info(f"Using custom load_kwargs from env: {default_load_kwargs}")
