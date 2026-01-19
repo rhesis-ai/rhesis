@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, List, Set
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.services.telemetry.enricher import TraceEnricher
+from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 
 if TYPE_CHECKING:
     from rhesis.backend.app import models

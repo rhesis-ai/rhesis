@@ -1,4 +1,4 @@
-"""Trace enrichment service.
+"""Trace enrichment processor.
 
 Provides enrichment logic for calculating costs, detecting anomalies,
 and extracting metadata from traces. Used by both sync and async paths.
@@ -12,6 +12,12 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.crud import get_trace_by_id, mark_trace_processed
 from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.schemas.enrichment import EnrichedTraceData, TraceMetrics
+from rhesis.backend.app.services.telemetry.enrichment.core import (
+    calculate_token_costs,
+    detect_anomalies,
+    extract_metadata,
+)
+from rhesis.sdk.telemetry.schemas import StatusCode
 
 logger = logging.getLogger(__name__)
 
@@ -87,14 +93,6 @@ class TraceEnricher:
         Returns:
             EnrichedTraceData Pydantic model
         """
-        # Import semantic layer constants
-        from rhesis.backend.app.services.telemetry.enrichment import (
-            calculate_token_costs,
-            detect_anomalies,
-            extract_metadata,
-        )
-        from rhesis.sdk.telemetry.schemas import StatusCode
-
         # Calculate costs (returns TokenCosts model or None)
         cost_data = calculate_token_costs(spans)
 

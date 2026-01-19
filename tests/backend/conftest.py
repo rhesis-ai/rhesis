@@ -198,7 +198,7 @@ def disable_enrichment(request, monkeypatch):
 
     # Patch the method on EnrichmentService to skip enrichment
     monkeypatch.setattr(
-        "rhesis.backend.app.services.telemetry.enrichment_service.EnrichmentService.enqueue_enrichment",
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService.enqueue_enrichment",
         mock_enqueue_enrichment,
     )
 

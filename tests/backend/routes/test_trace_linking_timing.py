@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models
 from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
-from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
+from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 from rhesis.backend.app.services.telemetry.linking_service import TraceLinkingService
 from rhesis.sdk.telemetry.schemas import SpanKind, StatusCode
 

@@ -6,7 +6,7 @@ from celery import shared_task
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.database import SessionLocal
-from rhesis.backend.app.services.telemetry.enricher import TraceEnricher
+from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 
 logger = logging.getLogger(__name__)
 
