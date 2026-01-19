@@ -27,7 +27,7 @@ export default {
     title: "Endpoint Configuration",
   },
   authentication: {
-    title: "Authentication",
+    title: "Frontend Authentication",
   },
   testing: {
     title: "Testing",

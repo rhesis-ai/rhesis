@@ -22,7 +22,7 @@ export default {
     title: "Cascade Operations",
   },
   authentication: {
-    title: "Authentication",
+    title: "Backend Authentication",
   },
   "multi-tenancy": {
     title: "Multi-tenancy",
