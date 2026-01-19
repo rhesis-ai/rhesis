@@ -36,7 +36,7 @@ def is_client_disabled() -> bool:
 
     This is a convenience function for decorators and other SDK components
     to quickly check if they should bypass their functionality.
-    
+
     Accepts: true, 1, yes, on (case-insensitive)
 
     Returns:
