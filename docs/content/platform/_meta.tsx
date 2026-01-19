@@ -30,7 +30,7 @@ const meta: MetaRecord = {
     title: "Development",
   },
   endpoints: "Endpoints",
-  models: "Models",
+  models: "Platform Models",
   mcp: "MCP",
   "api-tokens": "API Tokens",
   // Hidden old pages (kept for backwards compatibility with existing links)

@@ -31,21 +31,34 @@ export function getOpenGraphImage(path, defaultImage = siteConfig.defaultImage) 
 export function extractDescription(content) {
   if (!content) return null
 
-  // Remove MDX imports and components
-  const cleanContent = content
+  // Remove MDX imports, exports, code blocks, inline code, and MDX components
+  let cleanContent = content
     .replace(/^import\s+.*$/gm, '')
-    .replace(/<[^>]+>/g, '')
+    .replace(/^export\s+.*$/gm, '')
     .replace(/```[\s\S]*?```/g, '')
     .replace(/`[^`]+`/g, '')
-    .replace(/#+\s+/g, '')
-    .trim()
+    .replace(/<[^>]+>/g, '')
 
-  // Get first paragraph (up to first double newline or 160 chars)
-  const firstParagraph = cleanContent.split('\n\n')[0]
+  // Remove the first H1 heading (page title)
+  cleanContent = cleanContent.replace(/^#\s+[^\n]+\n*/m, '')
+
+  // Remove all remaining heading markers (##, ###, etc.) but keep the text
+  cleanContent = cleanContent.replace(/^#+\s+/gm, '')
+
+  // Clean up and normalize whitespace
+  cleanContent = cleanContent.trim()
+
+  // Split into paragraphs and find the first substantial one (at least 20 chars)
+  const paragraphs = cleanContent.split(/\n\n+/).filter(p => p.trim().length >= 20)
+  if (paragraphs.length === 0) return null
+
+  // Take first paragraph and normalize line breaks to spaces
+  const firstParagraph = paragraphs[0].replace(/\s+/g, ' ').trim()
   if (!firstParagraph) return null
 
   // Limit to ~160 characters for SEO
   const description = firstParagraph.substring(0, 160)
+
   return description.length < firstParagraph.length ? `${description}...` : description
 }
 
@@ -54,11 +67,26 @@ export function extractDescription(content) {
  * @param {object} baseMetadata - Base metadata from Nextra/MDX
  * @param {string} urlPath - URL path for the page
  * @param {object} config - Site configuration
+ * @param {string} sourceCode - Optional MDX source code for description extraction
  * @returns {object} - Enhanced metadata object for Next.js
  */
-export function generatePageMetadata(baseMetadata, urlPath, config = siteConfig) {
+export function generatePageMetadata(
+  baseMetadata,
+  urlPath,
+  config = siteConfig,
+  sourceCode = null
+) {
   const title = baseMetadata?.title || config.siteName
-  const description = baseMetadata?.description || config.siteDescription
+
+  // Try to get description from: 1) metadata, 2) extracted from content, 3) site default
+  let description = baseMetadata?.description
+  if (!description && sourceCode) {
+    description = extractDescription(sourceCode)
+  }
+  if (!description) {
+    description = config.siteDescription
+  }
+
   const canonicalUrl = getCanonicalUrl(urlPath, config)
   const imageUrl = getOpenGraphImage(urlPath, config.defaultImage)
 

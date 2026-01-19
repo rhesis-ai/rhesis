@@ -10,6 +10,7 @@ export function middleware(request) {
     '/favicon.ico',
     '/robots.txt',
     '/sitemap.xml',
+    '/llms.txt',
     '/manifest.json',
     '/_vercel',
     '/public',
