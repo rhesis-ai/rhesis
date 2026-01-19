@@ -85,7 +85,7 @@ export const PathCard = ({ emoji, title, description, link, linkText, external =
       href={link}
       target={external ? '_blank' : '_self'}
       rel={external ? 'noopener noreferrer' : undefined}
-      style={styles.card}
+      style={{ ...styles.card, position: 'relative' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className="path-card"

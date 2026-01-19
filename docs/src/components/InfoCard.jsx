@@ -129,6 +129,7 @@ export const InfoCard = ({
         rel={external ? 'noopener noreferrer' : undefined}
         style={{
           ...styles.card,
+          position: 'relative',
           textDecoration: 'none',
           color: 'inherit',
           cursor: 'pointer',

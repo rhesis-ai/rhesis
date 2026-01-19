@@ -91,7 +91,7 @@ export const NextStepCard = ({ emoji, title, description, link, linkText, extern
       href={link}
       target={external ? '_blank' : '_self'}
       rel={external ? 'noopener noreferrer' : undefined}
-      style={styles.card}
+      style={{ ...styles.card, position: 'relative' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className="next-step-card"

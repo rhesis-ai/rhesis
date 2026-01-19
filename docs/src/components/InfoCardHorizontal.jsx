@@ -125,6 +125,7 @@ export const InfoCardHorizontal = ({
         rel={external ? 'noopener noreferrer' : undefined}
         style={{
           ...styles.card,
+          position: 'relative',
           textDecoration: 'none',
           color: 'inherit',
           cursor: 'pointer',
