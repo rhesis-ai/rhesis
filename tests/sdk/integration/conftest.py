@@ -1,4 +1,3 @@
-import os
 import subprocess
 import time
 from pathlib import Path
@@ -23,10 +22,6 @@ BACKEND_PORT = 10001
 # - User: admin@local.dev
 # - API Token: rh-local-token
 QUICK_START_TOKEN = "rh-local-token"
-
-# Set environment variables at module level for SDK imports in test files
-os.environ["RHESIS_BASE_URL"] = f"http://localhost:{BACKEND_PORT}"
-os.environ["RHESIS_API_KEY"] = QUICK_START_TOKEN
 
 
 @pytest.fixture(autouse=True)
