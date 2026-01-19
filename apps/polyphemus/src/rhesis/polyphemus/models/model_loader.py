@@ -206,6 +206,19 @@ class LazyModelLoader(BaseLLM):
             if hasattr(self._internal_model, "tokenizer"):
                 self.tokenizer = self._internal_model.tokenizer
 
+            # Try to optimize with BetterTransformer (PyTorch 2.0+ optimization)
+            # This can provide 1.5-2x speedup for inference
+            if hasattr(self._internal_model, "model") and hasattr(
+                self._internal_model.model, "to_bettertransformer"
+            ):
+                try:
+                    logger.info("Applying BetterTransformer optimization...")
+                    self._internal_model.model = self._internal_model.model.to_bettertransformer()
+                    self.model = self._internal_model.model
+                    logger.info("✅ BetterTransformer applied successfully")
+                except Exception as bt_error:
+                    logger.info(f"BetterTransformer not applied: {bt_error}")
+
             logger.info(f"Model loaded successfully: {self._model_name}")
 
         return self
