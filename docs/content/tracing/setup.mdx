@@ -1,0 +1,102 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Setup
+
+Configure tracing in your application to start capturing traces.
+
+## Installation
+
+Tracing is included in the Rhesis SDK (v0.6.0+):
+
+<CodeBlock filename="terminal" language="bash">
+{`pip install rhesis-sdk`}
+</CodeBlock>
+
+## Initialization
+
+Initialize the `RhesisClient` to set up the tracing infrastructure:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development",  # development, staging, production
+)`}
+</CodeBlock>
+
+**Note:** The `@observe` decorator requires `RhesisClient` to be initialized. Without initialization, a `RuntimeError` is raised.
+
+## Environment Variables
+
+Configure via environment variables:
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_API_KEY="your-api-key"
+export RHESIS_PROJECT_ID="your-project-id"
+export RHESIS_ENVIRONMENT="development"`}
+</CodeBlock>
+
+Then initialize without explicit parameters:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient
+
+client = RhesisClient()  # Uses environment variables`}
+</CodeBlock>
+
+## Disabling Tracing
+
+To disable all tracing and connector functionality (useful for CI/CD or testing), set:
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_CONNECTOR_DISABLE=true`}
+</CodeBlock>
+
+Accepted values: `true`, `1`, `yes`, `on` (case-insensitive)
+
+When disabled:
+- `@endpoint` and `@observe` decorators return functions unmodified
+- No telemetry initialization occurs
+- No network requests are made to Rhesis
+- All method calls become no-ops
+
+## Batch Configuration
+
+Traces are batched for efficient export:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Queue Size | 2048 | Maximum spans buffered in memory |
+| Batch Size | 512 | Spans per HTTP request |
+| Export Interval | 5s | Time between batch exports |
+
+## Verify Setup
+
+Test that tracing is working:
+
+<CodeBlock filename="verify.py" language="python">
+{`from rhesis.sdk import RhesisClient, observe
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development",
+)
+
+@observe()
+def test_function():
+    return "Hello, tracing!"
+
+# Call the function - trace will be sent after 5 seconds
+result = test_function()
+print(f"Result: {result}")
+print("Check your Rhesis dashboard for the trace.")`}
+</CodeBlock>
+
+---
+
+<Callout type="info">
+  **Next:** Learn about the [decorators](/tracing/decorators) available for tracing your functions.
+</Callout>

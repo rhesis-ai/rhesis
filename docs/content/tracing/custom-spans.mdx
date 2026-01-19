@@ -1,0 +1,179 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Custom Spans
+
+Create custom spans with specific names and attributes for advanced observability needs.
+
+## Custom Span Names
+
+Use the `span_name` parameter to set a semantic span name:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import observe
+
+# Custom span name following ai.<domain>.<action> pattern
+@observe(span_name="ai.llm.invoke")
+def my_custom_llm_call(prompt: str) -> str:
+    return llm.complete(prompt)`}
+</CodeBlock>
+
+## Custom Attributes
+
+Pass additional attributes directly to the decorator:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import observe
+from rhesis.sdk.telemetry import AIAttributes
+
+@observe(
+    span_name="ai.llm.invoke",
+    **{
+        AIAttributes.MODEL_PROVIDER: "custom-provider",
+        AIAttributes.MODEL_NAME: "custom-model",
+        AIAttributes.LLM_TEMPERATURE: 0.7,
+    }
+)
+def custom_llm(prompt: str) -> str:
+    return custom_model.generate(prompt)`}
+</CodeBlock>
+
+## Attribute Constants
+
+Import attribute constants from `rhesis.sdk.telemetry`:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry import AIAttributes, AIEvents`}
+</CodeBlock>
+
+### Model Attributes
+
+| Constant | Key | Description |
+|----------|-----|-------------|
+| `MODEL_PROVIDER` | `ai.model.provider` | Provider name (openai, anthropic) |
+| `MODEL_NAME` | `ai.model.name` | Model identifier (gpt-4, claude-3) |
+
+### LLM Attributes
+
+| Constant | Key | Description |
+|----------|-----|-------------|
+| `LLM_TOKENS_INPUT` | `ai.llm.tokens.input` | Input token count |
+| `LLM_TOKENS_OUTPUT` | `ai.llm.tokens.output` | Output token count |
+| `LLM_TOKENS_TOTAL` | `ai.llm.tokens.total` | Total token count |
+| `LLM_TEMPERATURE` | `ai.llm.temperature` | Temperature parameter |
+| `LLM_MAX_TOKENS` | `ai.llm.max_tokens` | Max tokens parameter |
+
+### Tool Attributes
+
+| Constant | Key | Description |
+|----------|-----|-------------|
+| `TOOL_NAME` | `ai.tool.name` | Tool name |
+| `TOOL_TYPE` | `ai.tool.type` | Type (http, function, database) |
+
+### Retrieval Attributes
+
+| Constant | Key | Description |
+|----------|-----|-------------|
+| `RETRIEVAL_BACKEND` | `ai.retrieval.backend` | Backend (pinecone, weaviate) |
+| `RETRIEVAL_TOP_K` | `ai.retrieval.top_k` | Number of results |
+
+### Embedding Attributes
+
+| Constant | Key | Description |
+|----------|-----|-------------|
+| `EMBEDDING_MODEL` | `ai.embedding.model` | Model name |
+| `EMBEDDING_VECTOR_SIZE` | `ai.embedding.vector.size` | Vector dimensions |
+
+### Event Names
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `AIEvents.PROMPT` | `ai.prompt` | Prompt sent to LLM |
+| `AIEvents.COMPLETION` | `ai.completion` | LLM completion |
+| `AIEvents.TOOL_INPUT` | `ai.tool.input` | Tool input data |
+| `AIEvents.TOOL_OUTPUT` | `ai.tool.output` | Tool output data |
+
+## Helper Functions
+
+Use helper functions to create attribute dictionaries:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry import create_llm_attributes, create_tool_attributes
+
+# Create LLM attributes
+attrs = create_llm_attributes(
+    provider="openai",
+    model_name="gpt-4",
+    tokens_input=150,
+    tokens_output=200,
+)
+
+# Create tool attributes
+attrs = create_tool_attributes(
+    tool_name="weather_api",
+    tool_type="http",
+)`}
+</CodeBlock>
+
+## Building Custom Decorators
+
+Create your own convenience decorators by wrapping `@observe`:
+
+<CodeBlock filename="decorators.py" language="python">
+{`from rhesis.sdk import observe
+from rhesis.sdk.telemetry import AIAttributes
+from rhesis.sdk.telemetry.schemas import AIOperationType
+
+def my_custom_llm(provider: str, model: str, **extra):
+    """Custom decorator for your specific LLM setup."""
+    return observe(
+        span_name=AIOperationType.LLM_INVOKE,
+        **{
+            AIAttributes.MODEL_PROVIDER: provider,
+            AIAttributes.MODEL_NAME: model,
+            "custom.attribute": "my-value",
+            **extra,
+        }
+    )
+
+# Usage
+@my_custom_llm(provider="my-provider", model="my-model")
+def generate(prompt: str) -> str:
+    return my_llm.complete(prompt)`}
+</CodeBlock>
+
+## Example: Full Custom Implementation
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient, observe
+from rhesis.sdk.telemetry import AIAttributes, AIEvents
+from rhesis.sdk.telemetry.schemas import AIOperationType
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development",
+)
+
+# Custom LLM decorator with all attributes
+@observe(
+    span_name=AIOperationType.LLM_INVOKE,
+    **{
+        AIAttributes.MODEL_PROVIDER: "my-provider",
+        AIAttributes.MODEL_NAME: "my-model-v2",
+        AIAttributes.LLM_TEMPERATURE: 0.8,
+        AIAttributes.LLM_MAX_TOKENS: 1000,
+        "custom.deployment": "us-east-1",
+        "custom.version": "2.0",
+    }
+)
+def generate_with_custom_model(prompt: str) -> str:
+    response = my_model.complete(prompt)
+    return response.text`}
+</CodeBlock>
+
+---
+
+<Callout type="info">
+  **Next:** Learn about [auto-instrumentation](/tracing/auto-instrumentation) for zero-config tracing.
+</Callout>
+

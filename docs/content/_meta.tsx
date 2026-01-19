@@ -3,6 +3,7 @@ export default {
   "getting-started": "Getting Started",
   platform: "Platform",
   sdk: "SDK",
+  tracing: "Tracing",
   penelope: "Penelope",
   development: "Development",
   "---": {

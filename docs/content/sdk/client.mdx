@@ -1,0 +1,135 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# RhesisClient
+
+The `RhesisClient` is the central entry point for the Rhesis SDK. It initializes telemetry, manages the connector for remote testing, and provides access to the Rhesis API.
+
+## Initialization
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development",
+)`}
+</CodeBlock>
+
+## Parameters
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `api_key` | No | API key for authentication. Falls back to `RHESIS_API_KEY` env var. |
+| `base_url` | No | API base URL. Falls back to `RHESIS_BASE_URL` env var. Default: `https://api.rhesis.ai` |
+| `project_id` | No | Project ID for endpoint registration and tracing. Falls back to `RHESIS_PROJECT_ID` env var. |
+| `environment` | No | Environment name. Falls back to `RHESIS_ENVIRONMENT` env var. Default: `development` |
+
+## What It Does
+
+When you create a `RhesisClient`, it:
+
+1. **Initializes telemetry** - Sets up OpenTelemetry for tracing
+2. **Registers as default** - Becomes the default client for `@endpoint` and `@observe` decorators
+3. **Lazy-loads connector** - WebSocket connector is initialized only when `@endpoint` is used
+
+<Callout type="warning">
+  The `RhesisClient` must be initialized before using `@observe` or `@endpoint` decorators. Without it, a `RuntimeError` is raised.
+</Callout>
+
+## Environment Variables
+
+Configure the client entirely through environment variables:
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_API_KEY="your-api-key"
+export RHESIS_PROJECT_ID="your-project-id"
+export RHESIS_ENVIRONMENT="development"
+export RHESIS_BASE_URL="https://api.rhesis.ai"  # optional`}
+</CodeBlock>
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient
+
+# All configuration from environment variables
+client = RhesisClient()`}
+</CodeBlock>
+
+## Environment Values
+
+The `environment` parameter determines where your endpoints and traces are registered:
+
+| Value | Use Case |
+|-------|----------|
+| `development` | Local development and testing |
+| `staging` | Pre-production validation |
+| `production` | Live systems |
+
+<Callout type="info">
+  Changes in `production` take effect immediately. Always test in `development` or `staging` first.
+</Callout>
+
+## Disabling the Client
+
+To disable all SDK functionality (useful for CI/CD or testing):
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_CONNECTOR_DISABLE=true`}
+</CodeBlock>
+
+Accepted values: `true`, `1`, `yes`, `on` (case-insensitive)
+
+When disabled:
+- `@endpoint` and `@observe` decorators return functions unmodified
+- No telemetry initialization occurs
+- No WebSocket connection is established
+- All SDK method calls become no-ops
+
+## Usage Patterns
+
+### Tracing Only
+
+For observability without remote testing:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient, observe
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="production",
+)
+
+@observe.llm(provider="openai", model="gpt-4")
+def generate(prompt: str) -> str:
+    return openai.chat.completions.create(...)`}
+</CodeBlock>
+
+### Remote Testing
+
+For registering functions as testable endpoints:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient, endpoint
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development",
+)
+
+@endpoint()
+def chat(input: str, session_id: str = None) -> dict:
+    # Automatically traced and registered as endpoint
+    return {"output": process(input), "session_id": session_id}`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next Steps**
+  - [Connector](/sdk/connector) - Register functions as remote endpoints
+  - [Tracing](/tracing) - Learn about observability and the `@observe` decorator
+  - [Entities](/sdk/entities) - Work with tests, test sets, and projects
+</Callout>
+

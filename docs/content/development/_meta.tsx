@@ -5,6 +5,8 @@ export default {
   backend: "Backend",
   connector: "Connector",
   worker: "Worker",
+  "tracing-system": "Tracing System",
+  telemetry: "Telemetry",
   "environment-variables": "Environment Variables",
   contributing: "Contributing",
 };
