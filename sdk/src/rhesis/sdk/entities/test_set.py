@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from jinja2 import Template
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.entities import BaseEntity, Endpoint
@@ -38,6 +38,12 @@ class TestSet(BaseEntity):
     test_set_type: Optional[TestType] = None
     metadata: dict = {}
 
+    @field_validator("test_set_type", mode="before")
+    @classmethod
+    def extract_test_set_type(cls, v: Any) -> Optional[str]:
+        """Extract type_value from nested dict if backend returns full TypeLookup object."""
+        return v.get("type_value")
+
     @handle_http_errors
     def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:
         """Execute the test set against the given endpoint.
@@ -65,11 +71,12 @@ class TestSet(BaseEntity):
             raise ValueError("Test set ID must be set before executing")
 
         client = Client()
-        return client.send_request(
+        response = client.send_request(
             endpoint=self.endpoint,
             method=Methods.POST,
             url_params=f"{self.id}/execute/{endpoint.id}",
         )
+        return response
 
     def set_properties(self, model: BaseLLM) -> None:
         """Set test set attributes using LLM based on categories and topics in tests.

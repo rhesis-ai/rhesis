@@ -1,10 +1,22 @@
+from enum import Enum
 from typing import Any, ClassVar, Dict, Optional
+
+from pydantic import field_validator
 
 from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 
 ENDPOINT = Endpoints.TEST_RUNS
+
+
+class RunStatus(str, Enum):
+    """Enum for test run statuses."""
+
+    PROGRESS = "Progress"
+    COMPLETED = "Completed"
+    PARTIAL = "Partial"
+    FAILED = "Failed"
 
 
 class TestRun(BaseEntity):
@@ -14,11 +26,17 @@ class TestRun(BaseEntity):
     name: Optional[str] = None
     user_id: Optional[str] = None
     organization_id: Optional[str] = None
-    status_id: Optional[str] = None
+    status: Optional[RunStatus] = None
     attributes: Optional[Dict[str, Any]] = None
     owner_id: Optional[str] = None
     assignee_id: Optional[str] = None
     id: Optional[str] = None
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def extract_status(cls, v: Any) -> Optional[str]:
+        """Extract name from nested dict if backend returns full Status object."""
+        return v.get("name") if isinstance(v, dict) else v
 
     def get_test_results(self):
         """Get all test results for this test run.

@@ -87,11 +87,11 @@ Store your Rhesis credentials as environment variables in your CI/CD platform:
 | Secret Name | Value | Description |
 |------------|-------|-------------|
 | `RHESIS_API_KEY` | Your API key | Authentication for Rhesis API |
-| `RHESIS_ENDPOINT_ID` | Your endpoint ID | The endpoint to test |
-| `RHESIS_TEST_SET_ID` | Your test set ID | Test scenarios to run |
+| `RHESIS_ENDPOINT_NAME` | Your endpoint name | The endpoint to test |
+| `RHESIS_TEST_SET_NAME` | Your test set name | Test scenarios to run |
 
 <Callout type="info">
-Find your Endpoint ID and Test Set ID in the Rhesis dashboard URL or via the API.
+Find your Endpoint and Test Set names in the Rhesis dashboard. **Important:** Names must be unique for the SDK to identify the correct resources. While the platform allows duplicate names, this should be avoided when using the SDK for CI/CD automation.
 </Callout>
 
 **Optional:** Set the base URL if using self-hosted Rhesis:
@@ -136,8 +136,8 @@ Create `.github/workflows/rhesis-tests.yml` in your repository. The workflow inc
 {`- name: Run Rhesis Tests
   env:
     RHESIS_API_KEY: # Reference secrets.RHESIS_API_KEY
-    RHESIS_ENDPOINT_ID: # Reference secrets.RHESIS_ENDPOINT_ID
-    RHESIS_TEST_SET_ID: # Reference secrets.RHESIS_TEST_SET_ID
+    RHESIS_ENDPOINT_NAME: # Reference secrets.RHESIS_ENDPOINT_NAME
+    RHESIS_TEST_SET_NAME: # Reference secrets.RHESIS_TEST_SET_NAME
   run: python .github/scripts/run_rhesis_tests.py`}
 </CodeBlock>
 
@@ -169,19 +169,13 @@ Create `.github/scripts/run_rhesis_tests.py`. The script follows these key steps
 **Step 1: Get endpoint** - Retrieve the endpoint configuration:
 
 <CodeBlock filename="run_rhesis_tests.py" language="python">
-{`endpoint = Endpoint(id=endpoint_id)
-endpoint.pull()`}
+{`endpoint = Endpoints.pull(name=endpoint_name)`}
 </CodeBlock>
 
 **Step 2: Get test set** - Fetch the test set to execute:
 
 <CodeBlock filename="run_rhesis_tests.py" language="python">
-{`test_set_data = client.send_request(
-    endpoint=Endpoints.TEST_SETS,
-    method=Methods.GET,
-    url_params=test_set_id
-)
-test_set = TestSet(...)`}
+{`test_set = TestSets.pull(name=test_set_name)`}
 </CodeBlock>
 
 **Step 3: Execute test set** - Run the test set against the endpoint:
