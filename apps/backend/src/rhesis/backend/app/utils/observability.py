@@ -3,7 +3,6 @@
 import os
 from typing import Dict, Optional
 
-from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.logging import logger
 from rhesis.sdk import RhesisClient
@@ -81,9 +80,11 @@ def get_test_context() -> Dict[str, any]:
         - organization_id: Static organization ID from environment
         - user_id: Static user ID from environment
         - db: Context manager for database session (auto-cleanup via bind_context)
-        - user: Generator-based dependency for User object (auto-cleanup)
 
         Returns empty dict in production (when env vars are not set).
+
+        Note: Endpoints should fetch the user object themselves using:
+        `user = crud.get_user_by_id(db, user_id)` to avoid extra DB connections.
     """
     # Static values from environment
     org_id = os.getenv("RHESIS_ORGANIZATION_ID")
@@ -93,21 +94,9 @@ def get_test_context() -> Dict[str, any]:
     if not org_id or not user_id:
         return {}
 
-    def user_dependency():
-        """
-        Generator-based dependency for user object.
-
-        Creates a fresh database session to fetch the user, then
-        automatically closes it to prevent connection leaks.
-        """
-        with get_db_with_tenant_variables(org_id, user_id) as db:
-            user = crud.get_user_by_id(db, user_id)
-            yield user
-
     return {
         "organization_id": org_id,  # Static value
         "user_id": user_id,  # Static value
         # Use bind_context to create fresh context manager per call
         "db": bind_context(get_db_with_tenant_variables, org_id, user_id),
-        "user": user_dependency,  # Generator-based dependency
     }

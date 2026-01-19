@@ -242,7 +242,7 @@ def _get_mcp_client_from_params(
     response_mapping={},
 )
 async def search_mcp(
-    query: str, tool_id: str, db: Session, user: User, organization_id: str, user_id: str = None
+    query: str, tool_id: str, db: Session, organization_id: str, user_id: str = None
 ) -> List[Dict[str, str]]:
     """
     Search MCP server for items matching query.
@@ -255,8 +255,8 @@ async def search_mcp(
         query: Natural language search query (e.g., "Find pages about authentication")
         tool_id: ID of the configured tool instance
         db: Database session
-        user: Current user (for retrieving default generation model)
         organization_id: Organization ID for loading tools from database
+        user_id: User ID for retrieving default generation model
 
     Returns:
         List of dicts, each containing:
@@ -272,11 +272,12 @@ async def search_mcp(
         ...     "pages created last week",
         ...     "tool-uuid-123",
         ...     db,
-        ...     user,
-        ...     org_id
+        ...     org_id,
+        ...     user_id
         ... )
         >>> print(results[0]["title"])
     """
+    user = crud.get_user_by_id(db, user_id)
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
@@ -329,7 +330,6 @@ async def extract_mcp(
     item_url: Optional[str] = None,
     tool_id: str = None,
     db: Session = None,
-    user: User = None,
     organization_id: str = None,
     user_id: str = None,
 ) -> str:
@@ -345,8 +345,8 @@ async def extract_mcp(
         item_url: Item URL (optional, preferred if available)
         tool_id: ID of the configured tool instance
         db: Database session
-        user: Current user (for retrieving default generation model)
         organization_id: Organization ID for loading tools from database
+        user_id: User ID for retrieving default generation model
 
     Returns:
         Full item content formatted as markdown string
@@ -356,17 +356,18 @@ async def extract_mcp(
 
     Example:
         >>> content = await extract_mcp(
-        ...     "page-id-123",
-        ...     "tool-uuid-123",
-        ...     db,
-        ...     user,
-        ...     org_id
+        ...     item_id="page-id-123",
+        ...     tool_id="tool-uuid-123",
+        ...     db=db,
+        ...     organization_id=org_id,
+        ...     user_id=user_id
         ... )
         >>> print(content[:100])  # First 100 chars
     """
     if not item_id and not item_url:
         raise ValueError("Either 'item_id' or 'item_url' must be provided")
 
+    user = crud.get_user_by_id(db, user_id)
     model = get_user_generation_model(db, user)
 
     # Load MCP client and provider from database tool configuration
@@ -413,7 +414,6 @@ async def query_mcp(
     query: str,
     tool_id: str,
     db: Session,
-    user: User,
     organization_id: str,
     user_id: str = None,
     system_prompt: Optional[str] = None,
@@ -430,8 +430,8 @@ async def query_mcp(
         query: Natural language task description
         tool_id: ID of the configured tool instance
         db: Database session
-        user: Current user (for retrieving default generation model)
         organization_id: Organization ID for loading tools from database
+        user_id: User ID for retrieving default generation model
         system_prompt: Custom agent instructions (optional)
         max_iterations: Maximum reasoning steps (default: 10)
 
@@ -444,9 +444,10 @@ async def query_mcp(
     Example:
         >>> result = await query_mcp(
         ...     "Create a page titled 'Q1 Goals'",
-        ...     "tool-uuid-123", db, user, org_id
+        ...     "tool-uuid-123", db, org_id, user_id
         ... )
     """
+    user = crud.get_user_by_id(db, user_id)
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
