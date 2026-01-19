@@ -39,12 +39,14 @@ class Endpoints(Enum):
     TEST_RUNS = "test_runs"
     TEST_CONFIGURATIONS = "test_configurations"
     TYPE_LOOKUPS = "type_lookups"
+    USERS = "users"
 
 
 class Methods(Enum):
     GET = "GET"
     POST = "POST"
     PUT = "PUT"
+    PATCH = "PATCH"
     DELETE = "DELETE"
 
 

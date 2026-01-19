@@ -115,6 +115,54 @@ class Model(BaseEntity):
 
         return response
 
+    def set_default_generation(self) -> None:
+        """Set this model as the default for test generation.
+
+        This updates the current user's settings to use this model
+        when generating new test cases.
+
+        Raises:
+            ValueError: If model ID is not set (model must be saved first)
+
+        Example:
+            >>> model = Models.pull(name="GPT-4 Production")
+            >>> model.set_default_generation()
+        """
+        if not self.id:
+            raise ValueError("Model must be saved before setting as default. Call push() first.")
+
+        client = Client()
+        client.send_request(
+            endpoint=Endpoints.USERS,
+            method=Methods.PATCH,
+            url_params="settings",
+            data={"models": {"generation": {"model_id": self.id}}},
+        )
+
+    def set_default_evaluation(self) -> None:
+        """Set this model as the default for evaluation (LLM as Judge).
+
+        This updates the current user's settings to use this model
+        when running metrics and evaluations.
+
+        Raises:
+            ValueError: If model ID is not set (model must be saved first)
+
+        Example:
+            >>> model = Models.pull(name="GPT-4 Production")
+            >>> model.set_default_evaluation()
+        """
+        if not self.id:
+            raise ValueError("Model must be saved before setting as default. Call push() first.")
+
+        client = Client()
+        client.send_request(
+            endpoint=Endpoints.USERS,
+            method=Methods.PATCH,
+            url_params="settings",
+            data={"models": {"evaluation": {"model_id": self.id}}},
+        )
+
 
 class Models(BaseCollection):
     """Collection class for Model entities."""
