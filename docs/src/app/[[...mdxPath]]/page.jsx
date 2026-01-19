@@ -10,13 +10,13 @@ export async function generateMetadata(props) {
   const params = await props.params
 
   try {
-    const { metadata } = await importPage(params.mdxPath)
+    const { metadata, sourceCode } = await importPage(params.mdxPath)
 
     // Construct URL path from mdxPath array
     const urlPath = params.mdxPath ? params.mdxPath.join('/') : ''
 
-    // Generate enhanced metadata with SEO optimizations
-    const enhancedMetadata = generatePageMetadata(metadata, urlPath, siteConfig)
+    // Generate enhanced metadata with SEO optimizations, passing sourceCode for description extraction
+    const enhancedMetadata = generatePageMetadata(metadata, urlPath, siteConfig, sourceCode)
 
     return enhancedMetadata
   } catch (error) {
