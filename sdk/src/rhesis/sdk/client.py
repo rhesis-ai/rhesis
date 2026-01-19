@@ -6,6 +6,15 @@ import requests
 
 from rhesis.sdk.config import get_api_key, get_base_url
 
+# Check if connector should be disabled
+# Accept common truthy values: true, 1, yes, on (case-insensitive)
+CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLE", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+    "on",
+)
+
 
 class HTTPStatus:
     """HTTP status codes for consistent testing.
@@ -46,7 +55,87 @@ class Methods(Enum):
     DELETE = "DELETE"
 
 
+class DisabledClient:
+    """
+    No-op client implementation used when RHESIS_CONNECTOR_DISABLE is enabled.
+
+    This client accepts all initialization parameters and method calls but
+    performs no actual operations. It's used to allow code to run without
+    connector/observability overhead in test and CI environments.
+
+    Enabled with: RHESIS_CONNECTOR_DISABLE=true|1|yes|on (case-insensitive)
+
+    When DisabledClient is active:
+    - @endpoint and @observe decorators return the original function unmodified
+    - No telemetry initialization occurs
+    - No connector manager is created
+    - All method calls are no-ops
+    """
+
+    def __init__(self, *args, **kwargs):
+        """Accept any initialization parameters and register as default client."""
+        from rhesis.sdk import decorators
+
+        decorators._register_default_client(self)
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info("✅ DisabledClient initialized successfully")
+
+    @property
+    def is_disabled(self) -> bool:
+        """Return True to indicate this is a disabled client."""
+        return True
+
+    def __getattr__(self, name):
+        """
+        Handle any method call as a no-op.
+
+        This ensures all Client methods work without needing to explicitly
+        implement each one in DisabledClient.
+
+        Returns:
+            A function that accepts any arguments and returns None
+        """
+
+        def noop(*args, **kwargs):
+            return None
+
+        return noop
+
+    @property
+    def base_url(self) -> str:
+        """Return empty string for base_url property."""
+        return ""
+
+    @property
+    def project_id(self) -> Optional[str]:
+        """Return None for project_id property."""
+        return None
+
+    @property
+    def environment(self) -> str:
+        """Return empty string for environment property."""
+        return ""
+
+
 class Client:
+    def __new__(cls, *args, **kwargs):
+        """
+        Create either a real Client or DisabledClient based on environment flag.
+
+        When RHESIS_CONNECTOR_DISABLE is enabled (true|1|yes|on), returns a
+        DisabledClient that performs no operations. Otherwise, creates a normal
+        Client instance.
+        """
+        if CONNECTOR_DISABLED:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.info("⏭️  Rhesis connector disabled (RHESIS_CONNECTOR_DISABLE enabled)")
+            return DisabledClient()
+        return super().__new__(cls)
+
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -56,6 +145,9 @@ class Client:
     ):
         """
         Initialize the Rhesis client.
+
+        Note: This __init__ will NOT be called when RHESIS_CONNECTOR_DISABLE is enabled
+        since __new__ returns a DisabledClient instance instead.
 
         Args:
             api_key: Optional API key. If not provided, will try to get it from
@@ -91,6 +183,11 @@ class Client:
 
         # Automatically register as default client (transparent)
         self._register_as_default()
+
+    @property
+    def is_disabled(self) -> bool:
+        """Return False to indicate this is an active client."""
+        return False
 
     @property
     def base_url(self) -> str:
@@ -219,7 +316,7 @@ class Client:
         if self._connector_manager is None:
             if not self.project_id:
                 raise RuntimeError(
-                    "@collaborate requires project_id parameter or "
+                    "@endpoint requires project_id parameter or "
                     "RHESIS_PROJECT_ID environment variable"
                 )
             from rhesis.sdk.connector.manager import ConnectorManager

@@ -1,10 +1,82 @@
 """Endpoint decorator for registering functions as Rhesis endpoints."""
 
 import inspect
+import logging
 from collections.abc import Callable
+from dataclasses import dataclass
+from enum import Enum
 from functools import wraps
+from typing import Any
 
-from ._state import get_default_client
+from ._state import get_default_client, is_client_disabled
+
+# Module-level logger
+logger = logging.getLogger(__name__)
+
+
+class ResourceType(Enum):
+    """Types of resources that require cleanup after function execution."""
+
+    GENERATOR = "generator"
+    CONTEXT_MANAGER = "context_manager"
+
+
+@dataclass
+class ResourceHandler:
+    """
+    Represents a resource that needs cleanup after function execution.
+
+    Attributes:
+        resource_type: Type of resource (generator or context manager)
+        resource: The actual resource object (generator or context manager instance)
+        param_name: Name of the parameter this resource is bound to (for debugging)
+    """
+
+    resource_type: ResourceType
+    resource: Any
+    param_name: str
+
+    def cleanup(self) -> None:
+        """
+        Cleanup the resource based on its type.
+
+        - For generators: Advance to trigger finally blocks
+        - For context managers: Call __exit__ to release resources
+
+        Raises:
+            StopIteration: Expected for generators (handled by caller)
+            Exception: Any cleanup errors (logged but not re-raised)
+        """
+        if self.resource_type == ResourceType.GENERATOR:
+            # Advance generator to trigger finally block for cleanup
+            next(self.resource)
+        elif self.resource_type == ResourceType.CONTEXT_MANAGER:
+            # Exit context manager with no exception info
+            self.resource.__exit__(None, None, None)
+
+
+def cleanup_resources(handlers: list[ResourceHandler]) -> None:
+    """
+    Cleanup all resources, logging errors without failing the request.
+
+    This ensures that cleanup errors don't mask the actual function response.
+    Database connections, file handles, and other resources are properly released.
+
+    Args:
+        handlers: List of ResourceHandler objects to cleanup
+    """
+    for handler in handlers:
+        try:
+            handler.cleanup()
+        except StopIteration:
+            # Expected - generator is exhausted after cleanup
+            pass
+        except Exception as e:
+            # Log cleanup errors but don't fail the request
+            logger.warning(
+                f"Error cleaning up {handler.resource_type.value} "
+                f"dependency '{handler.param_name}': {e}"
+            )
 
 
 def endpoint(
@@ -127,15 +199,27 @@ def endpoint(
             results = db.query(config.table, input)
             return {"output": format_results(results)}
 
-        # Example 6: Binding with FastAPI-style dependencies
+        # Example 6: Binding with resource dependencies (auto-cleanup)
+        # Option A: Raw generator function
+        def get_db():
+            '''Generator that yields database session with auto-cleanup'''
+            with database.get_session() as session:
+                yield session
+                # Cleanup happens automatically
+
+        # Option B: Context manager with bind_context (recommended)
+        from rhesis.sdk.decorators import bind_context
+
         @endpoint(
             bind={
-                "db": lambda: next(get_db()),  # Generator-based dependency
+                "db": get_db,  # Works with raw generators
+                # Or use bind_context for context managers (clearer than partial)
+                # "db": bind_context(database.get_session_with_tenant, org_id, user_id),
                 "user": lambda: get_current_user_context(),
             }
         )
         async def authenticated_query(db, user, input: str) -> dict:
-            # Automatically inject auth context and database
+            # Database connection is automatically closed after execution
             if not user.is_authenticated:
                 return {"output": "Unauthorized"}
             return {"output": db.query_for_user(user.id, input)}
@@ -158,6 +242,11 @@ def endpoint(
     """
 
     def decorator(func: Callable) -> Callable:
+        # If client is disabled, return the original function unmodified
+        # This completely bypasses all decorator overhead
+        if is_client_disabled():
+            return func
+
         _default_client = get_default_client()
         if _default_client is None:
             raise RuntimeError(
@@ -178,19 +267,83 @@ def endpoint(
         if bind:
             enriched_metadata["_bound_params"] = list(bind.keys())
 
+        # Get function signature to map positional args to parameter names
+        func_sig = inspect.signature(func)
+        param_names = list(func_sig.parameters.keys())
+
         # Helper to inject bound parameters
-        def inject_bound_params(kwargs: dict) -> dict:
-            """Inject bound parameters into kwargs."""
+        def inject_bound_params(args, kwargs, cleanup_handlers):
+            """
+            Inject bound parameters into kwargs, handling generators and context managers.
+
+            This function detects resource-based dependencies (like FastAPI's Depends
+            with yield) and properly manages their lifecycle. It supports both:
+            - Raw generators (functions with yield)
+            - Context manager objects (from @contextmanager or __enter__/__exit__)
+
+            Resources are entered to get their value, and cleanup handlers are populated
+            for proper resource management after the function executes.
+
+            IMPORTANT: cleanup_handlers is populated in-place so that if this function
+            fails midway (e.g., a generator's next() raises), any previously initialized
+            resources can still be cleaned up by the caller's finally block.
+
+            Args:
+                args: Positional arguments passed to the function
+                kwargs: Keyword arguments passed to the function
+                cleanup_handlers: List to populate with ResourceHandler objects
+                    (mutated in-place for safe cleanup on partial failure)
+
+            Returns:
+                dict: kwargs with bound parameters injected
+            """
             if not bind:
                 return kwargs
 
+            # Determine which parameters are already provided
+            provided_params = set(kwargs.keys())
+
+            # Map positional args to parameter names
+            for i, arg_value in enumerate(args):
+                if i < len(param_names):
+                    provided_params.add(param_names[i])
+
             injected_kwargs = kwargs.copy()
+
             for param_name, param_value in bind.items():
-                # Don't override if already provided
-                if param_name not in injected_kwargs:
+                # Don't inject if already provided (either as positional arg or kwarg)
+                if param_name not in provided_params:
                     # Call if callable, use directly otherwise
                     if callable(param_value):
-                        injected_kwargs[param_name] = param_value()
+                        result = param_value()
+
+                        # Check if it's a raw generator (from yield function)
+                        if inspect.isgenerator(result):
+                            # Get the yielded value (the actual dependency)
+                            injected_kwargs[param_name] = next(result)
+                            # Store generator for cleanup (will trigger finally block)
+                            cleanup_handlers.append(
+                                ResourceHandler(
+                                    resource_type=ResourceType.GENERATOR,
+                                    resource=result,
+                                    param_name=param_name,
+                                )
+                            )
+                        # Check if it's a context manager (from @contextmanager or class)
+                        elif hasattr(result, "__enter__") and hasattr(result, "__exit__"):
+                            # Enter the context manager to get the resource
+                            injected_kwargs[param_name] = result.__enter__()
+                            # Store context manager for cleanup
+                            cleanup_handlers.append(
+                                ResourceHandler(
+                                    resource_type=ResourceType.CONTEXT_MANAGER,
+                                    resource=result,
+                                    param_name=param_name,
+                                )
+                            )
+                        else:
+                            # Regular value (not a resource)
+                            injected_kwargs[param_name] = result
                     else:
                         injected_kwargs[param_name] = param_value
 
@@ -217,12 +370,18 @@ def endpoint(
 
             @wraps(func)
             async def wrapper(*args, **kwargs):
-                # Inject bound parameters
-                kwargs = inject_bound_params(kwargs)
+                # Initialize cleanup_handlers before try block to ensure cleanup
+                # even if inject_bound_params fails midway through initialization
+                cleanup_handlers = []
+                try:
+                    # Inject bound parameters (populates cleanup_handlers in-place)
+                    kwargs = inject_bound_params(args, kwargs, cleanup_handlers)
 
-                if not observe:
-                    return await func(*args, **kwargs)
-                return await trace_func(func_name, func, args, kwargs, span_name)
+                    if not observe:
+                        return await func(*args, **kwargs)
+                    return await trace_func(func_name, func, args, kwargs, span_name)
+                finally:
+                    cleanup_resources(cleanup_handlers)
 
             _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
             return wrapper
@@ -232,12 +391,18 @@ def endpoint(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Inject bound parameters
-            kwargs = inject_bound_params(kwargs)
+            # Initialize cleanup_handlers before try block to ensure cleanup
+            # even if inject_bound_params fails midway through initialization
+            cleanup_handlers = []
+            try:
+                # Inject bound parameters (populates cleanup_handlers in-place)
+                kwargs = inject_bound_params(args, kwargs, cleanup_handlers)
 
-            if not observe:
-                return func(*args, **kwargs)
-            return trace_func(func_name, func, args, kwargs, span_name)
+                if not observe:
+                    return func(*args, **kwargs)
+                return trace_func(func_name, func, args, kwargs, span_name)
+            finally:
+                cleanup_resources(cleanup_handlers)
 
         _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
         return wrapper

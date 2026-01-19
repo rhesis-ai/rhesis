@@ -28,3 +28,20 @@ def get_default_client() -> Optional["Client"]:
         The default client instance, or None if not registered
     """
     return _default_client
+
+
+def is_client_disabled() -> bool:
+    """
+    Check if the default client is disabled (RHESIS_CONNECTOR_DISABLE enabled).
+
+    This is a convenience function for decorators and other SDK components
+    to quickly check if they should bypass their functionality.
+
+    Accepts: true, 1, yes, on (case-insensitive)
+
+    Returns:
+        True if client is disabled or not initialized, False otherwise
+    """
+    if _default_client is None:
+        return False  # No client means we'll raise an error elsewhere
+    return getattr(_default_client, "is_disabled", False)

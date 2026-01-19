@@ -24,6 +24,7 @@ def mock_client():
         )
 
         client._tracer = tracer
+        client.is_disabled = False  # Explicitly mark as not disabled
         mock.return_value = client
 
         # Set _default_client

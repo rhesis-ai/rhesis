@@ -235,3 +235,66 @@ def test_send_request_all_methods(mock_request):
 
     # Should have been called for each method
     assert mock_request.call_count == len(Methods)
+
+
+def test_disabled_client(monkeypatch):
+    """Test that RHESIS_CONNECTOR_DISABLE=true creates a DisabledClient."""
+    # Enable connector disable flag
+    monkeypatch.setenv("RHESIS_CONNECTOR_DISABLE", "true")
+
+    # Need to reload the module to pick up the new environment variable
+    import importlib
+
+    import rhesis.sdk.client
+
+    importlib.reload(rhesis.sdk.client)
+    from rhesis.sdk.client import Client, DisabledClient
+
+    # Create client - should return DisabledClient
+    client = Client(api_key="test_key", base_url="https://test.example.com")
+
+    # Verify it's a DisabledClient instance
+    assert isinstance(client, DisabledClient)
+    # Also check by class name to ensure it's the right type
+    assert client.__class__.__name__ == "DisabledClient"
+
+    # Verify all methods return None or appropriate no-op values
+    assert client.base_url == ""
+    assert client.project_id is None
+    assert client.environment == ""
+    assert client.some_method() is None
+    assert client.register_endpoint("test", lambda: None, {}) is None
+
+    # Clean up - reload module without the flag
+    monkeypatch.delenv("RHESIS_CONNECTOR_DISABLE")
+    importlib.reload(rhesis.sdk.client)
+
+
+def test_normal_client_when_connector_enabled(monkeypatch):
+    """Test that normal Client is created when connector is not disabled."""
+    # Ensure connector is not disabled
+    monkeypatch.delenv("RHESIS_CONNECTOR_DISABLE", raising=False)
+
+    # Need to reload the module to pick up the new environment variable
+    import importlib
+
+    import rhesis.sdk.client
+
+    importlib.reload(rhesis.sdk.client)
+    from rhesis.sdk.client import Client, DisabledClient
+
+    # Set required environment variables for normal client
+    monkeypatch.setenv("RHESIS_API_KEY", "test_key")
+    monkeypatch.setenv("RHESIS_BASE_URL", "https://test.example.com")
+
+    # Create client - should return normal Client
+    client = Client()
+
+    # Verify it's NOT a DisabledClient
+    assert not isinstance(client, DisabledClient)
+    assert isinstance(client, Client)
+    assert client.api_key == "test_key"
+    assert client.base_url == "https://test.example.com"
+
+    # Clean up
+    importlib.reload(rhesis.sdk.client)

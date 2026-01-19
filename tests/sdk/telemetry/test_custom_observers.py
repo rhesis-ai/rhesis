@@ -140,6 +140,7 @@ class TestCreateObserver:
         mock_client._tracer.trace_execution = MagicMock(
             side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
         )
+        mock_client.is_disabled = False  # Explicitly mark as not disabled
 
         with patch("rhesis.sdk.decorators._state._default_client", mock_client):
             # Create observer with custom method
@@ -168,6 +169,7 @@ class TestCreateObserver:
         mock_client._tracer.trace_execution = MagicMock(
             side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
         )
+        mock_client.is_disabled = False  # Explicitly mark as not disabled
 
         with patch("rhesis.sdk.decorators._state._default_client", mock_client):
             # Create observer with base attributes
@@ -266,6 +268,7 @@ class TestObserverBuilder:
         mock_client._tracer.trace_execution = MagicMock(
             side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
         )
+        mock_client.is_disabled = False  # Explicitly mark as not disabled
 
         with patch("rhesis.sdk.decorators._state._default_client", mock_client):
             # Build observer
@@ -332,6 +335,7 @@ class TestCustomObserverIntegration:
         mock_client._tracer.trace_execution = MagicMock(
             side_effect=lambda name, func, args, kwargs, span_name, attrs: func(*args, **kwargs)
         )
+        mock_client.is_disabled = False  # Explicitly mark as not disabled
 
         with patch("rhesis.sdk.decorators._state._default_client", mock_client):
             # Create multiple observers

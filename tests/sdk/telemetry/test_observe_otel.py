@@ -30,6 +30,7 @@ def mock_client_with_tracer():
     )
 
     mock_client._tracer = mock_tracer
+    mock_client.is_disabled = False  # Explicitly mark as not disabled
 
     return mock_client
 
