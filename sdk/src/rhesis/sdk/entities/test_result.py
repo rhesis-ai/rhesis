@@ -9,6 +9,12 @@ ENDPOINT = Endpoints.TEST_RESULTS
 
 
 class TestResult(BaseEntity):
+    """Test result entity representing execution results from tests.
+
+    Note: This is NOT a pytest test class, despite the 'Test' prefix.
+    """
+
+    __test__ = False  # Tell pytest to ignore this class
     endpoint: ClassVar[Endpoints] = ENDPOINT
     test_configuration_id: Optional[str] = None
     test_run_id: Optional[str] = None

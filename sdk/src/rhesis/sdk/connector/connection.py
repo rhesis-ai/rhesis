@@ -15,7 +15,12 @@ from tenacity import (
 )
 from websockets.asyncio.client import ClientConnection
 
-from rhesis.sdk.connector.types import ConnectionState
+from rhesis.sdk.connector.types import (
+    ConnectionState,
+    ErrorClassification,
+    RetryConfig,
+    WebSocketCloseCode,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +37,68 @@ class TransientConnectionError(Exception):
     pass
 
 
+def _classify_by_close_code(exception: Exception) -> tuple[bool, str] | None:
+    """
+    Classify error by WebSocket close code.
+
+    Args:
+        exception: The exception to classify
+
+    Returns:
+        Tuple of (is_retryable, error_message) or None if not applicable
+    """
+    if not hasattr(exception, "rcvd") or not exception.rcvd:
+        return None
+
+    close_code = exception.rcvd.code
+    close_reason = exception.rcvd.reason
+
+    # Check for specific close code rules
+    if close_code in ErrorClassification.WS_CLOSE_CODE_RULES:
+        is_retryable, template = ErrorClassification.WS_CLOSE_CODE_RULES[close_code]
+        message = f"{template}: {close_reason}" if close_reason else template
+        return is_retryable, message
+
+    # Check if it's in permanent codes
+    if close_code in WebSocketCloseCode.PERMANENT_CODES:
+        message = (
+            f"Connection closed (code {close_code}): {close_reason}"
+            if close_reason
+            else f"Connection closed (code {close_code})"
+        )
+        return False, message
+
+    return None
+
+
+def _classify_by_http_status(error_str: str) -> tuple[bool, str] | None:
+    """
+    Classify error by HTTP status code.
+
+    Args:
+        error_str: Error string that may contain HTTP status code
+
+    Returns:
+        Tuple of (is_retryable, error_message) or None if not applicable
+    """
+    http_status_match = re.search(r"HTTP (\d{3})", error_str)
+    if not http_status_match:
+        return None
+
+    status_code = int(http_status_match.group(1))
+
+    # Check known status codes
+    if status_code in ErrorClassification.HTTP_STATUS_RULES:
+        is_retryable, message = ErrorClassification.HTTP_STATUS_RULES[status_code]
+        return is_retryable, message
+
+    # Server errors are retryable
+    if status_code >= 500:
+        return True, f"Server error (HTTP {status_code}). Retrying..."
+
+    return None
+
+
 def classify_websocket_error(exception: Exception) -> tuple[bool, str]:
     """
     Classify WebSocket errors as retryable or permanent.
@@ -44,97 +111,20 @@ def classify_websocket_error(exception: Exception) -> tuple[bool, str]:
     """
     error_str = str(exception)
 
-    # Check for WebSocket close code and reason (e.g., code 1008 = Policy Violation)
-    # websockets library provides ConnectionClosed with code and reason attributes
-    if hasattr(exception, "rcvd") and exception.rcvd:
-        close_code = exception.rcvd.code
-        close_reason = exception.rcvd.reason
+    # Try classification by close code
+    if result := _classify_by_close_code(exception):
+        return result
 
-        # Code 1008: Policy Violation (used for validation errors like invalid project_id)
-        if close_code == 1008:
-            message = (
-                f"Connection rejected: {close_reason}"
-                if close_reason
-                else "Connection rejected by server due to policy violation"
-            )
-            return False, message
+    # Try classification by HTTP status
+    if result := _classify_by_http_status(error_str):
+        return result
 
-        # Code 1002: Protocol Error
-        if close_code == 1002:
-            message = (
-                f"Protocol error: {close_reason}" if close_reason else "WebSocket protocol error"
-            )
-            return False, message
-
-        # Code 1003: Unsupported Data
-        if close_code == 1003:
-            message = (
-                f"Unsupported data: {close_reason}" if close_reason else "Unsupported data format"
-            )
-            return False, message
-
-        # Use close reason if available for other codes
-        if close_reason:
-            # Codes 1000-1003, 1007-1011 are permanent failures
-            if close_code in [1000, 1001, 1002, 1003, 1007, 1008, 1009, 1010, 1011]:
-                return False, f"Connection closed (code {close_code}): {close_reason}"
-
-    # Extract HTTP status code if present
-    http_status_match = re.search(r"HTTP (\d{3})", error_str)
-    if http_status_match:
-        status_code = int(http_status_match.group(1))
-
-        # Authentication/Authorization errors (permanent)
-        if status_code in [401, 403]:
-            if status_code == 401:
-                message = (
-                    "Authentication failed: Your API key is invalid or expired.\n"
-                    "Please verify your RHESIS_API_KEY environment variable."
-                )
-            else:  # 403
-                message = (
-                    "Authorization failed: Invalid API key or project ID.\n"
-                    "Please check:\n"
-                    "  - RHESIS_API_KEY is correct\n"
-                    "  - RHESIS_PROJECT_ID is valid and belongs to your organization"
-                )
-            return False, message
-
-        # Bad request (permanent)
-        if status_code == 400:
-            message = (
-                "Bad request: The connection request is malformed.\n"
-                "Please check your SDK configuration."
-            )
-            return False, message
-
-        # Rate limiting (transient)
-        if status_code == 429:
-            message = "Rate limit exceeded. Retrying with backoff..."
-            return True, message
-
-        # Server errors (transient)
-        if status_code >= 500:
-            message = f"Server error (HTTP {status_code}). Retrying..."
-            return True, message
-
-    # Connection refused, timeouts, network errors (transient)
-    if any(
-        keyword in error_str.lower()
-        for keyword in [
-            "connection refused",
-            "timeout",
-            "network",
-            "unreachable",
-            "connection reset",
-        ]
-    ):
-        message = f"Network error: {error_str}. Retrying..."
-        return True, message
+    # Check for transient keywords in error message
+    if any(kw in error_str.lower() for kw in ErrorClassification.TRANSIENT_KEYWORDS):
+        return True, f"Network error: {error_str}. Retrying..."
 
     # Default: treat as transient
-    message = f"Connection error: {error_str}. Retrying..."
-    return True, message
+    return True, f"Connection error: {error_str}. Retrying..."
 
 
 class WebSocketConnection:
@@ -147,9 +137,9 @@ class WebSocketConnection:
         on_message: Callable[[Dict[str, Any]], None],
         on_connect: Optional[Callable[[], None]] = None,
         on_connection_failed: Optional[Callable[[str], None]] = None,
-        ping_interval: int = 30,
-        ping_timeout: int = 10,
-        max_retries: int = 10,
+        ping_interval: int = RetryConfig.DEFAULT_PING_INTERVAL,
+        ping_timeout: int = RetryConfig.DEFAULT_PING_TIMEOUT,
+        max_retries: int = RetryConfig.DEFAULT_MAX_RETRIES,
     ):
         """
         Initialize WebSocket connection manager.
@@ -251,100 +241,111 @@ class WebSocketConnection:
 
     async def _maintain_connection(self) -> None:
         """Maintain persistent connection with auto-reconnect using tenacity."""
-        attempt_number = 0
         logger.info("Starting connection maintenance loop")
 
-        try:
-            async for attempt in AsyncRetrying(
-                stop=stop_after_attempt(self.max_retries),
-                wait=wait_exponential(multiplier=1, min=1, max=60),
-                reraise=False,  # Don't reraise - we want to catch RetryError
-            ):
-                with attempt:
-                    attempt_number = attempt.retry_state.attempt_number
-                    if attempt_number > 1:
-                        self._log_state_change(
-                            ConnectionState.RECONNECTING,
-                            f"attempt {attempt_number}/{self.max_retries}",
-                        )
+        # Outer loop: restart tenacity after successful connections or exhausted retries
+        # This ensures the retry counter resets after each successful connection
+        while self._should_reconnect:
+            attempt_number = 0
 
-                    try:
-                        await self._attempt_single_connection()
-                        # If we get here, connection was successful and closed gracefully
+            try:
+                async for attempt in AsyncRetrying(
+                    stop=stop_after_attempt(self.max_retries),
+                    wait=wait_exponential(
+                        multiplier=RetryConfig.BACKOFF_MULTIPLIER,
+                        min=RetryConfig.BACKOFF_MIN,
+                        max=RetryConfig.BACKOFF_MAX,
+                    ),
+                    reraise=False,  # Don't reraise - we want to catch RetryError
+                ):
+                    with attempt:
+                        attempt_number = attempt.retry_state.attempt_number
                         if attempt_number > 1:
-                            logger.info(
-                                f"Successfully reconnected after {attempt_number} attempt(s)"
-                            )
-                        logger.info("Connection closed gracefully")
-                        break
-                    except Exception as e:
-                        # Classify the error
-                        is_retryable, error_message = classify_websocket_error(e)
-
-                        if not is_retryable:
-                            # Permanent error - don't retry
-                            logger.error(f"Permanent connection failure:\n{error_message}")
-                            logger.error("Not retrying authentication/authorization failures.")
-                            self._log_state_change(ConnectionState.FAILED, "permanent error")
-                            self._failure_reason = error_message
-
-                            # Call failure callback if provided
-                            if self.on_connection_failed:
-                                try:
-                                    self.on_connection_failed(error_message)
-                                except Exception as callback_error:
-                                    logger.error(f"Error in failure callback: {callback_error}")
-
-                            # Break out without retrying
-                            return
-
-                        # Transient error - will retry
-                        if attempt_number == 1:
-                            # First failure - log the full message
-                            logger.error(error_message)
-                        else:
-                            # Subsequent failures - shorter message
-                            logger.warning(
-                                f"Attempt {attempt_number}/{self.max_retries} failed. Retrying..."
+                            self._log_state_change(
+                                ConnectionState.RECONNECTING,
+                                f"attempt {attempt_number}/{self.max_retries}",
                             )
 
-                        # Re-raise to trigger retry
-                        raise TransientConnectionError(error_message) from e
+                        try:
+                            await self._attempt_single_connection()
+                            # If we get here, connection was successful and closed gracefully
+                            if attempt_number > 1:
+                                logger.info(
+                                    f"Successfully reconnected after {attempt_number} attempt(s)"
+                                )
+                            logger.info("Connection closed gracefully")
+                            # Break from tenacity loop - outer while will create fresh retry counter
+                            break
+                        except Exception as e:
+                            # Classify the error
+                            is_retryable, error_message = classify_websocket_error(e)
 
-        except RetryError as e:
-            # Max retries exceeded
-            self._log_state_change(
-                ConnectionState.FAILED, f"max retries ({self.max_retries}) exceeded"
-            )
-            last_error = (
-                e.last_attempt.exception()
-                if e.last_attempt and e.last_attempt.exception()
-                else None
-            )
+                            if not is_retryable:
+                                # Permanent error - don't retry
+                                logger.error(f"Permanent connection failure:\n{error_message}")
+                                logger.error("Not retrying authentication/authorization failures.")
+                                self._log_state_change(ConnectionState.FAILED, "permanent error")
+                                self._failure_reason = error_message
 
-            if last_error:
-                _, error_message = classify_websocket_error(last_error)
-            else:
-                error_message = "Connection failed after maximum retries"
+                                # Call failure callback if provided
+                                if self.on_connection_failed:
+                                    try:
+                                        self.on_connection_failed(error_message)
+                                    except Exception as callback_error:
+                                        logger.error(f"Error in failure callback: {callback_error}")
 
-            self._failure_reason = error_message
-            logger.error(
-                f"Connection failed after {self.max_retries} attempts.\nLast error: {error_message}"
-            )
+                                # Exit completely for permanent failures
+                                return
 
-            # Call failure callback if provided
-            if self.on_connection_failed:
-                try:
-                    self.on_connection_failed(error_message)
-                except Exception as callback_error:
-                    logger.error(f"Error in failure callback: {callback_error}")
+                            # Transient error - will retry
+                            if attempt_number == 1:
+                                # First failure - log the full message
+                                logger.error(error_message)
+                            else:
+                                # Subsequent failures - shorter message
+                                logger.warning(
+                                    f"Attempt {attempt_number}/{self.max_retries} failed. "
+                                    "Retrying..."
+                                )
 
-        finally:
-            if self.state not in (ConnectionState.FAILED, ConnectionState.CLOSED):
+                            # Re-raise to trigger retry
+                            raise TransientConnectionError(error_message) from e
+
+                # If we broke out successfully, continue outer loop with fresh counter
+                continue
+
+            except RetryError as e:
+                # Fast retries exhausted - enter slow retry mode
                 self._log_state_change(
-                    ConnectionState.DISCONNECTED, "connection closed unexpectedly"
+                    ConnectionState.RECONNECTING,
+                    f"fast retries ({self.max_retries}) exhausted, entering slow retry mode",
                 )
-            logger.info("Connection maintenance loop ended")
+                last_error = (
+                    e.last_attempt.exception()
+                    if e.last_attempt and e.last_attempt.exception()
+                    else None
+                )
+
+                if last_error:
+                    _, error_message = classify_websocket_error(last_error)
+                else:
+                    error_message = "Connection failed after maximum retries"
+
+                logger.warning(
+                    f"Failed {self.max_retries} consecutive attempts. "
+                    f"Last error: {error_message}\n"
+                    f"Entering slow retry mode (will retry every "
+                    f"{RetryConfig.SLOW_RETRY_INTERVAL}s)..."
+                )
+
+                # Wait before retrying with fresh counter
+                await asyncio.sleep(RetryConfig.SLOW_RETRY_INTERVAL)
+                # Outer while loop will restart with fresh tenacity counter
+
+        # Only reached if self._should_reconnect becomes False
+        if self.state not in (ConnectionState.FAILED, ConnectionState.CLOSED):
+            self._log_state_change(ConnectionState.DISCONNECTED, "connection closed")
+        logger.info("Connection maintenance loop ended")
 
     async def _attempt_single_connection(self) -> None:
         """Attempt a single WebSocket connection."""

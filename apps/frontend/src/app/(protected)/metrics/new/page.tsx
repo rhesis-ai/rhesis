@@ -35,6 +35,7 @@ import { User } from '@/utils/api-client/interfaces/user';
 import { UUID } from 'crypto';
 import { Model } from '@/utils/api-client/interfaces/model';
 import CircularProgress from '@mui/material/CircularProgress';
+import { EntityType } from '@/utils/api-client/interfaces/tag';
 
 // Add session type augmentation
 declare module 'next-auth' {
@@ -254,11 +255,11 @@ export default function NewMetricPage() {
         (step, index) => `Step ${index + 1}:\n${step.trim()}`
       );
 
-      // Create the metric request object
+      // Create the metric request object (tags will be added separately)
       const metricRequest: MetricCreate = {
         name: formData.name,
         description: formData.description || '',
-        tags: formData.tags,
+        tags: [], // Tags will be assigned separately after creation
         evaluation_prompt: formData.evaluation_prompt,
         evaluation_steps: formattedSteps.join(STEP_SEPARATOR),
         reasoning: formData.reasoning || '',
@@ -297,7 +298,32 @@ export default function NewMetricPage() {
         metric_scope: formData.metric_scope,
       };
 
-      await metricsClient.createMetric(metricRequest);
+      // Create the metric
+      const createdMetric = await metricsClient.createMetric(metricRequest);
+
+      // If tags are present, assign them to the metric
+      if (formData.tags && formData.tags.length > 0) {
+        const tagsClient = apiClient.getTagsClient();
+
+        // Assign each tag to the metric
+        for (const tagName of formData.tags) {
+          try {
+            await tagsClient.assignTagToEntity(
+              EntityType.METRIC,
+              createdMetric.id,
+              {
+                name: tagName,
+                organization_id: session.user?.organization_id as UUID,
+                user_id: session.user?.id as UUID,
+              }
+            );
+          } catch (tagError) {
+            // Log error but don't fail the whole operation
+            console.error(`Failed to assign tag "${tagName}":`, tagError);
+          }
+        }
+      }
+
       notifications.show('Metric created successfully', {
         severity: 'success',
       });

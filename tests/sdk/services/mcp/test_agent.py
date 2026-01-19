@@ -133,24 +133,23 @@ class TestMCPAgent:
         )
         agent.executor = mock_executor
 
+        # Mock LLM responses as dicts (simulating what LLM would return)
         # First iteration: call tool
-        tool_call = ToolCall(tool_name="search", arguments='{"query": "test"}')
-        action1 = AgentAction(
-            reasoning="I need to search",
-            action="call_tool",
-            tool_calls=[tool_call],
-        )
+        action1_dict = {
+            "reasoning": "I need to search",
+            "action": "call_tool",
+            "tool_calls": [{"tool_name": "search", "arguments": '{"query": "test"}'}],
+            "final_answer": None,
+        }
         # Second iteration: finish
-        action2 = AgentAction(
-            reasoning="I have the answer",
-            action="finish",
-            final_answer="Results found",
-        )
+        action2_dict = {
+            "reasoning": "I have the answer",
+            "action": "finish",
+            "tool_calls": [],
+            "final_answer": "Results found",
+        }
 
-        mock_model.generate.side_effect = [
-            action1.model_dump(),
-            action2.model_dump(),
-        ]
+        mock_model.generate.side_effect = [action1_dict, action2_dict]
 
         result = await agent.run_async("Search for test")
 
@@ -172,13 +171,13 @@ class TestMCPAgent:
         agent.executor = mock_executor
 
         # Always return call_tool action (never finishes)
-        tool_call = ToolCall(tool_name="test", arguments="{}")
-        action = AgentAction(
-            reasoning="Keep going",
-            action="call_tool",
-            tool_calls=[tool_call],
-        )
-        mock_model.generate.return_value = action.model_dump()
+        action_dict = {
+            "reasoning": "Keep going",
+            "action": "call_tool",
+            "tool_calls": [{"tool_name": "test", "arguments": "{}"}],
+            "final_answer": None,
+        }
+        mock_model.generate.return_value = action_dict
 
         with pytest.raises(MCPValidationError) as exc_info:
             await agent.run_async("Test query")
@@ -202,13 +201,13 @@ class TestMCPAgent:
         mock_executor.get_available_tools = AsyncMock(return_value=[])
         agent.executor = mock_executor
 
-        tool_call = ToolCall(tool_name="test", arguments="{}")
-        action = AgentAction(
-            reasoning="Call tool",
-            action="call_tool",
-            tool_calls=[tool_call],
-        )
-        mock_model.generate.return_value = action.model_dump()
+        action_dict = {
+            "reasoning": "Call tool",
+            "action": "call_tool",
+            "tool_calls": [{"tool_name": "test", "arguments": "{}"}],
+            "final_answer": None,
+        }
+        mock_model.generate.return_value = action_dict
 
         mock_executor.execute_tool.side_effect = MCPApplicationError(
             status_code=500, detail="Server error"
@@ -242,23 +241,21 @@ class TestMCPAgent:
         agent.executor = mock_executor
 
         # First iteration: call tool (fails)
-        tool_call = ToolCall(tool_name="test", arguments="{}")
-        action1 = AgentAction(
-            reasoning="Try tool",
-            action="call_tool",
-            tool_calls=[tool_call],
-        )
+        action1_dict = {
+            "reasoning": "Try tool",
+            "action": "call_tool",
+            "tool_calls": [{"tool_name": "test", "arguments": "{}"}],
+            "final_answer": None,
+        }
         # Second iteration: finish (after failure)
-        action2 = AgentAction(
-            reasoning="Tool failed, but I can answer",
-            action="finish",
-            final_answer="Answer without tool",
-        )
+        action2_dict = {
+            "reasoning": "Tool failed, but I can answer",
+            "action": "finish",
+            "tool_calls": [],
+            "final_answer": "Answer without tool",
+        }
 
-        mock_model.generate.side_effect = [
-            action1.model_dump(),
-            action2.model_dump(),
-        ]
+        mock_model.generate.side_effect = [action1_dict, action2_dict]
 
         # Tool returns failure (not exception)
         mock_executor.execute_tool = AsyncMock(

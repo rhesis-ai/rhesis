@@ -4,6 +4,7 @@ from requests import HTTPError
 from rhesis.sdk.entities.behavior import Behavior
 from rhesis.sdk.entities.category import Category
 from rhesis.sdk.entities.endpoint import Endpoint
+from rhesis.sdk.entities.project import Project
 from rhesis.sdk.entities.prompt import Prompt
 from rhesis.sdk.entities.status import Status
 from rhesis.sdk.entities.test_configuration import TestConfiguration
@@ -184,6 +185,50 @@ def test_prompt_delete(db_cleanup):
 
     with pytest.raises(HTTPError):
         prompt.pull()
+
+
+# ============================================================================
+# Project Tests
+# ============================================================================
+
+
+def test_project(db_cleanup):
+    project = Project(
+        name="Test Project",
+        description="Test Project Description",
+    )
+
+    result = project.push()
+
+    assert result["id"] is not None
+    assert result["name"] == "Test Project"
+    assert result["description"] == "Test Project Description"
+
+
+def test_project_push_pull(db_cleanup):
+    project = Project(
+        name="Test push pull project",
+        description="Test push pull project description",
+    )
+    project.push()
+
+    pulled_project = project.pull()
+
+    assert pulled_project.name == "Test push pull project"
+    assert pulled_project.description == "Test push pull project description"
+
+
+def test_project_delete(db_cleanup):
+    project = Project(
+        name="Test project to delete",
+        description="Test project to delete description",
+    )
+
+    project.push()
+    project.delete()
+
+    with pytest.raises(HTTPError):
+        project.pull()
 
 
 # ============================================================================

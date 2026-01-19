@@ -3,8 +3,18 @@
 import React from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
-import { TextField, Typography, Stack } from '@mui/material';
+import {
+  TextField,
+  Typography,
+  Stack,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+} from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
+import { UUID } from 'crypto';
 
 interface TestSetDrawerProps {
   open: boolean;
@@ -30,6 +40,47 @@ export default function TestSetDrawer({
   const [shortDescription, setShortDescription] = React.useState(
     testSet?.short_description || ''
   );
+  const [testSetTypes, setTestSetTypes] = React.useState<TypeLookup[]>([]);
+  const [selectedTestSetTypeId, setSelectedTestSetTypeId] = React.useState<
+    string | undefined
+  >(testSet?.test_set_type_id);
+
+  // Fetch test set types on mount
+  React.useEffect(() => {
+    const fetchTestSetTypes = async () => {
+      if (!sessionToken) return;
+
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const typeLookupClient = clientFactory.getTypeLookupClient();
+
+        const types = await typeLookupClient.getTypeLookups({
+          $filter: "type_name eq 'TestType'",
+          sort_by: 'type_value',
+          sort_order: 'asc',
+        });
+
+        setTestSetTypes(types);
+
+        // Set default to Single-Turn if creating a new test set
+        if (!testSet && types.length > 0) {
+          const singleTurnType = types.find(
+            t => t.type_value === 'Single-Turn'
+          );
+          if (singleTurnType) {
+            setSelectedTestSetTypeId(singleTurnType.id);
+          } else {
+            // Fallback to first type if Single-Turn not found
+            setSelectedTestSetTypeId(types[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch test set types:', err);
+      }
+    };
+
+    fetchTestSetTypes();
+  }, [sessionToken, testSet]);
 
   const handleSave = async () => {
     if (!sessionToken) return;
@@ -49,6 +100,7 @@ export default function TestSetDrawer({
         visibility: 'organization' as const,
         is_published: false,
         attributes: {},
+        test_set_type_id: selectedTestSetTypeId as UUID | undefined,
       };
 
       if (testSet) {
@@ -90,6 +142,22 @@ export default function TestSetDrawer({
               required
               fullWidth
             />
+
+            <FormControl fullWidth>
+              <InputLabel>Test Set Type</InputLabel>
+              <Select
+                value={selectedTestSetTypeId || ''}
+                onChange={e => setSelectedTestSetTypeId(e.target.value)}
+                label="Test Set Type"
+                required
+              >
+                {testSetTypes.map(type => (
+                  <MenuItem key={type.id} value={type.id}>
+                    {type.type_value}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
             <TextField
               label="Short Description"

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-01-15
+
+### Added
+- Added `bind` parameter to the endpoint decorator, enabling dependency injection. This allows for more flexible and testable endpoint implementations. (#1112)
+
+### Changed
+- Refactored the underlying storage mechanism to utilize a Bucket Model. This change improves data organization and scalability. (#1067)
+
+
 ## [0.2.3] - 2025-12-18
 
 ### Added

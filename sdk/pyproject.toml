@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-sdk"
-version = "0.5.2"
+version = "0.6.1"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -1,4 +1,8 @@
-"""Enrichment functions for trace processing."""
+"""Enrichment core functions.
+
+Pure enrichment functions for calculating costs, detecting anomalies,
+and extracting metadata from traces.
+"""
 
 import logging
 from typing import Dict, List, Optional
@@ -12,8 +16,6 @@ from rhesis.backend.app.schemas.enrichment import (
     TokenCosts,
 )
 from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate
-
-# Import semantic layer constants from SDK (single source of truth)
 from rhesis.sdk.telemetry.attributes import AIAttributes
 from rhesis.sdk.telemetry.schemas import StatusCode
 

@@ -48,7 +48,8 @@ class ToolExecutor:
 
         Raises:
             MCPConnectionError: If connection to MCP server fails (infrastructure layer)
-            MCPApplicationError: If tool returns fatal error (5xx, 401, 403, 404)
+            MCPApplicationError: If tool returns fatal error (5xx, 401, 403)
+                - 404 and other 4xx errors are treated as recoverable
         """
         try:
             logger.info(f"Executing tool: {tool_call.tool_name}")
@@ -74,7 +75,7 @@ class ToolExecutor:
 
                 # Classify: fatal vs recoverable
                 # Fatal errors interrupt the agent immediately - auth issues or server errors
-                is_fatal = status_code in {401, 403, 404} or status_code >= 500
+                is_fatal = status_code in {401, 403} or status_code >= 500
 
                 if is_fatal:
                     # Agent cannot recover - raise immediately

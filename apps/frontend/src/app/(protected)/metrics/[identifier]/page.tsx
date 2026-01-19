@@ -46,6 +46,7 @@ type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 interface EditData {
   name?: string;
   description?: string;
+  tags?: string[];
   model_id?: UUID;
   evaluation_prompt?: string;
   evaluation_steps?: string[];
@@ -210,35 +211,10 @@ export default function MetricDetailPage() {
     []
   );
 
-  const handleTagsChange = React.useCallback(
-    async (_newTags: string[]) => {
-      if (!session?.session_token) return;
-
-      // Use functional state update to avoid depending on metric
-      setMetric(currentMetric => {
-        if (!currentMetric) return currentMetric;
-
-        (async () => {
-          try {
-            const clientFactory = new ApiClientFactory(
-              session.session_token as string
-            );
-            const metricsClient = clientFactory.getMetricsClient();
-            const updatedMetric = await metricsClient.getMetric(
-              currentMetric.id
-            );
-            setMetric(updatedMetric);
-          } catch (error) {
-            notifications.show('Failed to refresh metric data', {
-              severity: 'error',
-            });
-          }
-        })();
-
-        return currentMetric;
-      });
-    },
-    [session?.session_token, notifications]
+  // Memoize the tag names to prevent unnecessary re-renders in BaseTag
+  const tagNames = React.useMemo(
+    () => metric?.tags?.map(tag => tag.name) || [],
+    [metric?.tags]
   );
 
   const handleEdit = React.useCallback(
@@ -253,7 +229,11 @@ export default function MetricDetailPage() {
       // Only set editData for select fields (model, score_type, etc.)
       let sectionData: Partial<EditData> = {};
 
-      if (section === 'evaluation') {
+      if (section === 'general') {
+        sectionData = {
+          tags: tagNames,
+        };
+      } else if (section === 'evaluation') {
         sectionData = {
           model_id: metric.model_id,
         };
@@ -296,7 +276,7 @@ export default function MetricDetailPage() {
 
       setEditData(sectionData);
     },
-    [metric, session?.session_token, populateFieldRefs, notifications]
+    [metric, session?.session_token, populateFieldRefs, notifications, tagNames]
   );
 
   const handleCancelEdit = React.useCallback(() => {
@@ -396,6 +376,51 @@ export default function MetricDetailPage() {
       const clientFactory = new ApiClientFactory(session.session_token);
       const metricsClient = clientFactory.getMetricsClient();
       await metricsClient.updateMetric(metric.id, dataToSend);
+
+      // Handle tag updates separately if tags changed in general section
+      if (isEditing === 'general' && editData.tags) {
+        const tagsClient = clientFactory.getTagsClient();
+        const currentTagNames = tagNames;
+        const newTagNames = editData.tags;
+
+        // Get current tag objects
+        const currentTagObjects = metric.tags || [];
+        const currentTagMap = new Map(
+          currentTagObjects.map(tag => [tag.name, tag])
+        );
+
+        // Tags to remove
+        const tagsToRemove = currentTagNames.filter(
+          tagName => !newTagNames.includes(tagName)
+        );
+
+        // Tags to add
+        const tagsToAdd = newTagNames.filter(
+          tagName => !currentTagNames.includes(tagName)
+        );
+
+        // Remove tags
+        for (const tagName of tagsToRemove) {
+          const tag = currentTagMap.get(tagName);
+          if (tag) {
+            await tagsClient.removeTagFromEntity(
+              EntityType.METRIC,
+              metric.id,
+              tag.id
+            );
+          }
+        }
+
+        // Add new tags
+        for (const tagName of tagsToAdd) {
+          await tagsClient.assignTagToEntity(EntityType.METRIC, metric.id, {
+            name: tagName,
+            organization_id: metric.organization_id,
+            user_id: session.user?.id as UUID | undefined,
+          });
+        }
+      }
+
       const updatedMetric = await metricsClient.getMetric(metric.id);
       setMetric(updatedMetric as MetricDetail);
       setIsEditing(null);
@@ -418,6 +443,8 @@ export default function MetricDetailPage() {
     collectFieldValues,
     editData,
     notifications,
+    isEditing,
+    tagNames,
   ]);
 
   const addStep = React.useCallback(() => {
@@ -734,16 +761,27 @@ export default function MetricDetailPage() {
               </InfoRow>
 
               <InfoRow label="Tags">
-                <BaseTag
-                  value={metric.tags?.map(tag => tag.name) || []}
-                  onChange={handleTagsChange}
-                  placeholder="Add tags..."
-                  chipColor="primary"
-                  disableEdition={isEditing !== 'general'}
-                  entityType={EntityType.METRIC}
-                  entity={metric}
-                  sessionToken={session?.session_token}
-                />
+                {isEditing === 'general' ? (
+                  <BaseTag
+                    value={editData.tags || []}
+                    onChange={newTags =>
+                      setEditData(prev => ({ ...prev, tags: newTags }))
+                    }
+                    placeholder="Add tags..."
+                    chipColor="primary"
+                    addOnBlur
+                    delimiters={[',', 'Enter']}
+                    size="small"
+                  />
+                ) : (
+                  <BaseTag
+                    value={tagNames}
+                    onChange={() => {}}
+                    placeholder="Add tags..."
+                    chipColor="primary"
+                    disableEdition={true}
+                  />
+                )}
               </InfoRow>
             </EditableSection>
 

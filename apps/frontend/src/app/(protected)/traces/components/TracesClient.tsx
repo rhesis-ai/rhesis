@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, Alert } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Alert } from '@mui/material';
 import TracesTable from './TracesTable';
 import TraceFilters from './TraceFilters';
 import TraceDrawer from './TraceDrawer';
@@ -37,30 +37,36 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
     offset: 0,
   });
 
-  const fetchTraces = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // Refresh key for manual refresh (consistent with other components)
+  const [refreshKey, setRefreshKey] = useState(0);
 
-    try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const client = clientFactory.getTelemetryClient();
-      const response = await client.listTraces(filters);
-      setTraces(response.traces);
-      setTotalCount(response.total);
-    } catch (err: any) {
-      const errorMsg = err.message || 'Failed to fetch traces';
-      setError(errorMsg);
-      notifications.show(errorMsg, { severity: 'error' });
-      setTraces([]);
-      setTotalCount(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [sessionToken, filters, notifications]);
-
+  // Fetch traces - using pattern from BehaviorsClient and MetricsClient
   useEffect(() => {
+    const fetchTraces = async () => {
+      if (!sessionToken) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const client = clientFactory.getTelemetryClient();
+        const response = await client.listTraces(filters);
+        setTraces(response.traces);
+        setTotalCount(response.total);
+      } catch (err: any) {
+        const errorMsg = err.message || 'Failed to fetch traces';
+        setError(errorMsg);
+        notifications.show(errorMsg, { severity: 'error' });
+        setTraces([]);
+        setTotalCount(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchTraces();
-  }, [fetchTraces]);
+  }, [sessionToken, filters, refreshKey, notifications]);
 
   const handleRowClick = (traceId: string, projectId: string) => {
     setSelectedTraceId(traceId);
@@ -87,6 +93,10 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
       limit: newSize,
       offset: 0,
     }));
+  };
+
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
   };
 
   return (

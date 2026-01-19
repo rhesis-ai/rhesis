@@ -57,44 +57,64 @@ export class BaseApiClient {
   }
 
   private isRetryableError(error: any): boolean {
-    // Don't retry authentication errors
+    // Check if error has a status code
     if (error instanceof Error && 'status' in error) {
       const status = (error as any).status;
-      if (status === 401 || status === 403) {
+
+      // Don't retry client errors (4xx) - these indicate problems that won't be fixed by retrying
+      // This includes: 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, etc.
+      if (status >= 400 && status < 500) {
         return false;
+      }
+
+      // Retry server errors (5xx) - these might be transient
+      if (status >= 500 && status < 600) {
+        return true;
       }
     }
 
-    // Retry on network errors and 5xx server errors
+    // Don't retry if error message indicates a non-retryable error
+    if (
+      error instanceof Error &&
+      (error.message.includes('Unauthorized') ||
+        error.message.includes('Forbidden') ||
+        error.message.includes('access denied') ||
+        error.message.toLowerCase().includes('permission'))
+    ) {
+      return false;
+    }
+
+    // Retry on network errors (connection issues)
     if (
       error instanceof TypeError &&
       error.message.includes('Failed to fetch')
     ) {
       return true;
     }
-    if (
-      error instanceof Error &&
-      'status' in error &&
-      typeof (error as any).status === 'number'
-    ) {
-      const status = (error as any).status;
-      return status >= 500 && status < 600;
-    }
+
+    // Don't retry by default
     return false;
   }
 
-  private async handleUnauthorizedError(): Promise<never> {
+  private async handleUnauthorizedError(status: number = 401): Promise<never> {
+    // Create an error with status property to prevent retries
+    const createUnauthorizedError = (message: string) => {
+      const error = new Error(message) as Error & { status: number };
+      error.status = status;
+      return error;
+    };
+
     // On server side, just throw a clean unauthorized error
     // Let the middleware handle the redirection
     if (typeof window === 'undefined') {
-      throw new Error('Unauthorized');
+      throw createUnauthorizedError('Unauthorized');
     }
 
     // Prevent multiple simultaneous session clearing on client side
     if (isSessionClearing) {
       // Instead of throwing an error, just wait and throw unauthorized
       await this.delay(1000);
-      throw new Error('Unauthorized');
+      throw createUnauthorizedError('Unauthorized');
     }
 
     isSessionClearing = true;
@@ -107,7 +127,7 @@ export class BaseApiClient {
         currentPath.includes('/auth/signin') ||
         currentPath === '/'
       ) {
-        throw new Error('Unauthorized');
+        throw createUnauthorizedError('Unauthorized');
       }
 
       // Add a delay to ensure any pending operations complete
@@ -115,9 +135,10 @@ export class BaseApiClient {
       await clearAllSessionData(); // This now redirects to home page
 
       // This line should never be reached as clearAllSessionData redirects
-      throw new Error('Unauthorized - session cleared');
+      throw createUnauthorizedError('Unauthorized - session cleared');
     } catch (error) {
-      throw new Error('Unauthorized'); // Throw clean error instead of re-throwing complex error
+      // Throw clean error instead of re-throwing complex error
+      throw createUnauthorizedError('Unauthorized');
     } finally {
       // Reset the flag after a delay
       setTimeout(() => {
@@ -274,7 +295,7 @@ export class BaseApiClient {
 
           // Handle authentication errors
           if (response.status === 401 || response.status === 403) {
-            return await this.handleUnauthorizedError();
+            return await this.handleUnauthorizedError(response.status);
           }
 
           throw error;
@@ -295,7 +316,7 @@ export class BaseApiClient {
 
         // Handle authentication errors immediately without retrying
         if (error.status === 401 || error.status === 403) {
-          return await this.handleUnauthorizedError();
+          return await this.handleUnauthorizedError(error.status);
         }
 
         // Handle deleted entities (410 Gone) immediately without retrying
@@ -420,7 +441,7 @@ export class BaseApiClient {
 
       // Handle authentication errors
       if (response.status === 401 || response.status === 403) {
-        return await this.handleUnauthorizedError();
+        return await this.handleUnauthorizedError(response.status);
       }
 
       throw error;

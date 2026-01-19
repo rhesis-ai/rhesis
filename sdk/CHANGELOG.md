@@ -13,6 +13,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-01-15
+
+### Added
+- Implemented continuous slow retry mode for connector resilience. This new mode allows the SDK to automatically retry failed connector operations with increasing delays, improving stability and reliability in unstable network environments. (#1123)
+
+
+## [0.6.0] - 2026-01-15
+
+### Added
+- Added `bind` parameter to the endpoint decorator for dependency injection, enabling more flexible endpoint configurations.
+- Added name-based entity lookup in the SDK `pull` method, allowing for easier retrieval of entities.
+- Added `project_id` field and `ConnectionType` enum to the `Endpoint` class.
+- Added OpenTelemetry integration and a basic telemetry system for enhanced observability.
+- Added Github MCP Provider for connecting to Github resources.
+- Added Chatbot Intent Recognition functionality.
+
+### Changed
+- Enhanced SDK tracing with asynchronous support, smart serialization, and improved I/O display for better debugging and performance analysis.
+- MCP connection logic has been improved for increased reliability and stability.
+- MCP now supports multiple transport protocols.
+- Implemented a bucket model for improved data handling.
+
+
 ## [0.5.2] - 2025-12-18
 
 ### Added

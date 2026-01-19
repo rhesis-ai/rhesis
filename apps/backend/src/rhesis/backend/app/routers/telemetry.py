@@ -18,7 +18,7 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceSource,
     TraceSummary,
 )
-from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
+from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 
 # Legacy alias for backward compatibility
 TraceResponse = TraceIngestResponse
@@ -201,107 +201,134 @@ async def list_traces(
     """
     organization_id, user_id = tenant_context
 
-    # Query traces (no default time filter - controlled by frontend)
-    traces = crud.query_traces(
-        db=db,
-        organization_id=organization_id,
-        project_id=project_id,
-        endpoint_id=endpoint_id,
-        root_spans_only=root_spans_only,
-        trace_source=trace_source,
-        environment=environment,
-        span_name=span_name,
-        status_code=status_code,
-        start_time_after=start_time_after,
-        start_time_before=start_time_before,
-        duration_min_ms=duration_min_ms,
-        duration_max_ms=duration_max_ms,
-        test_run_id=test_run_id,
-        test_result_id=test_result_id,
-        test_id=test_id,
-        limit=limit,
-        offset=offset,
-    )
-
-    # Get total count for pagination (with same filters as query)
-    total = crud.count_traces(
-        db=db,
-        organization_id=organization_id,
-        project_id=project_id,
-        endpoint_id=endpoint_id,
-        root_spans_only=root_spans_only,
-        trace_source=trace_source,
-        environment=environment,
-        span_name=span_name,
-        status_code=status_code,
-        start_time_after=start_time_after,
-        start_time_before=start_time_before,
-        duration_min_ms=duration_min_ms,
-        duration_max_ms=duration_max_ms,
-        test_run_id=test_run_id,
-        test_result_id=test_result_id,
-        test_id=test_id,
-    )
-
-    # Convert to summaries
-    summaries = []
-    # Unpack tuple: query_traces now returns (Trace, span_count) to avoid N+1 queries
-    for trace, span_count in traces:
-        # Calculate summary fields
-        has_errors = trace.status_code == "ERROR"
-        total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
-        total_cost_usd = 0.0
-        total_cost_eur = 0.0
-        if trace.enriched_data and "costs" in trace.enriched_data:
-            total_cost_usd = trace.enriched_data["costs"].get("total_cost_usd", 0.0)
-            total_cost_eur = trace.enriched_data["costs"].get("total_cost_eur", 0.0)
-
-        # span_count is already calculated efficiently in the query using a correlated subquery
-        # This eliminates the N+1 query pattern (previously executed a COUNT for each trace)
-
-        # Get endpoint information from eagerly loaded relationships
-        trace_endpoint_id = None
-        trace_endpoint_name = None
-        if (
-            trace.test_result
-            and trace.test_result.test_configuration
-            and trace.test_result.test_configuration.endpoint
-        ):
-            endpoint = trace.test_result.test_configuration.endpoint
-            trace_endpoint_id = str(endpoint.id)
-            trace_endpoint_name = endpoint.name
-
-        summary = TraceSummary(
-            trace_id=trace.trace_id,
-            project_id=str(trace.project_id),  # Convert UUID to string
-            environment=trace.environment,
-            start_time=trace.start_time,
-            duration_ms=trace.duration_ms or 0.0,
-            span_count=span_count,  # Now reflects actual count
-            root_operation=trace.span_name,
-            status_code=trace.status_code,
-            test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
-            test_result_id=str(trace.test_result_id) if trace.test_result_id else None,
-            test_id=str(trace.test_id) if trace.test_id else None,
-            endpoint_id=trace_endpoint_id,
-            endpoint_name=trace_endpoint_name,
-            total_tokens=total_tokens if total_tokens > 0 else None,
-            total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
-            total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
-            has_errors=has_errors,
+    try:
+        # Query traces (no default time filter - controlled by frontend)
+        traces = crud.query_traces(
+            db=db,
+            organization_id=organization_id,
+            project_id=project_id,
+            endpoint_id=endpoint_id,
+            root_spans_only=root_spans_only,
+            trace_source=trace_source,
+            environment=environment,
+            span_name=span_name,
+            status_code=status_code,
+            start_time_after=start_time_after,
+            start_time_before=start_time_before,
+            duration_min_ms=duration_min_ms,
+            duration_max_ms=duration_max_ms,
+            test_run_id=test_run_id,
+            test_result_id=test_result_id,
+            test_id=test_id,
+            limit=limit,
+            offset=offset,
         )
-        summaries.append(summary)
 
-    logger.info(
-        f"Listed {len(traces)} traces for project {project_id} (total: {total}, offset: {offset})"
-    )
+        # Get total count for pagination (with same filters as query)
+        total = crud.count_traces(
+            db=db,
+            organization_id=organization_id,
+            project_id=project_id,
+            endpoint_id=endpoint_id,
+            root_spans_only=root_spans_only,
+            trace_source=trace_source,
+            environment=environment,
+            span_name=span_name,
+            status_code=status_code,
+            start_time_after=start_time_after,
+            start_time_before=start_time_before,
+            duration_min_ms=duration_min_ms,
+            duration_max_ms=duration_max_ms,
+            test_run_id=test_run_id,
+            test_result_id=test_result_id,
+            test_id=test_id,
+        )
 
-    return TraceListResponse(
-        traces=summaries,
-        total=total,
-        limit=limit,
-        offset=offset,
-    )
+        # Convert to summaries
+        summaries = []
+        # Unpack tuple: query_traces now returns (Trace, span_count) to avoid N+1 queries
+        for trace, span_count in traces:
+            # Calculate summary fields
+            has_errors = trace.status_code == "ERROR"
+            total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
+            total_cost_usd = 0.0
+            total_cost_eur = 0.0
+            if trace.enriched_data and "costs" in trace.enriched_data:
+                total_cost_usd = trace.enriched_data["costs"].get("total_cost_usd", 0.0)
+                total_cost_eur = trace.enriched_data["costs"].get("total_cost_eur", 0.0)
+
+            # span_count is already calculated efficiently in the query using a correlated subquery
+            # This eliminates the N+1 query pattern (previously executed a COUNT for each trace)
+
+            # Get endpoint information from eagerly loaded relationships
+            trace_endpoint_id = None
+            trace_endpoint_name = None
+            if (
+                trace.test_result
+                and trace.test_result.test_configuration
+                and trace.test_result.test_configuration.endpoint
+            ):
+                endpoint = trace.test_result.test_configuration.endpoint
+                trace_endpoint_id = str(endpoint.id)
+                trace_endpoint_name = endpoint.name
+
+            summary = TraceSummary(
+                trace_id=trace.trace_id,
+                project_id=str(trace.project_id),  # Convert UUID to string
+                environment=trace.environment,
+                start_time=trace.start_time,
+                duration_ms=trace.duration_ms or 0.0,
+                span_count=span_count,  # Now reflects actual count
+                root_operation=trace.span_name,
+                status_code=trace.status_code,
+                test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
+                test_result_id=str(trace.test_result_id) if trace.test_result_id else None,
+                test_id=str(trace.test_id) if trace.test_id else None,
+                endpoint_id=trace_endpoint_id,
+                endpoint_name=trace_endpoint_name,
+                total_tokens=total_tokens if total_tokens > 0 else None,
+                total_cost_usd=total_cost_usd if total_cost_usd > 0 else None,
+                total_cost_eur=total_cost_eur if total_cost_eur > 0 else None,
+                has_errors=has_errors,
+            )
+            summaries.append(summary)
+
+        logger.info(
+            f"Listed {len(traces)} traces for project {project_id} "
+            f"(total: {total}, offset: {offset})"
+        )
+
+        return TraceListResponse(
+            traces=summaries,
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    except Exception as e:
+        # Check if it's a database permission error
+        error_msg = str(e).lower()
+        if "permission denied" in error_msg or "insufficient privilege" in error_msg:
+            logger.error(
+                f"Database permission error while listing traces for org {organization_id}: {e}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Database access denied. Please contact support to resolve permission issues."
+                ),
+            )
+
+        # Log and return generic error for other database issues
+        logger.error(
+            f"Failed to list traces for org {organization_id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve traces. Please try again later.",
+        )
 
 
 @router.get("/traces/{trace_id}", response_model=TraceDetailResponse)
@@ -331,120 +358,154 @@ async def get_trace(
     """
     organization_id, user_id = tenant_context
 
-    # Fetch all spans for trace with eager loading of relationships
-    from sqlalchemy.orm import joinedload
+    try:
+        # Fetch all spans for trace with eager loading of relationships
+        from sqlalchemy.orm import joinedload
 
-    spans = crud.get_trace_by_id(
-        db=db,
-        trace_id=trace_id,
-        project_id=project_id,
-        organization_id=organization_id,
-        eager_load=["project", "test_run", "test_result", "test"],
-    )
+        spans = crud.get_trace_by_id(
+            db=db,
+            trace_id=trace_id,
+            project_id=project_id,
+            organization_id=organization_id,
+            eager_load=["project", "test_run", "test_result", "test"],
+        )
 
-    # Additional eager load for endpoint via test_result.test_configuration.endpoint
-    # This is done separately since it's a nested relationship
-    if spans and spans[0].test_result_id:
-        from rhesis.backend.app.models.test_configuration import TestConfiguration
-        from rhesis.backend.app.models.test_result import TestResult
+        # Additional eager load for endpoint via test_result.test_configuration.endpoint
+        # This is done separately since it's a nested relationship
+        if spans and spans[0].test_result_id:
+            from rhesis.backend.app.models.test_configuration import TestConfiguration
+            from rhesis.backend.app.models.test_result import TestResult
 
-        # Fetch test_result with nested eager loading and explicitly update the relationship
-        test_result_with_endpoint = (
-            db.query(TestResult)
-            .filter(TestResult.id == spans[0].test_result_id)
-            .options(
-                joinedload(TestResult.test_configuration).joinedload(TestConfiguration.endpoint)
+            # Fetch test_result with nested eager loading and explicitly update the relationship
+            test_result_with_endpoint = (
+                db.query(TestResult)
+                .filter(TestResult.id == spans[0].test_result_id)
+                .options(
+                    joinedload(TestResult.test_configuration).joinedload(TestConfiguration.endpoint)
+                )
+                .first()
             )
-            .first()
+
+            # Explicitly update the relationship instead of relying on identity map
+            if test_result_with_endpoint:
+                spans[0].test_result = test_result_with_endpoint
+
+        if not spans:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"Trace {trace_id} not found"
+            )
+
+        # Build proper span tree
+        from rhesis.backend.app.services.telemetry.tree_builder import build_span_tree
+
+        root_spans = build_span_tree(spans)
+
+        # Calculate trace-level metrics
+        total_duration = max(span.end_time for span in spans) - min(
+            span.start_time for span in spans
+        )
+        total_tokens = sum(
+            span.attributes.get("ai.llm.tokens.total", 0) if span.attributes else 0
+            for span in spans
+        )
+        error_count = sum(1 for span in spans if span.status_code == "ERROR")
+
+        # Extract costs from enriched data
+        total_cost = 0.0
+        if spans[0].enriched_data and "costs" in spans[0].enriched_data:
+            total_cost = spans[0].enriched_data["costs"].get("total_cost_usd", 0.0)
+
+        # Build relationship objects from first span
+        from rhesis.backend.app.schemas.endpoint import Endpoint
+        from rhesis.backend.app.schemas.project import Project
+        from rhesis.backend.app.schemas.test import Test
+        from rhesis.backend.app.schemas.test_result import TestResult
+        from rhesis.backend.app.schemas.test_run import TestRun
+
+        first_span = spans[0]
+
+        # Project (always present)
+        project_obj = None
+        if first_span.project:
+            project_obj = Project.model_validate(first_span.project)
+
+        # Endpoint (if available via test_result.test_configuration.endpoint)
+        endpoint_obj = None
+        if (
+            first_span.test_result
+            and hasattr(first_span.test_result, "test_configuration")
+            and first_span.test_result.test_configuration
+            and hasattr(first_span.test_result.test_configuration, "endpoint")
+            and first_span.test_result.test_configuration.endpoint
+        ):
+            endpoint_obj = Endpoint.model_validate(
+                first_span.test_result.test_configuration.endpoint
+            )
+
+        # Test run (if from test execution)
+        test_run_obj = None
+        if first_span.test_run:
+            test_run_obj = TestRun.model_validate(first_span.test_run)
+
+        # Test result (if from test execution)
+        test_result_obj = None
+        if first_span.test_result:
+            test_result_obj = TestResult.model_validate(first_span.test_result)
+
+        # Test (if from test execution)
+        test_obj = None
+        if first_span.test:
+            test_obj = Test.model_validate(first_span.test)
+
+        logger.info(f"Retrieved trace {trace_id} with {len(spans)} span(s)")
+
+        return TraceDetailResponse(
+            trace_id=first_span.trace_id,
+            project_id=str(first_span.project_id),  # Convert UUID to string
+            environment=first_span.environment,
+            start_time=min(span.start_time for span in spans),
+            end_time=max(span.end_time for span in spans),
+            duration_ms=total_duration.total_seconds() * 1000,
+            span_count=len(spans),
+            error_count=error_count,
+            total_tokens=total_tokens,
+            total_cost_usd=total_cost,
+            root_spans=root_spans,
+            # Add relationship objects
+            project=project_obj,
+            endpoint=endpoint_obj,
+            test_run=test_run_obj,
+            test_result=test_result_obj,
+            test=test_obj,
         )
 
-        # Explicitly update the relationship instead of relying on identity map
-        if test_result_with_endpoint:
-            spans[0].test_result = test_result_with_endpoint
+    except HTTPException:
+        # Re-raise HTTPExceptions (like 404) as-is
+        raise
+    except Exception as e:
+        # Check if it's a database permission error
+        error_msg = str(e).lower()
+        if "permission denied" in error_msg or "insufficient privilege" in error_msg:
+            logger.error(
+                f"Database permission error while retrieving trace {trace_id}: {e}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Database access denied. Please contact support to resolve permission issues."
+                ),
+            )
 
-    if not spans:
+        # Log and return generic error for other database issues
+        logger.error(
+            f"Failed to retrieve trace {trace_id}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Trace {trace_id} not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve trace details. Please try again later.",
         )
-
-    # Build proper span tree
-    from rhesis.backend.app.services.telemetry.tree_builder import build_span_tree
-
-    root_spans = build_span_tree(spans)
-
-    # Calculate trace-level metrics
-    total_duration = max(span.end_time for span in spans) - min(span.start_time for span in spans)
-    total_tokens = sum(
-        span.attributes.get("ai.llm.tokens.total", 0) if span.attributes else 0 for span in spans
-    )
-    error_count = sum(1 for span in spans if span.status_code == "ERROR")
-
-    # Extract costs from enriched data
-    total_cost = 0.0
-    if spans[0].enriched_data and "costs" in spans[0].enriched_data:
-        total_cost = spans[0].enriched_data["costs"].get("total_cost_usd", 0.0)
-
-    # Build relationship objects from first span
-    from rhesis.backend.app.schemas.endpoint import Endpoint
-    from rhesis.backend.app.schemas.project import Project
-    from rhesis.backend.app.schemas.test import Test
-    from rhesis.backend.app.schemas.test_result import TestResult
-    from rhesis.backend.app.schemas.test_run import TestRun
-
-    first_span = spans[0]
-
-    # Project (always present)
-    project_obj = None
-    if first_span.project:
-        project_obj = Project.model_validate(first_span.project)
-
-    # Endpoint (if available via test_result.test_configuration.endpoint)
-    endpoint_obj = None
-    if (
-        first_span.test_result
-        and hasattr(first_span.test_result, "test_configuration")
-        and first_span.test_result.test_configuration
-        and hasattr(first_span.test_result.test_configuration, "endpoint")
-        and first_span.test_result.test_configuration.endpoint
-    ):
-        endpoint_obj = Endpoint.model_validate(first_span.test_result.test_configuration.endpoint)
-
-    # Test run (if from test execution)
-    test_run_obj = None
-    if first_span.test_run:
-        test_run_obj = TestRun.model_validate(first_span.test_run)
-
-    # Test result (if from test execution)
-    test_result_obj = None
-    if first_span.test_result:
-        test_result_obj = TestResult.model_validate(first_span.test_result)
-
-    # Test (if from test execution)
-    test_obj = None
-    if first_span.test:
-        test_obj = Test.model_validate(first_span.test)
-
-    logger.info(f"Retrieved trace {trace_id} with {len(spans)} span(s)")
-
-    return TraceDetailResponse(
-        trace_id=first_span.trace_id,
-        project_id=str(first_span.project_id),  # Convert UUID to string
-        environment=first_span.environment,
-        start_time=min(span.start_time for span in spans),
-        end_time=max(span.end_time for span in spans),
-        duration_ms=total_duration.total_seconds() * 1000,
-        span_count=len(spans),
-        error_count=error_count,
-        total_tokens=total_tokens,
-        total_cost_usd=total_cost,
-        root_spans=root_spans,
-        # Add relationship objects
-        project=project_obj,
-        endpoint=endpoint_obj,
-        test_run=test_run_obj,
-        test_result=test_result_obj,
-        test=test_obj,
-    )
 
 
 @router.get("/metrics", response_model=TraceMetricsResponse)
@@ -481,91 +542,121 @@ async def get_metrics(
     """
     organization_id, user_id = tenant_context
 
-    # Query all matching spans (no default time filter - controlled by frontend)
-    spans_with_counts = crud.query_traces(
-        db=db,
-        organization_id=organization_id,
-        project_id=project_id,
-        root_spans_only=False,  # Metrics need all spans for accurate calculations
-        trace_source=TraceSource.ALL,  # Include all trace sources
-        environment=environment,
-        start_time_after=start_time_after,
-        start_time_before=start_time_before,
-        limit=10000,  # Large limit for metrics calculation
-        offset=0,
-    )
+    try:
+        # Query all matching spans (no default time filter - controlled by frontend)
+        spans_with_counts = crud.query_traces(
+            db=db,
+            organization_id=organization_id,
+            project_id=project_id,
+            root_spans_only=False,  # Metrics need all spans for accurate calculations
+            trace_source=TraceSource.ALL,  # Include all trace sources
+            environment=environment,
+            start_time_after=start_time_after,
+            start_time_before=start_time_before,
+            limit=10000,  # Large limit for metrics calculation
+            offset=0,
+        )
 
-    # Extract just the Trace objects (discard span_count since metrics recalculate)
-    spans = [trace for trace, _ in spans_with_counts]
+        # Extract just the Trace objects (discard span_count since metrics recalculate)
+        spans = [trace for trace, _ in spans_with_counts]
 
-    if not spans:
+        if not spans:
+            return TraceMetricsResponse(
+                total_traces=0,
+                total_spans=0,
+                total_tokens=0,
+                total_cost_usd=0,
+                error_rate=0,
+                avg_duration_ms=0,
+                p50_duration_ms=0,
+                p95_duration_ms=0,
+                p99_duration_ms=0,
+                operation_breakdown={},
+            )
+
+        # Count unique traces
+        trace_ids = set(span.trace_id for span in spans)
+        total_traces = len(trace_ids)
+        total_spans = len(spans)
+
+        # Calculate token metrics (LLM spans only)
+        total_tokens = sum(
+            span.attributes.get("ai.llm.tokens.total", 0) if span.attributes else 0
+            for span in spans
+        )
+
+        # Calculate cost metrics
+        total_cost = 0.0
+        for span in spans:
+            if span.enriched_data and "costs" in span.enriched_data:
+                total_cost += span.enriched_data["costs"].get("total_cost_usd", 0.0)
+
+        # Calculate error rate
+        error_count = sum(1 for span in spans if span.status_code == "ERROR")
+        error_rate = error_count / total_spans if total_spans > 0 else 0
+
+        # Calculate latency percentiles
+        durations = sorted(span.duration_ms or 0.0 for span in spans)
+
+        def percentile(values: List[float], p: int) -> float:
+            if not values:
+                return 0.0
+            index = int((p / 100) * len(values))
+            index = min(index, len(values) - 1)
+            return values[index]
+
+        p50_duration = percentile(durations, 50)
+        p95_duration = percentile(durations, 95)
+        p99_duration = percentile(durations, 99)
+        avg_duration = sum(durations) / len(durations) if durations else 0
+
+        # Operation type breakdown
+        operation_breakdown = {}
+        for span in spans:
+            op_type = (
+                span.attributes.get("ai.operation.type", "unknown")
+                if span.attributes
+                else "unknown"
+            )
+            operation_breakdown[op_type] = operation_breakdown.get(op_type, 0) + 1
+
+        logger.info(f"Calculated metrics for project {project_id}")
+
         return TraceMetricsResponse(
-            total_traces=0,
-            total_spans=0,
-            total_tokens=0,
-            total_cost_usd=0,
-            error_rate=0,
-            avg_duration_ms=0,
-            p50_duration_ms=0,
-            p95_duration_ms=0,
-            p99_duration_ms=0,
-            operation_breakdown={},
+            total_traces=total_traces,
+            total_spans=total_spans,
+            total_tokens=total_tokens,
+            total_cost_usd=round(total_cost, 6),
+            error_rate=round(error_rate, 4),
+            avg_duration_ms=round(avg_duration, 2),
+            p50_duration_ms=round(p50_duration, 2),
+            p95_duration_ms=round(p95_duration, 2),
+            p99_duration_ms=round(p99_duration, 2),
+            operation_breakdown=operation_breakdown,
         )
 
-    # Count unique traces
-    trace_ids = set(span.trace_id for span in spans)
-    total_traces = len(trace_ids)
-    total_spans = len(spans)
+    except Exception as e:
+        # Check if it's a database permission error
+        error_msg = str(e).lower()
+        if "permission denied" in error_msg or "insufficient privilege" in error_msg:
+            logger.error(
+                f"Database permission error while calculating metrics "
+                f"for project {project_id}: {e}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Database access denied. Please contact support to resolve permission issues."
+                ),
+            )
 
-    # Calculate token metrics (LLM spans only)
-    total_tokens = sum(
-        span.attributes.get("ai.llm.tokens.total", 0) if span.attributes else 0 for span in spans
-    )
-
-    # Calculate cost metrics
-    total_cost = 0.0
-    for span in spans:
-        if span.enriched_data and "costs" in span.enriched_data:
-            total_cost += span.enriched_data["costs"].get("total_cost_usd", 0.0)
-
-    # Calculate error rate
-    error_count = sum(1 for span in spans if span.status_code == "ERROR")
-    error_rate = error_count / total_spans if total_spans > 0 else 0
-
-    # Calculate latency percentiles
-    durations = sorted(span.duration_ms or 0.0 for span in spans)
-
-    def percentile(values: List[float], p: int) -> float:
-        if not values:
-            return 0.0
-        index = int((p / 100) * len(values))
-        index = min(index, len(values) - 1)
-        return values[index]
-
-    p50_duration = percentile(durations, 50)
-    p95_duration = percentile(durations, 95)
-    p99_duration = percentile(durations, 99)
-    avg_duration = sum(durations) / len(durations) if durations else 0
-
-    # Operation type breakdown
-    operation_breakdown = {}
-    for span in spans:
-        op_type = (
-            span.attributes.get("ai.operation.type", "unknown") if span.attributes else "unknown"
+        # Log and return generic error for other database issues
+        logger.error(
+            f"Failed to calculate metrics for project {project_id}: {e}",
+            exc_info=True,
         )
-        operation_breakdown[op_type] = operation_breakdown.get(op_type, 0) + 1
-
-    logger.info(f"Calculated metrics for project {project_id}")
-
-    return TraceMetricsResponse(
-        total_traces=total_traces,
-        total_spans=total_spans,
-        total_tokens=total_tokens,
-        total_cost_usd=round(total_cost, 6),
-        error_rate=round(error_rate, 4),
-        avg_duration_ms=round(avg_duration, 2),
-        p50_duration_ms=round(p50_duration, 2),
-        p95_duration_ms=round(p95_duration, 2),
-        p99_duration_ms=round(p99_duration, 2),
-        operation_breakdown=operation_breakdown,
-    )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve trace metrics. Please try again later.",
+        )

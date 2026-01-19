@@ -1,8 +1,16 @@
 """Pydantic schemas for connector messages."""
 
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+
+class TestStatus(str, Enum):
+    """Test execution status values."""
+
+    SUCCESS = "success"
+    ERROR = "error"
 
 
 class FunctionParameter(BaseModel):
@@ -46,7 +54,7 @@ class TestResultMessage(BaseModel):
 
     type: str = "test_result"
     test_run_id: str
-    status: str  # "success" or "error"
+    status: TestStatus  # Validated enum: "success" or "error"
     output: Optional[Any] = None
     error: Optional[str] = None
     duration_ms: float

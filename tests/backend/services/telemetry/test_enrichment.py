@@ -8,7 +8,7 @@ import pytest
 from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.schemas.enrichment import TokenCosts
 from rhesis.backend.app.services.exchange_rate import get_usd_to_eur_rate
-from rhesis.backend.app.services.telemetry.enricher import TraceEnricher
+from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 from rhesis.backend.app.services.telemetry.enrichment import (
     calculate_token_costs,
     detect_anomalies,
@@ -189,7 +189,7 @@ class TestCalculateTokenCosts:
         """Test that EUR conversion uses the exchange rate from the service."""
         # Mock the exchange rate service to return a test rate
         mocker.patch(
-            "rhesis.backend.app.services.telemetry.enrichment.get_usd_to_eur_rate",
+            "rhesis.backend.app.services.telemetry.enrichment.core.get_usd_to_eur_rate",
             return_value=0.85,
         )
 
@@ -502,7 +502,7 @@ class TestTraceEnricher:
 
         # Mock get_trace_by_id to return span with cached data
         mock_get_trace = mocker.patch(
-            "rhesis.backend.app.services.telemetry.enricher.get_trace_by_id",
+            "rhesis.backend.app.services.telemetry.enrichment.processor.get_trace_by_id",
             return_value=[mock_span],
         )
 
@@ -545,13 +545,13 @@ class TestTraceEnricher:
 
         # Mock get_trace_by_id
         mock_get_trace = mocker.patch(
-            "rhesis.backend.app.services.telemetry.enricher.get_trace_by_id",
+            "rhesis.backend.app.services.telemetry.enrichment.processor.get_trace_by_id",
             return_value=[mock_span],
         )
 
         # Mock mark_trace_processed
         mock_mark = mocker.patch(
-            "rhesis.backend.app.services.telemetry.enricher.mark_trace_processed"
+            "rhesis.backend.app.services.telemetry.enrichment.processor.mark_trace_processed"
         )
 
         enricher = TraceEnricher(mock_db)
@@ -576,7 +576,7 @@ class TestTraceEnricher:
 
         # Mock get_trace_by_id to return empty list
         mock_get_trace = mocker.patch(
-            "rhesis.backend.app.services.telemetry.enricher.get_trace_by_id", return_value=[]
+            "rhesis.backend.app.services.telemetry.enrichment.processor.get_trace_by_id", return_value=[]
         )
 
         enricher = TraceEnricher(mock_db)

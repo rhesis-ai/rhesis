@@ -186,7 +186,7 @@ async def create_invocation_trace(
         )
 
         # Store span and trigger enrichment
-        from rhesis.backend.app.services.telemetry.enrichment_service import EnrichmentService
+        from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 
         enrichment_service = EnrichmentService(db)
         stored_spans, _, _ = enrichment_service.create_and_enrich_spans(
