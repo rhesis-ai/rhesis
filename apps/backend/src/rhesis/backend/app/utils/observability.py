@@ -1,13 +1,13 @@
 """Observability utilities for Rhesis backend."""
 
 import os
-from functools import partial
 from typing import Dict, Optional
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.logging import logger
 from rhesis.sdk import RhesisClient
+from rhesis.sdk.decorators import bind_context
 
 # Global RhesisClient instance (initialized at module import time)
 rhesis_client: Optional[RhesisClient] = None
@@ -17,8 +17,8 @@ def initialize_rhesis_client() -> Optional[RhesisClient]:
     """
     Initialize RhesisClient for observability.
 
-    When RHESIS_CONNECTOR_DISABLE=true, this will return a DisabledClient that
-    performs no operations but maintains the same interface.
+    When RHESIS_CONNECTOR_DISABLE is enabled (true|1|yes|on), this will return a 
+    DisabledClient that performs no operations but maintains the same interface.
 
     Returns:
         Initialized RhesisClient instance (or DisabledClient), or None if initialization fails
@@ -29,7 +29,7 @@ def initialize_rhesis_client() -> Optional[RhesisClient]:
         return rhesis_client
 
     try:
-        # Note: When RHESIS_CONNECTOR_DISABLE=true, RhesisClient() returns a DisabledClient
+        # Note: When RHESIS_CONNECTOR_DISABLE is enabled, RhesisClient() returns a DisabledClient
         # that accepts any parameters and performs no operations
         rhesis_client = RhesisClient(
             project_id=os.getenv("RHESIS_PROJECT_ID"),
@@ -59,7 +59,7 @@ def get_test_context() -> Dict[str, any]:
     """
     Get test context bindings for endpoint decorator with proper resource management.
 
-    Uses generator functions (yield) to provide dependencies that need cleanup.
+    Uses bind_context and generator functions to provide dependencies that need cleanup.
     The @endpoint decorator will automatically handle them as context managers,
     just like FastAPI does. Database sessions are properly closed after use.
 
@@ -75,7 +75,7 @@ def get_test_context() -> Dict[str, any]:
         Dictionary with bindings suitable for @endpoint bind parameter:
         - organization_id: Static organization ID from environment
         - user_id: Static user ID from environment
-        - db: Generator-based dependency for database session (auto-cleanup)
+        - db: Context manager for database session (auto-cleanup via bind_context)
         - user: Generator-based dependency for User object (auto-cleanup)
     """
     # Static values from environment
@@ -100,7 +100,7 @@ def get_test_context() -> Dict[str, any]:
     return {
         "organization_id": org_id,  # Static value
         "user_id": user_id,  # Static value
-        # Use partial to bind parameters - decorator handles context manager cleanup
-        "db": partial(get_db_with_tenant_variables, org_id, user_id),
+        # Use bind_context to create fresh context manager per call
+        "db": bind_context(get_db_with_tenant_variables, org_id, user_id),
         "user": user_dependency,  # Generator-based dependency
     }
