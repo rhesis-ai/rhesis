@@ -31,9 +31,10 @@ export function getOpenGraphImage(path, defaultImage = siteConfig.defaultImage) 
 export function extractDescription(content) {
   if (!content) return null
 
-  // Remove MDX imports, code blocks, inline code, and MDX components
+  // Remove MDX imports, exports, code blocks, inline code, and MDX components
   let cleanContent = content
     .replace(/^import\s+.*$/gm, '')
+    .replace(/^export\s+.*$/gm, '')
     .replace(/```[\s\S]*?```/g, '')
     .replace(/`[^`]+`/g, '')
     .replace(/<[^>]+>/g, '')
