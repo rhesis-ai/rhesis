@@ -1,0 +1,279 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Trace Lifecycle
+
+This page covers the complete trace lifecycle, including the race condition problem and the hybrid linking solution.
+
+## The Complete Flow
+
+### Timeline for Fast Test (&lt; 5 seconds)
+
+<CodeBlock filename="Fast Test Timeline" language="text">
+{`T=0ms     Test starts
+T=2000ms  Test completes → create test_result
+T=2010ms  Linking attempt #1 → Finds 0 traces ❌ (not exported yet)
+T=5000ms  BatchSpanProcessor exports spans → backend receives
+T=5015ms  Spans stored in database
+T=5020ms  Linking attempt #2 → Finds test_result, links traces ✅
+T=5030ms  Enrichment queued (Celery) or runs sync
+T=5080ms  Enrichment cached
+T=5090ms  User queries trace → 10ms (cached) ✅
+
+Total: ~5 seconds from test start to queryable enriched trace`}
+</CodeBlock>
+
+### Key Phases
+
+<Mermaid chart={`flowchart TD
+    subgraph Phase1["1. Test Execution"]
+        A["Test executor invokes<br/>SDK endpoint"]
+        B["SDK function executes"]
+        C["Test result created"]
+    end
+    
+    subgraph Phase2["2. Span Creation"]
+        D["Tracer wraps function"]
+        E["Extract test context<br/>from kwargs"]
+        F["Create OTEL spans<br/>with attributes"]
+    end
+    
+    subgraph Phase3["3. Span Export (5s delay)"]
+        G["BatchSpanProcessor<br/>collects spans"]
+        H["Export batch via<br/>OTLP/HTTP"]
+    end
+    
+    subgraph Phase4["4. Backend Processing"]
+        I["Validate OTLP format"]
+        J["Store in PostgreSQL"]
+        K["Trigger linking #2"]
+        L["Enqueue enrichment"]
+    end
+    
+    A --> B --> C
+    B --> D --> E --> F
+    F --> G --> H
+    H --> I --> J
+    J --> K
+    J --> L`} />
+
+## The Race Condition Problem
+
+### The Issue
+
+OpenTelemetry's `BatchSpanProcessor` batches spans and exports every **5 seconds**. This creates unpredictable timing:
+
+**Fast Tests (&lt; 5s)**: Test result created BEFORE spans exported
+
+<CodeBlock filename="Fast Test Issue" language="text">
+{`T=2s: test_result created
+T=5s: spans exported ← Too late for linking attempt #1!`}
+</CodeBlock>
+
+**Slow Tests (&gt; 5s)**: Spans exported BEFORE test result created
+
+<CodeBlock filename="Slow Test Issue" language="text">
+{`T=5s: spans exported
+T=10s: test_result created ← Too late for linking attempt #2!`}
+</CodeBlock>
+
+### The Solution: Hybrid Linking
+
+**Link traces at TWO strategic points** to handle both scenarios:
+
+<Mermaid chart={`flowchart LR
+    subgraph Scenario1["Fast Tests"]
+        TR1["Test Result<br/>Created (T=2s)"]
+        SP1["Spans Exported<br/>(T=5s)"]
+        L1["Link #2<br/>(After spans)"]
+    end
+    
+    subgraph Scenario2["Slow Tests"]
+        SP2["Spans Exported<br/>(T=5s)"]
+        TR2["Test Result<br/>Created (T=10s)"]
+        L2["Link #1<br/>(After result)"]
+    end
+    
+    TR1 --> SP1 --> L1
+    SP2 --> TR2 --> L2`} />
+
+## Linking Points
+
+### Point #1: After Test Result Creation
+
+**Location**: `results.py` → `link_traces_for_test_result()`
+
+**Purpose**: Catch traces that arrived BEFORE test result (slow tests)
+
+<CodeBlock filename="Linking Point #1" language="python">
+{`# After creating test_result in results.py
+linking_service.link_traces_for_test_result(
+    test_run_id=test_run_id,
+    test_id=test_id,
+    test_result_id=str(result_id),
+    organization_id=organization_id,
+)
+# This catches traces from slow tests (>5s)
+# where spans arrived before the test result was created`}
+</CodeBlock>
+
+### Point #2: After Span Ingestion
+
+**Location**: `telemetry.py` → `link_traces_for_incoming_batch()`
+
+**Purpose**: Catch traces that arrived AFTER test result (fast tests)
+
+<CodeBlock filename="Linking Point #2" language="python">
+{`# After storing spans in telemetry.py
+linking_service.link_traces_for_incoming_batch(
+    spans=stored_spans,
+    organization_id=organization_id,
+)
+# This catches traces from fast tests (<5s)
+# where test result was created before spans arrived`}
+</CodeBlock>
+
+## Idempotency
+
+Both linking points use the same CRUD operation with **idempotency check**:
+
+<CodeBlock filename="Idempotent Update" language="sql">
+{`-- Only update traces where test_result_id is NULL
+UPDATE traces
+SET test_result_id = :new_test_result_id
+WHERE test_run_id = :test_run_id
+  AND test_id = :test_id
+  AND test_result_id IS NULL  -- Idempotency check
+  AND organization_id = :organization_id`}
+</CodeBlock>
+
+**Safe to call multiple times:**
+
+- First call: Updates N traces
+- Second call: Updates 0 traces (already linked)
+
+**Result**: 100% linking success rate regardless of test duration.
+
+## Test Execution Context
+
+Context passed from test executor → SDK → spans:
+
+<CodeBlock filename="Test Context" language="python">
+{`test_execution_context = {
+    "test_run_id": "uuid",              # Which test run
+    "test_id": "uuid",                  # Which test definition
+    "test_configuration_id": "uuid",    # Which configuration
+    # test_result_id added later (after result created)
+}`}
+</CodeBlock>
+
+This context is stored as span attributes:
+
+<CodeBlock filename="Span Attributes" language="json">
+{`{
+    "rhesis.test.run_id": "uuid",
+    "rhesis.test.id": "uuid",
+    "rhesis.test.configuration_id": "uuid"
+}`}
+</CodeBlock>
+
+## Timing Summary
+
+### Critical Timing Points
+
+| Point | Timing | Impact |
+|-------|--------|--------|
+| BatchSpanProcessor delay | 5 seconds | Largest delay, unavoidable |
+| Test execution | Variable | Determines which scenario |
+| Span ingestion | ~10-20ms | Fast |
+| Enrichment | ~50-100ms | Background |
+| Query | ~10ms | Cached |
+
+### Why 5 Seconds?
+
+The 5-second batch delay is a **trade-off**:
+
+| Shorter Delay | Longer Delay |
+|---------------|--------------|
+| More HTTP requests | Fewer HTTP requests |
+| Lower latency | Higher latency |
+| Higher network overhead | Lower network overhead |
+| Better real-time visibility | Batching efficiency |
+
+OpenTelemetry's default of 5 seconds optimizes for **production efficiency** over real-time visibility.
+
+<Callout type="warning">
+  **Cannot Avoid**: The 5-second delay is fundamental to OpenTelemetry's batch processing design. The hybrid linking strategy is the mitigation.
+</Callout>
+
+## Error Handling
+
+### Workers Unavailable
+
+**Detection**: `celery_app.control.inspect()`
+
+**Fallback**: Sync enrichment
+
+**Impact**: Slower ingestion, no data loss
+
+### Database Failure
+
+**Handling**: Return 500 error
+
+**Impact**: Spans lost (SDK retries once)
+
+### Linking Failure
+
+**Handling**: Log error, don't fail ingestion
+
+**Impact**: Traces stored but not linked
+
+### Enrichment Failure
+
+**Handling**: Skip problematic spans
+
+**Impact**: Partial enrichment (other spans still enriched)
+
+## Debugging Guide
+
+### Traces Not Appearing?
+
+1. Check SDK export: Is `BatchSpanProcessor` configured?
+2. Check backend: Is `/telemetry/traces` receiving requests?
+3. Check database: Are spans stored in `traces` table?
+4. Wait 5 seconds for batching delay
+
+### Traces Not Linked to Test Results?
+
+1. Check test context: Are spans created with `rhesis.test.*` attributes?
+2. Check linking logs: Are both linking attempts running?
+3. Check database: Is `test_result_id` NULL or set?
+
+<CodeBlock filename="Debug Query" language="sql">
+{`-- Check if traces have test context but no linking
+SELECT trace_id, span_name, 
+       attributes->>'rhesis.test.run_id' as test_run_id,
+       test_result_id
+FROM traces
+WHERE attributes->>'rhesis.test.run_id' IS NOT NULL
+  AND test_result_id IS NULL
+ORDER BY created_at DESC
+LIMIT 10;`}
+</CodeBlock>
+
+### Enrichment Not Happening?
+
+1. Check workers: Are Celery workers running?
+2. Check logs: Is enrichment being queued or run sync?
+3. Check database: Is `enriched_data` column populated?
+
+<CodeBlock filename="Check Enrichment" language="sql">
+{`-- Check enrichment status
+SELECT trace_id, 
+       enriched_data IS NOT NULL as is_enriched,
+       enriched_data->>'enriched_at' as enriched_at
+FROM traces
+WHERE created_at > NOW() - INTERVAL '1 hour'
+ORDER BY created_at DESC
+LIMIT 10;`}
+</CodeBlock>
+

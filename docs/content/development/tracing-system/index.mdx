@@ -1,0 +1,126 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Tracing System
+
+Technical documentation for the Rhesis tracing system architecture and implementation.
+
+<Callout type="info">
+  **For SDK Users**: See the [Tracing documentation](/tracing) for usage guides. This section covers the internal architecture and design for developers and contributors.
+</Callout>
+
+## Overview
+
+The tracing system captures OpenTelemetry-compliant traces from SDK-instrumented applications. It supports two operating modes:
+
+- **Test Mode**: Traces linked to test runs, test cases, and test results
+- **Production Mode**: Traces from live application monitoring
+
+## High-Level Architecture
+
+<Mermaid chart={`flowchart TD
+    subgraph SDK["SDK (Client)"]
+        D["@endpoint / @observe"]
+        T["OpenTelemetry Tracer"]
+        B["BatchSpanProcessor<br/>(5s batching)"]
+        E["OTLP Exporter"]
+    end
+
+    subgraph Backend["Backend (Server)"]
+        I["POST /telemetry/traces"]
+        S["PostgreSQL"]
+        L["Linking Service"]
+        EN["Enrichment"]
+    end
+
+    D --> T --> B --> E
+    E -->|"OTLP/HTTP"| I
+    I --> S
+    I --> L
+    I --> EN
+    EN --> S
+    L --> S`} />
+
+## Key Technologies
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| SDK Tracer | OpenTelemetry Python | Span creation with AI semantic conventions |
+| Batch Processor | OTEL BatchSpanProcessor | Batches spans, exports every 5 seconds |
+| Transport | OTLP/HTTP | JSON payload to `/telemetry/traces` |
+| Storage | PostgreSQL + JSONB | Flexible span storage with full-text search |
+| Enrichment | Celery + LiteLLM | Cost calculation, anomaly detection |
+| Linking | Service Layer | Hybrid strategy for test context linking |
+
+## Communication Channels
+
+The SDK uses **two independent channels**:
+
+| Channel | Protocol | Purpose | Used By |
+|---------|----------|---------|---------|
+| Tracing | HTTP POST | Export OpenTelemetry spans | `@observe`, `@endpoint` |
+| Testing | WebSocket | Remote test invocation | `@endpoint` only |
+
+<Mermaid chart={`flowchart TD
+    subgraph App["Your Application"]
+        O["@observe()<br/>trace_only()"]
+        E["@endpoint()<br/>remote_testable()"]
+    end
+    
+    subgraph Backend["Backend (localhost:8080)"]
+        T["POST /telemetry/traces<br/>(Trace ingestion)"]
+        WS["ws://localhost:8080<br/>(Remote Testing)"]
+    end
+    
+    O -->|"HTTP POST<br/>/telemetry/traces"| T
+    E -->|"WebSocket"| WS
+    E -->|"HTTP POST<br/>/telemetry/traces"| T`} />
+
+## Design Principles
+
+1. **OpenTelemetry Standard** - Industry-standard OTLP protocol for interoperability
+2. **Async-First with Sync Fallback** - Optimal in production, works without workers in development
+3. **Hybrid Linking** - Two strategic linking points to handle race conditions
+4. **Idempotent Operations** - Safe to call linking multiple times
+5. **Cache Enrichment** - Compute once, query fast
+6. **Graceful Degradation** - System works even when components fail
+
+## Performance Characteristics
+
+| Operation | Timing | Notes |
+|-----------|--------|-------|
+| Span creation (SDK) | ~0.1ms | Per span, negligible overhead |
+| BatchProcessor delay | 5000ms | Fixed by OpenTelemetry design |
+| Span export (OTLP) | ~10ms | Network call |
+| Backend ingestion | ~10-20ms | With async enrichment |
+| Enrichment calculation | ~50-100ms | Background (Celery) |
+| Trace query | ~10ms | Cached enrichment |
+| **End-to-end** | **~5 seconds** | Test start to queryable trace |
+
+## Key Files
+
+### SDK
+
+| File | Purpose |
+|------|---------|
+| `sdk/src/rhesis/sdk/telemetry/tracer.py` | Core `Tracer` class |
+| `sdk/src/rhesis/sdk/telemetry/exporter.py` | OTLP HTTP exporter |
+| `sdk/src/rhesis/sdk/telemetry/attributes.py` | AI semantic conventions |
+| `sdk/src/rhesis/sdk/decorators/observe.py` | `@observe` decorator |
+| `sdk/src/rhesis/sdk/decorators/endpoint.py` | `@endpoint` decorator |
+
+### Backend
+
+| File | Purpose |
+|------|---------|
+| `apps/backend/.../routers/telemetry.py` | Ingestion endpoint |
+| `apps/backend/.../services/telemetry/linking_service.py` | Hybrid linking logic |
+| `apps/backend/.../services/telemetry/enricher.py` | Cost/anomaly enrichment |
+| `apps/backend/.../tasks/execution/executors/results.py` | Test result processing |
+| `apps/backend/.../crud.py` | `create_trace_spans()`, `update_traces_with_test_result_id()` |
+
+## Next Steps
+
+- [Architecture](/development/tracing-system/architecture) - Detailed component architecture
+- [Trace Lifecycle](/development/tracing-system/lifecycle) - Complete flow and race condition handling
+- [Data Structures](/development/tracing-system/data-structures) - Schemas and database design
+

@@ -1,0 +1,205 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Semantic Conventions
+
+Rhesis uses a semantic layer for consistent, framework-agnostic span naming across all AI operations.
+
+## Naming Pattern
+
+<Mermaid chart={`flowchart TB
+    subgraph Pattern["Pattern:<br/>ai.domain.action"]
+        direction LR
+        P["ai"] --> D["domain"] --> A["action"]
+    end
+    
+    subgraph Examples["Examples"]
+        direction LR
+        E1["ai.llm.invoke"]
+        E2["ai.tool.invoke"]
+        E3["ai.retrieval"]
+    end
+    
+    Pattern --> Examples`} />
+
+All span names follow the pattern: `ai.<domain>.<action>`
+
+## Valid Span Names
+
+| Span Name | Constant | Description |
+|-----------|----------|-------------|
+| `ai.llm.invoke` | `AIOperationType.LLM_INVOKE` | LLM API call |
+| `ai.tool.invoke` | `AIOperationType.TOOL_INVOKE` | Tool/function execution |
+| `ai.retrieval` | `AIOperationType.RETRIEVAL` | Information retrieval |
+| `ai.embedding.generate` | `AIOperationType.EMBEDDING_GENERATE` | Generate embeddings |
+| `ai.rerank` | `AIOperationType.RERANK` | Reranking operation |
+| `ai.evaluation` | `AIOperationType.EVALUATION` | Evaluation operation |
+| `ai.guardrail` | `AIOperationType.GUARDRAIL` | Safety check |
+| `ai.transform` | `AIOperationType.TRANSFORM` | Data transformation |
+
+## Using Constants
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry.schemas import AIOperationType
+
+# Span name constants
+AIOperationType.LLM_INVOKE          # "ai.llm.invoke"
+AIOperationType.TOOL_INVOKE         # "ai.tool.invoke"
+AIOperationType.RETRIEVAL           # "ai.retrieval"
+AIOperationType.EMBEDDING_GENERATE  # "ai.embedding.generate"
+AIOperationType.RERANK              # "ai.rerank"
+AIOperationType.EVALUATION          # "ai.evaluation"
+AIOperationType.GUARDRAIL           # "ai.guardrail"
+AIOperationType.TRANSFORM           # "ai.transform"`}
+</CodeBlock>
+
+## Forbidden Span Names
+
+Framework concepts are **rejected** with HTTP 422:
+
+| Invalid Name | Reason |
+|--------------|--------|
+| `ai.agent.run` | "Agent" is a framework concept |
+| `ai.chain.execute` | "Chain" is an orchestration pattern |
+| `ai.workflow.start` | "Workflow" is a composition |
+| `ai.pipeline.process` | "Pipeline" is infrastructure |
+
+## Why Primitive Operations?
+
+Framework concepts are:
+- **Composite** - Made up of primitive operations
+- **Framework-specific** - Different frameworks use different terms
+- **Opaque** - They don't tell you what actually happened
+
+Instead, trace the **primitive operations**:
+
+<Mermaid chart={`flowchart TD
+    subgraph Bad["Framework Concept<br/>(Rejected)"]
+        A["ai.agent.run"]
+    end
+    
+    subgraph Good["Primitive<br/>Operations"]
+        B1["ai.llm.invoke"]
+        B2["ai.tool.invoke"]
+        B3["ai.llm.invoke"]
+        B1 --> B2 --> B3
+    end
+    
+    Bad -.->|"Breaks down into"| Good`} />
+
+## Attribute Constants
+
+Use `AIAttributes` for span attributes:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry.attributes import AIAttributes
+
+span.set_attribute(AIAttributes.MODEL_PROVIDER, "openai")
+span.set_attribute(AIAttributes.MODEL_NAME, "gpt-4")
+span.set_attribute(AIAttributes.LLM_TOKENS_INPUT, 150)
+span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, 200)`}
+</CodeBlock>
+
+### Model Attributes
+
+| Constant | Key | Description |
+|----------|-----|-------------|
+| `MODEL_PROVIDER` | `ai.model.provider` | Provider (openai, anthropic) |
+| `MODEL_NAME` | `ai.model.name` | Model identifier (gpt-4) |
+
+### LLM Attributes
+
+| Constant | Key | Description |
+|----------|-----|-------------|
+| `LLM_TOKENS_INPUT` | `ai.llm.tokens.input` | Input token count |
+| `LLM_TOKENS_OUTPUT` | `ai.llm.tokens.output` | Output token count |
+| `LLM_TOKENS_TOTAL` | `ai.llm.tokens.total` | Total token count |
+| `LLM_TEMPERATURE` | `ai.llm.temperature` | Temperature parameter |
+| `LLM_MAX_TOKENS` | `ai.llm.max_tokens` | Max tokens parameter |
+
+### Tool Attributes
+
+| Constant | Key | Description |
+|----------|-----|-------------|
+| `TOOL_NAME` | `ai.tool.name` | Name of the tool |
+| `TOOL_TYPE` | `ai.tool.type` | Type (http, function, database) |
+
+### Retrieval Attributes
+
+| Constant | Key | Description |
+|----------|-----|-------------|
+| `RETRIEVAL_BACKEND` | `ai.retrieval.backend` | Backend (pinecone, weaviate) |
+| `RETRIEVAL_TOP_K` | `ai.retrieval.top_k` | Number of results |
+
+### Embedding Attributes
+
+| Constant | Key | Description |
+|----------|-----|-------------|
+| `EMBEDDING_MODEL` | `ai.embedding.model` | Model name |
+| `EMBEDDING_VECTOR_SIZE` | `ai.embedding.vector.size` | Vector dimensions |
+
+### Operation Type Values
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `OPERATION_LLM_INVOKE` | `llm.invoke` | LLM operation |
+| `OPERATION_TOOL_INVOKE` | `tool.invoke` | Tool operation |
+| `OPERATION_RETRIEVAL` | `retrieval` | Retrieval operation |
+| `OPERATION_EMBEDDING_CREATE` | `embedding.create` | Embedding operation |
+| `OPERATION_RERANK` | `rerank` | Rerank operation |
+| `OPERATION_EVALUATION` | `evaluation` | Evaluation operation |
+| `OPERATION_GUARDRAIL` | `guardrail` | Guardrail operation |
+| `OPERATION_TRANSFORM` | `transform` | Transform operation |
+
+## Events
+
+Use `AIEvents` for span events:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry.attributes import AIEvents, AIAttributes
+
+with tracer.start_as_current_span("ai.llm.invoke") as span:
+    # Prompt event
+    span.add_event(
+        name=AIEvents.PROMPT,
+        attributes={
+            AIAttributes.PROMPT_ROLE: "user",
+            AIAttributes.PROMPT_CONTENT: prompt_text,
+        }
+    )
+    
+    response = llm.invoke(prompt_text)
+    
+    # Completion event
+    span.add_event(
+        name=AIEvents.COMPLETION,
+        attributes={
+            AIAttributes.COMPLETION_CONTENT: response.text,
+        }
+    )`}
+</CodeBlock>
+
+### Event Names
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `AIEvents.PROMPT` | `ai.prompt` | Prompt sent to LLM |
+| `AIEvents.COMPLETION` | `ai.completion` | LLM completion |
+| `AIEvents.TOOL_INPUT` | `ai.tool.input` | Tool input |
+| `AIEvents.TOOL_OUTPUT` | `ai.tool.output` | Tool output |
+| `AIEvents.RETRIEVAL_QUERY` | `ai.retrieval.query` | Retrieval query |
+| `AIEvents.RETRIEVAL_RESULTS` | `ai.retrieval.results` | Retrieval results |
+
+## Trace Hierarchy
+
+<Mermaid chart={`flowchart TD
+    Q["User Query"] --> E["ai.embedding.generate"]
+    E --> R["ai.retrieval"]
+    R --> L["ai.llm.invoke"]
+    L --> T["ai.tool.invoke"]
+    T --> L2["ai.llm.invoke"]`} />
+
+---
+
+<Callout type="info">
+  **Next:** Learn about [auto-instrumentation](/tracing/auto-instrumentation) for zero-config tracing.
+</Callout>
