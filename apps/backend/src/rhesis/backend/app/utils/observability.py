@@ -5,7 +5,7 @@ from typing import Dict, Optional
 
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.logging import logger
-from rhesis.sdk import RhesisClient
+from rhesis.sdk import CONNECTOR_DISABLED, RhesisClient
 from rhesis.sdk.decorators import bind_context
 
 # Global RhesisClient instance (initialized at module import time)
@@ -16,20 +16,34 @@ def initialize_rhesis_client() -> Optional[RhesisClient]:
     """
     Initialize RhesisClient for observability.
 
-    The client will be disabled (returns None) when:
-    - RHESIS_CONNECTOR_DISABLE is enabled (true|1|yes|on), OR
-    - RHESIS_ORGANIZATION_ID or RHESIS_USER_ID are not set (production default)
+    The client behavior depends on environment configuration:
+    - If RHESIS_CONNECTOR_DISABLE is enabled: Creates a DisabledClient (no-op but registers
+      with decorators to prevent runtime errors)
+    - If RHESIS_ORGANIZATION_ID/RHESIS_USER_ID are not set AND connector is not explicitly
+      disabled: Returns None (production default - no client needed)
+    - Otherwise: Creates a full RhesisClient for observability
 
     Returns:
-        Initialized RhesisClient instance (or DisabledClient), or None if disabled/failed
+        Initialized RhesisClient instance (or DisabledClient), or None if not needed
     """
     global rhesis_client
 
     if rhesis_client is not None:
         return rhesis_client
 
-    # Skip initialization if dev-only environment variables are not set
-    # This ensures the client is disabled by default in production
+    # If connector is explicitly disabled, still create the client
+    # (SDK will return DisabledClient which registers with decorators)
+    if CONNECTOR_DISABLED:
+        try:
+            # Creates DisabledClient that registers itself with @endpoint decorator
+            rhesis_client = RhesisClient()
+            return rhesis_client
+        except Exception as e:
+            logger.warning(f"Failed to initialize DisabledClient: {e}")
+            return None
+
+    # If connector is NOT disabled, check for required dev environment variables
+    # Skip initialization if not set (production default)
     org_id = os.getenv("RHESIS_ORGANIZATION_ID")
     user_id = os.getenv("RHESIS_USER_ID")
     if not org_id or not user_id:
@@ -37,8 +51,6 @@ def initialize_rhesis_client() -> Optional[RhesisClient]:
         return None
 
     try:
-        # Note: When RHESIS_CONNECTOR_DISABLE is enabled, RhesisClient() returns a DisabledClient
-        # that accepts any parameters and performs no operations
         rhesis_client = RhesisClient(
             project_id=os.getenv("RHESIS_PROJECT_ID"),
             api_key=os.getenv("RHESIS_API_KEY"),
