@@ -7,7 +7,13 @@ import requests
 from rhesis.sdk.config import get_api_key, get_base_url
 
 # Check if connector should be disabled
-CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLE", "false") == "true"
+# Accept common truthy values: true, 1, yes, on (case-insensitive)
+CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLE", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+    "on",
+)
 
 
 class HTTPStatus:
@@ -51,11 +57,13 @@ class Methods(Enum):
 
 class DisabledClient:
     """
-    No-op client implementation used when RHESIS_CONNECTOR_DISABLE=true.
+    No-op client implementation used when RHESIS_CONNECTOR_DISABLE is enabled.
 
     This client accepts all initialization parameters and method calls but
     performs no actual operations. It's used to allow code to run without
     connector/observability overhead in test and CI environments.
+    
+    Enabled with: RHESIS_CONNECTOR_DISABLE=true|1|yes|on (case-insensitive)
 
     When DisabledClient is active:
     - @endpoint and @observe decorators return the original function unmodified
@@ -116,14 +124,15 @@ class Client:
         """
         Create either a real Client or DisabledClient based on environment flag.
 
-        When RHESIS_CONNECTOR_DISABLE=true, returns a DisabledClient that performs
-        no operations. Otherwise, creates a normal Client instance.
+        When RHESIS_CONNECTOR_DISABLE is enabled (true|1|yes|on), returns a 
+        DisabledClient that performs no operations. Otherwise, creates a normal 
+        Client instance.
         """
         if CONNECTOR_DISABLED:
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.info("⏭️  Rhesis connector disabled (RHESIS_CONNECTOR_DISABLE=true)")
+            logger.info("⏭️  Rhesis connector disabled (RHESIS_CONNECTOR_DISABLE enabled)")
             return DisabledClient()
         return super().__new__(cls)
 
@@ -137,7 +146,7 @@ class Client:
         """
         Initialize the Rhesis client.
 
-        Note: This __init__ will NOT be called when RHESIS_CONNECTOR_DISABLE=1
+        Note: This __init__ will NOT be called when RHESIS_CONNECTOR_DISABLE is enabled
         since __new__ returns a DisabledClient instance instead.
 
         Args:

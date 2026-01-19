@@ -32,10 +32,12 @@ def get_default_client() -> Optional["Client"]:
 
 def is_client_disabled() -> bool:
     """
-    Check if the default client is disabled (RHESIS_CONNECTOR_DISABLE=true).
+    Check if the default client is disabled (RHESIS_CONNECTOR_DISABLE enabled).
 
     This is a convenience function for decorators and other SDK components
     to quickly check if they should bypass their functionality.
+    
+    Accepts: true, 1, yes, on (case-insensitive)
 
     Returns:
         True if client is disabled or not initialized, False otherwise

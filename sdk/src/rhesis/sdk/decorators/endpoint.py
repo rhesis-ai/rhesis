@@ -1,10 +1,82 @@
 """Endpoint decorator for registering functions as Rhesis endpoints."""
 
 import inspect
+import logging
 from collections.abc import Callable
+from dataclasses import dataclass
+from enum import Enum
 from functools import wraps
+from typing import Any
 
 from ._state import get_default_client, is_client_disabled
+
+# Module-level logger
+logger = logging.getLogger(__name__)
+
+
+class ResourceType(Enum):
+    """Types of resources that require cleanup after function execution."""
+
+    GENERATOR = "generator"
+    CONTEXT_MANAGER = "context_manager"
+
+
+@dataclass
+class ResourceHandler:
+    """
+    Represents a resource that needs cleanup after function execution.
+
+    Attributes:
+        resource_type: Type of resource (generator or context manager)
+        resource: The actual resource object (generator or context manager instance)
+        param_name: Name of the parameter this resource is bound to (for debugging)
+    """
+
+    resource_type: ResourceType
+    resource: Any
+    param_name: str
+
+    def cleanup(self) -> None:
+        """
+        Cleanup the resource based on its type.
+
+        - For generators: Advance to trigger finally blocks
+        - For context managers: Call __exit__ to release resources
+
+        Raises:
+            StopIteration: Expected for generators (handled by caller)
+            Exception: Any cleanup errors (logged but not re-raised)
+        """
+        if self.resource_type == ResourceType.GENERATOR:
+            # Advance generator to trigger finally block for cleanup
+            next(self.resource)
+        elif self.resource_type == ResourceType.CONTEXT_MANAGER:
+            # Exit context manager with no exception info
+            self.resource.__exit__(None, None, None)
+
+
+def cleanup_resources(handlers: list[ResourceHandler]) -> None:
+    """
+    Cleanup all resources, logging errors without failing the request.
+
+    This ensures that cleanup errors don't mask the actual function response.
+    Database connections, file handles, and other resources are properly released.
+
+    Args:
+        handlers: List of ResourceHandler objects to cleanup
+    """
+    for handler in handlers:
+        try:
+            handler.cleanup()
+        except StopIteration:
+            # Expected - generator is exhausted after cleanup
+            pass
+        except Exception as e:
+            # Log cleanup errors but don't fail the request
+            logger.warning(
+                f"Error cleaning up {handler.resource_type.value} "
+                f"dependency '{handler.param_name}': {e}"
+            )
 
 
 def endpoint(
@@ -135,14 +207,14 @@ def endpoint(
                 yield session
                 # Cleanup happens automatically
 
-        # Option B: Context manager (from @contextmanager or partial)
-        from functools import partial
-        db_context = partial(database.get_session_with_tenant, org_id, user_id)
+        # Option B: Context manager with bind_context (recommended)
+        from rhesis.sdk.decorators import bind_context
 
         @endpoint(
             bind={
                 "db": get_db,  # Works with raw generators
-                # "db": db_context,  # Also works with context managers
+                # Or use bind_context for context managers (clearer than partial)
+                # "db": bind_context(database.get_session_with_tenant, org_id, user_id),
                 "user": lambda: get_current_user_context(),
             }
         )
@@ -247,13 +319,25 @@ def endpoint(
                             # Get the yielded value (the actual dependency)
                             injected_kwargs[param_name] = next(result)
                             # Store generator for cleanup (will trigger finally block)
-                            cleanup_handlers.append(("generator", result))
+                            cleanup_handlers.append(
+                                ResourceHandler(
+                                    resource_type=ResourceType.GENERATOR,
+                                    resource=result,
+                                    param_name=param_name,
+                                )
+                            )
                         # Check if it's a context manager (from @contextmanager or class)
                         elif hasattr(result, "__enter__") and hasattr(result, "__exit__"):
                             # Enter the context manager to get the resource
                             injected_kwargs[param_name] = result.__enter__()
                             # Store context manager for cleanup
-                            cleanup_handlers.append(("context_manager", result))
+                            cleanup_handlers.append(
+                                ResourceHandler(
+                                    resource_type=ResourceType.CONTEXT_MANAGER,
+                                    resource=result,
+                                    param_name=param_name,
+                                )
+                            )
                         else:
                             # Regular value (not a resource)
                             injected_kwargs[param_name] = result
@@ -291,24 +375,7 @@ def endpoint(
                         return await func(*args, **kwargs)
                     return await trace_func(func_name, func, args, kwargs, span_name)
                 finally:
-                    # Cleanup all resources (database connections, file handles, etc.)
-                    for resource_type, resource in cleanup_handlers:
-                        try:
-                            if resource_type == "generator":
-                                # Raw generator - advance it to trigger finally block
-                                next(resource)
-                            elif resource_type == "context_manager":
-                                # Context manager - call __exit__ with no exception
-                                resource.__exit__(None, None, None)
-                        except StopIteration:
-                            # Expected - generator is exhausted after cleanup
-                            pass
-                        except Exception as e:
-                            # Log cleanup errors but don't fail the request
-                            # This prevents cleanup errors from masking the actual response
-                            import logging
-
-                            logging.warning(f"Error cleaning up {resource_type} dependency: {e}")
+                    cleanup_resources(cleanup_handlers)
 
             _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
             return wrapper
@@ -326,24 +393,7 @@ def endpoint(
                     return func(*args, **kwargs)
                 return trace_func(func_name, func, args, kwargs, span_name)
             finally:
-                # Cleanup all resources (database connections, file handles, etc.)
-                for resource_type, resource in cleanup_handlers:
-                    try:
-                        if resource_type == "generator":
-                            # Raw generator - advance it to trigger finally block
-                            next(resource)
-                        elif resource_type == "context_manager":
-                            # Context manager - call __exit__ with no exception
-                            resource.__exit__(None, None, None)
-                    except StopIteration:
-                        # Expected - generator is exhausted after cleanup
-                        pass
-                    except Exception as e:
-                        # Log cleanup errors but don't fail the request
-                        # This prevents cleanup errors from masking the actual response
-                        import logging
-
-                        logging.warning(f"Error cleaning up {resource_type} dependency: {e}")
+                cleanup_resources(cleanup_handlers)
 
         _default_client.register_endpoint(func_name, wrapper, enriched_metadata)
         return wrapper
