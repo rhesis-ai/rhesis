@@ -11,15 +11,19 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.model import TestModelConnectionRequest, TestModelConnectionResponse
+from rhesis.backend.app.schemas.model import (
+    ModelRead,
+    TestModelConnectionRequest,
+    TestModelConnectionResponse,
+)
 from rhesis.backend.app.services.model_connection import ModelConnectionService
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.sdk.models.factory import get_available_models
 
-# Create the detailed schema for Model
-ModelDetailSchema = create_detailed_schema(schemas.Model, models.Model)
+# Create the detailed schema for Model (uses ModelRead to exclude API key from responses)
+ModelDetailSchema = create_detailed_schema(ModelRead, models.Model)
 
 router = APIRouter(
     prefix="/models",
@@ -29,7 +33,7 @@ router = APIRouter(
 )
 
 
-@router.post("/", response_model=schemas.Model)
+@router.post("/", response_model=ModelRead)
 @handle_database_exceptions(
     entity_name="model", custom_unique_message="Model with this name already exists"
 )
@@ -132,7 +136,7 @@ def read_model(
     return db_model
 
 
-@router.put("/{model_id}", response_model=schemas.Model)
+@router.put("/{model_id}", response_model=ModelRead)
 def update_model(
     model_id: uuid.UUID,
     model: schemas.ModelUpdate,
@@ -163,7 +167,7 @@ def update_model(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/{model_id}", response_model=schemas.Model)
+@router.delete("/{model_id}", response_model=ModelRead)
 def delete_model(
     model_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),

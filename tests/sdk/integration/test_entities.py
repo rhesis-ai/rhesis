@@ -450,7 +450,6 @@ def test_model(db_cleanup):
     assert result["name"] == "Test OpenAI Model"
     assert result["description"] == "Test model for integration tests"
     assert result["model_name"] == "gpt-4"
-    assert result["key"] is not None  # Key should be present (encrypted in DB)
 
 
 def test_model_push_pull(db_cleanup):
@@ -538,7 +537,6 @@ def test_model_with_different_providers(db_cleanup):
 
         assert result["id"] is not None
         assert result["model_name"] == model_name
-        assert result["key"] is not None
 
 
 def test_model_set_default_generation(db_cleanup):
