@@ -90,6 +90,21 @@ export const PathCard = ({ emoji, title, description, link, linkText, external =
       onMouseLeave={() => setIsHovered(false)}
       className="path-card"
     >
+      <span
+        style={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: 0,
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      >
+        {title}: {description}
+      </span>
       <span style={styles.emojiWrapper}>{emoji}</span>
       <h3 style={styles.title}>{title}</h3>
       <p style={styles.description}>{description}</p>

@@ -106,19 +106,54 @@ export const InfoCard = ({
         {hasLink && <span style={styles.arrowIcon}>↗</span>}
       </h3>
       {children || <p style={styles.description}>{description}</p>}
-      {hasLink && (
-        <a
-          href={link}
-          target={external ? '_blank' : '_self'}
-          rel={external ? 'noopener noreferrer' : undefined}
-          style={styles.link}
-          className="info-card-link"
-        >
+      {hasLink && linkText && (
+        <span style={styles.link} className="info-card-link">
           {linkText}
-        </a>
+        </span>
       )}
     </>
   )
+
+  // Get text content for screen readers and SEO
+  const getDescriptionText = () => {
+    if (typeof children === 'string') return children
+    if (description) return description
+    return ''
+  }
+
+  if (hasLink) {
+    return (
+      <a
+        href={link}
+        target={external ? '_blank' : '_self'}
+        rel={external ? 'noopener noreferrer' : undefined}
+        style={{
+          ...styles.card,
+          textDecoration: 'none',
+          color: 'inherit',
+          cursor: 'pointer',
+        }}
+        className={`info-card info-card-linked ${className}`}
+      >
+        <span
+          style={{
+            position: 'absolute',
+            width: '1px',
+            height: '1px',
+            padding: 0,
+            margin: '-1px',
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
+          {title}: {getDescriptionText()}
+        </span>
+        <CardContent />
+      </a>
+    )
+  }
 
   return (
     <div
