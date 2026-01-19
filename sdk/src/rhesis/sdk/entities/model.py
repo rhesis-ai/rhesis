@@ -87,9 +87,10 @@ class Model(BaseEntity):
         if response and len(response) > 0:
             return response[0].get("id")
 
+        available_providers = Models.list_providers()
         raise ValueError(
-            f"Provider '{self.provider}' not found. "
-            "Use Models.list_providers() to see available providers."
+            f"Unsupported provider '{self.provider}'. "
+            f"Supported providers: {', '.join(available_providers)}"
         )
 
     def push(self) -> Optional[Dict[str, Any]]:
@@ -99,6 +100,13 @@ class Model(BaseEntity):
         the provider_type_id before saving. The icon is automatically set
         based on the provider.
         """
+        # Validate provider is set
+        if not self.provider and not self.provider_type_id:
+            available_providers = Models.list_providers()
+            raise ValueError(
+                f"Provider is required. Supported providers: {', '.join(available_providers)}"
+            )
+
         # Resolve provider name to provider_type_id if needed
         if self.provider and not self.provider_type_id:
             self.provider_type_id = self._resolve_provider_type_id()
