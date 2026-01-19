@@ -272,7 +272,7 @@ def endpoint(
         param_names = list(func_sig.parameters.keys())
 
         # Helper to inject bound parameters
-        def inject_bound_params(args, kwargs):
+        def inject_bound_params(args, kwargs, cleanup_handlers):
             """
             Inject bound parameters into kwargs, handling generators and context managers.
 
@@ -281,20 +281,24 @@ def endpoint(
             - Raw generators (functions with yield)
             - Context manager objects (from @contextmanager or __enter__/__exit__)
 
-            Resources are entered to get their value, and cleanup handlers are returned
+            Resources are entered to get their value, and cleanup handlers are populated
             for proper resource management after the function executes.
+
+            IMPORTANT: cleanup_handlers is populated in-place so that if this function
+            fails midway (e.g., a generator's next() raises), any previously initialized
+            resources can still be cleaned up by the caller's finally block.
 
             Args:
                 args: Positional arguments passed to the function
                 kwargs: Keyword arguments passed to the function
+                cleanup_handlers: List to populate with ResourceHandler objects
+                    (mutated in-place for safe cleanup on partial failure)
 
             Returns:
-                tuple: (injected_kwargs, cleanup_handlers)
-                    - injected_kwargs: kwargs with bound parameters injected
-                    - cleanup_handlers: list of (resource, type) tuples that need cleanup
+                dict: kwargs with bound parameters injected
             """
             if not bind:
-                return kwargs, []
+                return kwargs
 
             # Determine which parameters are already provided
             provided_params = set(kwargs.keys())
@@ -305,7 +309,6 @@ def endpoint(
                     provided_params.add(param_names[i])
 
             injected_kwargs = kwargs.copy()
-            cleanup_handlers = []
 
             for param_name, param_value in bind.items():
                 # Don't inject if already provided (either as positional arg or kwarg)
@@ -344,7 +347,7 @@ def endpoint(
                     else:
                         injected_kwargs[param_name] = param_value
 
-            return injected_kwargs, cleanup_handlers
+            return injected_kwargs
 
         # Helper to select appropriate tracer (connector manager takes precedence)
         def get_tracer_method(is_async: bool):
@@ -367,10 +370,13 @@ def endpoint(
 
             @wraps(func)
             async def wrapper(*args, **kwargs):
-                # Inject bound parameters and get resources that need cleanup
-                kwargs, cleanup_handlers = inject_bound_params(args, kwargs)
-
+                # Initialize cleanup_handlers before try block to ensure cleanup
+                # even if inject_bound_params fails midway through initialization
+                cleanup_handlers = []
                 try:
+                    # Inject bound parameters (populates cleanup_handlers in-place)
+                    kwargs = inject_bound_params(args, kwargs, cleanup_handlers)
+
                     if not observe:
                         return await func(*args, **kwargs)
                     return await trace_func(func_name, func, args, kwargs, span_name)
@@ -385,10 +391,13 @@ def endpoint(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Inject bound parameters and get resources that need cleanup
-            kwargs, cleanup_handlers = inject_bound_params(args, kwargs)
-
+            # Initialize cleanup_handlers before try block to ensure cleanup
+            # even if inject_bound_params fails midway through initialization
+            cleanup_handlers = []
             try:
+                # Inject bound parameters (populates cleanup_handlers in-place)
+                kwargs = inject_bound_params(args, kwargs, cleanup_handlers)
+
                 if not observe:
                     return func(*args, **kwargs)
                 return trace_func(func_name, func, args, kwargs, span_name)
