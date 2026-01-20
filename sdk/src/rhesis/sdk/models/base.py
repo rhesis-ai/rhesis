@@ -4,6 +4,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 if TYPE_CHECKING:
     from rhesis.sdk.entities.model import Model
 
+# Type alias for embeddings
+Embedding = List[float]
+
 
 class BaseLLM(ABC):
     PROVIDER: str = ""  # Subclasses should override this
@@ -95,3 +98,39 @@ class BaseLLM(ABC):
         )
         model.push()
         return model
+
+
+class BaseEmbedder(ABC):
+    """Base class for embedding models."""
+
+    def __init__(self, model_name: str, *args, **kwargs):
+        self.model_name = model_name
+
+    @abstractmethod
+    def generate(self, text: str, **kwargs) -> Embedding:
+        """Generate embedding for a single text.
+
+        Args:
+            text: The input text to embed.
+            **kwargs: Additional parameters (e.g., dimensions).
+
+        Returns:
+            A list of floats representing the embedding vector.
+        """
+        pass
+
+    @abstractmethod
+    def generate_batch(self, texts: List[str], **kwargs) -> List[Embedding]:
+        """Generate embeddings for multiple texts.
+
+        Args:
+            texts: List of input texts to embed.
+            **kwargs: Additional parameters (e.g., dimensions).
+
+        Returns:
+            A list of embedding vectors, one for each input text.
+        """
+        pass
+
+    def get_model_name(self) -> str:
+        return f"Class name: {self.__class__.__name__}, model name: {self.model_name}"

@@ -2,11 +2,11 @@ import json
 from typing import List, Optional, Type, Union
 
 import litellm
-from litellm import batch_completion, completion
+from litellm import batch_completion, completion, embedding
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding
 from rhesis.sdk.models.utils import validate_llm_response
 
 litellm.suppress_debug_info = True
@@ -176,3 +176,93 @@ class LiteLLM(BaseLLM):
         models_list = [model for model in models_list if "video" not in model]
 
         return models_list
+
+
+class LiteLLMEmbedder(BaseEmbedder):
+    """LiteLLM-based embedder supporting multiple providers.
+
+    This class provides an interface for generating embeddings using any model
+    accessible through LiteLLM.
+
+    Args:
+        model_name: The name of the embedding model (e.g., "text-embedding-3-small").
+        api_key: Optional API key. If not provided, LiteLLM uses environment variables.
+        dimensions: Optional embedding dimensions (only supported by some models).
+
+    Usage:
+        >>> embedder = LiteLLMEmbedder(model_name="text-embedding-3-small")
+        >>> embedding = embedder.generate("Hello, world!")
+        >>> embeddings = embedder.generate_batch(["Hello", "World"])
+    """
+
+    PROVIDER: str
+
+    def __init__(
+        self,
+        model_name: str,
+        api_key: Optional[str] = None,
+        dimensions: Optional[int] = None,
+    ):
+        if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
+            raise ValueError(NO_MODEL_NAME_PROVIDED)
+        super().__init__(model_name)
+        self.api_key = api_key
+        self.dimensions = dimensions
+
+    def generate(self, text: str, **kwargs) -> Embedding:
+        """Generate embedding for a single text.
+
+        Args:
+            text: The input text to embed.
+            **kwargs: Additional parameters passed to litellm.embedding().
+
+        Returns:
+            A list of floats representing the embedding vector.
+
+        Raises:
+            TypeError: If text is not a string.
+        """
+        if not isinstance(text, str):
+            raise TypeError(f"text must be a string, got {type(text).__name__}")
+
+        # Allow overriding dimensions per call
+        dimensions = kwargs.pop("dimensions", self.dimensions)
+
+        response = embedding(
+            model=self.model_name,
+            input=[text],
+            api_key=self.api_key,
+            dimensions=dimensions,
+            **kwargs,
+        )
+        return response["data"][0]["embedding"]
+
+    def generate_batch(self, texts: List[str], **kwargs) -> List[Embedding]:
+        """Generate embeddings for multiple texts.
+
+        Args:
+            texts: List of input texts to embed.
+            **kwargs: Additional parameters passed to litellm.embedding().
+
+        Returns:
+            A list of embedding vectors, one for each input text.
+
+        Raises:
+            TypeError: If texts is not a list or contains non-string elements.
+        """
+        if not isinstance(texts, list):
+            raise TypeError(f"texts must be a list, got {type(texts).__name__}")
+        if not all(isinstance(t, str) for t in texts):
+            raise TypeError("all elements in texts must be strings")
+
+        # Allow overriding dimensions per call
+        dimensions = kwargs.pop("dimensions", self.dimensions)
+
+        response = embedding(
+            model=self.model_name,
+            input=texts,
+            api_key=self.api_key,
+            dimensions=dimensions,
+            **kwargs,
+        )
+        return [item["embedding"] for item in response["data"]]

@@ -2,14 +2,14 @@
 Model Factory for Rhesis SDK
 
 This module provides a simple and intuitive way to create LLM model instances
-with smart defaults and comprehensive error handling.
+and embedder instances with smart defaults and comprehensive error handling.
 
 """
 
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Optional
 
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 
 # Default configuration
 DEFAULT_PROVIDER = "rhesis"
@@ -30,6 +30,12 @@ DEFAULT_MODELS = {
     "replicate": "llama-2-70b-chat",
     "together_ai": "togethercomputer/llama-2-70b-chat",
     "vertex_ai": "gemini-2.0-flash",  # Best performance - avoid 2.5-flash
+}
+
+# Default embedding models per provider
+DEFAULT_EMBEDDER_PROVIDER = "openai"
+DEFAULT_EMBEDDING_MODELS = {
+    "openai": "text-embedding-3-small",
 }
 
 
@@ -436,3 +442,126 @@ def _get_openrouter_models() -> list[str]:
     from rhesis.sdk.models.providers.openrouter import OpenRouterLLM
 
     return OpenRouterLLM.get_available_models()
+
+
+# =============================================================================
+# Embedder Factory
+# =============================================================================
+
+
+def _create_openai_embedder(
+    model_name: str, api_key: Optional[str], dimensions: Optional[int], **kwargs
+) -> BaseEmbedder:
+    """Factory function for OpenAIEmbedder."""
+    from rhesis.sdk.models.providers.openai import OpenAIEmbedder
+
+    return OpenAIEmbedder(model_name=model_name, api_key=api_key, dimensions=dimensions, **kwargs)
+
+
+# Embedder provider registry
+EMBEDDER_REGISTRY: Dict[str, Callable[..., BaseEmbedder]] = {
+    "openai": _create_openai_embedder,
+}
+
+
+@dataclass
+class EmbedderConfig:
+    """Configuration for an embedder instance.
+
+    Args:
+        provider: The provider name (e.g., "openai").
+        model_name: Specific model name (e.g., "text-embedding-3-small").
+        api_key: The API key to use for the embedder.
+        dimensions: Optional embedding dimensions.
+        extra_params: Extra parameters to pass to the embedder.
+    """
+
+    provider: str | None = None
+    model_name: str | None = None
+    api_key: str | None = None
+    dimensions: int | None = None
+    extra_params: dict = field(default_factory=dict)
+
+
+def get_embedder(
+    provider: Optional[str] = None,
+    model_name: Optional[str] = None,
+    api_key: Optional[str] = None,
+    dimensions: Optional[int] = None,
+    config: Optional[EmbedderConfig] = None,
+    **kwargs,
+) -> BaseEmbedder:
+    """Create an embedder instance with smart defaults and comprehensive error handling.
+
+    This function provides multiple ways to create an embedder instance:
+
+    1. **Minimal**: `get_embedder()` - uses all defaults (OpenAI text-embedding-3-small)
+    2. **Provider only**: `get_embedder("openai")` - uses default model for provider
+    3. **Provider + Model**: `get_embedder("openai", "text-embedding-3-large")`
+    4. **Shorthand**: `get_embedder("openai/text-embedding-3-large")`
+    5. **Full config**: `get_embedder(config=EmbedderConfig(...))`
+
+    Args:
+        provider: Provider name (e.g., "openai").
+        model_name: Specific embedding model name.
+        api_key: API key for authentication.
+        dimensions: Optional embedding dimensions (model-dependent).
+        config: Complete configuration object.
+        **kwargs: Additional parameters passed to the embedder.
+
+    Returns:
+        BaseEmbedder: Configured embedder instance.
+
+    Raises:
+        ValueError: If configuration is invalid or provider not supported.
+
+    Examples:
+        >>> # Basic usage with defaults
+        >>> embedder = get_embedder()
+
+        >>> # Specify provider and model
+        >>> embedder = get_embedder("openai", "text-embedding-3-large")
+
+        >>> # Use provider/model shorthand
+        >>> embedder = get_embedder("openai/text-embedding-3-small")
+
+        >>> # With dimensions
+        >>> embedder = get_embedder("openai", dimensions=256)
+
+        >>> # With custom configuration
+        >>> config = EmbedderConfig(
+        ...     provider="openai",
+        ...     model_name="text-embedding-3-small",
+        ...     dimensions=512
+        ... )
+        >>> embedder = get_embedder(config=config)
+    """
+    # Create configuration
+    if config:
+        for key, value in kwargs.items():
+            if hasattr(config, key):
+                setattr(config, key, value)
+        cfg = config
+    else:
+        cfg = EmbedderConfig()
+
+    # Case: shorthand string like "provider/model"
+    if provider and "/" in provider and model_name is None:
+        prov, model = provider.split("/", 1)
+        provider, model_name = prov, model
+
+    provider = provider or cfg.provider or DEFAULT_EMBEDDER_PROVIDER
+    if provider not in DEFAULT_EMBEDDING_MODELS:
+        available = ", ".join(sorted(DEFAULT_EMBEDDING_MODELS.keys()))
+        raise ValueError(f"Embedder provider '{provider}' not supported. Available: {available}")
+
+    model_name = model_name or cfg.model_name or DEFAULT_EMBEDDING_MODELS[provider]
+    api_key = api_key or cfg.api_key
+    dimensions = dimensions or cfg.dimensions
+
+    # Get the factory function for the provider
+    factory_func = EMBEDDER_REGISTRY.get(provider)
+    if factory_func is None:
+        raise ValueError(f"Embedder provider '{provider}' not supported")
+
+    return factory_func(model_name, api_key, dimensions, **kwargs)
