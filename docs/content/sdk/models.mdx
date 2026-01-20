@@ -183,6 +183,113 @@ results = model.generate_batch(
 
 Note: Batch processing is currently available for LiteLLM-based providers (OpenAI, Gemini, and other supported providers).
 
+## Embedders
+
+Embedders generate vector representations (embeddings) of text, which are useful for semantic search, similarity comparison, and clustering tasks.
+
+### Using the `get_embedder` function
+
+The easiest way to use embedders is through the `get_embedder` function. When called without arguments, it returns the default OpenAI embedder.
+
+<CodeBlock filename="default_embedder.py" language="python">
+{`from rhesis.sdk.models import get_embedder
+
+embedder = get_embedder()`}
+
+</CodeBlock>
+
+To use a specific model, provide the model name:
+
+<CodeBlock filename="specific_embedder.py" language="python">
+{`from rhesis.sdk.models import get_embedder
+
+# Use a specific embedding model
+embedder = get_embedder("openai/text-embedding-3-large")`}
+
+</CodeBlock>
+
+The above code is equivalent to:
+
+<CodeBlock filename="specific_embedder_alt.py" language="python">
+{`from rhesis.sdk.models import get_embedder
+
+embedder = get_embedder(provider="openai", model_name="text-embedding-3-large")`}
+
+</CodeBlock>
+
+### Direct import
+
+You can also import the embedder class directly:
+
+<CodeBlock filename="direct_embedder_import.py" language="python">
+{`from rhesis.sdk.models import OpenAIEmbedder
+
+# Use default model (text-embedding-3-small)
+embedder = OpenAIEmbedder()
+
+# Use specific model with custom dimensions
+embedder = OpenAIEmbedder(model_name="text-embedding-3-large", dimensions=1024)`}
+
+</CodeBlock>
+
+### Generate embeddings
+
+All embedders share a consistent interface with two main methods:
+
+**Generate embedding for a single text:**
+
+<CodeBlock filename="generate_embedding.py" language="python">
+{`from rhesis.sdk.models import get_embedder
+
+embedder = get_embedder()
+embedding = embedder.generate("What is machine learning?")
+# Returns: [0.0123, -0.0456, 0.0789, ...]  (list of floats)`}
+
+</CodeBlock>
+
+**Generate embeddings for multiple texts:**
+
+<CodeBlock filename="generate_embeddings_batch.py" language="python">
+{`from rhesis.sdk.models import get_embedder
+
+embedder = get_embedder()
+texts = [
+    "What is machine learning?",
+    "How does deep learning work?",
+    "Explain neural networks",
+]
+
+embeddings = embedder.generate_batch(texts)
+# Returns: list of embedding vectors, one per input text`}
+
+</CodeBlock>
+
+### Configuring embedding dimensions
+
+Some embedding models (like OpenAI's text-embedding-3 family) support configurable output dimensions. Smaller dimensions reduce storage and computation costs while maintaining most of the semantic information.
+
+<CodeBlock filename="embedder_dimensions.py" language="python">
+{`from rhesis.sdk.models import get_embedder
+
+# Set dimensions at initialization
+embedder = get_embedder("openai", dimensions=256)
+embedding = embedder.generate("Hello world")
+# Returns embedding with 256 dimensions
+
+# Or override per call
+embedding = embedder.generate("Hello world", dimensions=512)
+# Returns embedding with 512 dimensions`}
+
+</CodeBlock>
+
+
+**When to use embedders:**
+
+- Semantic similarity search
+- Clustering similar documents or test cases
+- Finding related test inputs
+- Building retrieval-augmented generation (RAG) systems
+
 ### Using models with synthesizers and metrics
 
 Models become most useful when combined with synthesizers and metrics:
