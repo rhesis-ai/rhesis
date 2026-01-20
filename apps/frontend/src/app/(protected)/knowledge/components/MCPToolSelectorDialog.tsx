@@ -86,7 +86,7 @@ export default function MCPToolSelectorDialog({
 
       if (mcpTools.length === 0) {
         setError(
-          'No MCP tools configured. Please add an MCP tool in Settings > Integrations > MCPs first.'
+          'No MCP tools configured. Please add an MCP tool in the MCPs page.'
         );
       }
     } catch (err) {
