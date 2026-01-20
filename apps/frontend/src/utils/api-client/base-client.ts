@@ -338,6 +338,57 @@ export class BaseApiClient {
   }
 
   /**
+   * Fetches binary data (blob) from the API
+   * @param endpoint The API endpoint to fetch from
+   * @param options Additional fetch options
+   * @returns A Blob containing the binary data
+   */
+  protected async fetchBlob(
+    endpoint: keyof typeof API_ENDPOINTS | string,
+    options: RequestInit = {}
+  ): Promise<Blob> {
+    const path =
+      API_ENDPOINTS[endpoint as keyof typeof API_ENDPOINTS] || endpoint;
+    const url = joinUrl(this.baseUrl, path);
+    const headers = this.getHeaders();
+
+    // Remove Content-Type header for blob requests as we're not sending JSON
+    const { 'Content-Type': _, ...headersWithoutContentType } =
+      headers as Record<string, string>;
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...headersWithoutContentType,
+        ...options.headers,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      // Handle authentication errors
+      if (response.status === 401 || response.status === 403) {
+        return await this.handleUnauthorizedError();
+      }
+
+      let errorMessage = '';
+      try {
+        errorMessage = await response.text();
+      } catch {
+        errorMessage = response.statusText;
+      }
+
+      const error = new Error(
+        `API error: ${response.status} - ${errorMessage}`
+      ) as Error & { status?: number };
+      error.status = response.status;
+      throw error;
+    }
+
+    return response.blob();
+  }
+
+  /**
    * Fetches paginated data from the API
    * @param endpoint The API endpoint to fetch from
    * @param params Pagination parameters

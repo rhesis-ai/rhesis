@@ -209,10 +209,10 @@ export class TestsClient extends BaseApiClient {
   }
 
   /**
-   * Get the URL for a test's image content.
-   * This returns a URL that can be used directly in an img src attribute.
+   * Fetch the binary image content for an image test.
+   * Returns a Blob that can be used to create an object URL.
    */
-  getTestImageUrl(testId: string): string {
-    return `${API_ENDPOINTS.tests}/${testId}/image`;
+  async getTestImage(testId: string): Promise<Blob> {
+    return this.fetchBlob(`${API_ENDPOINTS.tests}/${testId}/image`);
   }
 }
