@@ -292,12 +292,27 @@ export default function MCPImportDialog({
           {/* Search Section */}
           <Box>
             <Typography variant="subtitle2" gutterBottom>
-              Search{' '}
-              {tool?.tool_provider_type?.type_value
-                ? tool.tool_provider_type.type_value.charAt(0).toUpperCase() +
-                  tool.tool_provider_type.type_value.slice(1)
-                : 'MCP'}{' '}
-              Pages
+              {tool?.tool_provider_type?.type_value === 'github' ? (
+                <>
+                  Search{' '}
+                  {tool.tool_metadata?.repository ? (
+                    <strong>{tool.tool_metadata.repository.full_name}</strong>
+                  ) : (
+                    'GitHub'
+                  )}
+                </>
+              ) : (
+                <>
+                  Search{' '}
+                  {tool?.tool_provider_type?.type_value
+                    ? tool.tool_provider_type.type_value
+                        .charAt(0)
+                        .toUpperCase() +
+                      tool.tool_provider_type.type_value.slice(1)
+                    : 'MCP'}{' '}
+                  Pages
+                </>
+              )}
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
