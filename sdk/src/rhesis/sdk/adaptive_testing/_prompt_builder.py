@@ -4,8 +4,6 @@ import urllib.parse
 
 import numpy as np
 
-from rhesis.sdk import adaptive_testing
-
 from .embedders import cos_sim
 from .utils import is_subtopic
 
@@ -70,6 +68,7 @@ class PromptBuilder:
         suggest_topics=False,
         working_set_size=100,
         embeddings=None,
+        embed_fn=None,
     ):
         """This builds a prompt for GPT3 that elicits useful input examples.
 
@@ -180,11 +179,11 @@ class PromptBuilder:
 
             # sim_avoidance is a vector that marks which items (and items related through similarities)
             # should be avoided (ranked lower for prompt selection)
-            if self.prompt_diversity:
+            if self.prompt_diversity and embed_fn is not None:
                 sim_avoidance = np.zeros(len(ids))
                 if suggest_topics:
                     embeddings_arr = np.vstack(
-                        adaptive_testing.embed(
+                        embed_fn(
                             [
                                 urllib.parse.unquote(test_tree.loc[id, "topic"].split("/")[-1])
                                 for id in ids
@@ -194,15 +193,14 @@ class PromptBuilder:
                 else:
                     embeddings_arr = np.hstack(
                         [
-                            np.vstack(
-                                adaptive_testing.embed([test_tree.loc[id, "input"] for id in ids])
-                            ),
-                            np.vstack(
-                                adaptive_testing.embed([test_tree.loc[id, "output"] for id in ids])
-                            ),
+                            np.vstack(embed_fn([test_tree.loc[id, "input"] for id in ids])),
+                            np.vstack(embed_fn([test_tree.loc[id, "output"] for id in ids])),
                         ]
                     )
                 similarities = cos_sim(embeddings_arr, embeddings_arr)
+            elif self.prompt_diversity:
+                sim_avoidance = np.zeros(len(ids))
+                similarities = np.eye(len(ids))  # No embedder, skip similarity
             hard_avoidance = np.zeros(len(ids))
             diversity = np.ones(len(ids))
 

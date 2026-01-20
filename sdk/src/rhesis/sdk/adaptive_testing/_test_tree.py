@@ -36,7 +36,6 @@ class TestTree:
         self,
         tests=None,
         index=None,
-        compute_embeddings=False,
         ensure_topic_markers=True,
         cache_file=None,
         **kwargs,
@@ -52,9 +51,6 @@ class TestTree:
 
         index : list or list-like or None
             Assigns an index to underlying tests frame, or auto generates if not provided.
-
-        compute_embeddings: boolean
-            If True, use the global adaptive_testing.embed to build embeddings of tests in the TestTree.
 
         kwargs : dict
             Additional keyword arguments are passed to the pandas DataFrame constructor.
@@ -155,9 +151,6 @@ class TestTree:
         self._tests = self._tests[
             column_names + [c for c in self._tests.columns if c not in column_names]
         ]
-
-        if compute_embeddings:
-            self._cache_embeddings()
 
         # replace any invalid topics with the empty string
         for i, row in self._tests.iterrows():
@@ -326,6 +319,7 @@ class TestTree:
         generator=None,
         endpoint=None,
         metrics=None,
+        embedder=None,
         auto_save=False,
         user="anonymous",
         recompute_scores=False,
@@ -350,6 +344,11 @@ class TestTree:
         metrics : callable
             The Rhesis scorer/metrics function that takes (inputs, outputs) and returns a list of
             scores. Scores should be between 0 and 1, where higher values indicate failures.
+
+        embedder : object
+            The text embedding model to use for similarity-based suggestions. Should have a
+            __call__ method that takes a list of strings and returns embeddings. If not provided,
+            uses OpenAITextEmbedding with text-embedding-3-small (768 dimensions).
 
         auto_save : bool
             Whether to automatically save the test tree after each edit.
@@ -386,6 +385,7 @@ class TestTree:
             generator=generator,
             endpoint=endpoint,
             metrics=metrics,
+            embedder=embedder,
             auto_save=auto_save,
             user=user,
             recompute_scores=recompute_scores,
@@ -435,11 +435,22 @@ class TestTree:
                     drop_ids.append(id)
         self._tests.drop(drop_ids, axis=0, inplace=True)
 
-    def _cache_embeddings(self, ids=None):
+    def _cache_embeddings(self, ids=None, embedder=None):
         """Pre-compute the embeddings for the given test cases.
 
         This is used so we can batch the computation don't compute them one at a time later.
+
+        Parameters
+        ----------
+        ids : list, optional
+            List of test IDs to cache embeddings for. If None, uses all tests.
+        embedder : object
+            The embedder to use for computing embeddings.
         """
+        from .embedders import embed_with_cache
+
+        if embedder is None:
+            return  # No embedder provided, skip caching
 
         if ids is None:
             ids = self._tests.index
@@ -450,17 +461,15 @@ class TestTree:
             test = self._tests.loc[id]
             if test.label == "topic_marker":
                 parts = test.topic.rsplit("/", 1)
-                str = parts[1] if len(parts) == 2 else ""
-                all_strings.append(str)
+                s = parts[1] if len(parts) == 2 else ""
+                all_strings.append(s)
             else:
-                for str in [test.input, test.output]:
-                    all_strings.append(str)
+                for s in [test.input, test.output]:
+                    all_strings.append(s)
 
-        # suggestions topics don't have topic markers so we check for them separately
-        # all_strings.append("__suggestions__")
-
-        # we don't use the output of the embedding, just do this to get the embeddings cached
-        adaptive_testing.embed(all_strings)
+        # cache the embeddings
+        if all_strings:
+            embed_with_cache(embedder, all_strings)
 
     # def predict_labels(self, topical_io_pairs):
     #     """ Return the label probabilities for a set of input-output pairs. [NOT USED RIGHT NOW]

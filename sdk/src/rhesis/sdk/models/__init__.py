@@ -44,6 +44,7 @@ __all__ = [
     "get_available_language_models",
     "get_embedder",
     "get_model",
+    "get_embedder",
 ]
 
 if HUGGINGFACE_AVAILABLE:

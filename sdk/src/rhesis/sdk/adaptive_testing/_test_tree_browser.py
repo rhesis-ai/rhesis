@@ -159,6 +159,7 @@ class TestTreeBrowser:
         generator,
         endpoint,
         metrics,
+        embedder,
         user,
         auto_save,
         recompute_scores,
@@ -169,6 +170,7 @@ class TestTreeBrowser:
         score_filter,
     ):
         """Initialize the TestTreeBrowser."""
+        from .embedders import OpenAITextEmbedding
 
         self.test_tree = test_tree
         self.endpoint = endpoint if endpoint is not None else llm_endpoint
@@ -183,6 +185,12 @@ class TestTreeBrowser:
         self.current_topic = starting_path
         self.score_filter = score_filter
         self.filter_text = ""
+
+        # Set up embedder (default to OpenAI text-embedding-3-small)
+        if embedder is not None:
+            self.embedder = embedder
+        else:
+            self.embedder = OpenAITextEmbedding(model="text-embedding-3-small", dimensions=768)
 
         # Cast TestTree to TestTreeSource if needed
         if isinstance(self.generator, adaptive_testing._test_tree.TestTree):
@@ -229,14 +237,19 @@ class TestTreeBrowser:
 
         # ensure test tree based generator has embeddings calculated
         if getattr(self.generator, "gen_type", "") == "test_tree":
-            self.generator.source._cache_embeddings()
+            self.generator.source._cache_embeddings(embedder=self.embedder)
 
         # save the current state of the test tree
         self._auto_save()
 
         # init a blank set of suggetions
-        # self.suggestions = pd.DataFrame([], columns=self.test_tree.columns)
         self._suggestions_error = ""  # tracks if we failed to generate suggestions
+
+    def embed(self, strings):
+        """Embed strings using the configured embedder."""
+        from .embedders import embed_with_cache
+
+        return embed_with_cache(self.embedder, strings)
 
     def _repr_html_(self, prefix="", environment="jupyter", websocket_server=None):
         """Returns the HTML interface for this browser.
@@ -738,6 +751,7 @@ class TestTreeBrowser:
             repetitions=suggestion_threads,
             filter=filter,
             suggest_topics=self.mode == "topics",
+            embed_fn=self.embed,
         )
 
         # get the current topic description
