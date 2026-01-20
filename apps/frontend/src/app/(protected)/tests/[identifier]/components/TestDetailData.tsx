@@ -1,7 +1,15 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Grid, Typography, useTheme, TextField, Skeleton, Paper } from '@mui/material';
+import {
+  Box,
+  Grid,
+  Typography,
+  useTheme,
+  TextField,
+  Skeleton,
+  Paper,
+} from '@mui/material';
 import BaseFreesoloAutocomplete, {
   AutocompleteOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
@@ -221,30 +229,33 @@ export default function TestDetailData({
 
   // Check if test is multi-turn
   const isMultiTurn = isMultiTurnTest(test.test_type?.type_value);
-  
+
   // Check if test is image type
   const isImage = isImageTest(test.test_type?.type_value);
-  
+
   // State for image loading
   const [imageUrl, setImageUrl] = React.useState<string | null>(null);
   const [imageLoading, setImageLoading] = React.useState(false);
   const [imageError, setImageError] = React.useState<string | null>(null);
-  
+
   // Fetch image for image tests
   React.useEffect(() => {
     if (!isImage || !sessionToken) return;
-    
+
     const fetchImage = async () => {
       setImageLoading(true);
       setImageError(null);
-      
+
       try {
-        const response = await fetch(`${API_ENDPOINTS.tests}/${test.id}/image`, {
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`,
-          },
-        });
-        
+        const response = await fetch(
+          `${API_ENDPOINTS.tests}/${test.id}/image`,
+          {
+            headers: {
+              Authorization: `Bearer ${sessionToken}`,
+            },
+          }
+        );
+
         if (!response.ok) {
           if (response.status === 404) {
             setImageError('No image available for this test');
@@ -253,7 +264,7 @@ export default function TestDetailData({
           }
           return;
         }
-        
+
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         setImageUrl(url);
@@ -263,9 +274,9 @@ export default function TestDetailData({
         setImageLoading(false);
       }
     };
-    
+
     fetchImage();
-    
+
     // Cleanup blob URL on unmount
     return () => {
       if (imageUrl) {
@@ -406,11 +417,11 @@ export default function TestDetailData({
                 The image generated for this test case
               </Typography>
             </Box>
-            <Paper 
-              variant="outlined" 
-              sx={{ 
-                p: 2, 
-                display: 'flex', 
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2,
+                display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
                 minHeight: 200,
@@ -425,7 +436,9 @@ export default function TestDetailData({
                 <Box
                   component="img"
                   src={imageUrl}
-                  alt={test.test_metadata?.generation_prompt || 'Generated image'}
+                  alt={
+                    test.test_metadata?.generation_prompt || 'Generated image'
+                  }
                   sx={{
                     maxWidth: '100%',
                     maxHeight: 500,
@@ -453,9 +466,13 @@ export default function TestDetailData({
                 The prompt used to generate this image
               </Typography>
             </Box>
-            <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
+            <Paper
+              variant="outlined"
+              sx={{ p: 2, bgcolor: 'background.default' }}
+            >
               <Typography variant="body2">
-                {test.test_metadata?.generation_prompt || 'No generation prompt available'}
+                {test.test_metadata?.generation_prompt ||
+                  'No generation prompt available'}
               </Typography>
             </Paper>
           </Grid>
@@ -474,10 +491,14 @@ export default function TestDetailData({
                   color="text.secondary"
                   sx={{ display: 'block', fontStyle: 'italic' }}
                 >
-                  The expected description or characteristics of the generated image
+                  The expected description or characteristics of the generated
+                  image
                 </Typography>
               </Box>
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
+              <Paper
+                variant="outlined"
+                sx={{ p: 2, bgcolor: 'background.default' }}
+              >
                 <Typography variant="body2">
                   {test.test_metadata.expected_output}
                 </Typography>

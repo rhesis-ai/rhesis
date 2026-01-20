@@ -144,7 +144,10 @@ interface BaseDataGridProps {
   persistState?: boolean;
   storageKey?: string;
   // Row height props
-  getRowHeight?: (params: { id: GridRowId; densityFactor: number }) => number | 'auto' | null;
+  getRowHeight?: (params: {
+    id: GridRowId;
+    densityFactor: number;
+  }) => number | 'auto' | null;
 }
 
 // Create a styled version of DataGrid with bold headers

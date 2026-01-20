@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from 'react';
 import {
   GridColDef,
   GridRowSelectionModel,
@@ -96,6 +102,13 @@ export default function TestSetTestsGrid({
     []
   );
 
+  // Get all image test IDs for lightbox navigation
+  const imageTestIds = useMemo(() => {
+    return tests
+      .filter(test => isImageTest(test.test_type?.type_value))
+      .map(test => test.id);
+  }, [tests]);
+
   const columns: GridColDef[] = React.useMemo(
     () => [
       {
@@ -103,7 +116,7 @@ export default function TestSetTestsGrid({
         headerName: 'Content',
         flex: 3,
         valueGetter: getTestContentValue,
-        renderCell: createTestContentCellRenderer(sessionToken),
+        renderCell: createTestContentCellRenderer(sessionToken, imageTestIds),
       },
       {
         field: 'behavior',
@@ -217,7 +230,7 @@ export default function TestSetTestsGrid({
         },
       },
     ],
-    [sessionToken]
+    [sessionToken, imageTestIds]
   );
 
   // Handle row click to navigate to test details

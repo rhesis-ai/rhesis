@@ -16,7 +16,11 @@ export const getTestContentValue: GridValueGetter<TestDetail, string> = (
 ) => {
   // For image tests, show the generation prompt from metadata
   if (isImageTest(row.test_type?.type_value)) {
-    return row.test_metadata?.generation_prompt || row.test_metadata?.expected_output || 'Image test';
+    return (
+      row.test_metadata?.generation_prompt ||
+      row.test_metadata?.expected_output ||
+      'Image test'
+    );
   }
   // For multi-turn tests, show the goal
   if (
@@ -32,14 +36,21 @@ export const getTestContentValue: GridValueGetter<TestDetail, string> = (
 /**
  * Factory function to create a cell renderer with session token for authenticated image loading.
  * Use this when you need to display actual images in the grid.
+ *
+ * @param sessionToken - Authentication token for API requests
+ * @param allImageTestIds - Optional array of all image test IDs for lightbox navigation
  */
-export const createTestContentCellRenderer = (sessionToken: string) => {
+export const createTestContentCellRenderer = (
+  sessionToken: string,
+  allImageTestIds?: string[]
+) => {
   return (params: GridRenderCellParams<TestDetail>) => {
     // For image tests, show authenticated thumbnail with the generation prompt
     if (isImageTest(params.row.test_type?.type_value)) {
-      const generationPrompt = params.row.test_metadata?.generation_prompt || 
-                               params.row.test_metadata?.expected_output || 
-                               'Image test';
+      const generationPrompt =
+        params.row.test_metadata?.generation_prompt ||
+        params.row.test_metadata?.expected_output ||
+        'Image test';
 
       return (
         <Box
@@ -58,6 +69,7 @@ export const createTestContentCellRenderer = (sessionToken: string) => {
             alt={generationPrompt}
             width={48}
             height={48}
+            allTestIds={allImageTestIds}
           />
           <Typography
             variant="body2"
@@ -116,9 +128,10 @@ export const renderTestContentCell = (
 ) => {
   // For image tests, show an image icon with the generation prompt (no auth available)
   if (isImageTest(params.row.test_type?.type_value)) {
-    const generationPrompt = params.row.test_metadata?.generation_prompt || 
-                             params.row.test_metadata?.expected_output || 
-                             'Image test';
+    const generationPrompt =
+      params.row.test_metadata?.generation_prompt ||
+      params.row.test_metadata?.expected_output ||
+      'Image test';
 
     return (
       <Box

@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import ListIcon from '@mui/icons-material/List';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -133,6 +139,13 @@ export default function TestsTable({
     setPaginationModel(prev => ({ ...prev, page: 0 }));
   }, []);
 
+  // Get all image test IDs for lightbox navigation
+  const imageTestIds = useMemo(() => {
+    return tests
+      .filter(test => isImageTest(test.test_type?.type_value))
+      .map(test => test.id);
+  }, [tests]);
+
   // Column definitions
   const columns: GridColDef[] = React.useMemo(
     () => [
@@ -142,7 +155,7 @@ export default function TestsTable({
         flex: 3,
         filterable: true,
         valueGetter: getTestContentValue,
-        renderCell: createTestContentCellRenderer(sessionToken),
+        renderCell: createTestContentCellRenderer(sessionToken, imageTestIds),
       },
       {
         field: 'behavior.name',
@@ -304,7 +317,7 @@ export default function TestsTable({
         },
       },
     ],
-    [sessionToken]
+    [sessionToken, imageTestIds]
   );
 
   // Event handlers
