@@ -4,9 +4,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from rhesis.sdk import decorators
-from rhesis.sdk.decorators import observe
 from rhesis.sdk.decorators import _state as decorators_state
+from rhesis.sdk.decorators import observe
 from rhesis.sdk.telemetry.attributes import AIAttributes
 
 
