@@ -1,45 +1,62 @@
-import json
+import asyncio
 import functools
-import uuid
-import pathlib
+import json
 import logging
 import os
+import pathlib
+import uuid
 
-
-import asyncio
 import nest_asyncio
+
 nest_asyncio.apply()
 
 import aiohttp
-from aiohttp import web
+import aiohttp_security
 import aiohttp_session
 import aiohttp_session.cookie_storage
-import aiohttp_security
-#from aiohttp_session import SimpleCookieStorage, session_middleware
-from aiohttp_security import check_permission, \
-    is_anonymous, remember, forget, \
-    setup as setup_security, SessionIdentityPolicy
-from aiohttp_security.abc import AbstractAuthorizationPolicy
 import cryptography.fernet
+from aiohttp import web
+
+# from aiohttp_session import SimpleCookieStorage, session_middleware
+from aiohttp_security import (
+    SessionIdentityPolicy,
+    remember,
+)
+from aiohttp_security import (
+    setup as setup_security,
+)
+from aiohttp_security.abc import AbstractAuthorizationPolicy
+
 from ._test_tree import TestTree
-import functools
 
 log = logging.getLogger(__name__)
 
 
-def serve(test_tree_browsers, host="localhost", port=8080, static_dir=None, authenticate=lambda user, password: True,
-          authorize=lambda user,location: True, auth_duration=60 * 60 * 8, ssl_crt=None, ssl_key=None):
-    """ Serves the interface at the given host and port.
-    """
+def serve(
+    test_tree_browsers,
+    host="localhost",
+    port=8080,
+    static_dir=None,
+    authenticate=lambda user, password: True,
+    authorize=lambda user, location: True,
+    auth_duration=60 * 60 * 8,
+    ssl_crt=None,
+    ssl_key=None,
+):
+    """Serves the interface at the given host and port."""
     log.debug(f"serve(test_tree_browsers={test_tree_browsers})")
 
     if isinstance(test_tree_browsers, TestTree):
-        raise Exception("You cannot serve a TestTree directly! You need to call it with a scorer like test_tree(scorer).")
+        raise Exception(
+            "You cannot serve a TestTree directly! You need to call it with a scorer like test_tree(scorer)."
+        )
 
     if isinstance(authenticate, dict):
         auth_dict = authenticate
+
         def check_pass(user, password):
             return auth_dict.get(user, object()) == password
+
         authenticate = check_pass
 
     loop = asyncio.get_event_loop()
@@ -63,13 +80,13 @@ def serve(test_tree_browsers, host="localhost", port=8080, static_dir=None, auth
                 await remember(request, redirect_response, user)
                 return redirect_response
             else:
-                raise web.HTTPFound(f'/_login?user={user}&sendback={str(request.rel_url)}')
+                raise web.HTTPFound(f"/_login?user={user}&sendback={str(request.rel_url)}")
         else:
             user = await aiohttp_security.authorized_userid(request)
             if hasattr(test_tree_browsers, "interface_event"):
                 prefix = ""
                 test_tree_browser = test_tree_browsers
-                test_tree_name = 'fake'
+                test_tree_name = "fake"
             else:
                 test_tree_name = request.match_info["test_tree"]
                 prefix = "/" + test_tree_name
@@ -91,7 +108,7 @@ def serve(test_tree_browsers, host="localhost", port=8080, static_dir=None, auth
     <title>Adaptive Testing</title>
   </head>
   <body style="font-family: Helvetica Neue, Helvetica, Arial, sans-serif; margin-right: 20px; font-size: 14px;">
-    {test_tree_browser._repr_html_(prefix=prefix, environment="web", websocket_server=prefix+"/_ws")}
+    {test_tree_browser._repr_html_(prefix=prefix, environment="web", websocket_server=prefix + "/_ws")}
   </body>
 </html>
 """
@@ -108,13 +125,15 @@ def serve(test_tree_browsers, host="localhost", port=8080, static_dir=None, auth
                 await remember(request, redirect_response, user)
                 return redirect_response
             else:
-                raise web.HTTPFound(f'/_login?user={user}&sendback={str(request.rel_url)}')
+                raise web.HTTPFound(f"/_login?user={user}&sendback={str(request.rel_url)}")
         else:
             if request.raw_path == "/favicon.ico":
                 file_path = pathlib.Path(__file__).parent.absolute()
-                return web.FileResponse(file_path / "resources" / "favicon.png" )
+                return web.FileResponse(file_path / "resources" / "favicon.png")
             elif "file_path" in request.match_info:
-                file_path = os.path.join(static_dir, *request.match_info["file_path"].replace("..", "").split("/"))
+                file_path = os.path.join(
+                    static_dir, *request.match_info["file_path"].replace("..", "").split("/")
+                )
                 return web.FileResponse(file_path)
             else:
                 raise web.HTTPNotFound()
@@ -135,7 +154,8 @@ def serve(test_tree_browsers, host="localhost", port=8080, static_dir=None, auth
     async def login_handler(request):
         sendback = request.rel_url.query.get("sendback", "/")
         user = request.rel_url.query.get("user", "")
-        return web.Response(text=f"""
+        return web.Response(
+            text=f"""
 <html>
   <head>
     <title>Adaptive Testing Login</title>
@@ -245,30 +265,36 @@ def serve(test_tree_browsers, host="localhost", port=8080, static_dir=None, auth
     </div>
   </body>
 </html>
-""", content_type="text/html")
+""",
+            content_type="text/html",
+        )
 
     async def auth_handler(request):
         post_params = await request.post()
         sendback = post_params.get("sendback", "/")
-        user = post_params.get('user', None)
-        password = post_params.get('password', None)
+        user = post_params.get("user", None)
+        password = post_params.get("password", None)
 
         if authenticate(user if user is not None else "anonymous", password):
             redirect_response = web.HTTPFound(sendback)
             await remember(request, redirect_response, user if user is not None else "anonymous")
             return redirect_response
         else:
-            raise web.HTTPFound(f"/_login?{'user='+user+'&' if user is not None else ''}sendback={sendback}")
+            raise web.HTTPFound(
+                f"/_login?{'user=' + user + '&' if user is not None else ''}sendback={sendback}"
+            )
 
     async def websocket_handler(request):
         ws = web.WebSocketResponse()
         await ws.prepare(request)
 
         # build a WebSocket comm object
-        class WebSocketComm():
+        class WebSocketComm:
             pass
+
         def ws_send(data):
             loop.run_until_complete(send_ws_data(ws, json.dumps(data)))
+
         comm = WebSocketComm()
         comm.send = ws_send
 
@@ -284,61 +310,68 @@ def serve(test_tree_browsers, host="localhost", port=8080, static_dir=None, auth
 
         async for msg in ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
-                if msg.data == 'close':
-                    log.debug(f"Closing WebSocket for user '{getattr(test_tree_browser, 'user', None)}' for test tree '{getattr(test_tree_browser, 'name', None)}'!")
+                if msg.data == "close":
+                    log.debug(
+                        f"Closing WebSocket for user '{getattr(test_tree_browser, 'user', None)}' for test tree '{getattr(test_tree_browser, 'name', None)}'!"
+                    )
                     await ws.close()
                 else:
                     data = json.loads(msg.data)
-                    log.info(f"WebSocket message from user '{getattr(test_tree_browser, 'user', None)}' for test tree '{getattr(test_tree_browser, 'name', None)}' is {data}")
+                    log.info(
+                        f"WebSocket message from user '{getattr(test_tree_browser, 'user', None)}' for test tree '{getattr(test_tree_browser, 'name', None)}' is {data}"
+                    )
                     test_tree_browser.interface_event(data)
             elif msg.type == aiohttp.WSMsgType.ERROR:
-                print('WebSocket connection closed with exception %s' % ws.exception())
+                print("WebSocket connection closed with exception %s" % ws.exception())
 
         return ws
 
     async def make_app():
-        middleware = aiohttp_session.session_middleware(aiohttp_session.cookie_storage.EncryptedCookieStorage(
-            cryptography.fernet.Fernet.generate_key().decode(), max_age=auth_duration
-        ))
+        middleware = aiohttp_session.session_middleware(
+            aiohttp_session.cookie_storage.EncryptedCookieStorage(
+                cryptography.fernet.Fernet.generate_key().decode(), max_age=auth_duration
+            )
+        )
         # middleware = aiohttp_session.session_middleware(aiohttp_session.SimpleCookieStorage())
         app = web.Application(middlewares=[middleware])
 
-        app.add_routes([
-            web.get('/_ws', websocket_handler),
-            web.get('/_login', login_handler),
-            web.post('/_auth', auth_handler),
-            web.get('/favicon.ico', static_handler)
-        ])
+        app.add_routes(
+            [
+                web.get("/_ws", websocket_handler),
+                web.get("/_login", login_handler),
+                web.post("/_auth", auth_handler),
+                web.get("/favicon.ico", static_handler),
+            ]
+        )
 
         if static_dir is not None:
-            app.add_routes([web.static('/_static', static_dir)])
+            app.add_routes([web.static("/_static", static_dir)])
         if hasattr(test_tree_browsers, "_repr_html_"):
-            app.add_routes([
-                web.get('/{topic_path:.*}', topic_handler),
-                web.get('/_ws', websocket_handler)
-            ])
+            app.add_routes(
+                [web.get("/{topic_path:.*}", topic_handler), web.get("/_ws", websocket_handler)]
+            )
         else:
             if static_dir is not None:
-                app.add_routes([web.get('/{test_tree}/_static/{file_path:.*}', static_handler)])
-            app.add_routes([
-                web.get('/{test_tree}/_ws', websocket_handler),
-                web.get('/{test_tree}', topic_handler),
-                web.get('/{test_tree}/{topic_path:.*}', topic_handler)
-            ])
+                app.add_routes([web.get("/{test_tree}/_static/{file_path:.*}", static_handler)])
+            app.add_routes(
+                [
+                    web.get("/{test_tree}/_ws", websocket_handler),
+                    web.get("/{test_tree}", topic_handler),
+                    web.get("/{test_tree}/{topic_path:.*}", topic_handler),
+                ]
+            )
 
         policy = SessionIdentityPolicy()
         setup_security(app, policy, AdaptiveTestingPolicy())
 
         return app
 
-    state = {
-        "site": None,
-        "runner": None
-    }
-    async def start_server(state, host, port, ssl_crt, ssl_key):
+    state = {"site": None, "runner": None}
 
+    async def start_server(state, host, port, ssl_crt, ssl_key):
         if ssl_crt is not None:
             import ssl
+
             ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
             ssl_context.load_cert_chain(ssl_crt, ssl_key)
         else:
@@ -355,14 +388,16 @@ def serve(test_tree_browsers, host="localhost", port=8080, static_dir=None, auth
         await state["site"].stop()
         await state["runner"].shutdown()
 
-
     # aiohttp.web.run_app(make_app(), port=port)
-    loop.run_until_complete(start_server(state, host=host, port=port, ssl_crt=ssl_crt, ssl_key=ssl_key))
+    loop.run_until_complete(
+        start_server(state, host=host, port=port, ssl_crt=ssl_crt, ssl_key=ssl_key)
+    )
 
     try:
         loop.run_forever()
     finally:
         loop.run_until_complete(stop_server(state))
+
 
 class AdaptiveTestingPolicy(AbstractAuthorizationPolicy):
     async def authorized_userid(self, identity):
@@ -377,4 +412,4 @@ class AdaptiveTestingPolicy(AbstractAuthorizationPolicy):
         Return True if the identity is allowed the permission
         in the current context, else return False.
         """
-        return identity == 'jack' and permission in ('listen',)
+        return identity == "jack" and permission in ("listen",)

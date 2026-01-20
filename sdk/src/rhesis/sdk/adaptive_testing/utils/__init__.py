@@ -1,6 +1,6 @@
+import io
 import re
 import urllib
-import io
 
 import numpy as np
 
@@ -20,9 +20,7 @@ def isinstance_ipython(obj, ref_class):
         name = getattr(obj, "__qualname__", getattr(obj, "__name__", ""))
         return (getattr(obj, "__module__", "") + "." + name).lstrip(".")
 
-    return isinstance(obj, ref_class) or _class_name(type(obj)) == _class_name(
-        ref_class
-    )
+    return isinstance(obj, ref_class) or _class_name(type(obj)) == _class_name(ref_class)
 
 
 _images_cache = {}
