@@ -1,3 +1,4 @@
+import base64
 import json
 from pathlib import Path
 from typing import Any, Dict, List
@@ -390,12 +391,13 @@ def bulk_create_tests(
             # 3. test_set's test_type_value, 4. defaults
             individual_test_type = test_data_dict.pop("test_type", None)
 
-            # Auto-detect test type based on test_configuration
-            # If test_configuration has a 'goal' field, it's a multi-turn test
-            # If prompt is provided (and no goal in config), it's a single-turn test
+            # Auto-detect test type based on test_configuration or binary content
+            # Priority: Image (has binary) > Multi-Turn (has goal) > Single-Turn (has prompt)
             auto_detected_type = None
             test_config = test_data_dict.get("test_configuration", {})
-            if test_config and isinstance(test_config, dict) and "goal" in test_config:
+            if test_data_dict.get("test_binary_base64"):
+                auto_detected_type = "Image"
+            elif test_config and isinstance(test_config, dict) and "goal" in test_config:
                 auto_detected_type = "Multi-Turn"
             elif test_data_dict.get("prompt"):
                 auto_detected_type = "Single-Turn"
@@ -503,8 +505,25 @@ def bulk_create_tests(
                             if k != "_source_id"
                         }
 
+            # Handle test_binary_base64: decode from base64 to bytes for image tests
+            test_binary = None
+            test_binary_base64 = test_data_dict.pop("test_binary_base64", None)
+            if test_binary_base64:
+                try:
+                    test_binary = base64.b64decode(test_binary_base64)
+                    logger.debug(
+                        f"bulk_create_tests - Decoded test_binary ({len(test_binary)} bytes)"
+                    )
+                except Exception as decode_error:
+                    logger.error(
+                        f"bulk_create_tests - Failed to decode test_binary_base64: {decode_error}"
+                    )
+                    raise ValueError(
+                        f"Invalid base64 encoding for test_binary_base64: {decode_error}"
+                    ) from decode_error
+
             test_params = {
-                "prompt_id": prompt.id if prompt else None,  # None for multi-turn tests
+                "prompt_id": prompt.id if prompt else None,  # None for multi-turn/image tests
                 "test_type_id": test_type.id,
                 "topic_id": topic.id,
                 "behavior_id": behavior.id,
@@ -527,6 +546,7 @@ def bulk_create_tests(
                 "assignee_id": assignee_id,
                 "owner_id": owner_id,
                 "source_id": sanitize_uuid_field(source_id) if source_id else None,
+                "test_binary": test_binary,  # Binary content for image tests
             }
 
             # Clean any remaining UUID fields from the test data dict

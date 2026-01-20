@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, Table
+from sqlalchemy import Column, ForeignKey, Integer, LargeBinary, Table
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -52,6 +52,8 @@ class Test(
     # Test source info (origin, inputs, context)
     # Named 'test_metadata' to avoid SQLAlchemy's reserved 'metadata' attribute
     test_metadata = Column(JSONB)
+    # Binary content for image tests (MIME type stored in test_metadata.binary_mime_type)
+    test_binary = Column(LargeBinary)
 
     # Relationships
     prompt = relationship("Prompt", back_populates="tests")

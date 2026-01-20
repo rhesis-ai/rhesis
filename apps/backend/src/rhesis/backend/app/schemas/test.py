@@ -97,6 +97,9 @@ class TestBase(Base):
     source_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     test_metadata: Optional[Dict[str, Any]] = None
+    # Base64-encoded binary content for image tests (decoded in service layer)
+    # MIME type should be provided in test_metadata.binary_mime_type
+    test_binary_base64: Optional[str] = None
 
 
 class TestCreate(TestBase):
@@ -202,7 +205,7 @@ class TestPromptCreate(BaseModel):
 
 
 class TestBulkCreate(BaseModel):
-    prompt: Optional[TestPromptCreate] = None  # Optional for Multi-Turn tests
+    prompt: Optional[TestPromptCreate] = None  # Optional for Multi-Turn and Image tests
     behavior: str
     category: str
     topic: str
@@ -211,6 +214,12 @@ class TestBulkCreate(BaseModel):
     owner_id: Optional[UUID4] = None
     status: Optional[str] = None
     priority: Optional[int] = None
+    # Base64-encoded binary content for image tests
+    # MIME type should be provided in test_metadata.binary_mime_type
+    test_binary_base64: Optional[str] = None
+    test_metadata: Optional[Dict[str, Any]] = None
+    # Test type can be explicitly set (e.g., "Image", "Single-Turn", "Multi-Turn")
+    test_type: Optional[str] = None
 
     @field_validator("assignee_id", "owner_id")
     @classmethod
@@ -234,19 +243,26 @@ class TestBulkCreate(BaseModel):
         """
         Validate that either:
         - prompt is provided (single-turn test), OR
-        - test_configuration with goal is provided (multi-turn test)
+        - test_configuration with goal is provided (multi-turn test), OR
+        - test_binary_base64 is provided (image test)
         """
         prompt = info.data.get("prompt")
+        test_binary_base64 = info.data.get("test_binary_base64")
 
         # If prompt is provided, it's a single-turn test - OK
         if prompt:
             return v
 
-        # If no prompt, must be multi-turn - validate goal exists
+        # If test_binary_base64 is provided, it's an image test - OK
+        if test_binary_base64:
+            return v
+
+        # If no prompt and no binary, must be multi-turn - validate goal exists
         if not v or not v.get("goal"):
             raise ValueError(
-                "Either 'prompt' must be provided (for single-turn tests) "
-                "or 'test_configuration' with 'goal' must be provided (for multi-turn tests)"
+                "Either 'prompt' must be provided (for single-turn tests), "
+                "'test_configuration' with 'goal' must be provided (for multi-turn tests), "
+                "or 'test_binary_base64' must be provided (for image tests)"
             )
 
         # If 'goal' is present, validate as multi-turn config
