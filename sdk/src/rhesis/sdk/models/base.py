@@ -26,7 +26,16 @@ class BaseLLM(ABC):
         """Runs the model to output LLM response.
 
         Returns:
-            A string.
+            A string or dict (if schema provided).
+        """
+        pass
+
+    @abstractmethod
+    def generate_batch(self, *args, **kwargs) -> List[Union[str, Dict[str, Any]]]:
+        """Runs the model on multiple prompts to output LLM responses.
+
+        Returns:
+            A list of strings or dicts (if schema provided).
         """
         pass
 
