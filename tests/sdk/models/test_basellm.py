@@ -38,3 +38,35 @@ def test_base_llm_concrete_methods():
     assert test_llm.get_model_name() == "Class name: TestLLM, model name: test-model"
     assert model_name in test_llm.model_name
     assert test_llm.model == "test-model-object"
+
+
+def test_base_llm_generate_multimodal_not_implemented():
+    """Test that generate_multimodal raises NotImplementedError on base class."""
+
+    class TestLLM(BaseLLM):
+        def load_model(self, *args, **kwargs):
+            return "test-model-object"
+
+        def generate(self, *args, **kwargs) -> str:
+            return "test-response"
+
+    test_llm = TestLLM("test-model")
+
+    with pytest.raises(NotImplementedError, match="does not support multimodal generation"):
+        test_llm.generate_multimodal([])
+
+
+def test_base_llm_analyze_content_not_implemented():
+    """Test that analyze_content raises NotImplementedError on base class."""
+
+    class TestLLM(BaseLLM):
+        def load_model(self, *args, **kwargs):
+            return "test-model-object"
+
+        def generate(self, *args, **kwargs) -> str:
+            return "test-response"
+
+    test_llm = TestLLM("test-model")
+
+    with pytest.raises(NotImplementedError, match="does not support content analysis"):
+        test_llm.analyze_content(None, "test prompt")

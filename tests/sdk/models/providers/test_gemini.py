@@ -166,3 +166,71 @@ class TestGeminiLLM:
             response_format=None,
             api_key="test_key",
         )
+
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_supports_vision_property(self, mock_audio, mock_vision):
+        """Test supports_vision property returns correct value"""
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        llm = GeminiLLM(api_key="test_key")
+
+        assert llm.supports_vision is True
+        mock_vision.assert_called_with(model=f"gemini/{DEFAULT_MODEL_NAME}")
+
+    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_generate_multimodal_with_image(self, mock_audio, mock_vision, mock_completion):
+        """Test generate_multimodal method with image content"""
+        from rhesis.sdk.models.content import ImageContent, Message, TextContent
+
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "I see a cat"
+        mock_completion.return_value = mock_response
+
+        llm = GeminiLLM(api_key="test_key")
+        messages = [
+            Message(
+                role="user",
+                content=[
+                    TextContent("Describe this:"),
+                    ImageContent.from_url("https://example.com/cat.jpg"),
+                ],
+            )
+        ]
+
+        result = llm.generate_multimodal(messages)
+
+        assert result == "I see a cat"
+        mock_completion.assert_called_once()
+        call_kwargs = mock_completion.call_args[1]
+        assert call_kwargs["model"] == f"gemini/{DEFAULT_MODEL_NAME}"
+        assert len(call_kwargs["messages"]) == 1
+        assert len(call_kwargs["messages"][0]["content"]) == 2
+
+    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_analyze_content(self, mock_audio, mock_vision, mock_completion):
+        """Test analyze_content convenience method"""
+        from rhesis.sdk.models.content import ImageContent
+
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "A beautiful sunset"
+        mock_completion.return_value = mock_response
+
+        llm = GeminiLLM(api_key="test_key")
+        result = llm.analyze_content(
+            ImageContent.from_url("https://example.com/sunset.jpg"), "Describe this image"
+        )
+
+        assert result == "A beautiful sunset"
+        mock_completion.assert_called_once()
