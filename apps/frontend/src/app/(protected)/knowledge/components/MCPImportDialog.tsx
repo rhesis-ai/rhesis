@@ -713,7 +713,7 @@ export default function MCPImportDialog({
                           item.status === 'error'
                             ? item.error
                             : item.status === 'success'
-                              ? `✓ Imported as: ${item.title}`
+                              ? `Imported as: ${item.title}`
                               : ''
                         }
                         sx={{
