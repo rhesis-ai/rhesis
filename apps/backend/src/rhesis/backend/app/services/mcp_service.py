@@ -402,9 +402,7 @@ async def extract_mcp(
     model = get_user_generation_model(db, user)
 
     # Load MCP client and provider from database tool configuration
-    client, provider, _ = _get_mcp_tool_config(
-        db, tool_id, organization_id, user_id
-    )
+    client, provider, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
 
     extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(
         item_id=item_id,
