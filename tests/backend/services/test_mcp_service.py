@@ -460,7 +460,7 @@ class TestSearchMCP:
         mock_agent.run_async.assert_called_once_with(query)
 
     @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
@@ -476,16 +476,25 @@ class TestSearchMCP:
 
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
-        mock_get_client.return_value = (Mock(), "notion")
+
+        mock_client = Mock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[])
+        mock_get_client.return_value = (mock_client, "notion")
+
         mock_template = Mock()
         mock_template.render.return_value = "Search prompt"
         mock_jinja_env.get_template.return_value = mock_template
 
+        # Mock the agent class and instance
+        mock_agent_class_impl = Mock()
         mock_agent = Mock()
         mock_result = Mock()
         mock_result.final_answer = "invalid json{"
         mock_agent.run_async = AsyncMock(return_value=mock_result)
-        mock_agent_class.return_value = mock_agent
+        mock_agent_class_impl.return_value = mock_agent
+        mock_agent_class.return_value = mock_agent_class_impl
 
         with pytest.raises(ValueError) as exc_info:
             await search_mcp(query, tool_id, db, org_id, user_id)
@@ -493,7 +502,7 @@ class TestSearchMCP:
         assert "invalid json" in str(exc_info.value).lower()
 
     @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
@@ -509,16 +518,25 @@ class TestSearchMCP:
 
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
-        mock_get_client.return_value = (Mock(), "notion")
+
+        mock_client = Mock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[])
+        mock_get_client.return_value = (mock_client, "notion")
+
         mock_template = Mock()
         mock_template.render.return_value = "Search prompt"
         mock_jinja_env.get_template.return_value = mock_template
 
+        # Mock the agent class and instance
+        mock_agent_class_impl = Mock()
         mock_agent = Mock()
         mock_result = Mock()
         mock_result.final_answer = '{"not": "a list"}'
         mock_agent.run_async = AsyncMock(return_value=mock_result)
-        mock_agent_class.return_value = mock_agent
+        mock_agent_class_impl.return_value = mock_agent
+        mock_agent_class.return_value = mock_agent_class_impl
 
         with pytest.raises(ValueError) as exc_info:
             await search_mcp(query, tool_id, db, org_id, user_id)
@@ -533,7 +551,7 @@ class TestExtractMCP:
     """Test extract_mcp function"""
 
     @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
@@ -590,7 +608,7 @@ class TestExtractMCP:
         mock_agent.run_async.assert_called_once_with(f"Extract content from item {item_url}")
 
     @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
@@ -666,7 +684,7 @@ class TestQueryMCP:
     """Test query_mcp function"""
 
     @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
@@ -720,7 +738,7 @@ class TestQueryMCP:
         )
 
     @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     async def test_query_with_custom_prompt(
@@ -761,7 +779,7 @@ class TestQueryMCP:
         )
 
     @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
@@ -812,7 +830,7 @@ class TestQueryMCP:
 class TestTestMCPAuthentication:
     """Test run_mcp_authentication_test function"""
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
@@ -859,7 +877,7 @@ class TestTestMCPAuthentication:
             verbose=False,
         )
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_client_from_params")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
@@ -904,7 +922,7 @@ class TestTestMCPAuthentication:
             user_id=None,
         )
 
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
@@ -918,17 +936,26 @@ class TestTestMCPAuthentication:
         user = Mock(spec=User)
 
         mock_get_model.return_value = Mock(spec=BaseLLM)
-        mock_get_client.return_value = (Mock(), "notion")
+
+        mock_client = Mock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[])
+        mock_get_client.return_value = (mock_client, "notion")
+
         mock_template = Mock()
         mock_template.render.return_value = "Auth test prompt"
         mock_jinja_env.get_template.return_value = mock_template
 
+        # Mock the agent class and instance
+        mock_agent_class_impl = Mock()
         mock_agent = Mock()
         mock_result = Mock()
         mock_result.success = False
         mock_result.error = "Agent failed"
         mock_agent.run_async = AsyncMock(return_value=mock_result)
-        mock_agent_class.return_value = mock_agent
+        mock_agent_class_impl.return_value = mock_agent
+        mock_agent_class.return_value = mock_agent_class_impl
 
         with pytest.raises(ValueError) as exc_info:
             await run_mcp_authentication_test(db, user, org_id, tool_id=tool_id)
