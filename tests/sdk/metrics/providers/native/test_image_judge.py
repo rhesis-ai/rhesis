@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.configs import (
     DEFAULT_IMAGE_EVALUATION_PROMPT,
     ImageJudgeConfig,
@@ -54,6 +54,7 @@ class TestImageJudgeInit:
         assert judge.metric_type == MetricType.GENERATION
         assert judge.score_type == ScoreType.CATEGORICAL
         assert judge.requires_ground_truth is True
+        assert judge.metric_scope == [MetricScope.IMAGE]
 
     def test_custom_categories(self):
         """Test ImageJudge with custom categories."""

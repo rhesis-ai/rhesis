@@ -293,6 +293,11 @@
             "description": "Multi-Turn tests"
         },
         {
+            "type_name": "TestType",
+            "type_value": "Image",
+            "description": "Image generation and analysis tests"
+        },
+        {
             "type_name": "ScoreType",
             "type_value": "binary",
             "description": "Binary metric type"
@@ -483,6 +488,11 @@
             "description": "Test set containing only multi-turn tests"
         },
         {
+            "type_name": "TestSetType",
+            "type_value": "Image",
+            "description": "Test set containing image generation/analysis tests"
+        },
+        {
             "type_name": "MetricScope",
             "type_value": "Single-Turn",
             "description": "Metric applies to single-turn tests only"
@@ -491,6 +501,11 @@
             "type_name": "MetricScope",
             "type_value": "Multi-Turn",
             "description": "Metric applies to multi-turn tests only"
+        },
+        {
+            "type_name": "MetricScope",
+            "type_value": "Image",
+            "description": "Metric applies to image generation/analysis tests"
         },
         {
             "type_name": "ToolType",

@@ -87,7 +87,7 @@ class ImageJudge(JudgeBase):
             gemini-1.5-flash, gemini-1.5-pro, gpt-4-vision, claude-3-* support vision.
         """
         if metric_scope is None:
-            metric_scope = [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN]
+            metric_scope = [MetricScope.IMAGE]
 
         self.config = ImageJudgeConfig(
             categories=categories,

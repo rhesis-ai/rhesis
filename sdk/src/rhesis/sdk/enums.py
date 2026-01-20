@@ -10,10 +10,12 @@ class TestType(str, Enum):
     These values align with the backend TypeLookup table:
     - SINGLE_TURN: Traditional single request-response tests
     - MULTI_TURN: Agentic multi-turn conversation tests using Penelope
+    - IMAGE: Image generation/analysis tests
     """
 
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
+    IMAGE = "Image"
 
 
 @dataclass

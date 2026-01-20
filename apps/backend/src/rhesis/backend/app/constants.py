@@ -34,6 +34,7 @@ class EntityType(Enum):
 class TestType(Enum):
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
+    IMAGE = "Image"
 
     @classmethod
     def get_value(cls, test_type):
