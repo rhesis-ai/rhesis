@@ -318,6 +318,8 @@ class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     use_case: Optional[str] = "insurance"  # Default to insurance for backward compatibility
+    image_urls: Optional[List[str]] = None  # List of image URLs to analyze
+    image_data: Optional[List[str]] = None  # List of base64-encoded images
 
 
 class ChatResponse(BaseModel):
@@ -327,12 +329,25 @@ class ChatResponse(BaseModel):
     metadata: dict
 
 
+class ImageGenerationRequest(BaseModel):
+    prompt: str
+    n: Optional[int] = 1
+    size: Optional[str] = "1024x1024"
+
+
+class ImageGenerationResponse(BaseModel):
+    images: List[str]  # URLs or base64-encoded images
+    metadata: dict
+
+
 @endpoint()
 async def chat(
     message: str,
     session_id: Optional[str] = None,
     use_case: str = "insurance",
     conversation_history: Optional[List[dict]] = None,
+    image_urls: Optional[List[str]] = None,
+    image_data: Optional[List[str]] = None,
 ) -> ChatResponse:
     """
     Process a chat message and return structured response.
@@ -342,9 +357,11 @@ async def chat(
         session_id: Session identifier
         use_case: Use case for system prompt
         conversation_history: Previous conversation messages
+        image_urls: Optional list of image URLs to analyze
+        image_data: Optional list of base64-encoded images
 
     Returns:
-        ChatResponse with message, session_id, context, and metadata (use_case, intent)
+        ChatResponse with message, session_id, context, and metadata (use_case, intent, has_images)
     """
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
@@ -356,19 +373,32 @@ async def chat(
     # Recognize intent from the current message
     intent_result = response_generator.recognize_intent(message)
 
+    # Check if images are provided
+    has_images = bool(image_urls or image_data)
+
     # Get assistant response using the same instance
-    response_text = "".join(
-        response_generator.stream_assistant_response(
-            message, conversation_history=conversation_history
+    if has_images:
+        # Use multimodal generation with images
+        response_text = response_generator.get_multimodal_response(
+            message=message,
+            conversation_history=conversation_history,
+            image_urls=image_urls,
+            image_data=image_data,
         )
-    )
+    else:
+        # Use standard text generation
+        response_text = "".join(
+            response_generator.stream_assistant_response(
+                message, conversation_history=conversation_history
+            )
+        )
 
     # Return Pydantic model
     return ChatResponse(
         message=response_text,
         session_id=session_id or str(uuid.uuid4()),
         context=context_fragments,
-        metadata={"use_case": use_case, "intent": intent_result},
+        metadata={"use_case": use_case, "intent": intent_result, "has_images": has_images},
     )
 
 
@@ -389,7 +419,8 @@ async def root(request: Request, auth: dict = Depends(verify_api_key)):
             "tier": auth["tier"],
         },
         "endpoints": {
-            "chat": "/chat (POST)",
+            "chat": "/chat (POST) - Text chat with optional image analysis",
+            "generate_image": "/generate-image (POST) - Generate images from text",
             "health": "/health (GET)",
             "use_cases": "/use-cases (GET)",
             "session": "/sessions/{session_id} (GET, DELETE)",
@@ -440,6 +471,8 @@ async def chat_endpoint(
             session_id=session_id,
             use_case=use_case,
             conversation_history=conversation_history,
+            image_urls=chat_request.image_urls,
+            image_data=chat_request.image_data,
         )
 
         # Update session with the conversation
@@ -453,6 +486,60 @@ async def chat_endpoint(
     except Exception as e:
         logger.error(f"❌ Error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/generate-image", response_model=ImageGenerationResponse)
+async def generate_image_endpoint(
+    request: Request,
+    image_request: ImageGenerationRequest,
+    auth: dict = Depends(check_rate_limit_chatbot),
+):
+    """Generate images from text prompts.
+
+    Args:
+        image_request: Image generation request with prompt, n, and size
+
+    Returns:
+        ImageGenerationResponse with generated image URLs/data
+    """
+    try:
+        logger.info(
+            f"🎨 Image generation request - Auth tier: {auth['tier']}, "
+            f"Prompt: {image_request.prompt[:50]}..., n={image_request.n}"
+        )
+
+        # Get response generator
+        response_generator = endpoint_module.get_response_generator()
+
+        # Generate images
+        result = response_generator.generate_image(
+            prompt=image_request.prompt, n=image_request.n, size=image_request.size
+        )
+
+        # Normalize result to list
+        if isinstance(result, str):
+            images = [result]
+        else:
+            images = result
+
+        logger.info(f"✅ Generated {len(images)} image(s)")
+
+        return ImageGenerationResponse(
+            images=images,
+            metadata={
+                "prompt": image_request.prompt,
+                "n": image_request.n,
+                "size": image_request.size,
+                "count": len(images),
+            },
+        )
+
+    except Exception as e:
+        logger.error(f"❌ Error in image generation: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Image generation failed: {str(e)}. Make sure image generation is enabled.",
+        )
 
 
 @app.get("/sessions/{session_id}")

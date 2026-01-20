@@ -2,12 +2,13 @@ import json
 import logging
 import os
 import re
-from typing import Generator, List, Literal
+from typing import Generator, List, Literal, Optional, Union
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from rhesis.sdk import RhesisClient, endpoint, observe
+from rhesis.sdk.models import ImageContent, Message
 from rhesis.sdk.models.factory import get_model
 
 # Configure logging
@@ -34,6 +35,10 @@ MAX_RETRY_DELAY = 10  # seconds
 # Model configuration - uses SDK providers approach
 DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "vertex_ai")
 DEFAULT_MODEL_NAME = os.getenv("DEFAULT_MODEL_NAME", "gemini-2.5-flash")
+
+# Image generation model configuration
+IMAGE_GENERATION_MODEL = os.getenv("IMAGE_GENERATION_MODEL", "gemini")
+IMAGE_GENERATION_MODEL_NAME = os.getenv("IMAGE_GENERATION_MODEL_NAME", "imagen-4.0-generate-001")
 
 
 class IntentClassification(BaseModel):
@@ -415,6 +420,200 @@ into one of four categories.
         # If all parsing fails, return default
         logger.warning(f"Failed to parse intent response: {text[:100]}")
         return {"intent": "informational", "confidence": "low"}
+
+    @observe()
+    def get_multimodal_response(
+        self,
+        message: str,
+        conversation_history: Optional[List[dict]] = None,
+        image_urls: Optional[List[str]] = None,
+        image_data: Optional[List[str]] = None,
+    ) -> str:
+        """Generate response with image analysis support.
+
+        Args:
+            message: User's text message
+            conversation_history: Previous conversation messages
+            image_urls: List of image URLs to analyze
+            image_data: List of base64-encoded images
+
+        Returns:
+            Assistant's response text
+        """
+        try:
+            # Check if model supports vision
+            if not self.model.supports_vision:
+                return (
+                    "I apologize, but the current model doesn't support image analysis. "
+                    "Please contact support to enable vision-capable models."
+                )
+
+            # Use image_analysis use case for better prompts
+            analysis_generator = ResponseGenerator("image_analysis")
+
+            # Build messages with multimodal content
+            messages = []
+
+            # Add system prompt for image analysis
+            messages.append(
+                Message(role="system", content=analysis_generator.use_case_system_prompt)
+            )
+
+            # Add conversation history
+            if conversation_history:
+                for msg in conversation_history:
+                    role = msg.get("role", "user")
+                    content = msg.get("content", "")
+                    messages.append(Message(role=role, content=content))
+
+            # Build current user message with images and text
+            user_content = []
+
+            # Add images first
+            if image_urls:
+                for url in image_urls:
+                    user_content.append(ImageContent.from_url(url))
+
+            if image_data:
+                import base64
+
+                for img_data in image_data:
+                    # Handle base64 data (with or without data URI prefix)
+                    if img_data.startswith("data:"):
+                        # Extract base64 part
+                        img_data = img_data.split(",", 1)[1]
+                    # Decode and create ImageContent
+                    decoded = base64.b64decode(img_data)
+                    user_content.append(ImageContent.from_bytes(decoded, "image/jpeg"))
+
+            # Add text message
+            user_content.append(message)
+
+            messages.append(Message(role="user", content=user_content))
+
+            # Generate response using multimodal capability with analysis specialist
+            response = analysis_generator.model.generate_multimodal(messages)
+
+            return response if isinstance(response, str) else str(response)
+
+        except Exception as e:
+            logger.error(f"Error in get_multimodal_response: {str(e)}", exc_info=True)
+            return (
+                "I apologize, but I encountered an error while analyzing the images. "
+                "Please try again or contact support if the issue persists."
+            )
+
+    @observe()
+    def generate_image(
+        self, prompt: str, n: int = 1, size: str = "1024x1024", **kwargs
+    ) -> Union[str, List[str]]:
+        """Generate images from text prompt.
+
+        Args:
+            prompt: Text description of image to generate
+            n: Number of images to generate
+            size: Image size (e.g., "1024x1024")
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            Single image URL if n=1, list of URLs otherwise
+        """
+        try:
+            # Use image_generation use case for better prompt enhancement
+            generation_generator = ResponseGenerator("image_generation")
+
+            # Enhance the prompt using the generation specialist
+            enhanced_prompt_request = (
+                f"Enhance this image generation prompt for professional quality: {prompt}"
+            )
+            enhanced_prompt = generation_generator.model.generate(enhanced_prompt_request)
+
+            # Get a separate image generation model
+            image_model = get_model(
+                provider=IMAGE_GENERATION_MODEL, model_name=IMAGE_GENERATION_MODEL_NAME
+            )
+
+            # Check if model supports image generation
+            if not hasattr(image_model, "generate_image"):
+                raise ValueError(
+                    f"Model {IMAGE_GENERATION_MODEL}/{IMAGE_GENERATION_MODEL_NAME} "
+                    "doesn't support image generation. "
+                    "Try setting IMAGE_GENERATION_MODEL=gemini and "
+                    "IMAGE_GENERATION_MODEL_NAME=imagen-4.0-generate-001"
+                )
+
+            # Use enhanced prompt for generation
+            final_prompt = enhanced_prompt if isinstance(enhanced_prompt, str) else prompt
+            return image_model.generate_image(final_prompt, n=n, size=size, **kwargs)
+
+        except Exception as e:
+            logger.error(f"Error in generate_image: {str(e)}", exc_info=True)
+            raise ValueError(f"Image generation failed: {str(e)}")
+
+    @observe()
+    def edit_image(self, image_data: str, edit_prompt: str) -> str:
+        """Edit an image based on text instructions.
+
+        Args:
+            image_data: Base64-encoded image data
+            edit_prompt: Instructions for how to edit the image
+
+        Returns:
+            URL or base64 data of the edited image
+        """
+        try:
+            # Use image_editing use case for specialized editing guidance
+            editing_generator = ResponseGenerator("image_editing")
+
+            # First, analyze the original image
+            import base64
+
+            decoded = base64.b64decode(image_data)
+            image_content = ImageContent.from_bytes(decoded, "image/jpeg")
+
+            # Build analysis prompt using editing specialist
+            analysis_messages = [
+                Message(role="system", content=editing_generator.use_case_system_prompt),
+                Message(
+                    role="user",
+                    content=[
+                        image_content,
+                        (
+                            f"Analyze this image and create a detailed prompt for generating "
+                            f"an edited version with these modifications: {edit_prompt}. "
+                            f"Include all important visual elements that should be preserved "
+                            f"and specify exactly what should be changed."
+                        ),
+                    ],
+                ),
+            ]
+
+            # Get detailed description for editing using editing specialist
+            if not editing_generator.model.supports_vision:
+                raise ValueError("Current model doesn't support image editing (requires vision)")
+
+            description = editing_generator.model.generate_multimodal(analysis_messages)
+
+            # Now generate the edited image based on the description
+            image_model = get_model(
+                provider=IMAGE_GENERATION_MODEL, model_name=IMAGE_GENERATION_MODEL_NAME
+            )
+
+            if not hasattr(image_model, "generate_image"):
+                raise ValueError("Image editing requires an image generation model")
+
+            # Create edit prompt combining original description with edits
+            generation_prompt = (
+                f"Based on this image description, create the edited version: {description}"
+            )
+
+            edited_image = image_model.generate_image(generation_prompt, n=1, size="1024x1024")
+
+            return edited_image if isinstance(edited_image, str) else edited_image[0]
+
+        except Exception as e:
+            logger.error(f"Error in edit_image: {str(e)}", exc_info=True)
+            raise ValueError(f"Image editing failed: {str(e)}")
 
 
 def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
