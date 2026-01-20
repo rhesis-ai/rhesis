@@ -105,6 +105,84 @@ output = model.generate(
 
 </CodeBlock>
 
+### Batch Processing
+
+For improved performance when processing multiple prompts, use the `generate_batch` method. This method leverages parallel processing to efficiently handle multiple requests simultaneously.
+
+**Basic batch generation:**
+
+<CodeBlock filename="batch_basic.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+model = get_model("openai/gpt-4o-mini")
+
+# Process multiple prompts in a single batch call
+prompts = [
+    "What is the capital of France?",
+    "What is the capital of Germany?",
+    "What is the capital of Spain?",
+]
+
+results = model.generate_batch(prompts=prompts)
+# Returns: ["Paris is the capital of France.", "Berlin is...", "Madrid is..."]`}
+
+</CodeBlock>
+
+
+**Batch generation with structured output:**
+
+<CodeBlock filename="batch_structured.py" language="python">
+{`from pydantic import BaseModel
+from rhesis.sdk.models import get_model
+
+class CityInfo(BaseModel):
+    name: str
+    country: str
+    population: int
+
+model = get_model("openai/gpt-4o-mini")
+
+prompts = [
+    "Provide info about Paris",
+    "Provide info about Tokyo",
+    "Provide info about New York",
+]
+
+results = model.generate_batch(
+    prompts=prompts,
+    schema=CityInfo
+)
+# Returns list of validated dicts matching CityInfo schema`}
+
+</CodeBlock>
+
+**Generate multiple completions per prompt:**
+
+<CodeBlock filename="batch_multiple.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+model = get_model("openai/gpt-4o-mini")
+
+prompts = ["Generate a creative product name for a coffee brand"]
+
+# Generate 3 different responses for each prompt
+results = model.generate_batch(
+    prompts=prompts,
+    n=3
+)
+# Returns 3 different product name suggestions`}
+
+</CodeBlock>
+
+**When to use batch processing:**
+
+- Processing large test sets or datasets
+- Running evaluations across multiple inputs
+- Generating multiple test variations
+- Any scenario requiring parallel LLM calls
+
+Note: Batch processing is currently available for LiteLLM-based providers (OpenAI, Gemini, and other supported providers).
+
 ### Using models with synthesizers and metrics
 
 Models become most useful when combined with synthesizers and metrics:
