@@ -13,7 +13,7 @@ import React from 'react'
  * @param {string} props.title - Card title
  * @param {string} props.description - Card description text
  * @param {string} [props.link] - Optional link URL
- * @param {string} [props.linkText] - Optional link text
+ * @param {string} [props.linkText] - Optional link text (defaults to "Learn more →" if link is provided)
  * @param {boolean} [props.external] - Whether link is external
  * @param {React.ReactNode} [props.children] - Optional custom content instead of description
  * @param {string} [props.className] - Additional CSS classes
@@ -106,9 +106,9 @@ export const InfoCard = ({
         {hasLink && <span style={styles.arrowIcon}>↗</span>}
       </h3>
       {children || <p style={styles.description}>{description}</p>}
-      {hasLink && linkText && (
+      {hasLink && (
         <span style={styles.link} className="info-card-link">
-          {linkText}
+          {linkText || 'Learn more →'}
         </span>
       )}
     </>
