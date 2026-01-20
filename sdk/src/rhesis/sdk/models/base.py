@@ -96,3 +96,31 @@ class BaseLLM(ABC):
             NotImplementedError: If model doesn't support image generation
         """
         raise NotImplementedError(f"{self.__class__.__name__} does not support image generation.")
+
+    def embed(
+        self,
+        input: Union[str, List[str]],
+        dimensions: int = None,
+        input_type: str = None,
+        **kwargs,
+    ) -> Union[List[float], List[List[float]]]:
+        """Generate embeddings for text input(s).
+
+        Args:
+            input: Single text string or list of text strings to embed
+            dimensions: Optional output dimensionality (model-dependent)
+            input_type: Optional input type hint (e.g., "query", "document")
+            **kwargs: Additional provider-specific parameters (e.g., task_type for Vertex AI)
+
+        Returns:
+            Single embedding vector if input is string, list of vectors if input is list
+
+        Raises:
+            NotImplementedError: If model doesn't support embeddings
+
+        Example:
+            >>> model = get_model("openai", "text-embedding-3-small")
+            >>> embedding = model.embed("Hello world")
+            >>> embeddings = model.embed(["Hello", "world"])
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support embeddings.")

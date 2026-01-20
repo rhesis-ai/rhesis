@@ -70,3 +70,35 @@ def test_base_llm_analyze_content_not_implemented():
 
     with pytest.raises(NotImplementedError, match="does not support content analysis"):
         test_llm.analyze_content(None, "test prompt")
+
+
+def test_base_llm_generate_image_not_implemented():
+    """Test that generate_image raises NotImplementedError on base class."""
+
+    class TestLLM(BaseLLM):
+        def load_model(self, *args, **kwargs):
+            return "test-model-object"
+
+        def generate(self, *args, **kwargs) -> str:
+            return "test-response"
+
+    test_llm = TestLLM("test-model")
+
+    with pytest.raises(NotImplementedError, match="does not support image generation"):
+        test_llm.generate_image("test prompt")
+
+
+def test_base_llm_embed_not_implemented():
+    """Test that embed raises NotImplementedError on base class."""
+
+    class TestLLM(BaseLLM):
+        def load_model(self, *args, **kwargs):
+            return "test-model-object"
+
+        def generate(self, *args, **kwargs) -> str:
+            return "test-response"
+
+    test_llm = TestLLM("test-model")
+
+    with pytest.raises(NotImplementedError, match="does not support embeddings"):
+        test_llm.embed("test text")

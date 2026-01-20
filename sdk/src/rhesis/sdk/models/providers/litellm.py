@@ -2,7 +2,7 @@ import json
 from typing import List, Optional, Type, Union
 
 import litellm
-from litellm import completion, image_generation
+from litellm import completion, embedding, image_generation
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
@@ -307,4 +307,79 @@ class LiteLLM(BaseLLM, CapabilityMixin):
             raise ValueError(
                 f"Image generation failed with {self.model_name}: {str(e)}. "
                 f"Make sure the model supports image generation."
+            ) from e
+
+    def embed(
+        self,
+        input: Union[str, List[str]],
+        dimensions: int = None,
+        input_type: str = None,
+        **kwargs,
+    ) -> Union[List[float], List[List[float]]]:
+        """Generate embeddings for text input(s) using LiteLLM.
+
+        Args:
+            input: Single text string or list of text strings to embed
+            dimensions: Optional output dimensionality (provider-dependent)
+            input_type: Optional input type hint (e.g., "query", "document")
+            **kwargs: Additional provider-specific parameters:
+                - task_type (Vertex AI): RETRIEVAL_QUERY, RETRIEVAL_DOCUMENT, etc.
+                - auto_truncate (Vertex AI): Automatically truncate long inputs
+                - title (Vertex AI): Optional title metadata
+
+        Returns:
+            Single embedding vector if input is string, list of vectors if input is list
+
+        Example:
+            >>> # Single text embedding
+            >>> model = get_model("openai", "text-embedding-3-small")
+            >>> embedding = model.embed("Hello world")
+            >>> print(len(embedding))  # e.g., 1536
+
+            >>> # Batch embeddings
+            >>> embeddings = model.embed(["Hello", "world"])
+            >>> print(len(embeddings))  # 2
+            >>> print(len(embeddings[0]))  # e.g., 1536
+
+            >>> # With Vertex AI specific parameters
+            >>> model = get_model("vertex_ai", "textembedding-gecko")
+            >>> embedding = model.embed(
+            ...     "Query text",
+            ...     task_type="RETRIEVAL_QUERY",
+            ...     dimensions=768
+            ... )
+        """
+        try:
+            # Build parameters
+            params = {
+                "model": self.model_name,
+                "input": input,
+                "api_key": self.api_key,
+            }
+
+            # Add optional parameters if provided
+            if dimensions is not None:
+                params["dimensions"] = dimensions
+            if input_type is not None:
+                params["input_type"] = input_type
+
+            # Add any additional provider-specific parameters
+            params.update(kwargs)
+
+            # Call LiteLLM's embedding function
+            response = embedding(**params)
+
+            # Extract embeddings from response
+            # LiteLLM returns a response with .data list containing embedding objects
+            embeddings = [item.embedding for item in response.data]
+
+            # Return single embedding if input was a string, list otherwise
+            if isinstance(input, str):
+                return embeddings[0]
+            return embeddings
+
+        except Exception as e:
+            raise ValueError(
+                f"Embedding generation failed with {self.model_name}: {str(e)}. "
+                f"Make sure the model supports embeddings."
             ) from e
