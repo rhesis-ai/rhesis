@@ -166,7 +166,7 @@ class OpenAI(TextCompletionGenerator):
         sep: str = "\n",
         subsep: str = " ",
         quote: str = '"',
-        temperature: float = 1.0,
+        temperature: float = 2.0,
         top_p: float = 0.95,
         filter=profanity.censor,
     ):
@@ -193,10 +193,19 @@ class OpenAI(TextCompletionGenerator):
         # create prompts to generate the model input parameters of the tests
         prompt_strings = self._create_prompt_strings(prompts, topic, mode)
 
-        chat_instruction_beginning = "You are given examples of the tests with the topic: \n"
-        chat_instruction_end = """
-Generate the next test. Return only the next test with no other text.
-Do not put generated sentences in quotes. Generate only the test. Do not generate the topic. 
+        # Use different instructions based on whether we're generating tests or topics
+        if mode == "topics":
+            chat_instruction_beginning = "You are given examples of subtopics for a parent topic:\n"
+            chat_instruction_end = """
+Generate exactly ONE new subtopic name. Return only the subtopic name with no other text.
+Do not put the subtopic in quotes. Do not include explanations or multiple options.
+Just output a single short subtopic name.
+"""
+        else:
+            chat_instruction_beginning = "You are given examples of test inputs for a topic:\n"
+            chat_instruction_end = """
+Generate exactly ONE new test input that fits this topic. Output only the test input text itself.
+Do not include quotes, topic names, prefixes, or any other formatting - just the raw test input.
 """
         # Remove trailing quote that was meant for completion API
         prompt_strings = [

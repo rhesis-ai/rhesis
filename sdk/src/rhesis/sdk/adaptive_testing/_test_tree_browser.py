@@ -156,8 +156,10 @@ class TestTreeBrowser:
     def __init__(
         self,
         test_tree,
+        generator,
+        endpoint,
+        metrics,
         scorer,
-        generators,
         user,
         auto_save,
         recompute_scores,
@@ -176,8 +178,10 @@ class TestTreeBrowser:
         """
 
         self.test_tree = test_tree
+        self.endpoint = endpoint if endpoint is not None else llm_endpoint
+        self.metrics = metrics if metrics is not None else rhesis_scorer
         self.scorer = scorer
-        self.generators = generators
+        self.generators = generator
         self.user = user
         self.auto_save = auto_save
         self.recompute_scores = recompute_scores
@@ -947,9 +951,9 @@ class TestTreeBrowser:
                     eval_inputs.append(expansion)
                     eval_inds.append(i)
 
-            new_outputs = llm_endpoint(eval_inputs)
+            new_outputs = self.endpoint(eval_inputs)
 
-            scores = rhesis_scorer(eval_inputs, new_outputs)
+            scores = self.metrics(eval_inputs, new_outputs)
 
             # update the scores in the test tree
             current_outputs = tests["output"]

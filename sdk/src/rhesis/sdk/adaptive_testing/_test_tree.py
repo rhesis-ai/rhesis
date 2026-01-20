@@ -326,8 +326,10 @@ class TestTree:
 
     def adapt(
         self,
+        generator=None,
+        endpoint=None,
+        metrics=None,
         scorer=None,
-        generator=adaptive_testing.generators.OpenAI(),
         auto_save=False,
         user="anonymous",
         recompute_scores=False,
@@ -347,13 +349,20 @@ class TestTree:
 
         Parameters
         ----------
-        scorer : adaptive_testing.Scorer or callable
-            The scorer (that wraps a model) to used to score the tests. If a function is provided, it will be wrapped in a scorer.
-            Passing a dictionary of scorers will score multiple models at the same time. Note that the models are expected to take
-            a list of strings as input, and output either a classification probability vector or a string.
-
         generator : adaptive_testing.Generator or dict[adaptive_testing.Generators]
-            A source to generate new tests from. Currently supported generator types are language models, existing test trees, or datasets.
+            A source to generate new tests from. Currently supported generator types are language
+            models, existing test trees, or datasets.
+
+        endpoint : callable
+            The Rhesis endpoint function that takes a list of input strings and returns a list of
+            output strings. This is the target model/system being tested.
+
+        metrics : callable
+            The Rhesis scorer/metrics function that takes (inputs, outputs) and returns a list of
+            scores. Scores should be between 0 and 1, where higher values indicate failures.
+
+        scorer : adaptive_testing.Scorer or callable (deprecated, use metrics instead)
+            Legacy parameter for backward compatibility.
 
         auto_save : bool
             Whether to automatically save the test tree after each edit.
@@ -388,12 +397,17 @@ class TestTree:
         starting_path : str
             The path to start browsing the test tree from.
         """
+        # Use default generator if none provided
+        if generator is None:
+            generator = adaptive_testing.generators.OpenAI()
 
         # build the test tree browser
         return TestTreeBrowser(
             self,
+            generator=generator,
+            endpoint=endpoint,
+            metrics=metrics,
             scorer=scorer,
-            generators=generator,
             auto_save=auto_save,
             user=user,
             recompute_scores=recompute_scores,
