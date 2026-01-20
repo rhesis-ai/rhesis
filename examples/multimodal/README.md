@@ -216,7 +216,7 @@ response2 = model.generate_multimodal(messages)
 from rhesis.sdk.models import get_model
 
 # Option 1: Using Gemini (simpler)
-model = get_model("gemini", "imagen-4.0-generate-001")
+model = get_model("gemini", "imagen-3.0-generate-002")
 
 # Option 2: Using Vertex AI (advanced)
 model = get_model("vertex_ai", "imagegeneration@006")
@@ -285,7 +285,7 @@ If you hit rate limits:
 ### Google Imagen (Image Generation)
 Available via **Gemini** or **Vertex AI**:
 
-**Gemini (gemini/imagen-4.0-generate-001)**
+**Gemini (gemini/imagen-3.0-generate-002)**
 - ✅ **Simple Setup**: Only needs GEMINI_API_KEY
 - ✅ **Text-to-Image**: Generate images from text descriptions
 - ✅ **High Resolution**: 1024x1024 and other sizes
