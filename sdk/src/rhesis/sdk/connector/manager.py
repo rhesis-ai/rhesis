@@ -91,10 +91,25 @@ class ConnectorManager:
             on_connect=self._handle_connect,
         )
 
-        # Start connection in background
-        asyncio.create_task(self._connection.connect())
+        # Start connection in background (if event loop is available)
+        self._start_connection_task()
         self._initialized = True
         logger.info(f"Connector initialized for project {self.project_id}")
+
+    def _start_connection_task(self) -> None:
+        """Start connection task if event loop is available."""
+        if not self._connection:
+            return
+
+        try:
+            # Try to get running event loop
+            loop = asyncio.get_running_loop()
+            # If we get here, there's a running loop
+            asyncio.create_task(self._connection.connect())
+            logger.debug("Connection task created in running event loop")
+        except RuntimeError:
+            # No running event loop - defer connection
+            logger.debug("No event loop available, deferring connection")
 
     def register_function(self, name: str, func: Callable, metadata: dict[str, Any]) -> None:
         """
@@ -112,7 +127,11 @@ class ConnectorManager:
 
         # If connection is active, send updated registration
         if self._connection and self._connection.websocket:
-            asyncio.create_task(self._send_registration())
+            try:
+                asyncio.create_task(self._send_registration())
+            except RuntimeError:
+                # No running event loop - registration will be sent on next connection
+                logger.debug("No event loop available, will send registration on connection")
 
     async def _handle_connect(self) -> None:
         """Handle successful connection/reconnection - send registration."""
