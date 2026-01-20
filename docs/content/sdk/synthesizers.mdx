@@ -103,6 +103,90 @@ Bluetooth 5.2, and active noise cancellation with transparency mode.
 test_set = synthesizer.generate(num_tests=10, context=product_description)`}
 </CodeBlock>
 
+### ImageSynthesizer
+
+Generate test sets with AI-generated images. Uses image generation models (Gemini Imagen, DALL-E, etc.) to create visual test cases for evaluation with `ImageJudge`.
+
+<CodeBlock filename="image_synthesizer.py" language="python">
+{`from rhesis.sdk.synthesizers import ImageSynthesizer
+
+synthesizer = ImageSynthesizer(
+    prompt="Generate images of damaged cars for insurance documentation",
+    model="vertex_ai/imagegeneration@006",
+    expected_output="Image should show a car with visible damage to body panels",
+    category="Image Generation",
+    topic="Insurance Claims",
+    behavior="Visual Documentation"
+)
+test_set = synthesizer.generate(num_tests=5)`}
+</CodeBlock>
+
+#### Using Different Models
+
+ImageSynthesizer supports multiple image generation providers:
+
+<CodeBlock filename="image_models.py" language="python">
+{`from rhesis.sdk.synthesizers import ImageSynthesizer
+
+# Vertex AI Imagen (recommended for reliability)
+synthesizer = ImageSynthesizer(
+    prompt="Mountain landscape at sunset",
+    model="vertex_ai/imagegeneration@006",
+)
+
+# Gemini Imagen (simpler setup, requires only GEMINI_API_KEY)
+synthesizer = ImageSynthesizer(
+    prompt="Mountain landscape at sunset",
+    model="gemini/imagen-3.0-generate-002",
+)`}
+</CodeBlock>
+
+#### Configuration Parameters
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `prompt` | str | required | Text description for image generation |
+| `model` | str \| BaseLLM | None | Image generation model |
+| `text_model` | str \| BaseLLM | gemini-2.0-flash | Model for generating test set properties |
+| `expected_output` | str | None | Description of expected image content (for evaluation) |
+| `category` | str | "Image Generation" | Category for generated tests |
+| `topic` | str | "Visual Content" | Topic for generated tests |
+| `behavior` | str | "Image Quality" | Behavior for generated tests |
+| `image_size` | str | "1024x1024" | Dimensions of generated images |
+| `batch_size` | int | 5 | Maximum images to generate in parallel |
+
+#### Evaluating Generated Images
+
+Combine ImageSynthesizer with `ImageJudge` to evaluate generated images:
+
+<CodeBlock filename="evaluate_images.py" language="python">
+{`from rhesis.sdk.synthesizers import ImageSynthesizer
+from rhesis.sdk.metrics import ImageJudge
+
+# Generate images
+synthesizer = ImageSynthesizer(
+    prompt="Professional headshot with neutral background",
+    model="vertex_ai/imagegeneration@006",
+    expected_output="Portrait photo with solid background, good lighting"
+)
+test_set = synthesizer.generate(num_tests=3)
+
+# Evaluate with ImageJudge
+judge = ImageJudge(model="gemini/gemini-2.0-flash")
+
+for test in test_set.tests:
+    result = judge.evaluate(
+        input=test.metadata.get('generation_prompt', ''),
+        output=test.test_binary,
+        expected_output=test.metadata.get('expected_output', ''),
+        output_mime_type=test.metadata.get('binary_mime_type', 'image/png')
+    )
+    print(f"Score: {result.score}, Reason: {result.details['reason'][:100]}...")`}
+</CodeBlock>
+
+<Callout type="info">
+  See [Image Metrics](./metrics/image) for details on evaluating images with ImageJudge.
+</Callout>
 
 ## Using Source Documents
 
