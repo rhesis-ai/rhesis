@@ -54,12 +54,17 @@ def test_manager_uses_telemetry_tracer(manager):
 
 @patch("rhesis.sdk.connector.manager.WebSocketConnection")
 @patch("asyncio.create_task")
-def test_initialize(mock_create_task, mock_ws_class, manager):
+@patch("asyncio.get_running_loop")
+def test_initialize(mock_get_loop, mock_create_task, mock_ws_class, manager):
     """Test manager initialization."""
     mock_ws_instance = Mock()
     # Make connect() return an AsyncMock to avoid coroutine warnings
     mock_ws_instance.connect = AsyncMock()
     mock_ws_class.return_value = mock_ws_instance
+
+    # Mock get_running_loop to simulate a running event loop
+    mock_loop = Mock()
+    mock_get_loop.return_value = mock_loop
 
     # Mock create_task to return a mock task
     mock_task = Mock(spec=["cancel"])
@@ -74,8 +79,13 @@ def test_initialize(mock_create_task, mock_ws_class, manager):
 
 
 @patch("asyncio.create_task")
-def test_initialize_idempotent(mock_create_task, manager):
+@patch("asyncio.get_running_loop")
+def test_initialize_idempotent(mock_get_loop, mock_create_task, manager):
     """Test that calling initialize multiple times is safe."""
+
+    # Mock get_running_loop to simulate a running event loop
+    mock_loop = Mock()
+    mock_get_loop.return_value = mock_loop
 
     # Mock create_task to return a mock task
     mock_task = Mock(spec=["cancel"])
@@ -94,8 +104,13 @@ def test_initialize_idempotent(mock_create_task, manager):
 
 
 @patch("asyncio.create_task")
-def test_register_function(mock_create_task, manager, sample_function):
+@patch("asyncio.get_running_loop")
+def test_register_function(mock_get_loop, mock_create_task, manager, sample_function):
     """Test function registration."""
+
+    # Mock get_running_loop to simulate a running event loop
+    mock_loop = Mock()
+    mock_get_loop.return_value = mock_loop
 
     # Mock create_task to return a mock task
     mock_task = Mock(spec=["cancel"])

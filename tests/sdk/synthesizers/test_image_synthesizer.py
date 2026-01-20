@@ -16,18 +16,21 @@ class TestImageSynthesizerInit:
         """Test initialization with default parameters."""
         with patch("rhesis.sdk.synthesizers.image_synthesizer.get_model") as mock_get_model:
             mock_model = MagicMock()
-            mock_get_model.return_value = mock_model
+            mock_text_model = MagicMock()
+            # get_model is called twice: once for model (None), once for text_model (None)
+            mock_get_model.side_effect = [mock_model, mock_text_model]
 
             synthesizer = ImageSynthesizer(prompt="A mountain landscape")
 
             assert synthesizer.prompt == "A mountain landscape"
             assert synthesizer.batch_size == 5
-            assert synthesizer.expected_output_template == "A mountain landscape"
+            assert synthesizer.expected_output == "A mountain landscape"
             assert synthesizer.category == "Image Generation"
             assert synthesizer.topic == "Visual Content"
             assert synthesizer.behavior == "Image Quality"
             assert synthesizer.image_size == "1024x1024"
             assert synthesizer.model == mock_model
+            assert synthesizer.text_model == mock_text_model
 
     def test_init_with_custom_parameters(self):
         """Test initialization with custom parameters."""
@@ -37,7 +40,7 @@ class TestImageSynthesizerInit:
             prompt="A sunset over the ocean",
             model=mock_model,
             batch_size=10,
-            expected_output_template="Orange sky with water reflection",
+            expected_output="Orange sky with water reflection",
             category="Nature",
             topic="Landscapes",
             behavior="Realism",
@@ -46,7 +49,7 @@ class TestImageSynthesizerInit:
 
         assert synthesizer.prompt == "A sunset over the ocean"
         assert synthesizer.batch_size == 10
-        assert synthesizer.expected_output_template == "Orange sky with water reflection"
+        assert synthesizer.expected_output == "Orange sky with water reflection"
         assert synthesizer.category == "Nature"
         assert synthesizer.topic == "Landscapes"
         assert synthesizer.behavior == "Realism"
@@ -57,15 +60,21 @@ class TestImageSynthesizerInit:
         """Test initialization with a string model name."""
         with patch("rhesis.sdk.synthesizers.image_synthesizer.get_model") as mock_get_model:
             mock_model = MagicMock()
-            mock_get_model.return_value = mock_model
+            mock_text_model = MagicMock()
+            # get_model is called twice: once for model, once for text_model
+            mock_get_model.side_effect = [mock_model, mock_text_model]
 
             synthesizer = ImageSynthesizer(
                 prompt="Test prompt",
                 model="gemini/imagen-3.0-generate-002",
             )
 
-            mock_get_model.assert_called_once_with("gemini/imagen-3.0-generate-002")
+            # Should be called twice: for model and for default text_model
+            assert mock_get_model.call_count == 2
+            mock_get_model.assert_any_call("gemini/imagen-3.0-generate-002")
+            mock_get_model.assert_any_call("gemini", "gemini-2.0-flash")
             assert synthesizer.model == mock_model
+            assert synthesizer.text_model == mock_text_model
 
 
 class TestImageSynthesizerFetchImageBytes:
@@ -127,7 +136,7 @@ class TestImageSynthesizerGenerateSingleImage:
         synthesizer = ImageSynthesizer(
             prompt="A test image",
             model=mock_model,
-            expected_output_template="Should show a test",
+            expected_output="Should show a test",
         )
 
         test = synthesizer._generate_single_image("A test image (variation 1)")
@@ -260,7 +269,7 @@ class TestImageSynthesizerGenerate:
         synthesizer = ImageSynthesizer(
             prompt="A beautiful sunset",
             model=mock_model,
-            expected_output_template="Orange sky with sun",
+            expected_output="Orange sky with sun",
             category="Nature",
             topic="Sunsets",
             behavior="Color Accuracy",

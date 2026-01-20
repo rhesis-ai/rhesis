@@ -259,3 +259,96 @@ class TestCapabilityMixin:
         model = TestModel("gemini-1.5-pro")
 
         assert model.supports_video is True
+
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_capabilities_are_cached(self, mock_audio, mock_vision):
+        """Test that capabilities are cached and not re-detected."""
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        class TestModel(BaseLLM, CapabilityMixin):
+            def load_model(self):
+                pass
+
+            def generate(self, *args, **kwargs):
+                return "test"
+
+        model = TestModel("gpt-4o")
+
+        # First call should detect capabilities
+        caps1 = model.get_capabilities()
+        assert caps1.supports_vision is True
+
+        # Reset mock call counts
+        mock_vision.reset_mock()
+        mock_audio.reset_mock()
+
+        # Second call should return cached result
+        caps2 = model.get_capabilities()
+        assert caps2.supports_vision is True
+        assert caps1 is caps2  # Same object
+
+        # LiteLLM should not have been called again
+        mock_vision.assert_not_called()
+        mock_audio.assert_not_called()
+
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_clear_capabilities_cache(self, mock_audio, mock_vision):
+        """Test that clear_capabilities_cache resets the cache."""
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        class TestModel(BaseLLM, CapabilityMixin):
+            def load_model(self):
+                pass
+
+            def generate(self, *args, **kwargs):
+                return "test"
+
+        model = TestModel("gpt-4o")
+
+        # First call - should detect
+        caps1 = model.get_capabilities()
+        assert mock_vision.call_count == 1
+
+        # Clear cache
+        model.clear_capabilities_cache()
+
+        # Second call - should detect again
+        caps2 = model.get_capabilities()
+        assert mock_vision.call_count == 2
+
+        # Should be different objects
+        assert caps1 is not caps2
+
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_cache_isolated_between_instances(self, mock_audio, mock_vision):
+        """Test that capability cache is isolated between model instances."""
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        class TestModel(BaseLLM, CapabilityMixin):
+            def load_model(self):
+                pass
+
+            def generate(self, *args, **kwargs):
+                return "test"
+
+        model1 = TestModel("gpt-4o")
+        model2 = TestModel("gpt-4o")
+
+        # Get capabilities for model1
+        caps1 = model1.get_capabilities()
+
+        # Clear model1's cache
+        model1.clear_capabilities_cache()
+
+        # model2 should still have its own cache (unaffected)
+        # Let's check that getting capabilities from model2 doesn't share model1's cleared state
+        caps2 = model2.get_capabilities()
+
+        # They should be different capability objects
+        assert caps1 is not caps2

@@ -2,7 +2,7 @@
 
 import base64
 from pathlib import Path
-from unittest.mock import mock_open, patch
+from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
@@ -124,11 +124,10 @@ class TestImageContent:
             "image_url": {"url": f"data:image/jpeg;base64,{expected_b64}", "detail": "auto"},
         }
 
-    def test_to_litellm_format_no_url_or_data(self):
-        """Test that conversion fails without URL or data."""
-        content = ImageContent()
-        with pytest.raises(ValueError, match="must have either url or data"):
-            content.to_litellm_format()
+    def test_validation_fails_without_url_or_data(self):
+        """Test that construction fails without URL or data."""
+        with pytest.raises(ValueError, match="must have either 'url' or 'data'"):
+            ImageContent()
 
     def test_from_base64(self):
         """Test creating ImageContent from base64 string."""
@@ -220,10 +219,56 @@ class TestAudioContent:
         result = content.to_litellm_format()
 
         expected_b64 = base64.standard_b64encode(data).decode("utf-8")
+        # audio/mpeg should be mapped to "mp3" format via AUDIO_FORMAT_MAP
         assert result == {
             "type": "input_audio",
-            "input_audio": {"data": expected_b64, "format": "mpeg"},
+            "input_audio": {"data": expected_b64, "format": "mp3"},
         }
+
+    def test_to_litellm_format_wav(self):
+        """Test conversion to LiteLLM format with wav audio."""
+        data = b"fake audio data"
+        content = AudioContent.from_bytes(data, "audio/wav")
+        result = content.to_litellm_format()
+
+        expected_b64 = base64.standard_b64encode(data).decode("utf-8")
+        assert result["input_audio"]["format"] == "wav"
+
+    def test_validation_fails_without_url_or_data(self):
+        """Test that construction fails without URL or data."""
+        with pytest.raises(ValueError, match="must have either 'url' or 'data'"):
+            AudioContent()
+
+    def test_from_base64(self):
+        """Test creating AudioContent from base64 string."""
+        original_data = b"fake audio data for base64 test"
+        b64_data = base64.b64encode(original_data).decode("utf-8")
+
+        content = AudioContent.from_base64(b64_data, mime_type="audio/wav")
+
+        assert content.data == original_data
+        assert content.mime_type == "audio/wav"
+        assert content.url is None
+
+    def test_from_base64_with_data_url_prefix(self):
+        """Test creating AudioContent from base64 with data URL prefix."""
+        original_data = b"fake audio data"
+        b64_data = base64.b64encode(original_data).decode("utf-8")
+        data_url = f"data:audio/wav;base64,{b64_data}"
+
+        content = AudioContent.from_base64(data_url, mime_type="audio/wav")
+
+        assert content.data == original_data
+        assert content.mime_type == "audio/wav"
+
+    def test_from_base64_default_mime_type(self):
+        """Test that from_base64 uses default mime_type of audio/mpeg."""
+        original_data = b"fake audio data"
+        b64_data = base64.b64encode(original_data).decode("utf-8")
+
+        content = AudioContent.from_base64(b64_data)
+
+        assert content.mime_type == "audio/mpeg"
 
 
 class TestVideoContent:
@@ -242,6 +287,66 @@ class TestVideoContent:
         result = content.to_litellm_format()
 
         assert result == {"type": "video", "video": {"url": "https://example.com/video.mp4"}}
+
+    @patch("rhesis.sdk.models.content.Path")
+    def test_from_file(self, mock_path_class):
+        """Test creating VideoContent from file."""
+        # Setup mock path
+        mock_path = Mock()
+        mock_path.exists.return_value = True
+        mock_path.stat.return_value = Mock(st_size=5 * 1024 * 1024)  # 5MB
+        mock_path_class.return_value = mock_path
+
+        # Mock the open function
+        video_data = b"fake video data"
+        with patch("builtins.open", mock_open(read_data=video_data)):
+            with patch(
+                "rhesis.sdk.models.content.detect_mime_type", return_value="video/mp4"
+            ):
+                content = VideoContent.from_file("/path/to/video.mp4")
+
+        assert content.url.startswith("data:video/mp4;base64,")
+        assert content.mime_type == "video/mp4"
+
+    @patch("rhesis.sdk.models.content.Path")
+    def test_from_file_not_found(self, mock_path_class):
+        """Test that from_file raises error for non-existent file."""
+        mock_path = Mock()
+        mock_path.exists.return_value = False
+        mock_path_class.return_value = mock_path
+
+        with pytest.raises(FileNotFoundError, match="Video file not found"):
+            VideoContent.from_file("/path/to/nonexistent.mp4")
+
+    @patch("rhesis.sdk.models.content.Path")
+    def test_from_file_too_large(self, mock_path_class):
+        """Test that from_file raises error for files exceeding size limit."""
+        mock_path = Mock()
+        mock_path.exists.return_value = True
+        mock_path.stat.return_value = Mock(st_size=100 * 1024 * 1024)  # 100MB
+        mock_path_class.return_value = mock_path
+
+        with pytest.raises(ValueError, match="Video file too large"):
+            VideoContent.from_file("/path/to/large_video.mp4")
+
+    @patch("rhesis.sdk.models.content.Path")
+    @patch("rhesis.sdk.models.content.logger")
+    def test_from_file_warns_for_large_files(self, mock_logger, mock_path_class):
+        """Test that from_file warns for files over 20MB."""
+        mock_path = Mock()
+        mock_path.exists.return_value = True
+        mock_path.stat.return_value = Mock(st_size=25 * 1024 * 1024)  # 25MB
+        mock_path_class.return_value = mock_path
+
+        video_data = b"fake video data"
+        with patch("builtins.open", mock_open(read_data=video_data)):
+            with patch(
+                "rhesis.sdk.models.content.detect_mime_type", return_value="video/mp4"
+            ):
+                VideoContent.from_file("/path/to/video.mp4")
+
+        # Should log a warning
+        mock_logger.warning.assert_called_once()
 
 
 class TestFileContent:
@@ -290,6 +395,42 @@ class TestFileContent:
             "type": "image_url",
             "image_url": {"url": f"data:application/pdf;base64,{expected_b64}"},
         }
+
+    def test_validation_fails_without_url_or_data(self):
+        """Test that construction fails without URL or data."""
+        with pytest.raises(ValueError, match="must have either 'url' or 'data'"):
+            FileContent()
+
+    def test_from_base64(self):
+        """Test creating FileContent from base64 string."""
+        original_data = b"fake pdf data for base64 test"
+        b64_data = base64.b64encode(original_data).decode("utf-8")
+
+        content = FileContent.from_base64(b64_data, mime_type="application/pdf")
+
+        assert content.data == original_data
+        assert content.mime_type == "application/pdf"
+        assert content.url is None
+
+    def test_from_base64_with_data_url_prefix(self):
+        """Test creating FileContent from base64 with data URL prefix."""
+        original_data = b"fake pdf data"
+        b64_data = base64.b64encode(original_data).decode("utf-8")
+        data_url = f"data:application/pdf;base64,{b64_data}"
+
+        content = FileContent.from_base64(data_url, mime_type="application/pdf")
+
+        assert content.data == original_data
+        assert content.mime_type == "application/pdf"
+
+    def test_from_base64_default_mime_type(self):
+        """Test that from_base64 uses default mime_type of application/pdf."""
+        original_data = b"fake pdf data"
+        b64_data = base64.b64encode(original_data).decode("utf-8")
+
+        content = FileContent.from_base64(b64_data)
+
+        assert content.mime_type == "application/pdf"
 
 
 class TestMessage:

@@ -231,6 +231,24 @@ class TestLiteLLMMultimodal:
         result = llm.generate_multimodal(messages)
         
         assert result == "This is a contract"
+
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_generate_multimodal_raises_error_no_pdf_support(self, mock_audio, mock_vision):
+        """Test that generate_multimodal raises error when model lacks PDF support."""
+        mock_vision.return_value = False  # No vision = no PDF support
+        mock_audio.return_value = False
+        
+        llm = LiteLLM(model_name="gpt-3.5-turbo", api_key="test_key")
+        messages = [
+            Message(role="user", content=[
+                FileContent.from_url("https://example.com/document.pdf"),
+                TextContent("Summarize this")
+            ])
+        ]
+        
+        with pytest.raises(ValueError, match="does not support PDF/document inputs"):
+            llm.generate_multimodal(messages)
     
     @patch("rhesis.sdk.models.providers.litellm.completion")
     @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
