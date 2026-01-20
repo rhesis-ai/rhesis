@@ -219,6 +219,36 @@ class LazyModelLoader(BaseLLM):
                 except Exception as bt_error:
                     logger.info(f"BetterTransformer not applied: {bt_error}")
 
+            # GPU monitoring: Verify model is on GPU and log memory usage
+            if hasattr(self._internal_model, "model"):
+                try:
+                    import torch
+
+                    if torch.cuda.is_available():
+                        # Check device of model parameters
+                        first_param = next(self._internal_model.model.parameters(), None)
+                        if first_param is not None:
+                            device = first_param.device
+                            logger.info(f"✅ Model on device: {device}")
+
+                            # Log GPU memory usage
+                            allocated_gb = torch.cuda.memory_allocated() / 1e9
+                            reserved_gb = torch.cuda.memory_reserved() / 1e9
+                            logger.info(
+                                f"✅ GPU Memory - Allocated: {allocated_gb:.2f}GB, "
+                                f"Reserved: {reserved_gb:.2f}GB"
+                            )
+
+                            # Log GPU name
+                            gpu_name = torch.cuda.get_device_name(0)
+                            logger.info(f"✅ GPU: {gpu_name}")
+                        else:
+                            logger.warning("⚠️ Model has no parameters to check device")
+                    else:
+                        logger.warning("⚠️ CUDA not available - model may be on CPU!")
+                except Exception as gpu_error:
+                    logger.warning(f"Could not check GPU status: {gpu_error}")
+
             logger.info(f"Model loaded successfully: {self._model_name}")
 
         return self
