@@ -53,7 +53,7 @@ class ToolExecutor:
         """
         try:
             logger.info(f"Executing tool: {tool_call.tool_name}")
-            logger.debug(f"Arguments: {tool_call.arguments}")
+            logger.info(f"Arguments: {tool_call.arguments}")
 
             # Call the MCP tool with the provided arguments
             result = await self.mcp_client.call_tool(tool_call.tool_name, tool_call.arguments)
@@ -158,7 +158,7 @@ class ToolExecutor:
                         data.get("message") or data.get("detail") or data.get("error") or str(data)
                     )
 
-                    logger.debug(f"Parsed JSON error: status={status}, message={message}")
+                    logger.warning(f"Parsed JSON error: status={status}, message={message}")
                     return (status, message)
         except json.JSONDecodeError:
             # Not valid JSON - let it pass through as normal content
@@ -187,7 +187,15 @@ class ToolExecutor:
             return ""
 
         for content_item in content_list:
+            # Try to extract text content directly
             if hasattr(content_item, "text"):
                 content_parts.append(content_item.text)
+            # If content is wrapped in a resource, extract text from the resource
+            elif hasattr(content_item, "resource"):
+                resource = content_item.resource
+                if hasattr(resource, "text"):
+                    content_parts.append(resource.text)
+                else:
+                    logger.warning(f"Resource found but no text attribute: {type(resource)}")
 
         return "\n\n".join(content_parts)
