@@ -7,6 +7,9 @@ if TYPE_CHECKING:
 # Type alias for embeddings
 Embedding = List[float]
 
+# Type alias for embeddings
+Embedding = List[float]
+
 
 class BaseLLM(ABC):
     PROVIDER: str = ""  # Subclasses should override this
