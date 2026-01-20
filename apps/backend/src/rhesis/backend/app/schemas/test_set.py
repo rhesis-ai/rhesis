@@ -48,7 +48,7 @@ class TestPrompt(BaseModel):
 
 
 class TestData(BaseModel):
-    prompt: Optional[TestPrompt] = None  # Optional for Multi-Turn tests
+    prompt: Optional[TestPrompt] = None  # Optional for Multi-Turn and Image tests
     behavior: str
     category: str
     topic: str
@@ -59,6 +59,9 @@ class TestData(BaseModel):
     status: Optional[str] = None
     priority: Optional[int] = None
     metadata: Optional[Dict[str, Any]] = {}
+    # Base64-encoded binary content for image tests
+    # MIME type should be provided in metadata.binary_mime_type
+    test_binary_base64: Optional[str] = None
 
     @field_validator("assignee_id", "owner_id")
     @classmethod
@@ -82,23 +85,30 @@ class TestData(BaseModel):
         """
         Validate that either:
         - prompt is provided (single-turn test), OR
-        - test_configuration with goal is provided (multi-turn test)
+        - test_configuration with goal is provided (multi-turn test), OR
+        - test_binary_base64 is provided (image test)
         """
         from pydantic import ValidationError
 
         from rhesis.backend.app.schemas.multi_turn_test_config import validate_multi_turn_config
 
         prompt = info.data.get("prompt")
+        test_binary_base64 = info.data.get("test_binary_base64")
 
         # If prompt is provided, it's a single-turn test - OK
         if prompt:
             return v
 
-        # If no prompt, must be multi-turn - validate goal exists
+        # If test_binary_base64 is provided, it's an image test - OK
+        if test_binary_base64:
+            return v
+
+        # If no prompt and no binary, must be multi-turn - validate goal exists
         if not v or not v.get("goal"):
             raise ValueError(
-                "Either 'prompt' must be provided (for single-turn tests) "
-                "or 'test_configuration' with 'goal' must be provided (for multi-turn tests)"
+                "Either 'prompt' must be provided (for single-turn tests), "
+                "'test_configuration' with 'goal' must be provided (for multi-turn tests), "
+                "or 'test_binary_base64' must be provided (for image tests)"
             )
 
         # If 'goal' is present, validate as multi-turn config
