@@ -1,12 +1,13 @@
 """A set of generators for Adaptive Testing."""
 
 import urllib
+from typing import Optional
 
 import numpy as np
-from litellm import batch_completion
 from profanity import profanity
 
 from rhesis.sdk import adaptive_testing
+from rhesis.sdk.models import get_model
 
 from .embedders import cos_sim
 
@@ -160,68 +161,56 @@ class OpenAI(TextCompletionGenerator):
 
     def __init__(
         self,
-        model="gpt-3.5-turbo-instruct",
-        api_key=None,
-        sep="\n",
-        subsep=" ",
-        quote='"',
-        temperature=1.0,
-        top_p=0.95,
+        model: str = "gpt-4.1-mini",
+        api_key: Optional[str] = None,
+        sep: str = "\n",
+        subsep: str = " ",
+        quote: str = '"',
+        temperature: float = 1.0,
+        top_p: float = 0.95,
         filter=profanity.censor,
     ):
-        # TODO [Harsha]: Add validation logic to make sure model is of supported type.
         super().__init__(model, sep, subsep, quote, filter)
         self.gen_type = "model"
         self.api_key = api_key
-        self.model = model
+        self.model_name = model
         self.temperature = temperature
         self.top_p = top_p
+        # Initialize the model using get_model
+        self._model = get_model("openai", model_name=model, api_key=api_key)
 
     def __call__(
         self, prompts, topic, topic_description, mode, scorer, num_samples=1, max_length=100
     ):
         if len(prompts[0]) == 0:
             raise ValueError(
-                "ValueError: Unable to generate suggestions from completely empty TestTree. Consider writing a few manual tests before generating suggestions."
+                "ValueError: Unable to generate suggestions from completely empty "
+                "TestTree. Consider writing a few manual tests before generating suggestions."
             )
 
         prompts, prompt_ids = self._validate_prompts(prompts)
-        # prompt_strings = self._create_prompt_strings(prompts, topic)
-
-        # find out which values in the prompt have multiple values and so should be generated
-        topics_vary = self._varying_values(prompts, topic)
 
         # create prompts to generate the model input parameters of the tests
         prompt_strings = self._create_prompt_strings(prompts, topic, mode)
 
         chat_instruction_beginning = "You are given examples of sentence pairs: \n"
-        chat_instruction_end = "\nGenerate the next example. Return only the next example with no other text. Do not put generated senteces in quotes:\n"
+        chat_instruction_end = (
+            "\nGenerate the next example. Return only the next example "
+            "with no other text. Do not put generated senteces in quotes:\n"
+        )
         # Remove trailing quote that was meant for completion API
         prompt_strings = [
             chat_instruction_beginning + prompt_string.rstrip(self.quote) + chat_instruction_end
             for prompt_string in prompt_strings
         ]
 
-        # Convert prompt strings to message format for litellm batch_completion
-        messages = [
-            [{"role": "user", "content": prompt_string}] for prompt_string in prompt_strings
-        ]
-
-        # Use litellm batch_completion
-        responses = batch_completion(
-            model="openai/gpt-4.1-mini",
-            api_key=self.api_key,
-            messages=messages,
-            # max_tokens=max_length,
+        # Use model.generate_batch to get suggestions
+        suggestion_texts = self._model.generate_batch(
+            prompts=prompt_strings,
+            n=num_samples,
             temperature=self.temperature,
             top_p=self.top_p,
-            n=num_samples,
         )
-
-        # Extract text from responses (each response has num_samples choices)
-        suggestion_texts = [
-            choice.message.content for response in responses for choice in response.choices
-        ]
 
         return self._parse_suggestion_texts(suggestion_texts, prompts)
 
