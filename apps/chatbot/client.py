@@ -340,7 +340,16 @@ class ImageGenerationResponse(BaseModel):
     metadata: dict
 
 
-@endpoint()
+@endpoint(
+    request_mapping={
+        "message": "{{ input }}",
+        "session_id": "{{ session_id }}",
+        "use_case": "{{ use_case }}",
+        "conversation_history": "{{ conversation_history }}",
+        "image_urls": "{{ image_urls }}",
+        "image_data": "{{ image_data }}",
+    }
+)
 async def chat(
     message: str,
     session_id: Optional[str] = None,
