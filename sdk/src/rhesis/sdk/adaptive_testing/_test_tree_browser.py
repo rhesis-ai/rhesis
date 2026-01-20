@@ -38,7 +38,7 @@ def _get_default_model():
 log = logging.getLogger(__name__)
 
 
-def rhesis_model(inputs):
+def llm_endpoint(inputs):
     """Classify sentence pairs into NEUTRAL, ENTAILMENT, or CONTRADICTION."""
     # Prepare prompts
     prompts = [
@@ -939,7 +939,7 @@ class TestTreeBrowser:
                     eval_inputs.append(expansion)
                     eval_inds.append(i)
 
-            new_outputs = rhesis_model(eval_inputs)
+            new_outputs = llm_endpoint(eval_inputs)
 
             scores = rhesis_scorer(eval_inputs, new_outputs)
 
