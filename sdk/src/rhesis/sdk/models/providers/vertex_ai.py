@@ -411,7 +411,100 @@ class VertexAILLM(LiteLLM):
 
         return self._with_credentials_env(
             credentials_path, super().generate_image, prompt=prompt, n=n, size=size, **kwargs
-            )
+        )
+
+    def generate_multimodal(
+        self,
+        messages: List,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
+        **kwargs,
+    ):
+        """
+        Generate content from multimodal messages using Vertex AI.
+
+        This method overrides the parent to inject Vertex AI-specific parameters.
+
+        Args:
+            messages: List of Message objects with mixed content (text + images/audio/video)
+            schema: Optional Pydantic schema for structured output
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            Generated text or dict (if schema provided)
+        """
+        credentials_path = self._ensure_credentials_and_inject_params(kwargs)
+
+        return self._with_credentials_env(
+            credentials_path,
+            super().generate_multimodal,
+            messages=messages,
+            schema=schema,
+            **kwargs,
+        )
+
+    def analyze_content(
+        self,
+        content,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        **kwargs,
+    ) -> str:
+        """
+        Analyze content (images, audio, video) with a text prompt using Vertex AI.
+
+        This method overrides the parent to inject Vertex AI-specific parameters.
+
+        Args:
+            content: Single ContentPart or list of ContentPart objects
+            prompt: Question about the content
+            system_prompt: Optional system instruction
+            **kwargs: Additional parameters
+
+        Returns:
+            Text analysis/description
+        """
+        credentials_path = self._ensure_credentials_and_inject_params(kwargs)
+
+        return self._with_credentials_env(
+            credentials_path,
+            super().analyze_content,
+            content=content,
+            prompt=prompt,
+            system_prompt=system_prompt,
+            **kwargs,
+        )
+
+    def embed(
+        self,
+        input: Union[str, List[str]],
+        dimensions: int = None,
+        input_type: str = None,
+        **kwargs,
+    ) -> Union[List[float], List[List[float]]]:
+        """
+        Generate embeddings using Vertex AI.
+
+        This method overrides the parent to inject Vertex AI-specific parameters.
+
+        Args:
+            input: Single text string or list of text strings to embed
+            dimensions: Optional output dimensionality
+            input_type: Optional input type hint (e.g., "query", "document")
+            **kwargs: Additional parameters (task_type, auto_truncate, title, etc.)
+
+        Returns:
+            Single embedding vector if input is string, list of vectors if input is list
+        """
+        credentials_path = self._ensure_credentials_and_inject_params(kwargs)
+
+        return self._with_credentials_env(
+            credentials_path,
+            super().embed,
+            input=input,
+            dimensions=dimensions,
+            input_type=input_type,
+            **kwargs,
+        )
 
     def __del__(self):
         """

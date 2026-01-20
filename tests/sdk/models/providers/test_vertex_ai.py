@@ -659,6 +659,522 @@ class TestVertexAIRegionalLocations:
             assert llm.model["location"] == location
 
 
+class TestVertexAIMultimodal:
+    """Test generate_multimodal method functionality."""
+
+    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_generate_multimodal_with_text(self, mock_audio, mock_vision, mock_completion):
+        """Test generate_multimodal with text-only messages injects Vertex AI params."""
+        from rhesis.sdk.models.content import Message
+
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "Multimodal response"
+        mock_completion.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west3"},
+            clear=True,
+        ):
+            llm = VertexAILLM()
+            messages = [Message(role="user", content="Hello from multimodal!")]
+
+            result = llm.generate_multimodal(messages)
+
+            assert result == "Multimodal response"
+
+            # Verify Vertex AI params were injected
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["vertex_ai_project"] == "test-project"
+            assert call_kwargs["vertex_ai_location"] == "europe-west3"
+
+    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_generate_multimodal_with_image(self, mock_audio, mock_vision, mock_completion):
+        """Test generate_multimodal with image content injects Vertex AI params."""
+        from rhesis.sdk.models.content import ImageContent, Message, TextContent
+
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "I see an image"
+        mock_completion.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "us-central1"},
+            clear=True,
+        ):
+            llm = VertexAILLM()
+            messages = [
+                Message(
+                    role="user",
+                    content=[
+                        TextContent("Describe this image:"),
+                        ImageContent.from_url("https://example.com/image.jpg"),
+                    ],
+                )
+            ]
+
+            result = llm.generate_multimodal(messages)
+
+            assert result == "I see an image"
+
+            # Verify Vertex AI params were injected
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["vertex_ai_project"] == "test-project"
+            assert call_kwargs["vertex_ai_location"] == "us-central1"
+
+    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_generate_multimodal_with_schema(self, mock_audio, mock_vision, mock_completion):
+        """Test generate_multimodal with schema returns validated dict."""
+        from rhesis.sdk.models.content import ImageContent, Message, TextContent
+
+        class ImageAnalysis(BaseModel):
+            description: str
+            objects: list
+
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = '{"description": "A cat", "objects": ["cat", "sofa"]}'
+        mock_completion.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west4"},
+            clear=True,
+        ):
+            llm = VertexAILLM()
+            messages = [
+                Message(
+                    role="user",
+                    content=[
+                        ImageContent.from_url("https://example.com/image.jpg"),
+                        TextContent("Analyze this image"),
+                    ],
+                )
+            ]
+
+            result = llm.generate_multimodal(messages, schema=ImageAnalysis)
+
+            assert isinstance(result, dict)
+            assert result["description"] == "A cat"
+            assert result["objects"] == ["cat", "sofa"]
+
+    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_generate_multimodal_restores_credentials_env_var(
+        self, mock_audio, mock_vision, mock_completion
+    ):
+        """Test that generate_multimodal properly restores GOOGLE_APPLICATION_CREDENTIALS."""
+        from rhesis.sdk.models.content import Message
+
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "Test response"
+        mock_completion.return_value = mock_response
+
+        original_value = "/path/to/original/credentials.json"
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west3"},
+            clear=True,
+        ):
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
+
+            llm = VertexAILLM(credentials=encoded_creds, location="europe-west3")
+            messages = [Message(role="user", content="Test")]
+
+            llm.generate_multimodal(messages)
+
+            # Verify it was restored
+            assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == original_value
+
+
+class TestVertexAIAnalyzeContent:
+    """Test analyze_content method functionality."""
+
+    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_analyze_content_single_image(self, mock_audio, mock_vision, mock_completion):
+        """Test analyze_content with single image injects Vertex AI params."""
+        from rhesis.sdk.models.content import ImageContent
+
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "A beautiful landscape"
+        mock_completion.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west3"},
+            clear=True,
+        ):
+            llm = VertexAILLM()
+            result = llm.analyze_content(
+                ImageContent.from_url("https://example.com/image.jpg"), "Describe this image"
+            )
+
+            assert result == "A beautiful landscape"
+
+            # Verify Vertex AI params were injected
+            call_kwargs = mock_completion.call_args[1]
+            assert call_kwargs["vertex_ai_project"] == "test-project"
+            assert call_kwargs["vertex_ai_location"] == "europe-west3"
+
+    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_analyze_content_multiple_images(self, mock_audio, mock_vision, mock_completion):
+        """Test analyze_content with multiple images."""
+        from rhesis.sdk.models.content import ImageContent
+
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "Both show nature scenes"
+        mock_completion.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "us-central1"},
+            clear=True,
+        ):
+            llm = VertexAILLM()
+            result = llm.analyze_content(
+                [
+                    ImageContent.from_url("https://example.com/image1.jpg"),
+                    ImageContent.from_url("https://example.com/image2.jpg"),
+                ],
+                "Compare these images",
+            )
+
+            assert result == "Both show nature scenes"
+
+    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_analyze_content_with_system_prompt(self, mock_audio, mock_vision, mock_completion):
+        """Test analyze_content with system prompt."""
+        from rhesis.sdk.models.content import ImageContent
+
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "Expert analysis result"
+        mock_completion.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west4"},
+            clear=True,
+        ):
+            llm = VertexAILLM()
+            result = llm.analyze_content(
+                ImageContent.from_url("https://example.com/image.jpg"),
+                "Analyze this",
+                system_prompt="You are an expert image analyst",
+            )
+
+            assert result == "Expert analysis result"
+
+            # Verify system message was included
+            call_kwargs = mock_completion.call_args[1]
+            assert len(call_kwargs["messages"]) == 2
+            assert call_kwargs["messages"][0]["role"] == "system"
+
+    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_vision")
+    @patch("rhesis.sdk.models.capabilities.litellm.supports_audio_input")
+    def test_analyze_content_restores_credentials_env_var(
+        self, mock_audio, mock_vision, mock_completion
+    ):
+        """Test that analyze_content properly restores GOOGLE_APPLICATION_CREDENTIALS."""
+        from rhesis.sdk.models.content import ImageContent
+
+        mock_vision.return_value = True
+        mock_audio.return_value = False
+
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "Test response"
+        mock_completion.return_value = mock_response
+
+        original_value = "/path/to/original/credentials.json"
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "asia-northeast1"},
+            clear=True,
+        ):
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
+
+            llm = VertexAILLM(credentials=encoded_creds, location="asia-northeast1")
+
+            llm.analyze_content(
+                ImageContent.from_url("https://example.com/image.jpg"), "Describe this"
+            )
+
+            # Verify it was restored
+            assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == original_value
+
+
+class TestVertexAIEmbeddings:
+    """Test embed method functionality."""
+
+    @patch("rhesis.sdk.models.providers.litellm.embedding")
+    def test_embed_single_text(self, mock_embedding):
+        """Test embed method with single text returns single embedding."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        # Mock embedding response
+        mock_response = Mock()
+        mock_item = Mock()
+        mock_item.embedding = [0.1, 0.2, 0.3, 0.4, 0.5]
+        mock_response.data = [mock_item]
+        mock_embedding.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west3"},
+            clear=True,
+        ):
+            llm = VertexAILLM(model_name="textembedding-gecko")
+            result = llm.embed("Hello world")
+
+            assert isinstance(result, list)
+            assert result == [0.1, 0.2, 0.3, 0.4, 0.5]
+
+            # Verify Vertex AI params were injected
+            call_kwargs = mock_embedding.call_args[1]
+            assert call_kwargs["vertex_ai_project"] == "test-project"
+            assert call_kwargs["vertex_ai_location"] == "europe-west3"
+
+    @patch("rhesis.sdk.models.providers.litellm.embedding")
+    def test_embed_multiple_texts(self, mock_embedding):
+        """Test embed method with multiple texts returns list of embeddings."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        # Mock embedding response with multiple items
+        mock_response = Mock()
+        mock_items = []
+        for i in range(3):
+            mock_item = Mock()
+            mock_item.embedding = [0.1 * i, 0.2 * i, 0.3 * i]
+            mock_items.append(mock_item)
+        mock_response.data = mock_items
+        mock_embedding.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "us-central1"},
+            clear=True,
+        ):
+            llm = VertexAILLM(model_name="textembedding-gecko")
+            result = llm.embed(["Hello", "World", "Test"])
+
+            assert isinstance(result, list)
+            assert len(result) == 3
+            assert all(isinstance(emb, list) for emb in result)
+
+    @patch("rhesis.sdk.models.providers.litellm.embedding")
+    def test_embed_with_dimensions(self, mock_embedding):
+        """Test embed method with dimensions parameter."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_item = Mock()
+        mock_item.embedding = [0.1] * 256  # 256 dimensions
+        mock_response.data = [mock_item]
+        mock_embedding.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west4"},
+            clear=True,
+        ):
+            llm = VertexAILLM(model_name="textembedding-gecko")
+            result = llm.embed("Test text", dimensions=256)
+
+            assert len(result) == 256
+
+            # Verify dimensions was passed
+            call_kwargs = mock_embedding.call_args[1]
+            assert call_kwargs["dimensions"] == 256
+
+    @patch("rhesis.sdk.models.providers.litellm.embedding")
+    def test_embed_with_task_type(self, mock_embedding):
+        """Test embed method with task_type parameter (Vertex AI specific)."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_item = Mock()
+        mock_item.embedding = [0.1, 0.2, 0.3]
+        mock_response.data = [mock_item]
+        mock_embedding.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "us-central1"},
+            clear=True,
+        ):
+            llm = VertexAILLM(model_name="textembedding-gecko")
+            llm.embed("Query text", task_type="RETRIEVAL_QUERY")
+
+            # Verify task_type was passed
+            call_kwargs = mock_embedding.call_args[1]
+            assert call_kwargs["task_type"] == "RETRIEVAL_QUERY"
+            assert call_kwargs["vertex_ai_project"] == "test-project"
+            assert call_kwargs["vertex_ai_location"] == "us-central1"
+
+    @patch("rhesis.sdk.models.providers.litellm.embedding")
+    def test_embed_restores_credentials_env_var(self, mock_embedding):
+        """Test that embed properly restores GOOGLE_APPLICATION_CREDENTIALS."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_item = Mock()
+        mock_item.embedding = [0.1, 0.2, 0.3]
+        mock_response.data = [mock_item]
+        mock_embedding.return_value = mock_response
+
+        original_value = "/path/to/original/credentials.json"
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west3"},
+            clear=True,
+        ):
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
+
+            llm = VertexAILLM(
+                model_name="textembedding-gecko", credentials=encoded_creds, location="europe-west3"
+            )
+
+            llm.embed("Test text")
+
+            # Verify it was restored
+            assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == original_value
+
+
 class TestVertexAICleanup:
     """Test cleanup of temporary files."""
 
