@@ -114,6 +114,22 @@
   font-display: swap;
 }
 
+/* Sticky footer support */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Center 404 page content */
+.not-found-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
 /* Apply brand fonts and colors to Nextra */
 
 /* Typography - apply to all text elements */
