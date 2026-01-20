@@ -183,11 +183,12 @@ export default function EndpointDetail({
   const [isSaving, setIsSaving] = useState(false);
   const [showAuthToken, setShowAuthToken] = useState(false);
   const [tokenFieldFocused, setTokenFieldFocused] = useState(false);
-  
+
   // Separate state for JSON editor string values to avoid double-stringify bug
   const [requestHeadersString, setRequestHeadersString] = useState<string>('');
   const [requestMappingString, setRequestMappingString] = useState<string>('');
-  const [responseMappingString, setResponseMappingString] = useState<string>('');
+  const [responseMappingString, setResponseMappingString] =
+    useState<string>('');
 
   // Determine editor theme based on MUI theme
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
@@ -284,9 +285,15 @@ export default function EndpointDetail({
     setIsEditing(true);
     setEditedValues(endpoint);
     // Initialize JSON editor strings from endpoint objects
-    setRequestHeadersString(JSON.stringify(endpoint.request_headers || {}, null, 2));
-    setRequestMappingString(JSON.stringify(endpoint.request_mapping || {}, null, 2));
-    setResponseMappingString(JSON.stringify(endpoint.response_mapping || {}, null, 2));
+    setRequestHeadersString(
+      JSON.stringify(endpoint.request_headers || {}, null, 2)
+    );
+    setRequestMappingString(
+      JSON.stringify(endpoint.request_mapping || {}, null, 2)
+    );
+    setResponseMappingString(
+      JSON.stringify(endpoint.response_mapping || {}, null, 2)
+    );
   };
 
   const handleCancel = () => {
@@ -339,7 +346,7 @@ export default function EndpointDetail({
 
   const handleJsonChange = (field: keyof EndpointEditData, value: string) => {
     autoEnableEditMode();
-    
+
     // Update the appropriate string state based on field
     if (field === 'request_headers') {
       setRequestHeadersString(value);
@@ -348,7 +355,7 @@ export default function EndpointDetail({
     } else if (field === 'response_mapping') {
       setResponseMappingString(value);
     }
-    
+
     // Try to parse and update editedValues only if valid JSON
     try {
       const parsedValue = JSON.parse(value);
@@ -1209,7 +1216,11 @@ export default function EndpointDetail({
                     value={
                       isEditing
                         ? requestHeadersString
-                        : JSON.stringify(endpoint.request_headers || {}, null, 2)
+                        : JSON.stringify(
+                            endpoint.request_headers || {},
+                            null,
+                            2
+                          )
                     }
                     onChange={value =>
                       handleJsonChange('request_headers', value || '')
