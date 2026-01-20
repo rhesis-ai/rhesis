@@ -208,6 +208,7 @@ class LazyModelLoader(BaseLLM):
 
             # Try to optimize with BetterTransformer (PyTorch 2.0+ optimization)
             # This can provide 1.5-2x speedup for inference
+            # Requires: pip install optimum
             if hasattr(self._internal_model, "model") and hasattr(
                 self._internal_model.model, "to_bettertransformer"
             ):
@@ -215,9 +216,17 @@ class LazyModelLoader(BaseLLM):
                     logger.info("Applying BetterTransformer optimization...")
                     self._internal_model.model = self._internal_model.model.to_bettertransformer()
                     self.model = self._internal_model.model
-                    logger.info("✅ BetterTransformer applied successfully")
+                    logger.info("✅ BetterTransformer applied successfully (1.5-2x speedup)")
+                except ImportError as import_error:
+                    logger.info(
+                        f"⚠️ BetterTransformer not available (optional): {import_error}. "
+                        f"Install 'optimum' package for 1.5-2x inference speedup."
+                    )
                 except Exception as bt_error:
-                    logger.info(f"BetterTransformer not applied: {bt_error}")
+                    logger.warning(
+                        f"BetterTransformer optimization failed: {bt_error}. "
+                        f"Continuing without optimization."
+                    )
 
             # GPU monitoring: Verify model is on GPU and log memory usage
             if hasattr(self._internal_model, "model"):
