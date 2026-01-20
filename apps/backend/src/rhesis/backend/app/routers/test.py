@@ -2,8 +2,10 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+import io
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -234,6 +236,44 @@ def read_test(
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
     return db_test
+
+
+@router.get("/{test_id}/image")
+def get_test_image(
+    test_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Get the binary image content for an image test.
+
+    Returns the image binary with the appropriate MIME type from test_metadata.
+    If no image exists or the test is not an image test, returns 404.
+    """
+    organization_id, user_id = tenant_context
+    db_test = crud.get_test(
+        db, test_id=test_id, organization_id=organization_id, user_id=user_id
+    )
+    if db_test is None:
+        raise HTTPException(status_code=404, detail="Test not found")
+
+    if db_test.test_binary is None:
+        raise HTTPException(status_code=404, detail="No image content for this test")
+
+    # Get MIME type from test_metadata, default to image/png
+    mime_type = "image/png"
+    if db_test.test_metadata and isinstance(db_test.test_metadata, dict):
+        mime_type = db_test.test_metadata.get("binary_mime_type", "image/png")
+
+    return StreamingResponse(
+        io.BytesIO(db_test.test_binary),
+        media_type=mime_type,
+        headers={
+            "Content-Disposition": f"inline; filename=test_{test_id}.{mime_type.split('/')[-1]}",
+            "Cache-Control": "public, max-age=31536000",  # Cache for 1 year (immutable content)
+        },
+    )
 
 
 @router.put("/{test_id}", response_model=schemas.Test)
