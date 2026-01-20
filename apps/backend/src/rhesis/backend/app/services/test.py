@@ -11,6 +11,7 @@ from rhesis.backend.app.constants import (
     DEFAULT_BATCH_SIZE,
     ERROR_BULK_CREATE_FAILED,
     EntityType,
+    TestType,
 )
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.utils.crud_utils import (
@@ -396,11 +397,11 @@ def bulk_create_tests(
             auto_detected_type = None
             test_config = test_data_dict.get("test_configuration", {})
             if test_data_dict.get("test_binary_base64"):
-                auto_detected_type = "Image"
+                auto_detected_type = TestType.IMAGE.value
             elif test_config and isinstance(test_config, dict) and "goal" in test_config:
-                auto_detected_type = "Multi-Turn"
+                auto_detected_type = TestType.MULTI_TURN.value
             elif test_data_dict.get("prompt"):
-                auto_detected_type = "Single-Turn"
+                auto_detected_type = TestType.SINGLE_TURN.value
 
             type_value_to_use = (
                 individual_test_type
