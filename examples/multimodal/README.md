@@ -1,6 +1,6 @@
 # Multimodal Examples
 
-This folder contains examples demonstrating **multimodal capabilities** including image analysis with Gemini and image generation with Vertex AI Imagen.
+This folder contains examples demonstrating **multimodal capabilities** including image analysis and image generation using Google's AI models.
 
 ## Setup
 
@@ -9,7 +9,12 @@ This folder contains examples demonstrating **multimodal capabilities** includin
    # For image analysis (Gemini)
    GEMINI_API_KEY=your_gemini_key_here
    
-   # For image generation (Vertex AI Imagen)
+   # For image generation - Choose one:
+   
+   # Option 1: Gemini (Recommended - Simpler)
+   GEMINI_API_KEY=your_gemini_key_here  # Same key as above
+   
+   # Option 2: Vertex AI Imagen (Advanced)
    GOOGLE_APPLICATION_CREDENTIALS=your_service_account_json_or_base64
    VERTEX_AI_LOCATION=us-central1
    VERTEX_AI_PROJECT=your_project_id
@@ -69,7 +74,7 @@ uv run --project ../../sdk python 2_advanced_analysis.py
 - Comprehensive scene understanding
 
 ### 3. Image Generation (`3_image_generation.py`)
-Generate images using Vertex AI Imagen:
+Generate images using Google's Imagen models via Gemini or Vertex AI:
 - Single image generation from text prompts
 - Multiple variations of an image
 - Analyze-then-generate workflow
@@ -78,15 +83,23 @@ Generate images using Vertex AI Imagen:
 uv run --project ../../sdk python 3_image_generation.py
 ```
 
-**Requires:**
-- Google Cloud credentials
-- Vertex AI API enabled
+**Two Options:**
+
+**Option 1: Gemini (Recommended)**
+- Simpler setup - just needs `GEMINI_API_KEY`
+- Model: `gemini/imagen-4.0-generate-001`
+- Get API key from [Google AI Studio](https://aistudio.google.com/apikey)
+
+**Option 2: Vertex AI (Advanced)**
+- Requires Google Cloud credentials
+- Model: `vertex_ai/imagegeneration@006`
 - Environment variables: `GOOGLE_APPLICATION_CREDENTIALS`, `VERTEX_AI_LOCATION`, `VERTEX_AI_PROJECT`
 
 **Demonstrates:**
 - Text-to-image generation
 - Multiple image variations
 - Combining vision analysis with image generation
+- Automatic fallback between providers
 
 ### 4. Practical Use Cases (`4_practical_use_cases.py`)
 Real-world applications with structured outputs:
@@ -129,11 +142,12 @@ These images are used throughout the examples to demonstrate various analysis ca
 ✅ **Accessibility**: Alt-text and descriptions for screen readers  
 ✅ **Content Safety**: Moderation and age-appropriateness checks
 
-### Image Generation (Vertex AI Imagen)
+### Image Generation (Gemini & Vertex AI Imagen)
 ✅ **Text-to-Image**: Generate images from detailed text prompts  
 ✅ **Multiple Variations**: Generate multiple versions of an image  
 ✅ **High Quality**: 1024x1024 and other resolutions  
 ✅ **Analyze & Generate**: Combine vision analysis with image creation  
+✅ **Flexible Setup**: Works with both Gemini API and Vertex AI  
 
 ## API Quick Reference
 
@@ -201,7 +215,10 @@ response2 = model.generate_multimodal(messages)
 ```python
 from rhesis.sdk.models import get_model
 
-# Create image generation model
+# Option 1: Using Gemini (simpler)
+model = get_model("gemini", "imagen-4.0-generate-001")
+
+# Option 2: Using Vertex AI (advanced)
 model = get_model("vertex_ai", "imagegeneration@006")
 
 # Generate a single image
@@ -265,10 +282,18 @@ If you hit rate limits:
 - ✅ **PDFs**: Document analysis (use `FileContent`)
 - ✅ **Multiple Modalities**: Mix text, images, audio, video in one request
 
-### Vertex AI Imagen (Image Generation)
+### Google Imagen (Image Generation)
+Available via **Gemini** or **Vertex AI**:
+
+**Gemini (gemini/imagen-4.0-generate-001)**
+- ✅ **Simple Setup**: Only needs GEMINI_API_KEY
 - ✅ **Text-to-Image**: Generate images from text descriptions
 - ✅ **High Resolution**: 1024x1024 and other sizes
 - ✅ **Batch Generation**: Generate multiple variations at once
+
+**Vertex AI (vertex_ai/imagegeneration@006)**
+- ✅ **Enterprise Features**: Full Google Cloud integration
 - ✅ **Base64 Output**: Images returned as data URLs for easy saving
+- ✅ **Advanced Configuration**: Custom project/location settings
 
 For more information, see the [SDK documentation](../../docs/).

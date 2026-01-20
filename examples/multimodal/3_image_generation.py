@@ -1,8 +1,9 @@
-"""Example 3: Image Generation with Vertex AI Imagen
+"""Example 3: Image Generation with Google Imagen
 
-Demonstrates image generation capabilities:
-- Single image generation
-- Multiple variations
+Demonstrates image generation capabilities using both Gemini and Vertex AI:
+- Gemini: Simple setup with just GEMINI_API_KEY
+- Vertex AI: Advanced setup with Google Cloud credentials
+- Single image generation and multiple variations
 - Analyze existing image and generate similar
 """
 
@@ -23,20 +24,39 @@ import requests
 from rhesis.sdk.models import ImageContent, get_model
 
 print("=" * 60)
-print("Image Generation with Vertex AI Imagen")
+print("Image Generation with Google Imagen")
 print("=" * 60)
 
 # Prepare output directory
 output_dir = Path(__file__).parent / "images" / "generated"
 output_dir.mkdir(parents=True, exist_ok=True)
 
+# Try Gemini first (simpler setup), fallback to Vertex AI
 try:
-    # Create image generation model
-    imagen_model = get_model("vertex_ai", "imagegeneration@006")
+    # Option 1: Gemini - simpler setup, just needs GEMINI_API_KEY
+    print("\n🎨 Attempting to use Gemini for image generation...")
+    print("   (Requires only GEMINI_API_KEY environment variable)")
+    imagen_model = get_model("gemini", "imagen-4.0-generate-001")
+    provider = "Gemini"
+    print(f"✅ Using {provider}: {imagen_model.model_name}\n")
 
-    print(f"\n✅ Image generation model: {imagen_model.model_name}")
-    print("   Note: Requires Google Cloud authentication\n")
+except Exception as e:
+    # Option 2: Vertex AI - more complex setup but fully managed
+    print(f"⚠️  Gemini not available: {e}")
+    print("\n🎨 Falling back to Vertex AI Imagen...")
+    print("   (Requires Google Cloud credentials)")
+    try:
+        imagen_model = get_model("vertex_ai", "imagegeneration@006")
+        provider = "Vertex AI"
+        print(f"✅ Using {provider}: {imagen_model.model_name}\n")
+    except Exception as vertex_e:
+        print(f"❌ Vertex AI also not available: {vertex_e}")
+        print("\nPlease set up either:")
+        print("  1. GEMINI_API_KEY for Gemini (simpler)")
+        print("  2. Google Cloud credentials for Vertex AI")
+        exit(1)
 
+try:
     # Example 1: Generate a single image
     print("-" * 60)
     print("Example 1: Generate a single image")
@@ -138,8 +158,15 @@ Format the description as a detailed image generation prompt."""
     print("=" * 60)
 
 except ValueError as e:
-    print(f"⚠️  Image generation requires Vertex AI setup: {e}")
-    print("\nSetup instructions:")
+    print(f"⚠️  Image generation failed: {e}")
+    print("\n" + "=" * 60)
+    print("Setup Instructions")
+    print("=" * 60)
+    print("\n📋 Option 1: Gemini (Recommended - Simpler Setup)")
+    print("1. Get an API key from https://aistudio.google.com/apikey")
+    print("2. Set environment variable: GEMINI_API_KEY=your_key")
+    print("3. Model: gemini/imagen-4.0-generate-001")
+    print("\n📋 Option 2: Vertex AI (Advanced)")
     print("1. Install: pip install google-cloud-aiplatform")
     print("2. Authenticate: gcloud auth application-default login")
     print("3. Enable Vertex AI API in your Google Cloud project")
@@ -147,3 +174,4 @@ except ValueError as e:
     print("   - GOOGLE_APPLICATION_CREDENTIALS (base64 or file path)")
     print("   - VERTEX_AI_LOCATION (e.g., 'us-central1')")
     print("   - VERTEX_AI_PROJECT (your GCP project ID)")
+    print("5. Model: vertex_ai/imagegeneration@006")
