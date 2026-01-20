@@ -10,10 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.1] - 2026-01-20
 
 ### Fixed
-- **Endpoints:** Resolved an issue where JSON data in the Endpoint Detail editor was being double-stringified, preventing correct saving and display.
-### Style
-- **Endpoints:** Improved code formatting and readability in the EndpointDetail component.
 
+- **Endpoints:** Resolved an issue where JSON data in the Endpoint Detail editor was being double-stringified, preventing correct saving and display.
+
+### Style
+
+- **Endpoints:** Improved code formatting and readability in the EndpointDetail component.
 
 ## [0.6.0] - 2026-01-15
 
