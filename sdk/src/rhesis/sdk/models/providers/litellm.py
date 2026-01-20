@@ -2,7 +2,7 @@ import json
 from typing import List, Optional, Type, Union
 
 import litellm
-from litellm import completion
+from litellm import batch_completion, completion
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
@@ -94,6 +94,67 @@ class LiteLLM(BaseLLM):
             return response_content
         else:
             return response_content
+
+    def generate_batch(
+        self,
+        prompts: List[str],
+        system_prompt: Optional[str] = None,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ) -> List[Union[str, dict]]:
+        """
+        Run batch chat completions using LiteLLM, returning a list of responses.
+        Each prompt generates n responses.
+
+        Args:
+            prompts: List of user prompts
+            system_prompt: Optional system prompt (applied to all prompts)
+            schema: Either a Pydantic model or OpenAI-wrapped JSON schema dict
+            n: Number of completions to generate per prompt
+
+        Returns:
+            List of str or dict: Raw text if no schema, validated dicts if schema provided.
+            The list contains n responses for each prompt, in order.
+        """
+        # Convert prompts to message format for litellm batch_completion
+        if system_prompt:
+            messages = [
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt},
+                ]
+                for prompt in prompts
+            ]
+        else:
+            messages = [[{"role": "user", "content": prompt}] for prompt in prompts]
+
+        # Handle schema format for LiteLLM
+        response_format = schema
+
+        # Use litellm batch_completion
+        responses = batch_completion(
+            model=self.model_name,
+            messages=messages,
+            response_format=response_format,
+            api_key=self.api_key,
+            n=n,
+            *args,
+            **kwargs,
+        )
+
+        # Extract content from responses (each response has n choices)
+        results: List[Union[str, dict]] = []
+        for response in responses:
+            for choice in response.choices:
+                content = choice.message.content
+                if schema:
+                    content = json.loads(content)
+                    validate_llm_response(content, schema)
+                results.append(content)
+
+        return results
 
     @classmethod
     def get_available_models(cls) -> List[str]:
