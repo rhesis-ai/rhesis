@@ -11,7 +11,10 @@ from rhesis.sdk.models.capabilities import CapabilityMixin
 from rhesis.sdk.models.content import ContentPart, Message
 from rhesis.sdk.models.utils import validate_llm_response
 
+# Suppress debug info and prevent API key leaks in logs/exceptions
 litellm.suppress_debug_info = True
+litellm.redact_messages_in_exceptions = True
+litellm.redact_user_api_key_info = True
 
 
 class LiteLLM(BaseLLM, CapabilityMixin):
