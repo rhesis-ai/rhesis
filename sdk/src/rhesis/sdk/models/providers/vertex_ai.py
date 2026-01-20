@@ -474,38 +474,6 @@ class VertexAILLM(LiteLLM):
             **kwargs,
         )
 
-    def embed(
-        self,
-        input: Union[str, List[str]],
-        dimensions: int = None,
-        input_type: str = None,
-        **kwargs,
-    ) -> Union[List[float], List[List[float]]]:
-        """
-        Generate embeddings using Vertex AI.
-
-        This method overrides the parent to inject Vertex AI-specific parameters.
-
-        Args:
-            input: Single text string or list of text strings to embed
-            dimensions: Optional output dimensionality
-            input_type: Optional input type hint (e.g., "query", "document")
-            **kwargs: Additional parameters (task_type, auto_truncate, title, etc.)
-
-        Returns:
-            Single embedding vector if input is string, list of vectors if input is list
-        """
-        credentials_path = self._ensure_credentials_and_inject_params(kwargs)
-
-        return self._with_credentials_env(
-            credentials_path,
-            super().embed,
-            input=input,
-            dimensions=dimensions,
-            input_type=input_type,
-            **kwargs,
-        )
-
     def __del__(self):
         """
         Cleanup method - does NOT delete temp credentials file here.
