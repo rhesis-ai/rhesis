@@ -20,7 +20,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional, Set, Type, Union
+from typing import List, Optional, Set, Type, Union
 
 from pydantic import BaseModel
 
@@ -295,6 +295,66 @@ class VertexAILLM(LiteLLM):
 
         return config
 
+    def _ensure_credentials_and_inject_params(self, kwargs: dict) -> str:
+        """
+        Ensure credentials file exists and inject Vertex AI parameters.
+
+        Args:
+            kwargs: Dictionary to inject vertex_ai_project and vertex_ai_location into
+
+        Returns:
+            str: Path to credentials file
+
+        Raises:
+            ValueError: If credentials cannot be found or recreated
+        """
+        # Inject Vertex AI-specific parameters
+        kwargs["vertex_ai_project"] = self.model["project"]
+        kwargs["vertex_ai_location"] = self.model["location"]
+
+        # Ensure credentials file exists
+        credentials_path = self.model["credentials_path"]
+        if not os.path.exists(credentials_path):
+            # If temp file was deleted, try to recreate it from original credentials
+            if hasattr(self, "_original_credentials_env") and self._original_credentials_env:
+                try:
+                    config = self._load_credentials(self._original_credentials_env)
+                    credentials_path = config["credentials_path"]
+                    # Update model config with new path
+                    self.model["credentials_path"] = credentials_path
+                except Exception as e:
+                    raise ValueError(f"Credentials file missing and could not be recreated: {e}")
+            else:
+                raise ValueError(f"Credentials file not found: {credentials_path}")
+
+        return credentials_path
+
+    def _with_credentials_env(self, credentials_path: str, func, *args, **kwargs):
+        """
+        Execute a function with GOOGLE_APPLICATION_CREDENTIALS set temporarily.
+
+        Args:
+            credentials_path: Path to credentials file to set in environment
+            func: Function to call
+            *args: Positional arguments for func
+            **kwargs: Keyword arguments for func
+
+        Returns:
+            Return value of func
+        """
+        # Set credentials via environment variable for LiteLLM
+        original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+
+        try:
+            return func(*args, **kwargs)
+        finally:
+            # Restore original credentials environment variable
+            if original_credentials:
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_credentials
+            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+
     def generate(
         self,
         prompt: str,
@@ -318,41 +378,40 @@ class VertexAILLM(LiteLLM):
         Returns:
             Generated text or dict (if schema provided)
         """
-        # Inject Vertex AI-specific parameters
-        kwargs["vertex_ai_project"] = self.model["project"]
-        kwargs["vertex_ai_location"] = self.model["location"]
+        credentials_path = self._ensure_credentials_and_inject_params(kwargs)
 
-        # Ensure credentials file exists before setting environment variable
-        credentials_path = self.model["credentials_path"]
-        if not os.path.exists(credentials_path):
-            # If temp file was deleted, try to recreate it from original credentials
-            if hasattr(self, "_original_credentials_env") and self._original_credentials_env:
-                try:
-                    # Try to recreate from base64 if it was originally base64
-                    config = self._load_credentials(self._original_credentials_env)
-                    credentials_path = config["credentials_path"]
-                    # Update model config with new path
-                    self.model["credentials_path"] = credentials_path
-                except Exception as e:
-                    raise ValueError(f"Credentials file missing and could not be recreated: {e}")
-            else:
-                raise ValueError(f"Credentials file not found: {credentials_path}")
+        return self._with_credentials_env(
+            credentials_path,
+            super().generate,
+            prompt=prompt,
+            system_prompt=system_prompt,
+            schema=schema,
+            *args,
+            **kwargs,
+        )
 
-        # Set credentials via environment variable for LiteLLM
-        original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+    def generate_image(
+        self, prompt: str, n: int = 1, size: str = "1024x1024", **kwargs
+    ) -> Union[str, List[str]]:
+        """
+        Generate images using Vertex AI Imagen.
 
-        try:
-            # Call parent generate method
-            return super().generate(
-                prompt=prompt, system_prompt=system_prompt, schema=schema, *args, **kwargs
-            )
-        finally:
-            # Restore original credentials environment variable
-            if original_credentials:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_credentials
-            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
-                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+        This method overrides the parent to inject Vertex AI-specific parameters.
+
+        Args:
+            prompt: Text description of the image to generate
+            n: Number of images to generate (default: 1)
+            size: Image size (e.g., "1024x1024", "512x512")
+            **kwargs: Additional parameters
+
+        Returns:
+            URL(s) of generated image(s). Single URL if n=1, list if n>1
+        """
+        credentials_path = self._ensure_credentials_and_inject_params(kwargs)
+
+        return self._with_credentials_env(
+            credentials_path, super().generate_image, prompt=prompt, n=n, size=size, **kwargs
+        )
 
     def __del__(self):
         """

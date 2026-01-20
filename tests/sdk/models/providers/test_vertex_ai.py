@@ -444,6 +444,132 @@ class TestVertexAIGenerate:
             assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == original_value
 
 
+class TestVertexAIImageGeneration:
+    """Test image generation method functionality."""
+
+    @patch("rhesis.sdk.models.providers.litellm.image_generation")
+    def test_generate_image_single(self, mock_image_generation):
+        """Test generate_image method returns single image URL."""
+        # Setup mock credentials
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        # Mock the image generation response
+        mock_response = Mock()
+        mock_image = Mock()
+        mock_image.url = None
+        mock_image.b64_json = "base64encodedimage"
+        mock_response.data = [mock_image]
+        mock_image_generation.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "us-central1"},
+            clear=True,
+        ):
+            llm = VertexAILLM(model_name="imagegeneration@006")
+            prompt = "A beautiful sunset"
+
+            result = llm.generate_image(prompt, n=1, size="1024x1024")
+
+            assert isinstance(result, str)
+            assert result.startswith("data:image/png;base64,")
+
+            # Check that image_generation was called with vertex_ai parameters
+            call_kwargs = mock_image_generation.call_args[1]
+            assert call_kwargs["vertex_ai_project"] == "test-project"
+            assert call_kwargs["vertex_ai_location"] == "us-central1"
+            assert call_kwargs["n"] == 1
+            assert call_kwargs["size"] == "1024x1024"
+
+    @patch("rhesis.sdk.models.providers.litellm.image_generation")
+    def test_generate_image_multiple(self, mock_image_generation):
+        """Test generate_image method returns list of image URLs when n>1."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        # Mock multiple images
+        mock_response = Mock()
+        mock_images = []
+        for i in range(3):
+            mock_image = Mock()
+            mock_image.url = None
+            mock_image.b64_json = f"base64encodedimage{i}"
+            mock_images.append(mock_image)
+        mock_response.data = mock_images
+        mock_image_generation.return_value = mock_response
+
+        with patch.dict(
+            os.environ,
+            {"GOOGLE_APPLICATION_CREDENTIALS": encoded_creds, "VERTEX_AI_LOCATION": "europe-west4"},
+            clear=True,
+        ):
+            llm = VertexAILLM(model_name="imagegeneration@006")
+            prompt = "A cozy workspace"
+
+            result = llm.generate_image(prompt, n=3, size="512x512")
+
+            assert isinstance(result, list)
+            assert len(result) == 3
+            for img_url in result:
+                assert img_url.startswith("data:image/png;base64,")
+
+            call_kwargs = mock_image_generation.call_args[1]
+            assert call_kwargs["n"] == 3
+            assert call_kwargs["size"] == "512x512"
+
+    @patch("rhesis.sdk.models.providers.litellm.image_generation")
+    def test_generate_image_restores_credentials_env_var(self, mock_image_generation):
+        """Test that generate_image properly restores the original GOOGLE_APPLICATION_CREDENTIALS."""
+        mock_creds = {
+            "type": "service_account",
+            "project_id": "test-project",
+            "client_email": "test@test.iam.gserviceaccount.com",
+        }
+
+        encoded_creds = base64.b64encode(json.dumps(mock_creds).encode()).decode()
+
+        mock_response = Mock()
+        mock_image = Mock()
+        mock_image.url = None
+        mock_image.b64_json = "base64encodedimage"
+        mock_response.data = [mock_image]
+        mock_image_generation.return_value = mock_response
+
+        # Set an original value
+        original_value = "/path/to/original/credentials.json"
+        with patch.dict(
+            os.environ,
+            {
+                "GOOGLE_APPLICATION_CREDENTIALS": encoded_creds,
+                "VERTEX_AI_LOCATION": "us-central1",
+            },
+            clear=True,
+        ):
+            # Set a different value before calling generate_image
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_value
+
+            llm = VertexAILLM(
+                model_name="imagegeneration@006", credentials=encoded_creds, location="us-central1"
+            )
+            prompt = "Test image"
+
+            llm.generate_image(prompt)
+
+            # Verify it was restored
+            assert os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") == original_value
+
+
 class TestVertexAIUtilityMethods:
     """Test utility methods."""
 

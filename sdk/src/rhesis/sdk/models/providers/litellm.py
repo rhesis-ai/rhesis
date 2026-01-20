@@ -270,8 +270,35 @@ class LiteLLM(BaseLLM, CapabilityMixin):
                 model=self.model_name, prompt=prompt, n=n, size=size, api_key=self.api_key, **kwargs
             )
 
-            # Extract URLs from response
-            urls = [img.url for img in response.data]
+            # Extract URLs/data from response
+            # Different providers return different response structures
+            urls = []
+            for img in response.data:
+                # Try to get URL first (OpenAI, DALL-E)
+                if hasattr(img, "url") and img.url:
+                    urls.append(img.url)
+                # Try to get base64 data (Vertex AI, some others)
+                elif hasattr(img, "b64_json") and img.b64_json:
+                    urls.append(f"data:image/png;base64,{img.b64_json}")
+                # Try direct data attribute
+                elif hasattr(img, "data"):
+                    urls.append(img.data)
+                else:
+                    # Fallback: convert object to dict and look for common fields
+                    img_dict = (
+                        img
+                        if isinstance(img, dict)
+                        else (img.__dict__ if hasattr(img, "__dict__") else {})
+                    )
+                    url = img_dict.get("url") or img_dict.get("b64_json") or img_dict.get("data")
+                    if url:
+                        if "b64_json" in img_dict:
+                            urls.append(f"data:image/png;base64,{url}")
+                        else:
+                            urls.append(url)
+
+            if not urls:
+                raise ValueError(f"No image data returned from {self.model_name}")
 
             # Return single URL if n=1, list otherwise
             return urls[0] if n == 1 else urls
