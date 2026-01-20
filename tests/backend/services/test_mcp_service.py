@@ -396,12 +396,12 @@ class TestSearchMCP:
     """Test search_mcp function"""
 
     @patch("rhesis.backend.app.services.mcp_service.crud")
-    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_agent_class")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
     async def test_search_success(
-        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class, mock_crud
+        self, mock_jinja_env, mock_get_model, mock_get_client, mock_get_agent_class, mock_crud
     ):
         """Test successfully search and return list of results"""
         # Setup
@@ -420,17 +420,24 @@ class TestSearchMCP:
         mock_get_model.return_value = mock_model
 
         mock_client = Mock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[])
         mock_get_client.return_value = (mock_client, "notion")
 
         mock_template = Mock()
         mock_template.render.return_value = "Search prompt"
         mock_jinja_env.get_template.return_value = mock_template
 
+        # Mock the agent class and instance
+        mock_agent_class = Mock()
         mock_agent = Mock()
         mock_result = Mock()
         mock_result.final_answer = '[{"id": "1", "url": "http://example.com", "title": "Test"}]'
+        mock_result.success = True
         mock_agent.run_async = AsyncMock(return_value=mock_result)
         mock_agent_class.return_value = mock_agent
+        mock_get_agent_class.return_value = mock_agent_class
 
         # Execute
         result = await search_mcp(query, tool_id, db, org_id, user_id)
@@ -544,6 +551,9 @@ class TestExtractMCP:
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[])
         mock_get_tool_config.return_value = (
             mock_client,
             "notion",
@@ -598,6 +608,9 @@ class TestExtractMCP:
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[])
         mock_get_tool_config.return_value = (
             mock_client,
             "notion",
@@ -670,6 +683,9 @@ class TestQueryMCP:
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[])
         mock_get_client.return_value = (mock_client, "notion")
 
         mock_template = Mock()
@@ -721,6 +737,9 @@ class TestQueryMCP:
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[])
         mock_get_client.return_value = (mock_client, "notion")
 
         mock_agent = Mock()
@@ -759,6 +778,9 @@ class TestQueryMCP:
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[])
         mock_get_client.return_value = (mock_client, "notion")
 
         mock_template = Mock()
@@ -805,6 +827,9 @@ class TestTestMCPAuthentication:
 
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
+        mock_client.connect = AsyncMock()
+        mock_client.disconnect = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[])
         mock_get_client.return_value = (mock_client, "notion")
 
         mock_template = Mock()
