@@ -193,11 +193,11 @@ class OpenAI(TextCompletionGenerator):
         # create prompts to generate the model input parameters of the tests
         prompt_strings = self._create_prompt_strings(prompts, topic, mode)
 
-        chat_instruction_beginning = "You are given examples of sentence pairs: \n"
-        chat_instruction_end = (
-            "\nGenerate the next example. Return only the next example "
-            "with no other text. Do not put generated senteces in quotes:\n"
-        )
+        chat_instruction_beginning = "You are given examples of the tests with the topic: \n"
+        chat_instruction_end = """
+Generate the next test. Return only the next test with no other text.
+Do not put generated sentences in quotes. Generate only the test. Do not generate the topic. 
+"""
         # Remove trailing quote that was meant for completion API
         prompt_strings = [
             chat_instruction_beginning + prompt_string.rstrip(self.quote) + chat_instruction_end
