@@ -669,7 +669,7 @@ export function MCPConnectionDialog({
                 </Typography>
 
                 <TextField
-                  label="TOKEN"
+                  label="Authentication token"
                   fullWidth
                   required={!isEditMode}
                   type={showAuthToken ? 'text' : 'password'}
