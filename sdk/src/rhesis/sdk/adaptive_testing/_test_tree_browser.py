@@ -2,6 +2,7 @@ import copy
 import itertools
 import json
 import logging
+import os
 import pathlib
 import re
 import urllib.parse
@@ -10,6 +11,7 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
 from litellm import batch_completion
 from pydantic import BaseModel
 
@@ -19,6 +21,8 @@ from rhesis.sdk import adaptive_testing  # Need to import like this to prevent c
 from .comm import JupyterComm
 from .generators import TestTreeSource
 from .utils import is_subtopic
+
+load_dotenv("/Users/arek/Desktop/rhesis/.env", override=True)
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +42,7 @@ def rhesis_model(inputs):
     # Use litellm batch_completion with openai/gpt-4o-mini
     responses = batch_completion(
         model="openai/gpt-4o-mini",
-        api_key="api_key",
+        api_key=os.getenv("OPENAI_API_KEY"),
         messages=messages,
         response_format=Label,
     )
@@ -71,7 +75,7 @@ def rhesis_scorer(inputs, outputs):
     # Use litellm batch_completion with openai/gpt-4o-mini
     responses = batch_completion(
         model="openai/gpt-4o-mini",
-        api_key="api_key",
+        api_key=os.getenv("OPENAI_API_KEY"),
         messages=messages,
         response_format=Score,
     )
