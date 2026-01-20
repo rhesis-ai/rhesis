@@ -167,7 +167,6 @@ class TestTreeBrowser:
         max_suggestions,
         suggestion_thread_budget,
         prompt_builder,
-        active_generator,
         starting_path,
         score_filter,
         topic_model_scale,
@@ -181,7 +180,7 @@ class TestTreeBrowser:
         self.endpoint = endpoint if endpoint is not None else llm_endpoint
         self.metrics = metrics if metrics is not None else rhesis_scorer
         self.scorer = scorer
-        self.generators = generator
+        self.generator = generator
         self.user = user
         self.auto_save = auto_save
         self.recompute_scores = recompute_scores
@@ -189,36 +188,14 @@ class TestTreeBrowser:
         self.max_suggestions = max_suggestions
         self.suggestion_thread_budget = suggestion_thread_budget
         self.prompt_builder = prompt_builder
-        self.active_generator = active_generator
         self.current_topic = starting_path
         self.score_filter = score_filter
         self.topic_model_scale = topic_model_scale
         self.filter_text = ""
 
-        # convert single generator to the multi-generator format
-        if not isinstance(self.generators, dict):
-            self.generators = {"generator": self.generators}
-
-        if (
-            adaptive_testing.default_generators is not None
-        ):  # Merge default generators into generators
-            self.generators = {**self.generators, **adaptive_testing.default_generators}
-
-        # Find and cast any TestTrees in generators to TestTreeSource
-        for generator_name, generator in self.generators.items():
-            if isinstance(
-                generator, adaptive_testing._test_tree.TestTree
-            ):  # TODO: make this autoreload friendly
-                self.generators[generator_name] = TestTreeSource(generator)
-
-        # get a reference to the active backend object
-        if self.active_generator == "default":
-            if isinstance(self.generators, dict):
-                self._active_generator_obj = next(iter(self.generators.items()))[1]
-            else:
-                self._active_generator_obj = self.generators
-        else:
-            self._active_generator_obj = self.generators[self.active_generator]
+        # Cast TestTree to TestTreeSource if needed
+        if isinstance(self.generator, adaptive_testing._test_tree.TestTree):
+            self.generator = TestTreeSource(self.generator)
 
         # if we are recomputing the scores then we erase all the old scores
         if recompute_scores is True:
@@ -259,11 +236,9 @@ class TestTreeBrowser:
         # # make sure all the tests have scores (if we have a scorer)
         # self._compute_embeddings_and_scores(self.test_tree)
 
-        # ensure any test tree based generator has embeddings calculated
-        if isinstance(self.generators, dict):
-            for name, gen in self.generators.items():
-                if getattr(gen, "gen_type", "") == "test_tree":
-                    gen.source._cache_embeddings()
+        # ensure test tree based generator has embeddings calculated
+        if getattr(self.generator, "gen_type", "") == "test_tree":
+            self.generator.source._cache_embeddings()
 
         # save the current state of the test tree
         self._auto_save()
@@ -426,10 +401,6 @@ class TestTreeBrowser:
 
             self._auto_save()
             self._refresh_interface()
-
-        elif event_id == "change_generator":
-            self.active_generator = msg["generator"]
-            self._active_generator_obj = self.generators[self.active_generator]
 
         elif event_id == "change_mode":
             self.mode = msg["mode"]
@@ -715,10 +686,6 @@ class TestTreeBrowser:
             "read_only": False,
             "score_columns": self.score_columns,
             "suggestions_error": self._suggestions_error,
-            "generator_options": [str(x) for x in self.generators.keys()]
-            if isinstance(self.generators, dict)
-            else [self.active_generator],
-            "active_generator": self.active_generator,
             "mode": self.mode,
             "mode_options": self.mode_options,
             "test_tree_name": self.test_tree.name,
@@ -799,22 +766,16 @@ class TestTreeBrowser:
             desc = self.test_tree.loc[curr_topic_mask]["description"].iloc[0]
 
         # generate the suggestions
-        generators = [self._active_generator_obj] + list(self.generators.values())
-        for generator in generators:
-            try:
-                proposals = generator(
-                    prompts,
-                    self.current_topic,
-                    desc,
-                    self.mode,
-                    self.scorer,
-                    num_samples=self.max_suggestions // len(prompts)
-                    if len(prompts) > 0
-                    else self.max_suggestions,
-                )
-                break
-            except ValueError:
-                pass  # try the next generator
+        proposals = self.generator(
+            prompts,
+            self.current_topic,
+            desc,
+            self.mode,
+            self.scorer,
+            num_samples=self.max_suggestions // len(prompts)
+            if len(prompts) > 0
+            else self.max_suggestions,
+        )
 
         # all topics should be URI encoded
         if self.mode == "topics":

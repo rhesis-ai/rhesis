@@ -337,11 +337,10 @@ class TestTree:
         max_suggestions=100,
         suggestion_thread_budget=0.5,
         prompt_builder=PromptBuilder(),
-        active_generator="default",
         starting_path="",
         score_filter=-1e10,
         topic_model_scale=0,
-    ):  # TODO: remove active_generator and replace with the ability to set the generator?
+    ):
         """Apply this test tree to a scorer/model and browse/edit the tests to adapt them to the target model.
 
         Applying a test tree to a target model (wrapped by a scorer) creates a TestTreeBrowser object that can be used to
@@ -349,7 +348,7 @@ class TestTree:
 
         Parameters
         ----------
-        generator : adaptive_testing.Generator or dict[adaptive_testing.Generators]
+        generator : adaptive_testing.Generator
             A source to generate new tests from. Currently supported generator types are language
             models, existing test trees, or datasets.
 
@@ -390,10 +389,6 @@ class TestTree:
             A prompt builder to use when generating prompts for new tests. This object controls how the LM prompts
             are created when generating new tests.
 
-        active_generator : "default", or a key name if generators is a dictionary
-            Which generator from adaptive_testing.generators to use when generating new tests. This should always be set to "default" if
-            generators is just a single generator and not a dictionary of generators.
-
         starting_path : str
             The path to start browsing the test tree from.
         """
@@ -415,7 +410,6 @@ class TestTree:
             max_suggestions=max_suggestions,
             suggestion_thread_budget=suggestion_thread_budget,
             prompt_builder=prompt_builder,
-            active_generator=active_generator,
             starting_path=starting_path,
             score_filter=score_filter,
             topic_model_scale=topic_model_scale,
