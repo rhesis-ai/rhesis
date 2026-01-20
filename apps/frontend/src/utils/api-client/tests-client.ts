@@ -207,4 +207,12 @@ export class TestsClient extends BaseApiClient {
       body: JSON.stringify(request),
     });
   }
+
+  /**
+   * Get the URL for a test's image content.
+   * This returns a URL that can be used directly in an img src attribute.
+   */
+  getTestImageUrl(testId: string): string {
+    return `${API_ENDPOINTS.tests}/${testId}/image`;
+  }
 }

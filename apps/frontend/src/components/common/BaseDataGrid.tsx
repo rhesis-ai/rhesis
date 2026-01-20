@@ -143,6 +143,8 @@ interface BaseDataGridProps {
   // State persistence props
   persistState?: boolean;
   storageKey?: string;
+  // Row height props
+  getRowHeight?: (params: { id: GridRowId; densityFactor: number }) => number | 'auto' | null;
 }
 
 // Create a styled version of DataGrid with bold headers
@@ -214,6 +216,7 @@ export default function BaseDataGrid({
   initialState,
   persistState = false,
   storageKey,
+  getRowHeight,
 }: BaseDataGridProps) {
   const theme = useTheme();
   const router = useRouter();
@@ -850,6 +853,9 @@ export default function BaseDataGrid({
           {...(disableRowSelectionOnClick && {
             disableRowSelectionOnClick,
           })}
+          {...(getRowHeight && {
+            getRowHeight,
+          })}
         />
       ) : (
         <Paper
@@ -914,6 +920,9 @@ export default function BaseDataGrid({
             })}
             {...(disableRowSelectionOnClick && {
               disableRowSelectionOnClick,
+            })}
+            {...(getRowHeight && {
+              getRowHeight,
             })}
           />
         </Paper>

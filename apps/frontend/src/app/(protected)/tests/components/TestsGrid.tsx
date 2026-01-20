@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import ListIcon from '@mui/icons-material/List';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -25,10 +25,10 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestFiltersToOData } from '@/utils/odata-filter';
-import { isMultiTurnTest } from '@/constants/test-types';
+import { isMultiTurnTest, isImageTest } from '@/constants/test-types';
 import {
   getTestContentValue,
-  renderTestContentCell,
+  createTestContentCellRenderer,
 } from './test-grid-helpers';
 
 interface TestsTableProps {
@@ -142,7 +142,7 @@ export default function TestsTable({
         flex: 3,
         filterable: true,
         valueGetter: getTestContentValue,
-        renderCell: renderTestContentCell,
+        renderCell: createTestContentCellRenderer(sessionToken),
       },
       {
         field: 'behavior.name',
@@ -304,7 +304,7 @@ export default function TestsTable({
         },
       },
     ],
-    []
+    [sessionToken]
   );
 
   // Event handlers
@@ -518,6 +518,16 @@ export default function TestsTable({
     disableAddButton,
   ]);
 
+  // Check if any tests are image tests to determine row height
+  const hasImageTests = useMemo(() => {
+    return tests.some(test => isImageTest(test.test_type?.type_value));
+  }, [tests]);
+
+  // Dynamic row height - larger for grids with image tests
+  const getRowHeight = useCallback(() => {
+    return hasImageTests ? 64 : null; // 64px for image tests, default otherwise
+  }, [hasImageTests]);
+
   return (
     <>
       {error && (
@@ -570,6 +580,7 @@ export default function TestsTable({
             },
           },
         }}
+        getRowHeight={getRowHeight}
       />
 
       {sessionToken && (

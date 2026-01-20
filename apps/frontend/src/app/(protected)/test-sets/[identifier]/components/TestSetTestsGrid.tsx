@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   GridColDef,
   GridRowSelectionModel,
@@ -15,10 +15,10 @@ import { Tag } from '@/utils/api-client/interfaces/tag';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { isMultiTurnTest } from '@/constants/test-types';
+import { isMultiTurnTest, isImageTest } from '@/constants/test-types';
 import {
   getTestContentValue,
-  renderTestContentCell,
+  createTestContentCellRenderer,
 } from '@/app/(protected)/tests/components/test-grid-helpers';
 
 interface TestSetTestsGridProps {
@@ -103,7 +103,7 @@ export default function TestSetTestsGrid({
         headerName: 'Content',
         flex: 3,
         valueGetter: getTestContentValue,
-        renderCell: renderTestContentCell,
+        renderCell: createTestContentCellRenderer(sessionToken),
       },
       {
         field: 'behavior',
@@ -217,7 +217,7 @@ export default function TestSetTestsGrid({
         },
       },
     ],
-    []
+    [sessionToken]
   );
 
   // Handle row click to navigate to test details
@@ -298,6 +298,16 @@ export default function TestSetTestsGrid({
     return buttons;
   }, [selectedRows.length, handleRemoveTests]);
 
+  // Check if any tests are image tests to determine row height
+  const hasImageTests = useMemo(() => {
+    return tests.some(test => isImageTest(test.test_type?.type_value));
+  }, [tests]);
+
+  // Dynamic row height - larger for grids with image tests
+  const getRowHeight = useCallback(() => {
+    return hasImageTests ? 64 : null; // 64px for image tests, default otherwise
+  }, [hasImageTests]);
+
   return (
     <>
       <Typography variant="h6" sx={{ mb: 1 }}>
@@ -342,6 +352,7 @@ export default function TestSetTestsGrid({
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
         disablePaperWrapper={true}
+        getRowHeight={getRowHeight}
       />
     </>
   );

@@ -5,6 +5,7 @@
 export const TEST_TYPES = {
   SINGLE_TURN: 'Single-Turn',
   MULTI_TURN: 'Multi-Turn',
+  IMAGE: 'Image',
 } as const;
 
 /**
@@ -48,4 +49,14 @@ export function isMultiTurnTest(value: string | undefined | null): boolean {
 export function isSingleTurnTest(value: string | undefined | null): boolean {
   const testType = getTestType(value);
   return testType === TEST_TYPES.SINGLE_TURN;
+}
+
+/**
+ * Check if a value represents an image test (case-insensitive)
+ * @param value The test type value to check
+ * @returns True if the value represents an image test
+ */
+export function isImageTest(value: string | undefined | null): boolean {
+  const testType = getTestType(value);
+  return testType === TEST_TYPES.IMAGE;
 }

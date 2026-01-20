@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Grid, Typography, useTheme, TextField } from '@mui/material';
+import { Box, Grid, Typography, useTheme, TextField, Skeleton, Paper } from '@mui/material';
 import BaseFreesoloAutocomplete, {
   AutocompleteOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
@@ -16,8 +16,9 @@ import {
   isMultiTurnConfig,
 } from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { UUID } from 'crypto';
-import { isMultiTurnTest } from '@/constants/test-types';
+import { isMultiTurnTest, isImageTest } from '@/constants/test-types';
 import { useRouter } from 'next/navigation';
+import { API_ENDPOINTS } from '@/utils/api-client/config';
 
 interface TestDetailDataProps {
   sessionToken: string;
@@ -220,6 +221,58 @@ export default function TestDetailData({
 
   // Check if test is multi-turn
   const isMultiTurn = isMultiTurnTest(test.test_type?.type_value);
+  
+  // Check if test is image type
+  const isImage = isImageTest(test.test_type?.type_value);
+  
+  // State for image loading
+  const [imageUrl, setImageUrl] = React.useState<string | null>(null);
+  const [imageLoading, setImageLoading] = React.useState(false);
+  const [imageError, setImageError] = React.useState<string | null>(null);
+  
+  // Fetch image for image tests
+  React.useEffect(() => {
+    if (!isImage || !sessionToken) return;
+    
+    const fetchImage = async () => {
+      setImageLoading(true);
+      setImageError(null);
+      
+      try {
+        const response = await fetch(`${API_ENDPOINTS.tests}/${test.id}/image`, {
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`,
+          },
+        });
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            setImageError('No image available for this test');
+          } else {
+            setImageError('Failed to load image');
+          }
+          return;
+        }
+        
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        setImageUrl(url);
+      } catch (error) {
+        setImageError('Failed to load image');
+      } finally {
+        setImageLoading(false);
+      }
+    };
+    
+    fetchImage();
+    
+    // Cleanup blob URL on unmount
+    return () => {
+      if (imageUrl) {
+        URL.revokeObjectURL(imageUrl);
+      }
+    };
+  }, [isImage, sessionToken, test.id]);
 
   return (
     <Grid container spacing={2}>
@@ -333,6 +386,105 @@ export default function TestDetailData({
             onUpdate={refreshTest}
           />
         </Grid>
+      ) : isImage ? (
+        /* Image Test Fields */
+        <>
+          <Grid size={12}>
+            <Box sx={{ mb: 1 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+              >
+                Generated Image
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', fontStyle: 'italic' }}
+              >
+                The image generated for this test case
+              </Typography>
+            </Box>
+            <Paper 
+              variant="outlined" 
+              sx={{ 
+                p: 2, 
+                display: 'flex', 
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: 200,
+                bgcolor: 'background.default',
+              }}
+            >
+              {imageLoading ? (
+                <Skeleton variant="rectangular" width={400} height={300} />
+              ) : imageError ? (
+                <Typography color="text.secondary">{imageError}</Typography>
+              ) : imageUrl ? (
+                <Box
+                  component="img"
+                  src={imageUrl}
+                  alt={test.test_metadata?.generation_prompt || 'Generated image'}
+                  sx={{
+                    maxWidth: '100%',
+                    maxHeight: 500,
+                    objectFit: 'contain',
+                    borderRadius: 1,
+                  }}
+                />
+              ) : null}
+            </Paper>
+          </Grid>
+          <Grid size={12}>
+            <Box sx={{ mb: 1 }}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                gutterBottom
+              >
+                Generation Prompt
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: 'block', fontStyle: 'italic' }}
+              >
+                The prompt used to generate this image
+              </Typography>
+            </Box>
+            <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
+              <Typography variant="body2">
+                {test.test_metadata?.generation_prompt || 'No generation prompt available'}
+              </Typography>
+            </Paper>
+          </Grid>
+          {test.test_metadata?.expected_output && (
+            <Grid size={12}>
+              <Box sx={{ mb: 1 }}>
+                <Typography
+                  variant="subtitle2"
+                  color="text.secondary"
+                  gutterBottom
+                >
+                  Expected Output
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: 'block', fontStyle: 'italic' }}
+                >
+                  The expected description or characteristics of the generated image
+                </Typography>
+              </Box>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
+                <Typography variant="body2">
+                  {test.test_metadata.expected_output}
+                </Typography>
+              </Paper>
+            </Grid>
+          )}
+        </>
       ) : (
         /* Standard Test Fields */
         <>
