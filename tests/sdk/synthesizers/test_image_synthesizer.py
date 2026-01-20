@@ -291,8 +291,8 @@ class TestImageSynthesizerGenerate:
 class TestImageSynthesizerIntegration:
     """Integration tests for ImageSynthesizer with Test entity."""
 
-    def test_test_binary_serialization(self):
-        """Test that test_binary is properly serialized for API transport."""
+    def test_test_binary_serialization_with_alias(self):
+        """Test that test_binary is properly serialized with alias for API transport."""
         from rhesis.sdk.entities.test import Test
 
         test_data = b"test image bytes"
@@ -305,8 +305,8 @@ class TestImageSynthesizerIntegration:
             metadata={"binary_mime_type": "image/png"},
         )
 
-        # Serialize for API
-        data = test.model_dump()
+        # Serialize for API with by_alias=True (as TestSet.push() does)
+        data = test.model_dump(by_alias=True, exclude_none=True)
 
         # test_binary should be renamed to test_binary_base64 and base64 encoded
         assert "test_binary" not in data
@@ -324,8 +324,40 @@ class TestImageSynthesizerIntegration:
             test_binary=None,
         )
 
-        data = test.model_dump()
+        data = test.model_dump(by_alias=True, exclude_none=True)
 
-        # Neither should be in the output
+        # Neither should be in the output when excluding None values
         assert "test_binary" not in data
         assert "test_binary_base64" not in data
+
+    def test_test_binary_nested_in_testset(self):
+        """Test that test_binary is properly serialized when nested in TestSet."""
+        from rhesis.sdk.entities.test import Test
+        from rhesis.sdk.entities.test_set import TestSet
+
+        test_data = b"test image bytes"
+
+        test = Test(
+            category="Test",
+            topic="Test",
+            behavior="Test",
+            test_binary=test_data,
+            metadata={"binary_mime_type": "image/png"},
+        )
+
+        test_set = TestSet(
+            name="Image Test Set",
+            description="Test set with image tests",
+            short_description="Image tests",
+            tests=[test],
+        )
+
+        # Serialize as TestSet.push() does
+        data = test_set.model_dump(mode="json", exclude_none=True, by_alias=True)
+
+        # Nested test should have test_binary_base64, not test_binary
+        assert len(data["tests"]) == 1
+        nested_test = data["tests"][0]
+        assert "test_binary" not in nested_test
+        assert "test_binary_base64" in nested_test
+        assert nested_test["test_binary_base64"] == base64.b64encode(test_data).decode("utf-8")

@@ -171,7 +171,8 @@ class TestSet(BaseEntity):
         """
         # mode="json": Ensures enums are serialized as strings instead of enum objects
         # exclude_none=True: Excludes None values so backend uses defaults
-        data = self.model_dump(mode="json", exclude_none=True)
+        # by_alias=True: Uses serialization aliases (e.g., test_binary -> test_binary_base64)
+        data = self.model_dump(mode="json", exclude_none=True, by_alias=True)
 
         response = self._create(data)
         if response and "id" in response:

@@ -1,7 +1,7 @@
 import base64
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, Field, field_serializer
 
 from rhesis.sdk.client import Client, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
@@ -32,28 +32,16 @@ class Test(BaseEntity):
     test_configuration: Optional[TestConfiguration] = None
     test_type: Optional[TestType] = None
     # Binary content for image tests (MIME type stored in metadata.binary_mime_type)
-    test_binary: Optional[bytes] = None
+    # Uses serialization_alias to rename to test_binary_base64 for API transport
+    test_binary: Optional[bytes] = Field(default=None, serialization_alias="test_binary_base64")
 
     @field_serializer("test_binary", when_used="always")
     @classmethod
     def serialize_test_binary(cls, value: Optional[bytes]) -> Optional[str]:
-        """Serialize test_binary to base64 string for API transport.
-
-        The API expects the field as 'test_binary_base64'.
-        """
+        """Serialize test_binary to base64 string for API transport."""
         if value is None:
             return None
         return base64.b64encode(value).decode("utf-8")
-
-    def model_dump(self, **kwargs) -> Dict[str, Any]:
-        """Override model_dump to rename test_binary to test_binary_base64 for API."""
-        data = super().model_dump(**kwargs)
-        # Rename test_binary to test_binary_base64 for API compatibility
-        if "test_binary" in data:
-            test_binary_value = data.pop("test_binary")
-            if test_binary_value is not None:
-                data["test_binary_base64"] = test_binary_value
-        return data
 
     @handle_http_errors
     def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:
