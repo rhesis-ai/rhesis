@@ -140,11 +140,10 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-interface FormData
-  extends Omit<
-    Endpoint,
-    'id' | 'request_headers' | 'request_mapping' | 'response_mapping'
-  > {
+interface FormData extends Omit<
+  Endpoint,
+  'id' | 'request_headers' | 'request_mapping' | 'response_mapping'
+> {
   request_headers?: string;
   request_mapping?: string;
   response_mapping?: string;
