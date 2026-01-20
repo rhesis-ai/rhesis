@@ -1,4 +1,14 @@
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.capabilities import CapabilityMixin, ModelCapabilities
+from rhesis.sdk.models.content import (
+    AudioContent,
+    ContentPart,
+    FileContent,
+    ImageContent,
+    Message,
+    TextContent,
+    VideoContent,
+)
 from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.models.providers.gemini import GeminiLLM
 from rhesis.sdk.models.providers.litellm import LiteLLM
@@ -25,6 +35,17 @@ __all__ = [
     "OpenRouterLLM",
     "PolyphemusLLM",
     "get_model",
+    # Multimodal content types
+    "Message",
+    "ContentPart",
+    "TextContent",
+    "ImageContent",
+    "AudioContent",
+    "VideoContent",
+    "FileContent",
+    # Capabilities
+    "ModelCapabilities",
+    "CapabilityMixin",
 ]
 
 if HUGGINGFACE_AVAILABLE:

@@ -7,12 +7,14 @@ from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.capabilities import CapabilityMixin
+from rhesis.sdk.models.content import ContentPart, Message
 from rhesis.sdk.models.utils import validate_llm_response
 
 litellm.suppress_debug_info = True
 
 
-class LiteLLM(BaseLLM):
+class LiteLLM(BaseLLM, CapabilityMixin):
     PROVIDER: str
 
     def __init__(self, model_name: str, api_key: Optional[str] = None):
@@ -115,3 +117,130 @@ class LiteLLM(BaseLLM):
         models_list = [model for model in models_list if "video" not in model]
 
         return models_list
+
+    def generate_multimodal(
+        self,
+        messages: List[Message],
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
+        **kwargs,
+    ) -> Union[str, dict]:
+        """Generate a response from multimodal messages (text + images/audio/video/files).
+
+        Args:
+            messages: List of Message objects with mixed content
+            schema: Optional schema for structured output
+            **kwargs: Additional parameters (temperature, max_tokens, etc.)
+
+        Returns:
+            String response or dict if schema provided
+
+        Raises:
+            ValueError: If model doesn't support required modalities
+        """
+        # Check if any message contains non-text content
+        has_images = False
+        has_audio = False
+        has_video = False
+
+        for msg in messages:
+            if isinstance(msg.content, list):
+                for part in msg.content:
+                    if isinstance(part, str):
+                        continue
+                    part_type = getattr(part, "type", None)
+                    if part_type == "image":
+                        has_images = True
+                    elif part_type == "audio":
+                        has_audio = True
+                    elif part_type == "video":
+                        has_video = True
+
+        # Check capabilities
+        if has_images and not self.supports_vision:
+            raise ValueError(
+                f"Model {self.model_name} does not support vision/image inputs. "
+                f"Use a vision-capable model like gemini-2.0-flash or gpt-4o."
+            )
+
+        if has_audio and not self.supports_audio:
+            raise ValueError(
+                f"Model {self.model_name} does not support audio inputs. "
+                f"Use an audio-capable model like gemini-1.5-pro."
+            )
+
+        if has_video and not self.supports_video:
+            raise ValueError(
+                f"Model {self.model_name} does not support video inputs. "
+                f"Use a video-capable model like gemini-1.5-pro."
+            )
+
+        # Convert messages to LiteLLM format
+        litellm_messages = [msg.to_litellm_format() for msg in messages]
+
+        # Call completion
+        response = completion(
+            model=self.model_name,
+            messages=litellm_messages,
+            response_format=schema,
+            api_key=self.api_key,
+            **kwargs,
+        )
+
+        response_content = response.choices[0].message.content
+        if schema:
+            response_content = json.loads(response_content)
+            validate_llm_response(response_content, schema)
+            return response_content
+        return response_content
+
+    def analyze_content(
+        self,
+        content: Union[ContentPart, List[ContentPart]],
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        **kwargs,
+    ) -> str:
+        """Convenience method to analyze content with a text prompt.
+
+        Args:
+            content: Single ContentPart or list of ContentPart objects
+            prompt: Question about the content
+            system_prompt: Optional system instruction
+            **kwargs: Additional parameters
+
+        Returns:
+            Text analysis/description
+
+        Raises:
+            ValueError: If model doesn't support the content type
+        """
+        # Normalize content to list
+        if not isinstance(content, list):
+            content = [content]
+
+        # Check capabilities based on content types
+        for part in content:
+            part_type = getattr(part, "type", None)
+            if part_type == "image" and not self.supports_vision:
+                raise ValueError(
+                    f"Model {self.model_name} does not support vision. Use a vision-capable model."
+                )
+            elif part_type == "audio" and not self.supports_audio:
+                raise ValueError(
+                    f"Model {self.model_name} does not support audio. Use an audio-capable model."
+                )
+            elif part_type == "video" and not self.supports_video:
+                raise ValueError(
+                    f"Model {self.model_name} does not support video. Use a video-capable model."
+                )
+
+        # Build messages
+        messages = []
+        if system_prompt:
+            messages.append(Message(role="system", content=system_prompt))
+
+        # Create user message with content + prompt
+        user_content = list(content) + [prompt]
+        messages.append(Message(role="user", content=user_content))
+
+        return self.generate_multimodal(messages, **kwargs)
