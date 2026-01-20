@@ -6,7 +6,6 @@ import pathlib
 import re
 import urllib.parse
 import uuid
-from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -42,23 +41,18 @@ def llm_endpoint(inputs):
     """Classify sentence pairs into NEUTRAL, ENTAILMENT, or CONTRADICTION."""
     # Prepare prompts
     prompts = [
-        f"""Classify the given sentence pair into NEUTRAL, ENTAILMENT, or CONTRADICTION.
-        {input_pair}
+        f"""You are an helpful insurance chatbot. Answer the user questions. Please keep the answer
+        short and concise:
+        {message}
         """
-        for input_pair in inputs
+        for message in inputs
     ]
-
-    class Label(BaseModel):
-        label: Literal["NEUTRAL", "ENTAILMENT", "CONTRADICTION"]
 
     # Use SDK model's generate_batch
     model = _get_default_model()
-    results = model.generate_batch(prompts=prompts, schema=Label)
+    results = model.generate_batch(prompts=prompts)
 
-    # Extract labels from the structured responses
-    output = [result["label"] for result in results]
-
-    return output
+    return results
 
 
 def rhesis_scorer(inputs, outputs):
