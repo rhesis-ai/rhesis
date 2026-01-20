@@ -114,6 +114,70 @@
   font-display: swap;
 }
 
+/* Sticky footer layout - ensures footer sticks to bottom on short pages */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Nextra's main wrapper should grow to push footer down */
+body > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* Center 404 page content */
+.not-found-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 300px); /* Account for header and footer */
+  padding: 2rem;
+  text-align: center;
+}
+
+.not-found-container h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  color: var(--rhesis-text-dark);
+}
+
+.not-found-container p {
+  font-size: 1.125rem;
+  margin-bottom: 1.5rem;
+  color: var(--rhesis-text-primary);
+}
+
+.not-found-container a {
+  color: var(--rhesis-cta-blue);
+  text-decoration: underline;
+  font-size: 1rem;
+  transition: color 0.2s ease;
+}
+
+.not-found-container a:hover {
+  color: var(--rhesis-primary-darker);
+}
+
+/* Dark mode styles for 404 page */
+[data-theme='dark'] .not-found-container h1,
+.dark .not-found-container h1 {
+  color: var(--rhesis-text-dark);
+}
+
+[data-theme='dark'] .not-found-container p,
+.dark .not-found-container p {
+  color: var(--rhesis-text-primary);
+}
+
+[data-theme='dark'] .not-found-container a:hover,
+.dark .not-found-container a:hover {
+  color: var(--rhesis-primary-darker);
+}
+
 /* Apply brand fonts and colors to Nextra */
 
 /* Typography - apply to all text elements */
