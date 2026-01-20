@@ -96,6 +96,9 @@ class ConnectionManager:
         def log_exception(t: asyncio.Task) -> None:
             try:
                 t.result()
+            except asyncio.CancelledError:
+                # Expected during shutdown, not an error
+                pass
             except Exception as e:
                 logger.error(f"Background task failed: {e}", exc_info=True)
 

@@ -126,7 +126,7 @@ def clean_test_database():
                 "subscription",
             ]
 
-            # Use single transaction for all TRUNCATE operations (much faster)
+            # Use single transaction for all operations (TRUNCATE + DELETE)
             try:
                 with connection.begin():
                     # Disable triggers for faster truncate
@@ -144,10 +144,9 @@ def clean_test_database():
                     connection.execute(text("SET session_replication_role = 'origin'"))
 
                     print(f"  🗑️ TRUNCATEd {len(tables_to_truncate)} tables")
-            except Exception as e:
-                print(f"  ⚠️ TRUNCATE failed: {e}, falling back to DELETE")
 
             # AUTH TABLES: Use DELETE with WHERE clause to preserve session auth
+                    # (within the same transaction)
             auth_tables_to_clean = [
                 ('"user"', auth_user_id, "users"),
                 ("organization", auth_org_id, "organizations"),
@@ -157,7 +156,6 @@ def clean_test_database():
             for table_name, preserve_id, display_name in auth_tables_to_clean:
                 if preserve_id:
                     try:
-                        with connection.begin():
                             result = connection.execute(
                                 text(f"DELETE FROM {table_name} WHERE id != :preserve_id"),
                                 {"preserve_id": preserve_id},
@@ -172,6 +170,8 @@ def clean_test_database():
                         pass
 
             print("✅ Optimized cleanup completed")
+            except Exception as e:
+                print(f"  ⚠️ Cleanup failed: {e}")
 
     except Exception as e:
         # If cleanup fails completely, continue - tests might still work
