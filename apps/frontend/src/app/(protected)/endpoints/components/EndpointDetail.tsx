@@ -183,6 +183,11 @@ export default function EndpointDetail({
   const [isSaving, setIsSaving] = useState(false);
   const [showAuthToken, setShowAuthToken] = useState(false);
   const [tokenFieldFocused, setTokenFieldFocused] = useState(false);
+  
+  // Separate state for JSON editor string values to avoid double-stringify bug
+  const [requestHeadersString, setRequestHeadersString] = useState<string>('');
+  const [requestMappingString, setRequestMappingString] = useState<string>('');
+  const [responseMappingString, setResponseMappingString] = useState<string>('');
 
   // Determine editor theme based on MUI theme
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
@@ -278,12 +283,20 @@ export default function EndpointDetail({
   const handleEdit = () => {
     setIsEditing(true);
     setEditedValues(endpoint);
+    // Initialize JSON editor strings from endpoint objects
+    setRequestHeadersString(JSON.stringify(endpoint.request_headers || {}, null, 2));
+    setRequestMappingString(JSON.stringify(endpoint.request_mapping || {}, null, 2));
+    setResponseMappingString(JSON.stringify(endpoint.response_mapping || {}, null, 2));
   };
 
   const handleCancel = () => {
     setIsEditing(false);
     setEditedValues({});
     setTokenFieldFocused(false); // Reset token field state
+    // Reset JSON editor strings
+    setRequestHeadersString('');
+    setRequestMappingString('');
+    setResponseMappingString('');
   };
 
   const handleSave = async () => {
@@ -326,12 +339,22 @@ export default function EndpointDetail({
 
   const handleJsonChange = (field: keyof EndpointEditData, value: string) => {
     autoEnableEditMode();
+    
+    // Update the appropriate string state based on field
+    if (field === 'request_headers') {
+      setRequestHeadersString(value);
+    } else if (field === 'request_mapping') {
+      setRequestMappingString(value);
+    } else if (field === 'response_mapping') {
+      setResponseMappingString(value);
+    }
+    
+    // Try to parse and update editedValues only if valid JSON
     try {
       const parsedValue = JSON.parse(value);
       setEditedValues(prev => ({ ...prev, [field]: parsedValue }));
     } catch {
-      // Handle JSON parse error if needed
-      setEditedValues(prev => ({ ...prev, [field]: value }));
+      // Don't update editedValues if JSON is invalid - wait for user to fix it
     }
   };
 
@@ -1183,13 +1206,11 @@ export default function EndpointDetail({
                     height="200px"
                     defaultLanguage="json"
                     theme={editorTheme}
-                    value={JSON.stringify(
+                    value={
                       isEditing
-                        ? editedValues.request_headers
-                        : endpoint.request_headers || {},
-                      null,
-                      2
-                    )}
+                        ? requestHeadersString
+                        : JSON.stringify(endpoint.request_headers || {}, null, 2)
+                    }
                     onChange={value =>
                       handleJsonChange('request_headers', value || '')
                     }
@@ -1214,13 +1235,11 @@ export default function EndpointDetail({
                   height="300px"
                   defaultLanguage="json"
                   theme={editorTheme}
-                  value={JSON.stringify(
+                  value={
                     isEditing
-                      ? editedValues.request_mapping
-                      : endpoint.request_mapping || {},
-                    null,
-                    2
-                  )}
+                      ? requestMappingString
+                      : JSON.stringify(endpoint.request_mapping || {}, null, 2)
+                  }
                   onChange={value =>
                     handleJsonChange('request_mapping', value || '')
                   }
@@ -1251,13 +1270,11 @@ export default function EndpointDetail({
                   height="200px"
                   defaultLanguage="json"
                   theme={editorTheme}
-                  value={JSON.stringify(
+                  value={
                     isEditing
-                      ? editedValues.response_mapping
-                      : endpoint.response_mapping || {},
-                    null,
-                    2
-                  )}
+                      ? responseMappingString
+                      : JSON.stringify(endpoint.response_mapping || {}, null, 2)
+                  }
                   onChange={value =>
                     handleJsonChange('response_mapping', value || '')
                   }
