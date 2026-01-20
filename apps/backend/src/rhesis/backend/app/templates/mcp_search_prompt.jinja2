@@ -1,3 +1,16 @@
+{% if provider == "github" and repository_context %}
+IMPORTANT RESTRICTION: You are restricted to the following GitHub repository:
+- Owner: {{ repository_context.owner }}
+- Repository: {{ repository_context.repo }}
+- Full Name: {{ repository_context.full_name }}
+
+When using GitHub tools, ALWAYS include these parameters:
+- owner: "{{ repository_context.owner }}"
+- repo: "{{ repository_context.repo }}"
+
+Do not access any other repositories.
+
+{% endif %}
 Search for items matching the query using available tools.
 
 Return JSON array: [{"id": "item_id", "url": "item_url", "title": "Item Title"}]

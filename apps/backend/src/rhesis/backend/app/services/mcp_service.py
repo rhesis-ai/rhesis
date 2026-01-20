@@ -116,7 +116,9 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
         user_id: User ID (for authorization check)
 
     Returns:
-        Tuple of (MCPClient, provider_name) ready to use
+        Tuple of (MCPClient, provider_name, repository_context) ready to use.
+        repository_context is None or a dict with 'owner', 'repo', 'full_name'
+        for GitHub repository-scoped connections.
 
     Raises:
         MCPConfigurationError: If tool not found, deleted, not an MCP integration,
@@ -147,6 +149,19 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
     except (json.JSONDecodeError, TypeError) as e:
         raise MCPConfigurationError(f"Invalid credentials format for tool '{tool_id}': {e}")
 
+    # Extract repository context for GitHub provider
+    repository_context = None
+    if provider == "github" and tool.tool_metadata and "repository" in tool.tool_metadata:
+        repo_data = tool.tool_metadata["repository"]
+        if "owner" in repo_data and "repo" in repo_data:
+            repository_context = {
+                "owner": repo_data["owner"],
+                "repo": repo_data["repo"],
+                "full_name": repo_data.get(
+                    "full_name", f"{repo_data['owner']}/{repo_data['repo']}"
+                ),
+            }
+
     # Check if tool uses custom provider (requires manual JSON config) or standard provider
     if provider == "custom":
         # Custom provider: requires tool_metadata with full JSON config
@@ -166,7 +181,7 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
         )
 
     client = factory.create_client(f"{provider}Api")
-    return client, provider
+    return client, provider, repository_context
 
 
 def _get_mcp_client_from_params(
@@ -287,9 +302,13 @@ async def search_mcp(
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
-    client, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
+    client, provider, repository_context = _get_mcp_tool_config(
+        db, tool_id, organization_id, user_id
+    )
 
-    search_prompt = jinja_env.get_template("mcp_search_prompt.jinja2").render()
+    search_prompt = jinja_env.get_template("mcp_search_prompt.jinja2").render(
+        provider=provider, repository_context=repository_context
+    )
 
     # Use dynamic agent class based on RhesisClient availability
     AgentClass = _get_agent_class()
@@ -383,10 +402,14 @@ async def extract_mcp(
     model = get_user_generation_model(db, user)
 
     # Load MCP client and provider from database tool configuration
-    client, provider = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
+    client, provider, _ = _get_mcp_tool_config(
+        db, tool_id, organization_id, user_id
+    )
 
     extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(
-        item_id=item_id, item_url=item_url, provider=provider
+        item_id=item_id,
+        item_url=item_url,
+        provider=provider,
     )
 
     # Use dynamic agent class based on RhesisClient availability
@@ -469,10 +492,14 @@ async def query_mcp(
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
-    client, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
+    client, provider, repository_context = _get_mcp_tool_config(
+        db, tool_id, organization_id, user_id
+    )
 
     if not system_prompt:
-        system_prompt = jinja_env.get_template("mcp_default_query_prompt.jinja2").render()
+        system_prompt = jinja_env.get_template("mcp_default_query_prompt.jinja2").render(
+            provider=provider, repository_context=repository_context
+        )
 
     # Use dynamic agent class based on RhesisClient availability
     AgentClass = _get_agent_class()
@@ -528,7 +555,7 @@ async def run_mcp_authentication_test(
 
     # Load MCP client from either tool_id or parameters
     if tool_id is not None:
-        client, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
+        client, _, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
     else:
         client = _get_mcp_client_from_params(
             provider_type_id=provider_type_id,
