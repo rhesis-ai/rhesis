@@ -5,7 +5,13 @@ import litellm
 from litellm import completion, image_generation
 from pydantic import BaseModel
 
-from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
+from rhesis.sdk.errors import (
+    MODEL_NO_AUDIO_SUPPORT,
+    MODEL_NO_PDF_SUPPORT,
+    MODEL_NO_VIDEO_SUPPORT,
+    MODEL_NO_VISION_SUPPORT,
+    NO_MODEL_NAME_PROVIDED,
+)
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.capabilities import CapabilityMixin
 from rhesis.sdk.models.content import ContentPart, Message
@@ -144,6 +150,7 @@ class LiteLLM(BaseLLM, CapabilityMixin):
         has_images = False
         has_audio = False
         has_video = False
+        has_files = False
 
         for msg in messages:
             if isinstance(msg.content, list):
@@ -157,25 +164,21 @@ class LiteLLM(BaseLLM, CapabilityMixin):
                         has_audio = True
                     elif part_type == "video":
                         has_video = True
+                    elif part_type == "file":
+                        has_files = True
 
         # Check capabilities
         if has_images and not self.supports_vision:
-            raise ValueError(
-                f"Model {self.model_name} does not support vision/image inputs. "
-                f"Use a vision-capable model like gemini-2.0-flash or gpt-4o."
-            )
+            raise ValueError(MODEL_NO_VISION_SUPPORT.format(model_name=self.model_name))
 
         if has_audio and not self.supports_audio:
-            raise ValueError(
-                f"Model {self.model_name} does not support audio inputs. "
-                f"Use an audio-capable model like gemini-1.5-pro."
-            )
+            raise ValueError(MODEL_NO_AUDIO_SUPPORT.format(model_name=self.model_name))
 
         if has_video and not self.supports_video:
-            raise ValueError(
-                f"Model {self.model_name} does not support video inputs. "
-                f"Use a video-capable model like gemini-1.5-pro."
-            )
+            raise ValueError(MODEL_NO_VIDEO_SUPPORT.format(model_name=self.model_name))
+
+        if has_files and not self.supports_pdf:
+            raise ValueError(MODEL_NO_PDF_SUPPORT.format(model_name=self.model_name))
 
         # Convert messages to LiteLLM format
         litellm_messages = [msg.to_litellm_format() for msg in messages]

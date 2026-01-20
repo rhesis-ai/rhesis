@@ -103,7 +103,7 @@ class ConnectorManager:
 
         try:
             # Try to get running event loop
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # If we get here, there's a running loop
             asyncio.create_task(self._connection.connect())
             logger.debug("Connection task created in running event loop")

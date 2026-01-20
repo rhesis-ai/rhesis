@@ -9,6 +9,7 @@ ENDPOINT = Endpoints.TEST_RESULTS
 
 
 class TestResult(BaseEntity):
+    __test__ = False  # Prevent pytest from collecting this class as a test
     endpoint: ClassVar[Endpoints] = ENDPOINT
     test_configuration_id: Optional[str] = None
     test_run_id: Optional[str] = None

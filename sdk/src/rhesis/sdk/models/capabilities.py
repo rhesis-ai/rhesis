@@ -3,13 +3,31 @@
 This module provides capability detection to determine what modalities
 (vision, audio, video, PDFs) a given model supports, using LiteLLM's
 built-in capability detection functions.
+
+Example:
+    Checking model capabilities::
+
+        >>> from rhesis.sdk.models import get_model
+        >>> model = get_model("gemini", "gemini-2.0-flash")
+        >>> print(f"Vision: {model.supports_vision}")
+        Vision: True
+        >>> print(f"Audio: {model.supports_audio}")
+        Audio: True
+        >>> caps = model.get_capabilities()
+        >>> print(f"Modalities: {caps.supported_modalities}")
+        Modalities: {'text', 'image', 'pdf', 'audio', 'video'}
 """
 
 from abc import ABC
 from dataclasses import dataclass, field
-from typing import Set
+from typing import Optional, Set
 
 import litellm
+
+__all__ = [
+    "ModelCapabilities",
+    "CapabilityMixin",
+]
 
 
 @dataclass
@@ -38,15 +56,34 @@ class CapabilityMixin(ABC):
 
     Uses LiteLLM's built-in functions to detect model capabilities.
     Requires that the class has a `model_name` attribute.
+
+    Capabilities are cached after first detection to avoid repeated API calls.
     """
 
     model_name: str  # Expected from BaseLLM
+    _capabilities_cache: Optional[ModelCapabilities]  # Instance-level cache
 
     def get_capabilities(self) -> ModelCapabilities:
-        """Detect and return model capabilities.
+        """Detect and return model capabilities (cached).
 
         Uses LiteLLM's capability detection functions to determine
-        what modalities the model supports.
+        what modalities the model supports. Results are cached after
+        first call to avoid repeated API calls.
+
+        Returns:
+            ModelCapabilities instance with detected capabilities
+        """
+        # Use getattr to handle the cache as an instance attribute
+        # This avoids sharing cache between different model instances
+        cache = getattr(self, "_capabilities_cache", None)
+        if cache is not None:
+            return cache
+
+        self._capabilities_cache = self._detect_capabilities()
+        return self._capabilities_cache
+
+    def _detect_capabilities(self) -> ModelCapabilities:
+        """Internal method to detect capabilities without caching.
 
         Returns:
             ModelCapabilities instance with detected capabilities
@@ -88,6 +125,14 @@ class CapabilityMixin(ABC):
             caps.supports_image_generation = True
 
         return caps
+
+    def clear_capabilities_cache(self) -> None:
+        """Clear the cached capabilities.
+
+        Useful if you need to re-detect capabilities after model changes.
+        """
+        # Setting to None will trigger re-detection on next get_capabilities() call
+        self._capabilities_cache = None
 
     @property
     def supports_vision(self) -> bool:

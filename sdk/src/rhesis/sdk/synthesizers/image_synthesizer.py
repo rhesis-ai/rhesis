@@ -24,7 +24,7 @@ class ImageSynthesizer:
         >>> synthesizer = ImageSynthesizer(
         ...     prompt="Generate images of mountain landscapes at sunset",
         ...     model="gemini/imagen-3.0-generate-002",
-        ...     expected_output_template="Image should contain mountains with orange/red sunset sky"
+        ...     expected_output="Image should contain mountains with orange/red sunset sky"
         ... )
         >>> test_set = synthesizer.generate(num_tests=5)
         >>> test_set.push()  # Push to backend with images stored in database
@@ -36,7 +36,7 @@ class ImageSynthesizer:
         model: Optional[Union[str, BaseLLM]] = None,
         text_model: Optional[Union[str, BaseLLM]] = None,
         batch_size: int = 5,
-        expected_output_template: Optional[str] = None,
+        expected_output: Optional[str] = None,
         category: str = "Image Generation",
         topic: str = "Visual Content",
         behavior: str = "Image Quality",
@@ -55,9 +55,9 @@ class ImageSynthesizer:
                 Image generation models (like Imagen) cannot generate text, so a
                 separate text model is needed for property generation.
             batch_size: Maximum number of images to generate in parallel (default: 5).
-            expected_output_template: Optional template describing what the generated
-                images should contain. Used by ImageJudge for evaluation.
-                If None, defaults to the generation prompt itself.
+            expected_output: Optional description of what the generated images should
+                contain. Used by ImageJudge for evaluation. If None, defaults to
+                the generation prompt itself.
             category: Category for the generated tests (default: "Image Generation").
             topic: Topic for the generated tests (default: "Visual Content").
             behavior: Behavior for the generated tests (default: "Image Quality").
@@ -65,7 +65,7 @@ class ImageSynthesizer:
         """
         self.prompt = prompt
         self.batch_size = batch_size
-        self.expected_output_template = expected_output_template or prompt
+        self.expected_output = expected_output or prompt
         self.category = category
         self.topic = topic
         self.behavior = behavior
@@ -148,7 +148,7 @@ class ImageSynthesizer:
             "metadata": {
                 "binary_mime_type": mime_type,
                 "generation_prompt": variation_prompt,
-                "expected_output": self.expected_output_template,
+                "expected_output": self.expected_output,
                 "generated_by": self._get_synthesizer_name(),
                 "model": self.model.model_name,
                 "image_size": self.image_size,

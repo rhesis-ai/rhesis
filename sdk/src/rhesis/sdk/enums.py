@@ -13,6 +13,8 @@ class TestType(str, Enum):
     - IMAGE: Image generation/analysis tests
     """
 
+    __test__ = False  # Prevent pytest from collecting this class as a test
+
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
     IMAGE = "Image"

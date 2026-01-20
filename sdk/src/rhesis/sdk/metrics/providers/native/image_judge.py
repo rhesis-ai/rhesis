@@ -144,12 +144,15 @@ class ImageJudge(JudgeBase):
 
         return False
 
-    def _load_image(self, image_source: str) -> ImageContent:
+    def _load_image(
+        self, image_source: Union[str, bytes], mime_type: str = "image/png"
+    ) -> ImageContent:
         """
         Load an image from various sources.
 
         Args:
-            image_source: Path, URL, or base64 data URL
+            image_source: Path, URL, base64 data URL, or raw bytes
+            mime_type: MIME type for bytes input (default: "image/png")
 
         Returns:
             ImageContent instance
@@ -157,7 +160,10 @@ class ImageJudge(JudgeBase):
         Raises:
             ValueError: If the image cannot be loaded
         """
-        if image_source.startswith("data:image/"):
+        if isinstance(image_source, bytes):
+            # Raw bytes
+            return ImageContent.from_bytes(image_source, mime_type=mime_type)
+        elif image_source.startswith("data:image/"):
             # Base64 data URL
             return ImageContent.from_base64(image_source)
         elif image_source.startswith(("http://", "https://")):
@@ -225,9 +231,10 @@ class ImageJudge(JudgeBase):
     def evaluate(
         self,
         input: str,
-        output: str,
+        output: Union[str, bytes],
         expected_output: Optional[str],
         context: Optional[List[str]] = None,
+        output_mime_type: str = "image/png",
     ) -> MetricResult:
         """
         Evaluate an image against expected description.
@@ -238,9 +245,10 @@ class ImageJudge(JudgeBase):
 
         Args:
             input: The generation prompt OR input image path/URL for transformations
-            output: Path, URL, or base64 data URL of the image to evaluate
+            output: Path, URL, base64 data URL, or raw bytes of the image to evaluate
             expected_output: Text description of what the output image should contain
             context: Optional additional context for evaluation
+            output_mime_type: MIME type when output is bytes (default: "image/png")
 
         Returns:
             MetricResult with:
@@ -253,11 +261,19 @@ class ImageJudge(JudgeBase):
             ValueError: If the model doesn't support vision
 
         Example:
-            >>> # Generation mode
+            >>> # Generation mode with file path
             >>> result = judge.evaluate(
             ...     input="Create a sunset landscape",
             ...     output="path/to/image.png",
             ...     expected_output="Orange sky with mountains"
+            ... )
+
+            >>> # Generation mode with bytes
+            >>> result = judge.evaluate(
+            ...     input="Create a sunset landscape",
+            ...     output=image_bytes,
+            ...     expected_output="Orange sky with mountains",
+            ...     output_mime_type="image/png"
             ... )
 
             >>> # Transformation mode
@@ -278,7 +294,7 @@ class ImageJudge(JudgeBase):
 
         # Load the output image (required)
         try:
-            output_image = self._load_image(output)
+            output_image = self._load_image(output, mime_type=output_mime_type)
         except Exception as e:
             raise ValueError(f"Failed to load output image: {e}") from e
 
