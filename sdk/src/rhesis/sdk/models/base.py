@@ -77,3 +77,22 @@ class BaseLLM(ABC):
             NotImplementedError: If model doesn't support content analysis
         """
         raise NotImplementedError(f"{self.__class__.__name__} does not support content analysis.")
+
+    def generate_image(
+        self, prompt: str, n: int = 1, size: str = "1024x1024", **kwargs
+    ) -> Union[str, List[str]]:
+        """Generate images from a text prompt.
+
+        Args:
+            prompt: Text description of the image to generate
+            n: Number of images to generate (default: 1)
+            size: Image size (e.g., "1024x1024", "512x512")
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            URL(s) of generated image(s). Single URL if n=1, list if n>1
+
+        Raises:
+            NotImplementedError: If model doesn't support image generation
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support image generation.")

@@ -47,6 +47,7 @@ dependencies = [
     "opentelemetry-api>=1.32.1",
     "opentelemetry-sdk>=1.32.1",
     "opentelemetry-exporter-otlp-proto-http>=1.32.1",
+    "google-genai>=1.33.0",
 ]
 
 [project.license]

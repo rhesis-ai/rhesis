@@ -1,10 +1,11 @@
-"""Example 2: Advanced Image Analysis with Gemini
+"""Example 2: Advanced Analysis and Image Generation
 
-Demonstrates advanced vision capabilities:
+Demonstrates advanced multimodal capabilities:
 - Multi-turn conversations with images
-- Asking follow-up questions
-- Extracting detailed information
-- Creative use cases
+- Detailed image analysis and understanding
+- Creative storytelling from images
+- Image generation using Vertex AI Imagen
+- Analyze-then-generate workflow
 """
 
 from pathlib import Path
@@ -137,7 +138,91 @@ comparison_messages = [
 comparison = model.generate_multimodal(comparison_messages)
 print(f"Detailed comparison: {comparison[:500]}...\n")
 
-print("=" * 60)
-print("✅ Advanced analysis examples complete!")
-print("=" * 60)
+# Example 6: Image Generation with Vertex AI Imagen
+print("-" * 60)
+print("Example 6: Generate images from text prompts")
+print("-" * 60)
 
+# Create output directory
+output_dir = Path(__file__).parent / "images" / "generated"
+output_dir.mkdir(exist_ok=True)
+
+print("\n🎨 Using Vertex AI Imagen for image generation")
+print("   Note: Requires Google Cloud authentication\n")
+
+try:
+    # Get Vertex AI Imagen model
+    imagen_model = get_model("vertex_ai", "imagegeneration@006")
+    print(f"✅ Image generation model: {imagen_model.model_name}\n")
+
+    # Generate a simple image
+    prompt1 = "A cozy bakery display with fresh pastries, warm lighting, rustic wooden shelves"
+    print(f"Prompt 1: {prompt1}")
+
+    image_url = imagen_model.generate_image(prompt1, n=1, size="1024x1024")
+    print(f"✅ Generated: {image_url}")
+
+    # Download and save
+    import requests
+
+    img_data = requests.get(image_url).content
+    output_path = output_dir / "bakery_display.png"
+    with open(output_path, "wb") as f:
+        f.write(img_data)
+    print(f"💾 Saved to: {output_path}\n")
+
+    # Generate multiple variations
+    prompt2 = "A minimalist workspace with laptop and coffee, morning light, clean aesthetic"
+    print(f"Prompt 2: {prompt2}")
+    print("Generating 2 variations...")
+
+    image_urls = imagen_model.generate_image(prompt2, n=2, size="1024x1024")
+    for i, url in enumerate(image_urls, 1):
+        img_data = requests.get(url).content
+        output_path = output_dir / f"workspace_v{i}.png"
+        with open(output_path, "wb") as f:
+            f.write(img_data)
+        print(f"💾 Variation {i} saved to: {output_path}")
+
+    print(f"\n📁 All generated images saved to: {output_dir}")
+
+except Exception as e:
+    print(f"⚠️  Image generation requires Vertex AI setup: {e}")
+    print("\nSetup instructions:")
+    print("1. Install: pip install google-cloud-aiplatform")
+    print("2. Authenticate: gcloud auth application-default login")
+    print("3. Enable Vertex AI API in your Google Cloud project")
+    print("\nSkipping image generation...\n")
+
+# Example 7: Analyze-then-Generate workflow
+print("-" * 60)
+print("Example 7: Analyze existing image and generate similar")
+print("-" * 60)
+
+print("Step 1: Analyze the original image")
+analysis_prompt = """Create a detailed image generation prompt based on this image.
+Focus on: composition, lighting, color palette, mood, and style.
+Format as a concise prompt suitable for image generation (2-3 sentences)."""
+
+generation_prompt = model.analyze_content(ImageContent.from_file(image_path), analysis_prompt)
+print(f"Generated prompt: {generation_prompt[:200]}...\n")
+
+print("Step 2: Generate new image based on analysis")
+try:
+    imagen_model = get_model("vertex_ai", "imagegeneration@006")
+
+    image_url = imagen_model.generate_image(generation_prompt, n=1, size="1024x1024")
+
+    img_data = requests.get(image_url).content
+    output_path = output_dir / "recreated_scene.png"
+    with open(output_path, "wb") as f:
+        f.write(img_data)
+
+    print(f"✅ Generated similar image: {output_path}\n")
+
+except Exception as e:
+    print(f"⚠️  Skipping generation: {e}\n")
+
+print("=" * 60)
+print("✅ Advanced analysis and generation examples complete!")
+print("=" * 60)

@@ -2,7 +2,7 @@ import json
 from typing import List, Optional, Type, Union
 
 import litellm
-from litellm import completion
+from litellm import completion, image_generation
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
@@ -244,3 +244,40 @@ class LiteLLM(BaseLLM, CapabilityMixin):
         messages.append(Message(role="user", content=user_content))
 
         return self.generate_multimodal(messages, **kwargs)
+
+    def generate_image(
+        self, prompt: str, n: int = 1, size: str = "1024x1024", **kwargs
+    ) -> Union[str, list[str]]:
+        """Generate images from a text prompt using LiteLLM's image generation.
+
+        Args:
+            prompt: Text description of the image to generate
+            n: Number of images to generate (default: 1)
+            size: Image size (e.g., "1024x1024", "512x512")
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            URL(s) of generated image(s). Single URL if n=1, list if n>1
+
+        Example:
+            >>> model = get_model("vertex_ai", "imagegeneration@006")
+            >>> url = model.generate_image("A serene mountain landscape at sunset")
+            >>> # Or for multiple images
+            >>> urls = model.generate_image("A cute cat", n=3)
+        """
+        try:
+            response = image_generation(
+                model=self.model_name, prompt=prompt, n=n, size=size, api_key=self.api_key, **kwargs
+            )
+
+            # Extract URLs from response
+            urls = [img.url for img in response.data]
+
+            # Return single URL if n=1, list otherwise
+            return urls[0] if n == 1 else urls
+
+        except Exception as e:
+            raise ValueError(
+                f"Image generation failed with {self.model_name}: {str(e)}. "
+                f"Make sure the model supports image generation."
+            ) from e
