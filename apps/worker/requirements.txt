@@ -39,7 +39,7 @@ odata-query==0.10.0
 pathspec==0.12.1
 gunicorn>=21.2.0
 tomli>=2.0.0
-google-genai==1.13.0
+google-genai>=1.33.0
 mirascope==1.24.0
 protobuf>=5.29.4
 proto-plus>=1.26.1
