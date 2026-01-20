@@ -34,6 +34,7 @@ class ImageSynthesizer:
         self,
         prompt: str,
         model: Optional[Union[str, BaseLLM]] = None,
+        text_model: Optional[Union[str, BaseLLM]] = None,
         batch_size: int = 5,
         expected_output_template: Optional[str] = None,
         category: str = "Image Generation",
@@ -49,6 +50,10 @@ class ImageSynthesizer:
             model: The image generation model to use. Can be a string model name
                 (e.g., "gemini/imagen-3.0-generate-002") or a BaseLLM instance.
                 If None, defaults to the configured default model.
+            text_model: Optional text model for generating test set properties
+                (name, description). If None, defaults to "gemini/gemini-2.0-flash".
+                Image generation models (like Imagen) cannot generate text, so a
+                separate text model is needed for property generation.
             batch_size: Maximum number of images to generate in parallel (default: 5).
             expected_output_template: Optional template describing what the generated
                 images should contain. Used by ImageJudge for evaluation.
@@ -66,11 +71,19 @@ class ImageSynthesizer:
         self.behavior = behavior
         self.image_size = image_size
 
-        # Initialize model
+        # Initialize image generation model
         if isinstance(model, str) or model is None:
             self.model = get_model(model)
         else:
             self.model = model
+
+        # Initialize text model for property generation (Imagen can't generate text)
+        if text_model is None:
+            self.text_model = get_model("gemini", "gemini-2.0-flash")
+        elif isinstance(text_model, str):
+            self.text_model = get_model(text_model)
+        else:
+            self.text_model = text_model
 
     def _get_synthesizer_name(self) -> str:
         """Return the name of the synthesizer for metadata."""
@@ -182,9 +195,10 @@ class ImageSynthesizer:
             raise ValueError("Failed to generate any valid image tests")
 
         # Create TestSet using utility function
+        # Use text_model for property generation (Imagen models can't generate text)
         test_set = create_test_set(
             tests=all_tests,
-            model=self.model,
+            model=self.text_model,
             synthesizer_name=self._get_synthesizer_name(),
             batch_size=self.batch_size,
             num_tests=len(all_tests),

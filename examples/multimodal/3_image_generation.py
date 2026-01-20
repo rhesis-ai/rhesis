@@ -36,7 +36,7 @@ try:
     # Option 1: Gemini - simpler setup, just needs GEMINI_API_KEY
     print("\n🎨 Attempting to use Gemini for image generation...")
     print("   (Requires only GEMINI_API_KEY environment variable)")
-    imagen_model = get_model("gemini", "imagen-4.0-generate-001")
+    imagen_model = get_model("gemini", "imagen-3.0-generate-002")
     provider = "Gemini"
     print(f"✅ Using {provider}: {imagen_model.model_name}\n")
 
@@ -165,7 +165,7 @@ except ValueError as e:
     print("\n📋 Option 1: Gemini (Recommended - Simpler Setup)")
     print("1. Get an API key from https://aistudio.google.com/apikey")
     print("2. Set environment variable: GEMINI_API_KEY=your_key")
-    print("3. Model: gemini/imagen-4.0-generate-001")
+    print("3. Model: gemini/imagen-3.0-generate-002")
     print("\n📋 Option 2: Vertex AI (Advanced)")
     print("1. Install: pip install google-cloud-aiplatform")
     print("2. Authenticate: gcloud auth application-default login")
