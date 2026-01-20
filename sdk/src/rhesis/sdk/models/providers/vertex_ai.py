@@ -411,7 +411,7 @@ class VertexAILLM(LiteLLM):
 
         return self._with_credentials_env(
             credentials_path, super().generate_image, prompt=prompt, n=n, size=size, **kwargs
-        )
+            )
 
     def __del__(self):
         """

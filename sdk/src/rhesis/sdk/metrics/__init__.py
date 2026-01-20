@@ -23,6 +23,7 @@ from rhesis.sdk.metrics.providers.native import (  # Re-export Rhesis metrics
     CriterionEvaluation,
     GoalAchievementJudge,
     GoalAchievementScoreResponse,
+    ImageJudge,
     NumericJudge,
     RhesisMetricFactory,
 )
@@ -83,6 +84,7 @@ __all__ = [
     # Rhesis metrics
     "CategoricalJudge",
     "NumericJudge",
+    "ImageJudge",
     # Rhesis conversational metrics
     "ConversationalJudge",
     "GoalAchievementJudge",

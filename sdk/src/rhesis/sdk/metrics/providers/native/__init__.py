@@ -12,6 +12,9 @@ from .goal_achievement_judge import (
     GoalAchievementJudge,
     GoalAchievementScoreResponse,
 )
+from .image_judge import (
+    ImageJudge,
+)
 from .numeric_judge import (
     NumericJudge,
     NumericScoreResponse,
@@ -26,4 +29,5 @@ __all__ = [
     "GoalAchievementJudge",
     "CriterionEvaluation",
     "GoalAchievementScoreResponse",
+    "ImageJudge",
 ]

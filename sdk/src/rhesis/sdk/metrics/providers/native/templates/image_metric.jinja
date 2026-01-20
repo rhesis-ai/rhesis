@@ -1,0 +1,74 @@
+You will be evaluating an image against expected criteria.
+
+Your task is to analyze the provided image(s) and determine if the output image matches the expected description.
+
+Please make sure you read and understand these instructions carefully.
+
+Evaluation Criteria:
+{{ evaluation_prompt }}
+
+{% if evaluation_steps %}
+Evaluation Steps:
+{{ evaluation_steps }}
+{% endif %}
+
+{% if reasoning %}
+Reasoning Process:
+{{ reasoning }}
+{% endif %}
+
+{% if evaluation_examples %}
+Examples:
+{{ evaluation_examples }}
+{% endif %}
+
+{% if is_transformation_mode %}
+**Evaluation Mode: Image Transformation**
+
+You will be provided with:
+1. An input image (the original/source image)
+2. An output image (the transformed result to evaluate)
+
+Evaluate whether the output image correctly represents the expected transformation of the input image.
+{% else %}
+**Evaluation Mode: Image Generation**
+
+Input/Generation Prompt:
+{{ input if input|trim else "No input provided" }}
+
+You will be provided with an output image to evaluate against the expected description.
+{% endif %}
+
+{% if context_text and context_text|trim != "No context provided." %}
+Additional Context:
+{{ context_text }}
+{% endif %}
+
+Expected Output Description:
+{{ expected_output if expected_output|trim else "No expected output description provided" }}
+
+Valid Score Categories: {{ categories | join(", ") }}
+Passing Categories: {{ passing_categories | join(", ") }}
+
+
+Evaluation Form:
+
+Analyze the image(s) provided and evaluate based on the criteria above.
+
+IMPORTANT: Return ONLY a valid JSON object without any markdown formatting, code blocks, or backticks. The response must be directly parseable as JSON.
+
+The JSON object must contain:
+1. A 'score' field with one of the valid categories: {{ categories | join(", ") }}
+2. A 'reason' field with your detailed explanation as a string
+
+Your evaluation should explain:
+- What elements from the expected description are present in the image
+- What elements are missing or incorrect
+- Any quality issues or artifacts observed
+{% if is_transformation_mode %}
+- How accurately the transformation was applied compared to the input
+{% endif %}
+
+Example valid response format:
+{"score": "{{ categories[0] }}", "reason": "The image accurately depicts all elements described: [specific details]. The quality is good with no visible artifacts."}
+

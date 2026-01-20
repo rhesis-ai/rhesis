@@ -143,6 +143,41 @@ class ImageContent(ContentPart):
         """
         return cls(data=data, mime_type=mime_type, detail=detail)
 
+    @classmethod
+    def from_base64(
+        cls,
+        data: str,
+        mime_type: str = "image/jpeg",
+        detail: Literal["auto", "low", "high"] = "auto",
+    ) -> "ImageContent":
+        """Create ImageContent from a base64-encoded string.
+
+        Args:
+            data: Base64-encoded image data (without data URL prefix)
+            mime_type: MIME type (e.g., 'image/jpeg', 'image/png')
+            detail: Detail level for vision models
+
+        Returns:
+            ImageContent instance
+
+        Example:
+            >>> # From raw base64 string
+            >>> content = ImageContent.from_base64("iVBORw0KGgo...", mime_type="image/png")
+            >>> # From data URL (prefix will be stripped)
+            >>> content = ImageContent.from_base64(
+            ...     "data:image/png;base64,iVBORw0KGgo...",
+            ...     mime_type="image/png"
+            ... )
+        """
+        # Strip data URL prefix if present (e.g., "data:image/png;base64,")
+        if data.startswith("data:"):
+            # Extract the base64 part after the comma
+            if "," in data:
+                data = data.split(",", 1)[1]
+
+        decoded_data = base64.b64decode(data)
+        return cls(data=decoded_data, mime_type=mime_type, detail=detail)
+
     def to_litellm_format(self) -> dict:
         """Convert to LiteLLM format.
 

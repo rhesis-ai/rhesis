@@ -247,3 +247,46 @@ class CategoricalJudgeConfig(BaseJudgeConfig):
                 f"Given passing_categories: {self.passing_categories}\n"
                 f"Given categories: {self.categories}"
             )
+
+
+# Default evaluation prompt for image analysis
+DEFAULT_IMAGE_EVALUATION_PROMPT = """You are an expert image evaluator. Analyze the provided image \
+and determine if it matches the expected output description.
+
+Your evaluation should consider:
+1. Visual accuracy: Does the image contain the elements described in the expected output?
+2. Quality: Is the image clear, properly rendered, and free of obvious artifacts?
+3. Completeness: Are all described elements present and correctly represented?
+4. Relevance: Does the image appropriately respond to the input prompt/context?
+
+If an input image is provided, also evaluate:
+5. Transformation accuracy: Does the output correctly apply the expected transformation \
+to the input?"""
+
+
+@dataclass
+class ImageJudgeConfig(CategoricalJudgeConfig):
+    """
+    Configuration for image judge metrics.
+
+    Extends CategoricalJudgeConfig with defaults optimized for image evaluation.
+    Uses vision-capable models to compare images against expected descriptions.
+
+    Default categories: ["pass", "partial", "fail"]
+    Default passing_categories: ["pass"]
+    Default evaluation_prompt: Specialized prompt for image analysis
+    """
+
+    def __post_init__(self):
+        # Set defaults before validation
+        if self.categories is None:
+            self.categories = ["pass", "partial", "fail"]
+
+        if self.passing_categories is None:
+            self.passing_categories = ["pass"]
+
+        if self.evaluation_prompt is None:
+            self.evaluation_prompt = DEFAULT_IMAGE_EVALUATION_PROMPT
+
+        # Call parent validation
+        super().__post_init__()

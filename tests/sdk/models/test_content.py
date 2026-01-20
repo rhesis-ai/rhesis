@@ -130,6 +130,49 @@ class TestImageContent:
         with pytest.raises(ValueError, match="must have either url or data"):
             content.to_litellm_format()
 
+    def test_from_base64(self):
+        """Test creating ImageContent from base64 string."""
+        # Create test data and encode it
+        original_data = b"fake image data for base64 test"
+        b64_data = base64.b64encode(original_data).decode("utf-8")
+
+        content = ImageContent.from_base64(b64_data, mime_type="image/png")
+
+        assert content.data == original_data
+        assert content.mime_type == "image/png"
+        assert content.url is None
+        assert content.detail == "auto"
+
+    def test_from_base64_with_detail(self):
+        """Test creating ImageContent from base64 with detail parameter."""
+        original_data = b"fake image data"
+        b64_data = base64.b64encode(original_data).decode("utf-8")
+
+        content = ImageContent.from_base64(b64_data, mime_type="image/jpeg", detail="high")
+
+        assert content.data == original_data
+        assert content.detail == "high"
+
+    def test_from_base64_with_data_url_prefix(self):
+        """Test creating ImageContent from base64 with data URL prefix."""
+        original_data = b"fake image data"
+        b64_data = base64.b64encode(original_data).decode("utf-8")
+        data_url = f"data:image/png;base64,{b64_data}"
+
+        content = ImageContent.from_base64(data_url, mime_type="image/png")
+
+        assert content.data == original_data
+        assert content.mime_type == "image/png"
+
+    def test_from_base64_default_mime_type(self):
+        """Test that from_base64 uses default mime_type of image/jpeg."""
+        original_data = b"fake image data"
+        b64_data = base64.b64encode(original_data).decode("utf-8")
+
+        content = ImageContent.from_base64(b64_data)
+
+        assert content.mime_type == "image/jpeg"
+
 
 class TestAudioContent:
     """Test AudioContent class."""

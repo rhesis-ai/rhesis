@@ -3,6 +3,7 @@ from typing import List
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
 from rhesis.sdk.metrics.providers.native.categorical_judge import CategoricalJudge
 from rhesis.sdk.metrics.providers.native.goal_achievement_judge import GoalAchievementJudge
+from rhesis.sdk.metrics.providers.native.image_judge import ImageJudge
 from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
 
 
@@ -13,6 +14,7 @@ class RhesisMetricFactory(BaseMetricFactory):
         "CategoricalJudge": CategoricalJudge,
         "NumericJudge": NumericJudge,
         "GoalAchievementJudge": GoalAchievementJudge,
+        "ImageJudge": ImageJudge,
     }
 
     # Common parameters supported by all metrics
@@ -66,6 +68,12 @@ class RhesisMetricFactory(BaseMetricFactory):
         },
         "NumericJudge": _base_metric_params | _base_judge_params | _numeric_params,
         "GoalAchievementJudge": _base_metric_params | _base_judge_params | _numeric_params,
+        "ImageJudge": _categorical_base_params
+        | _base_judge_params
+        | {
+            "categories",
+            "passing_categories",
+        },
     }
 
     # Define required parameters for each metric class
@@ -73,6 +81,8 @@ class RhesisMetricFactory(BaseMetricFactory):
         "CategoricalJudge": {"categories", "passing_categories"},
         "NumericJudge": {"evaluation_prompt"},
         "GoalAchievementJudge": set(),  # All params are optional with defaults
+        # All params have defaults (categories, passing_categories, evaluation_prompt)
+        "ImageJudge": set(),
     }
 
     def create(self, class_name: str, **kwargs) -> BaseMetric:
