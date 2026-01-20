@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import pathlib
-import uuid
 
 import nest_asyncio
 
@@ -63,8 +62,6 @@ def serve(
 
     if not hasattr(test_tree_browsers, "interface_event") and callable(test_tree_browsers):
         test_tree_browsers = functools.lru_cache(maxsize=None)(test_tree_browsers)
-
-    id = uuid.uuid4().hex
 
     async def send_ws_data(ws, str_data):
         await ws.send_str(str_data)

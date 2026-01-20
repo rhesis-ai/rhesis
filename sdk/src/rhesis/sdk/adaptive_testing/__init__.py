@@ -6,6 +6,5 @@ from .embedders import _embed as embed
 
 __version__ = "0.3.5"
 
-default_generators = None
 text_embedding_model = None
 image_embedding_model = None

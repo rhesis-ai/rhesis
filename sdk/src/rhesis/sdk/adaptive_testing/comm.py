@@ -29,15 +29,14 @@ class JupyterComm:
         self.callback(msg["content"]["data"])
 
     def send(self, data):
-        for i in range(10):
+        for _ in range(10):
             if self.jcomm is None:
                 time.sleep(0.5)
             else:
-                s = json.dumps(data)
                 self.jcomm.send(
                     {"data": json.dumps(data)}
                 )  # we encode the JSON so iPython doesn't mess it up
                 return
         raise Exception(
-            "The Jupyter comm channel was never opened from the other side, so not message can be sent!"
+            "The Jupyter comm channel was never opened from the other side, so no message can be sent!"
         )

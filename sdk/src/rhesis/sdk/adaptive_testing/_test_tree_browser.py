@@ -159,38 +159,29 @@ class TestTreeBrowser:
         generator,
         endpoint,
         metrics,
-        scorer,
         user,
         auto_save,
         recompute_scores,
-        drop_inactive_score_columns,
         max_suggestions,
         suggestion_thread_budget,
         prompt_builder,
         starting_path,
         score_filter,
-        topic_model_scale,
     ):
-        """Initialize the TestTreeBrowser.
-
-        See the __call__ method of TreeBrowser for parameter documentation.
-        """
+        """Initialize the TestTreeBrowser."""
 
         self.test_tree = test_tree
         self.endpoint = endpoint if endpoint is not None else llm_endpoint
         self.metrics = metrics if metrics is not None else rhesis_scorer
-        self.scorer = scorer
         self.generator = generator
         self.user = user
         self.auto_save = auto_save
         self.recompute_scores = recompute_scores
-        self.drop_inactive_score_columns = drop_inactive_score_columns
         self.max_suggestions = max_suggestions
         self.suggestion_thread_budget = suggestion_thread_budget
         self.prompt_builder = prompt_builder
         self.current_topic = starting_path
         self.score_filter = score_filter
-        self.topic_model_scale = topic_model_scale
         self.filter_text = ""
 
         # Cast TestTree to TestTreeSource if needed
@@ -663,13 +654,6 @@ class TestTreeBrowser:
         else:
             score_filter = self.score_filter
 
-        # if self.scorer is not None:
-        #     test_types = self.scorer[self.score_columns[0][:-6]].supported_test_types
-        #     test_type_parts = {t: split_test_type(t) for t in self.scorer[self.score_columns[0][:-6]].supported_test_types}
-        # else:
-        #     test_types = []
-        #     test_type_parts = {}
-
         topic_marker_id = self._get_topic_marker_id(self.current_topic)
         # compile the global browser state for the frontend
         data["browser"] = {
@@ -771,7 +755,6 @@ class TestTreeBrowser:
             self.current_topic,
             desc,
             self.mode,
-            self.scorer,
             num_samples=self.max_suggestions // len(prompts)
             if len(prompts) > 0
             else self.max_suggestions,
@@ -847,24 +830,6 @@ class TestTreeBrowser:
             # compute the scores for the new tests
             self._compute_embeddings_and_scores(self.test_tree)
 
-        # Filter invalid suggestions
-        # if self.mode != "topics":
-        #     suggestions = suggestions.dropna(subset=[self.score_columns[0]])
-
-        # When we have outputs filled in by the scorer we might have more duplicates we need to remove
-        # duplicates = []
-        # for k,row in suggestions.iterrows():
-        #     # str_val = row.topic + " " + test_type + " " + row.value1 + " " +  row.value2 + " " +  row.value3
-        #     str_val = " ".join(builtins.filter(None, (row.topic, test_type, row.value1, row.value2, row.value3))) # Safely handles None
-        #     if str_val in test_map:
-        #         duplicates.append(k)
-        #     test_map[str_val] = True
-        # suggestions = suggestions.drop(duplicates)
-
-        # if self.topic_model_scale != 0:
-        #     self._add_topic_model_score(suggestions, topic_model_scale=self.topic_model_scale)
-        # return suggestions
-
     def _get_topic_marker_id(self, topic):
         """
         Returns the id of the topic marker row for the given topic.
@@ -880,20 +845,11 @@ class TestTreeBrowser:
 
     def _compute_embeddings_and_scores(
         self, tests, recompute=False, overwrite_outputs=False, save_outputs=False
-    ):  # TODO: Rename/refactor/merge with _compute_scores?
+    ):
         log.debug(
             f"compute_embeddings_and_scores(tests=<DataFrame shape={tests.shape}>, recompute={recompute})"
         )
 
-        # nothing to do if we don't have a scorer
-        # if self.scorer is None:
-        #     return
-
-        # determine which rows we need to evaluate
-        # eval_ids = []
-        # for i, (id, test) in enumerate(tests.iterrows()):
-        #     if (recompute or test[k+" score"] == "__TOEVAL__" or test["output"] == "[no output]") and test.label != "topic_marker" and test.label != "off_topic":
-        #         eval_ids.append(id)
         eval_ids = tests.index[
             ((tests["model score"] == "__TOEVAL__") | (tests["output"] == "[no output]"))
             & (tests["label"] != "topic_marker")

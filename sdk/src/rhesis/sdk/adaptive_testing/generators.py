@@ -19,7 +19,7 @@ class Generator:
         """Create a new generator from a given source."""
         self.source = source
 
-    def __call__(self, prompts, topic, topic_description, mode, scorer, num_samples, max_length):
+    def __call__(self, prompts, topic, topic_description, mode, num_samples, max_length):
         """Generate a set of prompts for a given topic."""
         raise NotImplementedError()
 
@@ -51,13 +51,6 @@ class TextCompletionGenerator(Generator):
         self.quote = quote
         self.filter = filter
 
-        # value1_format = '"{value1}"'
-        # value2_format = '"{value1}"'
-        # value1_value2_format = '"{value1}" {comparator} "{value2}"'
-        # value1_comparator_value2_format = '"{value1}" {comparator} "{value2}"'
-        # value1_comparator_format = '"{value1}" {comparator} "{value2}"'
-        # comparator_value2_format = '"{value1}" {comparator} "{value2}"'
-
     def __call__(self, prompts, topic, topic_description, max_length=None):
         """This should be overridden by concrete subclasses.
 
@@ -68,19 +61,12 @@ class TextCompletionGenerator(Generator):
         pass
 
     def _varying_values(self, prompts, topic):
-        """Marks with values vary in the set of prompts."""
-
+        """Marks which values vary in the set of prompts."""
         show_topics = False
-        # gen_value1 = False
-        # gen_value2 = False
-        # gen_value3 = False
         for prompt in prompts:
             topics, inputs = zip(*prompt)
             show_topics = show_topics or len(set(list(topics) + [topic])) > 1
-            # gen_inputs = gen_inputs or len(set(inputs)) > 1
-            # gen_value2 = False
-            # gen_value3 = False
-        return show_topics  # , gen_value1, gen_value2, gen_value3
+        return show_topics
 
     def _create_prompt_strings(self, prompts, topic, content_type):
         """Convert prompts that are lists of tuples into strings for the LM to complete."""
@@ -128,31 +114,14 @@ class TextCompletionGenerator(Generator):
         return prompt_strings
 
     def _parse_suggestion_texts(self, suggestion_texts, prompts):
-        """Parse the suggestion texts into tuples."""
+        """Parse the suggestion texts into a list of unique suggestions."""
         assert len(suggestion_texts) % len(prompts) == 0, "Missing prompt completions!"
 
-        # _, gen_value1, gen_value2, gen_value3 = self._varying_values(prompts, "") # note that "" is an unused topic argument
-
-        num_samples = len(suggestion_texts) // len(prompts)
         samples = []
-        for i, suggestion_text in enumerate(suggestion_texts):
+        for suggestion_text in suggestion_texts:
             if callable(self.filter):
                 suggestion_text = self.filter(suggestion_text)
-            prompt_ind = i // num_samples
-            # prompt = prompts[prompt_ind]
             samples.append(suggestion_text)
-            # suggestion = suggestion_text.split(self.quote+self.subsep+self.quote)
-            # # if len(self.quote) > 0: # strip any dangling quote
-            # #     suggestion[-1] = suggestion[-1][:-len(self.quote)]
-            # if not gen_value1:
-            #     suggestion = [prompt[0][0]] + suggestion
-            # if not gen_value2:
-            #     suggestion = suggestion[:1] + [prompt[0][2]] + suggestion[1:]
-            # if not gen_value3:
-            #     suggestion = suggestion[:2] + [prompt[0][3]]
-
-            # if len(suggestion) == 3:
-            #     samples.append(tuple(suggestion))
         return list(set(samples))
 
 
@@ -179,9 +148,7 @@ class OpenAI(TextCompletionGenerator):
         # Initialize the model using get_model
         self._model = get_model("openai", model_name=model, api_key=api_key)
 
-    def __call__(
-        self, prompts, topic, topic_description, mode, scorer, num_samples=1, max_length=100
-    ):
+    def __call__(self, prompts, topic, topic_description, mode, num_samples=1, max_length=100):
         if len(prompts[0]) == 0:
             raise ValueError(
                 "ValueError: Unable to generate suggestions from completely empty "
@@ -237,10 +204,9 @@ class TestTreeSource(Generator):
         topic,
         topic_description,
         test_type=None,
-        scorer=None,
         num_samples=1,
         max_length=100,
-    ):  # TODO: Unify all __call__ signatures
+    ):
         if len(prompts) == 0:
             # Randomly return instances without any prompts to go off of. TODO: Consider better alternatives like max-failure?
             return self.source.iloc[

@@ -286,9 +286,6 @@ class TestTree:
     def __len__(self):
         return self._tests.__len__()
 
-    def __setitem__(self, key, value):
-        return self._tests.__setitem__(key, value)
-
     def to_csv(self, file=None):
         no_suggestions = self._tests.loc[
             ["/__suggestions__" not in topic for topic in self._tests["topic"]]
@@ -329,22 +326,16 @@ class TestTree:
         generator=None,
         endpoint=None,
         metrics=None,
-        scorer=None,
         auto_save=False,
         user="anonymous",
         recompute_scores=False,
-        drop_inactive_score_columns=False,
         max_suggestions=100,
         suggestion_thread_budget=0.5,
         prompt_builder=PromptBuilder(),
         starting_path="",
         score_filter=-1e10,
-        topic_model_scale=0,
     ):
-        """Apply this test tree to a scorer/model and browse/edit the tests to adapt them to the target model.
-
-        Applying a test tree to a target model (wrapped by a scorer) creates a TestTreeBrowser object that can be used to
-        browse the tree and add new tests to adapt it to the target model.
+        """Apply this test tree to an endpoint and metrics scorer to browse/edit tests.
 
         Parameters
         ----------
@@ -360,9 +351,6 @@ class TestTree:
             The Rhesis scorer/metrics function that takes (inputs, outputs) and returns a list of
             scores. Scores should be between 0 and 1, where higher values indicate failures.
 
-        scorer : adaptive_testing.Scorer or callable (deprecated, use metrics instead)
-            Legacy parameter for backward compatibility.
-
         auto_save : bool
             Whether to automatically save the test tree after each edit.
 
@@ -370,27 +358,23 @@ class TestTree:
             The user name to author new tests with.
 
         recompute_scores : bool
-            Whether to recompute the scores of the tests that already have score values in the test tree.
-
-        drop_inactive_score_columns : bool
-            Whether to drop the score columns in the test tree that do not match any of the passed scorers.
+            Whether to recompute the scores of the tests that already have score values.
 
         max_suggestions : int
-            The maximum number of suggestions to generate each time the user asks for test suggestions.
+            The maximum number of suggestions to generate each time the user asks for suggestions.
 
         suggestion_thread_budget : float
-            This controls how many parallel suggestion processes to use when generating suggestions. A value of 0 means we create
-            no parallel threads (i.e. we use a single thread), 0.5 means we create as many parallel threads as possible without
-            increase the number of tokens we process by more than 50% (1.5 would mean 150%, etc.). Each thread process will use a
-            different randomized LM prompt for test generation, so more threads will result in more diversity, but come at the cost
-            of reading more prompt variations.
+            Controls how many parallel suggestion processes to use. A value of 0 means single
+            thread, 0.5 means up to 50% more token processing for diversity.
 
         prompt_builder : adaptive_testing.PromptBuilder
-            A prompt builder to use when generating prompts for new tests. This object controls how the LM prompts
-            are created when generating new tests.
+            A prompt builder to use when generating prompts for new tests.
 
         starting_path : str
             The path to start browsing the test tree from.
+
+        score_filter : float
+            Minimum score threshold for filtering suggestions.
         """
         # Use default generator if none provided
         if generator is None:
@@ -402,17 +386,14 @@ class TestTree:
             generator=generator,
             endpoint=endpoint,
             metrics=metrics,
-            scorer=scorer,
             auto_save=auto_save,
             user=user,
             recompute_scores=recompute_scores,
-            drop_inactive_score_columns=drop_inactive_score_columns,
             max_suggestions=max_suggestions,
             suggestion_thread_budget=suggestion_thread_budget,
             prompt_builder=prompt_builder,
             starting_path=starting_path,
             score_filter=score_filter,
-            topic_model_scale=topic_model_scale,
         )
 
     def __repr__(self):
