@@ -52,13 +52,18 @@ image_path = Path(__file__).parent / "images" / "scones.jpg"
 messages = [
     Message(
         role="system",
-        content="You are a product catalog assistant. Analyze images and provide structured product information for e-commerce.",
+        content=(
+            "You are a product catalog assistant. Analyze images and provide "
+            "structured product information for e-commerce."
+        ),
     ),
     Message(
         role="user",
         content=[
             ImageContent.from_file(image_path),
-            TextContent("Extract comprehensive product information from this image for our catalog."),
+            TextContent(
+                "Extract comprehensive product information from this image for our catalog."
+            ),
         ],
     ),
 ]
@@ -93,14 +98,18 @@ class QualityCheck(BaseModel):
 inspection_messages = [
     Message(
         role="system",
-        content="You are a food quality inspector. Analyze images and provide detailed quality assessments.",
+        content=(
+            "You are a food quality inspector. Analyze images and provide "
+            "detailed quality assessments."
+        ),
     ),
     Message(
         role="user",
         content=[
             ImageContent.from_file(image_path),
             TextContent(
-                "Perform a quality inspection of this food item. Check for freshness, presentation, and any concerns."
+                "Perform a quality inspection of this food item. Check for freshness, "
+                "presentation, and any concerns."
             ),
         ],
     ),
@@ -111,14 +120,14 @@ quality_report = model.generate_multimodal(inspection_messages, schema=QualityCh
 print("🔍 Quality Inspection Report:")
 print(f"   Overall Quality: {quality_report['overall_quality']}")
 print(f"   Presentation Score: {quality_report['presentation_score']}/10")
-print(f"   Freshness Indicators:")
+print("   Freshness Indicators:")
 for indicator in quality_report["freshness_indicators"][:3]:
     print(f"      - {indicator}")
 if quality_report["potential_issues"]:
-    print(f"   Potential Issues:")
+    print("   Potential Issues:")
     for issue in quality_report["potential_issues"]:
         print(f"      - {issue}")
-print(f"   Recommendations:")
+print("   Recommendations:")
 for rec in quality_report["recommendations"][:2]:
     print(f"      - {rec}")
 print()
@@ -161,13 +170,17 @@ class AltTextOutput(BaseModel):
 alt_text_messages = [
     Message(
         role="system",
-        content="You are an accessibility specialist. Generate clear, descriptive alt text for images.",
+        content=(
+            "You are an accessibility specialist. Generate clear, descriptive alt text for images."
+        ),
     ),
     Message(
         role="user",
         content=[
             ImageContent.from_file(image_path),
-            TextContent("Generate comprehensive alt text and descriptions for accessibility purposes."),
+            TextContent(
+                "Generate comprehensive alt text and descriptions for accessibility purposes."
+            ),
         ],
     ),
 ]
@@ -177,7 +190,7 @@ alt_text_data = model.generate_multimodal(alt_text_messages, schema=AltTextOutpu
 print("♿ Accessibility Content:")
 print(f"   Short Alt Text: {alt_text_data['short_alt_text']}")
 print(f"   Long Description: {alt_text_data['long_description'][:150]}...")
-print(f"   Key Elements (in order):")
+print("   Key Elements (in order):")
 for element in alt_text_data["key_elements"][:4]:
     print(f"      - {element}")
 print()
@@ -228,4 +241,3 @@ print()
 print("=" * 60)
 print("✅ All practical use cases demonstrated!")
 print("=" * 60)
-

@@ -1,12 +1,18 @@
-# Multimodal Examples with Gemini
+# Multimodal Examples
 
-This folder contains examples demonstrating **Gemini's multimodal vision capabilities** for advanced image analysis and understanding.
+This folder contains examples demonstrating **multimodal capabilities** including image analysis with Gemini and image generation with Vertex AI Imagen.
 
 ## Setup
 
-1. Make sure you have your Gemini API key in `../.env`:
+1. Make sure you have your API keys in `../.env`:
    ```bash
+   # For image analysis (Gemini)
    GEMINI_API_KEY=your_gemini_key_here
+   
+   # For image generation (Vertex AI Imagen)
+   GOOGLE_APPLICATION_CREDENTIALS=your_service_account_json_or_base64
+   VERTEX_AI_LOCATION=us-central1
+   VERTEX_AI_PROJECT=your_project_id
    ```
 
 2. Install dependencies (if not already installed):
@@ -46,7 +52,7 @@ uv run --project ../../sdk python 1_analyze_images.py
 - Structured extraction (ingredients, colors, occasions)
 
 ### 2. Advanced Analysis (`2_advanced_analysis.py`)
-Shows advanced analysis techniques:
+Shows advanced vision analysis techniques with Gemini:
 - Multi-turn conversations with image context
 - Creative storytelling from images
 - Technical photography analysis
@@ -62,7 +68,27 @@ uv run --project ../../sdk python 2_advanced_analysis.py
 - Creative content generation from images
 - Comprehensive scene understanding
 
-### 3. Practical Use Cases (`3_practical_use_cases.py`)
+### 3. Image Generation (`3_image_generation.py`)
+Generate images using Vertex AI Imagen:
+- Single image generation from text prompts
+- Multiple variations of an image
+- Analyze-then-generate workflow
+
+```bash
+uv run --project ../../sdk python 3_image_generation.py
+```
+
+**Requires:**
+- Google Cloud credentials
+- Vertex AI API enabled
+- Environment variables: `GOOGLE_APPLICATION_CREDENTIALS`, `VERTEX_AI_LOCATION`, `VERTEX_AI_PROJECT`
+
+**Demonstrates:**
+- Text-to-image generation
+- Multiple image variations
+- Combining vision analysis with image generation
+
+### 4. Practical Use Cases (`4_practical_use_cases.py`)
 Real-world applications with structured outputs:
 - Product catalog generation
 - Quality inspection reports
@@ -71,7 +97,7 @@ Real-world applications with structured outputs:
 - Content moderation
 
 ```bash
-uv run --project ../../sdk python 3_practical_use_cases.py
+uv run --project ../../sdk python 4_practical_use_cases.py
 ```
 
 **Use Cases:**
@@ -91,19 +117,23 @@ These images are used throughout the examples to demonstrate various analysis ca
 
 ## Features Demonstrated
 
-### Core Capabilities
+### Vision Analysis (Gemini)
 ✅ **Image Analysis**: Detailed understanding of image content  
 ✅ **Multi-Image Comparison**: Side-by-side analysis  
 ✅ **Structured Extraction**: Pydantic schemas for reliable data  
 ✅ **Context Retention**: Multi-turn conversations with images  
 ✅ **Multiple Input Methods**: Files, URLs, or bytes  
-
-### Advanced Features
 ✅ **Photography Analysis**: Technical camera and lighting insights  
 ✅ **Creative Generation**: Stories and descriptions from images  
 ✅ **Quality Inspection**: Automated quality checks  
 ✅ **Accessibility**: Alt-text and descriptions for screen readers  
-✅ **Content Safety**: Moderation and age-appropriateness checks  
+✅ **Content Safety**: Moderation and age-appropriateness checks
+
+### Image Generation (Vertex AI Imagen)
+✅ **Text-to-Image**: Generate images from detailed text prompts  
+✅ **Multiple Variations**: Generate multiple versions of an image  
+✅ **High Quality**: 1024x1024 and other resolutions  
+✅ **Analyze & Generate**: Combine vision analysis with image creation  
 
 ## API Quick Reference
 
@@ -167,13 +197,46 @@ messages.append(Message(role="user", content="How would I make this?"))
 response2 = model.generate_multimodal(messages)
 ```
 
+### Image Generation
+```python
+from rhesis.sdk.models import get_model
+
+# Create image generation model
+model = get_model("vertex_ai", "imagegeneration@006")
+
+# Generate a single image
+image_url = model.generate_image(
+    "A cozy bakery with fresh pastries",
+    n=1,
+    size="1024x1024"
+)
+
+# Generate multiple variations
+image_urls = model.generate_image(
+    "A minimalist workspace",
+    n=3,
+    size="1024x1024"
+)
+```
+
 ## Troubleshooting
 
-### Missing API Key
+### Missing API Key (Gemini)
 If you see `GEMINI_API_KEY is not set`:
 - Check that `../.env` exists with your API key
 - Keys should not be quoted in .env
 - Try: `export GEMINI_API_KEY=your_key`
+
+### Vertex AI Authentication (Image Generation)
+If you see authentication errors:
+1. Install Google Cloud SDK: `pip install google-cloud-aiplatform`
+2. Set up credentials in `../.env`:
+   ```bash
+   GOOGLE_APPLICATION_CREDENTIALS=base64_encoded_json_or_/path/to/file.json
+   VERTEX_AI_LOCATION=us-central1
+   VERTEX_AI_PROJECT=your-project-id
+   ```
+3. Enable Vertex AI API in your Google Cloud Console
 
 ### File Not Found Errors
 - Run examples from `examples/multimodal/` directory
@@ -182,7 +245,7 @@ If you see `GEMINI_API_KEY is not set`:
 ### Rate Limiting
 If you hit rate limits:
 - Add delays between requests
-- Use a paid Gemini API tier
+- Use a paid API tier
 - Reduce the number of images per request
 
 ## Next Steps
@@ -195,11 +258,17 @@ If you hit rate limits:
 
 ## Model Capabilities
 
-Gemini 2.0 Flash supports:
+### Gemini 2.0 Flash (Vision Analysis)
 - ✅ **Images**: JPEG, PNG, WebP, GIF
 - ✅ **Audio**: MP3, WAV, OGG (use `AudioContent`)
 - ✅ **Video**: MP4, MOV, AVI (use `VideoContent`)  
 - ✅ **PDFs**: Document analysis (use `FileContent`)
 - ✅ **Multiple Modalities**: Mix text, images, audio, video in one request
+
+### Vertex AI Imagen (Image Generation)
+- ✅ **Text-to-Image**: Generate images from text descriptions
+- ✅ **High Resolution**: 1024x1024 and other sizes
+- ✅ **Batch Generation**: Generate multiple variations at once
+- ✅ **Base64 Output**: Images returned as data URLs for easy saving
 
 For more information, see the [SDK documentation](../../docs/).

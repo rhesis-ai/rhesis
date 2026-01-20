@@ -5,6 +5,8 @@ Demonstrates how to analyze images using vision-capable models.
 
 from pathlib import Path
 
+from pydantic import BaseModel, Field
+
 # Load environment variables from parent .env file
 try:
     from dotenv import load_dotenv
@@ -61,8 +63,6 @@ print(f"Response: {response[:400]}...\n")
 print("-" * 60)
 print("Example 3: Structured image analysis")
 print("-" * 60)
-
-from pydantic import BaseModel, Field
 
 
 class FoodAnalysis(BaseModel):
