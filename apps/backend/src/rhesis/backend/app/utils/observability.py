@@ -54,9 +54,7 @@ def get_test_context() -> Dict[str, any]:
 
     # Return empty dict if environment variables are not set
     if not org_id or not user_id:
-        logger.warning(
-            "RHESIS_ORGANIZATION_ID or RHESIS_USER_ID not set, defaulting to empty dict"
-        )
+        logger.warning("RHESIS_ORGANIZATION_ID or RHESIS_USER_ID not set, defaulting to empty dict")
         return {}
 
     return {
