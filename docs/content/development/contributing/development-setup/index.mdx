@@ -16,7 +16,7 @@ Before you begin, ensure you have the following installed on your system:
 
 <Callout type="default">
   **System Requirements** - **Operating System**: macOS, Linux, or Windows (WSL
-  recommended) - **Python 3.8+**: For backend development - **Node.js 18+**: For
+  recommended) - **Python 3.10+**: For backend development - **Node.js 18+**: For
   frontend development - **Git**: For version control - **Docker**: For
   containerized development (optional) - **PostgreSQL**: For database
   development - **Redis**: For background task processing
@@ -109,8 +109,11 @@ uv sync
 cd apps/frontend
 npm install
 
+# Return to root
+cd ../..
+
 # Install documentation dependencies
-cd ../docs
+cd docs/src
 npm install
 
 # Return to root
@@ -198,7 +201,7 @@ cd apps/frontend
 npm run dev
 
 # Documentation (Nextra)
-cd apps/documentation
+cd docs/src
 npm run dev
 
 # Worker (Celery)
