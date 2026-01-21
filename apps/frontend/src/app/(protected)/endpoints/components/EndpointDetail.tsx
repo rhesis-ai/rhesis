@@ -68,9 +68,8 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import Tooltip from '@mui/material/Tooltip';
 
 // Constants for select fields
-const CONNECTION_TYPES = ['REST', 'WEBSOCKET', 'GRPC', 'SDK'];
 const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
-const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'];
+const METHODS = ['POST'];
 
 // Map of icon names to components for easy lookup
 const ICON_MAP: Record<string, React.ComponentType> = {
@@ -517,36 +516,15 @@ export default function EndpointDetail({
                     md: endpoint.connection_type === 'SDK' ? 12 : 3,
                   }}
                 >
-                  {isEditing ? (
-                    <FormControl fullWidth>
-                      <InputLabel>Connection Type</InputLabel>
-                      <Select
-                        value={editedValues.connection_type || ''}
-                        label="Connection Type"
-                        onChange={e =>
-                          handleChange('connection_type', e.target.value)
-                        }
-                      >
-                        {CONNECTION_TYPES.map(connectionType => (
-                          <MenuItem key={connectionType} value={connectionType}>
-                            {connectionType}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  ) : (
-                    <>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Connection Type
-                      </Typography>
-                      <Typography variant="body1">
-                        {endpoint.connection_type}
-                      </Typography>
-                    </>
-                  )}
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Connection Type
+                  </Typography>
+                  <Typography variant="body1">
+                    {endpoint.connection_type}
+                  </Typography>
                 </Grid>
-                {/* Hide method field for SDK connection type */}
-                {endpoint.connection_type !== 'SDK' && (
+                {/* Only show method field for REST endpoints */}
+                {endpoint.connection_type === 'REST' && (
                   <Grid
                     size={{
                       xs: 12,
