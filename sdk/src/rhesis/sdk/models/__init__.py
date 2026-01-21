@@ -6,7 +6,7 @@ from rhesis.sdk.models.providers.native import RhesisLLM
 from rhesis.sdk.models.providers.openai import OpenAIEmbedder, OpenAILLM
 from rhesis.sdk.models.providers.openrouter import OpenRouterLLM
 from rhesis.sdk.models.providers.polyphemus import PolyphemusLLM
-from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
+from rhesis.sdk.models.providers.vertex_ai import VertexAIEmbedder, VertexAILLM
 
 try:
     from rhesis.sdk.models.providers.huggingface import HuggingFaceLLM
@@ -26,6 +26,7 @@ __all__ = [
     "OpenRouterLLM",
     "PolyphemusLLM",
     "RhesisLLM",
+    "VertexAIEmbedder",
     "VertexAILLM",
     "get_embedder",
     "get_model",

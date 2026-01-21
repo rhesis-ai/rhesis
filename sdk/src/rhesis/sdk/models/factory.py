@@ -37,6 +37,7 @@ DEFAULT_EMBEDDER_PROVIDER = "openai"
 DEFAULT_EMBEDDING_MODELS = {
     "openai": "text-embedding-3-small",
     "gemini": "gemini-embedding-001",
+    "vertex_ai": "text-embedding-005",
 }
 
 
@@ -468,10 +469,35 @@ def _create_gemini_embedder(
     return GeminiEmbedder(model_name=model_name, api_key=api_key, dimensions=dimensions, **kwargs)
 
 
+def _create_vertex_ai_embedder(
+    model_name: str, api_key: Optional[str], dimensions: Optional[int], **kwargs
+) -> BaseEmbedder:
+    """Factory function for VertexAIEmbedder.
+
+    Note: api_key is ignored for Vertex AI, which uses service account credentials.
+    """
+    from rhesis.sdk.models.providers.vertex_ai import VertexAIEmbedder
+
+    # Extract Vertex AI-specific parameters from kwargs
+    credentials = kwargs.pop("credentials", None)
+    location = kwargs.pop("location", None)
+    project = kwargs.pop("project", None)
+
+    return VertexAIEmbedder(
+        model_name=model_name,
+        credentials=credentials,
+        location=location,
+        project=project,
+        dimensions=dimensions,
+        **kwargs,
+    )
+
+
 # Embedder provider registry
 EMBEDDER_REGISTRY: Dict[str, Callable[..., BaseEmbedder]] = {
     "openai": _create_openai_embedder,
     "gemini": _create_gemini_embedder,
+    "vertex_ai": _create_vertex_ai_embedder,
 }
 
 
