@@ -372,99 +372,136 @@ export default function MCPImportDialog({
     );
   };
 
-  // Handle importing a single URL
-  const handleImportUrl = async (id: string) => {
-    const item = urlItems.find(i => i.id === id);
-    if (!item || !item.url.trim()) {
-      return;
-    }
-
+  // Handle importing all URLs
+  const handleImportUrls = async () => {
     if (!tool) {
       setError('No MCP tool selected');
       return;
     }
 
-    // Validate URL
-    if (!isValidUrl(item.url)) {
+    // Get all pending URLs
+    const pendingItems = urlItems.filter(
+      item => item.url.trim() && item.status === 'pending'
+    );
+
+    if (pendingItems.length === 0) {
+      setError('Please add at least one URL to import');
+      return;
+    }
+
+    // Validate all URLs first
+    const invalidItems = pendingItems.filter(item => !isValidUrl(item.url));
+    if (invalidItems.length > 0) {
       setUrlItems(
-        urlItems.map(i =>
-          i.id === id
+        urlItems.map(item =>
+          invalidItems.find(i => i.id === item.id)
             ? {
-                ...i,
+                ...item,
                 status: 'error',
                 error: 'Invalid URL format. Please enter a valid URL.',
               }
-            : i
+            : item
         )
       );
       return;
     }
 
-    try {
-      // Set importing status
-      setUrlItems(
-        urlItems.map(i => (i.id === id ? { ...i, status: 'importing' } : i))
-      );
-      setError(null);
+    setImporting(true);
+    setError(null);
 
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const servicesClient = clientFactory.getServicesClient();
-      const sourcesClient = clientFactory.getSourcesClient();
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const servicesClient = clientFactory.getServicesClient();
+    const sourcesClient = clientFactory.getSourcesClient();
 
-      // Extract content from URL
-      const result = await servicesClient.extractMCP(
-        { url: item.url },
-        tool.id
-      );
+    let successCount = 0;
+    let errorCount = 0;
 
-      const title = extractTitleFromUrl(item.url);
+    // Process each URL
+    for (const item of pendingItems) {
+      try {
+        // Set importing status
+        setUrlItems(prev =>
+          prev.map(i => (i.id === item.id ? { ...i, status: 'importing' } : i))
+        );
 
-      // Save as source
-      await sourcesClient.createSourceFromContent(
-        title,
-        result.content,
-        undefined,
-        {
-          provider: tool.tool_provider_type?.type_value || 'mcp',
-          mcp_tool_id: tool.id,
-          url: item.url,
-          imported_at: new Date().toISOString(),
-        },
-        toolSourceTypeId
-      );
+        // Extract content from URL
+        const result = await servicesClient.extractMCP(
+          { url: item.url },
+          tool.id
+        );
 
-      // Update status to success
-      setUrlItems(
-        urlItems.map(i =>
-          i.id === id ? { ...i, status: 'success', title } : i
-        )
-      );
+        const title = extractTitleFromUrl(item.url);
 
-      const providerName = tool.tool_provider_type?.type_value
-        ? tool.tool_provider_type.type_value.charAt(0).toUpperCase() +
-          tool.tool_provider_type.type_value.slice(1)
-        : 'MCP';
+        // Save as source
+        await sourcesClient.createSourceFromContent(
+          title,
+          result.content,
+          undefined,
+          {
+            provider: tool.tool_provider_type?.type_value || 'mcp',
+            mcp_tool_id: tool.id,
+            url: item.url,
+            imported_at: new Date().toISOString(),
+          },
+          toolSourceTypeId
+        );
+
+        // Update status to success
+        setUrlItems(prev =>
+          prev.map(i =>
+            i.id === item.id ? { ...i, status: 'success', title } : i
+          )
+        );
+
+        successCount++;
+      } catch (err) {
+        const errorMessage =
+          getErrorMessage(err) || 'Failed to import this URL';
+
+        // Update status to error
+        setUrlItems(prev =>
+          prev.map(i =>
+            i.id === item.id
+              ? { ...i, status: 'error', error: errorMessage }
+              : i
+          )
+        );
+
+        errorCount++;
+      }
+    }
+
+    setImporting(false);
+
+    // Show summary notification
+    const providerName = tool.tool_provider_type?.type_value
+      ? tool.tool_provider_type.type_value.charAt(0).toUpperCase() +
+        tool.tool_provider_type.type_value.slice(1)
+      : 'MCP';
+
+    if (successCount > 0) {
       notifications.show(
-        `Successfully imported ${title} from ${providerName}`,
+        `Successfully imported ${successCount} source${successCount > 1 ? 's' : ''} from ${providerName}`,
         {
           severity: 'success',
-          autoHideDuration: 3000,
+          autoHideDuration: 4000,
         }
       );
-    } catch (err) {
-      const errorMessage = getErrorMessage(err) || 'Failed to import this URL';
+    }
 
-      // Update status to error
-      setUrlItems(
-        urlItems.map(i =>
-          i.id === id ? { ...i, status: 'error', error: errorMessage } : i
-        )
+    if (errorCount > 0) {
+      notifications.show(
+        `Failed to import ${errorCount} URL${errorCount > 1 ? 's' : ''}. Check the error messages above.`,
+        {
+          severity: 'error',
+          autoHideDuration: 6000,
+        }
       );
+    }
 
-      notifications.show(`Import failed: ${errorMessage}`, {
-        severity: 'error',
-        autoHideDuration: 6000,
-      });
+    // If all succeeded, show success and allow closing
+    if (successCount > 0 && errorCount === 0) {
+      onSuccess?.();
     }
   };
 
@@ -484,9 +521,7 @@ export default function MCPImportDialog({
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box display="flex" alignItems="center" gap={1}>
             <SearchIcon />
-            <Typography variant="h6">
-              Import from {tool?.name || 'MCP'}
-            </Typography>
+            <Typography variant="h6">Import Sources</Typography>
           </Box>
           <IconButton onClick={handleClose} disabled={isProcessing}>
             <CloseIcon />
@@ -681,85 +716,43 @@ export default function MCPImportDialog({
           {importMode === 'url' && (
             <>
               <Box>
-                <Typography variant="subtitle2" gutterBottom>
-                  Import from{' '}
-                  {tool?.tool_provider_type?.type_value
-                    ? tool.tool_provider_type.type_value
-                        .charAt(0)
-                        .toUpperCase() +
-                      tool.tool_provider_type.type_value.slice(1)
-                    : 'URLs'}
-                </Typography>
-
                 {/* URL Input Fields */}
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {urlItems.map((item, index) => (
-                    <Box
+                    <TextField
                       key={item.id}
-                      sx={{
-                        display: 'flex',
-                        gap: 1,
-                        alignItems: 'flex-start',
-                      }}
-                    >
-                      <TextField
-                        fullWidth
-                        placeholder={`Paste ${tool?.tool_provider_type?.type_value || 'resource'} URL...`}
-                        value={item.url}
-                        onChange={e => handleUrlChange(item.id, e.target.value)}
-                        disabled={item.status !== 'pending'}
-                        error={item.status === 'error'}
-                        helperText={
-                          item.status === 'error'
-                            ? item.error
-                            : item.status === 'success'
-                              ? `Imported as: ${item.title}`
-                              : ''
-                        }
-                        sx={{
-                          '& .MuiInputBase-root': {
-                            backgroundColor:
-                              item.status === 'success'
-                                ? theme.palette.success.light + '20'
-                                : item.status === 'error'
-                                  ? theme.palette.error.light + '20'
-                                  : undefined,
-                          },
-                        }}
-                        InputProps={{
-                          endAdornment:
-                            item.status === 'success' ? (
-                              <CheckCircleIcon color="success" />
-                            ) : item.status === 'error' ? (
-                              <ErrorIcon color="error" />
-                            ) : null,
-                        }}
-                      />
-                      <Button
-                        variant="contained"
-                        onClick={() => handleImportUrl(item.id)}
-                        disabled={
-                          !item.url.trim() ||
-                          item.status === 'importing' ||
-                          item.status === 'success' ||
-                          !tool
-                        }
-                        startIcon={
-                          item.status === 'importing' ? (
-                            <CircularProgress size={20} />
-                          ) : (
-                            <SaveIcon />
-                          )
-                        }
-                        sx={{ minWidth: '120px' }}
-                      >
-                        {item.status === 'importing'
-                          ? 'Importing...'
+                      fullWidth
+                      placeholder={`Paste ${tool?.tool_provider_type?.type_value || 'resource'} URL...`}
+                      value={item.url}
+                      onChange={e => handleUrlChange(item.id, e.target.value)}
+                      disabled={item.status !== 'pending'}
+                      error={item.status === 'error'}
+                      helperText={
+                        item.status === 'error'
+                          ? item.error
                           : item.status === 'success'
-                            ? 'Imported'
-                            : 'Import'}
-                      </Button>
-                    </Box>
+                            ? `Imported as: ${item.title}`
+                            : ''
+                      }
+                      sx={{
+                        '& .MuiInputBase-root': {
+                          backgroundColor:
+                            item.status === 'success'
+                              ? theme.palette.success.light + '20'
+                              : item.status === 'error'
+                                ? theme.palette.error.light + '20'
+                                : undefined,
+                        },
+                      }}
+                      InputProps={{
+                        endAdornment:
+                          item.status === 'success' ? (
+                            <CheckCircleIcon color="success" />
+                          ) : item.status === 'error' ? (
+                            <ErrorIcon color="error" />
+                          ) : null,
+                      }}
+                    />
                   ))}
 
                   {/* Add More Button */}
@@ -810,13 +803,27 @@ export default function MCPImportDialog({
           </Button>
         )}
 
-        {/* URL mode - show done button if any imports succeeded */}
-        {importMode === 'url' &&
-          urlItems.some(item => item.status === 'success') && (
-            <Button variant="contained" onClick={handleClose}>
-              Done
-            </Button>
-          )}
+        {/* URL mode import button */}
+        {importMode === 'url' && (
+          <Button
+            variant="contained"
+            onClick={handleImportUrls}
+            disabled={
+              importing ||
+              !urlItems.some(
+                item => item.url.trim() && item.status === 'pending'
+              ) ||
+              !tool
+            }
+            startIcon={
+              importing ? <CircularProgress size={20} /> : <SaveIcon />
+            }
+          >
+            {importing
+              ? 'Importing...'
+              : `Import ${urlItems.filter(item => item.url.trim() && item.status === 'pending').length} URL${urlItems.filter(item => item.url.trim() && item.status === 'pending').length !== 1 ? 's' : ''}`}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   );
