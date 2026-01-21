@@ -792,7 +792,19 @@ export default function TrialDrawer({
                   minHeight: '100px',
                 }}
               >
-                {trialResponse.output || 'No response received'}
+                {(() => {
+                  if (!trialResponse.output) {
+                    return 'No response received';
+                  }
+
+                  // If output is an object, stringify it
+                  if (typeof trialResponse.output === 'object') {
+                    return JSON.stringify(trialResponse.output, null, 2);
+                  }
+
+                  // Otherwise render as-is (string, number, boolean)
+                  return String(trialResponse.output);
+                })()}
               </Typography>
             )}
           </Box>
