@@ -172,18 +172,9 @@ class RhesisClient:
             logger.info("Connector explicitly disabled (RHESIS_CONNECTOR_DISABLE=true)")
             return DisabledClient()
 
-        project_id = os.getenv("RHESIS_PROJECT_ID")
-        api_key = os.getenv("RHESIS_API_KEY")
-        if not project_id or not api_key:
-            logger.info(
-                "Using DisabledClient: Missing "
-                f"{'RHESIS_PROJECT_ID' if not project_id else 'RHESIS_API_KEY'}"
-            )
-            return DisabledClient()
-
         return cls(
-            project_id=project_id,
-            api_key=api_key,
+            project_id=os.getenv("RHESIS_PROJECT_ID"),
+            api_key=os.getenv("RHESIS_API_KEY"),
             environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
             base_url=os.getenv("RHESIS_BASE_URL", "http://localhost:8080"),
         )
