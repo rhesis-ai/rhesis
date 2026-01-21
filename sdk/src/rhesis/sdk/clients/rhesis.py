@@ -123,6 +123,11 @@ class RhesisClient:
             environment: Optional environment name. If not provided, will try to get
                         from RHESIS_ENVIRONMENT environment variable (default: "development").
         """
+        from rhesis.sdk.config import get_api_key, get_base_url
+
+        # API configuration
+        self.api_key = api_key if api_key is not None else get_api_key()
+        self._base_url = base_url if base_url is not None else get_base_url()
 
         # Observability configuration
         self.project_id = project_id or os.getenv("RHESIS_PROJECT_ID")

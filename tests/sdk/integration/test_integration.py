@@ -1,10 +1,10 @@
 """Integration tests for SDK client functionality."""
 
-from rhesis.sdk.clients import Client, Endpoints, Methods
+from rhesis.sdk.clients import APIClient, Endpoints, Methods
 
 
 def test_integration_client_works(docker_compose_test_env, db_cleanup):
     """Test that the SDK client can connect to the backend."""
-    client = Client()
+    client = APIClient()
     response = client.send_request(endpoint=Endpoints.HEALTH, method=Methods.GET)
     assert response["status"] == "ok"

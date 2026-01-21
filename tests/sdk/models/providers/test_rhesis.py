@@ -38,8 +38,8 @@ class TestRhesisLLM:
 
     @pytest.fixture
     def mock_client(self):
-        """Mock Client class."""
-        with patch("rhesis.sdk.models.providers.native.Client") as mock_client_class:
+        """Mock APIClient class."""
+        with patch("rhesis.sdk.models.providers.native.APIClient") as mock_client_class:
             mock_client = Mock()
             mock_client.api_key = "test_api_key"
             mock_client.get_url.return_value = "https://test.example.com/services/generate/content"

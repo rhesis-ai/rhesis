@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional
 
 from pydantic import model_validator
 
-from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.clients import APIClient, Endpoints, Methods
 
 if TYPE_CHECKING:
     from rhesis.sdk.models.base import BaseLLM
@@ -73,7 +73,7 @@ class Model(BaseEntity):
         if not self.provider:
             return self.provider_type_id
 
-        client = Client()
+        client = APIClient()
         # Query type_lookups for provider with matching type_value and type_name
         filter_query = (
             f"type_name eq 'ProviderType' and tolower(type_value) eq '{self.provider.lower()}'"
@@ -142,7 +142,7 @@ class Model(BaseEntity):
         if not self.id:
             raise ValueError("Model must be saved before setting as default. Call push() first.")
 
-        client = Client()
+        client = APIClient()
         client.send_request(
             endpoint=Endpoints.USERS,
             method=Methods.PATCH,
@@ -166,7 +166,7 @@ class Model(BaseEntity):
         if not self.id:
             raise ValueError("Model must be saved before setting as default. Call push() first.")
 
-        client = Client()
+        client = APIClient()
         client.send_request(
             endpoint=Endpoints.USERS,
             method=Methods.PATCH,
@@ -219,7 +219,7 @@ class Models(BaseCollection):
             >>> print(providers)
             ['openai', 'anthropic', 'gemini', 'mistral', ...]
         """
-        client = Client()
+        client = APIClient()
         response = client.send_request(
             endpoint=Endpoints.TYPE_LOOKUPS,
             method=Methods.GET,
