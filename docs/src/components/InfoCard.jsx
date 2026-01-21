@@ -13,7 +13,7 @@ import React from 'react'
  * @param {string} props.title - Card title
  * @param {string} props.description - Card description text
  * @param {string} [props.link] - Optional link URL
- * @param {string} [props.linkText] - Optional link text
+ * @param {string} [props.linkText] - Optional link text (defaults to "Learn more →" if link is provided)
  * @param {boolean} [props.external] - Whether link is external
  * @param {React.ReactNode} [props.children] - Optional custom content instead of description
  * @param {string} [props.className] - Additional CSS classes
@@ -107,18 +107,54 @@ export const InfoCard = ({
       </h3>
       {children || <p style={styles.description}>{description}</p>}
       {hasLink && (
-        <a
-          href={link}
-          target={external ? '_blank' : '_self'}
-          rel={external ? 'noopener noreferrer' : undefined}
-          style={styles.link}
-          className="info-card-link"
-        >
-          {linkText}
-        </a>
+        <span style={styles.link} className="info-card-link">
+          {linkText || 'Learn more →'}
+        </span>
       )}
     </>
   )
+
+  // Get text content for screen readers and SEO
+  const getDescriptionText = () => {
+    if (typeof children === 'string') return children
+    if (description) return description
+    return ''
+  }
+
+  if (hasLink) {
+    return (
+      <a
+        href={link}
+        target={external ? '_blank' : '_self'}
+        rel={external ? 'noopener noreferrer' : undefined}
+        style={{
+          ...styles.card,
+          position: 'relative',
+          textDecoration: 'none',
+          color: 'inherit',
+          cursor: 'pointer',
+        }}
+        className={`info-card info-card-linked ${className}`}
+      >
+        <span
+          style={{
+            position: 'absolute',
+            width: '1px',
+            height: '1px',
+            padding: 0,
+            margin: '-1px',
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
+          {title}: {getDescriptionText()}
+        </span>
+        <CardContent />
+      </a>
+    )
+  }
 
   return (
     <div
