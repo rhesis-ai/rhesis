@@ -46,6 +46,7 @@ class Methods(Enum):
     POST = "POST"
     PUT = "PUT"
     DELETE = "DELETE"
+    PATCH = "PATCH"
 
 
 class APIClient:
