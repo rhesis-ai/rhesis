@@ -66,3 +66,49 @@ spec:
     app: worker
     tier: worker
 {{- end }}
+
+{{- if .Values.chatbot.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatbot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: chatbot
+    tier: chatbot
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.chatbot.service.type }}
+  ports:
+    - port: {{ .Values.chatbot.service.port }}
+      targetPort: {{ .Values.chatbot.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app: chatbot
+    tier: chatbot
+{{- end }}
+
+{{- if .Values.docs.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: docs
+    tier: docs
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.docs.service.type }}
+  ports:
+    - port: {{ .Values.docs.service.port }}
+      targetPort: {{ .Values.docs.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    app: docs
+    tier: docs
+{{- end }}

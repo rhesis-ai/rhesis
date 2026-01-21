@@ -21,6 +21,14 @@ images:
     repository: rhesis-worker
     tag: "latest"
     pullPolicy: "Never"
+  chatbot:
+    repository: rhesis-chatbot
+    tag: "latest"
+    pullPolicy: "Never"
+  docs:
+    repository: rhesis-docs
+    tag: "latest"
+    pullPolicy: "Never"
 
 # Database configuration
 database:
@@ -164,6 +172,69 @@ worker:
       value: "4"
     - name: CELERY_WORKER_MAX_TASKS_PER_CHILD
       value: "1000"
+
+# Chatbot configuration
+chatbot:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  service:
+    type: ClusterIP
+    port: 8083
+    targetPort: 8080
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chatbot.local
+        paths:
+          - path: /
+            pathType: Prefix
+  env:
+    - name: ENVIRONMENT
+      value: "development"
+    - name: LOG_LEVEL
+      value: "DEBUG"
+    - name: PORT
+      value: "8080"
+
+# Docs configuration
+docs:
+  enabled: true
+  replicas: 1
+  disableSecurityContext: true  # Temporarily disable for docs due to permission issues
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+  service:
+    type: ClusterIP
+    port: 3001
+    targetPort: 3001
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: docs.local
+        paths:
+          - path: /
+            pathType: Prefix
+  env:
+    - name: PORT
+      value: "3001"
+    - name: NEXT_TELEMETRY_DISABLED
+      value: "1"
 
 # Monitoring configuration
 monitoring:

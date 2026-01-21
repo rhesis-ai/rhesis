@@ -20,6 +20,14 @@ images:
     repository: rhesis-worker
     tag: "latest"
     pullPolicy: "Never"
+  chatbot:
+    repository: rhesis-chatbot
+    tag: "latest"
+    pullPolicy: "Never"
+  docs:
+    repository: rhesis-docs
+    tag: "latest"
+    pullPolicy: "Never"
 
 # Database configuration for local development
 database:
@@ -128,6 +136,47 @@ worker:
     limits:
       memory: "2Gi"
       cpu: "1000m"
+
+# Chatbot configuration for local development
+chatbot:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  env:
+    - name: ENVIRONMENT
+      value: "local"
+    - name: HOSTNAME
+      value: "0.0.0.0"
+    - name: LOG_LEVEL
+      value: "DEBUG"
+    - name: PORT
+      value: "8080"
+
+# Docs configuration for local development
+docs:
+  enabled: true
+  replicas: 1
+  disableSecurityContext: true
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  env:
+    - name: HOSTNAME
+      value: "0.0.0.0"
+    - name: PORT
+      value: "3001"
+    - name: NEXT_TELEMETRY_DISABLED
+      value: "1"
 
 # Disable features not needed for local development
 monitoring:

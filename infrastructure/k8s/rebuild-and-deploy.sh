@@ -77,7 +77,7 @@ check_prerequisites() {
 delete_old_images() {
     echo -e "${YELLOW}🗑️  Step 1: Deleting old images from Minikube...${NC}"
     
-    local images=("rhesis-frontend:latest" "rhesis-backend:latest" "rhesis-worker:latest")
+    local images=("rhesis-frontend:latest" "rhesis-backend:latest" "rhesis-worker:latest" "rhesis-chatbot:latest" "rhesis-docs:latest")
     
     for image in "${images[@]}"; do
         echo -e "  - Removing image: ${BLUE}$image${NC}"
@@ -173,6 +173,24 @@ rebuild_images() {
     docker build -t rhesis-worker:latest -f apps/worker/Dockerfile .
     echo -e "    ${GREEN}✅ Worker image built${NC}"
     
+    # Build chatbot (must be built from project root with -f flag)
+    echo -e "  - Building chatbot image...${NC}"
+    cd "$PROJECT_ROOT" || {
+        echo -e "${RED}❌ Error: Project root directory not found${NC}"
+        exit 1
+    }
+    docker build -t rhesis-chatbot:latest -f apps/chatbot/Dockerfile .
+    echo -e "    ${GREEN}✅ Chatbot image built${NC}"
+    
+    # Build docs (build context is docs directory, like docker-compose)
+    echo -e "  - Building docs image...${NC}"
+    cd "$PROJECT_ROOT/docs" || {
+        echo -e "${RED}❌ Error: Docs directory not found${NC}"
+        exit 1
+    }
+    docker build -t rhesis-docs:latest -f src/Dockerfile .
+    echo -e "    ${GREEN}✅ Docs image built${NC}"
+    
     echo -e "${GREEN}✅ All images rebuilt successfully${NC}"
     echo ""
 }
@@ -181,7 +199,7 @@ rebuild_images() {
 load_images() {
     echo -e "${YELLOW}📦 Step 4: Loading images into Minikube...${NC}"
     
-    local images=("rhesis-frontend:latest" "rhesis-backend:latest" "rhesis-worker:latest")
+    local images=("rhesis-frontend:latest" "rhesis-backend:latest" "rhesis-worker:latest" "rhesis-chatbot:latest" "rhesis-docs:latest")
     
     for image in "${images[@]}"; do
         echo -e "  - Loading image: ${BLUE}$image${NC}"
@@ -233,6 +251,8 @@ main() {
     echo -e "  ${BLUE}1.${NC} Check pod status: ${GREEN}kubectl get pods -n $NAMESPACE${NC}"
     echo -e "  ${BLUE}2.${NC} Port-forward frontend: ${GREEN}kubectl port-forward -n $NAMESPACE svc/frontend 3000:3000${NC}"
     echo -e "  ${BLUE}3.${NC} Port-forward backend: ${GREEN}kubectl port-forward -n $NAMESPACE svc/backend 8080:8080${NC}"
+    echo -e "  ${BLUE}4.${NC} Port-forward chatbot: ${GREEN}kubectl port-forward -n $NAMESPACE svc/chatbot 8083:8083${NC}"
+    echo -e "  ${BLUE}5.${NC} Port-forward docs: ${GREEN}kubectl port-forward -n $NAMESPACE svc/docs 3001:3001${NC}"
     echo ""
 }
 
