@@ -1,8 +1,7 @@
 import importlib.metadata
 from importlib.metadata import PackageNotFoundError, version
 
-from rhesis.sdk.client import CONNECTOR_DISABLED
-from rhesis.sdk.client import Client as RhesisClient
+from rhesis.sdk.clients import CONNECTOR_DISABLED, DisabledClient, RhesisClient
 from rhesis.sdk.config import api_key, base_url
 from rhesis.sdk.decorators import (
     ObserverBuilder,
@@ -26,6 +25,7 @@ __all__ = [
     "__version__",
     "TestType",
     "RhesisClient",
+    "DisabledClient",
     "CONNECTOR_DISABLED",
     "endpoint",
     "collaborate",  # Backwards compatibility

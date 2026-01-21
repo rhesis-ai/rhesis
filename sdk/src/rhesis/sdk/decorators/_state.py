@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from rhesis.sdk.client import Client
+    from rhesis.sdk.clients import Client
 
 # Module-level default client (managed transparently)
 _default_client: Optional["Client"] = None

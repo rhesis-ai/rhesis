@@ -1,10 +1,5 @@
 import os
-from enum import Enum
-from typing import Optional
-
-import requests
-
-from rhesis.sdk.config import get_api_key, get_base_url
+from typing import Optional, Union
 
 # Check if connector should be disabled
 # Accept common truthy values: true, 1, yes, on (case-insensitive)
@@ -14,45 +9,6 @@ CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLE", "false").lower() in (
     "yes",
     "on",
 )
-
-
-class HTTPStatus:
-    """HTTP status codes for consistent testing.
-    See tests/backend/routes/endpoints.py for definitions
-    """
-
-    OK = 200
-    CREATED = 201
-    BAD_REQUEST = 400
-    UNAUTHORIZED = 401
-    FORBIDDEN = 403
-    NOT_FOUND = 404
-    UNPROCESSABLE_ENTITY = 422
-    INTERNAL_SERVER_ERROR = 500
-
-
-class Endpoints(Enum):
-    BEHAVIORS = "behaviors"
-    METRICS = "metrics"
-    HEALTH = "health"
-    CATEGORIES = "categories"
-    PROJECTS = "projects"
-    STATUSES = "statuses"
-    TEST_SETS = "test_sets"
-    TESTS = "tests"
-    TOPICS = "topics"
-    PROMPTS = "prompts"
-    ENDPOINTS = "endpoints"
-    TEST_RESULTS = "test_results"
-    TEST_RUNS = "test_runs"
-    TEST_CONFIGURATIONS = "test_configurations"
-
-
-class Methods(Enum):
-    GET = "GET"
-    POST = "POST"
-    PUT = "PUT"
-    DELETE = "DELETE"
 
 
 class DisabledClient:
@@ -119,22 +75,33 @@ class DisabledClient:
         return ""
 
 
-class Client:
-    def __new__(cls, *args, **kwargs):
-        """
-        Create either a real Client or DisabledClient based on environment flag.
+class RhesisClient:
+    """
+    Rhesis client with observability and telemetry capabilities.
 
-        When RHESIS_CONNECTOR_DISABLE is enabled (true|1|yes|on), returns a
-        DisabledClient that performs no operations. Otherwise, creates a normal
-        Client instance.
-        """
-        if CONNECTOR_DISABLED:
-            import logging
+    This is the main user-facing client for applications that need:
+    - OpenTelemetry tracing (@observe decorator)
+    - Remote function execution (@endpoint decorator)
+    - Automatic instrumentation
 
-            logger = logging.getLogger(__name__)
-            logger.info("⏭️  Rhesis connector disabled (RHESIS_CONNECTOR_DISABLE enabled)")
-            return DisabledClient()
-        return super().__new__(cls)
+    Users should create this via `RhesisClient.from_environment()` for
+    automatic configuration from environment variables.
+
+    Example:
+        ```python
+        from rhesis.sdk import RhesisClient
+
+        # Recommended: environment-based initialization
+        client = RhesisClient.from_environment()
+
+        # Or explicit configuration
+        client = RhesisClient(
+            api_key="your-key",
+            project_id="your-project",
+            environment="production"
+        )
+        ```
+    """
 
     def __init__(
         self,
@@ -144,10 +111,7 @@ class Client:
         environment: Optional[str] = None,
     ):
         """
-        Initialize the Rhesis client.
-
-        Note: This __init__ will NOT be called when RHESIS_CONNECTOR_DISABLE is enabled
-        since __new__ returns a DisabledClient instance instead.
+        Initialize the Rhesis observability client.
 
         Args:
             api_key: Optional API key. If not provided, will try to get it from
@@ -159,79 +123,65 @@ class Client:
             environment: Optional environment name. If not provided, will try to get
                         from RHESIS_ENVIRONMENT environment variable (default: "development").
         """
-        # Existing REST functionality
-        self.api_key = api_key if api_key is not None else get_api_key()
-        self._base_url = base_url if base_url is not None else get_base_url()
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
 
-        # New: Connector configuration
+        # Observability configuration
         self.project_id = project_id or os.getenv("RHESIS_PROJECT_ID")
         self.environment = environment or os.getenv("RHESIS_ENVIRONMENT", "development")
 
-        # New: Lazy connector (not initialized yet)
+        # Lazy connector (not initialized yet)
         self._connector_manager = None
 
         # Initialize OpenTelemetry tracer provider for @observe decorator
-        # This must happen even if @collaborate is never used
         self._init_telemetry()
 
-        # Create tracer instance for direct tracing (when connector manager not active)
+        # Create tracer instance for direct tracing
         self._init_tracer()
 
-        # Automatically register as default client (transparent)
+        # Automatically register as default client for decorators
         self._register_as_default()
 
-    @property
-    def is_disabled(self) -> bool:
-        """Return False to indicate this is an active client."""
-        return False
-
-    @property
-    def base_url(self) -> str:
-        """Get the base URL with trailing slash removed."""
-        return self._base_url.rstrip("/")
-
-    def get_url(self, endpoint: str) -> str:
+    @classmethod
+    def from_environment(cls) -> Union["RhesisClient", DisabledClient]:
         """
-        Construct a URL by combining base_url and endpoint.
+        Create a RhesisClient from environment variables.
 
-        Args:
-            endpoint: The API endpoint path.
+        This is the recommended way to initialize the client in applications.
+        Returns a DisabledClient if RHESIS_CONNECTOR_DISABLE is set or if
+        required credentials (RHESIS_PROJECT_ID, RHESIS_API_KEY) are missing.
+
+        Environment Variables:
+            RHESIS_CONNECTOR_DISABLE: Set to 'true' to disable the connector
+            RHESIS_PROJECT_ID: Required project ID
+            RHESIS_API_KEY: Required API key
+            RHESIS_ENVIRONMENT: Optional, defaults to 'development'
+            RHESIS_BASE_URL: Optional, defaults to 'http://localhost:8080'
 
         Returns:
-            str: The complete URL with proper formatting.
+            RhesisClient or DisabledClient instance
         """
-        # Remove leading slash from endpoint if present
-        endpoint = endpoint.lstrip("/")
-        return f"{self.base_url}/{endpoint}"
+        import logging
 
-    def send_request(
-        self,
-        endpoint: Endpoints,
-        method: Methods,
-        data: Optional[dict] = None,
-        params: Optional[dict] = None,
-        url_params: Optional[str] = None,
-    ) -> dict:
-        """
-        Send a request to the API.
+        logger = logging.getLogger(__name__)
 
-        Args:
-            endpoint: The API endpoint path.
-            method: The HTTP method to use.
-            data: The data to send in the request body.
-        """
-        url = self.get_url(endpoint.value)
-        if url_params is not None:
-            url = f"{url}/{url_params}"
-        response = requests.request(
-            method=method.value, url=url, headers=self.headers, json=data, params=params
+        if CONNECTOR_DISABLED:
+            logger.info("Connector explicitly disabled (RHESIS_CONNECTOR_DISABLE=true)")
+            return DisabledClient()
+
+        project_id = os.getenv("RHESIS_PROJECT_ID")
+        api_key = os.getenv("RHESIS_API_KEY")
+        if not project_id or not api_key:
+            logger.info(
+                "Using DisabledClient: Missing "
+                f"{'RHESIS_PROJECT_ID' if not project_id else 'RHESIS_API_KEY'}"
+            )
+            return DisabledClient()
+
+        return cls(
+            project_id=project_id,
+            api_key=api_key,
+            environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
+            base_url=os.getenv("RHESIS_BASE_URL", "http://localhost:8080"),
         )
-        response.raise_for_status()
-        return response.json()
 
     def _init_telemetry(self) -> None:
         """

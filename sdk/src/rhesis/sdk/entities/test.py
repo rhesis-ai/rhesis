@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
-from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 from rhesis.sdk.entities.endpoint import Endpoint
@@ -58,7 +58,7 @@ class Test(BaseEntity):
             "evaluate_metrics": True,
         }
 
-        client = Client()
+        client = APIClient()
         return client.send_request(
             endpoint=self.endpoint,
             method=Methods.POST,

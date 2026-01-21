@@ -1,6 +1,6 @@
 """Integration tests for SDK client functionality."""
 
-from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.clients import Client, Endpoints, Methods
 
 
 def test_integration_client_works(docker_compose_test_env, db_cleanup):

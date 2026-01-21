@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from requests.exceptions import HTTPError
 
-from rhesis.sdk.client import HTTPStatus
+from rhesis.sdk.clients import HTTPStatus
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 

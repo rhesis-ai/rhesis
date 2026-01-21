@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.clients import Client, Endpoints, Methods
 
 
 @pytest.fixture
@@ -248,7 +248,7 @@ def test_disabled_client(monkeypatch):
     import rhesis.sdk.client
 
     importlib.reload(rhesis.sdk.client)
-    from rhesis.sdk.client import Client, DisabledClient
+    from rhesis.sdk.clients import Client, DisabledClient
 
     # Create client - should return DisabledClient
     client = Client(api_key="test_key", base_url="https://test.example.com")
@@ -281,7 +281,7 @@ def test_normal_client_when_connector_enabled(monkeypatch):
     import rhesis.sdk.client
 
     importlib.reload(rhesis.sdk.client)
-    from rhesis.sdk.client import Client, DisabledClient
+    from rhesis.sdk.clients import Client, DisabledClient
 
     # Set required environment variables for normal client
     monkeypatch.setenv("RHESIS_API_KEY", "test_key")

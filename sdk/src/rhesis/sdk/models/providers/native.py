@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, Type, Union
 import requests
 from pydantic import BaseModel
 
-from rhesis.sdk.client import Client
+from rhesis.sdk.clients import APIClient
 from rhesis.sdk.models.base import BaseLLM
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class RhesisLLM(BaseLLM):
         super().__init__(model_name, **kwargs)
 
     def load_model(self) -> Any:
-        self.client = Client(api_key=self.api_key, base_url=self.base_url)
+        self.client = APIClient(api_key=self.api_key, base_url=self.base_url)
         self.headers = {
             "Authorization": f"Bearer {self.client.api_key}",
             "Content-Type": "application/json",
