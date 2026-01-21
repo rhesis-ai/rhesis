@@ -17,7 +17,7 @@ Thank you for your interest in contributing to Rhesis! This guide will help you 
 Before contributing, make sure you have:
 
 <Callout type="default">
-  **Development Requirements** - **Python 3.8+** with
+  **Development Requirements** - **Python 3.10+** with
   [uv](https://docs.astral.sh/uv/) package manager - **Node.js 18+** and npm -
   **Git** for version control - **Docker** (optional, for containerized
   development) - **PostgreSQL** (for backend development) - **Redis** (for
@@ -40,8 +40,8 @@ cd rhesis`}
 uv sync
 
 # Install Node.js dependencies
-cd apps/frontend && npm install
-cd ../docs && npm install`}
+cd apps/frontend && npm install && cd ../..
+cd docs/src && npm install && cd ../..`}
 </CodeBlock>
 
 3. **Configure environment:**
@@ -80,7 +80,7 @@ Understanding the project structure will help you navigate the codebase:
   <div>
     <h3>Documentation</h3>
     <p>
-      Nextra-based documentation in `apps/documentation/` with comprehensive
+      Nextra-based documentation in `docs/` with comprehensive
       guides.
     </p>
   </div>
