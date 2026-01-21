@@ -138,7 +138,8 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
 
     def test_create_model_required_fields(self, model_factory):
         """📝 Test model creation with all required fields"""
-        required_fields = ["name", "model_name", "endpoint", "key"]
+        # Note: 'key' is required for creation but NOT returned in response (security)
+        required_fields_in_response = ["name", "model_name"]
 
         # Test with all required fields
         data = self.get_minimal_data()
@@ -146,9 +147,12 @@ class TestModelValidation(ModelTestMixin, BaseEntityTests):
         assert response.status_code == status.HTTP_200_OK
 
         created_model = response.json()
-        for field in required_fields:
+        for field in required_fields_in_response:
             assert field in created_model
             assert created_model[field] is not None
+
+        # Verify key is NOT returned in response (security best practice)
+        assert "key" not in created_model
 
     def test_create_model_missing_required_fields(self, model_factory):
         """📝 Test model creation with missing required fields"""
@@ -340,10 +344,12 @@ class TestModelUpdates(ModelTestMixin, BaseEntityTests):
         assert "request_headers" in updated_model
 
     def test_update_model_key_security(self, model_factory):
-        """🔒 Test updating model API key"""
+        """🔒 Test updating model API key (key is not returned in response)"""
         # Create a model
         model = model_factory.create(self.get_sample_data())
-        original_key = model["key"]
+
+        # Verify key is NOT returned in response (security best practice)
+        assert "key" not in model
 
         # Update the key
         new_key = str(uuid.uuid4())
@@ -353,8 +359,8 @@ class TestModelUpdates(ModelTestMixin, BaseEntityTests):
 
         assert response.status_code == status.HTTP_200_OK
         updated_model = response.json()
-        assert updated_model["key"] != original_key
-        # Note: The API might mask or not return the actual key for security
+        # Key should not be returned in response for security
+        assert "key" not in updated_model
 
 
 # === PERFORMANCE TESTS (Using Factory Batches) ===

@@ -12,6 +12,7 @@ from .base_collection import BaseCollection
 from .base_entity import BaseEntity
 from .behavior import Behavior, Behaviors
 from .category import Categories, Category
+from .model import Model, Models
 from .project import Project, Projects
 from .prompt import Prompt, Prompts
 from .status import Status, Statuses
@@ -30,6 +31,8 @@ __all__ = [
     "Behaviors",
     "Category",
     "Categories",
+    "Model",
+    "Models",
     "Project",
     "Projects",
     "Prompt",

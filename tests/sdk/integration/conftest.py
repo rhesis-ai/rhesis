@@ -20,6 +20,14 @@ NC = "\033[0m"  # No Color
 DATABASE_PORT = 10000
 BACKEND_PORT = 10001
 
+# LLM Provider types - hardcoded to keep SDK tests independent of backend code
+# Only includes providers actually used in tests (openai, anthropic, gemini)
+PROVIDER_TYPE_LOOKUPS = [
+    {"type_name": "ProviderType", "type_value": "openai", "description": "OpenAI provider"},
+    {"type_name": "ProviderType", "type_value": "anthropic", "description": "Anthropic provider"},
+    {"type_name": "ProviderType", "type_value": "gemini", "description": "Google Gemini provider"},
+]
+
 
 @pytest.fixture(scope="session", autouse=True)
 def set_env():
@@ -61,6 +69,58 @@ def clear_all_tables() -> None:
         print(f"⚠️  Warning: Could not clear database: {e}")
 
 
+def populate_type_lookups(organization_id: str, user_id: str) -> None:
+    """Populate the type_lookup table with LLM provider types."""
+    print(f"{BLUE}📋 Populating type_lookup table...{NC}")
+
+    conn = None
+    try:
+        conn = psycopg2.connect(
+            host="localhost",
+            database="rhesis-db",
+            user="rhesis-user",
+            password="your-secured-password",
+            port=DATABASE_PORT,
+        )
+        conn.autocommit = False
+        cur = conn.cursor()
+
+        # Insert each provider type
+        insert_sql = """
+            INSERT INTO type_lookup (
+                type_name, type_value, description, organization_id, user_id
+            )
+            VALUES (
+                %(type_name)s, %(type_value)s, %(description)s,
+                %(organization_id)s, %(user_id)s
+            )
+            ON CONFLICT DO NOTHING;
+        """
+
+        for lookup in PROVIDER_TYPE_LOOKUPS:
+            cur.execute(
+                insert_sql,
+                {
+                    "type_name": lookup["type_name"],
+                    "type_value": lookup["type_value"],
+                    "description": lookup["description"],
+                    "organization_id": organization_id,
+                    "user_id": user_id,
+                },
+            )
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(f"{GREEN}✅ Populated {len(PROVIDER_TYPE_LOOKUPS)} provider types{NC}")
+
+    except psycopg2.Error as e:
+        if conn is not None:
+            conn.rollback()
+            conn.close()
+        print(f"⚠️  Warning: Could not populate type_lookups: {e}")
+
+
 def setup_test_data() -> None:
     """Set up test data in the database."""
     print(f"{BLUE}🧪 Setting up test data...{NC}")
@@ -95,6 +155,7 @@ def setup_test_data() -> None:
         cur = conn.cursor(cursor_factory=RealDictCursor)
 
         # Execute the SQL query to create organization, user, token, and project
+        # and return the organization_id and user_id for populating type_lookups
         sql = """
         -- Create organization and user
         WITH new_org AS (
@@ -121,22 +182,31 @@ def setup_test_data() -> None:
                 new_user.id
             FROM new_user
             RETURNING user_id
+        ),
+        new_project AS (
+            -- Create project with specific ID "1234"
+            INSERT INTO project (id, name, description, organization_id, user_id, owner_id)
+            SELECT
+                '12340000-0000-4000-8000-000000001234'::uuid,
+                'Test Project',
+                'Test project for integration tests',
+                new_user.organization_id,
+                new_user.id,
+                new_user.id
+            FROM new_user
+            ON CONFLICT (id) DO NOTHING
+            RETURNING organization_id, user_id
         )
-        -- Create project with specific ID "1234"
-        INSERT INTO project (id, name, description, organization_id, user_id, owner_id)
-        SELECT
-            '12340000-0000-4000-8000-000000001234'::uuid,
-            'Test Project',
-            'Test project for integration tests',
-            new_user.organization_id,
-            new_user.id,
-            new_user.id
-        FROM new_user
-        ON CONFLICT (id) DO NOTHING;
+        -- Return the organization_id and user_id for subsequent operations
+        SELECT organization_id, id as user_id FROM new_user;
         """
 
         cur.execute(sql, {"token_value": TOKEN_VALUE, "token_hash": TOKEN_HASH})
+        result = cur.fetchone()
         conn.commit()
+
+        organization_id = str(result["organization_id"])
+        user_id = str(result["user_id"])
 
         # Close the connection
         cur.close()
@@ -152,6 +222,9 @@ def setup_test_data() -> None:
         print()
         print(f"{GREEN}✅ Test project created with ID: 12340000-0000-0000-0000-000000001234{NC}")
         print()
+
+        # Populate type_lookups with provider types
+        populate_type_lookups(organization_id, user_id)
 
         print(f"{GREEN}✅ Test data setup completed{NC}")
 
@@ -258,7 +331,7 @@ def db_cleanup(docker_compose_test_env):
         )
         conn.autocommit = True
         cur = conn.cursor()
-        cur.execute("TRUNCATE TABLE metric, behavior CASCADE;")
+        cur.execute("TRUNCATE TABLE metric, behavior, model CASCADE;")
         cur.close()
         conn.close()
     except Exception as e:
@@ -281,7 +354,7 @@ def db_cleanup(docker_compose_test_env):
         )
         conn.autocommit = True
         cur = conn.cursor()
-        cur.execute("TRUNCATE TABLE metric, behavior CASCADE;")
+        cur.execute("TRUNCATE TABLE metric, behavior, model CASCADE;")
         cur.close()
         conn.close()
     except Exception as e:

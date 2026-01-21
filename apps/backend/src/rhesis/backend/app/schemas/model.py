@@ -1,3 +1,10 @@
+"""
+Model schemas for LLM provider configurations.
+
+Security: API keys are write-only. They can be set via POST/PUT but are never
+returned in responses to prevent exposure through logs, caches, or clients.
+"""
+
 from typing import Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
@@ -9,8 +16,8 @@ from .type_lookup import TypeLookup
 from .user import User
 
 
-class ModelBase(Base):
-    """Base schema for Model"""
+class ModelBaseFields(Base):
+    """Common fields for Model (excludes sensitive data like API key)."""
 
     name: str
     description: Optional[str] = None
@@ -19,7 +26,6 @@ class ModelBase(Base):
     endpoint: Optional[str] = Field(
         default=None, description="API endpoint URL (optional for cloud providers)"
     )
-    key: str
     request_headers: Optional[Dict] = None
     is_protected: Optional[bool] = Field(
         default=False, description="System models are protected and cannot be deleted"
@@ -36,6 +42,12 @@ class ModelBase(Base):
         return v if v is None else v.strip()
 
 
+class ModelBase(ModelBaseFields):
+    """Base schema for Model with API key (for write operations)"""
+
+    key: str
+
+
 class ModelCreate(ModelBase):
     """Schema for creating a new Model"""
 
@@ -45,21 +57,39 @@ class ModelCreate(ModelBase):
     assignee_id: Optional[UUID4] = None
 
 
-class ModelUpdate(ModelBase):
+class ModelUpdate(ModelBaseFields):
     """Schema for updating an existing Model"""
 
     name: Optional[str] = None
     model_name: Optional[str] = None
     endpoint: Optional[str] = None
-    key: Optional[str] = None
+    key: Optional[str] = None  # Optional: only update key if provided
     provider_type_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
 
 
+class ModelRead(ModelBaseFields):
+    """Schema for reading Model (excludes API key for security)"""
+
+    id: UUID4
+    provider_type_id: Optional[UUID4] = None
+    status_id: Optional[UUID4] = None
+    owner_id: Optional[UUID4] = None
+    assignee_id: Optional[UUID4] = None
+    is_protected: bool = False
+    provider_type: Optional[TypeLookup] = None
+    status: Optional[Status] = None
+    owner: Optional[User] = None
+    assignee: Optional[User] = None
+    tags: Optional[List[Tag]] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class Model(ModelBase):
-    """Complete Model schema with relationships"""
+    """Complete Model schema with relationships (includes key - internal use only)"""
 
     id: UUID4
     provider_type_id: Optional[UUID4] = None

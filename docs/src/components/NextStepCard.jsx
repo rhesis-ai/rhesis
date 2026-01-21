@@ -91,11 +91,26 @@ export const NextStepCard = ({ emoji, title, description, link, linkText, extern
       href={link}
       target={external ? '_blank' : '_self'}
       rel={external ? 'noopener noreferrer' : undefined}
-      style={styles.card}
+      style={{ ...styles.card, position: 'relative' }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className="next-step-card"
     >
+      <span
+        style={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: 0,
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      >
+        {title}: {description}
+      </span>
       <div style={styles.content}>
         <span style={styles.emojiWrapper}>{emoji}</span>
         <div style={styles.textContent}>
