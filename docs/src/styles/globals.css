@@ -114,20 +114,6 @@
   font-display: swap;
 }
 
-/* Sticky footer layout - ensures footer sticks to bottom on short pages */
-body {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-/* Nextra's main wrapper should grow to push footer down */
-body > div {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
 /* Center 404 page content */
 .not-found-container {
   display: flex;
