@@ -62,12 +62,12 @@ dev = [
 ]
 langchain = [
     "langchain>=1.0.0",
-    "langchain-core>=1.0.0",
+    "langchain-core>=1.2.5",
     "langchain-google-genai>=2.0.0",
 ]
 langgraph = [
     "langgraph>=0.2.0",
-    "langchain-core>=1.0.0",
+    "langchain-core>=1.2.5",
     "langchain-google-genai>=2.0.0",
 ]
 
