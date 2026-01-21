@@ -178,9 +178,9 @@ jobs:
             echo "📊 Rate limit: 100/day per IP"
             echo "📧 Rate limit notifications enabled (hello@rhesis.ai)"
           fi
-
+          
           echo "🤖 Model configuration: ${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai' }} / ${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.0-flash' }}"
-
+          
           # Set environment-dependent resources
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
             MEMORY="4Gi"
@@ -237,8 +237,7 @@ jobs:
           AGENT_EMAIL_BCC=${{ secrets.AGENT_EMAIL_BCC }},
           WELCOME_CALENDAR_LINK=${{ secrets.WELCOME_CALENDAR_LINK }},
           WELCOME_FROM_EMAIL=${{ secrets.WELCOME_FROM_EMAIL }},
-          CHATBOT_API_KEY=${{ secrets.CHATBOT_API_KEY }},
-          RHESIS_CONNECTOR_DISABLE=true,
+          CHATBOT_API_KEY=${{ secrets.CHATBOT_API_KEY }}
           EOF
           )"
 
@@ -251,7 +250,7 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --region=${{ env.REGION }} \
             --format="value(status.url)")
-
+          
           echo "🌐 Chatbot service URL: $SERVICE_URL"
           echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
 
@@ -281,11 +280,11 @@ jobs:
         run: |
           echo "🧪 Testing chatbot health endpoint..."
           sleep 10  # Give the service a moment to fully start
-
+          
           HEALTH_RESPONSE=$(curl -s -w "\n%{http_code}" "${{ env.SERVICE_URL }}/health")
           HTTP_CODE=$(echo "$HEALTH_RESPONSE" | tail -n1)
           RESPONSE_BODY=$(echo "$HEALTH_RESPONSE" | head -n-1)
-
+          
           if [ "$HTTP_CODE" = "200" ]; then
             echo "✅ Health check passed"
             echo "Response: $RESPONSE_BODY"
@@ -293,9 +292,10 @@ jobs:
             echo "⚠️ Health check returned status code: $HTTP_CODE"
             echo "Response: $RESPONSE_BODY"
           fi
-
+          
           echo ""
           echo "📋 Chatbot API Information:"
           echo "  - Health endpoint: ${{ env.SERVICE_URL }}/health"
           echo "  - Chat endpoint: ${{ env.SERVICE_URL }}/chat"
           echo "  - API root: ${{ env.SERVICE_URL }}/"
+
