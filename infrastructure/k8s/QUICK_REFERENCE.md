@@ -1,6 +1,20 @@
 # Kubernetes Quick Reference - Rhesis Project
 
 ## 🚀 Essential Commands
+
+### 🔄 Rebuild and Redeploy (Complete Cleanup)
+**Use this when you need to completely rebuild images and redeploy:**
+```bash
+# One command to do everything:
+# 1. Delete old images from Minikube
+# 2. Delete volumes (PVCs and PVs)
+# 3. Rebuild all Docker images
+# 4. Load images into Minikube
+# 5. Redeploy the application
+cd infrastructure/k8s
+./rebuild-and-deploy.sh
+```
+
 ### Start
 ```bash
 # Build frontend in local mode (recommended for development)

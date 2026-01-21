@@ -79,6 +79,9 @@ backend:
       value: "http://backend:8080"
     - name: FRONTEND_URL
       value: "http://localhost:3000"
+# only for the quick start mode
+    - name: QUICK_START
+      value: "true"
 
 
 # Frontend configuration for local development
@@ -107,6 +110,12 @@ frontend:
       value: "0.0.0.0"
     - name: PORT
       value: "3000"
+    # only for the quick start mode. This is used to enable the quick start mode in the frontend.
+    - name: NEXT_PUBLIC_QUICK_START
+      value: "true"
+    # only for the quick start mode. This is used to enable the quick start mode in the backend.
+    - name: QUICK_START
+      value: "true"
 
 # Worker configuration for local development
 worker:
