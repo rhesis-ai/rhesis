@@ -121,6 +121,9 @@ export function MCPConnectionDialog({
   } | null>(null);
   const [connectionTested, setConnectionTested] = useState(false);
 
+  // GitHub repository fields
+  const [repositoryUrl, setRepositoryUrl] = useState('');
+
   const isEditMode = mode === 'edit';
 
   // Check if provider requires authentication token
@@ -163,6 +166,20 @@ export function MCPConnectionDialog({
         setToolMetadata(
           tool.tool_metadata ? JSON.stringify(tool.tool_metadata, null, 2) : ''
         );
+
+        // Extract repository URL from tool_metadata for GitHub
+        if (
+          currentProviderType === 'github' &&
+          tool.tool_metadata?.repository
+        ) {
+          const repo = tool.tool_metadata.repository;
+          if (repo.owner && repo.repo) {
+            setRepositoryUrl(`https://github.com/${repo.owner}/${repo.repo}`);
+          }
+        } else {
+          setRepositoryUrl('');
+        }
+
         setError(null);
         setJsonError(null);
         setShowAuthToken(false);
@@ -176,6 +193,7 @@ export function MCPConnectionDialog({
         setDescription('');
         setAuthToken('');
         setToolMetadata('');
+        setRepositoryUrl('');
         setError(null);
         setJsonError(null);
         setShowAuthToken(false);
@@ -200,7 +218,7 @@ export function MCPConnectionDialog({
       setConnectionTested(false);
       setTestResult(null);
     }
-  }, [authToken, toolMetadata, provider, isEditMode]);
+  }, [authToken, toolMetadata, provider, isEditMode, repositoryUrl]);
 
   const validateToolMetadata = (
     jsonString: string
@@ -233,6 +251,37 @@ export function MCPConnectionDialog({
     } else {
       setJsonError(null);
     }
+  };
+
+  const parseRepositoryUrl = (
+    url: string
+  ): { owner: string; repo: string; full_name: string } | null => {
+    if (!url || !url.trim()) {
+      return null;
+    }
+
+    const trimmedUrl = url.trim();
+    // Support both full URLs and owner/repo format
+    const githubUrlPattern =
+      /(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/]+)/;
+    const shortPattern = /^([^/]+)\/([^/]+)$/;
+
+    let match = trimmedUrl.match(githubUrlPattern);
+    if (!match) {
+      match = trimmedUrl.match(shortPattern);
+    }
+
+    if (match) {
+      const owner = match[1];
+      const repo = match[2].replace(/\.git$/, ''); // Remove .git suffix if present
+      return {
+        owner,
+        repo,
+        full_name: `${owner}/${repo}`,
+      };
+    }
+
+    return null;
   };
 
   const handleTestConnection = async () => {
@@ -307,6 +356,22 @@ export function MCPConnectionDialog({
           parsedMetadata = validatedMetadata;
         }
 
+        // Add repository metadata for GitHub if provided
+        if (provider.type_value === 'github' && repositoryUrl.trim()) {
+          const repoData = parseRepositoryUrl(repositoryUrl);
+          if (!repoData) {
+            setError(
+              'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
+            );
+            setTestingConnection(false);
+            return;
+          }
+          parsedMetadata = {
+            ...(parsedMetadata || {}),
+            repository: repoData,
+          };
+        }
+
         testRequest = {
           provider_type_id: provider.id,
           credentials,
@@ -378,16 +443,46 @@ export function MCPConnectionDialog({
         }
 
         // Include tool_metadata if it was provided
+        let metadataToUpdate: Record<string, any> | undefined = undefined;
+
         if (toolMetadata.trim()) {
           const validatedMetadata = validateToolMetadata(toolMetadata);
           if (validatedMetadata !== null) {
-            updates.tool_metadata = validatedMetadata;
+            metadataToUpdate = validatedMetadata;
           }
         } else if (isCustomProvider) {
           // For custom providers, tool_metadata is required
           setError('Tool metadata is required for custom providers.');
           setLoading(false);
           return;
+        }
+
+        // Add or update repository metadata for GitHub
+        if (providerType === 'github') {
+          if (repositoryUrl.trim()) {
+            const repoData = parseRepositoryUrl(repositoryUrl);
+            if (!repoData) {
+              setError(
+                'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
+              );
+              setLoading(false);
+              return;
+            }
+            metadataToUpdate = {
+              ...(metadataToUpdate || tool.tool_metadata || {}),
+              repository: repoData,
+            };
+          } else {
+            // Remove repository metadata if URL is empty
+            metadataToUpdate = {
+              ...(metadataToUpdate || tool.tool_metadata || {}),
+            };
+            delete metadataToUpdate.repository;
+          }
+        }
+
+        if (metadataToUpdate) {
+          updates.tool_metadata = metadataToUpdate;
         }
 
         await onUpdate(tool.id, updates);
@@ -453,6 +548,22 @@ export function MCPConnectionDialog({
               return;
             }
             parsedMetadata = validatedMetadata;
+          }
+
+          // Add repository metadata for GitHub if provided
+          if (providerType === 'github' && repositoryUrl.trim()) {
+            const repoData = parseRepositoryUrl(repositoryUrl);
+            if (!repoData) {
+              setError(
+                'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
+              );
+              setLoading(false);
+              return;
+            }
+            parsedMetadata = {
+              ...(parsedMetadata || {}),
+              repository: repoData,
+            };
           }
 
           const toolData: ToolCreate = {
@@ -558,7 +669,7 @@ export function MCPConnectionDialog({
                 </Typography>
 
                 <TextField
-                  label="TOKEN"
+                  label="Authentication token"
                   fullWidth
                   required={!isEditMode}
                   type={showAuthToken ? 'text' : 'password'}
@@ -647,6 +758,27 @@ export function MCPConnectionDialog({
                     </Alert>
                   )}
                 </Box>
+              </>
+            )}
+
+            {/* GitHub Repository Configuration */}
+            {providerType === 'github' && (
+              <>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 2 }}
+                >
+                  Repository Scope (Optional)
+                </Typography>
+
+                <TextField
+                  label="Repository URL"
+                  fullWidth
+                  value={repositoryUrl}
+                  onChange={e => setRepositoryUrl(e.target.value)}
+                  placeholder="https://github.com/owner/repo"
+                  helperText="Optional: Restrict this connection to a specific repository. Leave empty for user-level access to all repositories."
+                />
               </>
             )}
 

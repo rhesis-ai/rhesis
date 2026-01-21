@@ -133,12 +133,32 @@ export function ConnectedToolCard({
             color="text.secondary"
             sx={{
               display: 'block',
-              mb: 1.5,
+              mb: 0.5,
               minHeight: '1.5em',
             }}
           >
             Provider: {tool.tool_provider_type?.description || providerName}
           </Typography>
+
+          {/* Repository info for GitHub */}
+          {providerName === 'github' && tool.tool_metadata?.repository && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                display: 'block',
+                mb: 1.5,
+                fontStyle: 'italic',
+              }}
+            >
+              Repository: {tool.tool_metadata.repository.full_name}
+            </Typography>
+          )}
+
+          {/* Spacing for non-GitHub or GitHub without repository */}
+          {!(providerName === 'github' && tool.tool_metadata?.repository) && (
+            <Box sx={{ mb: 1.5 }} />
+          )}
 
           {/* Connected status */}
           <Chip

@@ -182,10 +182,14 @@ class TestGetMCPClientByToolId:
 
         # Execute
         db = Mock()
-        result, _ = _get_mcp_tool_config(db, tool_id, org_id, user_id)
+        result, provider_name, repository_context = _get_mcp_tool_config(
+            db, tool_id, org_id, user_id
+        )
 
         # Assert
         assert result == mock_client
+        assert provider_name == "notion"
+        assert repository_context is None
         mock_crud.get_tool.assert_called_once_with(db, uuid.UUID(tool_id), org_id, user_id)
         mock_factory.from_provider.assert_called_once_with(
             provider="notion", credentials={"NOTION_TOKEN": "test_token"}
@@ -213,10 +217,12 @@ class TestGetMCPClientByToolId:
         mock_factory.from_tool_config.return_value = mock_factory_instance
 
         # Execute
-        result, _ = _get_mcp_tool_config(Mock(), tool_id, org_id)
+        result, provider_name, repository_context = _get_mcp_tool_config(Mock(), tool_id, org_id)
 
         # Assert
         assert result == mock_client
+        assert provider_name == "custom"
+        assert repository_context is None
         mock_factory.from_tool_config.assert_called_once_with(
             tool_name="customApi",
             tool_config={"command": "npx", "args": ["@example/mcp-server"]},
@@ -420,10 +426,7 @@ class TestSearchMCP:
         mock_get_model.return_value = mock_model
 
         mock_client = Mock()
-        mock_client.connect = AsyncMock()
-        mock_client.disconnect = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[])
-        mock_get_client.return_value = (mock_client, "notion")
+        mock_get_client.return_value = (mock_client, "notion", None)
 
         mock_template = Mock()
         mock_template.render.return_value = "Search prompt"
@@ -476,13 +479,7 @@ class TestSearchMCP:
 
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
-
-        mock_client = Mock()
-        mock_client.connect = AsyncMock()
-        mock_client.disconnect = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[])
-        mock_get_client.return_value = (mock_client, "notion")
-
+        mock_get_client.return_value = (Mock(), "notion", None)
         mock_template = Mock()
         mock_template.render.return_value = "Search prompt"
         mock_jinja_env.get_template.return_value = mock_template
@@ -518,13 +515,7 @@ class TestSearchMCP:
 
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
-
-        mock_client = Mock()
-        mock_client.connect = AsyncMock()
-        mock_client.disconnect = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[])
-        mock_get_client.return_value = (mock_client, "notion")
-
+        mock_get_client.return_value = (Mock(), "notion", None)
         mock_template = Mock()
         mock_template.render.return_value = "Search prompt"
         mock_jinja_env.get_template.return_value = mock_template
@@ -575,7 +566,8 @@ class TestExtractMCP:
         mock_get_tool_config.return_value = (
             mock_client,
             "notion",
-        )  # Returns (client, provider) tuple
+            None,
+        )  # Returns (client, provider, repository_context) tuple
 
         mock_template = Mock()
         mock_template.render.return_value = "Extract prompt"
@@ -635,7 +627,8 @@ class TestExtractMCP:
         mock_get_tool_config.return_value = (
             mock_client,
             "notion",
-        )  # Returns (client, provider) tuple
+            None,
+        )  # Returns (client, provider, repository_context) tuple
 
         mock_template = Mock()
         mock_template.render.return_value = "Extract prompt"
@@ -707,10 +700,7 @@ class TestQueryMCP:
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
-        mock_client.connect = AsyncMock()
-        mock_client.disconnect = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[])
-        mock_get_client.return_value = (mock_client, "notion")
+        mock_get_client.return_value = (mock_client, "notion", None)
 
         mock_template = Mock()
         mock_template.render.return_value = "Default query prompt"
@@ -764,10 +754,7 @@ class TestQueryMCP:
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
-        mock_client.connect = AsyncMock()
-        mock_client.disconnect = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[])
-        mock_get_client.return_value = (mock_client, "notion")
+        mock_get_client.return_value = (mock_client, "notion", None)
 
         # Mock the agent class and instance
         mock_agent_class_impl = Mock()
@@ -808,10 +795,7 @@ class TestQueryMCP:
         mock_crud.get_user_by_id.return_value = Mock(spec=User)
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
-        mock_client.connect = AsyncMock()
-        mock_client.disconnect = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[])
-        mock_get_client.return_value = (mock_client, "notion")
+        mock_get_client.return_value = (mock_client, "notion", None)
 
         mock_template = Mock()
         mock_template.render.return_value = "Default query prompt"
@@ -860,10 +844,7 @@ class TestTestMCPAuthentication:
 
         mock_get_model.return_value = Mock(spec=BaseLLM)
         mock_client = Mock()
-        mock_client.connect = AsyncMock()
-        mock_client.disconnect = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[])
-        mock_get_client.return_value = (mock_client, "notion")
+        mock_get_client.return_value = (mock_client, "notion", None)
 
         mock_template = Mock()
         mock_template.render.return_value = "Auth test prompt"
@@ -958,13 +939,7 @@ class TestTestMCPAuthentication:
         user = Mock(spec=User)
 
         mock_get_model.return_value = Mock(spec=BaseLLM)
-
-        mock_client = Mock()
-        mock_client.connect = AsyncMock()
-        mock_client.disconnect = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[])
-        mock_get_client.return_value = (mock_client, "notion")
-
+        mock_get_client.return_value = (Mock(), "notion", None)
         mock_template = Mock()
         mock_template.render.return_value = "Auth test prompt"
         mock_jinja_env.get_template.return_value = mock_template

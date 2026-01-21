@@ -505,12 +505,12 @@
         {
             "type_name": "ToolProviderType",
             "type_value": "notion",
-            "description": "Notion workspace integration"
+            "description": "Notion integration"
         },
         {
             "type_name": "ToolProviderType",
             "type_value": "github",
-            "description": "GitHub repository integration"
+            "description": "GitHub integration"
         },
         {
             "type_name": "ToolProviderType",

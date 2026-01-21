@@ -236,7 +236,7 @@ export default function SourcesGrid({
         },
       },
       {
-        label: 'Import Source from MCP',
+        label: 'Import from MCP',
         icon: <CloudDownloadIcon />,
         variant: 'outlined' as const,
         onClick: () => {
