@@ -36,6 +36,7 @@ DEFAULT_MODELS = {
 DEFAULT_EMBEDDER_PROVIDER = "openai"
 DEFAULT_EMBEDDING_MODELS = {
     "openai": "text-embedding-3-small",
+    "gemini": "gemini-embedding-001",
 }
 
 
@@ -458,9 +459,19 @@ def _create_openai_embedder(
     return OpenAIEmbedder(model_name=model_name, api_key=api_key, dimensions=dimensions, **kwargs)
 
 
+def _create_gemini_embedder(
+    model_name: str, api_key: Optional[str], dimensions: Optional[int], **kwargs
+) -> BaseEmbedder:
+    """Factory function for GeminiEmbedder."""
+    from rhesis.sdk.models.providers.gemini import GeminiEmbedder
+
+    return GeminiEmbedder(model_name=model_name, api_key=api_key, dimensions=dimensions, **kwargs)
+
+
 # Embedder provider registry
 EMBEDDER_REGISTRY: Dict[str, Callable[..., BaseEmbedder]] = {
     "openai": _create_openai_embedder,
+    "gemini": _create_gemini_embedder,
 }
 
 
