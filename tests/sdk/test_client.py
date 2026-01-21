@@ -250,7 +250,7 @@ def test_disabled_client(monkeypatch):
     importlib.reload(rhesis.sdk.clients.rhesis)
 
     # Import after reload to get the fresh class definition
-    from rhesis.sdk.clients.rhesis import DisabledClient, RhesisClient
+    from rhesis.sdk.clients.rhesis import RhesisClient
 
     # Create client via from_environment() - should return DisabledClient
     client = RhesisClient.from_environment()
