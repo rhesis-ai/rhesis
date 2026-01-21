@@ -39,7 +39,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from typing_extensions import Annotated, TypedDict
 
-from rhesis.sdk import RhesisClient
+from rhesis.sdk.clients import RhesisClient
 from rhesis.sdk.telemetry import auto_instrument
 
 # Load environment variables
@@ -48,11 +48,7 @@ if env_path.exists():
     load_dotenv(env_path)
 
 # Initialize Rhesis client (sets up telemetry infrastructure)
-client = RhesisClient(
-    api_key=os.getenv("RHESIS_API_KEY"),
-    project_id=os.getenv("RHESIS_PROJECT_ID"),
-    environment="development",
-)
+client = RhesisClient.from_environment()
 
 # Enable LangGraph auto-instrumentation (also instruments LangChain)
 # This will automatically track all LLM calls, tokens, and costs
@@ -81,7 +77,7 @@ def researcher_node(state: State):
 
     research_prompt = f"""You are a research assistant. Based on this query:
     {state["messages"][-1].content}
-    
+
     Provide 3 key facts or insights about the topic."""
 
     response = llm.invoke(research_prompt)
@@ -97,7 +93,7 @@ def analyst_node(state: State):
 
     analysis_prompt = f"""You are an analyst. Review this research:
     {research}
-    
+
     Provide a brief analysis highlighting the most important point."""
 
     response = llm.invoke(analysis_prompt)
@@ -113,7 +109,7 @@ def summarizer_node(state: State):
 
     summary_prompt = f"""Based on this conversation:
     {context}
-    
+
     Provide a concise 2-sentence summary."""
 
     response = llm.invoke(summary_prompt)

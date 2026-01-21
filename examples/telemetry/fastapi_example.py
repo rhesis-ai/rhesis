@@ -17,7 +17,7 @@ Then test with:
     curl http://localhost:8000/chat -X POST -H "Content-Type: application/json" \\
       -d '{"input": "Hello!", "session_id": "test-123"}'
     curl http://localhost:8000/health
-    
+
 Or visit http://localhost:8000/docs for interactive API documentation.
 """
 
@@ -41,11 +41,7 @@ if env_path.exists():
 
 # Initialize Rhesis client to set up telemetry infrastructure
 # This must happen before defining any @observe decorated functions
-client = RhesisClient(
-    api_key=os.getenv("RHESIS_API_KEY", "demo-key"),
-    project_id=os.getenv("RHESIS_PROJECT_ID", "demo-project"),
-    environment="development",
-)
+client = RhesisClient.from_environment()
 
 
 # Request/Response models
