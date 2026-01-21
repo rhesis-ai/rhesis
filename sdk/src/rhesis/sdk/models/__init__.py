@@ -1,12 +1,12 @@
-from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.factory import get_model
-from rhesis.sdk.models.providers.gemini import GeminiLLM
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
+from rhesis.sdk.models.factory import get_embedder, get_model
+from rhesis.sdk.models.providers.gemini import GeminiEmbedder, GeminiLLM
 from rhesis.sdk.models.providers.litellm import LiteLLM
 from rhesis.sdk.models.providers.native import RhesisLLM
-from rhesis.sdk.models.providers.openai import OpenAILLM
+from rhesis.sdk.models.providers.openai import OpenAIEmbedder, OpenAILLM
 from rhesis.sdk.models.providers.openrouter import OpenRouterLLM
 from rhesis.sdk.models.providers.polyphemus import PolyphemusLLM
-from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
+from rhesis.sdk.models.providers.vertex_ai import VertexAIEmbedder, VertexAILLM
 
 try:
     from rhesis.sdk.models.providers.huggingface import HuggingFaceLLM
@@ -16,14 +16,19 @@ except ImportError:
     HUGGINGFACE_AVAILABLE = False
 
 __all__ = [
+    "BaseEmbedder",
     "BaseLLM",
-    "RhesisLLM",
-    "LiteLLM",
+    "GeminiEmbedder",
     "GeminiLLM",
-    "VertexAILLM",
+    "LiteLLM",
+    "OpenAIEmbedder",
     "OpenAILLM",
     "OpenRouterLLM",
     "PolyphemusLLM",
+    "RhesisLLM",
+    "VertexAIEmbedder",
+    "VertexAILLM",
+    "get_embedder",
     "get_model",
 ]
 

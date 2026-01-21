@@ -18,6 +18,7 @@ x-redis-config: &redis-config
 x-backend-config: &backend-config
   JWT_SECRET_KEY: your-jwt-secret-key
   LOG_LEVEL: DEBUG
+  RHESIS_CONNECTOR_DISABLE: true
  
 services:
   # PostgreSQL Database

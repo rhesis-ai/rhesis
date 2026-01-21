@@ -20,16 +20,18 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional, Set, Type, Union
+from typing import List, Optional, Set, Type, Union
 
 from pydantic import BaseModel
 
-from rhesis.sdk.models.providers.litellm import LiteLLM
+from rhesis.sdk.models.base import Embedding
+from rhesis.sdk.models.providers.litellm import LiteLLM, LiteLLMEmbedder
 
 # Track temp files created by this process for cleanup
 _temp_credential_files: Set[str] = set()
 
 DEFAULT_MODEL_NAME = "gemini-2.0-flash"
+DEFAULT_EMBEDDING_MODEL = "text-embedding-005"
 
 
 def _cleanup_temp_credentials():
@@ -49,68 +51,36 @@ def _cleanup_temp_credentials():
 atexit.register(_cleanup_temp_credentials)
 
 
-class VertexAILLM(LiteLLM):
-    PROVIDER = "vertex_ai"
+class VertexAICredentialsMixin:
+    """Mixin class providing Vertex AI credential handling.
 
-    def __init__(
+    This mixin contains shared credential loading and configuration logic
+    used by both VertexAILLM and VertexAIEmbedder.
+    """
+
+    _init_credentials: Optional[str]
+    _init_location: Optional[str]
+    _init_project: Optional[str]
+    _original_credentials_env: Optional[str]
+    _vertex_config: dict
+
+    def _init_vertex_credentials(
         self,
-        model_name: str = DEFAULT_MODEL_NAME,
         credentials: Optional[str] = None,
         location: Optional[str] = None,
         project: Optional[str] = None,
     ):
-        """
-        VertexAILLM: Google Vertex AI LLM Provider
-
-        This class provides an interface to Vertex AI models via LiteLLM
-        with regional deployment support and automatic credential detection.
+        """Initialize Vertex AI credential attributes.
 
         Args:
-            model_name (str): The name of the Vertex AI model to use (default: "gemini-2.0-flash").
-            credentials (Optional[str]): Service account credentials (auto-detected format)
-                - Base64-encoded JSON string (for K8s/production)
-                - Or file path to JSON file (standard for local development)
-                - If not provided, uses GOOGLE_APPLICATION_CREDENTIALS environment variable
-            location (Optional[str]): GCP region (e.g., "europe-west4" for Berlin)
-                - If not provided, uses VERTEX_AI_LOCATION environment variable
-            project (Optional[str]): GCP project ID (usually auto-extracted from credentials)
-                - Priority: init parameter > VERTEX_AI_PROJECT env var > credentials file
-                - If not provided, will be extracted from credentials file automatically
-
-        Environment Variables (used as fallback):
-            GOOGLE_APPLICATION_CREDENTIALS: Service account credentials
-            VERTEX_AI_LOCATION: GCP region
-            VERTEX_AI_PROJECT: (Optional) GCP project ID override
-
-        Raises:
-            ValueError: If credentials or configuration are not properly set.
-
-        Examples:
-            >>> # Using environment variables (recommended)
-            >>> llm = VertexAILLM(model_name="gemini-2.0-flash")
-            >>> result = llm.generate("Tell me a joke.")
-
-            >>> # Passing credentials directly (for Berlin/Europe)
-            >>> llm = VertexAILLM(
-            ...     model_name="gemini-2.0-flash",
-            ...     credentials="/path/to/service-account.json",
-            ...     location="europe-west4",  # Netherlands - best for Europe
-            ...     project="my-gcp-project"
-            ... )
-            >>> result = llm.generate("Tell me a joke.")
+            credentials: Service account credentials (base64 or file path)
+            location: GCP region
+            project: GCP project ID
         """
-        # Store initialization parameters
         self._init_credentials = credentials
         self._init_location = location
         self._init_project = project
-
-        # Store the original environment variable value at initialization time
-        # This prevents reading a modified value if another instance changes it
         self._original_credentials_env = credentials or os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-
-        # Initialize parent LiteLLM with vertex_ai prefix
-        # Don't pass api_key as Vertex AI uses credentials
-        super().__init__(f"{self.PROVIDER}/{model_name}", api_key=None)
 
     def _load_credentials_from_base64(self, credentials: str) -> dict:
         """
@@ -238,26 +208,20 @@ class VertexAILLM(LiteLLM):
             f"{credentials}"
         )
 
-    def load_model(self) -> dict:
+    def _load_vertex_config(self) -> dict:
         """
         Load Vertex AI configuration from initialization parameters or environment variables.
-
-        Note: This method is named 'load_model' to comply with the BaseLLM abstract interface,
-        but for Vertex AI (a remote API), we're loading configuration rather than a model.
-        The returned config is stored in self.model and used throughout the provider.
 
         Priority: init parameters > environment variables
         Automatically detects if credentials are base64-encoded or a file path.
 
         Returns:
             dict: Configuration containing project, location, and credentials_path
-                This dict is stored in self.model and accessed by generate() and other methods.
 
         Raises:
             ValueError: If configuration is incomplete or invalid
         """
         # Step 1: Get credentials from the value captured at initialization
-        # Use the value we captured in __init__ to avoid race conditions
         google_credentials = self._original_credentials_env
         if not google_credentials:
             raise ValueError(
@@ -268,21 +232,16 @@ class VertexAILLM(LiteLLM):
             )
 
         # Step 2: Load credentials (auto-detect format and normalize to file path)
-        # This also extracts project_id from the credentials file
         config = self._load_credentials(google_credentials)
 
         # Step 3: Get location (init parameter takes priority)
         config["location"] = self._get_location()
 
         # Step 4: Set project with priority order
-        # Priority: init parameter > env variable > credentials file (already in config)
         if self._init_project:
-            # Override with init parameter
             config["project"] = self._init_project
         elif os.getenv("VERTEX_AI_PROJECT"):
-            # Override with environment variable
             config["project"] = os.getenv("VERTEX_AI_PROJECT")
-        # Else: keep project from credentials file (already set in config from step 2)
 
         # Verify we have a project from at least one source
         if not config.get("project"):
@@ -294,6 +253,100 @@ class VertexAILLM(LiteLLM):
             )
 
         return config
+
+    def _ensure_credentials_file(self) -> str:
+        """Ensure credentials file exists, recreating if necessary.
+
+        Returns:
+            str: Path to the credentials file
+
+        Raises:
+            ValueError: If credentials file cannot be found or recreated
+        """
+        credentials_path = self._vertex_config["credentials_path"]
+        if not os.path.exists(credentials_path):
+            if hasattr(self, "_original_credentials_env") and self._original_credentials_env:
+                try:
+                    config = self._load_credentials(self._original_credentials_env)
+                    credentials_path = config["credentials_path"]
+                    self._vertex_config["credentials_path"] = credentials_path
+                except Exception as e:
+                    raise ValueError(f"Credentials file missing and could not be recreated: {e}")
+            else:
+                raise ValueError(f"Credentials file not found: {credentials_path}")
+        return credentials_path
+
+
+class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
+    PROVIDER = "vertex_ai"
+
+    def __init__(
+        self,
+        model_name: str = DEFAULT_MODEL_NAME,
+        credentials: Optional[str] = None,
+        location: Optional[str] = None,
+        project: Optional[str] = None,
+    ):
+        """
+        VertexAILLM: Google Vertex AI LLM Provider
+
+        This class provides an interface to Vertex AI models via LiteLLM
+        with regional deployment support and automatic credential detection.
+
+        Args:
+            model_name (str): The name of the Vertex AI model to use (default: "gemini-2.0-flash").
+            credentials (Optional[str]): Service account credentials (auto-detected format)
+                - Base64-encoded JSON string (for K8s/production)
+                - Or file path to JSON file (standard for local development)
+                - If not provided, uses GOOGLE_APPLICATION_CREDENTIALS environment variable
+            location (Optional[str]): GCP region (e.g., "europe-west4" for Berlin)
+                - If not provided, uses VERTEX_AI_LOCATION environment variable
+            project (Optional[str]): GCP project ID (usually auto-extracted from credentials)
+                - Priority: init parameter > VERTEX_AI_PROJECT env var > credentials file
+                - If not provided, will be extracted from credentials file automatically
+
+        Environment Variables (used as fallback):
+            GOOGLE_APPLICATION_CREDENTIALS: Service account credentials
+            VERTEX_AI_LOCATION: GCP region
+            VERTEX_AI_PROJECT: (Optional) GCP project ID override
+
+        Raises:
+            ValueError: If credentials or configuration are not properly set.
+
+        Examples:
+            >>> # Using environment variables (recommended)
+            >>> llm = VertexAILLM(model_name="gemini-2.0-flash")
+            >>> result = llm.generate("Tell me a joke.")
+
+            >>> # Passing credentials directly (for Berlin/Europe)
+            >>> llm = VertexAILLM(
+            ...     model_name="gemini-2.0-flash",
+            ...     credentials="/path/to/service-account.json",
+            ...     location="europe-west4",  # Netherlands - best for Europe
+            ...     project="my-gcp-project"
+            ... )
+            >>> result = llm.generate("Tell me a joke.")
+        """
+        # Initialize credential handling from mixin
+        self._init_vertex_credentials(credentials, location, project)
+
+        # Initialize parent LiteLLM with vertex_ai prefix
+        # Don't pass api_key as Vertex AI uses credentials
+        super().__init__(f"{self.PROVIDER}/{model_name}", api_key=None)
+
+    def load_model(self) -> dict:
+        """
+        Load Vertex AI configuration from initialization parameters or environment variables.
+
+        Note: This method is named 'load_model' to comply with the BaseLLM abstract interface,
+        but for Vertex AI (a remote API), we're loading configuration rather than a model.
+        The returned config is stored in self.model and used throughout the provider.
+
+        Returns:
+            dict: Configuration containing project, location, and credentials_path
+        """
+        self._vertex_config = self._load_vertex_config()
+        return self._vertex_config
 
     def generate(
         self,
@@ -322,21 +375,8 @@ class VertexAILLM(LiteLLM):
         kwargs["vertex_ai_project"] = self.model["project"]
         kwargs["vertex_ai_location"] = self.model["location"]
 
-        # Ensure credentials file exists before setting environment variable
-        credentials_path = self.model["credentials_path"]
-        if not os.path.exists(credentials_path):
-            # If temp file was deleted, try to recreate it from original credentials
-            if hasattr(self, "_original_credentials_env") and self._original_credentials_env:
-                try:
-                    # Try to recreate from base64 if it was originally base64
-                    config = self._load_credentials(self._original_credentials_env)
-                    credentials_path = config["credentials_path"]
-                    # Update model config with new path
-                    self.model["credentials_path"] = credentials_path
-                except Exception as e:
-                    raise ValueError(f"Credentials file missing and could not be recreated: {e}")
-            else:
-                raise ValueError(f"Credentials file not found: {credentials_path}")
+        # Ensure credentials file exists
+        credentials_path = self._ensure_credentials_file()
 
         # Set credentials via environment variable for LiteLLM
         original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
@@ -346,6 +386,59 @@ class VertexAILLM(LiteLLM):
             # Call parent generate method
             return super().generate(
                 prompt=prompt, system_prompt=system_prompt, schema=schema, *args, **kwargs
+            )
+        finally:
+            # Restore original credentials environment variable
+            if original_credentials:
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_credentials
+            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+
+    def generate_batch(
+        self,
+        prompts: List[str],
+        system_prompt: Optional[str] = None,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
+        n: int = 1,
+        *args,
+        **kwargs,
+    ) -> List[Union[str, dict]]:
+        """
+        Generate batch content using Vertex AI.
+
+        This method overrides the parent to inject Vertex AI-specific parameters.
+
+        Args:
+            prompts: List of user prompts
+            system_prompt: Optional system prompt (applied to all prompts)
+            schema: Optional Pydantic schema for structured output
+            n: Number of completions to generate per prompt
+            *args: Additional positional arguments
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            List of generated text or dicts (if schema provided)
+        """
+        # Inject Vertex AI-specific parameters
+        kwargs["vertex_ai_project"] = self.model["project"]
+        kwargs["vertex_ai_location"] = self.model["location"]
+
+        # Ensure credentials file exists
+        credentials_path = self._ensure_credentials_file()
+
+        # Set credentials via environment variable for LiteLLM
+        original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+
+        try:
+            # Call parent generate_batch method
+            return super().generate_batch(
+                prompts=prompts,
+                system_prompt=system_prompt,
+                schema=schema,
+                n=n,
+                *args,
+                **kwargs,
             )
         finally:
             # Restore original credentials environment variable
@@ -380,4 +473,137 @@ class VertexAILLM(LiteLLM):
             if self._original_credentials_env and not os.path.isfile(self._original_credentials_env)
             else "file",
             "credentials_path": self.model["credentials_path"],
+        }
+
+
+class VertexAIEmbedder(VertexAICredentialsMixin, LiteLLMEmbedder):
+    """Vertex AI embedder using Google's text-embedding models.
+
+    This class provides an interface for generating embeddings using Vertex AI
+    with regional deployment support and automatic credential detection.
+
+    Args:
+        model_name: The embedding model name (default: "text-embedding-005").
+        credentials: Service account credentials (auto-detected format)
+            - Base64-encoded JSON string (for K8s/production)
+            - Or file path to JSON file (standard for local development)
+            - If not provided, uses GOOGLE_APPLICATION_CREDENTIALS environment variable
+        location: GCP region (e.g., "europe-west4")
+            - If not provided, uses VERTEX_AI_LOCATION environment variable
+        project: GCP project ID (usually auto-extracted from credentials)
+            - Priority: init parameter > VERTEX_AI_PROJECT env var > credentials file
+        dimensions: Optional embedding dimensions (supported by text-embedding-005).
+
+    Environment Variables (used as fallback):
+        GOOGLE_APPLICATION_CREDENTIALS: Service account credentials
+        VERTEX_AI_LOCATION: GCP region
+        VERTEX_AI_PROJECT: (Optional) GCP project ID override
+
+    Usage:
+        >>> embedder = VertexAIEmbedder()
+        >>> embedding = embedder.generate("Hello, world!")
+        >>> embeddings = embedder.generate_batch(["Hello", "World"])
+    """
+
+    PROVIDER = "vertex_ai"
+
+    def __init__(
+        self,
+        model_name: str = DEFAULT_EMBEDDING_MODEL,
+        credentials: Optional[str] = None,
+        location: Optional[str] = None,
+        project: Optional[str] = None,
+        dimensions: Optional[int] = None,
+    ):
+        # Initialize credential handling from mixin
+        self._init_vertex_credentials(credentials, location, project)
+
+        # Load Vertex AI configuration
+        self._vertex_config = self._load_vertex_config()
+
+        # Initialize parent LiteLLMEmbedder with vertex_ai prefix
+        # Don't pass api_key as Vertex AI uses credentials
+        super().__init__(
+            model_name=f"{self.PROVIDER}/{model_name}",
+            api_key=None,
+            dimensions=dimensions,
+        )
+
+    def _with_vertex_credentials(self, func, *args, **kwargs):
+        """Execute a function with Vertex AI credentials set in environment.
+
+        Args:
+            func: Function to execute
+            *args: Positional arguments for the function
+            **kwargs: Keyword arguments for the function
+
+        Returns:
+            Result from the function
+        """
+        # Inject Vertex AI-specific parameters
+        kwargs["vertex_project"] = self._vertex_config["project"]
+        kwargs["vertex_location"] = self._vertex_config["location"]
+
+        # Ensure credentials file exists
+        credentials_path = self._ensure_credentials_file()
+
+        # Set credentials via environment variable for LiteLLM
+        original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+
+        try:
+            return func(*args, **kwargs)
+        finally:
+            # Restore original credentials environment variable
+            if original_credentials:
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_credentials
+            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+
+    def generate(self, text: str, **kwargs) -> Embedding:
+        """Generate embedding for a single text using Vertex AI.
+
+        Args:
+            text: The input text to embed.
+            **kwargs: Additional parameters passed to litellm.embedding().
+
+        Returns:
+            A list of floats representing the embedding vector.
+
+        Raises:
+            TypeError: If text is not a string.
+        """
+        return self._with_vertex_credentials(super().generate, text, **kwargs)
+
+    def generate_batch(self, texts: List[str], **kwargs) -> List[Embedding]:
+        """Generate embeddings for multiple texts using Vertex AI.
+
+        Args:
+            texts: List of input texts to embed.
+            **kwargs: Additional parameters passed to litellm.embedding().
+
+        Returns:
+            A list of embedding vectors, one for each input text.
+
+        Raises:
+            TypeError: If texts is not a list or contains non-string elements.
+        """
+        return self._with_vertex_credentials(super().generate_batch, texts, **kwargs)
+
+    def get_config_info(self) -> dict:
+        """
+        Get current Vertex AI configuration (useful for debugging).
+
+        Returns:
+            dict: Configuration details including project, location, and credentials source
+        """
+        return {
+            "provider": self.PROVIDER,
+            "model": self.model_name,
+            "project": self._vertex_config["project"],
+            "location": self._vertex_config["location"],
+            "credentials_source": "base64"
+            if self._original_credentials_env and not os.path.isfile(self._original_credentials_env)
+            else "file",
+            "credentials_path": self._vertex_config["credentials_path"],
         }

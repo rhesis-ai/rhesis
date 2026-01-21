@@ -1,3 +1,5 @@
+from typing import List
+
 import pytest
 
 from rhesis.sdk.models.base import BaseLLM
@@ -29,6 +31,9 @@ def test_base_llm_concrete_methods():
             return "test-model-object"
 
         def generate(self, *args, **kwargs) -> str:
+            return "test-response"
+
+        def generate_batch(self, *args, **kwargs) -> List[str]:
             return "test-response"
 
     model_name = "test-model"

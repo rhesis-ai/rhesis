@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import re
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 import requests
 from pydantic import BaseModel
@@ -133,6 +133,17 @@ class PolyphemusLLM(BaseLLM):
                 return {"error": "An error occurred while processing the request."}
 
             return "An error occurred while processing the request."
+
+    def generate_batch(
+        self,
+        prompts: List[str],
+        system_prompt: Optional[str] = None,
+        schema: Optional[Type[BaseModel]] = None,
+        include_reasoning: bool = False,
+        **kwargs: Any,
+    ) -> List[Any]:
+        """Batch processing is not implemented for PolyphemusLLM."""
+        raise NotImplementedError("generate_batch is not implemented for PolyphemusLLM")
 
     def _strip_reasoning_tokens(self, content: str) -> str:
         """

@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import requests
 from pydantic import BaseModel
@@ -102,6 +102,16 @@ class RhesisLLM(BaseLLM):
                 return {"error": "An error occurred while processing the request."}
 
             return "An error occurred while processing the request."
+
+    def generate_batch(
+        self,
+        prompts: List[str],
+        system_prompt: Optional[str] = None,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
+        **kwargs: Any,
+    ) -> List[Any]:
+        """Batch processing is not implemented for RhesisLLM."""
+        raise NotImplementedError("generate_batch is not implemented for RhesisLLM")
 
     def create_completion(
         self,
