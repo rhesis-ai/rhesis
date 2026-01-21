@@ -2,7 +2,7 @@ from typing import Any, Generic, Optional, Type, TypeVar
 
 from requests.exceptions import HTTPError
 
-from rhesis.sdk.client import Client, Endpoints, HTTPStatus, Methods
+from rhesis.sdk.client import Endpoints, HTTPStatus, Methods, _APIClient
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 
 T = TypeVar("T", bound=BaseEntity)
@@ -29,7 +29,7 @@ class BaseCollection(Generic[T]):
         Returns:
             List of records matching the filter, or all records if no filter is provided
         """
-        client = Client()
+        client = _APIClient()
 
         params = {"$filter": filter} if filter else None
         response = client.send_request(
@@ -50,7 +50,7 @@ class BaseCollection(Generic[T]):
         Returns:
             The first record, or None if no records found
         """
-        client = Client()
+        client = _APIClient()
 
         response = client.send_request(
             endpoint=cls.endpoint,
@@ -82,7 +82,7 @@ class BaseCollection(Generic[T]):
         if not id and not name:
             raise ValueError("Either id or name must be provided")
 
-        client = Client()
+        client = _APIClient()
 
         if id:
             response = client.send_request(
@@ -123,7 +123,7 @@ class BaseCollection(Generic[T]):
     @classmethod
     def exists(cls, id: str) -> bool:
         """Check if an entity exists."""
-        client = Client()
+        client = _APIClient()
         try:
             response = client.send_request(
                 endpoint=cls.endpoint,

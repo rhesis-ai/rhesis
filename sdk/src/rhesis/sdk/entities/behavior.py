@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Dict, Optional
 
-from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.client import Endpoints, Methods, _APIClient
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 
@@ -29,7 +29,7 @@ class Behavior(BaseEntity):
         if self.id is None:
             raise ValueError("Behavior ID is required")
 
-        client = Client()
+        client = _APIClient()
 
         response = client.send_request(
             endpoint=self.endpoint,
@@ -57,7 +57,7 @@ class Behavior(BaseEntity):
         if self.id is None:
             raise ValueError("Behavior ID is required")
 
-        client = Client()
+        client = _APIClient()
 
         response = client.send_request(
             endpoint=self.endpoint,
@@ -85,7 +85,7 @@ class Behavior(BaseEntity):
         if self.id is None:
             raise ValueError("Behavior ID is required")
 
-        client = Client()
+        client = _APIClient()
 
         response = client.send_request(
             endpoint=self.endpoint,

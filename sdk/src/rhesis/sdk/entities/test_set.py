@@ -5,7 +5,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Union
 from jinja2 import Template
 from pydantic import BaseModel, field_validator
 
-from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.client import Endpoints, Methods, _APIClient
 from rhesis.sdk.entities import BaseEntity, Endpoint
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import handle_http_errors
@@ -70,7 +70,7 @@ class TestSet(BaseEntity):
         if not self.id:
             raise ValueError("Test set ID must be set before executing")
 
-        client = Client()
+        client = _APIClient()
         response = client.send_request(
             endpoint=self.endpoint,
             method=Methods.POST,
@@ -149,7 +149,7 @@ class TestSet(BaseEntity):
         if not data.get("tests"):
             raise ValueError("Test set must have at least one test before creating")
 
-        client = Client()
+        client = _APIClient()
         response = client.send_request(
             endpoint=cls.endpoint,
             method=Methods.POST,

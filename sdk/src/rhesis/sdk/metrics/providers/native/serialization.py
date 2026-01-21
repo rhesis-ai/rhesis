@@ -12,7 +12,7 @@ import inspect
 from dataclasses import asdict
 from typing import Any, Dict, Optional, TypeVar
 
-from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.client import Endpoints, Methods, _APIClient
 from rhesis.sdk.metrics.base import MetricConfig
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config, sdk_config_to_backend_config
 
@@ -102,7 +102,7 @@ class BackendSyncMixin:
         Raises:
             Exception: If push fails
         """
-        client = Client()
+        client = _APIClient()
         config = asdict(self.to_config())
         config = sdk_config_to_backend_config(config)
 
@@ -132,7 +132,7 @@ class BackendSyncMixin:
         if not name and not nano_id:
             raise ValueError("Either name or nano_id must be provided")
 
-        client = Client()
+        client = _APIClient()
 
         # Build filter based on provided parameter
         filter_field = "nano_id" if nano_id else "name"

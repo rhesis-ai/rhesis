@@ -132,7 +132,7 @@ class TestMetricWithScope:
 class TestMetricScopePushPull:
     """Tests for push/pull operations with metric scope."""
 
-    @patch("rhesis.sdk.metrics.providers.native.serialization.Client")
+    @patch("rhesis.sdk.metrics.providers.native.serialization._APIClient")
     def test_push_metric_with_scope(self, mock_client_class):
         """Test pushing a metric with metric_scope."""
         mock_client = Mock()
@@ -162,7 +162,7 @@ class TestMetricScopePushPull:
             # Verify metric_scope was converted to strings
             assert sent_config["metric_scope"] == ["Single-Turn", "Multi-Turn"]
 
-    @patch("rhesis.sdk.metrics.providers.native.serialization.Client")
+    @patch("rhesis.sdk.metrics.providers.native.serialization._APIClient")
     def test_pull_metric_with_scope(self, mock_client_class):
         """Test pulling a metric with metric_scope."""
         mock_client = Mock()
