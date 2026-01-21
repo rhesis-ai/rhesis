@@ -1,7 +1,7 @@
 import gc
 import json
 import time
-from typing import Optional, Type
+from typing import Any, List, Optional, Type
 
 try:
     import torch
@@ -342,3 +342,13 @@ class HuggingFaceLLM(BaseLLM):
             return response_dict
 
         return completion
+
+    def generate_batch(
+        self,
+        prompts: List[str],
+        system_prompt: Optional[str] = None,
+        schema: Optional[Type[BaseModel]] = None,
+        **kwargs: Any,
+    ) -> List[Any]:
+        """Batch processing is not implemented for HuggingFaceLLM."""
+        raise NotImplementedError("generate_batch is not implemented for HuggingFaceLLM")

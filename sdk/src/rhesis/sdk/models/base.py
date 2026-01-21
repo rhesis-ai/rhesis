@@ -35,7 +35,7 @@ class BaseLLM(ABC):
 
     @abstractmethod
     def generate_batch(self, *args, **kwargs) -> List[Union[str, Dict[str, Any]]]:
-        """Runs the model on multiple prompts to output LLM responses.
+        """Run model on multiple prompts to output LLM responses.
 
         Returns:
             A list of strings or dicts (if schema provided).
