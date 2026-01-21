@@ -13,6 +13,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import UnmappedClassError
 
 from rhesis.backend.app import models
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -45,10 +46,15 @@ def get_all_models() -> Dict[str, type]:
 
     # Get all subclasses of Base (all models)
     for mapper in Base.registry.mappers:
-        model_class = mapper.class_
-        # Use the table name as the key (already lowercase)
-        table_name = model_class.__tablename__
-        model_map[table_name] = model_class
+        try:
+            model_class = mapper.class_
+            # Use the table name as the key (already lowercase)
+            table_name = model_class.__tablename__
+            model_map[table_name] = model_class
+        except UnmappedClassError:
+            # Skip models that haven't been fully mapped yet
+            logger.debug(f"Skipping unmapped model class in registry: {mapper.class_}")
+            continue
 
     return model_map
 
