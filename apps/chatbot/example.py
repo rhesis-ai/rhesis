@@ -19,11 +19,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 # Initialize Rhesis Client for collaborative testing
-rhesis_client = RhesisClient(
-    api_key=os.getenv("RHESIS_API_KEY"),
-    project_id=os.getenv("RHESIS_PROJECT_ID"),
-    environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
-)
+rhesis_client = RhesisClient.from_environment()
 
 # Retry configuration
 MAX_RETRIES = 3
@@ -131,7 +127,7 @@ class ResponseGenerator:
                 fragments for user questions.
                 For the given user query, generate 3-5 short, relevant context
                 fragments that would be helpful for answering the question.
-                
+
                 IMPORTANT: You MUST respond with ONLY a valid JSON object that
                 has a "fragments" key containing an array of strings.
                 Example format:
@@ -142,7 +138,7 @@ class ResponseGenerator:
                         "Context fragment 3"
                     ]
                 }
-                
+
                 Do not include any explanations, markdown formatting, or
                 additional text outside of the JSON object.
                 """
