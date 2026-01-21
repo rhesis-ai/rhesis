@@ -11,7 +11,7 @@ dependencies = [
 [project.optional-dependencies]
 langchain = [
     "langchain>=1.0.0",
-    "langchain-core>=1.0.0",
+    "langchain-core>=1.2.5",
     "langchain-google-genai>=2.0.0",
 ]
 fastapi = [
@@ -21,7 +21,7 @@ fastapi = [
 langgraph = [
     "langgraph>=0.0.26",
     "langchain>=0.1.0",
-    "langchain-core>=0.1.0",
+    "langchain-core>=1.2.5",
 ]
 
 [tool.uv.sources]

@@ -70,13 +70,13 @@ huggingface = [
 # Framework integrations for auto-instrumentation
 langchain = [
     "langchain>=0.1.0",
-    "langchain-core>=0.1.0",
+    "langchain-core>=1.2.5",
 ]
 
 langgraph = [
     "langgraph>=0.0.26",
     "langchain>=0.1.0",
-    "langchain-core>=0.1.0",
+    "langchain-core>=1.2.5",
 ]
 
 autogen = [
@@ -85,7 +85,7 @@ autogen = [
 
 all-integrations = [
     "langchain>=0.1.0",
-    "langchain-core>=0.1.0",
+    "langchain-core>=1.2.5",
     "langgraph>=0.0.26",
     "pyautogen>=0.2.0",
 ]
@@ -96,7 +96,7 @@ all = [
     "accelerate>=1.2.0",
     "bitsandbytes>=0.45.0",
     "langchain>=0.1.0",
-    "langchain-core>=0.1.0",
+    "langchain-core>=1.2.5",
     "langgraph>=0.0.26",
     "pyautogen>=0.2.0",
 ]
