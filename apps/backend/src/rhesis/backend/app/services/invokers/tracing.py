@@ -153,6 +153,10 @@ async def create_invocation_trace(
         result = trace_context.get("result")
         error = trace_context.get("error")
 
+        # Normalize result to dict if it's a Pydantic model
+        if result and hasattr(result, "model_dump"):
+            result = result.model_dump(exclude_none=True)
+
         # Add result metadata to attributes
         if result:
             attributes[EndpointAttributes.RESPONSE_STATUS] = result.get("status", "unknown")
