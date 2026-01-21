@@ -14,7 +14,7 @@ from rhesis.sdk.connector.schemas import (
     TestResultMessage,
     TestStatus,
 )
-from rhesis.sdk.connector.types import Environment, MessageType, RetryConfig
+from rhesis.sdk.connector.types import ConnectionState, Environment, MessageType, RetryConfig
 from rhesis.sdk.telemetry import Tracer
 
 logger = logging.getLogger(__name__)
@@ -91,10 +91,30 @@ class ConnectorManager:
             on_connect=self._handle_connect,
         )
 
-        # Start connection in background
-        asyncio.create_task(self._connection.connect())
+        # Start connection in background only if there's a running event loop
+        try:
+            asyncio.get_running_loop()
+            asyncio.create_task(self._connection.connect())
+        except RuntimeError:
+            # No event loop running (e.g., during module import)
+            # Connection will be established later when needed
+            logger.debug("No event loop running, connection will be established later")
+
         self._initialized = True
         logger.info(f"Connector initialized for project {self.project_id}")
+
+    def _ensure_connection(self) -> None:
+        """Ensure WebSocket connection is started (if not already)."""
+        if not self._initialized:
+            return
+
+        # Check if connection exists but isn't started
+        if self._connection and self._connection.state == ConnectionState.DISCONNECTED:
+            try:
+                asyncio.create_task(self._connection.connect())
+            except RuntimeError:
+                # No event loop, connection will start when available
+                pass
 
     def register_function(self, name: str, func: Callable, metadata: dict[str, Any]) -> None:
         """
@@ -112,7 +132,11 @@ class ConnectorManager:
 
         # If connection is active, send updated registration
         if self._connection and self._connection.websocket:
-            asyncio.create_task(self._send_registration())
+            try:
+                asyncio.create_task(self._send_registration())
+            except RuntimeError:
+                # No event loop running, registration will be sent when connection is established
+                logger.debug("No event loop running, registration will be sent on connection")
 
     async def _handle_connect(self) -> None:
         """Handle successful connection/reconnection - send registration."""
