@@ -36,6 +36,7 @@ class Endpoints(Enum):
     METRICS = "metrics"
     HEALTH = "health"
     CATEGORIES = "categories"
+    MODELS = "models"
     PROJECTS = "projects"
     STATUSES = "statuses"
     TEST_SETS = "test_sets"
@@ -46,12 +47,15 @@ class Endpoints(Enum):
     TEST_RESULTS = "test_results"
     TEST_RUNS = "test_runs"
     TEST_CONFIGURATIONS = "test_configurations"
+    TYPE_LOOKUPS = "type_lookups"
+    USERS = "users"
 
 
 class Methods(Enum):
     GET = "GET"
     POST = "POST"
     PUT = "PUT"
+    PATCH = "PATCH"
     DELETE = "DELETE"
 
 

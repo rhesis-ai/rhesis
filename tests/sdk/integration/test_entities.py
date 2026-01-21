@@ -425,3 +425,215 @@ def test_test_run_delete(db_cleanup):
 
     with pytest.raises(HTTPError):
         test_run.pull()
+
+
+# ============================================================================
+# Model Tests
+# ============================================================================
+
+
+def test_model(db_cleanup):
+    """Test creating a model with API key."""
+    from rhesis.sdk.entities.model import Model
+
+    model = Model(
+        name="Test OpenAI Model",
+        description="Test model for integration tests",
+        provider="openai",
+        model_name="gpt-4",
+        key="sk-test-api-key-12345",
+    )
+
+    result = model.push()
+
+    assert result["id"] is not None
+    assert result["name"] == "Test OpenAI Model"
+    assert result["description"] == "Test model for integration tests"
+    assert result["model_name"] == "gpt-4"
+
+
+def test_model_push_pull(db_cleanup):
+    """Test creating and retrieving a model."""
+    from rhesis.sdk.entities.model import Model
+
+    model = Model(
+        name="Test push pull model",
+        description="Test push pull model description",
+        provider="anthropic",
+        model_name="claude-3-sonnet-20240229",
+        key="sk-ant-test-key-67890",
+    )
+    model.push()
+
+    pulled_model = model.pull()
+
+    assert pulled_model.name == "Test push pull model"
+    assert pulled_model.description == "Test push pull model description"
+    assert pulled_model.model_name == "claude-3-sonnet-20240229"
+
+
+def test_model_delete(db_cleanup):
+    """Test deleting a model."""
+    from rhesis.sdk.entities.model import Model
+
+    model = Model(
+        name="Test model to delete",
+        description="Test model to delete description",
+        provider="openai",
+        model_name="gpt-3.5-turbo",
+        key="sk-delete-test-key",
+    )
+
+    model.push()
+    model.delete()
+
+    with pytest.raises(HTTPError):
+        model.pull()
+
+
+def test_model_update(db_cleanup):
+    """Test updating a model."""
+    from rhesis.sdk.entities.model import Model
+
+    model = Model(
+        name="Test model to update",
+        description="Original description",
+        provider="openai",
+        model_name="gpt-4",
+        key="sk-original-key",
+    )
+    model.push()
+
+    # Update the model
+    model.name = "Updated model name"
+    model.description = "Updated description"
+    model.model_name = "gpt-4-turbo"
+    result = model.push()
+
+    assert result["name"] == "Updated model name"
+    assert result["description"] == "Updated description"
+    assert result["model_name"] == "gpt-4-turbo"
+
+
+def test_model_with_different_providers(db_cleanup):
+    """Test creating models with different providers."""
+    from rhesis.sdk.entities.model import Model
+
+    providers_and_models = [
+        ("openai", "gpt-4", "sk-openai-test"),
+        ("anthropic", "claude-3-opus-20240229", "sk-ant-test"),
+        ("gemini", "gemini-pro", "AIza-test-key"),
+    ]
+
+    for provider, model_name, api_key in providers_and_models:
+        model = Model(
+            name=f"Test {provider.title()} Model",
+            provider=provider,
+            model_name=model_name,
+            key=api_key,
+        )
+
+        result = model.push()
+
+        assert result["id"] is not None
+        assert result["model_name"] == model_name
+
+
+def test_model_set_default_generation(db_cleanup):
+    """Test setting a model as default for generation."""
+    from rhesis.sdk.entities.model import Model
+
+    model = Model(
+        name="Default Generation Model",
+        description="Model for test generation",
+        provider="openai",
+        model_name="gpt-4",
+        key="sk-gen-default-key",
+    )
+    model.push()
+
+    # Should not raise an exception
+    model.set_default_generation()
+
+    # Verify by checking model has an ID (was saved)
+    assert model.id is not None
+
+
+def test_model_set_default_evaluation(db_cleanup):
+    """Test setting a model as default for evaluation."""
+    from rhesis.sdk.entities.model import Model
+
+    model = Model(
+        name="Default Evaluation Model",
+        description="Model for LLM-as-judge evaluation",
+        provider="anthropic",
+        model_name="claude-3-sonnet-20240229",
+        key="sk-eval-default-key",
+    )
+    model.push()
+
+    # Should not raise an exception
+    model.set_default_evaluation()
+
+    # Verify by checking model has an ID (was saved)
+    assert model.id is not None
+
+
+def test_model_set_default_without_push_raises_error(db_cleanup):
+    """Test that setting default without pushing first raises an error."""
+    from rhesis.sdk.entities.model import Model
+
+    model = Model(
+        name="Unsaved Model",
+        provider="openai",
+        model_name="gpt-4",
+        key="sk-unsaved-key",
+    )
+
+    # Should raise ValueError because model hasn't been pushed
+    with pytest.raises(ValueError, match="Model must be saved"):
+        model.set_default_generation()
+
+    with pytest.raises(ValueError, match="Model must be saved"):
+        model.set_default_evaluation()
+
+
+def test_models_collection_all(db_cleanup):
+    """Test listing all models via collection."""
+    from rhesis.sdk.entities.model import Model, Models
+
+    # Create a few models
+    for i in range(3):
+        model = Model(
+            name=f"Collection Test Model {i}",
+            provider="openai",
+            model_name=f"gpt-4-test-{i}",
+            key=f"sk-collection-test-{i}",
+        )
+        model.push()
+
+    # Get all models
+    all_models = Models.all()
+
+    # Should have at least 3 models (might have more from other tests)
+    assert len(all_models) >= 3
+
+
+def test_models_collection_pull_by_name(db_cleanup):
+    """Test pulling a model by name via collection."""
+    from rhesis.sdk.entities.model import Model, Models
+
+    unique_name = "Unique Model Name For Pull Test"
+    model = Model(
+        name=unique_name,
+        provider="openai",
+        model_name="gpt-4",
+        key="sk-pull-by-name-test",
+    )
+    model.push()
+
+    # Pull by name
+    pulled_model = Models.pull(name=unique_name)
+
+    assert pulled_model.name == unique_name
+    assert pulled_model.model_name == "gpt-4"

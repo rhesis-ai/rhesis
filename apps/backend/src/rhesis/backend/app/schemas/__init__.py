@@ -13,7 +13,7 @@ from .endpoint import (
     EndpointUpdate,
 )
 from .metric import Metric, MetricBase, MetricCreate, MetricDetail, MetricUpdate, ScoreType
-from .model import Model, ModelBase, ModelCreate, ModelUpdate
+from .model import Model, ModelBase, ModelCreate, ModelRead, ModelUpdate
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
 from .project import Project, ProjectBase, ProjectCreate, ProjectUpdate
 from .prompt import Prompt, PromptBase, PromptCreate, PromptUpdate, PromptView
@@ -153,6 +153,7 @@ __all__ = [
     "Model",
     "ModelBase",
     "ModelCreate",
+    "ModelRead",
     "ModelUpdate",
     "PromptTemplate",
     "PromptTemplateBase",
