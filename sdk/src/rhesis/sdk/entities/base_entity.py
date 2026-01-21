@@ -6,7 +6,7 @@ from typing import Any, Callable, ClassVar, Dict, Optional, TypeVar
 import requests
 from pydantic import BaseModel, ConfigDict
 
-from rhesis.sdk.client import Client, Endpoints, HTTPStatus, Methods
+from rhesis.sdk.clients import APIClient, Endpoints, HTTPStatus, Methods
 
 T = TypeVar("T")
 
@@ -64,7 +64,7 @@ class BaseEntity(BaseModel):
     @classmethod
     def _delete(cls, id: str) -> bool:
         """Delete the entity from the database."""
-        client = Client()
+        client = APIClient()
         try:
             client.send_request(
                 endpoint=cls.endpoint,
@@ -81,7 +81,7 @@ class BaseEntity(BaseModel):
     @classmethod
     def _update(cls, id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """Push the entity to the database."""
-        client = Client()
+        client = APIClient()
         response = client.send_request(
             endpoint=cls.endpoint,
             method=Methods.PUT,
@@ -92,7 +92,7 @@ class BaseEntity(BaseModel):
 
     @classmethod
     def _create(cls, data: Dict[str, Any]) -> Dict[str, Any]:
-        client = Client()
+        client = APIClient()
         response = client.send_request(
             endpoint=cls.endpoint,
             method=Methods.POST,
@@ -103,7 +103,7 @@ class BaseEntity(BaseModel):
     @classmethod
     def _pull(cls, id: str) -> Dict[str, Any]:
         """Pull entity data from the database and validate against schema."""
-        client = Client()
+        client = APIClient()
         response = client.send_request(
             endpoint=cls.endpoint,
             method=Methods.GET,

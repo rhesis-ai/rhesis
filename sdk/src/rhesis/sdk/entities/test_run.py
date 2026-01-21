@@ -3,7 +3,7 @@ from typing import Any, ClassVar, Dict, Optional
 
 from pydantic import field_validator
 
-from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 
@@ -46,7 +46,7 @@ class TestRun(BaseEntity):
         """
         if self.id is None:
             raise ValueError("Test run ID is required")
-        client = Client()
+        client = APIClient()
 
         # Filter test results by test_run_id using OData
         params = {"$filter": f"test_run_id eq '{self.id}'"}

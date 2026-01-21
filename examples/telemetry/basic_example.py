@@ -33,11 +33,7 @@ if env_path.exists():
     load_dotenv(env_path)
 
 # Initialize Rhesis client to set up telemetry infrastructure
-client = RhesisClient(
-    api_key=os.getenv("RHESIS_API_KEY"),
-    project_id=os.getenv("RHESIS_PROJECT_ID"),
-    environment="development",
-)
+client = RhesisClient.from_environment()
 
 
 # Example 1: Simple function with tracing (observe-only)

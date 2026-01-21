@@ -1,8 +1,8 @@
 from enum import Enum
 from typing import Any, ClassVar, Dict, Optional
 
-from rhesis.sdk.client import Client, Methods
-from rhesis.sdk.client import Endpoints as ApiEndpoints
+from rhesis.sdk.clients import APIClient, Methods
+from rhesis.sdk.clients import Endpoints as ApiEndpoints
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 
@@ -100,7 +100,7 @@ class Endpoint(BaseEntity):
         if session_id is not None:
             input_data["session_id"] = session_id
 
-        client = Client()
+        client = APIClient()
         return client.send_request(
             endpoint=self.endpoint,
             method=Methods.POST,

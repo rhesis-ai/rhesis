@@ -3,16 +3,16 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.clients import APIClient, Endpoints, Methods
 
 
 @pytest.fixture
 def mock_client():
-    return Mock(spec=Client)
+    return Mock(spec=APIClient)
 
 
 def test_client_init():
-    client = Client(api_key="test_api_key", base_url="https://test.example.com")
+    client = APIClient(api_key="test_api_key", base_url="https://test.example.com")
     assert client.api_key == "test_api_key"
     assert client.base_url == "https://test.example.com"
     assert client.headers == {
@@ -22,13 +22,13 @@ def test_client_init():
 
 
 def test_client_uses_env_api_key(monkeypatch):
-    """Test that Client uses API key from environment variable."""
+    """Test that APIClient uses API key from environment variable."""
     # Set environment variable
     monkeypatch.setenv("RHESIS_API_KEY", "env_test_key")
     monkeypatch.setenv("RHESIS_BASE_URL", "https://test.example.com")
 
     # Create client without explicit API key
-    client = Client()
+    client = APIClient()
 
     # Should use the environment variable
     assert client.api_key == "env_test_key"
@@ -40,12 +40,12 @@ def test_client_uses_env_api_key(monkeypatch):
 
 
 def test_base_url():
-    client = Client(base_url="https://test.example.com/")
+    client = APIClient(base_url="https://test.example.com/")
     assert client.base_url == "https://test.example.com"
 
 
 def test_get_url():
-    client = Client(base_url="https://test.example.com/")
+    client = APIClient(base_url="https://test.example.com/")
     assert client.get_url("behaviors") == "https://test.example.com/behaviors"
     assert client.get_url("/behaviors") == "https://test.example.com/behaviors"
     assert client.get_url("behaviors/1") == "https://test.example.com/behaviors/1"
@@ -61,7 +61,7 @@ def test_send_request_get(mock_request):
     mock_response.raise_for_status.return_value = None
     mock_request.return_value = mock_response
 
-    client = Client(api_key="test_key", base_url="https://test.example.com")
+    client = APIClient(api_key="test_key", base_url="https://test.example.com")
     result = client.send_request(Endpoints.BEHAVIORS, Methods.GET)
 
     # Verify the request was made correctly
@@ -86,7 +86,7 @@ def test_send_request_post_with_data(mock_request):
     mock_response.raise_for_status.return_value = None
     mock_request.return_value = mock_response
 
-    client = Client(api_key="test_key", base_url="https://test.example.com")
+    client = APIClient(api_key="test_key", base_url="https://test.example.com")
     data = {"name": "test_behavior", "type": "custom"}
     result = client.send_request(Endpoints.BEHAVIORS, Methods.POST, data=data)
 
@@ -112,7 +112,7 @@ def test_send_request_with_params(mock_request):
     mock_response.raise_for_status.return_value = None
     mock_request.return_value = mock_response
 
-    client = Client(api_key="test_key", base_url="https://test.example.com")
+    client = APIClient(api_key="test_key", base_url="https://test.example.com")
     params = {"limit": 10, "offset": 0}
     result = client.send_request(Endpoints.METRICS, Methods.GET, params=params)
 
@@ -138,7 +138,7 @@ def test_send_request_with_url_params(mock_request):
     mock_response.raise_for_status.return_value = None
     mock_request.return_value = mock_response
 
-    client = Client(api_key="test_key", base_url="https://test.example.com")
+    client = APIClient(api_key="test_key", base_url="https://test.example.com")
     result = client.send_request(Endpoints.BEHAVIORS, Methods.GET, url_params="123")
 
     # Verify the request was made correctly
@@ -163,7 +163,7 @@ def test_send_request_put_with_all_params(mock_request):
     mock_response.raise_for_status.return_value = None
     mock_request.return_value = mock_response
 
-    client = Client(api_key="test_key", base_url="https://test.example.com")
+    client = APIClient(api_key="test_key", base_url="https://test.example.com")
     data = {"name": "updated_behavior"}
     params = {"version": "1.0"}
     result = client.send_request(
@@ -191,7 +191,7 @@ def test_send_request_http_error(mock_request):
     mock_response.raise_for_status.side_effect = requests.HTTPError("404 Not Found")
     mock_request.return_value = mock_response
 
-    client = Client(api_key="test_key", base_url="https://test.example.com")
+    client = APIClient(api_key="test_key", base_url="https://test.example.com")
 
     with pytest.raises(requests.HTTPError, match="404 Not Found"):
         client.send_request(Endpoints.BEHAVIORS, Methods.GET)
@@ -206,7 +206,7 @@ def test_send_request_all_endpoints(mock_request):
     mock_response.raise_for_status.return_value = None
     mock_request.return_value = mock_response
 
-    client = Client(api_key="test_key", base_url="https://test.example.com")
+    client = APIClient(api_key="test_key", base_url="https://test.example.com")
 
     # Test all endpoints
     for endpoint in Endpoints:
@@ -226,7 +226,7 @@ def test_send_request_all_methods(mock_request):
     mock_response.raise_for_status.return_value = None
     mock_request.return_value = mock_response
 
-    client = Client(api_key="test_key", base_url="https://test.example.com")
+    client = APIClient(api_key="test_key", base_url="https://test.example.com")
 
     # Test all methods
     for method in Methods:
@@ -238,25 +238,28 @@ def test_send_request_all_methods(mock_request):
 
 
 def test_disabled_client(monkeypatch):
-    """Test that RHESIS_CONNECTOR_DISABLE=true creates a DisabledClient."""
+    """Test that RHESIS_CONNECTOR_DISABLE=true creates a DisabledClient via from_environment()."""
     # Enable connector disable flag
     monkeypatch.setenv("RHESIS_CONNECTOR_DISABLE", "true")
 
     # Need to reload the module to pick up the new environment variable
     import importlib
 
-    import rhesis.sdk.client
+    import rhesis.sdk.clients.rhesis
 
-    importlib.reload(rhesis.sdk.client)
-    from rhesis.sdk.client import Client, DisabledClient
+    importlib.reload(rhesis.sdk.clients.rhesis)
 
-    # Create client - should return DisabledClient
-    client = Client(api_key="test_key", base_url="https://test.example.com")
+    # Import after reload to get the fresh class definition
+    from rhesis.sdk.clients.rhesis import RhesisClient
 
-    # Verify it's a DisabledClient instance
-    assert isinstance(client, DisabledClient)
-    # Also check by class name to ensure it's the right type
+    # Create client via from_environment() - should return DisabledClient
+    client = RhesisClient.from_environment()
+
+    # Verify it's a DisabledClient by class name (isinstance fails due to module reload)
     assert client.__class__.__name__ == "DisabledClient"
+
+    # Verify the is_disabled property
+    assert client.is_disabled is True
 
     # Verify all methods return None or appropriate no-op values
     assert client.base_url == ""
@@ -267,34 +270,35 @@ def test_disabled_client(monkeypatch):
 
     # Clean up - reload module without the flag
     monkeypatch.delenv("RHESIS_CONNECTOR_DISABLE")
-    importlib.reload(rhesis.sdk.client)
+    importlib.reload(rhesis.sdk.clients.rhesis)
 
 
 def test_normal_client_when_connector_enabled(monkeypatch):
-    """Test that normal Client is created when connector is not disabled."""
+    """Test that RhesisClient is created when connector is not disabled and credentials provided."""
     # Ensure connector is not disabled
     monkeypatch.delenv("RHESIS_CONNECTOR_DISABLE", raising=False)
+
+    # Set required environment variables for RhesisClient
+    monkeypatch.setenv("RHESIS_API_KEY", "test_key")
+    monkeypatch.setenv("RHESIS_BASE_URL", "https://test.example.com")
+    monkeypatch.setenv("RHESIS_PROJECT_ID", "test_project")
 
     # Need to reload the module to pick up the new environment variable
     import importlib
 
-    import rhesis.sdk.client
+    import rhesis.sdk.clients.rhesis
 
-    importlib.reload(rhesis.sdk.client)
-    from rhesis.sdk.client import Client, DisabledClient
+    importlib.reload(rhesis.sdk.clients.rhesis)
+    from rhesis.sdk.clients import DisabledClient, RhesisClient
 
-    # Set required environment variables for normal client
-    monkeypatch.setenv("RHESIS_API_KEY", "test_key")
-    monkeypatch.setenv("RHESIS_BASE_URL", "https://test.example.com")
-
-    # Create client - should return normal Client
-    client = Client()
+    # Create client via from_environment() - should return RhesisClient
+    client = RhesisClient.from_environment()
 
     # Verify it's NOT a DisabledClient
     assert not isinstance(client, DisabledClient)
-    assert isinstance(client, Client)
-    assert client.api_key == "test_key"
-    assert client.base_url == "https://test.example.com"
+    assert isinstance(client, RhesisClient)
+    assert client.project_id == "test_project"
+    assert client.environment == "development"
 
     # Clean up
-    importlib.reload(rhesis.sdk.client)
+    importlib.reload(rhesis.sdk.clients.rhesis)

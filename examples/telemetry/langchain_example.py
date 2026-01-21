@@ -35,11 +35,7 @@ if env_path.exists():
     load_dotenv(env_path)
 
 # Initialize Rhesis client for telemetry
-client = RhesisClient(
-    api_key=os.getenv("RHESIS_API_KEY"),
-    project_id=os.getenv("RHESIS_PROJECT_ID"),
-    environment="development",
-)
+client = RhesisClient.from_environment()
 
 # Enable auto-instrumentation for LangChain
 # This automatically traces all LangChain operations without code changes!

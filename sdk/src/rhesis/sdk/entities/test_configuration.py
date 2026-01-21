@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Dict, Optional
 
-from rhesis.sdk.client import Client, Endpoints, Methods
+from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 
@@ -30,7 +30,7 @@ class TestConfiguration(BaseEntity):
         """
         if self.id is None:
             raise ValueError("Test configuration ID is required")
-        client = Client()
+        client = APIClient()
 
         # Filter test runs by test_configuration_id using OData
         params = {"$filter": f"test_configuration_id eq '{self.id}'"}
