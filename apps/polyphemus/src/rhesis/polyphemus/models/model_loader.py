@@ -130,21 +130,24 @@ class LazyModelLoader(BaseLLM):
                 # No MODEL_PATH set - will download from HuggingFace Hub
                 logger.info("No MODEL_PATH set, will use HuggingFace Hub")
 
-            # Configure load_kwargs for memory optimization
-            # Use 'dtype' instead of deprecated 'torch_dtype'
+            # Configure load_kwargs for optimal GPU performance
+            # Use FP16 for best performance on L4 GPU
+            # Enable caching and optimizations
             # Note: device_map is handled automatically by HuggingFace SDK, don't set it here
             import torch
 
             default_load_kwargs = {
-                "dtype": torch.float16,
+                "torch_dtype": torch.float16,  # FP16 for faster inference on GPU
+                "use_cache": True,  # Enable KV-cache for faster generation
+                "low_cpu_mem_usage": True,  # Optimize CPU memory during loading
             }
 
             # Allow override via environment variable for advanced configurations
             # Support both base64-encoded (LOAD_KWARGS_B64) and plain JSON (LOAD_KWARGS)
-            # Note: Do NOT include device_map (SDK handles it automatically)
             # Examples:
             # - 8-bit: LOAD_KWARGS='{"load_in_8bit": true}'
             # - 4-bit: LOAD_KWARGS='{"load_in_4bit": true}'
+            # - FP16: LOAD_KWARGS='{"torch_dtype":"float16","use_cache":true}'
             load_kwargs_env = os.environ.get("LOAD_KWARGS_B64") or os.environ.get("LOAD_KWARGS")
             if load_kwargs_env:
                 import base64
@@ -159,6 +162,18 @@ class LazyModelLoader(BaseLLM):
                         load_kwargs_json = load_kwargs_env
 
                     parsed_kwargs = json.loads(load_kwargs_json)
+
+                    # Handle torch_dtype string conversion
+                    if "torch_dtype" in parsed_kwargs:
+                        dtype_str = parsed_kwargs["torch_dtype"]
+                        if isinstance(dtype_str, str):
+                            if dtype_str == "float16" or dtype_str == "fp16":
+                                parsed_kwargs["torch_dtype"] = torch.float16
+                            elif dtype_str == "float32" or dtype_str == "fp32":
+                                parsed_kwargs["torch_dtype"] = torch.float32
+                            elif dtype_str == "bfloat16" or dtype_str == "bf16":
+                                parsed_kwargs["torch_dtype"] = torch.bfloat16
+
                     # Merge with defaults, allowing override
                     default_load_kwargs.update(parsed_kwargs)
                     logger.info(f"Using custom load_kwargs from env: {default_load_kwargs}")
@@ -190,6 +205,58 @@ class LazyModelLoader(BaseLLM):
                 self.model = self._internal_model.model
             if hasattr(self._internal_model, "tokenizer"):
                 self.tokenizer = self._internal_model.tokenizer
+
+            # Try to optimize with BetterTransformer (PyTorch 2.0+ optimization)
+            # This can provide 1.5-2x speedup for inference
+            # Requires: pip install optimum
+            if hasattr(self._internal_model, "model") and hasattr(
+                self._internal_model.model, "to_bettertransformer"
+            ):
+                try:
+                    logger.info("Applying BetterTransformer optimization...")
+                    self._internal_model.model = self._internal_model.model.to_bettertransformer()
+                    self.model = self._internal_model.model
+                    logger.info("✅ BetterTransformer applied successfully (1.5-2x speedup)")
+                except ImportError as import_error:
+                    logger.info(
+                        f"⚠️ BetterTransformer not available (optional): {import_error}. "
+                        f"Install 'optimum' package for 1.5-2x inference speedup."
+                    )
+                except Exception as bt_error:
+                    logger.warning(
+                        f"BetterTransformer optimization failed: {bt_error}. "
+                        f"Continuing without optimization."
+                    )
+
+            # GPU monitoring: Verify model is on GPU and log memory usage
+            if hasattr(self._internal_model, "model"):
+                try:
+                    import torch
+
+                    if torch.cuda.is_available():
+                        # Check device of model parameters
+                        first_param = next(self._internal_model.model.parameters(), None)
+                        if first_param is not None:
+                            device = first_param.device
+                            logger.info(f"✅ Model on device: {device}")
+
+                            # Log GPU memory usage
+                            allocated_gb = torch.cuda.memory_allocated() / 1e9
+                            reserved_gb = torch.cuda.memory_reserved() / 1e9
+                            logger.info(
+                                f"✅ GPU Memory - Allocated: {allocated_gb:.2f}GB, "
+                                f"Reserved: {reserved_gb:.2f}GB"
+                            )
+
+                            # Log GPU name
+                            gpu_name = torch.cuda.get_device_name(0)
+                            logger.info(f"✅ GPU: {gpu_name}")
+                        else:
+                            logger.warning("⚠️ Model has no parameters to check device")
+                    else:
+                        logger.warning("⚠️ CUDA not available - model may be on CPU!")
+                except Exception as gpu_error:
+                    logger.warning(f"Could not check GPU status: {gpu_error}")
 
             logger.info(f"Model loaded successfully: {self._model_name}")
 

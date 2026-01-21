@@ -28,6 +28,8 @@ dependencies = [
     "rhesis-backend",
     # GCS support for model loading from cloud buckets
     "google-cloud-storage>=2.10.0",
+    # Optimization: BetterTransformer for 1.5-2x inference speedup
+    "optimum>=1.20.0",
 ]
 
 [project.optional-dependencies]

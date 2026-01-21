@@ -9,6 +9,7 @@ Default model is LazyModelLoader.
 import asyncio
 import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
 
@@ -25,7 +26,8 @@ _model_cache: dict[str, BaseLLM] = {}
 _model_lock = asyncio.Lock()
 
 # Thread pool executor for running blocking operations
-_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="polyphemus-generate")
+# Increased workers for better throughput with async requests
+_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="polyphemus-generate")
 
 # Default model identifier - can be overridden via environment variable
 DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "huggingface/distilgpt2")
@@ -197,12 +199,18 @@ async def generate_text(request: GenerateRequest) -> Dict:
     top_p = request.top_p if request.top_p is not None else 0.9
     top_k = request.top_k
 
+    # Performance timing: Track total request time
+    start_total = time.time()
+
     # Get model instance based on request (lazy initialization on first access)
     # Note: get_polyphemus_instance has internal fallback logic that masks failures
     # We need to check if the returned model actually matches what was requested
     requested_model_name = request.model
+    start_model_load = time.time()
     try:
         llm = await get_polyphemus_instance(model_name=requested_model_name)
+        model_load_time = time.time() - start_model_load
+        logger.info(f"⏱️ Model load/get time: {model_load_time:.2f}s")
 
         # Check if get_polyphemus_instance fell back internally to default
         # by comparing the returned model's name with what was requested
@@ -221,11 +229,13 @@ async def generate_text(request: GenerateRequest) -> Dict:
             # Either no model was requested (use default) or requested model loaded
             actual_model_name = requested_model_name
     except Exception as model_error:
+        model_load_time = time.time() - start_model_load
         logger.warning(
             f"Failed to load model '{requested_model_name}', using default: {str(model_error)}"
         )
         llm = await get_polyphemus_instance(model_name=None)
         actual_model_name = None  # Indicate fallback to default
+        logger.info(f"⏱️ Model load/get time (with fallback): {model_load_time:.2f}s")
 
     logger.info(
         f"Generating with prompt: {prompt[:100]}..., "
@@ -237,12 +247,14 @@ async def generate_text(request: GenerateRequest) -> Dict:
         if llm.model is None or llm.tokenizer is None:
             raise RuntimeError("Model or tokenizer not loaded. Please check model initialization.")
 
-    # Build generation kwargs
+    # Build generation kwargs with optimizations for FP16 and GPU performance
+    # Fix max_tokens: Respect user input, use default only if not provided
+    max_new_tokens = max_tokens if max_tokens else 2048
     gen_kwargs = {
         "prompt": prompt,
         "system_prompt": system_prompt,
         "temperature": max(temperature, 0.7),  # Ensure minimum temperature
-        "max_new_tokens": max(max_tokens, 20),  # Ensure minimum tokens
+        "max_new_tokens": max_new_tokens,  # Use user-provided max_tokens or default
         "min_new_tokens": 5,  # Force at least 5 new tokens
         "do_sample": True,  # Enable sampling (required for temperature)
         "top_p": top_p,  # Nucleus sampling
@@ -254,22 +266,35 @@ async def generate_text(request: GenerateRequest) -> Dict:
     if top_k is not None:
         gen_kwargs["top_k"] = top_k
 
+    logger.info(f"⏱️ Generation config: max_new_tokens={max_new_tokens}, temperature={temperature}")
+
     # Run the blocking generate call in a thread pool to avoid blocking the event loop
     loop = asyncio.get_event_loop()
+    start_generation = time.time()
     try:
         response = await loop.run_in_executor(
             _executor,
             lambda: llm.generate(**gen_kwargs),
         )
+        generation_time = time.time() - start_generation
+        logger.info(f"⏱️ Generation time: {generation_time:.2f}s")
     except Exception as gen_error:
+        generation_time = time.time() - start_generation
         logger.error(f"Generation error: {str(gen_error)}", exc_info=True)
+        logger.info(f"⏱️ Generation time (failed): {generation_time:.2f}s")
         raise RuntimeError(f"Generation failed: {str(gen_error)}")
 
+    # Log response details
+    response_length = len(response) if isinstance(response, str) else 0
     logger.info(
         f"Generated response type: {type(response)}, "
-        f"length: {len(response) if response else 0}, "
+        f"length: {response_length}, "
         f"content: {repr(response[:200]) if response else 'None'}"
     )
+
+    # Calculate total request time
+    total_time = time.time() - start_total
+    logger.info(f"⏱️ Total request time: {total_time:.2f}s")
 
     # Ensure response is a string and not empty
     if not response or (isinstance(response, str) and not response.strip()):
