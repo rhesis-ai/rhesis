@@ -1,0 +1,44 @@
+# Backend Integration Tests - Database Configuration
+# Uses different ports than SDK tests to avoid conflicts:
+# - PostgreSQL: 10010 (SDK uses 10000)
+# - Redis: 10012 (SDK uses 10002)
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: rhesis-postgres-backend-integration
+    environment:
+      POSTGRES_DB: rhesis-test-db
+      POSTGRES_USER: rhesis-user
+      POSTGRES_PASSWORD: your-secured-password
+    ports:
+      - "10010:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-test-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rhesis-backend-test-network
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    container_name: rhesis-redis-backend-integration
+    command: redis-server --requirepass rhesis-redis-pass
+    ports:
+      - "10012:6379"
+    environment:
+      - REDIS_PASSWORD=rhesis-redis-pass
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "rhesis-redis-pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rhesis-backend-test-network
+
+networks:
+  rhesis-backend-test-network:
+    driver: bridge

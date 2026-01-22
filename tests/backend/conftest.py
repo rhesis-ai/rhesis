@@ -1,30 +1,104 @@
 import os
 
-import pytest
-from cryptography.fernet import Fernet
-from dotenv import load_dotenv
+# =============================================================================
+# Environment Setup - MUST be done BEFORE any backend imports
+# =============================================================================
+# This mirrors the CI workflow (backend-test.yml) which sets env vars directly
 
-# Load environment variables from test directory first, then backend
-load_dotenv()  # Try current directory first
-load_dotenv("tests/.env")  # Load from test directory where RHESIS_API_KEY should be
-load_dotenv("apps/backend/.env")  # Then backend directory for other vars
-
-# Set test mode environment variable BEFORE importing any backend modules
+# Test mode
 os.environ["SQLALCHEMY_DB_MODE"] = "test"
 
-# Set up encryption key for tests if not already set
-# This ensures tests can run even if no encryption key is configured in .env files
-if "DB_ENCRYPTION_KEY" not in os.environ or not os.environ.get("DB_ENCRYPTION_KEY"):
-    # Generate a test-specific encryption key that won't conflict with production
-    test_encryption_key = Fernet.generate_key().decode()
-    os.environ["DB_ENCRYPTION_KEY"] = test_encryption_key
-    print("🔐 Generated test encryption key for test session")
+# Disable the Rhesis connector/SDK integration for tests
+os.environ["RHESIS_CONNECTOR_DISABLED"] = "true"
+os.environ["RHESIS_PROJECT_ID"] = "12340000-0000-4000-8000-000000001234"
+
+# Database configuration for docker-compose integration tests (port 10010)
+# These are set directly (not setdefault) to override any .env file values
+os.environ["SQLALCHEMY_DB_HOST"] = "localhost"
+os.environ["SQLALCHEMY_DB_PORT"] = "10010"
+os.environ["SQLALCHEMY_DB_NAME"] = "rhesis-test-db"
+os.environ["SQLALCHEMY_DB_USER"] = "rhesis-user"
+os.environ["SQLALCHEMY_DB_PASS"] = "your-secured-password"
+os.environ["SQLALCHEMY_DB_DRIVER"] = "postgresql"
+# Don't set SQLALCHEMY_DATABASE_URL - let the isolation check distinguish test from prod
+os.environ["SQLALCHEMY_DATABASE_TEST_URL"] = (
+    "postgresql://rhesis-user:your-secured-password@localhost:10010/rhesis-test-db"
+)
+
+# JWT configuration
+os.environ["JWT_SECRET_KEY"] = "test-jwt-secret-key-for-backend-tests"
+os.environ["JWT_ALGORITHM"] = "HS256"
+
+# Encryption key
+os.environ["DB_ENCRYPTION_KEY"] = "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="
+
+# Auth0 configuration (required for auth endpoints to not return 500)
+os.environ["AUTH0_DOMAIN"] = "test.auth0.com"
+
+# =============================================================================
+# Run migrations before importing fixtures (like CI does)
+# =============================================================================
+
+import subprocess  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+_migrations_run = False
+
+
+def run_migrations_once():
+    """Run Alembic migrations once per test session."""
+    global _migrations_run
+    if _migrations_run:
+        return
+
+    print("🔄 Running database migrations...")
+    # alembic.ini is in apps/backend/src/rhesis/backend/
+    backend_dir = (
+        Path(__file__).parent.parent.parent / "apps" / "backend" / "src" / "rhesis" / "backend"
+    )
+
+    # Build environment with explicit database config
+    env = os.environ.copy()
+    env["SQLALCHEMY_DB_MODE"] = "test"
+    env["SQLALCHEMY_DATABASE_TEST_URL"] = os.environ.get(
+        "SQLALCHEMY_DATABASE_TEST_URL",
+        "postgresql://rhesis-user:your-secured-password@localhost:10010/rhesis-test-db",
+    )
+    env["DB_ENCRYPTION_KEY"] = os.environ.get(
+        "DB_ENCRYPTION_KEY", "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="
+    )
+
+    result = subprocess.run(
+        ["uv", "run", "alembic", "upgrade", "head"],
+        cwd=backend_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        print(f"❌ Migration failed: {result.stderr}")
+        # Don't fail - migrations might already be applied
+    else:
+        print("✅ Migrations completed")
+
+    _migrations_run = True
+
+
+# Run migrations before importing fixtures
+run_migrations_once()
+
+# =============================================================================
+# Now import other modules
+# =============================================================================
+
+import pytest  # noqa: E402
 
 # Import all modular fixtures
-from tests.backend.fixtures import *
+from tests.backend.fixtures import *  # noqa: E402, F403
 
 # Import all entity fixtures to make them available to tests
-from tests.backend.routes.fixtures.entities import *
+from tests.backend.routes.fixtures.entities import *  # noqa: E402, F403
 
 # Simple fixtures for testing markers functionality
 
