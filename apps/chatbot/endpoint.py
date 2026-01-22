@@ -22,6 +22,13 @@ load_dotenv()
 # Initialize Rhesis Client for remote endpoint testing
 rhesis_client = RhesisClient.from_environment()
 
+# If no project_id, default to DisabledClient
+if rhesis_client and not getattr(rhesis_client, "project_id", None):
+    logger.info("No project_id found, defaulting to DisabledClient")
+    from rhesis.sdk.clients import DisabledClient
+
+    rhesis_client = DisabledClient()
+
 # Retry configuration
 MAX_RETRIES = 3
 INITIAL_RETRY_DELAY = 1  # seconds

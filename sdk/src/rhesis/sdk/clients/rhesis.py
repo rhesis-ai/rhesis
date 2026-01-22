@@ -3,7 +3,8 @@ from typing import Optional, Union
 
 # Check if connector should be disabled
 # Accept common truthy values: true, 1, yes, on (case-insensitive)
-CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLED", "false").lower() in (
+# Default to true if not set
+CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLED", "true").lower() in (
     "true",
     "1",
     "yes",
