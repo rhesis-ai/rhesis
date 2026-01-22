@@ -3,7 +3,7 @@ from typing import Optional, Union
 
 # Check if connector should be disabled
 # Accept common truthy values: true, 1, yes, on (case-insensitive)
-CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLE", "false").lower() in (
+CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLED", "false").lower() in (
     "true",
     "1",
     "yes",
@@ -13,13 +13,13 @@ CONNECTOR_DISABLED = os.getenv("RHESIS_CONNECTOR_DISABLE", "false").lower() in (
 
 class DisabledClient:
     """
-    No-op client implementation used when RHESIS_CONNECTOR_DISABLE is enabled.
+    No-op client implementation used when RHESIS_CONNECTOR_DISABLED is enabled.
 
     This client accepts all initialization parameters and method calls but
     performs no actual operations. It's used to allow code to run without
     connector/observability overhead in test and CI environments.
 
-    Enabled with: RHESIS_CONNECTOR_DISABLE=true|1|yes|on (case-insensitive)
+    Enabled with: RHESIS_CONNECTOR_DISABLED=true|1|yes|on (case-insensitive)
 
     When DisabledClient is active:
     - @endpoint and @observe decorators return the original function unmodified
@@ -151,11 +151,11 @@ class RhesisClient:
         Create a RhesisClient from environment variables.
 
         This is the recommended way to initialize the client in applications.
-        Returns a DisabledClient if RHESIS_CONNECTOR_DISABLE is set or if
+        Returns a DisabledClient if RHESIS_CONNECTOR_DISABLED is set or if
         required credentials (RHESIS_PROJECT_ID, RHESIS_API_KEY) are missing.
 
         Environment Variables:
-            RHESIS_CONNECTOR_DISABLE: Set to 'true' to disable the connector
+            RHESIS_CONNECTOR_DISABLED: Set to 'true' to disable the connector
             RHESIS_PROJECT_ID: Required project ID
             RHESIS_API_KEY: Required API key
             RHESIS_ENVIRONMENT: Optional, defaults to 'development'
@@ -169,7 +169,7 @@ class RhesisClient:
         logger = logging.getLogger(__name__)
 
         if CONNECTOR_DISABLED:
-            logger.info("Connector explicitly disabled (RHESIS_CONNECTOR_DISABLE=true)")
+            logger.info("Connector explicitly disabled (RHESIS_CONNECTOR_DISABLED=true)")
             return DisabledClient()
 
         return cls(

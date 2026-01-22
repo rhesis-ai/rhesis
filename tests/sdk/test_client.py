@@ -238,9 +238,9 @@ def test_send_request_all_methods(mock_request):
 
 
 def test_disabled_client(monkeypatch):
-    """Test that RHESIS_CONNECTOR_DISABLE=true creates a DisabledClient via from_environment()."""
+    """Test that RHESIS_CONNECTOR_DISABLED=true creates a DisabledClient via from_environment()."""
     # Enable connector disable flag
-    monkeypatch.setenv("RHESIS_CONNECTOR_DISABLE", "true")
+    monkeypatch.setenv("RHESIS_CONNECTOR_DISABLED", "true")
 
     # Need to reload the module to pick up the new environment variable
     import importlib
@@ -269,14 +269,14 @@ def test_disabled_client(monkeypatch):
     assert client.register_endpoint("test", lambda: None, {}) is None
 
     # Clean up - reload module without the flag
-    monkeypatch.delenv("RHESIS_CONNECTOR_DISABLE")
+    monkeypatch.delenv("RHESIS_CONNECTOR_DISABLED")
     importlib.reload(rhesis.sdk.clients.rhesis)
 
 
 def test_normal_client_when_connector_enabled(monkeypatch):
     """Test that RhesisClient is created when connector is not disabled and credentials provided."""
     # Ensure connector is not disabled
-    monkeypatch.delenv("RHESIS_CONNECTOR_DISABLE", raising=False)
+    monkeypatch.delenv("RHESIS_CONNECTOR_DISABLED", raising=False)
 
     # Set required environment variables for RhesisClient
     monkeypatch.setenv("RHESIS_API_KEY", "test_key")
