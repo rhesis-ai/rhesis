@@ -167,25 +167,3 @@ class DocumentHandler(BaseSourceHandler):
             ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }
         return mime_types.get(ext, "application/octet-stream")
-
-    # Backward compatibility methods for services router
-    async def save_document(
-        self,
-        document: UploadFile,
-        organization_id: str,
-        source_id: str,
-    ) -> dict:
-        """Backward compatibility method - delegates to save_source."""
-        return await self.save_source(document, organization_id, source_id)
-
-    async def get_document_content(self, file_path: str) -> bytes:
-        """Backward compatibility method - delegates to get_source_content."""
-        return await self.get_source_content(file_path)
-
-    async def delete_document(self, file_path: str) -> bool:
-        """Backward compatibility method - delegates to delete_source."""
-        return await self.delete_source(file_path)
-
-    async def extract_document_content(self, file_path: str) -> str:
-        """Backward compatibility method - delegates to extract_source_content."""
-        return await self.extract_source_content(file_path)

@@ -90,7 +90,7 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
 
     @pytest.mark.asyncio
     async def test_save_document_no_filename(self):
-        """Test save_document with UploadFile that has no filename."""
+        """Test save_source with UploadFile that has no filename."""
         handler = DocumentHandler()
 
         # Create mock UploadFile without filename
@@ -98,13 +98,13 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
         mock_file.filename = None
 
         with pytest.raises(ValueError, match="Source has no name"):
-            await handler.save_document(
-                document=mock_file, organization_id="org-123", source_id="source-456"
+            await handler.save_source(
+                file=mock_file, organization_id="org-123", source_id="source-456"
             )
 
     @pytest.mark.asyncio
     async def test_save_document_empty_content(self):
-        """Test save_document with empty file content."""
+        """Test save_source with empty file content."""
         handler = DocumentHandler()
 
         # Create mock UploadFile with empty content
@@ -113,13 +113,13 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
         mock_file.read = AsyncMock(return_value=b"")
 
         with pytest.raises(ValueError, match="Source is empty"):
-            await handler.save_document(
-                document=mock_file, organization_id="org-123", source_id="source-456"
+            await handler.save_source(
+                file=mock_file, organization_id="org-123", source_id="source-456"
             )
 
     @pytest.mark.asyncio
     async def test_save_document_exceeds_size_limit(self):
-        """Test save_document with file exceeding size limit."""
+        """Test save_source with file exceeding size limit."""
         handler = DocumentHandler(max_size=100)  # 100 bytes limit
 
         # Create mock UploadFile with content exceeding limit
@@ -129,8 +129,8 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
         mock_file.read = AsyncMock(return_value=large_content)
 
         with pytest.raises(ValueError, match="Source size exceeds limit of 100 bytes"):
-            await handler.save_document(
-                document=mock_file, organization_id="org-123", source_id="source-456"
+            await handler.save_source(
+                file=mock_file, organization_id="org-123", source_id="source-456"
             )
 
     @pytest.mark.asyncio
@@ -157,8 +157,8 @@ class TestDocumentHandlerValidation(DocumentHandlerTestMixin, BaseDocumentHandle
                 "file_path": "test/path/file.txt",
             }
 
-            metadata = await handler.save_document(
-                document=mock_file, organization_id="org-123", source_id="source-456"
+            metadata = await handler.save_source(
+                file=mock_file, organization_id="org-123", source_id="source-456"
             )
 
             assert metadata["file_path"] == "test/path/file.txt"
@@ -187,7 +187,7 @@ class TestDocumentHandlerFileOperations(DocumentHandlerTestMixin, BaseDocumentHa
         handler.storage_service = mock_storage
 
         file_path = "test/path/file.txt"
-        result = await handler.get_document_content(file_path)
+        result = await handler.get_source_content(file_path)
 
         assert result == b"file content"
         mock_storage.get_file.assert_called_once_with(file_path)
@@ -202,7 +202,7 @@ class TestDocumentHandlerFileOperations(DocumentHandlerTestMixin, BaseDocumentHa
         handler.storage_service = mock_storage
 
         file_path = "test/path/file.txt"
-        result = await handler.delete_document(file_path)
+        result = await handler.delete_source(file_path)
 
         assert result is True
         mock_storage.delete_file.assert_called_once_with(file_path)
@@ -217,7 +217,7 @@ class TestDocumentHandlerFileOperations(DocumentHandlerTestMixin, BaseDocumentHa
         handler.storage_service = mock_storage
 
         file_path = "test/path/file.txt"
-        result = await handler.delete_document(file_path)
+        result = await handler.delete_source(file_path)
 
         assert result is False
         mock_storage.delete_file.assert_called_once_with(file_path)
@@ -356,8 +356,8 @@ class TestDocumentHandlerIntegration(DocumentHandlerTestMixin, BaseDocumentHandl
                 mock_file = MockUploadFile(content, filename)
 
                 # Test save document
-                metadata = await handler.save_document(
-                    document=mock_file,
+                metadata = await handler.save_source(
+                    file=mock_file,
                     organization_id="org-123",
                     source_id="source-456",
                 )
@@ -371,11 +371,11 @@ class TestDocumentHandlerIntegration(DocumentHandlerTestMixin, BaseDocumentHandl
                 assert len(metadata["file_hash"]) == 64
 
                 # Test retrieve document
-                retrieved_content = await handler.get_document_content(file_path)
+                retrieved_content = await handler.get_source_content(file_path)
                 assert retrieved_content == content
 
                 # Test delete document
-                delete_result = await handler.delete_document(file_path)
+                delete_result = await handler.delete_source(file_path)
                 assert delete_result is True
 
                 # Verify file no longer exists
@@ -422,8 +422,8 @@ class TestDocumentHandlerIntegration(DocumentHandlerTestMixin, BaseDocumentHandl
                     mock_file = MockUploadFile(content, filename)
 
                     # Test save
-                    metadata = await handler.save_document(
-                        document=mock_file,
+                    metadata = await handler.save_source(
+                        file=mock_file,
                         organization_id="org-123",
                         source_id=f"source-{filename}",
                     )
@@ -435,11 +435,11 @@ class TestDocumentHandlerIntegration(DocumentHandlerTestMixin, BaseDocumentHandl
                     assert metadata["file_size"] == len(content)
 
                     # Test retrieve
-                    retrieved_content = await handler.get_document_content(file_path)
+                    retrieved_content = await handler.get_source_content(file_path)
                     assert retrieved_content == content
 
                     # Clean up
-                    await handler.delete_document(file_path)
+                    await handler.delete_source(file_path)
 
 
 @pytest.mark.unit
@@ -465,10 +465,9 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         handler.storage_service = mock_storage
 
         # Should handle long filename gracefully
-        metadata = await handler.save_document(
-            document=mock_file, organization_id="org-123", source_id="source-456"
+        metadata = await handler.save_source(
+            file=mock_file, organization_id="org-123", source_id="source-456"
         )
-        file_path = metadata["file_path"]
 
         assert metadata["original_filename"] == long_filename
         assert metadata["file_size"] == len(content)
@@ -483,8 +482,8 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         mock_file = MockUploadFile(content, "")
 
         with pytest.raises(ValueError, match="Source has no name"):
-            await handler.save_document(
-                document=mock_file, organization_id="org-123", source_id="source-456"
+            await handler.save_source(
+                file=mock_file, organization_id="org-123", source_id="source-456"
             )
 
     @pytest.mark.asyncio
@@ -497,8 +496,8 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         mock_file = MockUploadFile(content, "   ")
 
         with pytest.raises(ValueError, match="Source has no name"):
-            await handler.save_document(
-                document=mock_file, organization_id="org-123", source_id="source-456"
+            await handler.save_source(
+                file=mock_file, organization_id="org-123", source_id="source-456"
             )
 
     def test_metadata_extraction_with_binary_content(self):
@@ -549,10 +548,9 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         handler.storage_service = mock_storage
 
         # Should accept file at exact limit
-        metadata = await handler.save_document(
-            document=mock_file, organization_id="org-123", source_id="source-456"
+        metadata = await handler.save_source(
+            file=mock_file, organization_id="org-123", source_id="source-456"
         )
-        file_path = metadata["file_path"]
 
         assert metadata["file_size"] == 100
 
@@ -566,8 +564,8 @@ class TestDocumentHandlerEdgeCases(DocumentHandlerTestMixin, BaseDocumentHandler
         mock_file = MockUploadFile(content, "over_size.txt")
 
         with pytest.raises(ValueError, match="Source size exceeds limit"):
-            await handler.save_document(
-                document=mock_file, organization_id="org-123", source_id="source-456"
+            await handler.save_source(
+                file=mock_file, organization_id="org-123", source_id="source-456"
             )
 
     def test_mime_type_detection_with_multiple_extensions(self):

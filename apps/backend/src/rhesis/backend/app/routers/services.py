@@ -1,7 +1,6 @@
-from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -10,9 +9,6 @@ from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_se
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest,
-    DocumentUploadResponse,
-    ExtractDocumentRequest,
-    ExtractDocumentResponse,
     ExtractMCPRequest,
     ExtractMCPResponse,
     GenerateContentRequest,
@@ -43,7 +39,6 @@ from rhesis.backend.app.services.generation import (
     generate_tests,
 )
 from rhesis.backend.app.services.github import read_repo_contents
-from rhesis.backend.app.services.handlers import DocumentHandler
 from rhesis.backend.app.services.mcp_service import (
     extract_mcp,
     handle_mcp_exception,
@@ -51,10 +46,8 @@ from rhesis.backend.app.services.mcp_service import (
     run_mcp_authentication_test,
     search_mcp,
 )
-from rhesis.backend.app.services.storage_service import StorageService
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.logging import logger
-from rhesis.sdk.services.extractor import DocumentExtractor
 
 router = APIRouter(
     prefix="/services",
@@ -367,107 +360,6 @@ async def generate_text(prompt_request: PromptRequest):
     except Exception as e:
         logger.error(f"Failed to generate text: {str(e)}", exc_info=True)
         raise HTTPException(status_code=400, detail="Failed to generate text. Please try again.")
-
-
-@router.post("/documents/upload", response_model=DocumentUploadResponse)
-async def upload_document(
-    document: UploadFile = File(...), tenant_context=Depends(get_tenant_context)
-):
-    """
-    Upload a document to persistent storage.
-
-    The document will be saved to the configured storage backend (GCS or local filesystem)
-    with a multi-tenant path structure.
-    Maximum document size is 5MB.
-
-    Args:
-        document: The document to upload (multipart/form-data)
-        tenant_context: Tenant context containing organization_id and user_id
-
-    Returns:
-        DocumentUploadResponse: Contains the full path to the uploaded document
-    """
-    organization_id, user_id = tenant_context
-    handler = DocumentHandler()
-
-    # Use user_id as source_id for now (can be changed to a proper source ID later)
-    metadata = await handler.save_document(document, organization_id, user_id)
-    return {"path": metadata["file_path"]}
-
-
-@router.post("/documents/extract", response_model=ExtractDocumentResponse)
-async def extract_document_content(request: ExtractDocumentRequest) -> ExtractDocumentResponse:
-    """
-    Extract text content from an uploaded document.
-
-    Uses the SDK's DocumentExtractor with hybrid storage support to extract text from
-    various document formats:
-    - PDF (.pdf)
-    - Microsoft Office formats (.docx, .xlsx, .pptx)
-    - Markdown (.md)
-    - AsciiDoc (.adoc)
-    - HTML/XHTML (.html, .xhtml)
-    - CSV (.csv)
-    - Plain text (.txt)
-    - And more...
-
-    The endpoint automatically handles files stored in both cloud and local storage.
-
-    Args:
-        request: ExtractDocumentRequest containing the path to the uploaded document
-
-    Returns:
-        ExtractDocumentResponse containing the extracted text content and detected format
-    """
-    try:
-        # Initialize storage service
-        storage_service = StorageService()
-
-        # Get file extension to determine format
-        file_extension = Path(request.path).suffix.lower()
-
-        # Check if file exists in storage
-        if not storage_service.file_exists(request.path):
-            raise HTTPException(
-                status_code=404,
-                detail=f"File not found: {request.path}",
-            )
-
-        # Get file content from storage (handles both cloud and local)
-        file_content = await storage_service.get_file(request.path)
-
-        # Initialize extractor
-        extractor = DocumentExtractor()
-
-        # Check if format is supported
-        if file_extension not in extractor.supported_extensions:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported file format: {file_extension}. "
-                f"Supported formats: {', '.join(extractor.supported_extensions)}",
-            )
-
-        # Extract content from bytes (not from file path)
-        filename = Path(request.path).name
-        extracted_content = extractor.extract_from_bytes(file_content, filename)
-
-        return ExtractDocumentResponse(
-            content=extracted_content,
-            format=file_extension.lstrip("."),  # Remove the leading dot
-        )
-
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=404, detail="Document not found. Please check the file path."
-        )
-    except Exception as e:
-        logger.error(f"Failed to extract document content: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Failed to extract document content. Please check the file format and try again."
-            ),
-        )
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)

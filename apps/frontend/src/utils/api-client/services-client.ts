@@ -29,7 +29,6 @@ interface Test {
 }
 
 import { RecentActivitiesResponse } from './interfaces/activities';
-import { DocumentMetadata } from './interfaces/documents';
 import {
   GenerationConfig,
   SourceData,
@@ -98,11 +97,6 @@ interface GenerateMultiTurnTestsResponse {
 
 interface TextResponse {
   text: string;
-}
-
-interface ExtractDocumentResponse {
-  content: string;
-  format: string;
 }
 
 // MCP Types
@@ -219,40 +213,6 @@ export class ServicesClient extends BaseApiClient {
         body: JSON.stringify(request),
       }
     );
-  }
-
-  async generateDocumentMetadata(content: string): Promise<DocumentMetadata> {
-    const structuredPrompt = `
-    Generate a concise name and description for this document content.
-    Format your response exactly like this:
-    Name: <a clear, concise title for the document>
-    Description: <a brief description of the document's content>
-
-    Document content: ${content}
-  `;
-
-    const response = await this.generateText(structuredPrompt);
-
-    try {
-      // First try to find the name and description using the structured format
-      const nameMatch = response.text.match(
-        /Name:\s*([\s\S]+?)(?=\n|Description:|$)/
-      );
-      const descriptionMatch = response.text.match(
-        /Description:\s*([\s\S]+?)(?=\n|$)/
-      );
-
-      return {
-        name: (nameMatch?.[1] || '').trim() || 'Untitled Document',
-        description: (descriptionMatch?.[1] || '').trim() || '',
-      };
-    } catch {
-      // Fallback to the old method if parsing fails
-      return {
-        name: 'Untitled Document',
-        description: '',
-      };
-    }
   }
 
   /**
