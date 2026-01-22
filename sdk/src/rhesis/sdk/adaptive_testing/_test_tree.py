@@ -57,7 +57,7 @@ class TestTree:
         """
 
         # the canonical ordered list of test tree columns
-        column_names = ["topic", "input", "output", "label", "labeler", "description"]
+        column_names = ["topic", "input", "output", "label", "labeler"]
 
         # create a new test tree in memory
         if tests is None:
@@ -94,7 +94,6 @@ class TestTree:
             self._tests["topic"] = ""
             self._tests["label"] = ""
             self._tests["labeler"] = "dataset"
-            self._tests["description"] = ""
 
         elif isinstance(tests, list) and isinstance(tests[0], str):
             self._tests = pd.DataFrame(columns=column_names)
@@ -103,7 +102,6 @@ class TestTree:
             self._tests["topic"] = ""
             self._tests["label"] = ""
             self._tests["labeler"] = ""
-            self._tests["description"] = ""
             self._tests_location = None
 
             if index is None:
@@ -128,9 +126,8 @@ class TestTree:
                 raise Exception("The test tree being loaded must contain a '" + c + "' column!")
 
         # fill in any other missing columns
-        for column in ["topic", "description"]:
-            if column not in self._tests.columns:
-                self._tests[column] = ["" for _ in range(self._tests.shape[0])]
+        if "topic" not in self._tests.columns:
+            self._tests["topic"] = ["" for _ in range(self._tests.shape[0])]
         if "labeler" not in self._tests.columns:
             self._tests["labeler"] = ["imputed" for _ in range(self._tests.shape[0])]
 
@@ -184,7 +181,6 @@ class TestTree:
                         "labeler": "imputed",
                         "input": "",
                         "output": "",
-                        "description": "",
                     }
                     marked_topics[parent_topic] = True
 

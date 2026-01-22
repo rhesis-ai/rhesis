@@ -19,7 +19,7 @@ class Generator:
         """Create a new generator from a given source."""
         self.source = source
 
-    def __call__(self, prompts, topic, topic_description, mode, num_samples, max_length):
+    def __call__(self, prompts, topic, mode, num_samples, max_length):
         """Generate a set of prompts for a given topic."""
         raise NotImplementedError()
 
@@ -51,7 +51,7 @@ class TextCompletionGenerator(Generator):
         self.quote = quote
         self.filter = filter
 
-    def __call__(self, prompts, topic, topic_description, max_length=None):
+    def __call__(self, prompts, topic, max_length=None):
         """This should be overridden by concrete subclasses.
 
         Parameters:
@@ -148,7 +148,7 @@ class OpenAI(TextCompletionGenerator):
         # Initialize the model using get_model
         self._model = get_model("openai", model_name=model, api_key=api_key)
 
-    def __call__(self, prompts, topic, topic_description, mode, num_samples=1, max_length=100):
+    def __call__(self, prompts, topic, mode, num_samples=1, max_length=100):
         if len(prompts[0]) == 0:
             raise ValueError(
                 "ValueError: Unable to generate suggestions from completely empty "
@@ -202,8 +202,7 @@ class TestTreeSource(Generator):
         self,
         prompts,
         topic,
-        topic_description,
-        test_type=None,
+        mode=None,
         num_samples=1,
         max_length=100,
     ):
@@ -218,7 +217,7 @@ class TestTreeSource(Generator):
         prompts, prompt_ids = self._validate_prompts(prompts)
 
         # TODO: Currently only returns valid subtopics. Update to include similar topics based on embedding distance?
-        if test_type == "topics":
+        if mode == "topics":
             proposals = []
             for id, test in self.source.iterrows():
                 # check if requested topic is *direct* parent of test topic

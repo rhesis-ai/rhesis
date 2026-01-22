@@ -364,7 +364,6 @@ class TestTreeBrowser:
                 "input": "",
                 "output": "",
                 "labeler": self.user,
-                "description": "",
             }
             self._compute_embeddings_and_scores(self.test_tree)
             self._auto_save()
@@ -379,7 +378,6 @@ class TestTreeBrowser:
                 "output": "",
                 "label": "",
                 "labeler": "imputed",
-                "description": "",
             }
             for c in self.score_columns:
                 row[c] = np.nan
@@ -409,19 +407,6 @@ class TestTreeBrowser:
         elif event_id == "change_mode":
             self.mode = msg["mode"]
 
-        elif event_id == "change_description":
-            id = msg["topic_marker_id"]
-            if id not in self.test_tree.index:
-                self.test_tree.loc[id, "topic"] = (
-                    ""  # only the root topic would be missing from the tree
-                )
-                self.test_tree.loc[id, "input"] = ""
-                self.test_tree.loc[id, "output"] = ""
-                self.test_tree.loc[id, "label"] = "topic_marker"
-            self.test_tree.loc[msg["topic_marker_id"], "description"] = msg["description"]
-            self._auto_save()
-            self._refresh_interface()
-
         elif event_id == "change_filter":
             print("change_filter")
             self.filter_text = msg["filter_text"]
@@ -436,7 +421,6 @@ class TestTreeBrowser:
             for test_id in test_ids:
                 if test_id in self.test_tree.index:
                     self.test_tree.loc[test_id, "topic"] = msg["topic"]
-                    self.test_tree.loc[test_id, "author"] = self.user
                 if "/" in test_id:
                     for id, test in self.test_tree.iterrows():
                         if is_subtopic(test_id, test.topic):
@@ -549,7 +533,6 @@ class TestTreeBrowser:
                             data[test.topic] = {
                                 "label": test.label,
                                 "labeler": test.labeler,
-                                "description": "",
                                 "scores": {c: [] for c in self.score_columns},
                                 "topic_marker_id": k,
                                 "topic_name": name,
@@ -564,7 +547,6 @@ class TestTreeBrowser:
                         "output": test.output,
                         "label": test.label,
                         "labeler": test.labeler,
-                        "description": test.description,
                         "scores": {
                             c: [[k, v] for v in ui_score_parts(test[c], test.label)]
                             for c in self.score_columns
@@ -674,9 +656,6 @@ class TestTreeBrowser:
             "tests": children,
             "user": self.user,
             "topic": self.current_topic,
-            "topic_description": self.test_tree.loc[topic_marker_id]["description"]
-            if topic_marker_id is not None
-            else "",
             "topic_marker_id": topic_marker_id if topic_marker_id is not None else uuid.uuid4().hex,
             "score_filter": score_filter,
             "disable_suggestions": False,
@@ -754,20 +733,10 @@ class TestTreeBrowser:
             embed_fn=self.embed,
         )
 
-        # get the current topic description
-        curr_topic_mask = (self.test_tree["topic"] == self.current_topic) & (
-            self.test_tree["label"] == "topic_marker"
-        )
-        if curr_topic_mask.sum() == 0:
-            desc = ""
-        else:
-            desc = self.test_tree.loc[curr_topic_mask]["description"].iloc[0]
-
         # generate the suggestions
         proposals = self.generator(
             prompts,
             self.current_topic,
-            desc,
             self.mode,
             num_samples=self.max_suggestions // len(prompts)
             if len(prompts) > 0
@@ -819,7 +788,6 @@ class TestTreeBrowser:
                         "topic_marker" if self.mode == "topics" else ""
                     )
                     self.test_tree.loc[id, "labeler"] = "imputed"
-                    self.test_tree.loc[id, "description"] = ""
                     for c in self.score_columns:
                         self.test_tree.loc[id, c] = "__TOEVAL__"
 
