@@ -315,7 +315,7 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
         small_file = MockUploadFile(small_content, "small.txt")
 
         metadata = await handler.save_source(
-            document=small_file,
+            file=small_file,
             organization_id="org-size-test",
             source_id="source-small",
         )
@@ -331,7 +331,7 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
 
         with pytest.raises(ValueError, match="Source size exceeds limit"):
             await handler.save_source(
-                document=large_file,
+                file=large_file,
                 organization_id="org-size-test",
                 source_id="source-large",
             )
@@ -346,7 +346,7 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
 
         with pytest.raises(ValueError, match="Source is empty"):
             await handler.save_source(
-                document=empty_file,
+                file=empty_file,
                 organization_id="org-error-test",
                 source_id="source-empty",
             )
@@ -364,7 +364,7 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
 
         with pytest.raises(ValueError, match="Source has no name"):
             await handler.save_source(
-                document=no_name_file,
+                file=no_name_file,
                 organization_id="org-error-test",
                 source_id="source-no-name",
             )
