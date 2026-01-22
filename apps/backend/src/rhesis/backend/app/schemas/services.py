@@ -128,19 +128,6 @@ class GenerateTestsResponse(BaseModel):
     tests: List[Test]
 
 
-class DocumentUploadResponse(BaseModel):
-    path: str
-
-
-class ExtractDocumentRequest(BaseModel):
-    path: str
-
-
-class ExtractDocumentResponse(BaseModel):
-    content: str
-    format: str
-
-
 class GenerateContentRequest(BaseModel):
     """Request for generating content with optional structured output.
 

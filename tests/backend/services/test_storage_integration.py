@@ -250,8 +250,8 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
         mock_file = MockUploadFile(content, filename)
 
         # Test save document
-        metadata = await handler.save_document(
-            document=mock_file,
+        metadata = await handler.save_source(
+            file=mock_file,
             organization_id="org-integration",
             source_id="source-integration",
         )
@@ -265,11 +265,11 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
         assert len(metadata["file_hash"]) == 64  # SHA-256 hex length
 
         # Test retrieve document
-        retrieved_content = await handler.get_document_content(file_path)
+        retrieved_content = await handler.get_source_content(file_path)
         assert retrieved_content == content
 
         # Test delete document
-        delete_result = await handler.delete_document(file_path)
+        delete_result = await handler.delete_source(file_path)
         assert delete_result is True
 
     @pytest.mark.asyncio
@@ -283,8 +283,8 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
             mock_file = MockUploadFile(content, filename)
 
             # Test save
-            metadata = await handler.save_document(
-                document=mock_file,
+            metadata = await handler.save_source(
+                file=mock_file,
                 organization_id="org-file-types",
                 source_id=f"source-{filename}",
             )
@@ -296,11 +296,11 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
             assert metadata["file_size"] == len(content)
 
             # Test retrieve
-            retrieved_content = await handler.get_document_content(file_path)
+            retrieved_content = await handler.get_source_content(file_path)
             assert retrieved_content == content
 
             # Clean up
-            await handler.delete_document(file_path)
+            await handler.delete_source(file_path)
 
     @pytest.mark.asyncio
     async def test_document_size_validation(self, document_handler_with_local_storage):
@@ -314,8 +314,8 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
         small_content = b"x" * 500  # 500 bytes
         small_file = MockUploadFile(small_content, "small.txt")
 
-        metadata = await handler.save_document(
-            document=small_file,
+        metadata = await handler.save_source(
+            file=small_file,
             organization_id="org-size-test",
             source_id="source-small",
         )
@@ -323,15 +323,15 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
         assert metadata["file_size"] == 500
 
         # Clean up
-        await handler.delete_document(file_path)
+        await handler.delete_source(file_path)
 
         # Test oversized file
         large_content = b"x" * 1500  # 1.5KB
         large_file = MockUploadFile(large_content, "large.txt")
 
         with pytest.raises(ValueError, match="Source size exceeds limit"):
-            await handler.save_document(
-                document=large_file,
+            await handler.save_source(
+                file=large_file,
                 organization_id="org-size-test",
                 source_id="source-large",
             )
@@ -345,8 +345,8 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
         empty_file = MockUploadFile(b"", "empty.txt")
 
         with pytest.raises(ValueError, match="Source is empty"):
-            await handler.save_document(
-                document=empty_file,
+            await handler.save_source(
+                file=empty_file,
                 organization_id="org-error-test",
                 source_id="source-empty",
             )
@@ -363,8 +363,8 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
         no_name_file = MockUploadFileNoName(b"content")
 
         with pytest.raises(ValueError, match="Source has no name"):
-            await handler.save_document(
-                document=no_name_file,
+            await handler.save_source(
+                file=no_name_file,
                 organization_id="org-error-test",
                 source_id="source-no-name",
             )
@@ -382,19 +382,19 @@ class TestDocumentHandlerIntegration(StorageIntegrationTestMixin, BaseStorageInt
             mock_file = MockUploadFile(content, filename)
 
             # Save document
-            metadata = await handler.save_document(
-                document=mock_file,
+            metadata = await handler.save_source(
+                file=mock_file,
                 organization_id=f"org-concurrent-{doc_id}",
                 source_id=f"source-{doc_id}",
             )
             file_path = metadata["file_path"]
 
             # Retrieve document
-            retrieved_content = await handler.get_document_content(file_path)
+            retrieved_content = await handler.get_source_content(file_path)
             assert retrieved_content == content
 
             # Delete document
-            delete_result = await handler.delete_document(file_path)
+            delete_result = await handler.delete_source(file_path)
             assert delete_result is True
 
             return doc_id

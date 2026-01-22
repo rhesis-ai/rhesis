@@ -2,12 +2,8 @@
  * Shared type definitions for the Test Generation feature
  */
 
-import { ProcessedDocument } from '@/utils/api-client/interfaces/documents';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ConversationTurn } from '@/utils/api-client/interfaces/test-results';
-
-// Re-export imported types
-export type { ProcessedDocument };
 
 /**
  * Test type selection
@@ -106,7 +102,6 @@ export interface ChatMessage {
   type: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
-  files?: ProcessedDocument[];
   chip_states?: ChipState[];
 }
 
@@ -184,7 +179,6 @@ export interface FlowState {
   configChips: ConfigChips;
 
   // Generation
-  documents: ProcessedDocument[];
   testSamples: TestSample[];
   chatMessages: ChatMessage[];
 
