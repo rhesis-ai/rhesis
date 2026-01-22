@@ -74,7 +74,7 @@ The `environment` parameter determines where your endpoints and traces are regis
 To disable all SDK functionality (useful for CI/CD or testing):
 
 <CodeBlock filename="terminal" language="bash">
-{`export RHESIS_CONNECTOR_DISABLE=true`}
+{`export RHESIS_CONNECTOR_DISABLED=true`}
 </CodeBlock>
 
 Accepted values: `true`, `1`, `yes`, `on` (case-insensitive)
@@ -132,4 +132,3 @@ def chat(input: str, session_id: str = None) -> dict:
   - [Tracing](/tracing) - Learn about observability and the `@observe` decorator
   - [Entities](/sdk/entities) - Work with tests, test sets, and projects
 </Callout>
-

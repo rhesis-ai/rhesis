@@ -79,7 +79,7 @@ function show_usage() {
   echo "  REGION                        GCP region"
   echo "  CLOUDSQL_INSTANCE             Cloud SQL instance name"
   echo "  VPC_CONNECTOR_NAME            VPC connector name"
-  echo "  RHESIS_CONNECTOR_DISABLED      Rhesis connector disabled (true or false)"
+  echo "  RHESIS_CONNECTOR_DISABLEDD      Rhesis connector disabled (true or false)"
   echo ""
   echo "  # Analytics Database (Telemetry Processor)"
   echo "  ANALYTICS_DATABASE_URL        Full analytics database URL (alternative to individual vars)"
@@ -193,13 +193,13 @@ function set_secret() {
   local env=$1
   local secret_name=$2
   local secret_value=$3
-  
+
   # Check if environment exists, create if not
   if ! gh api "repos/$REPO/environments/$env" &> /dev/null; then
     echo -e "${YELLOW}Environment '$env' does not exist. Creating...${NC}"
     gh api -X PUT "repos/$REPO/environments/$env" --silent
   fi
-  
+
   echo -e "${GREEN}Setting secret:${NC} $secret_name for environment: $env"
   echo "$secret_value" | gh secret set "$secret_name" --repo "$REPO" --env "$env" 2>/dev/null || {
     echo -e "${RED}Failed to set secret $secret_name${NC}"
@@ -212,7 +212,7 @@ function set_secret() {
 function set_repo_secret() {
   local secret_name=$1
   local secret_value=$2
-  
+
   echo -e "${GREEN}Setting repository secret:${NC} $secret_name"
   echo "$secret_value" | gh secret set "$secret_name" --repo "$REPO" 2>/dev/null || {
     echo -e "${RED}Failed to set repository secret $secret_name${NC}"
@@ -275,7 +275,7 @@ SERVICE_VARS=(
   "VPC_CONNECTOR_NAME"
   "REGION"
   "CLOUDSQL_INSTANCE"
-  "RHESIS_CONNECTOR_DISABLED"
+  "RHESIS_CONNECTOR_DISABLEDD"
   # Analytics Database (Telemetry Processor)
   "ANALYTICS_DATABASE_URL"
   "ANALYTICS_DB_USER"
@@ -292,7 +292,7 @@ SERVICE_VARS=(
   "OTEL_API_KEY"
   "OTEL_PROCESSOR_ENDPOINT"
   # NOTE: OTEL_PROCESSOR_ENDPOINT and OTEL_PROCESSOR_URL are auto-detected
-  
+
   # Celery worker variables
   "BROKER_URL"
   "CELERY_RESULT_BACKEND"
@@ -302,7 +302,7 @@ SERVICE_VARS=(
   "STORAGE_SERVICE_URI"
   "STORAGE_SERVICE_ACCOUNT_KEY"
   "LOCAL_STORAGE_PATH"
-  
+
   # Frontend variables
   "NEXTAUTH_URL"
   "NEXTAUTH_SECRET"
@@ -327,38 +327,38 @@ SERVICE_VARS=(
 # Set environment-specific secrets
 for env in "${ENV_ARRAY[@]}"; do
   env_upper=$(echo "$env" | tr '[:lower:]' '[:upper:]')
-  
+
   # Handle TEST environment the same as other environments
   if [[ "$env" == "test" ]]; then
     echo -e "${BLUE}Setting up secrets for $env environment...${NC}"
-    
+
     # TEST secrets are set as environment secrets (same as other environments)
     for var_name in "${SERVICE_VARS[@]}"; do
       env_var="TEST_${var_name}"
-      
+
       if [[ -n "${!env_var}" ]]; then
         set_secret "$env" "$var_name" "${!env_var}"
       else
         echo -e "${YELLOW}Warning:${NC} $env_var environment variable is not set"
       fi
     done
-    
+
     continue
   fi
-  
+
   echo -e "${BLUE}Setting up secrets for $env environment...${NC}"
-  
+
   # Set all service environment variables
   for var_name in "${SERVICE_VARS[@]}"; do
     env_var="${env_upper}_${var_name}"
-    
+
     if [[ -n "${!env_var}" ]]; then
       set_secret "$env" "$var_name" "${!env_var}"
     else
       echo -e "${YELLOW}Warning:${NC} $env_var environment variable is not set"
     fi
   done
-  
+
   # Set default frontend URLs if not provided (skip for test environment)
   if [[ "$env" != "test" ]]; then
     if [[ -z "${!env_upper}_FRONTEND_URL" ]]; then
@@ -370,7 +370,7 @@ for env in "${ENV_ARRAY[@]}"; do
       echo -e "${YELLOW}Warning:${NC} ${env_upper}_FRONTEND_URL not set, using default: $frontend_url"
       set_secret "$env" "FRONTEND_URL" "$frontend_url"
     fi
-    
+
     # Set default NextAuth URL if not provided
     if [[ -z "${!env_upper}_NEXTAUTH_URL" ]]; then
       if [[ "$env" == "prd" ]]; then
@@ -381,7 +381,7 @@ for env in "${ENV_ARRAY[@]}"; do
       echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXTAUTH_URL not set, using default: $nextauth_url"
       set_secret "$env" "NEXTAUTH_URL" "$nextauth_url"
     fi
-    
+
     # Set default API URL if not provided
     if [[ -z "${!env_upper}_NEXT_PUBLIC_API_BASE_URL" ]]; then
       if [[ "$env" == "prd" ]]; then
@@ -392,7 +392,7 @@ for env in "${ENV_ARRAY[@]}"; do
       echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_API_BASE_URL not set, using default: $api_url"
       set_secret "$env" "NEXT_PUBLIC_API_BASE_URL" "$api_url"
     fi
-    
+
     # Set default APP URL if not provided
     if [[ -z "${!env_upper}_NEXT_PUBLIC_APP_URL" ]]; then
       if [[ "$env" == "prd" ]]; then
@@ -403,7 +403,7 @@ for env in "${ENV_ARRAY[@]}"; do
       echo -e "${YELLOW}Warning:${NC} ${env_upper}_NEXT_PUBLIC_APP_URL not set, using default: $app_url"
       set_secret "$env" "NEXT_PUBLIC_APP_URL" "$app_url"
     fi
-    
+
     # Set default log level if not provided
     if [[ -z "${!env_upper}_LOG_LEVEL" ]]; then
       if [[ "$env" == "prd" ]]; then
@@ -422,4 +422,4 @@ echo ""
 echo -e "${BLUE}Next steps:${NC}"
 echo "1. Go to GitHub repository settings to review the secrets"
 echo "2. Run the service CI/CD workflows from the Actions tab"
-echo "3. Select the environment you want to deploy" 
+echo "3. Select the environment you want to deploy"

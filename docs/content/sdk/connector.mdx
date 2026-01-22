@@ -96,7 +96,7 @@ client = RhesisClient(
 To disable all connector and tracing functionality (useful for CI/CD or testing), set:
 
 <CodeBlock filename="terminal" language="bash">
-{`export RHESIS_CONNECTOR_DISABLE=true`}
+{`export RHESIS_CONNECTOR_DISABLED=true`}
 </CodeBlock>
 
 Accepted values: `true`, `1`, `yes`, `on` (case-insensitive)
@@ -225,7 +225,7 @@ async def authenticated_query(db, user, input: str) -> dict:
     """db and user are injected, only input appears in remote signature."""
     if not user.is_authenticated:
         return {"output": "Unauthorized"}
-    
+
     results = db.query_for_user(user.id, input)
     return {"output": format_results(results)}`}
 </CodeBlock>
@@ -259,14 +259,14 @@ async def query_mcp(db, config, user, input: str) -> dict:
     # Validate permissions
     if not user.has_permission("query_mcp"):
         return {"output": "Permission denied"}
-    
+
     # Use injected dependencies
     results = await db.query(
         table=config.mcp_table,
         query=input,
         user_id=user.id
     )
-    
+
     return {
         "output": format_results(results),
         "session_id": user.session_id,
