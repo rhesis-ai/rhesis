@@ -167,6 +167,11 @@ export default function SourcePreviewClientWrapper({
     }
   };
 
+  // child returns updated source with new tags and we update local source state for UI
+  const handleTagsUpdate = (updatedSource: Source) => {
+    setLocalSource(updatedSource);
+  };
+
   const handleUpdateFromMCP = async () => {
     if (!sessionToken || isUpdating) return;
 
@@ -828,6 +833,7 @@ export default function SourcePreviewClientWrapper({
           {/* Tags - always visible at bottom */}
           <InfoRow label="Tags">
             <SourceTags
+              onUpdate={handleTagsUpdate}
               sessionToken={sessionToken}
               source={localSource}
               disableEdition={isEditing === 'general'}
