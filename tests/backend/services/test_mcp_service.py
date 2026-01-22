@@ -1,5 +1,5 @@
 """
-Tests for MCP service functionality in rhesis.backend.app.services.mcp_service
+Tests for MCP service functionality in rhesis.backend.app.services.mcp.service
 
 This module tests the MCP service including:
 - Exception handling and HTTP exception mapping
@@ -17,7 +17,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.services.mcp_service import (
+from rhesis.backend.app.services.mcp.service import (
     _get_mcp_client_from_params,
     _get_mcp_tool_config,
     extract_mcp,
