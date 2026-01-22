@@ -24,8 +24,7 @@ export default class Row extends React.Component {
       dragging: false,
       dropHighlighted: 0,
       hovering: false,
-      plusHovering: false,
-      maxImageHeight: 100
+      plusHovering: false
     };
 
     this.dataLoadActions = [];
@@ -283,13 +282,7 @@ export default class Row extends React.Component {
             <div className="adatest-row-input" onClick={this.clickRow}>
               <div onClick={this.clickInput} style={{display: "inline-block"}}>
                 <span style={{width: "0px"}}></span>
-                {/* <span onContextMenu={this.handleInputContextMenu}> */}
-                  {this.state.input.startsWith("__IMAGE=") ?
-                    <img src={this.state.input.substring(8)} onDoubleClick={this.toggleImageSize} style={{maxWidth: (this.state.maxImageHeight*3)+"px", maxHeight: this.state.maxImageHeight}} />
-                    :
-                    <ContentEditable onClick={this.clickInput} ref={el => this.inputEditable = el} text={this.state.input} onInput={this.inputInput} onFinish={this.finishInput} editable={this.state.editing} defaultText={this.props.inputDefault} onTemplateExpand={this.templateExpandValue1} />
-                  }
-                {/* </span> */}
+                <ContentEditable onClick={this.clickInput} ref={el => this.inputEditable = el} text={this.state.input} onInput={this.inputInput} onFinish={this.finishInput} editable={this.state.editing} defaultText={this.props.inputDefault} onTemplateExpand={this.templateExpandValue1} />
                 <span style={{width: "0px"}}></span>
               </div>
             </div>
@@ -435,10 +428,6 @@ export default class Row extends React.Component {
     console.log("templateExpandValue1")
     // TODO: Still used?
     this.props.comm.send(this.props.id, {"action": "template_expand_value1"});
-  }
-
-  toggleImageSize() {
-    this.setState({maxImageHeight: this.state.maxImageHeight === 100 ? 500 : 100});
   }
 
   keyDownHandler(e) {

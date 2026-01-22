@@ -137,8 +137,6 @@ def matches_filter(test, filter_text):
         return filter_text in test["input"] or filter_text in test["output"]
 
 
-special_outputs = ["{MAX}"]
-
 valid_comparators = ["should not be", "should be", "should be the same as for"]
 FILLIN_PREFIX = "/Fill-ins"
 
@@ -204,7 +202,11 @@ class TestTreeBrowser:
 
         # ensure "model score" column exists
         if "model score" not in self.test_tree.columns:
-            self.test_tree["model score"] = "__TOEVAL__"
+            self.test_tree["model score"] = np.nan
+
+        # ensure "to_eval" column exists
+        if "to_eval" not in self.test_tree.columns:
+            self.test_tree["to_eval"] = True
 
         # a unique identifier for this test set instance, used for UI connections
         self._id = uuid.uuid4().hex
@@ -225,7 +227,9 @@ class TestTreeBrowser:
         # ensure the model score column exists
         self.score_columns = ["model score"]
         if "model score" not in self.test_tree.columns:
-            self.test_tree["model score"] = "__TOEVAL__"
+            self.test_tree["model score"] = np.nan
+        if "to_eval" not in self.test_tree.columns:
+            self.test_tree["to_eval"] = True
 
         # apply all the scorers to the test tree (this updates the test tree)
         self._compute_embeddings_and_scores(
@@ -467,7 +471,8 @@ class TestTreeBrowser:
                 if k2 not in metadata_fields:
                     self.test_tree.loc[test_id, k2] = msg[k2]
             if event_id == "change_input":
-                self.test_tree.loc[test_id, self.score_columns] = "__TOEVAL__"
+                self.test_tree.loc[test_id, self.score_columns] = np.nan
+                self.test_tree.loc[test_id, "to_eval"] = True
                 self._compute_embeddings_and_scores(
                     self.test_tree, overwrite_outputs="output" not in msg
                 )
@@ -789,7 +794,8 @@ class TestTreeBrowser:
                     )
                     self.test_tree.loc[id, "labeler"] = "imputed"
                     for c in self.score_columns:
-                        self.test_tree.loc[id, c] = "__TOEVAL__"
+                        self.test_tree.loc[id, c] = np.nan
+                    self.test_tree.loc[id, "to_eval"] = True
 
                     # s = {
                     #     "topic": self.current_topic + "/__suggestions__" + ("/"+input if self.mode == "topics" else ""),
@@ -832,8 +838,12 @@ class TestTreeBrowser:
             f"compute_embeddings_and_scores(tests=<DataFrame shape={tests.shape}>, recompute={recompute})"
         )
 
+        # Ensure to_eval column exists
+        if "to_eval" not in tests.columns:
+            tests["to_eval"] = True
+
         eval_ids = tests.index[
-            ((tests["model score"] == "__TOEVAL__") | (tests["output"] == "[no output]"))
+            ((tests["to_eval"] == True) | (tests["output"] == "[no output]"))  # noqa: E712
             & (tests["label"] != "topic_marker")
             & (tests["label"] != "off_topic")
         ]
@@ -876,11 +886,13 @@ class TestTreeBrowser:
                         tests.loc[id_new, "labeler"] = "scored"
                         tests.loc[id_new, "label"] = "fail" if scores[i] > 0.5 else "pass"
                         tests.loc[id_new, "model score"] = scores[i]
+                        tests.loc[id_new, "to_eval"] = False
                 else:
                     tests.loc[id, "output"] = new_outputs[i]
                     tests.loc[id, "model score"] = scores[i]
                     tests.loc[id, "label"] = "fail" if scores[i] > 0.5 else "pass"
                     tests.loc[id, "labeler"] = "scored"
+                    tests.loc[id, "to_eval"] = False
 
     def test_display_parts(self, test):
         # # find which template instantiation has the highest score (and so should be displayed)
