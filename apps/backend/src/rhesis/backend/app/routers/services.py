@@ -1,3 +1,4 @@
+import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -40,9 +41,12 @@ from rhesis.backend.app.services.generation import (
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.mcp import (
+    authorize_mcp_oauth,
+    callback_mcp_oauth,
     extract_mcp,
     handle_mcp_exception,
     query_mcp,
+    refresh_mcp_oauth_endpoint,
     run_mcp_authentication_test,
     search_mcp,
 )
@@ -635,6 +639,114 @@ async def test_mcp_connection(
         # Use handle_mcp_exception to properly handle MCP errors (401, 403, etc.)
         # This ensures authentication errors are properly mapped and don't log users out
         raise handle_mcp_exception(e, "test-connection")
+
+
+@router.get("/mcp/auth/{tool_id}/authorize")
+async def mcp_oauth_authorize(
+    tool_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Initiate OAuth 2.0 Authorization Code flow for an MCP tool.
+
+    Redirects the user to the OAuth provider's authorization page where they
+    will log in and grant access to their account. After authorization, the
+    provider redirects back to the callback endpoint with an authorization code.
+
+    Args:
+        tool_id: UUID of the MCP tool to authorize
+        db: Database session (injected)
+        tenant_context: Organization and user context (injected)
+        current_user: Current authenticated user (injected)
+
+    Returns:
+        RedirectResponse to OAuth provider's authorization URL
+
+    Example:
+        GET /services/mcp/auth/{tool_id}/authorize
+        -> Redirects to: https://auth.atlassian.com/authorize?client_id=...
+    """
+    organization_id, user_id = tenant_context
+    return await authorize_mcp_oauth(tool_id, db, organization_id, user_id)
+
+
+@router.get("/mcp/auth/{tool_id}/callback")
+async def mcp_oauth_callback(
+    tool_id: uuid.UUID,
+    code: str,
+    state: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    """
+    Handle OAuth callback after user authorization.
+
+    This endpoint is called by the OAuth provider after the user authorizes
+    the application. It exchanges the authorization code for access and refresh
+    tokens, stores them securely in the database, and redirects to a success page.
+
+    For Atlassian: Also retrieves the cloud_id from accessible-resources endpoint
+    which is required for constructing API URLs.
+
+    Args:
+        tool_id: UUID of the MCP tool being authorized
+        code: Authorization code from OAuth provider
+        state: State parameter for CSRF protection
+        db: Database session (injected)
+        tenant_context: Organization context (injected)
+
+    Returns:
+        RedirectResponse to frontend success page
+
+    Raises:
+        HTTPException: If state validation fails or token exchange fails
+
+    Example:
+        GET /services/mcp/auth/{tool_id}/callback?code=xxx&state=yyy
+        -> Redirects to: https://app.rhesis.io/integrations/tools?oauth_success=true
+    """
+    organization_id, user_id = tenant_context
+    return await callback_mcp_oauth(tool_id, code, state, db, organization_id, user_id)
+
+
+@router.post("/mcp/auth/{tool_id}/refresh")
+async def mcp_oauth_refresh(
+    tool_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Manually refresh OAuth tokens for an MCP tool.
+
+    Uses the refresh token to obtain a new access token. For Atlassian,
+    this also returns a new refresh token (rotating refresh tokens), which
+    is automatically stored in the database.
+
+    Note: Token refresh typically happens automatically before MCP operations
+    if the token is about to expire. This endpoint is provided for manual
+    refresh if needed.
+
+    Args:
+        tool_id: UUID of the MCP tool to refresh tokens for
+        db: Database session (injected)
+        tenant_context: Organization and user context (injected)
+        current_user: Current authenticated user (injected)
+
+    Returns:
+        Dict with success status, message, and new token expiry time
+
+    Raises:
+        HTTPException: If tool not found, not OAuth-enabled, or refresh fails
+
+    Example:
+        POST /services/mcp/auth/{tool_id}/refresh
+        -> {"success": true, "expires_at": "2026-01-22T12:00:00Z"}
+    """
+    organization_id, user_id = tenant_context
+    return await refresh_mcp_oauth_endpoint(tool_id, db, organization_id, user_id)
 
 
 @router.get("/recent-activities", response_model=RecentActivitiesResponse)
