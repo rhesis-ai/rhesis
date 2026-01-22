@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
 from rhesis.backend.app.auth.providers import ProviderRegistry
+from rhesis.backend.app.auth.session_invalidation import (
+    clear_user_logout,
+    invalidate_user_sessions,
+    is_session_valid,
+)
 from rhesis.backend.app.auth.token_utils import (
     create_session_token,
     get_secret_key,
@@ -227,6 +232,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
 
         # Set up session and create token
         request.session["user_id"] = str(user.id)
+        clear_user_logout(str(user.id))  # Clear any previous logout invalidation
         session_token = create_session_token(user)
 
         # Clear provider from session
@@ -299,6 +305,7 @@ async def login_with_email(
 
         # Set up session and create token
         request.session["user_id"] = str(user.id)
+        clear_user_logout(str(user.id))  # Clear any previous logout invalidation
         session_token = create_session_token(user)
 
         # Track login activity
@@ -388,6 +395,7 @@ async def register_with_email(
 
         # Set up session and create token
         request.session["user_id"] = str(user.id)
+        clear_user_logout(str(user.id))  # Clear any previous logout invalidation
         session_token = create_session_token(user)
 
         # Track registration activity
@@ -454,6 +462,7 @@ async def _legacy_auth0_callback(request: Request, db: Session):
 
         # Step 4: Set up session and create token
         request.session["user_id"] = str(user.id)
+        clear_user_logout(str(user.id))  # Clear any previous logout invalidation
         session_token = create_session_token(user)
 
         # Step 5: Track login activity
@@ -543,7 +552,7 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
     # Clear session data
     request.session.clear()
 
-    # If session token is provided, validate it and clear any related server-side data
+    # If session token is provided, validate it and invalidate all user sessions
     if session_token:
         try:
             secret_key = get_secret_key()
@@ -553,6 +562,10 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
 
             if user_id:
                 logger.info(f"Logout called for user {user_id} via JWT token")
+
+                # Invalidate all sessions for this user
+                # This ensures the JWT token can no longer be used
+                invalidate_user_sessions(user_id)
 
                 # Track logout activity if telemetry is enabled
                 if is_telemetry_enabled():
@@ -647,6 +660,24 @@ async def verify_auth(
 
     try:
         payload = verify_jwt_token(session_token, secret_key)
+
+        # Check if the session was invalidated (user logged out)
+        user_id = payload.get("user", {}).get("id")
+        iat = payload.get("iat")
+
+        if user_id and iat:
+            from datetime import datetime, timezone
+
+            # Convert iat (Unix timestamp) to datetime
+            issued_at = datetime.fromtimestamp(iat, tz=timezone.utc)
+
+            if not is_session_valid(user_id, issued_at):
+                logger.info(f"Session for user {user_id} was invalidated (logged out)")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Session has been invalidated",
+                )
+
         return {"authenticated": True, "user": payload["user"], "return_to": return_to}
 
     except JWTError as e:
@@ -656,6 +687,8 @@ async def verify_auth(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"
             )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error verifying token: {str(e)}")
         raise HTTPException(
@@ -748,6 +781,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
             )
 
         request.session["user_id"] = str(user.id)
+        clear_user_logout(str(user.id))  # Clear any previous logout invalidation
         session_token = create_session_token(user)
 
         logger.info(f"QUICK START MODE login successful for user: {user.email}")
