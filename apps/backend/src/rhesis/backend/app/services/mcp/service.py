@@ -26,7 +26,7 @@ from rhesis.sdk.services.mcp.exceptions import (
 from rhesis.sdk.services.mcp.observable_agent import ObservableMCPAgent
 
 # Initialize Jinja2 environment for loading prompt templates
-TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
+TEMPLATE_DIR = Path(__file__).parent / "templates"
 jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(str(TEMPLATE_DIR)),
     autoescape=jinja2.select_autoescape(),
