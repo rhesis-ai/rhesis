@@ -262,7 +262,7 @@ jobs:
           # Create temporary files for values with special characters to avoid shell interpretation
           echo -n "${{ secrets.FROM_EMAIL }}" > /tmp/from_email.txt
           echo -n "${{ secrets.WELCOME_FROM_EMAIL }}" > /tmp/welcome_from_email.txt
-          
+
           kubectl create secret generic rhesis-worker-secrets \
             --namespace="${{ env.NAMESPACE }}" \
             --from-literal=BROKER_URL="${{ secrets.BROKER_URL }}" \
@@ -304,9 +304,9 @@ jobs:
             --from-literal=STORAGE_SERVICE_URI="${{ secrets.STORAGE_SERVICE_URI }}" \
             --from-literal=STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }} \
             --from-literal=LOCAL_STORAGE_PATH="${{ secrets.LOCAL_STORAGE_PATH }}" \
-            --from-literal=RHESIS_CONNECTOR_DISABLE="true" \
+            --from-literal=RHESIS_CONNECTOR_DISABLED="${{ secrets.RHESIS_CONNECTOR_DISABLED }}" \
             --dry-run=client -o yaml | kubectl apply -f -
-          
+
           # Clean up temporary files
           rm -f /tmp/from_email.txt /tmp/welcome_from_email.txt
 

@@ -169,11 +169,11 @@ jobs:
           # Use commit SHA for all builds to avoid GCR/Cloud Run caching issues
           COMMIT_SHA_FULL="${{ github.sha }}"
           BUILD_TAG="${{ env.COMMIT_SHA }}-$(date +%s)"
-          
+
           echo "Building image with unique tag: $BUILD_TAG"
           echo "BUILD_TAG=$BUILD_TAG" >> $GITHUB_ENV
           echo "build_tag=$BUILD_TAG" >> $GITHUB_OUTPUT
-          
+
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # For preview deployments, tag with commit SHA
             docker build --no-cache --pull -t ${{ env.IMAGE_NAME }}:$BUILD_TAG -f apps/backend/Dockerfile .
@@ -375,7 +375,7 @@ jobs:
       - name: Clean up old revisions
         run: |
           echo "🧹 Cleaning up old revisions to force new instances..."
-          
+
           # List all revisions and delete those not receiving traffic (keep the latest serving one)
           REVISIONS=$(gcloud run revisions list \
             --service=${{ env.SERVICE_NAME }} \
@@ -384,11 +384,11 @@ jobs:
             --format="value(metadata.name)" \
             --filter="status.conditions.status:True AND traffic:0" \
             --limit=50 || echo "")
-          
+
           if [ -n "$REVISIONS" ]; then
             echo "Found old revisions to clean up:"
             echo "$REVISIONS"
-            
+
             for revision in $REVISIONS; do
               echo "Deleting revision: $revision"
               gcloud run revisions delete $revision \
@@ -396,7 +396,7 @@ jobs:
                 --project=${{ env.PROJECT_ID }} \
                 --quiet || echo "Failed to delete $revision (may be in use)"
             done
-            
+
             echo "✅ Cleaned up old revisions"
           else
             echo "No old revisions to clean up"
@@ -485,7 +485,7 @@ jobs:
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
           OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
-          RHESIS_CONNECTOR_DISABLE=true,
+          RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -560,7 +560,7 @@ jobs:
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
           OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
-          RHESIS_CONNECTOR_DISABLE=true,
+          RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -755,7 +755,7 @@ jobs:
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
           OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
-          RHESIS_CONNECTOR_DISABLE=true,
+          RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -837,7 +837,7 @@ jobs:
           OTEL_SERVICE_NAME=${{ secrets.OTEL_SERVICE_NAME || 'rhesis-backend' }},
           OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
-          RHESIS_CONNECTOR_DISABLE=true,
+          RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
           SKIP_MIGRATIONS=true
           EOF
           )"
