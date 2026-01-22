@@ -89,7 +89,7 @@ backend:
       value: "http://localhost:3000"
 # only for the quick start mode
     - name: QUICK_START
-      value: "true"
+      value: "false"
 
 
 # Frontend configuration for local development
@@ -120,10 +120,10 @@ frontend:
       value: "3000"
     # only for the quick start mode. This is used to enable the quick start mode in the frontend.
     - name: NEXT_PUBLIC_QUICK_START
-      value: "true"
+      value: "false"
     # only for the quick start mode. This is used to enable the quick start mode in the backend.
     - name: QUICK_START
-      value: "true"
+      value: "false"
 
 # Worker configuration for local development
 worker:
@@ -162,7 +162,7 @@ chatbot:
 docs:
   enabled: true
   replicas: 1
-  disableSecurityContext: true
+  # disableSecurityContext: true # Temporarily disabled for docs due to permission issues
   resources:
     requests:
       memory: "512Mi"

@@ -152,7 +152,11 @@ rebuild_images() {
         echo -e "${RED}❌ Error: Frontend directory not found${NC}"
         exit 1
     }
-    docker build -t rhesis-frontend:latest . --build-arg FRONTEND_ENV=local --build-arg NEXT_PUBLIC_QUICK_START=true
+    docker build -t rhesis-frontend:latest . \
+        --build-arg FRONTEND_ENV=local \
+        --build-arg NEXT_PUBLIC_QUICK_START=false \
+        --build-arg NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 \
+        --build-arg NEXT_PUBLIC_APP_URL=http://localhost:3000
     echo -e "    ${GREEN}✅ Frontend image built${NC}"
     
     # Build backend (must be built from project root with -f flag)
@@ -161,7 +165,7 @@ rebuild_images() {
         echo -e "${RED}❌ Error: Project root directory not found${NC}"
         exit 1
     }
-    docker build -t rhesis-backend:latest . -f apps/backend/Dockerfile --build-arg QUICK_START=true 
+    docker build -t rhesis-backend:latest . -f apps/backend/Dockerfile --build-arg QUICK_START=false 
     echo -e "    ${GREEN}✅ Backend image built${NC}"
     
     # Build worker (must be built from project root with -f flag)
