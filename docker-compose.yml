@@ -15,12 +15,28 @@ x-common-redis: &common-redis
   BROKER_URL: ${BROKER_URL:-redis://:${REDIS_PASSWORD:-rhesis-redis-pass}@redis:6379/0}
   CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:${REDIS_PASSWORD:-rhesis-redis-pass}@redis:6379/1}
 
+# Native authentication configuration (provider-agnostic)
+x-common-auth: &common-auth
+  # Email/password authentication
+  AUTH_EMAIL_PASSWORD_ENABLED: ${AUTH_EMAIL_PASSWORD_ENABLED:-true}
+  AUTH_REGISTRATION_ENABLED: ${AUTH_REGISTRATION_ENABLED:-true}
+  # Google OAuth (optional - leave empty to disable)
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  # GitHub OAuth (optional - leave empty to disable)
+  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+  # Session secret key (required)
+  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:-your-session-secret-key-change-in-production}
+
+# Legacy Auth0 configuration (for migration period only)
 x-common-auth0: &common-auth0
-  AUTH0_DOMAIN: ${AUTH0_DOMAIN:-your-auth0-domain.auth0.com}
-  AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:-your-auth0-audience}
-  AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID:-your-auth0-client-id}
-  AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET:-your-auth0-client-secret}
-  AUTH0_SECRET_KEY: ${AUTH0_SECRET_KEY:-your-auth0-secret-key}
+  AUTH_LEGACY_AUTH0_ENABLED: ${AUTH_LEGACY_AUTH0_ENABLED:-false}
+  AUTH0_DOMAIN: ${AUTH0_DOMAIN:-}
+  AUTH0_AUDIENCE: ${AUTH0_AUDIENCE:-}
+  AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID:-}
+  AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET:-}
+  AUTH0_SECRET_KEY: ${AUTH0_SECRET_KEY:-}
 
 x-common-smtp: &common-smtp
   SMTP_HOST: ${SMTP_HOST:-smtp.example.com}
@@ -61,8 +77,6 @@ x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
   NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
   NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-  NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN:-your-auth0-domain.auth0.com}
-  NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID:-your-auth0-client-id}
   NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
   NEXT_TELEMETRY_DISABLED: 1
 
@@ -115,7 +129,7 @@ services:
       dockerfile: apps/backend/Dockerfile
     container_name: rhesis-backend
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config]
+      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config]
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
       QUICK_START: ${QUICK_START:-false}
     ports:
@@ -145,7 +159,7 @@ services:
       dockerfile: apps/worker/Dockerfile
     container_name: rhesis-worker
     environment:
-      <<: [*common-database, *common-redis, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
+      <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
       LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
       CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-8}
       CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-4}
@@ -181,12 +195,10 @@ services:
         FRONTEND_ENV: ${FRONTEND_ENV:-local}
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-        NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN:-http://localhost:3000}
-        NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID:-http://localhost:3000}
         NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
     container_name: rhesis-frontend
     environment:
-      <<: [*common-auth0, *nextjs-frontend, *common-environment, *rhesis-config]
+      <<: [*nextjs-frontend, *common-environment, *rhesis-config]
       PORT: ${FRONTEND_PORT:-3000}
     ports:
       - "3000:3000"

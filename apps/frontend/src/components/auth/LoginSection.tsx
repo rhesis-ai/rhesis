@@ -1,9 +1,16 @@
 'use client';
 
-import { Box, Typography } from '@mui/material';
-import CustomAuthForm from './Auth0Lock';
+import { Box } from '@mui/material';
+import AuthForm from './AuthForm';
 
-export default function LoginSection() {
+interface LoginSectionProps {
+  /** If true, show registration form instead of login */
+  isRegistration?: boolean;
+}
+
+export default function LoginSection({
+  isRegistration = false,
+}: LoginSectionProps) {
   return (
     <Box
       sx={{
@@ -14,10 +21,7 @@ export default function LoginSection() {
       }}
     >
       <Box sx={{ width: '100%' }}>
-        <CustomAuthForm
-          clientId={process.env.NEXT_PUBLIC_AUTH0_CLIENT_ID!}
-          domain={process.env.NEXT_PUBLIC_AUTH0_DOMAIN!}
-        />
+        <AuthForm isRegistration={isRegistration} />
       </Box>
     </Box>
   );

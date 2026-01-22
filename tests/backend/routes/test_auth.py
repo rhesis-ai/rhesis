@@ -21,14 +21,176 @@ from fastapi.testclient import TestClient
 fake = Faker()
 
 
+# =============================================================================
+# Provider-Agnostic Authentication Tests (New Native Auth System)
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestAuthProviders:
+    """Test /auth/providers endpoint for provider discovery."""
+
+    def test_get_providers_returns_list(self, client: TestClient):
+        """Test that /auth/providers returns a list of providers."""
+        response = client.get("/auth/providers")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "providers" in data
+        assert isinstance(data["providers"], list)
+
+    def test_get_providers_includes_email_by_default(self, client: TestClient):
+        """Test that email provider is included by default."""
+        response = client.get("/auth/providers")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        provider_names = [p["name"] for p in data["providers"]]
+        assert "email" in provider_names
+
+    def test_get_providers_structure(self, client: TestClient):
+        """Test that provider info has correct structure."""
+        response = client.get("/auth/providers")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        for provider in data["providers"]:
+            assert "name" in provider
+            assert "display_name" in provider
+            assert "type" in provider
+            assert "enabled" in provider
+            assert provider["type"] in ["oauth", "credentials"]
+
+    def test_get_providers_oauth_disabled_without_credentials(self, client: TestClient):
+        """Test OAuth providers are not enabled without credentials."""
+        with patch.dict(os.environ, {}, clear=True):
+            # Reset registry to pick up new env
+            from rhesis.backend.app.auth.providers.registry import ProviderRegistry
+
+            ProviderRegistry.reset()
+
+            response = client.get("/auth/providers")
+
+            assert response.status_code == status.HTTP_200_OK
+            data = response.json()
+
+            # Find Google and GitHub providers
+            google = next((p for p in data["providers"] if p["name"] == "google"), None)
+            github = next((p for p in data["providers"] if p["name"] == "github"), None)
+
+            # They should exist but not be enabled
+            if google:
+                assert google["enabled"] is False
+            if github:
+                assert github["enabled"] is False
+
+
+@pytest.mark.unit
+class TestProviderLogin:
+    """Test /auth/login/{provider} endpoint for OAuth initiation."""
+
+    def test_login_unknown_provider(self, client: TestClient):
+        """Test login with unknown provider returns error."""
+        response = client.get("/auth/login/unknown_provider")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Unknown authentication provider" in response.json()["detail"]
+
+    def test_login_disabled_provider(self, client: TestClient):
+        """Test login with disabled provider returns error."""
+        with patch.dict(os.environ, {}, clear=True):
+            from rhesis.backend.app.auth.providers.registry import ProviderRegistry
+
+            ProviderRegistry.reset()
+
+            response = client.get("/auth/login/google")
+
+            assert response.status_code == status.HTTP_400_BAD_REQUEST
+            assert "not configured" in response.json()["detail"]
+
+    def test_login_email_provider_not_oauth(self, client: TestClient):
+        """Test that email provider rejects OAuth login."""
+        response = client.get("/auth/login/email")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "does not support OAuth" in response.json()["detail"]
+
+
+@pytest.mark.unit
+class TestEmailLogin:
+    """Test /auth/login/email endpoint for email/password authentication."""
+
+    def test_email_login_missing_credentials(self, client: TestClient):
+        """Test email login with missing credentials."""
+        response = client.post("/auth/login/email", json={})
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_email_login_missing_password(self, client: TestClient):
+        """Test email login with missing password."""
+        response = client.post(
+            "/auth/login/email",
+            json={"email": "test@example.com"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_email_login_invalid_email_format(self, client: TestClient):
+        """Test email login with invalid email format."""
+        response = client.post(
+            "/auth/login/email",
+            json={"email": "not-an-email", "password": "password123"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.unit
+class TestEmailRegistration:
+    """Test /auth/register endpoint for email/password registration."""
+
+    def test_register_missing_credentials(self, client: TestClient):
+        """Test registration with missing credentials."""
+        response = client.post("/auth/register", json={})
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_register_password_too_short(self, client: TestClient):
+        """Test registration with password too short."""
+        response = client.post(
+            "/auth/register",
+            json={"email": "test@example.com", "password": "short"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_register_invalid_email_format(self, client: TestClient):
+        """Test registration with invalid email format."""
+        response = client.post(
+            "/auth/register",
+            json={"email": "not-an-email", "password": "password123"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+# =============================================================================
+# Legacy Auth0 Tests (Kept for backward compatibility during migration)
+# =============================================================================
+
+
 @pytest.mark.unit
 @pytest.mark.critical
 class TestAuthLogin:
-    """Test authentication login endpoint"""
+    """Test legacy Auth0 authentication login endpoint (requires AUTH_LEGACY_AUTH0_ENABLED)"""
 
     def test_login_redirect_success(self, client: TestClient):
-        """Test successful login redirects to Auth0"""
-        with patch.dict(os.environ, {"AUTH0_DOMAIN": "test-domain.auth0.com"}):
+        """Test successful login redirects to Auth0 when legacy mode enabled"""
+        with patch.dict(
+            os.environ,
+            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
+        ):
             with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
                 # Mock the Auth0 redirect response with RedirectResponse
                 from starlette.responses import RedirectResponse
@@ -46,7 +208,10 @@ class TestAuthLogin:
 
     def test_login_with_connection_parameter(self, client: TestClient):
         """Test login with specific connection parameter"""
-        with patch.dict(os.environ, {"AUTH0_DOMAIN": "test-domain.auth0.com"}):
+        with patch.dict(
+            os.environ,
+            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
+        ):
             with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
                 from starlette.responses import RedirectResponse
 
@@ -55,9 +220,7 @@ class TestAuthLogin:
                 )
                 mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
 
-                response = client.get(
-                    "/auth/login?connection=google-oauth2", follow_redirects=False
-                )
+                client.get("/auth/login?connection=google-oauth2", follow_redirects=False)
 
                 # Should call OAuth redirect with connection parameter
                 call_args = mock_oauth.auth0.authorize_redirect.call_args
@@ -66,7 +229,10 @@ class TestAuthLogin:
 
     def test_login_with_return_to_parameter(self, client: TestClient):
         """Test login with custom return_to parameter"""
-        with patch.dict(os.environ, {"AUTH0_DOMAIN": "test-domain.auth0.com"}):
+        with patch.dict(
+            os.environ,
+            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
+        ):
             with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
                 from starlette.responses import RedirectResponse
 
@@ -75,14 +241,22 @@ class TestAuthLogin:
                 )
                 mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
 
-                response = client.get("/auth/login?return_to=/dashboard", follow_redirects=False)
+                client.get("/auth/login?return_to=/dashboard", follow_redirects=False)
 
                 # Should store return_to in session (mocked behavior)
                 mock_oauth.auth0.authorize_redirect.assert_called_once()
 
+    def test_login_disabled_without_legacy_flag(self, client: TestClient):
+        """Test legacy login is disabled without AUTH_LEGACY_AUTH0_ENABLED"""
+        with patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "false"}, clear=True):
+            response = client.get("/auth/login")
+
+            assert response.status_code == status.HTTP_400_BAD_REQUEST
+            assert "Legacy Auth0 login is disabled" in response.json()["detail"]
+
     def test_login_missing_auth0_domain(self, client: TestClient):
         """Test login fails when AUTH0_DOMAIN is not configured"""
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "true"}, clear=True):
             response = client.get("/auth/login")
 
             assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -90,7 +264,10 @@ class TestAuthLogin:
 
     def test_login_oauth_exception(self, client: TestClient):
         """Test login handles OAuth exceptions gracefully"""
-        with patch.dict(os.environ, {"AUTH0_DOMAIN": "test-domain.auth0.com"}):
+        with patch.dict(
+            os.environ,
+            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
+        ):
             with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
                 mock_oauth.auth0.authorize_redirect = AsyncMock(
                     side_effect=Exception("OAuth error")
@@ -103,7 +280,10 @@ class TestAuthLogin:
 
     def test_login_stores_origin_in_session(self, client: TestClient):
         """Test login stores frontend origin for callback"""
-        with patch.dict(os.environ, {"AUTH0_DOMAIN": "test-domain.auth0.com"}):
+        with patch.dict(
+            os.environ,
+            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
+        ):
             with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
                 from starlette.responses import RedirectResponse
 
@@ -113,13 +293,16 @@ class TestAuthLogin:
                 mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
 
                 headers = {"origin": "http://localhost:3000"}
-                response = client.get("/auth/login", headers=headers, follow_redirects=False)
+                client.get("/auth/login", headers=headers, follow_redirects=False)
 
                 mock_oauth.auth0.authorize_redirect.assert_called_once()
 
     def test_login_callback_url_https_rewrite(self, client: TestClient):
         """Test callback URL is rewritten from HTTP to HTTPS for non-localhost"""
-        with patch.dict(os.environ, {"AUTH0_DOMAIN": "test-domain.auth0.com"}):
+        with patch.dict(
+            os.environ,
+            {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
+        ):
             with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
                 from starlette.responses import RedirectResponse
 
@@ -130,7 +313,7 @@ class TestAuthLogin:
 
                 # Mock base URL to simulate production environment
                 with patch.object(client.app, "state", {}):
-                    response = client.get("/auth/login", follow_redirects=False)
+                    client.get("/auth/login", follow_redirects=False)
 
                 # Should call OAuth redirect with callback URL parameters
                 call_args = mock_oauth.auth0.authorize_redirect.call_args

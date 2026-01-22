@@ -138,7 +138,7 @@ class UserBase(Base):
     name: Optional[str] = None
     given_name: Optional[str] = None
     family_name: Optional[str] = None
-    auth0_id: Optional[str] = None
+    auth0_id: Optional[str] = None  # Legacy, kept for backward compatibility
     picture: Optional[str] = None
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
@@ -147,6 +147,13 @@ class UserBase(Base):
     last_login_at: Optional[datetime] = None
     user_settings: Optional[UserSettings] = Field(
         default_factory=lambda: UserSettings(version=1), description="User preferences and settings"
+    )
+    # Native authentication fields (provider-agnostic)
+    provider_type: Optional[str] = Field(
+        None, description="Authentication provider type (google, github, email, etc.)"
+    )
+    external_provider_id: Optional[str] = Field(
+        None, description="External ID from the authentication provider"
     )
 
     @field_validator("email")
@@ -159,6 +166,9 @@ class UserBase(Base):
 
 class UserCreate(UserBase):
     send_invite: Optional[bool] = False
+    password_hash: Optional[str] = Field(
+        None, description="Bcrypt password hash for email/password authentication"
+    )
 
 
 class UserUpdate(UserBase):

@@ -1,18 +1,24 @@
 import os
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from jose import JWTError
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
-from rhesis.backend.app.auth.oauth import extract_user_data, get_auth0_user_info, oauth
+from rhesis.backend.app.auth.providers import ProviderRegistry
 from rhesis.backend.app.auth.token_utils import (
     create_session_token,
     get_secret_key,
     verify_jwt_token,
 )
 from rhesis.backend.app.auth.url_utils import build_redirect_url
-from rhesis.backend.app.auth.user_utils import find_or_create_user
+from rhesis.backend.app.auth.user_utils import (
+    find_or_create_user,
+    find_or_create_user_from_auth,
+)
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
@@ -26,7 +32,48 @@ from rhesis.backend.telemetry import (
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
-def get_callback_url(request: Request) -> str:
+# =============================================================================
+# Request/Response Models
+# =============================================================================
+
+
+class EmailLoginRequest(BaseModel):
+    """Request body for email/password login."""
+
+    email: EmailStr
+    password: str = Field(..., min_length=1)
+
+
+class EmailRegisterRequest(BaseModel):
+    """Request body for email/password registration."""
+
+    email: EmailStr
+    password: str = Field(..., min_length=8)
+    name: Optional[str] = None
+
+
+class ProviderInfo(BaseModel):
+    """Information about an authentication provider."""
+
+    name: str
+    display_name: str
+    type: str  # 'oauth' or 'credentials'
+    enabled: bool
+    registration_enabled: Optional[bool] = None
+
+
+class ProvidersResponse(BaseModel):
+    """Response for /auth/providers endpoint."""
+
+    providers: List[ProviderInfo]
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+
+def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
     """
     Generate the OAuth callback URL.
     In local development, use request.base_url to match the incoming host.
@@ -55,9 +102,406 @@ def get_callback_url(request: Request) -> str:
     return callback_url
 
 
+def _is_legacy_auth0_enabled() -> bool:
+    """Check if legacy Auth0 authentication is enabled for rollback."""
+    enabled = os.getenv("AUTH_LEGACY_AUTH0_ENABLED", "false").lower()
+    return enabled in ("true", "1", "yes")
+
+
+# =============================================================================
+# Provider Discovery Endpoint
+# =============================================================================
+
+
+@router.get("/providers", response_model=ProvidersResponse)
+async def get_providers():
+    """
+    Get list of enabled authentication providers.
+
+    Returns information about all configured and enabled authentication
+    providers. The frontend uses this to dynamically render login options.
+    """
+    ProviderRegistry.initialize()
+    providers = ProviderRegistry.get_provider_info()
+    return ProvidersResponse(providers=[ProviderInfo(**p) for p in providers])
+
+
+# =============================================================================
+# OAuth Login Endpoints
+# =============================================================================
+
+
+@router.get("/login/{provider}")
+async def login_with_provider(
+    request: Request,
+    provider: str,
+    return_to: str = "/home",
+):
+    """
+    Initiate OAuth login with a specific provider.
+
+    Args:
+        provider: Provider name (e.g., 'google', 'github')
+        return_to: URL to redirect to after successful login
+    """
+    ProviderRegistry.initialize()
+    auth_provider = ProviderRegistry.get_provider(provider)
+
+    if not auth_provider:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown authentication provider: {provider}",
+        )
+
+    if not auth_provider.is_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Authentication provider '{provider}' is not configured",
+        )
+
+    if not auth_provider.is_oauth:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Provider '{provider}' does not support OAuth login. Use POST /auth/login/email"
+            ),
+        )
+
+    # Store session data for callback
+    origin = request.headers.get("origin") or request.headers.get("referer")
+    if origin:
+        request.session["original_frontend"] = origin
+    request.session["return_to"] = return_to
+    request.session["auth_provider"] = provider
+
+    callback_url = get_callback_url(request, provider)
+
+    try:
+        return await auth_provider.get_authorization_url(request, callback_url)
+    except Exception as e:
+        logger.error(f"OAuth login error for {provider}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to initiate {provider} login: {str(e)}",
+        )
+
+
+@router.get("/callback")
+async def auth_callback(request: Request, db: Session = Depends(get_db_session)):
+    """
+    Handle OAuth callback from any provider.
+
+    This endpoint handles the callback from OAuth providers after the user
+    has authenticated. It determines which provider initiated the flow
+    from session data and completes the authentication.
+    """
+    # Determine which provider initiated this callback
+    provider_name = request.session.get("auth_provider")
+
+    # If no provider in session, try to detect from state or fall back to legacy
+    if not provider_name:
+        # Check if legacy Auth0 is enabled for backward compatibility
+        if _is_legacy_auth0_enabled():
+            return await _legacy_auth0_callback(request, db)
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No authentication provider found in session",
+        )
+
+    ProviderRegistry.initialize()
+    auth_provider = ProviderRegistry.get_provider(provider_name)
+
+    if not auth_provider:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown authentication provider: {provider_name}",
+        )
+
+    try:
+        # Authenticate with the provider
+        auth_user = await auth_provider.authenticate(request)
+
+        # Find or create user
+        user = find_or_create_user_from_auth(db, auth_user)
+
+        # Set up session and create token
+        request.session["user_id"] = str(user.id)
+        session_token = create_session_token(user)
+
+        # Clear provider from session
+        request.session.pop("auth_provider", None)
+
+        # Track login activity
+        if is_telemetry_enabled():
+            set_telemetry_enabled(
+                enabled=True,
+                user_id=str(user.id),
+                org_id=str(user.organization_id) if user.organization_id else None,
+            )
+            track_user_activity(
+                event_type="login",
+                session_id=request.session.get("_id"),
+                login_method="oauth",
+                auth_provider=provider_name,
+            )
+
+        # Determine redirect URL
+        redirect_url = build_redirect_url(request, session_token)
+        return RedirectResponse(url=redirect_url)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Auth callback error for {provider_name}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Authentication failed: {str(e)}",
+        )
+
+
+# =============================================================================
+# Email/Password Authentication Endpoints
+# =============================================================================
+
+
+@router.post("/login/email")
+async def login_with_email(
+    request: Request,
+    body: EmailLoginRequest,
+    db: Session = Depends(get_db_session),
+):
+    """
+    Authenticate with email and password.
+
+    Returns a session token on successful authentication.
+    """
+    ProviderRegistry.initialize()
+    email_provider = ProviderRegistry.get_provider("email")
+
+    if not email_provider or not email_provider.is_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email/password authentication is not enabled",
+        )
+
+    try:
+        # Authenticate with email provider
+        auth_user = await email_provider.authenticate(
+            request,
+            email=body.email,
+            password=body.password,
+            db=db,
+        )
+
+        # Find or create user (will update last_login_at)
+        user = find_or_create_user_from_auth(db, auth_user)
+
+        # Set up session and create token
+        request.session["user_id"] = str(user.id)
+        session_token = create_session_token(user)
+
+        # Track login activity
+        if is_telemetry_enabled():
+            set_telemetry_enabled(
+                enabled=True,
+                user_id=str(user.id),
+                org_id=str(user.organization_id) if user.organization_id else None,
+            )
+            track_user_activity(
+                event_type="login",
+                session_id=request.session.get("_id"),
+                login_method="email",
+                auth_provider="email",
+            )
+
+        return {
+            "success": True,
+            "session_token": session_token,
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "name": user.name,
+                "organization_id": (str(user.organization_id) if user.organization_id else None),
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Email login error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )
+
+
+@router.post("/register")
+async def register_with_email(
+    request: Request,
+    body: EmailRegisterRequest,
+    db: Session = Depends(get_db_session),
+):
+    """
+    Register a new user with email and password.
+
+    Returns a session token on successful registration.
+    """
+    ProviderRegistry.initialize()
+    email_provider = ProviderRegistry.get_provider("email")
+
+    if not email_provider or not email_provider.is_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email/password authentication is not enabled",
+        )
+
+    # Import here to access the register method
+    from rhesis.backend.app.auth.providers.email import EmailProvider
+
+    if not isinstance(email_provider, EmailProvider):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Email provider configuration error",
+        )
+
+    try:
+        # Register new user
+        await email_provider.register(
+            request,
+            email=body.email,
+            password=body.password,
+            name=body.name,
+            db=db,
+        )
+
+        # The user was already created in register(), so just look them up
+        from rhesis.backend.app import crud
+
+        user = crud.get_user_by_email(db, body.email)
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="User creation failed",
+            )
+
+        # Set up session and create token
+        request.session["user_id"] = str(user.id)
+        session_token = create_session_token(user)
+
+        # Track registration activity
+        if is_telemetry_enabled():
+            set_telemetry_enabled(
+                enabled=True,
+                user_id=str(user.id),
+                org_id=str(user.organization_id) if user.organization_id else None,
+            )
+            track_user_activity(
+                event_type="registration",
+                session_id=request.session.get("_id"),
+                login_method="email",
+                auth_provider="email",
+            )
+
+        return {
+            "success": True,
+            "session_token": session_token,
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "name": user.name,
+                "organization_id": (str(user.organization_id) if user.organization_id else None),
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Registration failed: {str(e)}",
+        )
+
+
+# =============================================================================
+# Legacy Auth0 Support (for migration period)
+# =============================================================================
+
+
+async def _legacy_auth0_callback(request: Request, db: Session):
+    """
+    Handle legacy Auth0 callback during migration period.
+
+    This function is only called when AUTH_LEGACY_AUTH0_ENABLED=true
+    and no native provider was found in session.
+    """
+    from rhesis.backend.app.auth.oauth import (
+        extract_user_data,
+        get_auth0_user_info,
+    )
+
+    try:
+        # Step 1: Get token and user info from Auth0
+        token, userinfo = await get_auth0_user_info(request)
+
+        # Step 2: Extract and normalize user data
+        auth0_id, email, user_profile = extract_user_data(userinfo)
+
+        # Step 3: Find or create user (legacy method)
+        user = find_or_create_user(db, auth0_id, email, user_profile)
+
+        # Step 4: Set up session and create token
+        request.session["user_id"] = str(user.id)
+        session_token = create_session_token(user)
+
+        # Step 5: Track login activity
+        if is_telemetry_enabled():
+            set_telemetry_enabled(
+                enabled=True,
+                user_id=str(user.id),
+                org_id=str(user.organization_id) if user.organization_id else None,
+            )
+            track_user_activity(
+                event_type="login",
+                session_id=request.session.get("_id"),
+                login_method="oauth",
+                auth_provider="auth0",
+            )
+
+        # Step 6: Determine redirect URL
+        redirect_url = build_redirect_url(request, session_token)
+        return RedirectResponse(url=redirect_url)
+
+    except Exception as e:
+        logger.error(f"Legacy Auth0 callback error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Authentication failed: {str(e)}",
+        )
+
+
 @router.get("/login")
 async def login(request: Request, connection: str = None, return_to: str = "/home"):
-    """Redirect users to Auth0 login page"""
+    """
+    Legacy Auth0 login endpoint (kept for backward compatibility).
+
+    During migration, this endpoint redirects to Auth0 if AUTH_LEGACY_AUTH0_ENABLED=true.
+    Otherwise, it returns an error directing users to use the new provider-specific endpoints.
+    """
+    if not _is_legacy_auth0_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Legacy Auth0 login is disabled. "
+                "Use GET /auth/login/{provider} for OAuth "
+                "or POST /auth/login/email for email login."
+            ),
+        )
+
+    from rhesis.backend.app.auth.oauth import oauth
+
     # Store the origin in session for callback
     origin = request.headers.get("origin") or request.headers.get("referer")
     if origin:
@@ -81,7 +525,6 @@ async def login(request: Request, connection: str = None, return_to: str = "/hom
         if connection:
             auth_params["connection"] = connection
 
-        # Let oauth.authorize_redirect handle state parameter
         return await oauth.auth0.authorize_redirect(request, **auth_params)
 
     except Exception as e:
@@ -89,56 +532,14 @@ async def login(request: Request, connection: str = None, return_to: str = "/hom
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/callback")
-async def auth_callback(request: Request, db: Session = Depends(get_db_session)):
-    """Handle the Auth0 callback after successful authentication"""
-    try:
-        # Step 1: Get token and user info from Auth0
-        token, userinfo = await get_auth0_user_info(request)
-
-        # Step 2: Extract and normalize user data
-        auth0_id, email, user_profile = extract_user_data(userinfo)
-
-        # Step 3: Find or create user
-        user = find_or_create_user(db, auth0_id, email, user_profile)
-
-        # Step 4: Set up session and create token
-        request.session["user_id"] = str(user.id)
-        session_token = create_session_token(user)
-
-        # Step 5: Track login activity (only if user has telemetry enabled)
-        # Track login activity if telemetry is enabled
-        if is_telemetry_enabled():
-            # Set telemetry context first
-            set_telemetry_enabled(
-                enabled=True,
-                user_id=str(user.id),
-                org_id=str(user.organization_id) if user.organization_id else None,
-            )
-
-            # Now track the activity
-            track_user_activity(
-                event_type="login",
-                session_id=request.session.get("_id"),
-                login_method="oauth",
-                auth_provider="auth0",
-            )
-
-        # Step 6: Determine redirect URL
-        redirect_url = build_redirect_url(request, session_token)
-
-        return RedirectResponse(url=redirect_url)
-
-    except Exception as e:
-        logger.error(f"Auth callback error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
+# =============================================================================
+# Session Management Endpoints
+# =============================================================================
 
 
 @router.get("/logout")
 async def logout(request: Request, post_logout: bool = False, session_token: str = None):
     """Log out the user and clear their session"""
-    from fastapi.responses import JSONResponse
-
     # Clear session data
     request.session.clear()
 
@@ -155,26 +556,18 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
 
                 # Track logout activity if telemetry is enabled
                 if is_telemetry_enabled():
-                    # Set telemetry context before tracking (user already authenticated via token)
                     org_id = user_info.get("organization_id")
                     set_telemetry_enabled(
                         enabled=True,
                         user_id=str(user_id),
                         org_id=str(org_id) if org_id else None,
                     )
-
-                    # Track logout activity
                     track_user_activity(event_type="logout", session_id=request.session.get("_id"))
-
-                # Here you could add additional cleanup if needed
-                # For example, invalidating refresh tokens, clearing user-specific cache, etc.
 
         except JWTError as e:
             logger.warning(f"Invalid session token provided during logout: {str(e)}")
-            # Continue with logout even if token is invalid
         except Exception as e:
             logger.error(f"Error processing session token during logout: {str(e)}")
-            # Continue with logout even if there's an error
 
     # Create response with cookie clearing headers
     accept_header = request.headers.get("accept", "")
@@ -190,7 +583,6 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
         response = RedirectResponse(url=return_to_url)
 
     # Clear all authentication-related cookies on the server side
-    # This ensures logout works even if client-side cookie clearing fails
     cookies_to_clear = [
         "next-auth.session-token",
         "next-auth.csrf-token",
@@ -204,15 +596,18 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
     ]
 
     for cookie_name in cookies_to_clear:
-        # Clear cookie with default settings
         response.set_cookie(
-            key=cookie_name, value="", max_age=0, expires=0, path="/", httponly=True, samesite="lax"
+            key=cookie_name,
+            value="",
+            max_age=0,
+            expires=0,
+            path="/",
+            httponly=True,
+            samesite="lax",
         )
 
-        # For staging and production, also clear with domain settings
         if frontend_env in ["staging", "production"]:
             domain = "rhesis.ai" if frontend_env == "production" else "stg.rhesis.ai"
-
             response.set_cookie(
                 key=cookie_name,
                 value="",
@@ -224,7 +619,6 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
                 secure=True,
                 samesite="lax",
             )
-            # Also clear with leading dot for broader coverage
             response.set_cookie(
                 key=cookie_name,
                 value="",
@@ -252,10 +646,7 @@ async def verify_auth(
     logger.info(f"Verify request received. Token: {session_token[:8]}...")
 
     try:
-        # Use the shared verification function
         payload = verify_jwt_token(session_token, secret_key)
-
-        # Return the user info from the token
         return {"authenticated": True, "user": payload["user"], "return_to": return_to}
 
     except JWTError as e:
@@ -272,39 +663,44 @@ async def verify_auth(
         )
 
 
+# =============================================================================
+# Demo and Quick Start Endpoints
+# =============================================================================
+
+
 @router.get("/demo")
 async def demo_redirect(request: Request):
-    """Redirect to Auth0 login with demo user pre-filled"""
+    """Redirect to Auth0 login with demo user pre-filled (legacy)"""
+    if not _is_legacy_auth0_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Demo login via Auth0 is disabled. Use Quick Start mode instead.",
+        )
+
+    from rhesis.backend.app.auth.oauth import oauth
+
     try:
         logger.info("Demo redirect requested")
-
-        # Demo user email
         DEMO_EMAIL = os.getenv("DEMO_USER_EMAIL", "demo@rhesis.ai")
 
-        # Store the origin in session for callback
         origin = request.headers.get("origin") or request.headers.get("referer")
         if origin:
             request.session["original_frontend"] = origin
 
         callback_url = get_callback_url(request)
-
-        # Store return_to in session - demo users go to dashboard
         request.session["return_to"] = "/dashboard"
 
         if not os.getenv("AUTH0_DOMAIN"):
             raise HTTPException(status_code=500, detail="AUTH0_DOMAIN not configured")
 
-        # Auth0 authorization parameters with login_hint for demo user
         auth_params = {
             "redirect_uri": callback_url,
             "audience": f"https://{os.getenv('AUTH0_DOMAIN')}/api/v2/",
-            "login_hint": DEMO_EMAIL,  # Pre-fills the email field
-            "prompt": "login",  # Always show login screen
+            "login_hint": DEMO_EMAIL,
+            "prompt": "login",
         }
 
-        # Use the existing OAuth redirect but with demo-specific parameters
         response = await oauth.auth0.authorize_redirect(request, **auth_params)
-
         logger.info(f"Demo redirect created with login_hint: {DEMO_EMAIL}")
         return response
 
@@ -319,17 +715,11 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
     Quick Start mode authentication endpoint.
 
     ⚠️ WARNING: This endpoint is for QUICK START ONLY!
-    It bypasses Auth0 and logs in as the default admin@local.dev user.
-
-    This endpoint uses multi-factor detection to ensure it only works when
-    QUICK_START=true AND all deployment signals confirm local deployment.
+    It bypasses normal authentication and logs in as the default admin@local.dev user.
     """
     from rhesis.backend.app import crud
     from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 
-    # Check if Quick Start mode is enabled
-    # Pass hostname and headers for security validation
-    # Handle None hostname properly (don't convert None to string "None")
     hostname = request.url.hostname if request.url.hostname is not None else None
     if not is_quick_start_enabled(hostname=hostname, headers=dict(request.headers)):
         logger.warning("Attempted to use /auth/local-login but Quick Start mode is not enabled")
@@ -341,11 +731,10 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
             ),
         )
 
-    logger.warning("⚠️  QUICK START MODE LOGIN - Bypassing Auth0 authentication!")
+    logger.warning("⚠️  QUICK START MODE LOGIN - Bypassing authentication!")
     logger.warning("⚠️  This should NEVER be used in production!")
 
     try:
-        # Find the QUICK START MODE  user
         user = crud.get_user_by_email(db, "admin@local.dev")
 
         if not user:
@@ -358,13 +747,11 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
                 ),
             )
 
-        # Set up session
         request.session["user_id"] = str(user.id)
         session_token = create_session_token(user)
 
         logger.info(f"QUICK START MODE login successful for user: {user.email}")
 
-        # Track login activity if telemetry is enabled
         if is_telemetry_enabled():
             set_telemetry_enabled(
                 enabled=True,
@@ -378,7 +765,6 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
                 auth_provider="local",
             )
 
-        # Return session token
         return {
             "success": True,
             "session_token": session_token,
@@ -386,7 +772,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
                 "id": str(user.id),
                 "email": user.email,
                 "name": user.name,
-                "organization_id": str(user.organization_id) if user.organization_id else None,
+                "organization_id": (str(user.organization_id) if user.organization_id else None),
             },
             "message": "⚠️  QUICK START MODE login - Not for production use!",
         }

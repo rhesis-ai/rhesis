@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from fastapi import Depends, HTTPException, Request, WebSocket, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -13,11 +13,19 @@ from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas import UserCreate
 
+if TYPE_CHECKING:
+    from rhesis.backend.app.auth.providers.base import AuthUser
+
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: dict) -> User:
-    """Find existing user or create a new one"""
+    """
+    Find existing user or create a new one (legacy Auth0 version).
+
+    This function is kept for backward compatibility during migration.
+    New code should use find_or_create_user_from_auth() instead.
+    """
     user = None
     current_time = datetime.now(timezone.utc)
     is_new_user = False
@@ -80,37 +88,115 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
 
     # Send welcome email to new users
     if is_new_user:
-        try:
-            from rhesis.backend.logging.rhesis_logger import logger
-            from rhesis.backend.notifications.email.service import EmailService
-
-            email_service = EmailService()
-
-            if email_service.is_configured:
-                logger.info(f"Sending welcome email to new user: {user.email}")
-
-                success = email_service.send_welcome_email(
-                    recipient_email=user.email,
-                    recipient_name=user.name or user.given_name,
-                )
-
-                if success:
-                    logger.info(f"Successfully sent welcome email to {user.email}")
-                else:
-                    logger.warning(f"Failed to send welcome email to {user.email}")
-            else:
-                logger.info(
-                    f"Email service not configured, skipping welcome email for {user.email}"
-                )
-
-        except Exception as e:
-            # Log the error but don't fail user creation
-            from rhesis.backend.logging.rhesis_logger import logger
-
-            logger.error(f"Error sending welcome email to {user.email}: {str(e)}")
-            logger.error(f"Error type: {type(e).__name__}")
+        _send_welcome_email(user)
 
     return user
+
+
+def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
+    """
+    Find existing user or create a new one from provider-agnostic AuthUser.
+
+    This is the new provider-agnostic version that replaces find_or_create_user.
+    Users are matched primarily by email, with provider info updated on each login.
+
+    Args:
+        db: Database session
+        auth_user: AuthUser dataclass from any authentication provider
+
+    Returns:
+        User instance (existing or newly created)
+    """
+    from rhesis.backend.app.auth.providers.base import AuthUser as AuthUserClass
+    from rhesis.backend.app.utils.validation import validate_and_normalize_email
+    from rhesis.backend.logging.rhesis_logger import logger
+
+    if not isinstance(auth_user, AuthUserClass):
+        raise TypeError(f"Expected AuthUser, got {type(auth_user)}")
+
+    current_time = datetime.now(timezone.utc)
+    is_new_user = False
+
+    # Normalize email
+    try:
+        normalized_email = validate_and_normalize_email(auth_user.email)
+    except ValueError:
+        # If email validation fails, use the original email (for placeholder emails)
+        normalized_email = auth_user.email
+
+    # First try to find user by email (this is our primary matching criteria)
+    user = crud.get_user_by_email(db, normalized_email)
+
+    if user:
+        # Found user by email - update profile info and provider details
+        logger.info(f"Found existing user by email: {normalized_email}")
+        user.name = auth_user.name or user.name
+        user.given_name = auth_user.given_name or user.given_name
+        user.family_name = auth_user.family_name or user.family_name
+        user.picture = auth_user.picture or user.picture
+        user.provider_type = auth_user.provider_type
+        user.external_provider_id = auth_user.external_id
+        user.last_login_at = current_time
+        return user
+
+    # Create new user
+    logger.info(f"Creating new user: {normalized_email} via {auth_user.provider_type}")
+    user_data = UserCreate(
+        email=normalized_email,
+        name=auth_user.name,
+        given_name=auth_user.given_name,
+        family_name=auth_user.family_name,
+        picture=auth_user.picture,
+        provider_type=auth_user.provider_type,
+        external_provider_id=auth_user.external_id,
+        is_active=True,
+        is_superuser=False,
+        last_login_at=current_time,
+    )
+    user = crud.create_user(db, user_data)
+    is_new_user = True
+
+    # Send welcome email to new users
+    if is_new_user:
+        _send_welcome_email(user)
+
+    return user
+
+
+def _send_welcome_email(user: User) -> None:
+    """
+    Send welcome email to a new user.
+
+    Args:
+        user: The newly created user
+    """
+    try:
+        from rhesis.backend.logging.rhesis_logger import logger
+        from rhesis.backend.notifications.email.service import EmailService
+
+        email_service = EmailService()
+
+        if email_service.is_configured:
+            logger.info(f"Sending welcome email to new user: {user.email}")
+
+            success = email_service.send_welcome_email(
+                recipient_email=user.email,
+                recipient_name=user.name or user.given_name,
+            )
+
+            if success:
+                logger.info(f"Successfully sent welcome email to {user.email}")
+            else:
+                logger.warning(f"Failed to send welcome email to {user.email}")
+        else:
+            logger.info(f"Email service not configured, skipping welcome email for {user.email}")
+
+    except Exception as e:
+        # Log the error but don't fail user creation
+        from rhesis.backend.logging.rhesis_logger import logger
+
+        logger.error(f"Error sending welcome email to {user.email}: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
 
 
 async def get_current_user(request: Request) -> Optional[User]:
@@ -227,7 +313,8 @@ async def get_authenticated_user_with_context(
                                     status_code=status.HTTP_403_FORBIDDEN,
                                     detail="User is not associated with an organization",
                                 )
-                            # Return user - tenant context should be passed directly to CRUD operations when needed
+                            # Return user - tenant context should be passed
+                            # directly to CRUD operations when needed
                             request.state.user = user
                             return user
 
