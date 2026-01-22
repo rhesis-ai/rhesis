@@ -44,6 +44,7 @@ x-common-environment: &common-environment
 x-rhesis-config: &rhesis-config
   RHESIS_BASE_URL: ${RHESIS_BASE_URL:-https://api.rhesis.ai}
   RHESIS_API_KEY: ${RHESIS_API_KEY:-your-rhesis-api-key}
+  RHESIS_CONNECTOR_DISABLED: ${RHESIS_CONNECTOR_DISABLED:-true}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
   BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
   DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-rhesis}

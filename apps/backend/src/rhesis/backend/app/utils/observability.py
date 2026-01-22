@@ -11,6 +11,12 @@ from rhesis.sdk.decorators import bind_context
 # Initialize RhesisClient at module import time (required for @endpoint decorators)
 try:
     rhesis_client = RhesisClient.from_environment()
+    # If no project_id, default to DisabledClient
+    if rhesis_client and not getattr(rhesis_client, "project_id", None):
+        logger.info("No project_id found, defaulting to DisabledClient")
+        from rhesis.sdk.clients import DisabledClient
+
+        rhesis_client = DisabledClient()
 except Exception as e:
     logger.debug(f"RhesisClient initialization deferred (will retry in lifespan): {e}")
     rhesis_client = None
