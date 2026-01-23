@@ -58,34 +58,6 @@ spec:
             # Construct Redis URLs from individual components + secrets
             - name: REDIS_URL
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
-            # Construct Google Application Credentials from individual components + secrets
-            - name: GOOGLE_APPLICATION_CREDENTIALS
-              value: "$(GOOGLE_APPLICATION_CREDENTIALS)"
-            # Vertex AI Location from configmap
-            - name: VERTEX_AI_LOCATION
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.secrets.configMaps.existingConfigMap }}
-                  key: VERTEX_AI_LOCATION
-            # Vertex AI Project from configmap (optional)
-            - name: VERTEX_AI_PROJECT
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.secrets.configMaps.existingConfigMap }}
-                  key: VERTEX_AI_PROJECT
-                  optional: true
-            # Rhesis Project ID from configmap
-            - name: RHESIS_PROJECT_ID
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.secrets.configMaps.existingConfigMap }}
-                  key: RHESIS_PROJECT_ID
-            # Rhesis Connector Disabled from configmap
-            - name: RHESIS_CONNECTOR_DISABLED
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.secrets.configMaps.existingConfigMap }}
-                  key: RHESIS_CONNECTOR_DISABLED
             {{- if .Values.chatbot.env }}
             {{- range .Values.chatbot.env }}
             - name: {{ .name }}

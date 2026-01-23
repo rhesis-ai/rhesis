@@ -47,6 +47,7 @@ ${YELLOW}Commands:${NC}
   ${GREEN}redis${NC}                      Connect to Redis
   ${GREEN}status${NC}                     Show status of all pods and services
   ${GREEN}port-forward${NC} [service]     Quick port forwarding (all or specific service)
+  ${GREEN}kill${NC} [service]             Kill port-forward processes (all or specific service)
   ${GREEN}scale${NC} <service> <replicas> Scale a service to N replicas
   ${GREEN}help${NC}                       Show this help message
 
@@ -60,6 +61,8 @@ ${YELLOW}Examples:${NC}
   $0 db                       # Connect to PostgreSQL
   $0 restart frontend         # Restart frontend pods
   $0 status                   # See what's running
+  $0 kill                     # Kill all port-forward processes
+  $0 kill backend             # Kill only backend port-forward
 
 ${CYAN}💡 Pro Tips:${NC}
   • Use 'update' when you only change configs or resource limits
@@ -449,6 +452,77 @@ port_forward() {
     esac
 }
 
+# Kill port forward processes
+kill_port_forwards() {
+    local service=$1
+    
+    echo -e "${YELLOW}🔪 Killing port-forward processes...${NC}"
+    
+    # Get all kubectl port-forward processes
+    local pids=$(ps aux | grep 'kubectl port-forward' | grep -v grep | awk '{print $2}')
+    
+    if [ -z "$pids" ]; then
+        echo -e "${YELLOW}⚠️  No port-forward processes found${NC}"
+        return
+    fi
+    
+    if [ -z "$service" ]; then
+        # Kill all port-forward processes
+        echo -e "  - Killing all port-forward processes...${NC}"
+        echo "$pids" | while read -r pid; do
+            if [ -n "$pid" ]; then
+                local cmd=$(ps -p "$pid" -o command= 2>/dev/null || echo "unknown")
+                echo -e "    ${BLUE}Killing PID $pid: $cmd${NC}"
+                kill "$pid" 2>/dev/null || true
+            fi
+        done
+        echo -e "${GREEN}✅ All port-forward processes killed${NC}"
+    else
+        # Kill specific service port-forward
+        local port=""
+        case $service in
+            frontend)
+                port="3000"
+                ;;
+            backend)
+                port="8080"
+                ;;
+            chatbot)
+                port="8083"
+                ;;
+            docs)
+                port="3001"
+                ;;
+            *)
+                echo -e "${RED}❌ Unknown service: $service${NC}"
+                echo -e "${YELLOW}Available: frontend, backend, chatbot, docs${NC}"
+                exit 1
+                ;;
+        esac
+        
+        echo -e "  - Killing port-forward for ${BLUE}$service${NC} (port $port)...${NC}"
+        local killed=0
+        echo "$pids" | while read -r pid; do
+            if [ -n "$pid" ]; then
+                local cmd=$(ps -p "$pid" -o command= 2>/dev/null || echo "")
+                if echo "$cmd" | grep -q "svc/$service" || echo "$cmd" | grep -q ":$port"; then
+                    echo -e "    ${BLUE}Killing PID $pid: $cmd${NC}"
+                    kill "$pid" 2>/dev/null || true
+                    killed=1
+                fi
+            fi
+        done
+        
+        if [ "$killed" -eq 0 ]; then
+            echo -e "${YELLOW}⚠️  No port-forward process found for $service${NC}"
+        else
+            echo -e "${GREEN}✅ Port-forward for $service killed${NC}"
+        fi
+    fi
+    
+    echo ""
+}
+
 # Scale deployment
 scale_deployment() {
     local service=$1
@@ -561,6 +635,9 @@ main() {
             ;;
         port-forward)
             port_forward "$1"
+            ;;
+        kill)
+            kill_port_forwards "$1"
             ;;
         scale)
             scale_deployment "$1" "$2"

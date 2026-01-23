@@ -65,23 +65,6 @@ spec:
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
             - name: CELERY_RESULT_BACKEND
               value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/1"
-            # Construct Google Application Credentials from individual components + secrets
-            - name: GOOGLE_APPLICATION_CREDENTIALS
-              value: "$(GOOGLE_APPLICATION_CREDENTIALS)"
-            # Vertex AI Location from configmap (can be overridden by explicit env var)
-            - name: VERTEX_AI_LOCATION
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.secrets.configMaps.existingConfigMap }}
-                  key: VERTEX_AI_LOCATION
-            # Vertex AI Project from configmap (optional, can be extracted from credentials)
-            - name: VERTEX_AI_PROJECT
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ .Values.secrets.configMaps.existingConfigMap }}
-                  key: VERTEX_AI_PROJECT
-                  optional: true
-        
             {{- if .Values.worker.env }}
             {{- range .Values.worker.env }}
             - name: {{ .name }}
