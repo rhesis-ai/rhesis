@@ -81,6 +81,7 @@ class SingleTurnRunner(BaseRunner):
         expected_response: str = "",
         evaluate_metrics: bool = True,
         test_execution_context: Optional[Dict[str, str]] = None,
+        test_set: Optional[Any] = None,
     ) -> Tuple[float, Dict[str, Any], Dict[str, Any]]:
         """
         Execute single-turn test.
@@ -96,6 +97,7 @@ class SingleTurnRunner(BaseRunner):
             model: Optional model override for metric evaluation
             evaluate_metrics: Whether to evaluate metrics
             test_execution_context: Optional dict with test_run_id, test_result_id, test_id
+            test_set: Optional TestSet model instance for metric override
 
         Returns:
             Tuple of (execution_time_ms, processed_result, metrics_results)
@@ -104,9 +106,10 @@ class SingleTurnRunner(BaseRunner):
         test_id = str(test.id)
 
         # Prepare metrics if evaluation requested
+        # Test set metrics override behavior metrics when present
         metric_configs = []
         if evaluate_metrics:
-            metrics = get_test_metrics(test, db, organization_id, user_id)
+            metrics = get_test_metrics(test, db, organization_id, user_id, test_set=test_set)
             metric_configs = prepare_metric_configs(metrics, test_id, scope=MetricScope.SINGLE_TURN)
             logger.debug(f"Prepared {len(metric_configs)} metrics for test {test_id}")
 
