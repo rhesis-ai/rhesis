@@ -5,11 +5,17 @@ This module handles the discovery and extraction of Garak probes
 for import into Rhesis as test sets.
 """
 
+import ast
 import importlib
+import inspect
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from rhesis.backend.logging.rhesis_logger import logger
+
+# Placeholder used for generator.name in extracted prompts
+GENERATOR_PLACEHOLDER = "{TARGET_MODEL}"
 
 
 @dataclass
@@ -160,17 +166,9 @@ class GarakProbeService:
                             elif isinstance(detector_value, str):
                                 default_detector = detector_value
 
-                        # Try to count prompts - must instantiate to get dynamic prompts
-                        try:
-                            instance = attr()
-                            if hasattr(instance, "prompts") and instance.prompts:
-                                total_prompts += len(instance.prompts)
-                        except Exception:
-                            # Fall back to class-level prompts attribute
-                            if hasattr(attr, "prompts"):
-                                prompts = attr.prompts
-                                if isinstance(prompts, (list, tuple)):
-                                    total_prompts += len(prompts)
+                        # Count prompts by extracting from probe method source
+                        probe_prompts = self._extract_prompts_from_probe_method(attr)
+                        total_prompts += len(probe_prompts)
                     except Exception:
                         pass
 
@@ -215,6 +213,108 @@ class GarakProbeService:
         except ImportError:
             # Fallback: check for common probe attributes
             return hasattr(obj, "prompts") or hasattr(obj, "probe")
+
+    def _extract_prompts_from_probe_method(self, probe_class: type) -> List[str]:
+        """
+        Extract prompts from a probe class.
+
+        Garak probes may set self.prompts in different ways:
+        1. As a class attribute
+        2. In __init__() (e.g., encoding probes)
+        3. In the probe() method (e.g., DAN probes with f-strings)
+
+        This method tries multiple strategies to extract prompts.
+
+        Args:
+            probe_class: The probe class to extract prompts from
+
+        Returns:
+            List of prompt strings with generator.name replaced by placeholder
+        """
+        prompts = []
+
+        try:
+            # First try: check if class already has prompts attribute
+            if hasattr(probe_class, "prompts"):
+                class_prompts = probe_class.prompts
+                if isinstance(class_prompts, (list, tuple)) and class_prompts:
+                    return list(class_prompts)
+
+            # Second try: instantiate the probe to get prompts set in __init__
+            try:
+                instance = probe_class()
+                if hasattr(instance, "prompts") and instance.prompts:
+                    return list(instance.prompts)
+            except Exception as inst_error:
+                logger.debug(f"Could not instantiate {probe_class.__name__}: {inst_error}")
+
+            # Third try: get source code of probe method
+            if not hasattr(probe_class, "probe"):
+                return prompts
+
+            try:
+                source = inspect.getsource(probe_class.probe)
+            except (OSError, TypeError):
+                return prompts
+
+            # Parse the source to find self.prompts = [...] assignment
+            # Use regex to extract the list contents
+            # Pattern matches: self.prompts = [ ... ]
+            pattern = r"self\.prompts\s*=\s*\["
+            match = re.search(pattern, source)
+            if not match:
+                return prompts
+
+            # Find the matching closing bracket
+            start_idx = match.end() - 1  # Position of opening [
+            bracket_count = 0
+            prompts_str = ""
+
+            for i, char in enumerate(source[start_idx:]):
+                if char == "[":
+                    bracket_count += 1
+                elif char == "]":
+                    bracket_count -= 1
+                    if bracket_count == 0:
+                        prompts_str = source[start_idx : start_idx + i + 1]
+                        break
+
+            if not prompts_str:
+                return prompts
+
+            # Create a mock generator class for evaluating f-strings
+            class MockGenerator:
+                name = GENERATOR_PLACEHOLDER
+
+            generator = MockGenerator()
+
+            # Try to evaluate the prompts list
+            # Replace f-string references to generator.name with our placeholder
+            try:
+                # Use exec to evaluate in proper context
+                local_vars: Dict[str, Any] = {"generator": generator}
+                exec(f"result = {prompts_str}", {"generator": generator}, local_vars)
+                result = local_vars.get("result", [])
+                if isinstance(result, (list, tuple)):
+                    prompts = [str(p) for p in result]
+            except Exception as eval_error:
+                # If eval fails, try to count list items using AST
+                logger.debug(f"Could not eval prompts, using AST count: {eval_error}")
+                try:
+                    # Parse just the list literal to count elements
+                    tree = ast.parse(prompts_str, mode="eval")
+                    if isinstance(tree.body, ast.List):
+                        # Return placeholder prompts based on count
+                        count = len(tree.body.elts)
+                        class_name = probe_class.__name__
+                        prompts = [f"[Prompt {i + 1} from {class_name}]" for i in range(count)]
+                except Exception:
+                    pass
+
+        except Exception as e:
+            logger.debug(f"Error extracting prompts from {probe_class.__name__}: {e}")
+
+        return prompts
 
     def get_probe_details(self, module_name: str) -> Optional[GarakModuleInfo]:
         """
@@ -293,19 +393,9 @@ class GarakProbeService:
                 if isinstance(probe_tags, (list, tuple, set)):
                     tags = list(probe_tags)
 
-            # Get prompts - try to instantiate the class to get actual prompts
-            prompts = []
-            try:
-                # Some probe classes can be instantiated without arguments
-                instance = probe_class()
-                if hasattr(instance, "prompts"):
-                    prompts = list(instance.prompts) if instance.prompts else []
-            except Exception:
-                # Fall back to class-level prompts attribute
-                if hasattr(probe_class, "prompts"):
-                    class_prompts = probe_class.prompts
-                    if isinstance(class_prompts, (list, tuple)):
-                        prompts = list(class_prompts)
+            # Get prompts - Garak probes set prompts inside probe() method
+            # We need to extract them from the source code
+            prompts = self._extract_prompts_from_probe_method(probe_class)
 
             # Get detector
             detector = None
