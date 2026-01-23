@@ -105,9 +105,13 @@ def _get_agent_class():
         return MCPAgent
 
 
-def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_id: str = None):
+async def _get_mcp_tool_config(
+    db: Session, tool_id: str, organization_id: str, user_id: str = None
+):
     """
     Get MCP client and provider configuration from database by tool ID.
+
+    Automatically refreshes OAuth tokens if expired before creating the client.
 
     Args:
         db: Database session
@@ -124,6 +128,12 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
         MCPConfigurationError: If tool not found, deleted, not an MCP integration,
             or invalid credentials
     """
+    from rhesis.backend.app.services.mcp.oauth import (
+        is_oauth_token,
+        is_token_expired,
+        refresh_oauth_token,
+    )
+
     try:
         tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
     except ItemDeletedException:
@@ -148,6 +158,21 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
         credentials_dict = json.loads(tool.credentials)
     except (json.JSONDecodeError, TypeError) as e:
         raise MCPConfigurationError(f"Invalid credentials format for tool '{tool_id}': {e}")
+
+    # Check if OAuth token needs refresh
+    if is_oauth_token(credentials_dict):
+        expires_at = credentials_dict.get("EXPIRES_AT")
+        if is_token_expired(expires_at):
+            logger.info(f"OAuth token expired for tool {tool_id}, refreshing...")
+            try:
+                # Refresh token - this updates the database automatically
+                credentials_dict = await refresh_oauth_token(tool, credentials_dict, db)
+                logger.info(f"Successfully refreshed OAuth token for tool {tool_id}")
+            except Exception as e:
+                logger.error(f"Failed to refresh OAuth token for tool {tool_id}: {str(e)}")
+                raise MCPConfigurationError(
+                    f"OAuth token expired and refresh failed. Please re-authenticate: {str(e)}"
+                )
 
     # Extract repository context for GitHub provider
     repository_context = None
@@ -302,7 +327,7 @@ async def search_mcp(
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
-    client, provider, repository_context = _get_mcp_tool_config(
+    client, provider, repository_context = await _get_mcp_tool_config(
         db, tool_id, organization_id, user_id
     )
 
@@ -402,7 +427,7 @@ async def extract_mcp(
     model = get_user_generation_model(db, user)
 
     # Load MCP client and provider from database tool configuration
-    client, provider, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
+    client, provider, _ = await _get_mcp_tool_config(db, tool_id, organization_id, user_id)
 
     extract_prompt = jinja_env.get_template("mcp_extract_prompt.jinja2").render(
         item_id=item_id,
@@ -490,7 +515,7 @@ async def query_mcp(
     model = get_user_generation_model(db, user)
 
     # Load MCP client from database tool configuration
-    client, provider, repository_context = _get_mcp_tool_config(
+    client, provider, repository_context = await _get_mcp_tool_config(
         db, tool_id, organization_id, user_id
     )
 
@@ -553,7 +578,7 @@ async def run_mcp_authentication_test(
 
     # Load MCP client from either tool_id or parameters
     if tool_id is not None:
-        client, _, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
+        client, _, _ = await _get_mcp_tool_config(db, tool_id, organization_id, user_id)
     else:
         client = _get_mcp_client_from_params(
             provider_type_id=provider_type_id,
