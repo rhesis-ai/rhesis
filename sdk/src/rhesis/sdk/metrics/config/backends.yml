@@ -11,3 +11,6 @@ backends:
   custom:
     module: "rhesis.sdk.metrics.providers.native"
     factory: "RhesisMetricFactory"
+  garak:
+    module: "rhesis.sdk.metrics.providers.garak"
+    factory: "GarakMetricFactory"
