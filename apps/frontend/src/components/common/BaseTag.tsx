@@ -82,6 +82,7 @@ export interface BaseTagProps extends Omit<
   entity?: TaggableEntity;
   /** Custom className for chip styling */
   chipClassName?: string;
+  onTagUpdate?: () => void;
 }
 
 // Tag validation utilities
@@ -116,6 +117,7 @@ export default function BaseTag({
   InputProps: customInputProps,
   InputLabelProps: customInputLabelProps,
   id,
+  onTagUpdate,
   ...textFieldProps
 }: BaseTagProps) {
   const [inputValue, setInputValue] = useState<string>('');
@@ -210,6 +212,10 @@ export default function BaseTag({
         severity: 'success',
         autoHideDuration: 4000,
       });
+
+      if (onTagUpdate) {
+        onTagUpdate();
+      }
     } catch (error) {
       notifications?.show(
         error instanceof Error ? error.message : 'Failed to update tags',

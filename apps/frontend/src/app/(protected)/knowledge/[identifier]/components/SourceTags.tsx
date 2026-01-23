@@ -28,18 +28,12 @@ export default function SourceTags({
     }
   }, [source.tags]);
 
-  const handleTagsChange = (newTagNames: string[]) => {
-    setTagNames(newTagNames);
-    if (onUpdate) {
-      onUpdate();
-    }
-  };
-
   return (
     <Box sx={{ width: '100%' }}>
       <BaseTag
         value={tagNames}
-        onChange={handleTagsChange}
+        onChange={setTagNames}
+        onTagUpdate={onUpdate}
         placeholder="Add tags..."
         chipColor="primary"
         disableEdition={disableEdition}

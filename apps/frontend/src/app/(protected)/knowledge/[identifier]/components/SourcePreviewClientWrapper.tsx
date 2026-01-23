@@ -169,19 +169,13 @@ export default function SourcePreviewClientWrapper({
 
   // fetch updated source after tag update and refresh local state
   const handleTagsUpdate = async () => {
-    setTimeout(async () => {
-      try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const sourcesClient = clientFactory.getSourcesClient();
-        const updatedSource = await sourcesClient.getSourceWithContent(
-          localSource.id
-        );
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const sourcesClient = clientFactory.getSourcesClient();
+    const updatedSource = await sourcesClient.getSourceWithContent(
+      localSource.id
+    );
 
-        setLocalSource(updatedSource);
-      } catch (error) {
-        console.error('Failed to refresh source after tag update', error);
-      }
-    }, 500);
+    setLocalSource(updatedSource);
   };
 
   const handleUpdateFromMCP = async () => {
