@@ -142,13 +142,27 @@ delete_volumes() {
     kubectl delete pods --all -n "$NAMESPACE" 2>/dev/null || true
     echo -e "    ${GREEN}✅ Pods deleted${NC}"
     
+    echo -e "  - Collecting PVs bound to rhesis namespace...${NC}"
+    # Get PVs that are bound to PVCs in the rhesis namespace
+    local rhesis_pvs=$(kubectl get pvc -n "$NAMESPACE" -o jsonpath='{.items[*].spec.volumeName}' 2>/dev/null || echo "")
+    
     echo -e "  - Deleting Persistent Volume Claims...${NC}"
     kubectl delete pvc --all -n "$NAMESPACE" 2>/dev/null || true
     echo -e "    ${GREEN}✅ PVCs deleted${NC}"
     
-    echo -e "  - Deleting Persistent Volumes...${NC}"
-    kubectl delete pv --all 2>/dev/null || true
-    echo -e "    ${GREEN}✅ PVs deleted${NC}"
+    # Only delete PVs that were specifically bound to rhesis namespace
+    if [ -n "$rhesis_pvs" ]; then
+        echo -e "  - Deleting Persistent Volumes (only rhesis namespace PVs)...${NC}"
+        for pv in $rhesis_pvs; do
+            if [ -n "$pv" ]; then
+                echo -e "    ${BLUE}Deleting PV: $pv${NC}"
+                kubectl delete pv "$pv" 2>/dev/null || true
+            fi
+        done
+        echo -e "    ${GREEN}✅ Rhesis PVs deleted${NC}"
+    else
+        echo -e "    ${YELLOW}⚠️  No PVs found for rhesis namespace${NC}"
+    fi
     
     echo -e "  - Uninstalling Helm release...${NC}"
     if helm list -n "$NAMESPACE" 2>/dev/null | grep -q rhesis; then
