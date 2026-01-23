@@ -1,6 +1,19 @@
 import { BaseApiClient } from './base-client';
 
 /**
+ * Individual probe class information
+ */
+export interface GarakProbeClass {
+  class_name: string;
+  full_name: string;
+  module_name: string;
+  description: string;
+  prompt_count: number;
+  tags: string[];
+  detector: string | null;
+}
+
+/**
  * Garak probe module information
  */
 export interface GarakProbeModule {
@@ -13,6 +26,7 @@ export interface GarakProbeModule {
   rhesis_category: string;
   rhesis_topic: string;
   rhesis_behavior: string;
+  probes: GarakProbeClass[];
 }
 
 /**
@@ -40,23 +54,37 @@ export interface GarakProbeDetailResponse {
     topic: string;
     behavior: string;
   };
-  probes: Array<{
-    class_name: string;
-    full_name: string;
-    description: string;
-    tags: string[];
-    prompt_count: number;
-    detector: string | null;
-  }>;
+  probes: GarakProbeClass[];
+}
+
+/**
+ * Probe selection for import
+ */
+export interface GarakProbeSelection {
+  module_name: string;
+  class_name: string;
+  custom_name?: string;
 }
 
 /**
  * Import request
  */
 export interface GarakImportRequest {
-  modules: string[];
+  probes: GarakProbeSelection[];
+  name_prefix?: string;
+  description_template?: string;
+}
+
+/**
+ * Probe preview in import preview response
+ */
+export interface GarakProbePreview {
+  module_name: string;
+  class_name: string;
+  full_name: string;
   test_set_name: string;
-  description?: string;
+  prompt_count: number;
+  detector: string | null;
 }
 
 /**
@@ -64,31 +92,31 @@ export interface GarakImportRequest {
  */
 export interface GarakImportPreviewResponse {
   garak_version: string;
-  total_probes: number;
-  total_prompts: number;
+  total_test_sets: number;
   total_tests: number;
   detector_count: number;
   detectors: string[];
-  modules: Array<{
-    name: string;
-    probe_count: number;
-    prompt_count: number;
-    category: string;
-    topic: string;
-    behavior: string;
-  }>;
+  probes: GarakProbePreview[];
+}
+
+/**
+ * Imported test set information
+ */
+export interface GarakImportedTestSet {
+  test_set_id: string;
+  test_set_name: string;
+  probe_full_name: string;
+  test_count: number;
 }
 
 /**
  * Import response
  */
 export interface GarakImportResponse {
-  test_set_id: string;
-  test_set_name: string;
-  test_count: number;
-  metric_count: number;
+  test_sets: GarakImportedTestSet[];
+  total_test_sets: number;
+  total_tests: number;
   garak_version: string;
-  modules: string[];
 }
 
 /**

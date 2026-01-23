@@ -5,6 +5,7 @@ This module handles the import of Garak probes as Rhesis test sets,
 including metric creation and association.
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
@@ -20,6 +21,15 @@ from .probes import GarakProbeInfo, GarakProbeService
 from .taxonomy import GarakTaxonomy
 
 
+@dataclass
+class ProbeSelection:
+    """Probe selection for import."""
+
+    module_name: str
+    class_name: str
+    custom_name: Optional[str] = None
+
+
 class GarakImporter:
     """Service for importing Garak probes as Rhesis test sets."""
 
@@ -31,88 +41,137 @@ class GarakImporter:
         self.db = db
         self.probe_service = GarakProbeService()
 
-    def import_probes_as_test_set(
+    def import_probes(
         self,
-        modules: List[str],
-        test_set_name: str,
+        probes: List[Any],  # List of GarakProbeSelection from schema
+        name_prefix: Optional[str],
+        description_template: Optional[str],
         organization_id: str,
         user_id: str,
-        description: Optional[str] = None,
-    ) -> TestSet:
+    ) -> Dict[str, Any]:
         """
-        Import selected Garak probe modules as a Rhesis test set.
+        Import selected Garak probes, creating one test set per probe.
 
         Args:
-            modules: List of Garak module names to import
-            test_set_name: Name for the new test set
+            probes: List of probe selections (module_name, class_name, custom_name)
+            name_prefix: Prefix for auto-generated test set names
+            description_template: Optional description template
             organization_id: Organization ID
             user_id: User ID
-            description: Optional description for the test set
 
         Returns:
-            Created TestSet model instance
+            Dictionary with import results
         """
-        logger.info(f"Importing Garak probes from modules: {modules}")
+        logger.info(f"Importing {len(probes)} Garak probes as test sets")
 
-        # Collect all probes from selected modules
-        all_probes: List[GarakProbeInfo] = []
-        all_detectors: set = set()
+        results = []
+        total_tests = 0
 
-        for module_name in modules:
-            probes = self.probe_service.extract_probes_from_module(module_name)
-            all_probes.extend(probes)
+        for probe_selection in probes:
+            # Extract probe info
+            probe_info = self._get_probe_info(
+                probe_selection.module_name, probe_selection.class_name
+            )
 
-            # Collect unique detectors
-            mapping = GarakTaxonomy.get_mapping(module_name)
-            all_detectors.add(mapping.default_detector)
+            if not probe_info:
+                logger.warning(
+                    f"Probe {probe_selection.module_name}.{probe_selection.class_name} not found"
+                )
+                continue
 
-        if not all_probes:
-            raise ValueError(f"No probes found in modules: {modules}")
+            # Generate test set name
+            test_set_name = probe_selection.custom_name or self._generate_test_set_name(
+                probe_info, name_prefix
+            )
 
-        # Create the test set
-        test_set = self._create_test_set(
-            name=test_set_name,
-            description=description,
-            modules=modules,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
+            # Generate description
+            description = self._generate_description(probe_info, description_template)
 
-        # Create tests for each probe/prompt
-        tests = self._create_tests_from_probes(
-            probes=all_probes,
-            test_set=test_set,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-
-        # Create and associate Garak detector metrics
-        for detector_class in all_detectors:
-            metric = self._get_or_create_garak_metric(
-                detector_class=detector_class,
+            # Create test set for this probe
+            test_set = self._create_test_set_for_probe(
+                probe=probe_info,
+                name=test_set_name,
+                description=description,
                 organization_id=organization_id,
                 user_id=user_id,
             )
-            self._associate_metric_with_test_set(test_set, metric, organization_id, user_id)
+
+            # Create tests for this probe
+            tests = self._create_tests_for_probe(
+                probe=probe_info,
+                test_set=test_set,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+
+            # Associate metric with test set
+            detector = probe_info.detector
+            if not detector:
+                mapping = GarakTaxonomy.get_mapping(probe_info.module_name)
+                detector = mapping.default_detector
+
+            if detector:
+                metric = self._get_or_create_garak_metric(
+                    detector_class=detector,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
+                self._associate_metric_with_test_set(test_set, metric, organization_id, user_id)
+
+            results.append(
+                {
+                    "test_set_id": test_set.id,
+                    "test_set_name": test_set.name,
+                    "probe_full_name": probe_info.full_name,
+                    "test_count": len(tests),
+                }
+            )
+            total_tests += len(tests)
 
         self.db.commit()
 
-        logger.info(
-            f"Created test set '{test_set_name}' with {len(tests)} tests "
-            f"and {len(all_detectors)} metrics"
+        logger.info(f"Created {len(results)} test sets with {total_tests} total tests")
+
+        return {
+            "test_sets": results,
+            "total_test_sets": len(results),
+            "total_tests": total_tests,
+            "garak_version": self.probe_service.garak_version,
+        }
+
+    def _get_probe_info(self, module_name: str, class_name: str) -> Optional[GarakProbeInfo]:
+        """Get probe info for a specific probe class."""
+        probes = self.probe_service.extract_probes_from_module(
+            module_name, probe_class_names=[class_name]
         )
+        return probes[0] if probes else None
 
-        return test_set
+    def _generate_test_set_name(self, probe: GarakProbeInfo, prefix: Optional[str]) -> str:
+        """Generate a test set name from probe info."""
+        prefix = prefix or "Garak"
+        # Convert class name to readable format
+        readable_name = probe.class_name.replace("_", " ")
+        return f"{prefix}: {readable_name}"
 
-    def _create_test_set(
+    def _generate_description(self, probe: GarakProbeInfo, template: Optional[str]) -> str:
+        """Generate test set description."""
+        if template:
+            return template.format(
+                probe_name=probe.class_name,
+                module_name=probe.module_name,
+                full_name=probe.full_name,
+            )
+        return f"{probe.description} (from Garak {probe.full_name})"
+
+    def _create_test_set_for_probe(
         self,
+        probe: GarakProbeInfo,
         name: str,
-        description: Optional[str],
-        modules: List[str],
+        description: str,
         organization_id: str,
         user_id: str,
     ) -> TestSet:
-        """Create a new test set for Garak probes."""
+        """Create a test set for a single probe."""
         garak_version = self.probe_service.garak_version
         now = datetime.utcnow().isoformat()
 
@@ -120,19 +179,13 @@ class GarakImporter:
         attributes = {
             "source": "garak",
             "garak_version": garak_version,
-            "garak_modules": modules,
+            "garak_probe_class": probe.class_name,
+            "garak_module": probe.module_name,
+            "garak_full_name": probe.full_name,
+            "garak_detector": probe.detector,
             "imported_at": now,
             "last_synced_at": now,
         }
-
-        # Get primary module for category/topic/behavior
-        primary_module = modules[0] if modules else "unknown"
-        mapping = GarakTaxonomy.get_mapping(primary_module)
-
-        # Generate description if not provided
-        if not description:
-            module_list = ", ".join(modules)
-            description = f"Garak probes imported from: {module_list}"
 
         test_set = TestSet(
             id=uuid4(),
@@ -146,62 +199,57 @@ class GarakImporter:
         )
 
         self.db.add(test_set)
-        self.db.flush()  # Get the ID
+        self.db.flush()
 
         return test_set
 
-    def _create_tests_from_probes(
+    def _create_tests_for_probe(
         self,
-        probes: List[GarakProbeInfo],
+        probe: GarakProbeInfo,
         test_set: TestSet,
         organization_id: str,
         user_id: str,
     ) -> List[Test]:
-        """Create Test entities from Garak probes."""
+        """Create Test entities from a single probe."""
         tests = []
         org_uuid = UUID(organization_id)
         user_uuid = UUID(user_id)
 
-        for probe in probes:
-            mapping = GarakTaxonomy.get_mapping(probe.module_name)
+        for idx, prompt_content in enumerate(probe.prompts):
+            if not prompt_content or not prompt_content.strip():
+                continue
 
-            # Create a test for each prompt in the probe
-            for idx, prompt_content in enumerate(probe.prompts):
-                if not prompt_content or not prompt_content.strip():
-                    continue
+            # Build test metadata
+            test_metadata = {
+                "source": "garak",
+                "garak_probe_id": f"{probe.full_name}.{idx}",
+                "garak_probe_class": probe.class_name,
+                "garak_module": probe.module_name,
+                "garak_tags": probe.tags,
+            }
 
-                # Build test metadata
-                test_metadata = {
-                    "source": "garak",
-                    "garak_probe_id": f"{probe.full_name}.{idx}",
-                    "garak_probe_class": probe.class_name,
-                    "garak_module": probe.module_name,
-                    "garak_tags": probe.tags,
-                }
+            test = Test(
+                id=uuid4(),
+                organization_id=org_uuid,
+                user_id=user_uuid,
+                test_metadata=test_metadata,
+            )
 
-                test = Test(
-                    id=uuid4(),
-                    organization_id=org_uuid,
-                    user_id=user_uuid,
-                    test_metadata=test_metadata,
-                )
+            # Create associated prompt
+            from rhesis.backend.app.models.prompt import Prompt
 
-                # Create associated prompt
-                from rhesis.backend.app.models.prompt import Prompt
+            prompt = Prompt(
+                id=uuid4(),
+                content=prompt_content,
+                organization_id=org_uuid,
+                user_id=user_uuid,
+            )
+            self.db.add(prompt)
+            self.db.flush()
 
-                prompt = Prompt(
-                    id=uuid4(),
-                    content=prompt_content,
-                    organization_id=org_uuid,
-                    user_id=user_uuid,
-                )
-                self.db.add(prompt)
-                self.db.flush()
-
-                test.prompt_id = prompt.id
-
-                self.db.add(test)
-                tests.append(test)
+            test.prompt_id = prompt.id
+            self.db.add(test)
+            tests.append(test)
 
         self.db.flush()
 
@@ -318,51 +366,61 @@ class GarakImporter:
 
     def get_import_preview(
         self,
-        modules: List[str],
+        probes: List[Any],  # List of GarakProbeSelection from schema
+        name_prefix: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Get a preview of what would be imported.
 
         Args:
-            modules: List of Garak module names
+            probes: List of probe selections (module_name, class_name)
+            name_prefix: Prefix for auto-generated test set names
 
         Returns:
             Dictionary with import preview information
         """
-        total_probes = 0
-        total_prompts = 0
+        probe_previews = []
+        total_tests = 0
         detectors = set()
-        module_details = []
 
-        for module_name in modules:
-            module_info = self.probe_service.get_probe_details(module_name)
-            if module_info:
-                probes = self.probe_service.extract_probes_from_module(module_name)
-                prompt_count = sum(p.prompt_count for p in probes)
+        for probe_selection in probes:
+            probe_info = self._get_probe_info(
+                probe_selection.module_name, probe_selection.class_name
+            )
 
-                total_probes += len(probes)
-                total_prompts += prompt_count
+            if not probe_info:
+                continue
 
-                mapping = GarakTaxonomy.get_mapping(module_name)
-                detectors.add(mapping.default_detector)
+            # Generate test set name
+            test_set_name = probe_selection.custom_name or self._generate_test_set_name(
+                probe_info, name_prefix
+            )
 
-                module_details.append(
-                    {
-                        "name": module_name,
-                        "probe_count": len(probes),
-                        "prompt_count": prompt_count,
-                        "category": mapping.category,
-                        "topic": mapping.topic,
-                        "behavior": mapping.behavior,
-                    }
-                )
+            # Get detector
+            detector = probe_info.detector
+            if not detector:
+                mapping = GarakTaxonomy.get_mapping(probe_info.module_name)
+                detector = mapping.default_detector
+            if detector:
+                detectors.add(detector)
+
+            probe_previews.append(
+                {
+                    "module_name": probe_info.module_name,
+                    "class_name": probe_info.class_name,
+                    "full_name": probe_info.full_name,
+                    "test_set_name": test_set_name,
+                    "prompt_count": probe_info.prompt_count,
+                    "detector": detector,
+                }
+            )
+            total_tests += probe_info.prompt_count
 
         return {
             "garak_version": self.probe_service.garak_version,
-            "total_probes": total_probes,
-            "total_prompts": total_prompts,
-            "total_tests": total_prompts,  # One test per prompt
+            "total_test_sets": len(probe_previews),
+            "total_tests": total_tests,
             "detector_count": len(detectors),
             "detectors": list(detectors),
-            "modules": module_details,
+            "probes": probe_previews,
         }

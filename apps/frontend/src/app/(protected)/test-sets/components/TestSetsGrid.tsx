@@ -412,14 +412,20 @@ export default function TestSetsGrid({
     setDeleteModalOpen(false);
   };
 
-  const handleGarakImportSuccess = (testSetId: string) => {
+  const handleGarakImportSuccess = (testSetIds: string[]) => {
     fetchTestSets();
-    notifications.show('Garak probes imported successfully', {
-      severity: 'success',
-      autoHideDuration: 6000,
-    });
-    // Navigate to the new test set
-    router.push(`/test-sets/${testSetId}`);
+    const count = testSetIds.length;
+    notifications.show(
+      `${count} Garak ${count === 1 ? 'probe' : 'probes'} imported successfully`,
+      {
+        severity: 'success',
+        autoHideDuration: 6000,
+      }
+    );
+    // Navigate to the first test set if only one, otherwise stay on list
+    if (testSetIds.length === 1) {
+      router.push(`/test-sets/${testSetIds[0]}`);
+    }
   };
 
   const getActionButtons = () => {

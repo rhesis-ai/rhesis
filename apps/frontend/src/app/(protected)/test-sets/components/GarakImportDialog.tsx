@@ -11,7 +11,6 @@ import {
   Stack,
   TextField,
   Checkbox,
-  FormControlLabel,
   Alert,
   CircularProgress,
   Box,
@@ -29,14 +28,16 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type {
   GarakProbeModule,
+  GarakProbeClass,
   GarakImportPreviewResponse,
+  GarakProbeSelection,
 } from '@/utils/api-client/garak-client';
 
 interface GarakImportDialogProps {
   open: boolean;
   onClose: () => void;
   sessionToken: string;
-  onSuccess?: (testSetId: string) => void;
+  onSuccess?: (testSetIds: string[]) => void;
 }
 
 export default function GarakImportDialog({
@@ -50,11 +51,11 @@ export default function GarakImportDialog({
   const [importing, setImporting] = React.useState(false);
   const [error, setError] = React.useState<string>();
   const [modules, setModules] = React.useState<GarakProbeModule[]>([]);
-  const [selectedModules, setSelectedModules] = React.useState<Set<string>>(
+  // Track selected probes by full_name (e.g., "dan.Dan_11_0")
+  const [selectedProbes, setSelectedProbes] = React.useState<Set<string>>(
     new Set()
   );
-  const [testSetName, setTestSetName] = React.useState('');
-  const [description, setDescription] = React.useState('');
+  const [namePrefix, setNamePrefix] = React.useState('Garak');
   const [preview, setPreview] =
     React.useState<GarakImportPreviewResponse | null>(null);
   const [garakVersion, setGarakVersion] = React.useState<string>('');
@@ -87,29 +88,82 @@ export default function GarakImportDialog({
     }
   };
 
-  const handleModuleToggle = (moduleName: string) => {
-    const newSelected = new Set(selectedModules);
-    if (newSelected.has(moduleName)) {
-      newSelected.delete(moduleName);
+  // Get all probes from a module
+  const getModuleProbes = (module: GarakProbeModule): GarakProbeClass[] => {
+    return module.probes || [];
+  };
+
+  // Check if all probes in a module are selected
+  const isModuleFullySelected = (module: GarakProbeModule): boolean => {
+    const probes = getModuleProbes(module);
+    return probes.length > 0 && probes.every(p => selectedProbes.has(p.full_name));
+  };
+
+  // Check if some probes in a module are selected
+  const isModulePartiallySelected = (module: GarakProbeModule): boolean => {
+    const probes = getModuleProbes(module);
+    const selectedCount = probes.filter(p => selectedProbes.has(p.full_name)).length;
+    return selectedCount > 0 && selectedCount < probes.length;
+  };
+
+  // Toggle individual probe selection
+  const handleProbeToggle = (probe: GarakProbeClass) => {
+    const newSelected = new Set(selectedProbes);
+    if (newSelected.has(probe.full_name)) {
+      newSelected.delete(probe.full_name);
     } else {
-      newSelected.add(moduleName);
+      newSelected.add(probe.full_name);
     }
-    setSelectedModules(newSelected);
-    setPreview(null); // Clear preview when selection changes
+    setSelectedProbes(newSelected);
+    setPreview(null);
+  };
+
+  // Toggle all probes in a module
+  const handleModuleToggle = (module: GarakProbeModule) => {
+    const probes = getModuleProbes(module);
+    const newSelected = new Set(selectedProbes);
+    
+    if (isModuleFullySelected(module)) {
+      // Deselect all probes in module
+      probes.forEach(p => newSelected.delete(p.full_name));
+    } else {
+      // Select all probes in module
+      probes.forEach(p => newSelected.add(p.full_name));
+    }
+    
+    setSelectedProbes(newSelected);
+    setPreview(null);
   };
 
   const handleSelectAll = () => {
-    if (selectedModules.size === modules.length) {
-      setSelectedModules(new Set());
+    const allProbes = modules.flatMap(m => getModuleProbes(m));
+    if (selectedProbes.size === allProbes.length) {
+      setSelectedProbes(new Set());
     } else {
-      setSelectedModules(new Set(modules.map(m => m.name)));
+      setSelectedProbes(new Set(allProbes.map(p => p.full_name)));
     }
     setPreview(null);
   };
 
+  // Build probe selections for API
+  const buildProbeSelections = (): GarakProbeSelection[] => {
+    const selections: GarakProbeSelection[] = [];
+    for (const module of modules) {
+      for (const probe of getModuleProbes(module)) {
+        if (selectedProbes.has(probe.full_name)) {
+          selections.push({
+            module_name: probe.module_name,
+            class_name: probe.class_name,
+          });
+        }
+      }
+    }
+    return selections;
+  };
+
   const handlePreview = async () => {
-    if (selectedModules.size === 0) {
-      setError('Please select at least one module');
+    if (selectedProbes.size === 0) {
+      setError('Please select at least one probe');
       return;
     }
 
@@ -121,18 +175,11 @@ export default function GarakImportDialog({
       const garakClient = clientFactory.getGarakClient();
 
       const previewResponse = await garakClient.previewImport({
-        modules: Array.from(selectedModules),
-        test_set_name: testSetName || 'Garak Import',
-        description: description || undefined,
+        probes: buildProbeSelections(),
+        name_prefix: namePrefix || 'Garak',
       });
 
       setPreview(previewResponse);
-
-      // Auto-generate name if not set
-      if (!testSetName) {
-        const moduleNames = Array.from(selectedModules).join(', ');
-        setTestSetName(`Garak: ${moduleNames}`);
-      }
     } catch (err: any) {
       setError(err.message || 'Failed to preview import');
     } finally {
@@ -141,13 +188,8 @@ export default function GarakImportDialog({
   };
 
   const handleImport = async () => {
-    if (selectedModules.size === 0) {
-      setError('Please select at least one module');
-      return;
-    }
-
-    if (!testSetName.trim()) {
-      setError('Please enter a test set name');
+    if (selectedProbes.size === 0) {
+      setError('Please select at least one probe');
       return;
     }
 
@@ -159,12 +201,12 @@ export default function GarakImportDialog({
       const garakClient = clientFactory.getGarakClient();
 
       const response = await garakClient.importProbes({
-        modules: Array.from(selectedModules),
-        test_set_name: testSetName,
-        description: description || undefined,
+        probes: buildProbeSelections(),
+        name_prefix: namePrefix || 'Garak',
       });
 
-      onSuccess?.(response.test_set_id);
+      // Pass all created test set IDs
+      onSuccess?.(response.test_sets.map(ts => ts.test_set_id));
       handleClose();
     } catch (err: any) {
       setError(err.message || 'Failed to import Garak probes');
@@ -174,9 +216,8 @@ export default function GarakImportDialog({
   };
 
   const handleClose = () => {
-    setSelectedModules(new Set());
-    setTestSetName('');
-    setDescription('');
+    setSelectedProbes(new Set());
+    setNamePrefix('Garak');
     setPreview(null);
     setError(undefined);
     onClose();
@@ -191,6 +232,9 @@ export default function GarakImportDialog({
     }
     setExpandedModules(newExpanded);
   };
+
+  // Count selected probes for display
+  const allProbesCount = modules.flatMap(m => getModuleProbes(m)).length;
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
@@ -212,7 +256,7 @@ export default function GarakImportDialog({
             </Alert>
           )}
 
-          {/* Module Selection */}
+          {/* Probe Selection */}
           <Box>
             <Stack
               direction="row"
@@ -221,7 +265,7 @@ export default function GarakImportDialog({
               mb={1}
             >
               <Typography variant="subtitle1" fontWeight="medium">
-                Select Probe Modules
+                Select Probes ({selectedProbes.size} of {allProbesCount} selected)
               </Typography>
               <Stack direction="row" spacing={1}>
                 <Button
@@ -229,7 +273,7 @@ export default function GarakImportDialog({
                   onClick={handleSelectAll}
                   disabled={loadingModules}
                 >
-                  {selectedModules.size === modules.length
+                  {selectedProbes.size === allProbesCount
                     ? 'Deselect All'
                     : 'Select All'}
                 </Button>
@@ -250,21 +294,23 @@ export default function GarakImportDialog({
             ) : (
               <Paper
                 variant="outlined"
-                sx={{ maxHeight: 300, overflow: 'auto' }}
+                sx={{ maxHeight: 400, overflow: 'auto' }}
               >
                 <Stack divider={<Divider />}>
                   {modules.map(module => (
                     <Box key={module.name}>
+                      {/* Module Header */}
                       <Stack
                         direction="row"
                         alignItems="center"
-                        sx={{ p: 1.5, cursor: 'pointer' }}
-                        onClick={() => handleModuleToggle(module.name)}
+                        sx={{ p: 1.5, cursor: 'pointer', bgcolor: 'action.hover' }}
+                        onClick={() => toggleModuleExpand(module.name)}
                       >
                         <Checkbox
-                          checked={selectedModules.has(module.name)}
+                          checked={isModuleFullySelected(module)}
+                          indeterminate={isModulePartiallySelected(module)}
                           onClick={e => e.stopPropagation()}
-                          onChange={() => handleModuleToggle(module.name)}
+                          onChange={() => handleModuleToggle(module)}
                         />
                         <Stack flex={1} spacing={0.5}>
                           <Stack
@@ -275,6 +321,11 @@ export default function GarakImportDialog({
                             <Typography variant="body1" fontWeight="medium">
                               {module.name}
                             </Typography>
+                            <Chip
+                              label={`${module.probe_count} probes`}
+                              size="small"
+                              variant="outlined"
+                            />
                             <Chip
                               label={`${module.total_prompt_count} prompts`}
                               size="small"
@@ -297,23 +348,9 @@ export default function GarakImportDialog({
                               color="secondary"
                               variant="outlined"
                             />
-                            {module.tags.slice(0, 3).map(tag => (
-                              <Chip
-                                key={tag}
-                                label={tag}
-                                size="small"
-                                variant="outlined"
-                              />
-                            ))}
                           </Stack>
                         </Stack>
-                        <IconButton
-                          size="small"
-                          onClick={e => {
-                            e.stopPropagation();
-                            toggleModuleExpand(module.name);
-                          }}
-                        >
+                        <IconButton size="small">
                           <ExpandMoreIcon
                             sx={{
                               transform: expandedModules.has(module.name)
@@ -324,13 +361,56 @@ export default function GarakImportDialog({
                           />
                         </IconButton>
                       </Stack>
+
+                      {/* Individual Probes */}
                       <Collapse in={expandedModules.has(module.name)}>
-                        <Box sx={{ pl: 7, pr: 2, pb: 2 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            Probe classes: {module.probe_count} | Default
-                            detector: {module.default_detector || 'N/A'}
-                          </Typography>
-                        </Box>
+                        <Stack sx={{ pl: 4 }} divider={<Divider />}>
+                          {getModuleProbes(module).map(probe => (
+                            <Stack
+                              key={probe.full_name}
+                              direction="row"
+                              alignItems="center"
+                              sx={{ p: 1, pl: 2, cursor: 'pointer' }}
+                              onClick={() => handleProbeToggle(probe)}
+                            >
+                              <Checkbox
+                                size="small"
+                                checked={selectedProbes.has(probe.full_name)}
+                                onClick={e => e.stopPropagation()}
+                                onChange={() => handleProbeToggle(probe)}
+                              />
+                              <Stack flex={1} spacing={0.25}>
+                                <Stack
+                                  direction="row"
+                                  alignItems="center"
+                                  spacing={1}
+                                >
+                                  <Typography variant="body2" fontWeight="medium">
+                                    {probe.class_name}
+                                  </Typography>
+                                  <Chip
+                                    label={`${probe.prompt_count} tests`}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{ height: 20 }}
+                                  />
+                                </Stack>
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    maxWidth: 400,
+                                  }}
+                                >
+                                  {probe.description}
+                                </Typography>
+                              </Stack>
+                            </Stack>
+                          ))}
+                        </Stack>
                       </Collapse>
                     </Box>
                   ))}
@@ -339,30 +419,19 @@ export default function GarakImportDialog({
             )}
           </Box>
 
-          {/* Test Set Details */}
+          {/* Test Set Name Prefix */}
           <Box>
             <Typography variant="subtitle1" fontWeight="medium" mb={1}>
-              Test Set Details
+              Test Set Naming
             </Typography>
-            <Stack spacing={2}>
-              <TextField
-                label="Test Set Name"
-                value={testSetName}
-                onChange={e => setTestSetName(e.target.value)}
-                placeholder="e.g., Garak Security Tests"
-                fullWidth
-                required
-              />
-              <TextField
-                label="Description"
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Optional description..."
-                fullWidth
-                multiline
-                rows={2}
-              />
-            </Stack>
+            <TextField
+              label="Name Prefix"
+              value={namePrefix}
+              onChange={e => setNamePrefix(e.target.value)}
+              placeholder="Garak"
+              fullWidth
+              helperText="Each probe creates a test set named '[Prefix]: [Probe Name]'"
+            />
           </Box>
 
           {/* Preview */}
@@ -373,15 +442,22 @@ export default function GarakImportDialog({
               </Typography>
               <Stack spacing={0.5}>
                 <Typography variant="body2">
-                  Total probe classes: <strong>{preview.total_probes}</strong>
+                  Test sets to create: <strong>{preview.total_test_sets}</strong>
                 </Typography>
                 <Typography variant="body2">
-                  Total tests to create: <strong>{preview.total_tests}</strong>
+                  Total tests: <strong>{preview.total_tests}</strong>
                 </Typography>
                 <Typography variant="body2">
-                  Detectors: <strong>{preview.detector_count}</strong>
+                  Unique detectors: <strong>{preview.detector_count}</strong>
                 </Typography>
               </Stack>
+              {preview.probes.length <= 5 && (
+                <Box mt={1}>
+                  <Typography variant="caption" color="text.secondary">
+                    Test sets: {preview.probes.map(p => p.test_set_name).join(', ')}
+                  </Typography>
+                </Box>
+              )}
             </Alert>
           )}
         </Stack>
@@ -393,20 +469,18 @@ export default function GarakImportDialog({
         </Button>
         <Button
           onClick={handlePreview}
-          disabled={loading || importing || selectedModules.size === 0}
+          disabled={loading || importing || selectedProbes.size === 0}
           variant="outlined"
         >
           {loading ? <CircularProgress size={20} /> : 'Preview'}
         </Button>
         <Button
           onClick={handleImport}
-          disabled={
-            importing || selectedModules.size === 0 || !testSetName.trim()
-          }
+          disabled={importing || selectedProbes.size === 0}
           variant="contained"
           color="primary"
         >
-          {importing ? <CircularProgress size={20} /> : 'Import'}
+          {importing ? <CircularProgress size={20} /> : `Import ${selectedProbes.size} Probe${selectedProbes.size !== 1 ? 's' : ''}`}
         </Button>
       </DialogActions>
     </Dialog>

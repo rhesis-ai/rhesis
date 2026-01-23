@@ -7,6 +7,21 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
+class GarakProbeClassResponse(BaseModel):
+    """Response schema for a single Garak probe class."""
+
+    class_name: str = Field(..., description="Probe class name (e.g., 'Dan_11_0')")
+    full_name: str = Field(..., description="Full probe name (e.g., 'dan.Dan_11_0')")
+    module_name: str = Field(..., description="Parent module name")
+    description: str = Field(..., description="Probe description")
+    prompt_count: int = Field(..., description="Number of prompts in this probe")
+    tags: List[str] = Field(default_factory=list, description="Probe-specific tags")
+    detector: Optional[str] = Field(None, description="Recommended detector for this probe")
+
+    class Config:
+        from_attributes = True
+
+
 class GarakProbeModuleResponse(BaseModel):
     """Response schema for a single Garak probe module."""
 
@@ -21,6 +36,9 @@ class GarakProbeModuleResponse(BaseModel):
     rhesis_category: str = Field(..., description="Mapped Rhesis category")
     rhesis_topic: str = Field(..., description="Mapped Rhesis topic")
     rhesis_behavior: str = Field(..., description="Mapped Rhesis behavior")
+    probes: List[GarakProbeClassResponse] = Field(
+        default_factory=list, description="Individual probe classes in this module"
+    )
 
     class Config:
         from_attributes = True
@@ -52,48 +70,72 @@ class GarakProbeDetailResponse(BaseModel):
     probes: List[Dict[str, Any]] = Field(..., description="List of probes with their details")
 
 
+class GarakProbeSelection(BaseModel):
+    """Schema for selecting a specific probe to import."""
+
+    module_name: str = Field(..., description="Module name (e.g., 'dan')")
+    class_name: str = Field(..., description="Probe class name (e.g., 'Dan_11_0')")
+    custom_name: Optional[str] = Field(None, description="Optional custom name for the test set")
+
+
 class GarakImportRequest(BaseModel):
     """Request schema for importing Garak probes."""
 
-    modules: List[str] = Field(
+    probes: List[GarakProbeSelection] = Field(
         ...,
-        description="List of Garak module names to import",
+        description="List of probes to import (each becomes a test set)",
         min_length=1,
     )
-    test_set_name: str = Field(
-        ...,
-        description="Name for the new test set",
-        min_length=1,
-        max_length=255,
+    name_prefix: Optional[str] = Field(
+        "Garak",
+        description="Prefix for auto-generated test set names",
+        max_length=50,
     )
-    description: Optional[str] = Field(
+    description_template: Optional[str] = Field(
         None,
-        description="Optional description for the test set",
+        description="Optional description template for test sets",
         max_length=2000,
     )
+
+
+class GarakProbePreview(BaseModel):
+    """Preview for a single probe to import."""
+
+    module_name: str = Field(..., description="Module name")
+    class_name: str = Field(..., description="Probe class name")
+    full_name: str = Field(..., description="Full probe name")
+    test_set_name: str = Field(..., description="Name for the test set")
+    prompt_count: int = Field(..., description="Number of prompts/tests")
+    detector: Optional[str] = Field(None, description="Associated detector")
 
 
 class GarakImportPreviewResponse(BaseModel):
     """Response schema for import preview."""
 
     garak_version: str = Field(..., description="Garak version")
-    total_probes: int = Field(..., description="Total number of probe classes")
-    total_prompts: int = Field(..., description="Total number of prompts")
-    total_tests: int = Field(..., description="Number of tests that will be created")
+    total_test_sets: int = Field(..., description="Number of test sets to create")
+    total_tests: int = Field(..., description="Total number of tests to create")
     detector_count: int = Field(..., description="Number of unique detectors")
     detectors: List[str] = Field(..., description="List of detector class names")
-    modules: List[Dict[str, Any]] = Field(..., description="Module-level breakdown")
+    probes: List[GarakProbePreview] = Field(..., description="Probe-level breakdown")
+
+
+class GarakImportedTestSet(BaseModel):
+    """Response schema for a single imported test set."""
+
+    test_set_id: str = Field(..., description="ID of the created test set")
+    test_set_name: str = Field(..., description="Name of the created test set")
+    probe_full_name: str = Field(..., description="Garak probe full name")
+    test_count: int = Field(..., description="Number of tests created")
 
 
 class GarakImportResponse(BaseModel):
     """Response schema for successful import."""
 
-    test_set_id: str = Field(..., description="ID of the created test set")
-    test_set_name: str = Field(..., description="Name of the created test set")
-    test_count: int = Field(..., description="Number of tests created")
-    metric_count: int = Field(..., description="Number of metrics associated")
+    test_sets: List[GarakImportedTestSet] = Field(..., description="List of created test sets")
+    total_test_sets: int = Field(..., description="Number of test sets created")
+    total_tests: int = Field(..., description="Total number of tests created")
     garak_version: str = Field(..., description="Garak version used for import")
-    modules: List[str] = Field(..., description="Modules that were imported")
 
 
 class GarakSyncPreviewResponse(BaseModel):

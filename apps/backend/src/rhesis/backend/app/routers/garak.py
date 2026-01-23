@@ -12,11 +12,14 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.garak import (
+    GarakImportedTestSet,
     GarakImportPreviewResponse,
     GarakImportRequest,
     GarakImportResponse,
+    GarakProbeClassResponse,
     GarakProbeDetailResponse,
     GarakProbeModuleResponse,
+    GarakProbePreview,
     GarakProbesListResponse,
     GarakSyncPreviewResponse,
     GarakSyncResponse,
@@ -42,10 +45,10 @@ async def list_probe_modules(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    List all available Garak probe modules.
+    List all available Garak probe modules with their probe classes.
 
-    Returns a list of probe modules with their metadata and
-    Rhesis taxonomy mapping.
+    Returns a list of probe modules with their metadata, taxonomy mapping,
+    and individual probe class details.
     """
     try:
         probe_service = GarakProbeService()
@@ -54,6 +57,22 @@ async def list_probe_modules(
         module_responses = []
         for module in modules:
             mapping = GarakTaxonomy.get_mapping(module.name)
+
+            # Get individual probe details
+            probes = probe_service.extract_probes_from_module(module.name)
+            probe_responses = [
+                GarakProbeClassResponse(
+                    class_name=p.class_name,
+                    full_name=p.full_name,
+                    module_name=p.module_name,
+                    description=p.description,
+                    prompt_count=p.prompt_count,
+                    tags=p.tags,
+                    detector=p.detector,
+                )
+                for p in probes
+            ]
+
             module_responses.append(
                 GarakProbeModuleResponse(
                     name=module.name,
@@ -65,6 +84,7 @@ async def list_probe_modules(
                     rhesis_category=mapping.category,
                     rhesis_topic=mapping.topic,
                     rhesis_behavior=mapping.behavior,
+                    probes=probe_responses,
                 )
             )
 
@@ -159,15 +179,37 @@ async def preview_import(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Preview what will be imported without creating the test set.
+    Preview what will be imported without creating test sets.
 
-    Returns counts of probes, prompts, and tests that would be created.
+    Returns details of test sets that would be created for each probe.
     """
     try:
         importer = GarakImporter(db)
-        preview = importer.get_import_preview(request.modules)
+        preview = importer.get_import_preview(
+            probes=request.probes,
+            name_prefix=request.name_prefix,
+        )
 
-        return GarakImportPreviewResponse(**preview)
+        probe_previews = [
+            GarakProbePreview(
+                module_name=p["module_name"],
+                class_name=p["class_name"],
+                full_name=p["full_name"],
+                test_set_name=p["test_set_name"],
+                prompt_count=p["prompt_count"],
+                detector=p.get("detector"),
+            )
+            for p in preview["probes"]
+        ]
+
+        return GarakImportPreviewResponse(
+            garak_version=preview["garak_version"],
+            total_test_sets=preview["total_test_sets"],
+            total_tests=preview["total_tests"],
+            detector_count=preview["detector_count"],
+            detectors=preview["detectors"],
+            probes=probe_previews,
+        )
 
     except Exception as e:
         logger.error(f"Error previewing import: {e}")
@@ -185,9 +227,9 @@ async def import_probes(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Import selected Garak probe modules as a Rhesis test set.
+    Import selected Garak probes as Rhesis test sets.
 
-    Creates a new test set with tests for each probe prompt,
+    Creates one test set per probe, with tests for each prompt,
     and associates appropriate Garak detector metrics.
     """
     try:
@@ -201,21 +243,29 @@ async def import_probes(
             )
 
         importer = GarakImporter(db)
-        test_set = importer.import_probes_as_test_set(
-            modules=request.modules,
-            test_set_name=request.test_set_name,
+        results = importer.import_probes(
+            probes=request.probes,
+            name_prefix=request.name_prefix,
+            description_template=request.description_template,
             organization_id=organization_id,
             user_id=user_id,
-            description=request.description,
         )
 
+        test_set_responses = [
+            GarakImportedTestSet(
+                test_set_id=str(r["test_set_id"]),
+                test_set_name=r["test_set_name"],
+                probe_full_name=r["probe_full_name"],
+                test_count=r["test_count"],
+            )
+            for r in results["test_sets"]
+        ]
+
         return GarakImportResponse(
-            test_set_id=str(test_set.id),
-            test_set_name=test_set.name,
-            test_count=len(test_set.tests) if test_set.tests else 0,
-            metric_count=len(test_set.metrics) if test_set.metrics else 0,
-            garak_version=test_set.attributes.get("garak_version", "unknown"),
-            modules=request.modules,
+            test_sets=test_set_responses,
+            total_test_sets=results["total_test_sets"],
+            total_tests=results["total_tests"],
+            garak_version=results["garak_version"],
         )
 
     except ValueError as e:
