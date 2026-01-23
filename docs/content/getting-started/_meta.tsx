@@ -5,7 +5,6 @@ const meta: MetaRecord = {
   concepts: 'Core Concepts',
   'running-locally': 'Running Locally',
   'self-hosting': 'Self-Hosting',
-  'kubernetes-deployment': 'Kubernetes Deployment',
 }
 
 export default meta;

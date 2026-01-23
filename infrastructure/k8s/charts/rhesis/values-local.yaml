@@ -78,18 +78,9 @@ backend:
     limits:
       memory: "2Gi"
       cpu: "1000m"
-  env:
-    - name: ENVIRONMENT
-      value: "local"
-    - name: LOG_LEVEL
-      value: "DEBUG"
-    - name: RHESIS_BASE_URL
-      value: "http://backend:8080"
-    - name: FRONTEND_URL
-      value: "http://localhost:3000"
-# only for the quick start mode
-    - name: QUICK_START
-      value: "false"
+  # All env vars are loaded from rhesis-config ConfigMap
+  # Add overrides here only if they differ from ConfigMap values
+  # env: []
 
 
 # Frontend configuration for local development
@@ -103,27 +94,13 @@ frontend:
     limits:
       memory: "4Gi"
       cpu: "2000m"
+  # Most env vars are loaded from rhesis-config ConfigMap
+  # Only deployment-specific overrides are listed here
   env:
-    - name: FRONTEND_ENV
-      value: "local"
-    - name: NEXT_TELEMETRY_DISABLED
-      value: "1"
-    - name: NEXT_PUBLIC_API_BASE_URL
-      value: "http://localhost:8080"
-    - name: NEXT_PUBLIC_APP_URL
-      value: "http://localhost:3000"
-    - name: BACKEND_URL
-      value: "http://backend:8080"
     - name: HOSTNAME
       value: "0.0.0.0"
     - name: PORT
       value: "3000"
-    # only for the quick start mode. This is used to enable the quick start mode in the frontend.
-    - name: NEXT_PUBLIC_QUICK_START
-      value: "false"
-    # only for the quick start mode. This is used to enable the quick start mode in the backend.
-    - name: QUICK_START
-      value: "false"
 
 # Worker configuration for local development
 worker:
@@ -148,13 +125,11 @@ chatbot:
     limits:
       memory: "2Gi"
       cpu: "1000m"
+  # Most env vars are loaded from rhesis-config ConfigMap
+  # Only deployment-specific overrides are listed here
   env:
-    - name: ENVIRONMENT
-      value: "local"
     - name: HOSTNAME
       value: "0.0.0.0"
-    - name: LOG_LEVEL
-      value: "DEBUG"
     - name: PORT
       value: "8080"
 
@@ -170,13 +145,13 @@ docs:
     limits:
       memory: "1Gi"
       cpu: "500m"
+  # Most env vars are loaded from rhesis-config ConfigMap
+  # Only deployment-specific overrides are listed here
   env:
     - name: HOSTNAME
       value: "0.0.0.0"
     - name: PORT
       value: "3001"
-    - name: NEXT_TELEMETRY_DISABLED
-      value: "1"
 
 # Disable features not needed for local development
 monitoring:
