@@ -97,3 +97,4 @@ class Metric(
     behaviors = relationship(
         "Behavior", secondary=behavior_metric_association, back_populates="metrics"
     )
+    test_sets = relationship("TestSet", secondary="test_set_metric", back_populates="metrics")
