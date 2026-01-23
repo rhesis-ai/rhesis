@@ -1,14 +1,20 @@
 import io
 import os
 import re
+import urllib.parse
 import uuid
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from rhesis.sdk import adaptive_testing
+from rhesis.sdk.entities import Prompt, Test, TestSet
 
 from ._prompt_builder import PromptBuilder
 from ._test_tree_browser import TestTreeBrowser, is_subtopic
+
+if TYPE_CHECKING:
+    from rhesis.sdk.entities import TestSet
 
 # class TestTreeIterator():
 #     def __init__(self, test_tree):
@@ -154,6 +160,9 @@ class TestTree:
             if not isinstance(row.topic, str) or not row.topic.startswith("/"):
                 self._tests.loc[i, "topic"] = ""
 
+        # Track associated test set ID (for sync with backend)
+        self._test_set_id: str | None = None
+
         # # keep track of our original state
         # if self.auto_save:
         #     self._last_saved_tests = self._tests.copy()
@@ -283,6 +292,169 @@ class TestTree:
             no_suggestions.to_csv(self._tests_location)
         else:
             no_suggestions.to_csv(file)
+
+    def to_test_set(
+        self,
+        include_suggestions: bool = False,
+    ) -> "TestSet":
+        """Convert the TestTree to an SDK TestSet for persistence.
+
+        This method converts the hierarchical test tree into SDK entities that can
+        be pushed to the Rhesis backend.
+
+        Parameters
+        ----------
+
+        include_suggestions : bool, optional
+            Whether to include suggestion rows (under /__suggestions__ topics).
+            Default is False.
+
+        Returns
+        -------
+        TestSet
+            An SDK TestSet instance containing Test objects converted from the tree.
+            The TestSet is not yet pushed to the backend - call .push() on it to save.
+
+        Examples
+        --------
+        >>> tree = TestTree("my_tests.csv")
+        >>> test_set = tree.to_test_set(name="My Test Set")
+        >>> test_set.push()  # Save to backend
+
+        >>> # Or load, adapt, and save
+        >>> tree = TestTree("tests.csv")
+        >>> browser = tree.adapt(generator=gen, endpoint=endpoint, metrics=scorer)
+        >>> # ... interactive editing ...
+        >>> tree.to_test_set(name="Updated Tests").push()
+
+        Notes
+        -----
+        - Topic markers (rows with label="topic_marker") are skipped
+        - The full topic path (e.g., "/Safety/Violence") is preserved in Test.topic
+        - Only the input (prompt) is stored - output is execution data, not test definition
+        - Test metadata includes: tree_id (for reference back to original tree row)
+        """
+
+        tests = []
+
+        for row_id, row in self._tests.iterrows():
+            # Skip topic markers - they're structural, not actual tests
+            if row.label == "topic_marker":
+                continue
+
+            # Skip suggestions unless explicitly included
+            if not include_suggestions and "/__suggestions__" in row.topic:
+                continue
+
+            # Decode URI-encoded topic (spaces are encoded as %20)
+            topic = urllib.parse.unquote(row.topic) if row.topic else ""
+
+            # Build the prompt with input only
+            # Output is execution data (goes to TestResult), not test definition
+            prompt = Prompt(
+                content=row.input,
+            )
+
+            # Minimal metadata - just track origin for potential round-trips
+            metadata = {
+                "tree_id": str(row_id),
+            }
+
+            # Create the test
+            test = Test(
+                topic=topic,
+                prompt=prompt,
+                metadata=metadata,
+            )
+            tests.append(test)
+
+        return TestSet(
+            name=self.name,
+            tests=tests,
+        )
+
+    @classmethod
+    def from_test_set(cls, test_set: "TestSet") -> "TestTree":
+        """Create a TestTree from an SDK TestSet.
+
+        This method converts SDK Test entities back into the hierarchical
+        test tree format, enabling adaptive testing on existing test sets.
+
+        Parameters
+        ----------
+        test_set : TestSet
+            An SDK TestSet instance. Can be either fetched from the backend
+            (with .pull()) or created locally.
+
+        Returns
+        -------
+        TestTree
+            A new TestTree instance populated with tests from the TestSet.
+
+        Examples
+        --------
+        >>> from rhesis.sdk.entities import TestSet
+        >>> # Load from backend
+        >>> test_set = TestSet(id="test-set-uuid")
+        >>> test_set.pull()
+        >>> tree = TestTree.from_test_set(test_set)
+        >>> browser = tree.adapt(generator=gen, endpoint=endpoint, metrics=scorer)
+
+        >>> # Round-trip: edit and save back
+        >>> tree = TestTree.from_test_set(test_set)
+        >>> # ... interactive editing ...
+        >>> updated_test_set = tree.to_test_set(name=test_set.name)
+        >>> updated_test_set.push()
+
+        Notes
+        -----
+        - Test.topic is used directly as the hierarchical topic path
+        - Test.prompt.content becomes input
+        - Output is set to "[no output]" (outputs come from TestResults, not Tests)
+        - Tests without prompts are skipped (e.g., multi-turn tests)
+        """
+
+        rows = []
+
+        for test in test_set.tests or []:
+            # Handle both dict and Test objects
+            if isinstance(test, dict):
+                test = Test(**test)
+
+            # Skip tests without prompts (multi-turn tests use test_configuration)
+            if not test.prompt or not test.prompt.content:
+                continue
+
+            # Get topic - use the full path as stored
+            topic = test.topic or ""
+
+            # URI encode topic path (spaces become %20) for internal consistency
+            topic = urllib.parse.quote(topic, safe="/")
+
+            # Output is "[no output]" - actual outputs come from TestResults
+            # when tests are executed, not from the Test definition
+            output = "[no output]"
+
+            rows.append(
+                {
+                    "topic": topic,
+                    "input": test.prompt.content,
+                    "output": output,
+                    "label": "",  # Will be set after execution/evaluation
+                    "labeler": "imported",
+                }
+            )
+
+        if not rows:
+            return cls()
+
+        # Create DataFrame with UUIDs as index
+        df = pd.DataFrame(rows)
+        index = [uuid.uuid4().hex for _ in range(len(rows))]
+
+        tree = cls(df, index=index, ensure_topic_markers=True)
+        tree._test_set_id = test_set.id  # Track source for potential sync
+        return tree
 
     def topic(self, topic):
         """Return a subset of the test tree containing only tests that match the given topic.

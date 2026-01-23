@@ -30,6 +30,7 @@ class TestSetProperties(BaseModel):
 
 class TestSet(BaseEntity):
     endpoint: ClassVar[Endpoints] = ENDPOINT
+    _push_required_fields: ClassVar[tuple[str, ...]] = ("name", "tests")
 
     id: Optional[str] = None
     tests: Optional[list[Test]] = None
@@ -37,11 +38,11 @@ class TestSet(BaseEntity):
     topics: Optional[list[str]] = None
     behaviors: Optional[list[str]] = None
     test_count: Optional[int] = None
-    name: str
-    description: str
-    short_description: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+    short_description: Optional[str] = None
     test_set_type: Optional[TestType] = None
-    metadata: dict = {}
+    metadata: Optional[dict] = None
 
     @field_validator("test_set_type", mode="before")
     @classmethod
@@ -491,31 +492,6 @@ class TestSet(BaseEntity):
         else:
             raise ValueError("LLM response was not in the expected format")
 
-    @classmethod
-    def _create(cls, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a test set using the bulk endpoint.
-
-        Args:
-            data: Dictionary containing test set data including tests
-
-        Returns:
-            Dict containing the created test set data from the API
-
-        Raises:
-            ValueError: If tests are not provided
-        """
-        if not data.get("tests"):
-            raise ValueError("Test set must have at least one test before creating")
-
-        client = APIClient()
-        response = client.send_request(
-            endpoint=cls.endpoint,
-            method=Methods.POST,
-            url_params="bulk",
-            data=data,
-        )
-        return response
-
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the test set to the database.
 
@@ -523,6 +499,9 @@ class TestSet(BaseEntity):
 
         Returns:
             Dict containing the response from the API, or None if error occurred.
+
+        Raises:
+            ValueError: If required fields are missing.
 
         Example:
             >>> test_set = TestSet(
@@ -534,11 +513,25 @@ class TestSet(BaseEntity):
             >>> result = test_set.push()
             >>> print(f"Created test set with ID: {test_set.id}")
         """
+        # Validate required fields
+        missing_fields = [
+            field for field in self._push_required_fields if getattr(self, field, None) is None
+        ]
+        if missing_fields:
+            raise ValueError(f"Required fields for push: {', '.join(missing_fields)}")
+
         # mode="json": Ensures enums are serialized as strings instead of enum objects
         # exclude_none=True: Excludes None values so backend uses defaults
         data = self.model_dump(mode="json", exclude_none=True)
 
-        response = self._create(data)
+        client = APIClient()
+        response = client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            url_params="bulk",
+            data=data,
+        )
+
         if response and "id" in response:
             self.id = response["id"]
 
