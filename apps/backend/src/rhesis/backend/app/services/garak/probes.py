@@ -92,7 +92,7 @@ class GarakProbeService:
         modules = []
 
         try:
-            import garak.probes as probes_pkg
+            import garak.probes  # noqa: F401 - verify garak is installed
 
             # Iterate through known probe modules
             for module_name in self.KNOWN_PROBE_MODULES:
@@ -153,7 +153,12 @@ class GarakProbeService:
 
                         # Get default detector
                         if hasattr(attr, "recommended_detector") and not default_detector:
-                            default_detector = attr.recommended_detector
+                            detector_value = attr.recommended_detector
+                            # Handle both string and list types
+                            if isinstance(detector_value, (list, tuple)):
+                                default_detector = detector_value[0] if detector_value else None
+                            elif isinstance(detector_value, str):
+                                default_detector = detector_value
 
                         # Try to count prompts
                         if hasattr(attr, "prompts"):
@@ -299,7 +304,12 @@ class GarakProbeService:
             # Get detector
             detector = None
             if hasattr(probe_class, "recommended_detector"):
-                detector = probe_class.recommended_detector
+                detector_value = probe_class.recommended_detector
+                # Handle both string and list types
+                if isinstance(detector_value, (list, tuple)):
+                    detector = detector_value[0] if detector_value else None
+                elif isinstance(detector_value, str):
+                    detector = detector_value
 
             return GarakProbeInfo(
                 module_name=module_name,
