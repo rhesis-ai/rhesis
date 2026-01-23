@@ -160,11 +160,17 @@ class GarakProbeService:
                             elif isinstance(detector_value, str):
                                 default_detector = detector_value
 
-                        # Try to count prompts
-                        if hasattr(attr, "prompts"):
-                            prompts = attr.prompts
-                            if isinstance(prompts, (list, tuple)):
-                                total_prompts += len(prompts)
+                        # Try to count prompts - must instantiate to get dynamic prompts
+                        try:
+                            instance = attr()
+                            if hasattr(instance, "prompts") and instance.prompts:
+                                total_prompts += len(instance.prompts)
+                        except Exception:
+                            # Fall back to class-level prompts attribute
+                            if hasattr(attr, "prompts"):
+                                prompts = attr.prompts
+                                if isinstance(prompts, (list, tuple)):
+                                    total_prompts += len(prompts)
                     except Exception:
                         pass
 
