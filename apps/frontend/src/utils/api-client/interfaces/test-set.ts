@@ -92,6 +92,11 @@ export interface TestSet {
     behaviors?: string[];
     use_cases?: string[];
     categories?: string[];
+    // Garak-specific attributes
+    source?: string;
+    garak_version?: string;
+    garak_modules?: string[];
+    last_synced_at?: string;
   };
   user_id?: UUID;
   user?: User;
