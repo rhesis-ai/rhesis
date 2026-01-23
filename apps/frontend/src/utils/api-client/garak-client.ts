@@ -129,7 +129,10 @@ export interface GarakSyncPreviewResponse {
   to_add: number;
   to_remove: number;
   unchanged: number;
-  modules: string[];
+  probe_class?: string;
+  module_name?: string;
+  modules?: string[];  // Legacy format
+  error?: string;
   last_synced_at: string | null;
 }
 

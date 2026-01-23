@@ -147,7 +147,10 @@ class GarakSyncPreviewResponse(BaseModel):
     to_add: int = Field(..., description="Number of new tests to add")
     to_remove: int = Field(..., description="Number of tests to remove")
     unchanged: int = Field(..., description="Number of unchanged tests")
-    modules: List[str] = Field(..., description="Modules in the test set")
+    probe_class: Optional[str] = Field(None, description="Probe class name")
+    module_name: Optional[str] = Field(None, description="Module name")
+    modules: Optional[List[str]] = Field(None, description="Modules (legacy format)")
+    error: Optional[str] = Field(None, description="Error message if sync not possible")
     last_synced_at: Optional[str] = Field(None, description="Last sync timestamp")
 
 
