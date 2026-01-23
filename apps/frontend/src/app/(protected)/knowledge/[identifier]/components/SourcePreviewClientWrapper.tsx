@@ -168,8 +168,20 @@ export default function SourcePreviewClientWrapper({
   };
 
   // child returns updated source with new tags and we update local source state for UI
-  const handleTagsUpdate = (updatedSource: Source) => {
-    setLocalSource(updatedSource);
+  const handleTagsUpdate = async (_: Source) => {
+    setTimeout(async () => {
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const sourcesClient = clientFactory.getSourcesClient();
+        const updatedSource = await sourcesClient.getSourceWithContent(
+          localSource.id
+        );
+
+        setLocalSource(updatedSource);
+      } catch (error) {
+        console.error('Failed to refresh source after tag update', error);
+      }
+    }, 500);
   };
 
   const handleUpdateFromMCP = async () => {
