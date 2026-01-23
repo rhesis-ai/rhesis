@@ -233,14 +233,7 @@ async def import_probes(
     and associates appropriate Garak detector metrics.
     """
     try:
-        organization_id = tenant_context.get("organization_id")
-        user_id = tenant_context.get("user_id")
-
-        if not organization_id:
-            raise HTTPException(
-                status_code=400,
-                detail="Organization context required for import",
-            )
+        organization_id, user_id = tenant_context
 
         importer = GarakImporter(db)
         results = importer.import_probes(
@@ -295,13 +288,7 @@ async def preview_sync(
     Returns counts of tests to add, remove, and keep.
     """
     try:
-        organization_id = tenant_context.get("organization_id")
-
-        if not organization_id:
-            raise HTTPException(
-                status_code=400,
-                detail="Organization context required",
-            )
+        organization_id, _ = tenant_context
 
         sync_service = GarakSyncService(db)
         preview = sync_service.get_sync_preview(test_set_id, organization_id)
@@ -338,14 +325,7 @@ async def sync_test_set(
     deprecated ones.
     """
     try:
-        organization_id = tenant_context.get("organization_id")
-        user_id = tenant_context.get("user_id")
-
-        if not organization_id:
-            raise HTTPException(
-                status_code=400,
-                detail="Organization context required for sync",
-            )
+        organization_id, user_id = tenant_context
 
         sync_service = GarakSyncService(db)
         result = sync_service.sync_test_set(
