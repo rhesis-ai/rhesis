@@ -10,12 +10,14 @@ interface SourceTagsProps {
   sessionToken: string;
   source: Source;
   disableEdition?: boolean;
+  onUpdate?: () => void;
 }
 
 export default function SourceTags({
   sessionToken,
   source,
   disableEdition = false,
+  onUpdate,
 }: SourceTagsProps) {
   const [tagNames, setTagNames] = useState<string[]>([]);
 
@@ -26,11 +28,18 @@ export default function SourceTags({
     }
   }, [source.tags]);
 
+  const handleTagsChange = (newTagNames: string[]) => {
+    setTagNames(newTagNames);
+    if (onUpdate) {
+      onUpdate();
+    }
+  };
+
   return (
     <Box sx={{ width: '100%' }}>
       <BaseTag
         value={tagNames}
-        onChange={setTagNames}
+        onChange={handleTagsChange}
         placeholder="Add tags..."
         chipColor="primary"
         disableEdition={disableEdition}
