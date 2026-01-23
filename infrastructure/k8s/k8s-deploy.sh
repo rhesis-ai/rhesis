@@ -469,13 +469,13 @@ kill_port_forwards() {
     if [ -z "$service" ]; then
         # Kill all port-forward processes
         echo -e "  - Killing all port-forward processes...${NC}"
-        echo "$pids" | while read -r pid; do
+        while read -r pid; do
             if [ -n "$pid" ]; then
                 local cmd=$(ps -p "$pid" -o command= 2>/dev/null || echo "unknown")
                 echo -e "    ${BLUE}Killing PID $pid: $cmd${NC}"
                 kill "$pid" 2>/dev/null || true
             fi
-        done
+        done <<< "$pids"
         echo -e "${GREEN}✅ All port-forward processes killed${NC}"
     else
         # Kill specific service port-forward
@@ -502,7 +502,7 @@ kill_port_forwards() {
         
         echo -e "  - Killing port-forward for ${BLUE}$service${NC} (port $port)...${NC}"
         local killed=0
-        echo "$pids" | while read -r pid; do
+        while read -r pid; do
             if [ -n "$pid" ]; then
                 local cmd=$(ps -p "$pid" -o command= 2>/dev/null || echo "")
                 if echo "$cmd" | grep -q "svc/$service" || echo "$cmd" | grep -q ":$port"; then
@@ -511,7 +511,7 @@ kill_port_forwards() {
                     killed=1
                 fi
             fi
-        done
+        done <<< "$pids"
         
         if [ "$killed" -eq 0 ]; then
             echo -e "${YELLOW}⚠️  No port-forward process found for $service${NC}"
@@ -588,7 +588,26 @@ rebuild_and_redeploy() {
     if [ -n "$service" ]; then
         restart_service "$service"
     else
-        update_config
+        # Restart all services to pick up new images
+        echo -e "${YELLOW}🔄 Restarting all services to pick up new images...${NC}"
+        for svc in "${SERVICES[@]}"; do
+            echo -e "  - Restarting ${BLUE}$svc${NC}...${NC}"
+            if kubectl get deployment "$svc" -n "$NAMESPACE" &> /dev/null; then
+                kubectl rollout restart deployment "$svc" -n "$NAMESPACE"
+            else
+                echo -e "    ${YELLOW}⚠️  Deployment $svc not found, skipping${NC}"
+            fi
+        done
+        
+        # Wait for all rollouts to complete
+        echo -e "${YELLOW}⏳ Waiting for all rollouts to complete...${NC}"
+        for svc in "${SERVICES[@]}"; do
+            if kubectl get deployment "$svc" -n "$NAMESPACE" &> /dev/null; then
+                echo -e "  - Waiting for ${BLUE}$svc${NC}...${NC}"
+                kubectl rollout status deployment "$svc" -n "$NAMESPACE" --timeout=5m || true
+            fi
+        done
+        echo -e "${GREEN}✅ All services restarted${NC}"
     fi
     
     echo -e "${GREEN}🎉 Rebuild and redeploy completed!${NC}"
