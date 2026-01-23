@@ -113,7 +113,7 @@ backend:
 frontend:
   enabled: true
   replicas: 1
-  disableSecurityContext: true  # Temporarily disable for frontend due to permission issues
+  #disableSecurityContext: true  # Temporarily disable for frontend due to permission issues
   resources:
     requests:
       memory: "256Mi"
