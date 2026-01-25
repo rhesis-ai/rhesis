@@ -98,10 +98,17 @@ class GarakDetectorMetric(BaseMetric):
             ImportError: If Garak is not installed or detector not found
         """
         try:
+            # Normalize the detector path
+            # Garak's recommended_detector can be relative (e.g., "perspective.Toxicity")
+            # or full (e.g., "garak.detectors.perspective.Toxicity")
+            detector_path = self.detector_class_path
+            if not detector_path.startswith("garak."):
+                detector_path = f"garak.detectors.{detector_path}"
+
             # Split the class path
-            parts = self.detector_class_path.rsplit(".", 1)
+            parts = detector_path.rsplit(".", 1)
             if len(parts) != 2:
-                raise ValueError(f"Invalid detector class path: {self.detector_class_path}")
+                raise ValueError(f"Invalid detector class path: {detector_path}")
 
             module_path, class_name = parts
 
