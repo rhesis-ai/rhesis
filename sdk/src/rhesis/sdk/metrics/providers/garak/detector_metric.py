@@ -149,10 +149,11 @@ class GarakDetectorMetric(BaseMetric):
         """
         try:
             # Create a Garak Attempt object
-            # Garak expects an Attempt with prompt and outputs
+            # Garak's Attempt takes no args in __init__, attributes are set after
             from garak.attempt import Attempt
 
-            attempt = Attempt(prompt=input)
+            attempt = Attempt()
+            attempt.prompt = input
             attempt.outputs = [output]
 
             # Run the detector
