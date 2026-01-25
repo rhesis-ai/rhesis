@@ -51,6 +51,14 @@ class GarakMetricFactory(BaseMetricFactory):
         "GarakDetectorMetric": None,  # Will use detector_class kwarg
     }
 
+    # Parameters that GarakDetectorMetric actually accepts
+    # Only pass these; ignore everything else from metric config
+    ACCEPTED_PARAMS = {"name", "description", "model"}
+
+    def _filter_kwargs(self, kwargs: dict) -> dict:
+        """Extract only params that GarakDetectorMetric accepts."""
+        return {k: v for k, v in kwargs.items() if k in self.ACCEPTED_PARAMS}
+
     def create(self, class_name: str, **kwargs) -> BaseMetric:
         """
         Create a Garak detector metric.
@@ -61,7 +69,7 @@ class GarakMetricFactory(BaseMetricFactory):
                 - A short detector name like "MitigationBypass"
                 - A full detector path like "garak.detectors.mitigation.MitigationBypass"
             **kwargs: Additional arguments including:
-                - detector_class: Full path to detector (required if class_name is GarakDetectorMetric)
+                - detector_class: Full path to detector (required for GarakDetectorMetric)
                 - name: Optional metric name
                 - description: Optional metric description
 
@@ -76,24 +84,28 @@ class GarakMetricFactory(BaseMetricFactory):
                 detector_class = kwargs.pop("evaluation_prompt", None)
             if not detector_class:
                 raise ValueError("detector_class is required when creating GarakDetectorMetric")
-            return GarakDetectorMetric(detector_class=detector_class, **kwargs)
+            # Filter out metric config params that shouldn't go to detector
+            filtered_kwargs = self._filter_kwargs(kwargs)
+            return GarakDetectorMetric(detector_class=detector_class, **filtered_kwargs)
 
         # If class_name is a short name, look it up
         if class_name in self.DETECTOR_PATHS:
             detector_class = self.DETECTOR_PATHS[class_name]
             if detector_class is None:
                 raise ValueError(f"Cannot create {class_name} without detector_class")
+            filtered_kwargs = self._filter_kwargs(kwargs)
             return GarakDetectorMetric(
                 detector_class=detector_class,
-                name=kwargs.get("name", class_name),
-                **kwargs,
+                name=filtered_kwargs.get("name", class_name),
+                **filtered_kwargs,
             )
 
         # If class_name looks like a full path, use it directly
         if "." in class_name and class_name.startswith("garak."):
+            filtered_kwargs = self._filter_kwargs(kwargs)
             return GarakDetectorMetric(
                 detector_class=class_name,
-                **kwargs,
+                **filtered_kwargs,
             )
 
         raise ValueError(
