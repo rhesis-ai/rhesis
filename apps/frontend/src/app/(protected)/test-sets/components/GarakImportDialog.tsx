@@ -9,7 +9,6 @@ import {
   Button,
   Typography,
   Stack,
-  TextField,
   Checkbox,
   Alert,
   CircularProgress,
@@ -19,11 +18,14 @@ import {
   Paper,
   IconButton,
   Collapse,
+  LinearProgress,
+  alpha,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
   Security as SecurityIcon,
   Refresh as RefreshIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type {
@@ -31,6 +33,7 @@ import type {
   GarakProbeClass,
   GarakImportPreviewResponse,
   GarakProbeSelection,
+  GarakProbePreview,
 } from '@/utils/api-client/garak-client';
 
 interface GarakImportDialogProps {
@@ -55,13 +58,18 @@ export default function GarakImportDialog({
   const [selectedProbes, setSelectedProbes] = React.useState<Set<string>>(
     new Set()
   );
-  const [namePrefix, setNamePrefix] = React.useState('Garak');
   const [preview, setPreview] =
     React.useState<GarakImportPreviewResponse | null>(null);
   const [garakVersion, setGarakVersion] = React.useState<string>('');
   const [expandedModules, setExpandedModules] = React.useState<Set<string>>(
     new Set()
   );
+  // Progress tracking during import
+  const [importProgress, setImportProgress] = React.useState<{
+    currentIndex: number;
+    total: number;
+    currentProbe: GarakProbePreview | null;
+  } | null>(null);
 
   // Fetch available modules when dialog opens
   React.useEffect(() => {
@@ -180,7 +188,7 @@ export default function GarakImportDialog({
 
       const previewResponse = await garakClient.previewImport({
         probes: buildProbeSelections(),
-        name_prefix: namePrefix || 'Garak',
+        name_prefix: 'Garak',
       });
 
       setPreview(previewResponse);
@@ -197,23 +205,77 @@ export default function GarakImportDialog({
       return;
     }
 
+    // First get preview to show progress
+    let previewData = preview;
+    if (!previewData) {
+      try {
+        setLoading(true);
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const garakClient = clientFactory.getGarakClient();
+        previewData = await garakClient.previewImport({
+          probes: buildProbeSelections(),
+          name_prefix: 'Garak',
+        });
+        setPreview(previewData);
+      } catch (err: any) {
+        setError(err.message || 'Failed to get import preview');
+        setLoading(false);
+        return;
+      } finally {
+        setLoading(false);
+      }
+    }
+
     try {
       setImporting(true);
       setError(undefined);
+
+      // Initialize progress tracking
+      setImportProgress({
+        currentIndex: 0,
+        total: previewData.probes.length,
+        currentProbe: previewData.probes[0] || null,
+      });
+
+      // Simulate progress updates while import happens
+      const progressInterval = setInterval(() => {
+        setImportProgress(prev => {
+          if (!prev || !previewData) return prev;
+          const nextIndex = Math.min(prev.currentIndex + 1, prev.total - 1);
+          return {
+            currentIndex: nextIndex,
+            total: prev.total,
+            currentProbe: previewData.probes[nextIndex] || prev.currentProbe,
+          };
+        });
+      }, 500);
 
       const clientFactory = new ApiClientFactory(sessionToken);
       const garakClient = clientFactory.getGarakClient();
 
       const response = await garakClient.importProbes({
         probes: buildProbeSelections(),
-        name_prefix: namePrefix || 'Garak',
+        name_prefix: 'Garak',
       });
+
+      clearInterval(progressInterval);
+
+      // Show completion
+      setImportProgress({
+        currentIndex: previewData.probes.length,
+        total: previewData.probes.length,
+        currentProbe: null,
+      });
+
+      // Small delay to show completion before closing
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Pass all created test set IDs
       onSuccess?.(response.test_sets.map(ts => ts.test_set_id));
       handleClose();
     } catch (err: any) {
       setError(err.message || 'Failed to import Garak probes');
+      setImportProgress(null);
     } finally {
       setImporting(false);
     }
@@ -221,9 +283,9 @@ export default function GarakImportDialog({
 
   const handleClose = () => {
     setSelectedProbes(new Set());
-    setNamePrefix('Garak');
     setPreview(null);
     setError(undefined);
+    setImportProgress(null);
     onClose();
   };
 
@@ -260,194 +322,292 @@ export default function GarakImportDialog({
             </Alert>
           )}
 
-          {/* Probe Selection */}
-          <Box>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-              mb={1}
-            >
-              <Typography variant="subtitle1" fontWeight="medium">
-                Select Probes ({selectedProbes.size} of {allProbesCount}{' '}
-                selected)
-              </Typography>
-              <Stack direction="row" spacing={1}>
-                <Button
-                  size="small"
-                  onClick={handleSelectAll}
-                  disabled={loadingModules}
-                >
-                  {selectedProbes.size === allProbesCount
-                    ? 'Deselect All'
-                    : 'Select All'}
-                </Button>
-                <IconButton
-                  size="small"
-                  onClick={fetchModules}
-                  disabled={loadingModules}
-                >
-                  <RefreshIcon />
-                </IconButton>
-              </Stack>
-            </Stack>
-
-            {loadingModules ? (
-              <Box display="flex" justifyContent="center" p={4}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <Paper
-                variant="outlined"
-                sx={{ maxHeight: 400, overflow: 'auto' }}
+          {/* Probe Selection - Hide when importing */}
+          {!importing && (
+            <Box>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={1}
               >
-                <Stack divider={<Divider />}>
-                  {modules.map(module => (
-                    <Box key={module.name}>
-                      {/* Module Header */}
-                      <Stack
-                        direction="row"
-                        alignItems="center"
-                        sx={{
-                          p: 1.5,
-                          cursor: 'pointer',
-                          bgcolor: 'action.hover',
-                        }}
-                        onClick={() => toggleModuleExpand(module.name)}
-                      >
-                        <Checkbox
-                          checked={isModuleFullySelected(module)}
-                          indeterminate={isModulePartiallySelected(module)}
-                          onClick={e => e.stopPropagation()}
-                          onChange={() => handleModuleToggle(module)}
-                        />
-                        <Stack flex={1} spacing={0.5}>
-                          <Stack
-                            direction="row"
-                            alignItems="center"
-                            spacing={1}
-                          >
-                            <Typography variant="body1" fontWeight="medium">
-                              {module.name}
-                            </Typography>
-                            <Chip
-                              label={`${module.probe_count} probes`}
-                              size="small"
-                              variant="outlined"
-                            />
-                            <Chip
-                              label={`${module.total_prompt_count} prompts`}
-                              size="small"
-                              variant="outlined"
-                            />
-                          </Stack>
-                          <Typography variant="body2" color="text.secondary">
-                            {module.description}
-                          </Typography>
-                          <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                            <Chip
-                              label={module.rhesis_category}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                            />
-                            <Chip
-                              label={module.rhesis_topic}
-                              size="small"
-                              color="secondary"
-                              variant="outlined"
-                            />
-                          </Stack>
-                        </Stack>
-                        <IconButton size="small">
-                          <ExpandMoreIcon
-                            sx={{
-                              transform: expandedModules.has(module.name)
-                                ? 'rotate(180deg)'
-                                : 'none',
-                              transition: 'transform 0.2s',
-                            }}
-                          />
-                        </IconButton>
-                      </Stack>
+                <Typography variant="subtitle1" fontWeight="medium">
+                  Select Probes ({selectedProbes.size} of {allProbesCount}{' '}
+                  selected)
+                </Typography>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    size="small"
+                    onClick={handleSelectAll}
+                    disabled={loadingModules}
+                  >
+                    {selectedProbes.size === allProbesCount
+                      ? 'Deselect All'
+                      : 'Select All'}
+                  </Button>
+                  <IconButton
+                    size="small"
+                    onClick={fetchModules}
+                    disabled={loadingModules}
+                  >
+                    <RefreshIcon />
+                  </IconButton>
+                </Stack>
+              </Stack>
 
-                      {/* Individual Probes */}
-                      <Collapse in={expandedModules.has(module.name)}>
-                        <Stack sx={{ pl: 4 }} divider={<Divider />}>
-                          {getModuleProbes(module).map(probe => (
+              {loadingModules ? (
+                <Box display="flex" justifyContent="center" p={4}>
+                  <CircularProgress />
+                </Box>
+              ) : (
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    maxHeight: theme => theme.spacing(50),
+                    overflow: 'auto',
+                  }}
+                >
+                  <Stack divider={<Divider />}>
+                    {modules.map(module => (
+                      <Box key={module.name}>
+                        {/* Module Header */}
+                        <Stack
+                          direction="row"
+                          alignItems="center"
+                          sx={{
+                            p: 1.5,
+                            cursor: 'pointer',
+                            bgcolor: 'action.hover',
+                          }}
+                          onClick={() => toggleModuleExpand(module.name)}
+                        >
+                          <Checkbox
+                            checked={isModuleFullySelected(module)}
+                            indeterminate={isModulePartiallySelected(module)}
+                            onClick={e => e.stopPropagation()}
+                            onChange={() => handleModuleToggle(module)}
+                          />
+                          <Stack flex={1} spacing={0.5}>
                             <Stack
-                              key={probe.full_name}
                               direction="row"
                               alignItems="center"
-                              sx={{ p: 1, pl: 2, cursor: 'pointer' }}
-                              onClick={() => handleProbeToggle(probe)}
+                              spacing={1}
                             >
-                              <Checkbox
+                              <Typography variant="body1" fontWeight="medium">
+                                {module.name}
+                              </Typography>
+                              <Chip
+                                label={`${module.probe_count} probes`}
                                 size="small"
-                                checked={selectedProbes.has(probe.full_name)}
-                                onClick={e => e.stopPropagation()}
-                                onChange={() => handleProbeToggle(probe)}
+                                variant="outlined"
                               />
-                              <Stack flex={1} spacing={0.25}>
-                                <Stack
-                                  direction="row"
-                                  alignItems="center"
-                                  spacing={1}
-                                >
-                                  <Typography
-                                    variant="body2"
-                                    fontWeight="medium"
-                                  >
-                                    {probe.class_name}
-                                  </Typography>
-                                  <Chip
-                                    label={`${probe.prompt_count} tests`}
-                                    size="small"
-                                    variant="outlined"
-                                    sx={{ height: 20 }}
-                                  />
-                                </Stack>
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    maxWidth: 400,
-                                  }}
-                                >
-                                  {probe.description}
-                                </Typography>
-                              </Stack>
+                              <Chip
+                                label={`${module.total_prompt_count} prompts`}
+                                size="small"
+                                variant="outlined"
+                              />
                             </Stack>
-                          ))}
+                            <Typography variant="body2" color="text.secondary">
+                              {module.description}
+                            </Typography>
+                            <Stack
+                              direction="row"
+                              spacing={0.5}
+                              flexWrap="wrap"
+                            >
+                              <Chip
+                                label={module.rhesis_category}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                              <Chip
+                                label={module.rhesis_topic}
+                                size="small"
+                                color="secondary"
+                                variant="outlined"
+                              />
+                            </Stack>
+                          </Stack>
+                          <IconButton size="small">
+                            <ExpandMoreIcon
+                              sx={theme => ({
+                                transform: expandedModules.has(module.name)
+                                  ? 'rotate(180deg)'
+                                  : 'none',
+                                transition: theme.transitions.create(
+                                  'transform',
+                                  {
+                                    duration: theme.transitions.duration.short,
+                                  }
+                                ),
+                              })}
+                            />
+                          </IconButton>
                         </Stack>
-                      </Collapse>
-                    </Box>
-                  ))}
-                </Stack>
-              </Paper>
-            )}
-          </Box>
 
-          {/* Test Set Name Prefix */}
-          <Box>
-            <Typography variant="subtitle1" fontWeight="medium" mb={1}>
-              Test Set Naming
-            </Typography>
-            <TextField
-              label="Name Prefix"
-              value={namePrefix}
-              onChange={e => setNamePrefix(e.target.value)}
-              placeholder="Garak"
-              fullWidth
-              helperText="Each probe creates a test set named '[Prefix]: [Probe Name]'"
-            />
-          </Box>
+                        {/* Individual Probes */}
+                        <Collapse in={expandedModules.has(module.name)}>
+                          <Stack sx={{ pl: 4 }} divider={<Divider />}>
+                            {getModuleProbes(module).map(probe => (
+                              <Stack
+                                key={probe.full_name}
+                                direction="row"
+                                alignItems="center"
+                                sx={{ p: 1, pl: 2, cursor: 'pointer' }}
+                                onClick={() => handleProbeToggle(probe)}
+                              >
+                                <Checkbox
+                                  size="small"
+                                  checked={selectedProbes.has(probe.full_name)}
+                                  onClick={e => e.stopPropagation()}
+                                  onChange={() => handleProbeToggle(probe)}
+                                />
+                                <Stack flex={1} spacing={0.25}>
+                                  <Stack
+                                    direction="row"
+                                    alignItems="center"
+                                    spacing={1}
+                                  >
+                                    <Typography
+                                      variant="body2"
+                                      fontWeight="medium"
+                                    >
+                                      {probe.class_name}
+                                    </Typography>
+                                    <Chip
+                                      label={`${probe.prompt_count} tests`}
+                                      size="small"
+                                      variant="outlined"
+                                      sx={{
+                                        height: theme => theme.spacing(2.5),
+                                      }}
+                                    />
+                                  </Stack>
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      maxWidth: theme => theme.spacing(50),
+                                    }}
+                                  >
+                                    {probe.description}
+                                  </Typography>
+                                </Stack>
+                              </Stack>
+                            ))}
+                          </Stack>
+                        </Collapse>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Paper>
+              )}
+            </Box>
+          )}
+
+          {/* Import Progress */}
+          {importing && importProgress && (
+            <Paper
+              elevation={0}
+              sx={theme => ({
+                p: 3,
+                bgcolor: alpha(theme.palette.primary.main, 0.08),
+                border: '1px solid',
+                borderColor: alpha(theme.palette.primary.main, 0.24),
+                borderRadius: theme.shape.borderRadius / 4,
+              })}
+            >
+              <Stack spacing={2}>
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <CircularProgress size={20} />
+                  <Typography variant="subtitle1" fontWeight="medium">
+                    Importing Garak Probes...
+                  </Typography>
+                </Stack>
+
+                <Box>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    mb={0.5}
+                  >
+                    <Typography variant="body2" color="text.secondary">
+                      Progress
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {importProgress.currentIndex + 1} of{' '}
+                      {importProgress.total} test sets
+                    </Typography>
+                  </Stack>
+                  <LinearProgress
+                    variant="determinate"
+                    value={
+                      ((importProgress.currentIndex + 1) /
+                        importProgress.total) *
+                      100
+                    }
+                    sx={theme => ({
+                      height: theme.spacing(1),
+                      borderRadius: theme.spacing(0.5),
+                    })}
+                  />
+                </Box>
+
+                {importProgress.currentProbe && (
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Stack spacing={1}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <SecurityIcon fontSize="small" color="primary" />
+                        <Typography variant="body1" fontWeight="medium">
+                          {importProgress.currentProbe.test_set_name}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" spacing={2}>
+                        <Chip
+                          label={`${importProgress.currentProbe.prompt_count} prompts`}
+                          size="small"
+                          variant="outlined"
+                        />
+                        {importProgress.currentProbe.detector && (
+                          <Chip
+                            label={importProgress.currentProbe.detector}
+                            size="small"
+                            color="secondary"
+                            variant="outlined"
+                          />
+                        )}
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Module: {importProgress.currentProbe.module_name}
+                      </Typography>
+                    </Stack>
+                  </Paper>
+                )}
+
+                {!importProgress.currentProbe &&
+                  importProgress.currentIndex === importProgress.total && (
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                      sx={{ color: 'success.main' }}
+                    >
+                      <CheckCircleIcon />
+                      <Typography variant="body1" fontWeight="medium">
+                        Import complete!
+                      </Typography>
+                    </Stack>
+                  )}
+              </Stack>
+            </Paper>
+          )}
 
           {/* Preview */}
-          {preview && (
+          {preview && !importing && (
             <Alert severity="info" icon={false}>
               <Typography variant="subtitle2" gutterBottom>
                 Import Preview
@@ -493,12 +653,11 @@ export default function GarakImportDialog({
           disabled={importing || selectedProbes.size === 0}
           variant="contained"
           color="primary"
+          startIcon={importing ? <CircularProgress size={16} /> : undefined}
         >
-          {importing ? (
-            <CircularProgress size={20} />
-          ) : (
-            `Import ${selectedProbes.size} Probe${selectedProbes.size !== 1 ? 's' : ''}`
-          )}
+          {importing
+            ? 'Importing...'
+            : `Import ${selectedProbes.size} Probe${selectedProbes.size !== 1 ? 's' : ''}`}
         </Button>
       </DialogActions>
     </Dialog>
