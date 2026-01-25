@@ -15,6 +15,7 @@ import {
   TestSetBulkDisassociateResponse,
   GenerateTestsRequest,
   GenerateTestSetResponse,
+  TestSetMetric,
   // Legacy imports for backwards compatibility
   TestSetGenerationRequest,
   TestSetGenerationResponse,
@@ -400,6 +401,63 @@ export class TestSetsClient extends BaseApiClient {
 
   async downloadTestSet(testSetId: string): Promise<Blob> {
     return this.fetchBlob(`${API_ENDPOINTS.testSets}/${testSetId}/download`);
+  }
+
+  /**
+   * Get metrics associated with a test set.
+   * When a test set has associated metrics, those metrics override the default
+   * behavior-level metrics during test execution.
+   *
+   * @param testSetId - The test set identifier
+   * @returns List of metrics associated with the test set (empty array if none)
+   */
+  async getTestSetMetrics(testSetId: string): Promise<TestSetMetric[]> {
+    return this.fetch<TestSetMetric[]>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/metrics`,
+      {
+        cache: 'no-store',
+      }
+    );
+  }
+
+  /**
+   * Add a metric to a test set.
+   * When a test set has associated metrics, those metrics override the default
+   * behavior-level metrics during test execution.
+   *
+   * @param testSetId - The test set identifier
+   * @param metricId - The metric ID to add
+   * @returns Updated list of metrics associated with the test set
+   */
+  async addMetricToTestSet(
+    testSetId: string,
+    metricId: string
+  ): Promise<TestSetMetric[]> {
+    return this.fetch<TestSetMetric[]>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/metrics/${metricId}`,
+      {
+        method: 'POST',
+      }
+    );
+  }
+
+  /**
+   * Remove a metric from a test set.
+   *
+   * @param testSetId - The test set identifier
+   * @param metricId - The metric ID to remove
+   * @returns Updated list of metrics associated with the test set
+   */
+  async removeMetricFromTestSet(
+    testSetId: string,
+    metricId: string
+  ): Promise<TestSetMetric[]> {
+    return this.fetch<TestSetMetric[]>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/metrics/${metricId}`,
+      {
+        method: 'DELETE',
+      }
+    );
   }
 
   protected async fetchBlob(

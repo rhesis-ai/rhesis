@@ -24,6 +24,7 @@ import CancelIcon from '@mui/icons-material/CancelOutlined';
 import CheckIcon from '@mui/icons-material/CheckOutlined';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import TestSetTags from './TestSetTags';
+import TestSetMetrics from './TestSetMetrics';
 import type { GarakSyncPreviewResponse } from '@/utils/api-client/garak-client';
 
 interface TestSetDetailsSectionProps {
@@ -595,6 +596,12 @@ export default function TestSetDetailsSection({
         <MetadataField label="Categories" items={categories} />
         <MetadataField label="Topics" items={topics} />
       </Box>
+
+      {/* Applicable Metrics Section */}
+      <TestSetMetrics
+        testSetId={testSet.id as string}
+        sessionToken={sessionToken}
+      />
 
       {/* Sources Section */}
       {sources.length > 0 && (
