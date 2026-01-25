@@ -28,6 +28,8 @@ interface SelectMetricsDialogProps {
   onSelect: (metricId: UUID) => void;
   sessionToken: string;
   excludeMetricIds?: UUID[];
+  title?: string;
+  subtitle?: string;
 }
 
 export default function SelectMetricsDialog({
@@ -36,6 +38,8 @@ export default function SelectMetricsDialog({
   onSelect,
   sessionToken,
   excludeMetricIds = [],
+  title = 'Add Metric',
+  subtitle = 'Select a metric to add',
 }: SelectMetricsDialogProps) {
   const [metrics, setMetrics] = React.useState<MetricDetail[]>([]);
   const [filteredMetrics, setFilteredMetrics] = React.useState<MetricDetail[]>(
@@ -123,10 +127,10 @@ export default function SelectMetricsDialog({
     >
       <DialogTitle>
         <Typography variant="h6" component="div">
-          Add Metrics
+          {title}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Select a metric to add to this behavior
+          {subtitle}
         </Typography>
       </DialogTitle>
 

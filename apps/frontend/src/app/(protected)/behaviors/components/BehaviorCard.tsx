@@ -219,6 +219,8 @@ export default function BehaviorCard({
         onSelect={handleAddMetric}
         sessionToken={sessionToken}
         excludeMetricIds={excludeMetricIds}
+        title="Add Metric to Behavior"
+        subtitle="Select a metric to add to this behavior"
       />
 
       <DeleteModal
