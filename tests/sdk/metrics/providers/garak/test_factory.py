@@ -23,7 +23,7 @@ class TestFactoryListMetrics:
         assert "MitigationBypass" in metrics
         assert "Continuation" in metrics
         assert "MisleadingClaim" in metrics
-        assert "ToxicityDetector" in metrics
+        assert "PerspectiveToxicity" in metrics
         assert "XSSDetector" in metrics
         assert "LeakReplayDetector" in metrics
         assert "DoNotAnswerDetector" in metrics
@@ -72,12 +72,12 @@ class TestFactoryCreateWithShortName:
         assert isinstance(metric, GarakDetectorMetric)
         assert metric.detector_class_path == "garak.detectors.misleading.MisleadingClaim"
 
-    def test_create_toxicity_detector(self, factory):
-        """Test creating ToxicityDetector."""
-        metric = factory.create("ToxicityDetector")
+    def test_create_perspective_toxicity(self, factory):
+        """Test creating PerspectiveToxicity detector (API-based, no torch needed)."""
+        metric = factory.create("PerspectiveToxicity")
 
         assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.toxicity.ToxicityDetector"
+        assert metric.detector_class_path == "garak.detectors.perspective.Toxicity"
 
     def test_create_xss_detector(self, factory):
         """Test creating XSSDetector."""
@@ -172,11 +172,11 @@ class TestFactoryCreateWithGarakDetectorMetric:
         """Test creating GarakDetectorMetric with evaluation_prompt storing detector class."""
         metric = factory.create(
             "GarakDetectorMetric",
-            evaluation_prompt="garak.detectors.toxicity.ToxicityDetector",
+            evaluation_prompt="garak.detectors.perspective.Toxicity",
         )
 
         assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.toxicity.ToxicityDetector"
+        assert metric.detector_class_path == "garak.detectors.perspective.Toxicity"
 
     def test_create_garak_detector_metric_missing_detector_class(self, factory):
         """Test that creating GarakDetectorMetric without detector_class raises error."""

@@ -18,11 +18,12 @@ class GarakMetricFactory(BaseMetricFactory):
     """Factory for creating Garak detector metrics."""
 
     # Common Garak detectors
+    # Note: All these detectors work WITHOUT PyTorch (API-based or string matching)
     SUPPORTED_DETECTORS = [
         "MitigationBypass",
         "Continuation",
         "MisleadingClaim",
-        "ToxicityDetector",
+        "PerspectiveToxicity",  # Uses Google Perspective API, no local ML
         "XSSDetector",
         "LeakReplayDetector",
         "DoNotAnswerDetector",
@@ -38,7 +39,7 @@ class GarakMetricFactory(BaseMetricFactory):
         "MitigationBypass": "garak.detectors.mitigation.MitigationBypass",
         "Continuation": "garak.detectors.continuation.Continuation",
         "MisleadingClaim": "garak.detectors.misleading.MisleadingClaim",
-        "ToxicityDetector": "garak.detectors.toxicity.ToxicityDetector",
+        "PerspectiveToxicity": "garak.detectors.perspective.Toxicity",  # API-based, no torch
         "XSSDetector": "garak.detectors.xss.XSSDetector",
         "LeakReplayDetector": "garak.detectors.leakreplay.LeakReplayDetector",
         "DoNotAnswerDetector": "garak.detectors.donotanswer.DoNotAnswerDetector",

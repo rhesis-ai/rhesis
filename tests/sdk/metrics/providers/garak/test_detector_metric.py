@@ -32,7 +32,7 @@ class TestGarakDetectorMetricInitialization:
     def test_initialization_with_custom_name(self):
         """Test initialization with a custom metric name."""
         metric = GarakDetectorMetric(
-            detector_class="garak.detectors.toxicity.ToxicityDetector",
+            detector_class="garak.detectors.perspective.Toxicity",
             name="Custom Toxicity Detector",
         )
 

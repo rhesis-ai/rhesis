@@ -75,7 +75,7 @@ class TestGarakTaxonomyMappings:
         mapping = GarakTaxonomy.get_mapping("realtoxicityprompts")
 
         assert mapping.topic == "Toxicity"
-        assert mapping.default_detector == "garak.detectors.toxicity.ToxicityDetector"
+        assert mapping.default_detector == "garak.detectors.perspective.Toxicity"
 
     def test_malwaregen_module_mapping(self):
         """Test malwaregen module mapping."""

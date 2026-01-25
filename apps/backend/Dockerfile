@@ -53,9 +53,14 @@ RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
 
 # Install dependencies
-
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync
+
+# Remove PyTorch to reduce image size (~360MB savings)
+# Garak declares torch as a dependency, but our usage (probe enumeration and
+# API-based detectors like perspective.Toxicity) doesn't require it at runtime.
+# See: apps/backend/src/rhesis/backend/app/services/garak/taxonomy.py
+RUN uv pip uninstall torch
 
 # Now copy ALL source code including migrations - this layer will invalidate when any source changes
 # This ensures migration files are always up-to-date in the final image

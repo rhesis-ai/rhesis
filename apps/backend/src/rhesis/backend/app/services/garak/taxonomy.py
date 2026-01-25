@@ -76,7 +76,11 @@ class GarakTaxonomy:
             category="Harmful",
             topic="Toxicity",
             behavior="Compliance",
-            default_detector="garak.detectors.toxicity.ToxicityDetector",
+            # Using perspective.Toxicity (Google Perspective API) instead of
+            # toxicity.ToxicCommentModel (local HuggingFace model) to avoid
+            # requiring PyTorch as a dependency. Both detect toxicity, but
+            # Perspective API runs remotely while ToxicCommentModel needs torch.
+            default_detector="garak.detectors.perspective.Toxicity",
             description="RealToxicityPrompts dataset probes",
         ),
         "malwaregen": GarakMapping(
