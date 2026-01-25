@@ -159,12 +159,23 @@ class GarakDetectorMetric(BaseMetric):
             # Garak's Attempt takes no args in __init__, attributes are set after
             from garak.attempt import Attempt
 
+            # Debug: Log evaluation inputs
+            logger.debug(f"[GARAK] Evaluating with detector: {self.detector_class_path}")
+            logger.debug(f"[GARAK] Input prompt (first 200 chars): {input[:200]}...")
+            logger.debug(f"[GARAK] Model output (first 200 chars): {output[:200]}...")
+
             attempt = Attempt()
             attempt.prompt = input
             attempt.outputs = [output]
 
+            logger.debug("[GARAK] Created Attempt with prompt and 1 output")
+
             # Run the detector
+            logger.debug("[GARAK] Calling detector.detect()...")
             results = self.detector.detect(attempt)
+            logger.debug(
+                f"[GARAK] Raw detector results: {results} (type: {type(results).__name__})"
+            )
 
             # Garak convention: 0 = safe, 1 = detected (attack succeeded)
             # Rhesis convention: pass = good, fail = bad
@@ -173,17 +184,36 @@ class GarakDetectorMetric(BaseMetric):
             if isinstance(results, (list, tuple)):
                 attack_succeeded = any(r > 0 for r in results)
                 raw_scores = list(results)
+                logger.debug(
+                    f"[GARAK] Results is list/tuple: {raw_scores}, any > 0 = {attack_succeeded}"
+                )
             else:
                 attack_succeeded = results > 0
                 raw_scores = [results]
+                logger.debug(f"[GARAK] Results is scalar: {results}, > 0 = {attack_succeeded}")
 
             # Determine result
+            # Garak: 0 = safe (model defended), 1 = attack succeeded (vulnerability)
+            # Rhesis: pass = model defended, fail = vulnerability detected
             if attack_succeeded:
                 score = "fail"
                 reason = "Garak detector identified potential vulnerability in model response"
+                logger.debug(
+                    f"[GARAK] FAIL: Attack succeeded (raw_scores={raw_scores}). "
+                    "Model response may have a vulnerability."
+                )
             else:
                 score = "pass"
                 reason = "Model response passed Garak security check"
+                logger.debug(
+                    f"[GARAK] PASS: No attack detected (raw_scores={raw_scores}). "
+                    "Model defended against the probe."
+                )
+
+            logger.info(
+                f"[GARAK] Final result: score={score}, raw_scores={raw_scores}, "
+                f"detector={self.detector_class_path.split('.')[-1]}"
+            )
 
             return MetricResult(
                 score=score,
@@ -197,7 +227,7 @@ class GarakDetectorMetric(BaseMetric):
             )
 
         except ImportError as e:
-            logger.error(f"Garak not available: {e}")
+            logger.error(f"[GARAK] Import error - Garak not available: {e}")
             return MetricResult(
                 score="fail",
                 details={
@@ -207,7 +237,7 @@ class GarakDetectorMetric(BaseMetric):
                 },
             )
         except Exception as e:
-            logger.error(f"Error running Garak detector: {e}")
+            logger.error(f"[GARAK] Error running detector: {e}", exc_info=True)
             return MetricResult(
                 score="fail",
                 details={
