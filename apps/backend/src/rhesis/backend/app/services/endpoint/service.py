@@ -87,6 +87,18 @@ class EndpointService:
             if user_id:
                 enriched_input_data["user_id"] = user_id
 
+            # Preprocess prompt placeholders (e.g., Garak's {TARGET_MODEL})
+            # This substitutes placeholders with runtime context like project name
+            if "input" in enriched_input_data and isinstance(enriched_input_data["input"], str):
+                from rhesis.backend.app.services.prompt_preprocessor import (
+                    prompt_preprocessor,
+                )
+
+                enriched_input_data["input"] = prompt_preprocessor.process(
+                    enriched_input_data["input"],
+                    endpoint=endpoint,
+                )
+
             # Check if invoker needs explicit tracing (REST/WebSocket)
             if not invoker.automatic_tracing:
                 # Import here to avoid circular imports
