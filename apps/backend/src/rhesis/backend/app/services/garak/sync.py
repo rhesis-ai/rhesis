@@ -7,20 +7,26 @@ with the latest Garak probe versions.
 Each test set corresponds to a single Garak probe class. The sync
 operation updates the test set's tests to match the latest prompts
 from that probe class.
+
+Uses the bulk creation infrastructure to ensure proper metadata is set
+(test_type, status, etc.) for newly added tests.
 """
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Set
-from uuid import UUID, uuid4
+from typing import List, Optional, Set
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.models.test import Test, test_test_set_association
+from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.models.test_set import TestSet
+from rhesis.backend.app.schemas import test_set as test_set_schemas
+from rhesis.backend.app.services.test import bulk_create_tests
 from rhesis.backend.logging.rhesis_logger import logger
 
 from .probes import GarakProbeInfo, GarakProbeService
+from .taxonomy import GarakTaxonomy
 
 
 @dataclass
@@ -261,10 +267,17 @@ class GarakSyncService:
         organization_id: str,
         user_id: str,
     ) -> int:
-        """Add new prompts from a probe to the test set."""
-        org_uuid = UUID(organization_id)
-        user_uuid = UUID(user_id)
-        added_count = 0
+        """
+        Add new prompts from a probe to the test set.
+
+        Uses bulk_create_tests to ensure proper metadata is set
+        (test_type, status, category, behavior, topic, etc.).
+        """
+        # Get taxonomy mapping for this probe module
+        mapping = GarakTaxonomy.get_mapping(probe.module_name)
+
+        # Build test data for new prompts
+        tests_data: List[test_set_schemas.TestData] = []
 
         for idx, prompt_content in enumerate(probe.prompts):
             probe_id = f"{probe.full_name}.{idx}"
@@ -283,42 +296,34 @@ class GarakSyncService:
                 "garak_tags": probe.tags,
             }
 
-            # Create prompt
-            from rhesis.backend.app.models.prompt import Prompt
-
-            prompt = Prompt(
-                id=uuid4(),
-                content=prompt_content,
-                organization_id=org_uuid,
-                user_id=user_uuid,
+            # Build test data with proper taxonomy
+            test_data = test_set_schemas.TestData(
+                prompt=test_set_schemas.TestPrompt(
+                    content=prompt_content,
+                    language_code="en",
+                ),
+                behavior=mapping.behavior,
+                category=mapping.category,
+                topic=mapping.topic,
+                test_type="Single-Turn",
+                metadata=test_metadata,
             )
-            self.db.add(prompt)
-            self.db.flush()
+            tests_data.append(test_data)
 
-            # Create test
-            test = Test(
-                id=uuid4(),
-                prompt_id=prompt.id,
-                organization_id=org_uuid,
-                user_id=user_uuid,
-                test_metadata=test_metadata,
-            )
-            self.db.add(test)
-            self.db.flush()
+        if not tests_data:
+            return 0
 
-            # Associate with test set
-            self.db.execute(
-                test_test_set_association.insert().values(
-                    test_id=test.id,
-                    test_set_id=test_set.id,
-                    organization_id=org_uuid,
-                    user_id=user_uuid,
-                )
-            )
+        # Use bulk creation with the test set ID to automatically associate
+        created_tests = bulk_create_tests(
+            db=self.db,
+            tests_data=tests_data,
+            organization_id=organization_id,
+            user_id=user_id,
+            test_set_id=str(test_set.id),
+            test_type_value="Single-Turn",
+        )
 
-            added_count += 1
-
-        return added_count
+        return len(created_tests)
 
     def _remove_old_prompts(
         self,
