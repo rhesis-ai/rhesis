@@ -327,7 +327,16 @@ class ChatResponse(BaseModel):
     metadata: dict
 
 
-@endpoint()
+@endpoint(
+    name="chat",
+    description="Process a chat message and return structured response",
+    request_mapping={
+        "message": "{{ input }}",
+        "session_id": "{{ session_id | default(none) }}",
+        "use_case": "{{ use_case | default('insurance') }}",
+        "conversation_history": "{{ conversation_history | default(none) }}",
+    },
+)
 async def chat(
     message: str,
     session_id: Optional[str] = None,
