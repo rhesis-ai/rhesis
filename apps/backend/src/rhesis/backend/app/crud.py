@@ -2554,6 +2554,144 @@ def get_behavior_metrics(
     )
 
 
+# Test Set Metric CRUD
+def add_metric_to_test_set(
+    db: Session, test_set_id: UUID, metric_id: UUID, user_id: UUID, organization_id: UUID
+) -> bool:
+    """Add a metric to a test set.
+
+    Args:
+        db: Database session
+        test_set_id: ID of the test set
+        metric_id: ID of the metric to add
+        user_id: ID of the user performing the operation
+        organization_id: ID of the organization
+
+    Returns:
+        bool: True if the metric was added, False if it was already associated
+    """
+    # Verify the test set exists AND belongs to the organization (SECURITY CRITICAL)
+    test_set = (
+        db.query(models.TestSet)
+        .filter(models.TestSet.id == test_set_id, models.TestSet.organization_id == organization_id)
+        .first()
+    )
+    if not test_set:
+        raise ValueError(f"Test set with id {test_set_id} not found or not accessible")
+
+    # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
+    metric = (
+        db.query(models.Metric)
+        .filter(models.Metric.id == metric_id, models.Metric.organization_id == organization_id)
+        .first()
+    )
+    if not metric:
+        raise ValueError(f"Metric with id {metric_id} not found or not accessible")
+
+    # Check if the association already exists
+    existing = (
+        db.query(models.test_set_metric_association)
+        .filter(
+            models.test_set_metric_association.c.test_set_id == test_set_id,
+            models.test_set_metric_association.c.metric_id == metric_id,
+            models.test_set_metric_association.c.organization_id == organization_id,
+        )
+        .first()
+    )
+
+    if existing:
+        return False
+
+    # Create the association
+    db.execute(
+        models.test_set_metric_association.insert().values(
+            test_set_id=test_set_id,
+            metric_id=metric_id,
+            user_id=user_id,
+            organization_id=organization_id,
+        )
+    )
+
+    # Transaction commit is handled by the session context manager
+    return True
+
+
+def remove_metric_from_test_set(
+    db: Session, test_set_id: UUID, metric_id: UUID, organization_id: UUID
+) -> bool:
+    """Remove a metric from a test set.
+
+    Args:
+        db: Database session
+        test_set_id: ID of the test set
+        metric_id: ID of the metric to remove
+        organization_id: ID of the organization
+
+    Returns:
+        bool: True if the metric was removed, False if it wasn't associated
+    """
+    # Verify the test set exists AND belongs to the organization (SECURITY CRITICAL)
+    test_set = (
+        db.query(models.TestSet)
+        .filter(models.TestSet.id == test_set_id, models.TestSet.organization_id == organization_id)
+        .first()
+    )
+    if not test_set:
+        raise ValueError(f"Test set with id {test_set_id} not found or not accessible")
+
+    # Verify the metric exists AND belongs to the organization (SECURITY CRITICAL)
+    metric = (
+        db.query(models.Metric)
+        .filter(models.Metric.id == metric_id, models.Metric.organization_id == organization_id)
+        .first()
+    )
+    if not metric:
+        raise ValueError(f"Metric with id {metric_id} not found or not accessible")
+
+    result = (
+        db.query(models.test_set_metric_association)
+        .filter(
+            models.test_set_metric_association.c.test_set_id == test_set_id,
+            models.test_set_metric_association.c.metric_id == metric_id,
+            models.test_set_metric_association.c.organization_id == organization_id,
+        )
+        .delete()
+    )
+
+    # Transaction commit is handled by the session context manager
+    return result > 0
+
+
+def get_test_set_metrics(
+    db: Session,
+    test_set_id: UUID,
+    organization_id: str,
+) -> List[models.Metric]:
+    """Get all metrics associated with a test set.
+
+    Args:
+        db: Database session
+        test_set_id: ID of the test set
+        organization_id: ID of the organization (SECURITY CRITICAL)
+
+    Returns:
+        List of metrics associated with the test set
+    """
+    # Verify the test set exists AND belongs to the organization (SECURITY CRITICAL)
+    test_set = (
+        db.query(models.TestSet)
+        .filter(
+            models.TestSet.id == test_set_id,
+            models.TestSet.organization_id == UUID(organization_id),
+        )
+        .first()
+    )
+    if not test_set:
+        raise ValueError(f"Test set with id {test_set_id} not found or not accessible")
+
+    return test_set.metrics or []
+
+
 # Model CRUD
 def get_model(
     db: Session, model_id: uuid.UUID, organization_id: str = None, user_id: str = None

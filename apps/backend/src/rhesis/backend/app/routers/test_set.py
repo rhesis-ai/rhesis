@@ -652,3 +652,118 @@ async def disassociate_tests_from_test_set(
         removed_associations=result["removed_associations"],
         message=result["message"],
     )
+
+
+@router.get("/{test_set_identifier}/metrics", response_model=list[schemas.Metric])
+def get_test_set_metrics(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Get metrics associated with a test set.
+
+    When a test set has associated metrics, those metrics override the default
+    behavior-level metrics during test execution.
+
+    If no metrics are associated, the test set will use the metrics defined
+    on each test's behavior during execution.
+
+    Args:
+        test_set_identifier: The test set identifier (UUID, nano_id, or slug)
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        List of metrics associated with the test set (empty list if none)
+    """
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
+    return db_test_set.metrics or []
+
+
+@router.post("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric])
+def add_metric_to_test_set(
+    test_set_identifier: str,
+    metric_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Add a metric to a test set.
+
+    When a test set has associated metrics, those metrics override the default
+    behavior-level metrics during test execution.
+
+    Args:
+        test_set_identifier: The test set identifier (UUID, nano_id, or slug)
+        metric_id: The metric ID to add
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Updated list of metrics associated with the test set
+    """
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
+
+    try:
+        added = crud.add_metric_to_test_set(
+            db=db,
+            test_set_id=db_test_set.id,
+            metric_id=metric_id,
+            user_id=current_user.id,
+            organization_id=current_user.organization_id,
+        )
+        if not added:
+            raise HTTPException(
+                status_code=400, detail="Metric is already associated with this test set"
+            )
+        db.commit()
+        db.refresh(db_test_set)
+        return db_test_set.metrics or []
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric])
+def remove_metric_from_test_set(
+    test_set_identifier: str,
+    metric_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Remove a metric from a test set.
+
+    Args:
+        test_set_identifier: The test set identifier (UUID, nano_id, or slug)
+        metric_id: The metric ID to remove
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Updated list of metrics associated with the test set
+    """
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
+
+    try:
+        removed = crud.remove_metric_from_test_set(
+            db=db,
+            test_set_id=db_test_set.id,
+            metric_id=metric_id,
+            organization_id=current_user.organization_id,
+        )
+        if not removed:
+            raise HTTPException(
+                status_code=400, detail="Metric is not associated with this test set"
+            )
+        db.commit()
+        db.refresh(db_test_set)
+        return db_test_set.metrics or []
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

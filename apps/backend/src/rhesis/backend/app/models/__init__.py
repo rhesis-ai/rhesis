@@ -32,7 +32,7 @@ from .test_configuration import TestConfiguration
 from .test_context import TestContext
 from .test_result import TestResult
 from .test_run import TestRun
-from .test_set import TestSet
+from .test_set import TestSet, test_set_metric_association
 from .token import Token
 from .tool import Tool
 from .topic import Topic
@@ -83,6 +83,7 @@ __all__ = [
     "Trace",
     "behavior_metric_association",
     "test_test_set_association",
+    "test_set_metric_association",
 ]
 
 # Set up soft delete event listener
