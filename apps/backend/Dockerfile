@@ -17,11 +17,16 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 # Install build dependencies
+# Note: Rust/cargo is required for garak's base2048 dependency
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     git \
+    curl \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/root/.cargo/bin:$PATH"
 
 # Copy only the dependency files for backend
 COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/README.md ./
@@ -56,7 +61,7 @@ RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync
 
-# Remove PyTorch to reduce image size (~360MB savings)
+# Remove PyTorch to reduce image size (~780MB savings)
 # Garak declares torch as a dependency, but our usage (probe enumeration and
 # API-based detectors like perspective.Toxicity) doesn't require it at runtime.
 # See: apps/backend/src/rhesis/backend/app/services/garak/taxonomy.py
