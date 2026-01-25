@@ -53,7 +53,7 @@ class GarakMetricFactory(BaseMetricFactory):
 
     # Parameters that GarakDetectorMetric actually accepts
     # Only pass these; ignore everything else from metric config
-    ACCEPTED_PARAMS = {"name", "description", "model"}
+    ACCEPTED_PARAMS = {"name", "description", "model", "threshold"}
 
     def _filter_kwargs(self, kwargs: dict) -> dict:
         """Extract only params that GarakDetectorMetric accepts."""
