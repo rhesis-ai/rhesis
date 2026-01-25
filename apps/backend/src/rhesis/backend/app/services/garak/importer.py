@@ -11,7 +11,7 @@ Uses the bulk creation infrastructure to ensure proper metadata is set
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -254,6 +254,9 @@ class GarakImporter:
         """
         Get or create a Garak detector metric.
 
+        Uses the existing CRUD infrastructure to ensure all required fields
+        are properly set including metric_scope, backend_type, and status.
+
         Args:
             detector_class: Full class path of the Garak detector
             organization_id: Organization ID
@@ -262,21 +265,13 @@ class GarakImporter:
         Returns:
             Metric model instance
         """
+        from rhesis.backend.app import crud, schemas
+
         org_uuid = UUID(organization_id)
         user_uuid = UUID(user_id)
 
-        # Check if metric already exists for this detector
-        existing_metric = (
-            self.db.query(Metric)
-            .filter(
-                Metric.organization_id == org_uuid,
-                Metric.class_name == self.GARAK_METRIC_CLASS_NAME,
-            )
-            .first()
-        )
-
-        # Check if this specific detector is already configured
-        # We use a naming convention to identify Garak metrics
+        # Check if this specific detector metric already exists
+        # Use naming convention to identify Garak metrics
         metric_name = f"Garak: {detector_class.split('.')[-1]}"
 
         existing_metric = (
@@ -289,11 +284,26 @@ class GarakImporter:
         )
 
         if existing_metric:
+            # Update existing metric if missing critical fields using CRUD
+            if not existing_metric.metric_scope or not existing_metric.backend_type_id:
+                update_data = schemas.MetricUpdate(
+                    metric_scope=existing_metric.metric_scope or ["Single-Turn"],
+                    backend_type="garak" if not existing_metric.backend_type_id else None,
+                )
+                crud.update_metric(
+                    db=self.db,
+                    metric_id=existing_metric.id,
+                    metric=update_data,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
+                self.db.flush()
+                logger.debug(f"Updated Garak metric with missing fields: {metric_name}")
             return existing_metric
 
-        # Create new Garak detector metric
-        metric = Metric(
-            id=uuid4(),
+        # Create new Garak detector metric using CRUD infrastructure
+        # The CRUD's _preprocess_metric_data handles type string -> ID conversion
+        metric_data = schemas.MetricCreate(
             name=metric_name,
             description=f"Garak detector: {detector_class}",
             evaluation_prompt=detector_class,  # Store detector class in evaluation_prompt
@@ -301,12 +311,18 @@ class GarakImporter:
             categories=["pass", "fail"],
             passing_categories=["pass"],
             class_name=self.GARAK_METRIC_CLASS_NAME,
-            organization_id=org_uuid,
-            user_id=user_uuid,
+            metric_scope=["Single-Turn"],  # Garak detectors are single-turn
+            backend_type="garak",  # Will be converted to backend_type_id by CRUD
+            metric_type="framework",  # Will be converted to metric_type_id by CRUD
+            owner_id=user_uuid,
         )
 
-        self.db.add(metric)
-        self.db.flush()
+        metric = crud.create_metric(
+            db=self.db,
+            metric=metric_data,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
 
         logger.debug(f"Created Garak metric: {metric_name}")
 
