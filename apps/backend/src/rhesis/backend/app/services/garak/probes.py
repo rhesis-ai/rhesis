@@ -222,6 +222,7 @@ class GarakProbeService:
         1. As a class attribute
         2. In __init__() (e.g., encoding probes)
         3. In the probe() method (e.g., DAN probes with f-strings)
+        4. Dynamically in probe() with loops (e.g., Ablation probes)
 
         This method tries multiple strategies to extract prompts.
 
@@ -248,29 +249,207 @@ class GarakProbeService:
             except Exception as inst_error:
                 logger.debug(f"Could not instantiate {probe_class.__name__}: {inst_error}")
 
-            # Third try: get source code of probe method
-            if not hasattr(probe_class, "probe"):
+            # Third try: execute the prompt-generation portion of probe() with a mock
+            prompts = self._extract_prompts_by_execution(probe_class)
+            if prompts:
                 return prompts
 
-            try:
-                source = inspect.getsource(probe_class.probe)
-            except (OSError, TypeError):
-                return prompts
+            # Fourth try: parse source code to extract list literal
+            prompts = self._extract_prompts_from_source(probe_class)
 
-            # Parse the source to find self.prompts = [...] assignment
-            # Use regex to extract the list contents
-            # Pattern matches: self.prompts = [ ... ]
-            pattern = r"self\.prompts\s*=\s*\["
-            match = re.search(pattern, source)
-            if not match:
-                return prompts
+        except Exception as e:
+            logger.debug(f"Error extracting prompts from {probe_class.__name__}: {e}")
 
-            # Find the matching closing bracket
-            start_idx = match.end() - 1  # Position of opening [
-            bracket_count = 0
-            prompts_str = ""
+        return prompts
 
-            for i, char in enumerate(source[start_idx:]):
+    def _extract_prompts_by_execution(self, probe_class: type) -> List[str]:
+        """
+        Try to extract prompts by executing the prompt-generation code.
+
+        Creates a mock generator and runs the probe's prompt generation logic.
+        This handles dynamic patterns like loops and conditionals.
+
+        Args:
+            probe_class: The probe class to extract prompts from
+
+        Returns:
+            List of prompt strings, or empty list if extraction fails
+        """
+        import textwrap
+
+        if not hasattr(probe_class, "probe"):
+            return []
+
+        try:
+            source = inspect.getsource(probe_class.probe)
+        except (OSError, TypeError):
+            return []
+
+        # Check if this is a dynamic prompt generation pattern
+        # (uses loops or conditionals to build prompts)
+        has_loop = "for " in source and "self.prompts" in source
+        has_append = ".append(" in source and "self.prompts" in source
+
+        if not (has_loop or has_append):
+            return []
+
+        # Try to execute the prompt generation code with a mock
+        try:
+            # Create mock generator
+            class MockGenerator:
+                name = GENERATOR_PLACEHOLDER
+
+            generator = MockGenerator()
+
+            # Create an instance without calling probe()
+            instance = probe_class.__new__(probe_class)
+            instance.prompts = []
+
+            # Extract the prompt-generation portion of the probe() method
+            # Dedent the entire source first
+            dedented_source = textwrap.dedent(source)
+            code_lines = dedented_source.split("\n")
+            prompt_code_lines = []
+            in_prompt_section = False
+            base_indent = None
+
+            for line in code_lines:
+                stripped = line.strip()
+
+                # Skip empty lines and the def line
+                if not stripped:
+                    if in_prompt_section and prompt_code_lines:
+                        prompt_code_lines.append("")
+                    continue
+
+                if stripped.startswith("def probe"):
+                    in_prompt_section = True
+                    continue
+
+                if not in_prompt_section:
+                    continue
+
+                # Stop at return statement or generator calls
+                if stripped.startswith("return ") or "generator.generate" in line:
+                    break
+
+                # Capture everything in the method body until we hit the stopping point
+                # Find the base indentation level from the first real line
+                if base_indent is None and line and not line.isspace():
+                    base_indent = len(line) - len(line.lstrip())
+
+                prompt_code_lines.append(line)
+
+            if not prompt_code_lines:
+                return []
+
+            # Build executable code - dedent to remove method body indentation
+            prompt_code = "\n".join(prompt_code_lines)
+            prompt_code = textwrap.dedent(prompt_code)
+
+            # Create execution context with common builtins
+            exec_globals = {
+                "generator": generator,
+                "self": instance,
+                "range": range,
+                "len": len,
+                "str": str,
+                "int": int,
+                "float": float,
+                "list": list,
+                "dict": dict,
+                "set": set,
+                "tuple": tuple,
+                "enumerate": enumerate,
+                "zip": zip,
+                "min": min,
+                "max": max,
+                "sum": sum,
+                "abs": abs,
+                "True": True,
+                "False": False,
+                "None": None,
+            }
+
+            exec(prompt_code, exec_globals)
+
+            # Get the generated prompts
+            if hasattr(instance, "prompts") and instance.prompts:
+                return [str(p) for p in instance.prompts]
+
+        except Exception as e:
+            logger.debug(f"Could not execute prompt generation for {probe_class.__name__}: {e}")
+
+        return []
+
+    def _extract_prompts_from_source(self, probe_class: type) -> List[str]:
+        """
+        Extract prompts by parsing source code for list literals.
+
+        This handles simpler cases where prompts are assigned as a list literal.
+
+        Args:
+            probe_class: The probe class to extract prompts from
+
+        Returns:
+            List of prompt strings, or empty list if extraction fails
+        """
+        prompts = []
+
+        if not hasattr(probe_class, "probe"):
+            return prompts
+
+        try:
+            source = inspect.getsource(probe_class.probe)
+        except (OSError, TypeError):
+            return prompts
+
+        # Pattern matches: self.prompts = [ ... ] (non-empty list)
+        pattern = r"self\.prompts\s*=\s*\["
+        match = re.search(pattern, source)
+        if not match:
+            return prompts
+
+        # Find the matching closing bracket
+        start_idx = match.end() - 1  # Position of opening [
+        bracket_count = 0
+        prompts_str = ""
+
+        # Track whether we're inside a string to handle brackets in strings
+        in_string = False
+        string_char = None
+        escape_next = False
+
+        for i, char in enumerate(source[start_idx:]):
+            if escape_next:
+                escape_next = False
+                continue
+
+            if char == "\\":
+                escape_next = True
+                continue
+
+            # Handle string boundaries
+            if char in ('"', "'"):
+                # Check for triple quotes
+                remaining = source[start_idx + i :]
+                if remaining.startswith('"""') or remaining.startswith("'''"):
+                    triple_quote = remaining[:3]
+                    if not in_string:
+                        in_string = True
+                        string_char = triple_quote
+                    elif string_char == triple_quote:
+                        in_string = False
+                        string_char = None
+                elif not in_string:
+                    in_string = True
+                    string_char = char
+                elif string_char == char:
+                    in_string = False
+                    string_char = None
+
+            # Only count brackets outside strings
+            if not in_string:
                 if char == "[":
                     bracket_count += 1
                 elif char == "]":
@@ -279,40 +458,33 @@ class GarakProbeService:
                         prompts_str = source[start_idx : start_idx + i + 1]
                         break
 
-            if not prompts_str:
-                return prompts
+        if not prompts_str or prompts_str == "[]":
+            return prompts
 
-            # Create a mock generator class for evaluating f-strings
-            class MockGenerator:
-                name = GENERATOR_PLACEHOLDER
+        # Create a mock generator class for evaluating f-strings
+        class MockGenerator:
+            name = GENERATOR_PLACEHOLDER
 
-            generator = MockGenerator()
+        generator = MockGenerator()
 
-            # Try to evaluate the prompts list
-            # Replace f-string references to generator.name with our placeholder
+        # Try to evaluate the prompts list
+        try:
+            local_vars: Dict[str, Any] = {"generator": generator}
+            exec(f"result = {prompts_str}", {"generator": generator}, local_vars)
+            result = local_vars.get("result", [])
+            if isinstance(result, (list, tuple)):
+                prompts = [str(p) for p in result]
+        except Exception as eval_error:
+            # If eval fails, try to count list items using AST
+            logger.debug(f"Could not eval prompts, using AST count: {eval_error}")
             try:
-                # Use exec to evaluate in proper context
-                local_vars: Dict[str, Any] = {"generator": generator}
-                exec(f"result = {prompts_str}", {"generator": generator}, local_vars)
-                result = local_vars.get("result", [])
-                if isinstance(result, (list, tuple)):
-                    prompts = [str(p) for p in result]
-            except Exception as eval_error:
-                # If eval fails, try to count list items using AST
-                logger.debug(f"Could not eval prompts, using AST count: {eval_error}")
-                try:
-                    # Parse just the list literal to count elements
-                    tree = ast.parse(prompts_str, mode="eval")
-                    if isinstance(tree.body, ast.List):
-                        # Return placeholder prompts based on count
-                        count = len(tree.body.elts)
-                        class_name = probe_class.__name__
-                        prompts = [f"[Prompt {i + 1} from {class_name}]" for i in range(count)]
-                except Exception:
-                    pass
-
-        except Exception as e:
-            logger.debug(f"Error extracting prompts from {probe_class.__name__}: {e}")
+                tree = ast.parse(prompts_str, mode="eval")
+                if isinstance(tree.body, ast.List):
+                    count = len(tree.body.elts)
+                    class_name = probe_class.__name__
+                    prompts = [f"[Prompt {i + 1} from {class_name}]" for i in range(count)]
+            except Exception:
+                pass
 
         return prompts
 
