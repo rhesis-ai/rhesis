@@ -4,11 +4,13 @@ Pydantic schemas for Garak API endpoints.
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GarakProbeClassResponse(BaseModel):
     """Response schema for a single Garak probe class."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     class_name: str = Field(..., description="Probe class name (e.g., 'Dan_11_0')")
     full_name: str = Field(..., description="Full probe name (e.g., 'dan.Dan_11_0')")
@@ -18,12 +20,11 @@ class GarakProbeClassResponse(BaseModel):
     tags: List[str] = Field(default_factory=list, description="Probe-specific tags")
     detector: Optional[str] = Field(None, description="Recommended detector for this probe")
 
-    class Config:
-        from_attributes = True
-
 
 class GarakProbeModuleResponse(BaseModel):
     """Response schema for a single Garak probe module."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     name: str = Field(..., description="Module name (e.g., 'dan', 'encoding')")
     description: str = Field(..., description="Module description")
@@ -39,9 +40,6 @@ class GarakProbeModuleResponse(BaseModel):
     probes: List[GarakProbeClassResponse] = Field(
         default_factory=list, description="Individual probe classes in this module"
     )
-
-    class Config:
-        from_attributes = True
 
 
 class GarakProbesListResponse(BaseModel):
