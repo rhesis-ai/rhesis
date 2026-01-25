@@ -96,13 +96,17 @@ export default function GarakImportDialog({
   // Check if all probes in a module are selected
   const isModuleFullySelected = (module: GarakProbeModule): boolean => {
     const probes = getModuleProbes(module);
-    return probes.length > 0 && probes.every(p => selectedProbes.has(p.full_name));
+    return (
+      probes.length > 0 && probes.every(p => selectedProbes.has(p.full_name))
+    );
   };
 
   // Check if some probes in a module are selected
   const isModulePartiallySelected = (module: GarakProbeModule): boolean => {
     const probes = getModuleProbes(module);
-    const selectedCount = probes.filter(p => selectedProbes.has(p.full_name)).length;
+    const selectedCount = probes.filter(p =>
+      selectedProbes.has(p.full_name)
+    ).length;
     return selectedCount > 0 && selectedCount < probes.length;
   };
 
@@ -122,7 +126,7 @@ export default function GarakImportDialog({
   const handleModuleToggle = (module: GarakProbeModule) => {
     const probes = getModuleProbes(module);
     const newSelected = new Set(selectedProbes);
-    
+
     if (isModuleFullySelected(module)) {
       // Deselect all probes in module
       probes.forEach(p => newSelected.delete(p.full_name));
@@ -130,7 +134,7 @@ export default function GarakImportDialog({
       // Select all probes in module
       probes.forEach(p => newSelected.add(p.full_name));
     }
-    
+
     setSelectedProbes(newSelected);
     setPreview(null);
   };
@@ -265,7 +269,8 @@ export default function GarakImportDialog({
               mb={1}
             >
               <Typography variant="subtitle1" fontWeight="medium">
-                Select Probes ({selectedProbes.size} of {allProbesCount} selected)
+                Select Probes ({selectedProbes.size} of {allProbesCount}{' '}
+                selected)
               </Typography>
               <Stack direction="row" spacing={1}>
                 <Button
@@ -303,7 +308,11 @@ export default function GarakImportDialog({
                       <Stack
                         direction="row"
                         alignItems="center"
-                        sx={{ p: 1.5, cursor: 'pointer', bgcolor: 'action.hover' }}
+                        sx={{
+                          p: 1.5,
+                          cursor: 'pointer',
+                          bgcolor: 'action.hover',
+                        }}
                         onClick={() => toggleModuleExpand(module.name)}
                       >
                         <Checkbox
@@ -385,7 +394,10 @@ export default function GarakImportDialog({
                                   alignItems="center"
                                   spacing={1}
                                 >
-                                  <Typography variant="body2" fontWeight="medium">
+                                  <Typography
+                                    variant="body2"
+                                    fontWeight="medium"
+                                  >
                                     {probe.class_name}
                                   </Typography>
                                   <Chip
@@ -442,7 +454,8 @@ export default function GarakImportDialog({
               </Typography>
               <Stack spacing={0.5}>
                 <Typography variant="body2">
-                  Test sets to create: <strong>{preview.total_test_sets}</strong>
+                  Test sets to create:{' '}
+                  <strong>{preview.total_test_sets}</strong>
                 </Typography>
                 <Typography variant="body2">
                   Total tests: <strong>{preview.total_tests}</strong>
@@ -454,7 +467,8 @@ export default function GarakImportDialog({
               {preview.probes.length <= 5 && (
                 <Box mt={1}>
                   <Typography variant="caption" color="text.secondary">
-                    Test sets: {preview.probes.map(p => p.test_set_name).join(', ')}
+                    Test sets:{' '}
+                    {preview.probes.map(p => p.test_set_name).join(', ')}
                   </Typography>
                 </Box>
               )}
@@ -480,7 +494,11 @@ export default function GarakImportDialog({
           variant="contained"
           color="primary"
         >
-          {importing ? <CircularProgress size={20} /> : `Import ${selectedProbes.size} Probe${selectedProbes.size !== 1 ? 's' : ''}`}
+          {importing ? (
+            <CircularProgress size={20} />
+          ) : (
+            `Import ${selectedProbes.size} Probe${selectedProbes.size !== 1 ? 's' : ''}`
+          )}
         </Button>
       </DialogActions>
     </Dialog>
