@@ -453,6 +453,99 @@ def test_endpoint_required_fields_validation():
         endpoint.push()
 
 
+def test_endpoint_auth_token_not_returned_by_api(db_cleanup):
+    """Test that auth_token is write-only and not returned by the API."""
+    endpoint = Endpoint(
+        name="Test Auth Token Write Only",
+        connection_type="REST",
+        url="https://api.example.com/auth-test",
+        project_id="12340000-0000-4000-8000-000000001234",
+        auth_token="sk-secret-token-12345",
+    )
+
+    result = endpoint.push()
+
+    # auth_token should not be in the response (write-only field)
+    assert "auth_token" not in result or result.get("auth_token") is None
+
+
+def test_endpoint_pull_preserves_local_auth_token(db_cleanup):
+    """Test that pull() does not overwrite the local auth_token value."""
+    # Create endpoint with auth_token
+    endpoint = Endpoint(
+        name="Test Pull Preserves Auth Token",
+        connection_type="REST",
+        url="https://api.example.com/preserve-token",
+        project_id="12340000-0000-4000-8000-000000001234",
+        auth_token="sk-original-token",
+    )
+    endpoint.push()
+
+    # Pull should NOT overwrite our local auth_token with None
+    endpoint.pull()
+
+    # Local auth_token should be preserved
+    assert endpoint.auth_token == "sk-original-token"
+
+
+def test_endpoint_pull_modify_push_preserves_auth_token(db_cleanup):
+    """Test the pull-modify-push workflow doesn't clear auth_token on backend."""
+    # Step 1: Create endpoint with auth_token
+    endpoint = Endpoint(
+        name="Test Pull Modify Push",
+        connection_type="REST",
+        url="https://api.example.com/pull-modify-push",
+        project_id="12340000-0000-4000-8000-000000001234",
+        auth_token="sk-should-not-be-cleared",
+    )
+    endpoint.push()
+    endpoint_id = endpoint.id
+
+    # Step 2: Simulate fresh load (like a new SDK session)
+    # User loads endpoint but doesn't know the auth_token
+    fresh_endpoint = Endpoint(id=endpoint_id)
+    fresh_endpoint.pull()
+
+    # At this point, fresh_endpoint.auth_token is None (not returned by API)
+    # But that's expected - the user didn't set it locally
+
+    # Step 3: User modifies a field
+    fresh_endpoint.name = "Updated Name After Pull"
+
+    # Step 4: Push should NOT send auth_token=None to backend
+    result = fresh_endpoint.push()
+
+    assert result["name"] == "Updated Name After Pull"
+    # The push should succeed without clearing the backend's auth_token
+    # We can't directly verify the backend value, but the push shouldn't fail
+    # and auth_token shouldn't be in the response
+    assert "auth_token" not in result or result.get("auth_token") is None
+
+
+def test_endpoint_update_with_new_auth_token(db_cleanup):
+    """Test that explicitly setting auth_token on update sends the new value."""
+    # Create endpoint with initial auth_token
+    endpoint = Endpoint(
+        name="Test Update Auth Token",
+        connection_type="REST",
+        url="https://api.example.com/update-token",
+        project_id="12340000-0000-4000-8000-000000001234",
+        auth_token="sk-initial-token",
+    )
+    endpoint.push()
+
+    # Update with a new auth_token
+    endpoint.auth_token = "sk-new-updated-token"
+    endpoint.name = "Updated With New Token"
+    result = endpoint.push()
+
+    # Push should succeed
+    assert result["name"] == "Updated With New Token"
+
+    # Verify the local value is preserved
+    assert endpoint.auth_token == "sk-new-updated-token"
+
+
 # ============================================================================
 # TestRun Tests (requires Endpoint and TestConfiguration)
 # ============================================================================

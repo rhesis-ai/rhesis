@@ -183,3 +183,129 @@ class TestEndpointSerialization:
         assert endpoint.connection_type == ConnectionType.REST
         assert endpoint.project_id == "test-project-id"
         assert endpoint.request_mapping == {"message": "{{ input }}"}
+
+
+class TestEndpointWriteOnlyFields:
+    """Tests for write-only field behavior (auth_token)."""
+
+    def test_auth_token_is_write_only_field(self):
+        """auth_token should be defined as a write-only field."""
+        assert hasattr(Endpoint, "_write_only_fields")
+        assert "auth_token" in Endpoint._write_only_fields
+
+    @patch("requests.request")
+    def test_pull_preserves_local_auth_token(self, mock_request):
+        """pull() should not overwrite auth_token with None from API response."""
+        # Simulate API response that doesn't include auth_token (write-only)
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "id": "endpoint-123",
+            "name": "Test API",
+            "connection_type": "REST",
+            "url": "https://api.example.com",
+            "project_id": "project-123",
+        }
+        mock_request.return_value = mock_response
+
+        # Create endpoint with auth_token set
+        endpoint = Endpoint(
+            id="endpoint-123",
+            auth_token="my-secret-token",
+        )
+
+        # Pull should NOT overwrite auth_token
+        endpoint.pull()
+
+        assert endpoint.auth_token == "my-secret-token"
+        assert endpoint.name == "Test API"
+
+    @patch("requests.request")
+    def test_push_excludes_none_auth_token(self, mock_request):
+        """push() should not send auth_token=None to avoid clearing backend value."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"id": "endpoint-123"}
+        mock_request.return_value = mock_response
+
+        endpoint = Endpoint(
+            name="Test API",
+            connection_type=ConnectionType.REST,
+            project_id="test-project-id",
+            auth_token=None,  # Explicitly None
+        )
+        endpoint.push()
+
+        # Verify auth_token was not in the request data
+        # API client uses json= parameter, not data=
+        call_args = mock_request.call_args
+        request_data = call_args.kwargs.get("json", {})
+        assert "auth_token" not in request_data
+
+    @patch("requests.request")
+    def test_push_includes_set_auth_token(self, mock_request):
+        """push() should include auth_token when explicitly set."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"id": "endpoint-123"}
+        mock_request.return_value = mock_response
+
+        endpoint = Endpoint(
+            name="Test API",
+            connection_type=ConnectionType.REST,
+            project_id="test-project-id",
+            auth_token="my-secret-token",
+        )
+        endpoint.push()
+
+        # Verify auth_token was in the request data
+        # API client uses json= parameter, not data=
+        call_args = mock_request.call_args
+        request_data = call_args.kwargs.get("json", {})
+        assert request_data.get("auth_token") == "my-secret-token"
+
+    @patch("requests.request")
+    def test_pull_modify_push_preserves_auth_token(self, mock_request):
+        """pull-modify-push workflow should not clear auth_token."""
+        # First call: pull() GET request
+        # Second call: push() PUT request
+        mock_response = MagicMock()
+        mock_response.json.side_effect = [
+            # Response for pull()
+            {
+                "id": "endpoint-123",
+                "name": "Original Name",
+                "connection_type": "REST",
+                "url": "https://api.example.com",
+                "project_id": "project-123",
+                # auth_token intentionally omitted (backend hides it)
+            },
+            # Response for push()
+            {
+                "id": "endpoint-123",
+                "name": "Updated Name",
+                "connection_type": "REST",
+            },
+        ]
+        mock_request.return_value = mock_response
+
+        # Simulate: endpoint was created with auth_token earlier
+        endpoint = Endpoint(
+            id="endpoint-123",
+            auth_token="original-secret-token",
+        )
+
+        # Pull latest data
+        endpoint.pull()
+
+        # Modify a field
+        endpoint.name = "Updated Name"
+
+        # Push should NOT clear the backend's auth_token
+        endpoint.push()
+
+        # Verify auth_token was preserved locally
+        assert endpoint.auth_token == "original-secret-token"
+
+        # Verify push didn't send auth_token=None
+        # API client uses json= parameter, not data=
+        push_call = mock_request.call_args_list[-1]
+        request_data = push_call.kwargs.get("json", {})
+        assert "auth_token" not in request_data or request_data["auth_token"] is not None

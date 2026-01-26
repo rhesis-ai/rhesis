@@ -56,6 +56,7 @@ class Endpoint(BaseEntity):
 
     endpoint: ClassVar[ApiEndpoints] = ENDPOINT
     _push_required_fields: ClassVar[tuple[str, ...]] = ("name", "connection_type", "project_id")
+    _write_only_fields: ClassVar[tuple[str, ...]] = ("auth_token",)
 
     name: Optional[str] = None
     description: Optional[str] = None
