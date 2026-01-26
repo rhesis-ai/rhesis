@@ -300,7 +300,7 @@ export default function TestSetDetailsSection({
           sx={{
             mb: 3,
             p: 2,
-            borderRadius: 1,
+            borderRadius: theme => theme.shape.borderRadius * 0.25,
             bgcolor: 'action.hover',
             border: '1px solid',
             borderColor: 'divider',
@@ -353,7 +353,7 @@ export default function TestSetDetailsSection({
                 mt: 2,
                 p: 1.5,
                 bgcolor: 'background.paper',
-                borderRadius: 1,
+                borderRadius: theme => theme.shape.borderRadius * 0.25,
               }}
             >
               <Typography variant="subtitle2" gutterBottom>
