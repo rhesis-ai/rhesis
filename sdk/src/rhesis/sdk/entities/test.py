@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, ClassVar, Dict, Optional
 
 from pydantic import BaseModel, model_validator
 
@@ -21,6 +21,7 @@ class TestConfiguration(BaseModel):
 
 class Test(BaseEntity):
     endpoint = ENDPOINT
+    _push_required_fields: ClassVar[tuple[str, ...]] = ("category", "behavior")
 
     category: Optional[str] = None
     topic: Optional[str] = None

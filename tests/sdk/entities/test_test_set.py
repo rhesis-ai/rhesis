@@ -1,3 +1,5 @@
+"""Unit tests for the TestSet entity class."""
+
 import json
 import os
 import tempfile
@@ -1094,3 +1096,109 @@ class TestJsonlRoundTrip:
         finally:
             os.unlink(json_path)
             os.unlink(jsonl_path)
+
+
+# --- Tests for TestSet push validation ---
+
+
+class TestTestSetValidation:
+    """Tests for TestSet push validation."""
+
+    def test_push_raises_error_when_test_missing_category(self):
+        """push() should raise ValueError when a test is missing category."""
+        test = Test(
+            behavior="Test behavior",
+            prompt=Prompt(content="Test prompt"),
+        )
+        test_set = TestSet(
+            name="Test Set",
+            tests=[test],
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            test_set.push()
+
+        assert "category" in str(exc_info.value)
+        assert "index 0" in str(exc_info.value)
+
+    def test_push_raises_error_when_test_missing_behavior(self):
+        """push() should raise ValueError when a test is missing behavior."""
+        test = Test(
+            category="Test category",
+            prompt=Prompt(content="Test prompt"),
+        )
+        test_set = TestSet(
+            name="Test Set",
+            tests=[test],
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            test_set.push()
+
+        assert "behavior" in str(exc_info.value)
+        assert "index 0" in str(exc_info.value)
+
+    def test_push_raises_error_when_test_missing_both_category_and_behavior(self):
+        """push() should raise ValueError listing all missing fields."""
+        test = Test(
+            prompt=Prompt(content="Test prompt"),
+        )
+        test_set = TestSet(
+            name="Test Set",
+            tests=[test],
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            test_set.push()
+
+        error_message = str(exc_info.value)
+        assert "category" in error_message
+        assert "behavior" in error_message
+        assert "index 0" in error_message
+
+    def test_push_raises_error_for_second_test_missing_fields(self):
+        """push() should indicate the correct test index when validation fails."""
+        valid_test = Test(
+            category="Valid category",
+            behavior="Valid behavior",
+            prompt=Prompt(content="Valid prompt"),
+        )
+        invalid_test = Test(
+            prompt=Prompt(content="Invalid prompt"),
+        )
+        test_set = TestSet(
+            name="Test Set",
+            tests=[valid_test, invalid_test],
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            test_set.push()
+
+        assert "index 1" in str(exc_info.value)
+
+    def test_push_raises_error_when_name_missing(self):
+        """push() should raise ValueError when name is missing."""
+        test = Test(
+            category="Test category",
+            behavior="Test behavior",
+            prompt=Prompt(content="Test prompt"),
+        )
+        test_set = TestSet(
+            tests=[test],
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            test_set.push()
+
+        assert "name" in str(exc_info.value)
+
+    def test_push_raises_error_when_tests_missing(self):
+        """push() should raise ValueError when tests are missing."""
+        test_set = TestSet(
+            name="Test Set",
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            test_set.push()
+
+        assert "tests" in str(exc_info.value)

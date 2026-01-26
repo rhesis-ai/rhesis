@@ -501,7 +501,7 @@ class TestSet(BaseEntity):
             Dict containing the response from the API, or None if error occurred.
 
         Raises:
-            ValueError: If required fields are missing.
+            ValueError: If required fields are missing or tests lack category/behavior.
 
         Example:
             >>> test_set = TestSet(
@@ -519,6 +519,20 @@ class TestSet(BaseEntity):
         ]
         if missing_fields:
             raise ValueError(f"Required fields for push: {', '.join(missing_fields)}")
+
+        # Validate that each test has required fields set (from Test._push_required_fields)
+        if self.tests:
+            for i, test in enumerate(self.tests):
+                missing_test_fields = [
+                    field
+                    for field in Test._push_required_fields
+                    if not getattr(test, field, None)
+                ]
+                if missing_test_fields:
+                    raise ValueError(
+                        f"Test at index {i} is missing required fields: "
+                        f"{', '.join(missing_test_fields)}"
+                    )
 
         # mode="json": Ensures enums are serialized as strings instead of enum objects
         # exclude_none=True: Excludes None values so backend uses defaults
