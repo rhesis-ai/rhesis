@@ -2648,18 +2648,16 @@ def remove_metric_from_test_set(
     if not metric:
         raise ValueError(f"Metric with id {metric_id} not found or not accessible")
 
-    result = (
-        db.query(models.test_set_metric_association)
-        .filter(
+    result = db.execute(
+        models.test_set_metric_association.delete().where(
             models.test_set_metric_association.c.test_set_id == test_set_id,
             models.test_set_metric_association.c.metric_id == metric_id,
             models.test_set_metric_association.c.organization_id == organization_id,
         )
-        .delete()
     )
 
     # Transaction commit is handled by the session context manager
-    return result > 0
+    return result.rowcount > 0
 
 
 def get_test_set_metrics(
