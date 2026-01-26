@@ -492,7 +492,7 @@ class TestTree:
         user="anonymous",
         recompute_scores=False,
         max_suggestions=100,
-        suggestion_thread_budget=0.5,
+        prompt_variants=4,
         prompt_builder=PromptBuilder(),
         starting_path="",
         score_filter=-1e10,
@@ -530,9 +530,9 @@ class TestTree:
         max_suggestions : int
             The maximum number of suggestions to generate each time the user asks for suggestions.
 
-        suggestion_thread_budget : float
-            Controls how many parallel suggestion processes to use. A value of 0 means single
-            thread, 0.5 means up to 50% more token processing for diversity.
+        prompt_variants : int
+            Number of different prompt variants to generate. Each variant contains different
+            example tests, leading to more diverse suggestions. Default is 4.
 
         prompt_builder : adaptive_testing.PromptBuilder
             A prompt builder to use when generating prompts for new tests.
@@ -558,7 +558,7 @@ class TestTree:
             user=user,
             recompute_scores=recompute_scores,
             max_suggestions=max_suggestions,
-            suggestion_thread_budget=suggestion_thread_budget,
+            prompt_variants=prompt_variants,
             prompt_builder=prompt_builder,
             starting_path=starting_path,
             score_filter=score_filter,

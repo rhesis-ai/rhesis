@@ -162,7 +162,7 @@ class TestTreeBrowser:
         auto_save,
         recompute_scores,
         max_suggestions,
-        suggestion_thread_budget,
+        prompt_variants,
         prompt_builder,
         starting_path,
         score_filter,
@@ -178,7 +178,7 @@ class TestTreeBrowser:
         self.auto_save = auto_save
         self.recompute_scores = recompute_scores
         self.max_suggestions = max_suggestions
-        self.suggestion_thread_budget = suggestion_thread_budget
+        self.prompt_variants = prompt_variants
         self.prompt_builder = prompt_builder
         self.current_topic = starting_path
         self.score_filter = score_filter
@@ -713,26 +713,12 @@ class TestTreeBrowser:
         # topics (suggest new sub-topics)
         # file_name dataset (suggest tests based on samples from the provided dataset)
 
-        # compute the maximum number of suggestion threads we can use given our suggestion_thread_budget
-        p = self.prompt_builder.prompt_size
-        budget = 1 + self.suggestion_thread_budget
-        suggestion_threads = max(
-            1,
-            int(
-                np.floor(
-                    budget * (p / (p + 1) + 1 / (p + 1) * self.max_suggestions)
-                    - 1 / (p + 1) * self.max_suggestions
-                )
-                / (p / (p + 1))
-            ),
-        )
-
         # generate the prompts for the backend
         prompts = self.prompt_builder(
             test_tree=self.test_tree,
             topic=self.current_topic,
             score_column=self.score_columns[0],
-            repetitions=suggestion_threads,
+            repetitions=self.prompt_variants,
             filter=filter,
             suggest_topics=self.mode == "topics",
             embed_fn=self.embed,
