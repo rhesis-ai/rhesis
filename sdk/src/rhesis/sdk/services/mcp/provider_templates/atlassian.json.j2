@@ -1,7 +1,8 @@
 {
   "mcpServers": {
     "atlassianApi": {
-      "url": {{ ("https://api.atlassian.com/ex/jira/" + CLOUD_ID) | tojson }},
+      "url": "https://mcp.atlassian.com/v1/mcp",
+      "transport": "sse",
       "headers": {
         "Authorization": {{ ("Bearer " + ACCESS_TOKEN) | tojson }}
       }
