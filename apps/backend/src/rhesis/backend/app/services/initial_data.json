@@ -1534,8 +1534,8 @@
         },
         {
             "name": "Garak: Toxicity Detection",
-            "description": "Garak detector for toxic content in LLM outputs. Uses toxicity models to identify harmful, offensive, or inappropriate language in responses.",
-            "evaluation_prompt": "garak.detectors.toxicity.ToxicityDetector",
+            "description": "Garak detector for toxic content in LLM outputs. Uses Google Perspective API to identify harmful, offensive, or inappropriate language in responses.",
+            "evaluation_prompt": "garak.detectors.perspective.Toxicity",
             "evaluation_steps": "[garak]",
             "reasoning": "[garak]",
             "score_type": "numeric",
