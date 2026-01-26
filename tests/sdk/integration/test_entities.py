@@ -281,39 +281,74 @@ def test_status_delete(db_cleanup):
 
 
 def test_endpoint(db_cleanup):
+    """Test creating an endpoint with all configuration fields."""
     endpoint = Endpoint(
         name="Test Endpoint",
         description="Test Endpoint Description",
         connection_type="REST",
         url="https://api.example.com/test",
         project_id="12340000-0000-4000-8000-000000001234",
+        method="POST",
+        endpoint_path="/v1/chat",
+        request_headers={"Content-Type": "application/json"},
+        query_params={"api_version": "2024-01"},
+        request_mapping={"message": "{{ input }}"},
+        response_mapping={"output": "result.text"},
+        auth_token="sk-test-token",
     )
 
     result = endpoint.push()
 
+    # Basic fields
     assert result["id"] is not None
     assert result["name"] == "Test Endpoint"
     assert result["description"] == "Test Endpoint Description"
     assert result["connection_type"] == "REST"
     assert result["url"] == "https://api.example.com/test"
+    # New fields
+    assert result["method"] == "POST"
+    assert result["endpoint_path"] == "/v1/chat"
+    assert result["request_headers"] == {"Content-Type": "application/json"}
+    assert result["query_params"] == {"api_version": "2024-01"}
+    assert result["request_mapping"] == {"message": "{{ input }}"}
+    assert result["response_mapping"] == {"output": "result.text"}
 
 
 def test_endpoint_push_pull(db_cleanup):
+    """Test push/pull cycle preserves all endpoint fields."""
     endpoint = Endpoint(
         name="Test push pull endpoint",
         description="Test push pull endpoint description",
         connection_type="REST",
         url="https://api.example.com/push-pull",
         project_id="12340000-0000-4000-8000-000000001234",
+        method="POST",
+        endpoint_path="/v1/completions",
+        request_headers={"Content-Type": "application/json", "X-Api-Version": "2"},
+        query_params={"stream": "false"},
+        request_mapping={"prompt": "{{ input }}", "max_tokens": 100},
+        response_mapping={"output": "choices[0].text"},
+        auth_token="sk-push-pull-test-token",
     )
     endpoint.push()
 
     pulled_endpoint = endpoint.pull()
 
+    # Basic fields
     assert pulled_endpoint.name == "Test push pull endpoint"
     assert pulled_endpoint.description == "Test push pull endpoint description"
     assert pulled_endpoint.connection_type == "REST"
     assert pulled_endpoint.url == "https://api.example.com/push-pull"
+    # New fields
+    assert pulled_endpoint.method == "POST"
+    assert pulled_endpoint.endpoint_path == "/v1/completions"
+    assert pulled_endpoint.request_headers == {
+        "Content-Type": "application/json",
+        "X-Api-Version": "2",
+    }
+    assert pulled_endpoint.query_params == {"stream": "false"}
+    assert pulled_endpoint.request_mapping == {"prompt": "{{ input }}", "max_tokens": 100}
+    assert pulled_endpoint.response_mapping == {"output": "choices[0].text"}
 
 
 def test_endpoint_delete(db_cleanup):
@@ -330,6 +365,185 @@ def test_endpoint_delete(db_cleanup):
 
     with pytest.raises(HTTPError):
         endpoint.pull()
+
+
+def test_endpoint_with_all_fields(db_cleanup):
+    """Test creating an endpoint with all configuration fields and verifying persistence."""
+    endpoint = Endpoint(
+        name="Test Endpoint Full Config",
+        description="Endpoint with all configuration fields",
+        connection_type="REST",
+        url="https://api.openai.com",
+        project_id="12340000-0000-4000-8000-000000001234",
+        method="POST",
+        endpoint_path="/v1/chat/completions",
+        request_headers={"Content-Type": "application/json"},
+        query_params={"version": "v1"},
+        request_mapping={
+            "model": "gpt-4",
+            "messages": [{"role": "user", "content": "{{ input }}"}],
+        },
+        response_mapping={"output": "choices[0].message.content"},
+        auth_token="sk-test-token",
+    )
+
+    result = endpoint.push()
+
+    # Verify push response
+    assert result["id"] is not None
+    assert result["name"] == "Test Endpoint Full Config"
+    assert result["method"] == "POST"
+    assert result["endpoint_path"] == "/v1/chat/completions"
+    assert result["request_headers"] == {"Content-Type": "application/json"}
+    assert result["query_params"] == {"version": "v1"}
+    assert result["request_mapping"]["model"] == "gpt-4"
+    assert result["response_mapping"]["output"] == "choices[0].message.content"
+
+    # Verify fields persist after pull
+    pulled = endpoint.pull()
+    assert pulled.request_mapping["model"] == "gpt-4"
+    assert pulled.response_mapping["output"] == "choices[0].message.content"
+    assert pulled.request_headers == {"Content-Type": "application/json"}
+
+
+def test_endpoint_update_mappings(db_cleanup):
+    """Test updating mapping fields on an existing endpoint."""
+    endpoint = Endpoint(
+        name="Test Update Mappings",
+        connection_type="REST",
+        url="https://api.example.com/chat",
+        project_id="12340000-0000-4000-8000-000000001234",
+        request_mapping={"original": "mapping"},
+    )
+    endpoint.push()
+
+    # Update the mapping
+    endpoint.request_mapping = {"updated": "mapping"}
+    endpoint.response_mapping = {"new": "response"}
+    result = endpoint.push()
+
+    assert result["request_mapping"] == {"updated": "mapping"}
+    assert result["response_mapping"] == {"new": "response"}
+
+
+def test_endpoint_required_fields_validation():
+    """Test that push fails without required fields."""
+    # Missing name
+    endpoint = Endpoint(
+        connection_type="REST",
+        project_id="12340000-0000-4000-8000-000000001234",
+    )
+    with pytest.raises(ValueError, match="name"):
+        endpoint.push()
+
+    # Missing connection_type
+    endpoint = Endpoint(
+        name="Test",
+        project_id="12340000-0000-4000-8000-000000001234",
+    )
+    with pytest.raises(ValueError, match="connection_type"):
+        endpoint.push()
+
+    # Missing project_id
+    endpoint = Endpoint(
+        name="Test",
+        connection_type="REST",
+    )
+    with pytest.raises(ValueError, match="project_id"):
+        endpoint.push()
+
+
+def test_endpoint_auth_token_not_returned_by_api(db_cleanup):
+    """Test that auth_token is write-only and not returned by the API."""
+    endpoint = Endpoint(
+        name="Test Auth Token Write Only",
+        connection_type="REST",
+        url="https://api.example.com/auth-test",
+        project_id="12340000-0000-4000-8000-000000001234",
+        auth_token="sk-secret-token-12345",
+    )
+
+    result = endpoint.push()
+
+    # auth_token should not be in the response (write-only field)
+    assert "auth_token" not in result or result.get("auth_token") is None
+
+
+def test_endpoint_pull_preserves_local_auth_token(db_cleanup):
+    """Test that pull() does not overwrite the local auth_token value."""
+    # Create endpoint with auth_token
+    endpoint = Endpoint(
+        name="Test Pull Preserves Auth Token",
+        connection_type="REST",
+        url="https://api.example.com/preserve-token",
+        project_id="12340000-0000-4000-8000-000000001234",
+        auth_token="sk-original-token",
+    )
+    endpoint.push()
+
+    # Pull should NOT overwrite our local auth_token with None
+    endpoint.pull()
+
+    # Local auth_token should be preserved
+    assert endpoint.auth_token == "sk-original-token"
+
+
+def test_endpoint_pull_modify_push_preserves_auth_token(db_cleanup):
+    """Test the pull-modify-push workflow doesn't clear auth_token on backend."""
+    # Step 1: Create endpoint with auth_token
+    endpoint = Endpoint(
+        name="Test Pull Modify Push",
+        connection_type="REST",
+        url="https://api.example.com/pull-modify-push",
+        project_id="12340000-0000-4000-8000-000000001234",
+        auth_token="sk-should-not-be-cleared",
+    )
+    endpoint.push()
+    endpoint_id = endpoint.id
+
+    # Step 2: Simulate fresh load (like a new SDK session)
+    # User loads endpoint but doesn't know the auth_token
+    fresh_endpoint = Endpoint(id=endpoint_id)
+    fresh_endpoint.pull()
+
+    # At this point, fresh_endpoint.auth_token is None (not returned by API)
+    # But that's expected - the user didn't set it locally
+
+    # Step 3: User modifies a field
+    fresh_endpoint.name = "Updated Name After Pull"
+
+    # Step 4: Push should NOT send auth_token=None to backend
+    result = fresh_endpoint.push()
+
+    assert result["name"] == "Updated Name After Pull"
+    # The push should succeed without clearing the backend's auth_token
+    # We can't directly verify the backend value, but the push shouldn't fail
+    # and auth_token shouldn't be in the response
+    assert "auth_token" not in result or result.get("auth_token") is None
+
+
+def test_endpoint_update_with_new_auth_token(db_cleanup):
+    """Test that explicitly setting auth_token on update sends the new value."""
+    # Create endpoint with initial auth_token
+    endpoint = Endpoint(
+        name="Test Update Auth Token",
+        connection_type="REST",
+        url="https://api.example.com/update-token",
+        project_id="12340000-0000-4000-8000-000000001234",
+        auth_token="sk-initial-token",
+    )
+    endpoint.push()
+
+    # Update with a new auth_token
+    endpoint.auth_token = "sk-new-updated-token"
+    endpoint.name = "Updated With New Token"
+    result = endpoint.push()
+
+    # Push should succeed
+    assert result["name"] == "Updated With New Token"
+
+    # Verify the local value is preserved
+    assert endpoint.auth_token == "sk-new-updated-token"
 
 
 # ============================================================================

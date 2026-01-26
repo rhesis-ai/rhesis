@@ -39,9 +39,25 @@ class Endpoint(BaseEntity):
         List all endpoints:
         >>> for endpoint in Endpoint().all():
         ...     print(endpoint.fields.get('name'))
+
+        Create an endpoint programmatically:
+        >>> endpoint = Endpoint(
+        ...     name="My API",
+        ...     connection_type=ConnectionType.REST,
+        ...     project_id="your-project-uuid",
+        ...     url="https://api.example.com",
+        ...     auth_token="your-api-key",  # Token for the target API
+        ...     request_mapping={"message": "{{ input }}"},
+        ...     request_headers={"Content-Type": "application/json"},
+        ...     response_mapping={"output": "response.text"},
+        ... )
+        >>> endpoint.push()
     """
 
     endpoint: ClassVar[ApiEndpoints] = ENDPOINT
+    _push_required_fields: ClassVar[tuple[str, ...]] = ("name", "connection_type", "project_id")
+    _write_only_fields: ClassVar[tuple[str, ...]] = ("auth_token",)
+
     name: Optional[str] = None
     description: Optional[str] = None
     # Required field - must be one of: "REST", "WebSocket", "GRPC", "SDK"
@@ -49,6 +65,19 @@ class Endpoint(BaseEntity):
     url: Optional[str] = None
     project_id: Optional[str] = None
     id: Optional[str] = None
+
+    # Request Structure - for programmatic endpoint configuration
+    method: Optional[str] = None
+    endpoint_path: Optional[str] = None
+    request_headers: Optional[Dict[str, str]] = None
+    query_params: Optional[Dict[str, Any]] = None
+    request_mapping: Optional[Dict[str, Any]] = None
+
+    # Response Handling
+    response_mapping: Optional[Dict[str, str]] = None
+
+    # Authentication - for the target API (not Rhesis API)
+    auth_token: Optional[str] = None
 
     @handle_http_errors
     def invoke(self, input: str, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
