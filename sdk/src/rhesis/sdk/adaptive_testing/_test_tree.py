@@ -365,6 +365,8 @@ class TestTree:
                 topic=topic,
                 prompt=prompt,
                 metadata=metadata,
+                behavior="Adaptive Testing",
+                category="Adaptive Testing",
             )
             tests.append(test)
 
