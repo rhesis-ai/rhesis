@@ -77,7 +77,7 @@ class GarakDetectorMetric(BaseMetric):
         # Use NUMERIC score type since Garak returns probability scores (0.0-1.0)
         config = MetricConfig(
             class_name="GarakDetectorMetric",
-            backend=Backend.CUSTOM,
+            backend=Backend.GARAK,
             name=name or f"Garak: {detector_class.split('.')[-1]}",
             description=description or f"Garak detector: {detector_class}",
             score_type=ScoreType.NUMERIC,
