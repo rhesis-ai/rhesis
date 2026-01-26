@@ -292,16 +292,25 @@ class GarakImporter:
                 or existing_metric.score_type == "categorical"
             )
             if needs_update:
-                update_data = schemas.MetricUpdate(
-                    metric_scope=existing_metric.metric_scope or ["Single-Turn"],
-                    backend_type="garak" if not existing_metric.backend_type_id else None,
-                    # Fix categorical -> numeric conversion for consistency
-                    score_type="numeric" if existing_metric.score_type == "categorical" else None,
-                    min_score=0.0 if existing_metric.score_type == "categorical" else None,
-                    max_score=1.0 if existing_metric.score_type == "categorical" else None,
-                    threshold=0.5 if existing_metric.score_type == "categorical" else None,
-                    threshold_operator="<" if existing_metric.score_type == "categorical" else None,
-                )
+                # Build update dict conditionally to avoid clearing existing values
+                # Only include fields that need to be updated (exclude_unset=True
+                # only excludes fields not passed to constructor, not fields set to None)
+                update_fields = {}
+                update_fields["metric_scope"] = existing_metric.metric_scope or ["Single-Turn"]
+
+                # Only set backend_type if it's missing
+                if not existing_metric.backend_type_id:
+                    update_fields["backend_type"] = "garak"
+
+                # Fix categorical -> numeric conversion for consistency
+                if existing_metric.score_type == "categorical":
+                    update_fields["score_type"] = "numeric"
+                    update_fields["min_score"] = 0.0
+                    update_fields["max_score"] = 1.0
+                    update_fields["threshold"] = 0.5
+                    update_fields["threshold_operator"] = "<"
+
+                update_data = schemas.MetricUpdate(**update_fields)
                 crud.update_metric(
                     db=self.db,
                     metric_id=existing_metric.id,
