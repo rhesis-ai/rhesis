@@ -20,6 +20,14 @@ images:
     repository: rhesis-worker
     tag: "latest"
     pullPolicy: "Never"
+  chatbot:
+    repository: rhesis-chatbot
+    tag: "latest"
+    pullPolicy: "Never"
+  docs:
+    repository: rhesis-docs
+    tag: "latest"
+    pullPolicy: "Never"
 
 # Database configuration for local development
 database:
@@ -70,15 +78,9 @@ backend:
     limits:
       memory: "2Gi"
       cpu: "1000m"
-  env:
-    - name: ENVIRONMENT
-      value: "local"
-    - name: LOG_LEVEL
-      value: "DEBUG"
-    - name: RHESIS_BASE_URL
-      value: "http://backend:8080"
-    - name: FRONTEND_URL
-      value: "http://localhost:3000"
+  # All env vars are loaded from rhesis-config ConfigMap
+  # Add overrides here only if they differ from ConfigMap values
+  # env: []
 
 
 # Frontend configuration for local development
@@ -92,17 +94,13 @@ frontend:
     limits:
       memory: "4Gi"
       cpu: "2000m"
+  # Most env vars are loaded from rhesis-config ConfigMap
+  # Only deployment-specific overrides are listed here
   env:
-    - name: FRONTEND_ENV
-      value: "local"
-    - name: NEXT_TELEMETRY_DISABLED
-      value: "1"
-    - name: NEXT_PUBLIC_API_BASE_URL
-      value: "http://localhost:8080"
-    - name: NEXT_PUBLIC_APP_URL
-      value: "http://localhost:3000"
-    - name: BACKEND_URL
-      value: "http://backend:8080"
+    - name: HOSTNAME
+      value: "0.0.0.0"
+    - name: PORT
+      value: "3000"
 
 # Worker configuration for local development
 worker:
@@ -115,6 +113,45 @@ worker:
     limits:
       memory: "2Gi"
       cpu: "1000m"
+
+# Chatbot configuration for local development
+chatbot:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  # Most env vars are loaded from rhesis-config ConfigMap
+  # Only deployment-specific overrides are listed here
+  env:
+    - name: HOSTNAME
+      value: "0.0.0.0"
+    - name: PORT
+      value: "8080"
+
+# Docs configuration for local development
+docs:
+  enabled: true
+  replicas: 1
+  # disableSecurityContext: true # Temporarily disabled for docs due to permission issues
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "200m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  # Most env vars are loaded from rhesis-config ConfigMap
+  # Only deployment-specific overrides are listed here
+  env:
+    - name: HOSTNAME
+      value: "0.0.0.0"
+    - name: PORT
+      value: "3001"
 
 # Disable features not needed for local development
 monitoring:
