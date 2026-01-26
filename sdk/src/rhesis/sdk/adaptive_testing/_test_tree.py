@@ -493,6 +493,7 @@ class TestTree:
         auto_save=False,
         user="anonymous",
         recompute_scores=False,
+        regenerate_outputs=False,
         max_suggestions=100,
         prompt_variants=4,
         prompt_builder=PromptBuilder(),
@@ -528,6 +529,12 @@ class TestTree:
 
         recompute_scores : bool
             Whether to recompute the scores of the tests that already have score values.
+            This will re-run the endpoint but preserve existing outputs if they differ.
+
+        regenerate_outputs : bool
+            Whether to regenerate outputs by re-running all tests through the endpoint.
+            This will overwrite existing outputs with fresh ones from the endpoint and
+            recompute scores. Implies recompute_scores=True.
 
         max_suggestions : int
             The maximum number of suggestions to generate each time the user asks for suggestions.
@@ -549,6 +556,10 @@ class TestTree:
         if generator is None:
             generator = adaptive_testing.generators.OpenAI()
 
+        # regenerate_outputs implies recompute_scores
+        if regenerate_outputs:
+            recompute_scores = True
+
         # build the test tree browser
         return TestTreeBrowser(
             self,
@@ -559,6 +570,7 @@ class TestTree:
             auto_save=auto_save,
             user=user,
             recompute_scores=recompute_scores,
+            regenerate_outputs=regenerate_outputs,
             max_suggestions=max_suggestions,
             prompt_variants=prompt_variants,
             prompt_builder=prompt_builder,
