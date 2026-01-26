@@ -72,6 +72,22 @@ These tools are used through their public APIs. The original licenses and copyri
 
 ### Garak Metrics
 
+<Callout type="warning">
+
+**Optional Dependency**: Garak is an optional dependency. To use Garak metrics, install the SDK with the garak extra:
+
+```bash
+pip install rhesis-sdk[garak]
+```
+
+Or if using uv:
+
+```bash
+uv add rhesis-sdk[garak]
+```
+
+</Callout>
+
 Garak is an LLM vulnerability scanner that detects security weaknesses and jailbreak vulnerabilities. The metrics return numeric scores from 0.0 to 1.0, where lower scores indicate safer responses.
 
 | Metric | Description | Detection Type | Reference |
