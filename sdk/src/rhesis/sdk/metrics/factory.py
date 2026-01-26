@@ -41,8 +41,10 @@ class MetricFactory:
         """Create a metric instance from the specified framework using class name.
 
         Args:
-            framework: The evaluation framework to use ('deepeval', 'ragas', 'rhesis', 'custom', 'garak')
-            class_name: Class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')
+            framework: The evaluation framework to use
+                ('deepeval', 'ragas', 'rhesis', 'custom', 'garak')
+            class_name: Class name of the metric to instantiate
+                (e.g., 'DeepEvalContextualRecall')
             **kwargs: Additional parameters to pass to the metric constructor
 
         Returns:
