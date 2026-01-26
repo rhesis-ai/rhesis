@@ -6,7 +6,7 @@ Garak probe importer but are missing critical fields like:
 - backend_type_id (required for proper backend identification)
 - metric_type_id (required for metric type identification)
 - status_id (required for status tracking)
-- score_type_id (Garak returns numeric scores 0.0-1.0)
+- score_type (Garak returns numeric scores 0.0-1.0)
 - threshold (default 0.5 for Garak detectors)
 - threshold_operator (< since lower scores = safer)
 
@@ -61,16 +61,6 @@ def upgrade() -> None:
 
         print(f"   Found {len(garak_metrics)} GarakDetectorMetric(s)")
 
-        # Get the numeric score type for comparison
-        numeric_score_type = (
-            session.query(models.TypeLookup)
-            .filter(
-                models.TypeLookup.type_name == "ScoreType",
-                models.TypeLookup.type_value == "numeric",
-            )
-            .first()
-        )
-
         fixed_count = 0
         for metric in garak_metrics:
             organization_id = str(metric.organization_id)
@@ -83,7 +73,8 @@ def upgrade() -> None:
             needs_status = not metric.status_id
             needs_owner = not metric.owner_id and metric.user_id
             # Check if score_type needs fixing (should be numeric for Garak)
-            needs_score_type = numeric_score_type and metric.score_type_id != numeric_score_type.id
+            # Note: score_type is a String column, not a foreign key
+            needs_score_type = metric.score_type != "numeric"
             # Check if threshold needs setting
             needs_threshold = metric.threshold is None
             # Check if threshold_operator needs fixing (should be < for Garak)
