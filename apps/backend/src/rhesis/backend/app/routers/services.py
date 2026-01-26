@@ -1,5 +1,6 @@
+import json
 import uuid
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -641,9 +642,11 @@ async def test_mcp_connection(
         raise handle_mcp_exception(e, "test-connection")
 
 
-@router.get("/mcp/auth/{tool_id}/authorize")
+@router.get("/mcp/auth/authorize")
 async def mcp_oauth_authorize(
-    tool_id: uuid.UUID,
+    provider: str,
+    validate: bool = False,
+    tool_id: Optional[uuid.UUID] = None,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -651,12 +654,16 @@ async def mcp_oauth_authorize(
     """
     Initiate OAuth 2.0 Authorization Code flow for an MCP tool.
 
-    Redirects the user to the OAuth provider's authorization page where they
-    will log in and grant access to their account. After authorization, the
-    provider redirects back to the callback endpoint with an authorization code.
+    Supports two modes:
+    1. Validation mode (validate=true): Tests connection without saving tool.
+       Stores state in Redis cache with provider, org_id, and user_id.
+    2. Normal mode (validate=false): Authorizes existing tool.
+       Stores state in tool metadata. Requires tool_id.
 
     Args:
-        tool_id: UUID of the MCP tool to authorize
+        provider: OAuth provider type (e.g., "atlassian")
+        validate: If true, validation mode; if false, normal mode
+        tool_id: Tool UUID (required for normal mode, optional for validation)
         db: Database session (injected)
         tenant_context: Organization and user context (injected)
         current_user: Current authenticated user (injected)
@@ -665,18 +672,18 @@ async def mcp_oauth_authorize(
         RedirectResponse to OAuth provider's authorization URL
 
     Example:
-        GET /services/mcp/auth/{tool_id}/authorize
-        -> Redirects to: https://auth.atlassian.com/authorize?client_id=...
+        GET /services/mcp/auth/authorize?provider=atlassian&validate=true
+        GET /services/mcp/auth/authorize?provider=atlassian&tool_id={uuid}
     """
     organization_id, user_id = tenant_context
-    return await authorize_mcp_oauth(tool_id, db, organization_id, user_id)
+    return await authorize_mcp_oauth(validate, tool_id, provider, db, organization_id, user_id)
 
 
-@router.get("/mcp/auth/{tool_id}/callback")
+@router.get("/mcp/auth/callback")
 async def mcp_oauth_callback(
-    tool_id: uuid.UUID,
     code: str,
     state: str,
+    tool_id: Optional[uuid.UUID] = None,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
 ):
@@ -684,31 +691,112 @@ async def mcp_oauth_callback(
     Handle OAuth callback after user authorization.
 
     This endpoint is called by the OAuth provider after the user authorizes
-    the application. It exchanges the authorization code for access and refresh
-    tokens, stores them securely in the database, and redirects to a success page.
+    the application. Routes to validation or normal mode based on state format.
 
-    For Atlassian: Also retrieves the cloud_id from accessible-resources endpoint
-    which is required for constructing API URLs.
+    Validation mode (state: "validate:token"):
+    - Exchanges code for tokens
+    - Stores result temporarily in Redis
+    - Redirects to frontend with session ID
+
+    Normal mode (state: "normal:token:tool_id"):
+    - Exchanges code for tokens
+    - Updates tool credentials in database
+    - Redirects to frontend with tool_id
+
+    For Atlassian: Also retrieves cloud_id from accessible-resources endpoint.
 
     Args:
-        tool_id: UUID of the MCP tool being authorized
         code: Authorization code from OAuth provider
-        state: State parameter for CSRF protection
+        state: State parameter for CSRF protection and mode detection
+        tool_id: UUID of the MCP tool (optional, extracted from state in normal mode)
         db: Database session (injected)
         tenant_context: Organization context (injected)
 
     Returns:
-        RedirectResponse to frontend success page
+        RedirectResponse to frontend success/result page
 
     Raises:
         HTTPException: If state validation fails or token exchange fails
 
     Example:
-        GET /services/mcp/auth/{tool_id}/callback?code=xxx&state=yyy
-        -> Redirects to: https://app.rhesis.io/integrations/tools?oauth_success=true
+        Validation: GET /services/mcp/auth/callback?code=xxx&state=validate:yyy
+        Normal: GET /services/mcp/auth/callback?code=xxx&state=normal:yyy:tool-uuid
     """
     organization_id, user_id = tenant_context
     return await callback_mcp_oauth(tool_id, code, state, db, organization_id, user_id)
+
+
+@router.get("/mcp/auth/validation/result")
+async def get_oauth_validation_result(
+    session: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Retrieve OAuth validation result after callback.
+
+    After a successful validation OAuth flow, the credentials and site information
+    are stored temporarily in Redis with a session ID. The frontend uses this
+    endpoint to retrieve the validation result.
+
+    The result is deleted after retrieval (one-time use) for security.
+
+    Args:
+        session: Session ID from the OAuth callback redirect
+        db: Database session (injected)
+        tenant_context: Organization and user context (injected)
+        current_user: Current authenticated user (injected)
+
+    Returns:
+        Dict with validation result including credentials and site info
+
+    Raises:
+        HTTPException: If session not found, expired, or Redis unavailable
+
+    Example:
+        GET /services/mcp/auth/validation/result?session=abc123xyz
+        -> {
+            "success": true,
+            "provider": "atlassian",
+            "credentials": {...},
+            "site_name": "My Company",
+            "site_url": "https://mycompany.atlassian.net"
+        }
+    """
+    from rhesis.backend.app.services.connector.redis_client import redis_manager
+
+    if not redis_manager.is_available:
+        raise HTTPException(status_code=503, detail="Cache unavailable")
+
+    result_key = f"oauth_validation_result:{session}"
+
+    try:
+        result_str = await redis_manager.client.get(result_key)
+    except Exception as e:
+        logger.error(f"Failed to retrieve validation result: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve validation result")
+
+    if not result_str:
+        raise HTTPException(status_code=404, detail="Validation result not found or expired")
+
+    try:
+        result = json.loads(result_str)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse validation result: {e}")
+        raise HTTPException(status_code=500, detail="Invalid result data")
+
+    # Delete after retrieval (one-time use)
+    await redis_manager.client.delete(result_key)
+
+    return {
+        "success": True,
+        "provider": result["provider"],
+        "credentials": result["credentials"],
+        "site_name": result.get("site_name"),
+        "site_url": result.get("site_url"),
+        "validated_at": result.get("validated_at"),
+    }
 
 
 @router.post("/mcp/auth/{tool_id}/refresh")
