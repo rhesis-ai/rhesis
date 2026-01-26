@@ -2660,36 +2660,6 @@ def remove_metric_from_test_set(
     return result.rowcount > 0
 
 
-def get_test_set_metrics(
-    db: Session,
-    test_set_id: UUID,
-    organization_id: str,
-) -> List[models.Metric]:
-    """Get all metrics associated with a test set.
-
-    Args:
-        db: Database session
-        test_set_id: ID of the test set
-        organization_id: ID of the organization (SECURITY CRITICAL)
-
-    Returns:
-        List of metrics associated with the test set
-    """
-    # Verify the test set exists AND belongs to the organization (SECURITY CRITICAL)
-    test_set = (
-        db.query(models.TestSet)
-        .filter(
-            models.TestSet.id == test_set_id,
-            models.TestSet.organization_id == UUID(organization_id),
-        )
-        .first()
-    )
-    if not test_set:
-        raise ValueError(f"Test set with id {test_set_id} not found or not accessible")
-
-    return test_set.metrics or []
-
-
 # Model CRUD
 def get_model(
     db: Session, model_id: uuid.UUID, organization_id: str = None, user_id: str = None
