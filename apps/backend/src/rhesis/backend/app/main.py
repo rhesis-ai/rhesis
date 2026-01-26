@@ -52,6 +52,7 @@ public_routes = [
     "/docs",
     "/redoc",
     "/openapi.json",
+    "/services/mcp/auth/callback",  # OAuth callback from external providers
 ]
 
 # Routes that accept both session and token auth

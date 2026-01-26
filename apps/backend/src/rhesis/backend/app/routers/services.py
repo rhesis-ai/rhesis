@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.dependencies import get_db, get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest,
@@ -47,7 +47,6 @@ from rhesis.backend.app.services.mcp import (
     extract_mcp,
     handle_mcp_exception,
     query_mcp,
-    refresh_mcp_oauth_endpoint,
     run_mcp_authentication_test,
     search_mcp,
 )
@@ -58,7 +57,6 @@ router = APIRouter(
     prefix="/services",
     tags=["services"],
     responses={404: {"description": "Not found"}},
-    dependencies=[Depends(require_current_user_or_token)],
 )
 
 
@@ -647,9 +645,9 @@ async def mcp_oauth_authorize(
     provider: str,
     validate: bool = False,
     tool_id: Optional[uuid.UUID] = None,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
+    organization_id: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
 ):
     """
     Initiate OAuth 2.0 Authorization Code flow for an MCP tool.
@@ -657,6 +655,7 @@ async def mcp_oauth_authorize(
     Supports two modes:
     1. Validation mode (validate=true): Tests connection without saving tool.
        Stores state in Redis cache with provider, org_id, and user_id.
+       Requires organization_id and user_id query parameters.
     2. Normal mode (validate=false): Authorizes existing tool.
        Stores state in tool metadata. Requires tool_id.
 
@@ -664,18 +663,42 @@ async def mcp_oauth_authorize(
         provider: OAuth provider type (e.g., "atlassian")
         validate: If true, validation mode; if false, normal mode
         tool_id: Tool UUID (required for normal mode, optional for validation)
+        organization_id: Organization ID (required for validation mode)
+        user_id: User ID (required for validation mode)
         db: Database session (injected)
-        tenant_context: Organization and user context (injected)
-        current_user: Current authenticated user (injected)
 
     Returns:
         RedirectResponse to OAuth provider's authorization URL
 
+    Note:
+        This endpoint does not require authentication because OAuth security
+        is ensured through state validation. The state parameter is stored
+        securely and validated in the callback to prevent CSRF attacks.
+
     Example:
-        GET /services/mcp/auth/authorize?provider=atlassian&validate=true
+        GET /services/mcp/auth/authorize?provider=atlassian&validate=true&organization_id=123&user_id=456
         GET /services/mcp/auth/authorize?provider=atlassian&tool_id={uuid}
     """
-    organization_id, user_id = tenant_context
+    # For validation mode, organization_id and user_id are required
+    if validate:
+        if not organization_id or not user_id:
+            raise HTTPException(
+                status_code=400,
+                detail="organization_id and user_id are required for validation mode",
+            )
+    else:
+        # For normal mode, we need tool_id to fetch organization context
+        if not tool_id:
+            raise HTTPException(status_code=400, detail="tool_id is required for normal mode")
+
+        # Get tool to extract organization_id and user_id
+        tool = db.query(crud.models.Tool).filter(crud.models.Tool.id == tool_id).first()
+        if not tool:
+            raise HTTPException(status_code=404, detail=f"Tool {tool_id} not found")
+
+        organization_id = str(tool.organization_id)
+        user_id = str(tool.user_id)
+
     return await authorize_mcp_oauth(validate, tool_id, provider, db, organization_id, user_id)
 
 
@@ -684,8 +707,7 @@ async def mcp_oauth_callback(
     code: str,
     state: str,
     tool_id: Optional[uuid.UUID] = None,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
+    db: Session = Depends(get_db),
 ):
     """
     Handle OAuth callback after user authorization.
@@ -709,8 +731,7 @@ async def mcp_oauth_callback(
         code: Authorization code from OAuth provider
         state: State parameter for CSRF protection and mode detection
         tool_id: UUID of the MCP tool (optional, extracted from state in normal mode)
-        db: Database session (injected)
-        tenant_context: Organization context (injected)
+        db: Database session (not filtered by tenant)
 
     Returns:
         RedirectResponse to frontend success/result page
@@ -722,8 +743,7 @@ async def mcp_oauth_callback(
         Validation: GET /services/mcp/auth/callback?code=xxx&state=validate:yyy
         Normal: GET /services/mcp/auth/callback?code=xxx&state=normal:yyy:tool-uuid
     """
-    organization_id, user_id = tenant_context
-    return await callback_mcp_oauth(tool_id, code, state, db, organization_id, user_id)
+    return await callback_mcp_oauth(tool_id, code, state, db)
 
 
 @router.get("/mcp/auth/validation/result")
@@ -797,44 +817,6 @@ async def get_oauth_validation_result(
         "site_url": result.get("site_url"),
         "validated_at": result.get("validated_at"),
     }
-
-
-@router.post("/mcp/auth/{tool_id}/refresh")
-async def mcp_oauth_refresh(
-    tool_id: uuid.UUID,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
-    current_user: User = Depends(require_current_user_or_token),
-):
-    """
-    Manually refresh OAuth tokens for an MCP tool.
-
-    Uses the refresh token to obtain a new access token. For Atlassian,
-    this also returns a new refresh token (rotating refresh tokens), which
-    is automatically stored in the database.
-
-    Note: Token refresh typically happens automatically before MCP operations
-    if the token is about to expire. This endpoint is provided for manual
-    refresh if needed.
-
-    Args:
-        tool_id: UUID of the MCP tool to refresh tokens for
-        db: Database session (injected)
-        tenant_context: Organization and user context (injected)
-        current_user: Current authenticated user (injected)
-
-    Returns:
-        Dict with success status, message, and new token expiry time
-
-    Raises:
-        HTTPException: If tool not found, not OAuth-enabled, or refresh fails
-
-    Example:
-        POST /services/mcp/auth/{tool_id}/refresh
-        -> {"success": true, "expires_at": "2026-01-22T12:00:00Z"}
-    """
-    organization_id, user_id = tenant_context
-    return await refresh_mcp_oauth_endpoint(tool_id, db, organization_id, user_id)
 
 
 @router.get("/recent-activities", response_model=RecentActivitiesResponse)

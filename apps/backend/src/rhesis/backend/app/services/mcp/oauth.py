@@ -105,13 +105,15 @@ async def callback_mcp_oauth(
     code: str,
     state: str,
     db: Session,
-    organization_id: str,
-    user_id: str,
 ) -> RedirectResponse:
     """
     Handle OAuth callback after user authorization.
 
     Routes to validation or normal mode based on state format.
+
+    Note: This function does not require authentication or user context parameters.
+    Security is ensured through state validation which verifies the callback is
+    a legitimate continuation of an authorization flow initiated by an authenticated user.
     """
     # Parse mode from state
     try:
@@ -125,9 +127,9 @@ async def callback_mcp_oauth(
         )
 
     if mode == "validate":
-        return await _callback_validation(code, state, organization_id, user_id)
+        return await _callback_validation(code, state)
     else:
-        return await _callback_normal(tool_id, code, state, db, organization_id, user_id)
+        return await _callback_normal(tool_id, code, state, db)
 
 
 def is_oauth_token(credentials: dict) -> bool:
@@ -249,7 +251,7 @@ async def refresh_oauth_token(tool: Tool, credentials: dict, db: Session) -> dic
             updated_credentials = {
                 "ACCESS_TOKEN": token_data["access_token"],
                 "REFRESH_TOKEN": token_data.get("refresh_token", refresh_token),
-                "EXPIRES_IN": expires_in,
+                "EXPIRES_IN": str(expires_in),
                 "EXPIRES_AT": expires_at,
                 "SCOPES": token_data.get("scope", credentials.get("SCOPES", "")),
             }
@@ -341,8 +343,6 @@ async def _authorize_validation(
 async def _callback_validation(
     code: str,
     state: str,
-    organization_id: str,
-    user_id: str,
 ) -> RedirectResponse:
     """Handle OAuth callback for validation flow."""
     from rhesis.backend.app.services.connector.redis_client import redis_manager
@@ -395,7 +395,7 @@ async def _callback_validation(
     credentials = {
         "ACCESS_TOKEN": token_data["access_token"],
         "REFRESH_TOKEN": token_data.get("refresh_token", ""),
-        "EXPIRES_IN": expires_in,
+        "EXPIRES_IN": str(expires_in),
         "EXPIRES_AT": expires_at_timestamp,
         "SCOPES": token_data.get("scope", " ".join(config.scopes)),
     }
@@ -428,7 +428,7 @@ async def _callback_validation(
 
     # Redirect to frontend
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-    success_url = f"{frontend_url}/integrations/tools?oauth_validation=success&session={session_id}"
+    success_url = f"{frontend_url}/mcp/oauth-callback?oauth_validation=success&session={session_id}"
 
     logger.info(f"Validation OAuth completed successfully (session: {session_id})")
     return RedirectResponse(url=success_url)
@@ -461,7 +461,7 @@ async def _authorize_normal(
     # Generate state
     state = f"normal:{secrets.token_urlsafe(32)}:{tool_id}"
 
-    # Store state in tool metadata
+    # Store state in tool metadata for CSRF validation
     tool_metadata = tool.tool_metadata or {}
     tool_metadata["oauth_state"] = {
         "state": state,
@@ -500,8 +500,6 @@ async def _callback_normal(
     code: str,
     state: str,
     db: Session,
-    organization_id: str,
-    user_id: str,
 ) -> RedirectResponse:
     """Handle OAuth callback for normal flow."""
     # Extract tool_id from state
@@ -519,8 +517,8 @@ async def _callback_normal(
 
     tool_id = tool_id_from_state
 
-    # Get tool
-    tool = crud.get_tool(db, tool_id, organization_id, user_id)
+    # Query tool directly by ID (no organization filtering needed)
+    tool = db.query(crud.models.Tool).filter(crud.models.Tool.id == tool_id).first()
     if not tool:
         raise HTTPException(status_code=404, detail=f"Tool {tool_id} not found")
 
@@ -563,7 +561,7 @@ async def _callback_normal(
     credentials = {
         "ACCESS_TOKEN": token_data["access_token"],
         "REFRESH_TOKEN": token_data.get("refresh_token", ""),
-        "EXPIRES_IN": expires_in,
+        "EXPIRES_IN": str(expires_in),
         "EXPIRES_AT": expires_at_timestamp,
         "SCOPES": token_data.get("scope", " ".join(config.scopes)),
     }
@@ -587,7 +585,7 @@ async def _callback_normal(
 
     # Redirect to frontend
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
-    success_url = f"{frontend_url}/integrations/tools?oauth_success=true&tool_id={tool_id}"
+    success_url = f"{frontend_url}/mcp/oauth-callback?oauth_success=true&tool_id={tool_id}"
 
     return RedirectResponse(url=success_url)
 

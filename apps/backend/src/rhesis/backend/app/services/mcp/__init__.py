@@ -1,9 +1,8 @@
-"""MCP services for external integrations."""
+"""MCP (Model Context Protocol) service module."""
 
 from rhesis.backend.app.services.mcp.oauth import (
     authorize_mcp_oauth,
     callback_mcp_oauth,
-    refresh_mcp_oauth_endpoint,
 )
 from rhesis.backend.app.services.mcp.service import (
     extract_mcp,
@@ -19,7 +18,6 @@ __all__ = [
     "extract_mcp",
     "handle_mcp_exception",
     "query_mcp",
-    "refresh_mcp_oauth_endpoint",
     "run_mcp_authentication_test",
     "search_mcp",
 ]
