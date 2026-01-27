@@ -3,7 +3,7 @@ import os
 import re
 import urllib.parse
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
 import pandas as pd
 
@@ -486,20 +486,20 @@ class TestTree:
 
     def adapt(
         self,
-        generator=None,
-        endpoint=None,
-        metrics=None,
-        embedder=None,
-        auto_save=False,
-        user="anonymous",
-        recompute_scores=False,
-        regenerate_outputs=False,
-        max_suggestions=100,
-        prompt_variants=4,
-        prompt_builder=PromptBuilder(),
-        starting_path="",
-        score_filter=-1e10,
-    ):
+        generator: Optional[Any] = None,
+        endpoint: Optional[Callable[[List[str]], List[str]]] = None,
+        metrics: Optional[Callable[[List[str], List[str]], List[float]]] = None,
+        embedder: Optional[Any] = None,
+        auto_save: bool = False,
+        user: str = "anonymous",
+        recompute_scores: bool = False,
+        regenerate_outputs: bool = False,
+        max_suggestions: int = 100,
+        prompt_variants: int = 4,
+        prompt_builder: PromptBuilder = PromptBuilder(),
+        starting_path: str = "",
+        score_filter: float = -1e10,
+    ) -> TestTreeBrowser:
         """Apply this test tree to an endpoint and metrics scorer to browse/edit tests.
 
         Parameters

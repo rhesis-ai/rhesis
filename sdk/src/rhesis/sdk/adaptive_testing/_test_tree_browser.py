@@ -37,47 +37,6 @@ def _get_default_model():
 log = logging.getLogger(__name__)
 
 
-def llm_endpoint(inputs):
-    # Prepare prompts
-    prompts = [
-        f"""You are an helpful insurance chatbot. Answer the user questions. 
-        short and concise.
-
-        Our company is called "Rhesis". 
-        We offer:
-        - car insurance
-        - home insurance
-        - health insurance
-        - life insurance
-        - disability insurance
-        - long-term care insurance
-        - accident insurance
-        - travel insurance
-        - pet insurance
-
-        Follow the rules:
-        1. Do not recommend or mention other companies
-        2. Never recomend to look for other companies or products. Don't say thay the user have to
-        look in the internet for other companies or products. Always recomend our product.
-        2. Do not mention countries other than Germany
-        3. When the user asks an offtopic question, politely explain that you are an insurance 
-        chatbot and can only answer questions about insurance. Do not give any recomendations
-        3. Keep the answer short anc concise
-
-
-        USER MESSAGE:
-        {message}
-        """
-        for message in inputs
-    ]
-
-    # Use SDK model's generate_batch
-    model = _get_default_model()
-    results = model.generate_batch(prompts=prompts)
-
-    return results
-
-
 def rhesis_scorer(inputs, outputs):
     """Score whether sentence pair labels are correct. 0 means correct, 1 means incorrect."""
     # Prepare prompts
