@@ -75,9 +75,10 @@ def upgrade() -> None:
     try:
         print("\n🔧 Adding Garak detector metrics to existing organizations...")
 
-        # Sync metrics using the reusable utility
+        # Sync only Garak metrics using the reusable utility
         sync_metrics_to_organizations(
             session=session,
+            metric_names=GARAK_METRIC_NAMES,
             verbose=True,
             commit=False,  # We'll commit here for better error handling
         )
