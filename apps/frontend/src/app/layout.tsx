@@ -287,7 +287,31 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var THEME_MODE_KEY = 'theme-mode';
+                  var storedMode = localStorage.getItem(THEME_MODE_KEY);
+                  var mode;
+
+                  if (storedMode) {
+                    mode = storedMode;
+                  } else {
+                    var darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                    mode = darkModeQuery.matches ? 'dark' : 'light';
+                  }
+
+                  document.documentElement.setAttribute('data-theme-mode', mode);
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body suppressHydrationWarning>
         <ThemeContextProvider disableTransitionOnChange>
           <LayoutContent
             session={session}
