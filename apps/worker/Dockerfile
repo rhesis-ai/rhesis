@@ -15,13 +15,18 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-# Install build dependencies
+# Install build dependencies including Rust (needed for base2048 via garak)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     python3-dev \
     git \
+    curl \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && rm -rf /var/lib/apt/lists/*
+
+# Add Rust to PATH for the build
+ENV PATH="/root/.cargo/bin:$PATH"
 
 # Copy Celery worker requirements
 COPY apps/worker/pyproject.toml /app/pyproject.toml
