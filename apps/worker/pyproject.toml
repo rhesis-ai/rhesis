@@ -44,6 +44,7 @@ dependencies = [
     "sqlalchemy>=2.0.43",
     "tenacity==8.2.3",
     "tomli>=2.0.0",
+    "torch",  # Explicit dep to force CPU-only via [tool.uv.sources]
     "uvicorn>=0.35.0",
     "websockets==15.0.1",
     "yaspin==3.0.2",
@@ -51,7 +52,17 @@ dependencies = [
     "rhesis-penelope",
 ]
 
+[tool.uv]
+# Use CPU-only PyTorch to reduce image size (~200MB instead of ~3GB)
+# garak requires torch, but the worker doesn't need GPU support
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.uv.sources]
+torch = { index = "pytorch-cpu" }
 rhesis-sdk = { path = "../../sdk", editable = true }
 rhesis-penelope = { path = "../../penelope", editable = true }
 
