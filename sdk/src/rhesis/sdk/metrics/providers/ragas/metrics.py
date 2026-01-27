@@ -16,12 +16,31 @@ class RagasContextRelevance(RagasMetricBase):
     ground_truth_required = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(name="context_relevance", metric_type=self.metric_type, model=model)
+        super().__init__(
+            name="context_relevance",
+            metric_type=self.metric_type,
+            model=model,
+            requires_context=True,
+        )
         self.threshold = threshold
         self.scorer = ContextRelevance(llm=self._ragas_model)
 
     @retry_evaluation()
     def evaluate(self, input: str, context: List[str]) -> MetricResult:
+        # Validate that context is provided
+        if not context or len(context) == 0:
+            return MetricResult(
+                score=0.0,
+                details={
+                    "reason": (
+                        "Context Relevance metric requires context to evaluate. "
+                        "No context was provided."
+                    ),
+                    "is_successful": False,
+                    "threshold": self.threshold,
+                    "error": "Context is required for Context Relevance metric evaluation",
+                },
+            )
         sample = SingleTurnSample(
             user_input=input,
             retrieved_contexts=context,
@@ -44,7 +63,12 @@ class RagasAnswerAccuracy(RagasMetricBase):
     ground_truth_required = True
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(name="answer_accuracy", metric_type=self.metric_type, model=model)
+        super().__init__(
+            name="answer_accuracy",
+            metric_type=self.metric_type,
+            model=model,
+            requires_ground_truth=True,
+        )
         self.scorer = AnswerAccuracy(llm=self._ragas_model)
         self.threshold = threshold
         # Initialize Ragas specific implementation
@@ -80,7 +104,12 @@ class RagasFaithfulness(RagasMetricBase):
     ground_truth_required = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(name="faithfulness", metric_type=self.metric_type, model=model)
+        super().__init__(
+            name="faithfulness",
+            metric_type=self.metric_type,
+            model=model,
+            requires_context=True,
+        )
         self.scorer = Faithfulness(llm=self._ragas_model)
         self.threshold = threshold
         # Initialize Ragas specific implementation
@@ -92,6 +121,20 @@ class RagasFaithfulness(RagasMetricBase):
         output: str,
         context: List[str],
     ) -> MetricResult:
+        # Validate that context is provided
+        if not context or len(context) == 0:
+            return MetricResult(
+                score=0.0,
+                details={
+                    "reason": (
+                        "Faithfulness metric requires context to verify claims. "
+                        "No context was provided."
+                    ),
+                    "is_successful": False,
+                    "threshold": self.threshold,
+                    "error": "Context is required for Faithfulness metric evaluation",
+                },
+            )
         sample = SingleTurnSample(
             user_input=input,
             response=output,

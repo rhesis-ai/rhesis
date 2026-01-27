@@ -48,7 +48,12 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
     requires_ground_truth = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
-        super().__init__(name="Faithfulness", metric_type=self.metric_type, model=model)
+        super().__init__(
+            name="Faithfulness",
+            metric_type=self.metric_type,
+            model=model,
+            requires_context=True,
+        )
         from deepeval.metrics import FaithfulnessMetric  # type: ignore
 
         self._metric = FaithfulnessMetric(threshold=threshold, model=self._deepeval_model)
@@ -61,6 +66,20 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
         output: str,
         context: Optional[List[str]] = None,
     ) -> MetricResult:
+        # Validate that context is provided
+        if not context or len(context) == 0:
+            return MetricResult(
+                score=0.0,
+                details={
+                    "reason": (
+                        "Faithfulness metric requires context to verify claims. "
+                        "No context was provided."
+                    ),
+                    "is_successful": False,
+                    "threshold": self.threshold,
+                    "error": "Context is required for Faithfulness metric evaluation",
+                },
+            )
         test_case = self._create_test_case(input, output, context=context)
         self._metric.measure(test_case)
         return MetricResult(
@@ -84,6 +103,7 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
             name="Contextual Relevancy",
             metric_type=self.metric_type,
             model=model,
+            requires_context=True,
         )
         from deepeval.metrics import ContextualRelevancyMetric  # type: ignore
 
@@ -96,6 +116,20 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
         input: str,
         context: Optional[List[str]] = None,
     ) -> MetricResult:
+        # Validate that context is provided
+        if not context or len(context) == 0:
+            return MetricResult(
+                score=0.0,
+                details={
+                    "reason": (
+                        "Contextual Relevancy metric requires context to evaluate. "
+                        "No context was provided."
+                    ),
+                    "is_successful": False,
+                    "threshold": self.threshold,
+                    "error": "Context is required for Contextual Relevancy metric evaluation",
+                },
+            )
         test_case = self._create_test_case(input=input, context=context)
         self._metric.measure(test_case)
         return MetricResult(
@@ -119,6 +153,8 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
             name="Contextual Precision",
             metric_type=self.metric_type,
             model=model,
+            requires_context=True,
+            requires_ground_truth=True,
         )
         from deepeval.metrics import ContextualPrecisionMetric  # type: ignore
 
@@ -133,6 +169,20 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
         expected_output: Optional[str] = None,
         context: Optional[List[str]] = None,
     ) -> MetricResult:
+        # Validate that context is provided
+        if not context or len(context) == 0:
+            return MetricResult(
+                score=0.0,
+                details={
+                    "reason": (
+                        "Contextual Precision metric requires context to evaluate. "
+                        "No context was provided."
+                    ),
+                    "is_successful": False,
+                    "threshold": self.threshold,
+                    "error": "Context is required for Contextual Precision metric evaluation",
+                },
+            )
         test_case = self._create_test_case(input, output, expected_output, context)
         self._metric.measure(test_case)
         return MetricResult(
@@ -156,6 +206,8 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
             name="Contextual Recall",
             metric_type=self.metric_type,
             model=model,
+            requires_context=True,
+            requires_ground_truth=True,
         )
         from deepeval.metrics import ContextualRecallMetric  # type: ignore
 
@@ -170,6 +222,20 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
         expected_output: Optional[str] = None,
         context: Optional[List[str]] = None,
     ) -> MetricResult:
+        # Validate that context is provided
+        if not context or len(context) == 0:
+            return MetricResult(
+                score=0.0,
+                details={
+                    "reason": (
+                        "Contextual Recall metric requires context to evaluate. "
+                        "No context was provided."
+                    ),
+                    "is_successful": False,
+                    "threshold": self.threshold,
+                    "error": "Context is required for Contextual Recall metric evaluation",
+                },
+            )
         test_case = self._create_test_case(input, output, expected_output, context)
         self._metric.measure(test_case)
         return MetricResult(
