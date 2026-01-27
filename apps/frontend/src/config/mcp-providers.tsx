@@ -2,7 +2,8 @@ import React from 'react';
 import {
   SiNotion,
   SiGithub,
-  SiAtlassian,
+  SiJira,
+  SiConfluence,
 } from '@icons-pack/react-simple-icons';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 
@@ -19,7 +20,8 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 export const SUPPORTED_MCP_PROVIDERS = [
   'notion',
   'github',
-  'atlassian',
+  'jira',
+  'confluence',
   'custom',
 ];
 
@@ -27,7 +29,8 @@ export const SUPPORTED_MCP_PROVIDERS = [
 export const MCP_PROVIDER_ICONS: Record<string, React.ReactNode> = {
   notion: <SiNotion className="h-8 w-8" />,
   github: <SiGithub className="h-8 w-8" />,
-  atlassian: <SiAtlassian className="h-8 w-8" />,
+  jira: <SiJira className="h-8 w-8" />,
+  confluence: <SiConfluence className="h-8 w-8" />,
   custom: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
 };
 
