@@ -226,6 +226,9 @@ const getDesignTokens = (mode: PaletteMode) => ({
             '& .MuiTypography-root.MuiListItemText-primary': {
               color: '#FFFFFF',
             },
+            '& .MuiTypography-root.MuiTypography-caption': {
+              color: '#FFFFFF',
+            },
           },
           '& .MuiDivider-root': {
             margin: '16px 0',
