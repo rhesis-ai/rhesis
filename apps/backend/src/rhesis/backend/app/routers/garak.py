@@ -301,6 +301,12 @@ async def preview_sync(
 
         return GarakSyncPreviewResponse(**preview)
 
+    except ValueError as e:
+        logger.warning(f"Sync preview validation error: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        )
     except HTTPException:
         raise
     except Exception as e:
