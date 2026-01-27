@@ -277,8 +277,9 @@ class MCPClientFactory:
         Auto-detect transport type from server configuration structure.
 
         Detection rules:
+        - Has explicit 'transport' field → use that value
         - Has 'command' field → stdio
-        - Has 'url' + 'headers' with Authorization → http
+        - Has 'url' + 'headers' with Authorization → http (unless explicitly SSE)
         - Has 'url' only → sse
 
         Args:
@@ -290,6 +291,16 @@ class MCPClientFactory:
         Raises:
             ValueError: If transport type cannot be determined
         """
+        # Check for explicit transport specification first
+        if "transport" in server_config:
+            transport = server_config["transport"].lower()
+            if transport in ("stdio", "http", "sse"):
+                return transport
+            else:
+                raise ValueError(
+                    f"Invalid transport type '{transport}'. Must be one of: stdio, http, sse"
+                )
+
         if "command" in server_config:
             return "stdio"
         elif "url" in server_config:

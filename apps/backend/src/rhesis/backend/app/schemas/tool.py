@@ -26,9 +26,10 @@ class ToolBase(Base):
 class ToolCreate(ToolBase):
     """Schema for creating a new Tool"""
 
-    # Required - JSON dict of credentials, will be encrypted in DB
-    # Examples: {"NOTION_TOKEN": "ntn_abc..."} or
-    credentials: Dict[str, str]
+    # JSON dict of credentials, will be encrypted in DB
+    # Examples: {"NOTION_TOKEN": "ntn_abc..."}
+    # Not needed for some providers (e.g. Atlassian)
+    credentials: Optional[Dict[str, str]] = None
     tool_metadata: Optional[Dict[str, Any]] = (
         None  # Optional - can be empty for provider-based MCP tools
     )

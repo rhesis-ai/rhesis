@@ -1,8 +1,11 @@
 {
   "mcpServers": {
     "atlassianApi": {
-      "url": "https://mcp.atlassian.com/v1/sse",
-      "headers": {}
+      "url": "https://mcp.atlassian.com/v1/mcp",
+      "transport": "sse",
+      "headers": {
+        "Authorization": {{ ("Bearer " + ACCESS_TOKEN) | tojson }}
+      }
     }
   }
 }
