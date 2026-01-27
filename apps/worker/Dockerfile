@@ -40,6 +40,9 @@ ENV UV_NO_MANAGED_PYTHON=1
 # Skip the installation of the dev dependencies
 ENV UV_NO_DEV=1
 
+# Use copy mode since Docker's overlay fs doesn't support hardlinks
+ENV UV_LINK_MODE=copy
+
 # Copy the SDK, Penelope, and backend directories
 COPY sdk /app/sdk/
 COPY penelope /app/penelope/
