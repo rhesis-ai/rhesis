@@ -27,3 +27,8 @@ Just add the code and do not check the linter. Do not comment it in the chat.
 ```bash
 docker compose --env-file <project_root>/.env.docker up -d postgres
 ```
+
+
+# Github CLI
+
+1. Use Github CLI whenever possible. If the link from github is pasted in the chat, use Github CLI to open it.
