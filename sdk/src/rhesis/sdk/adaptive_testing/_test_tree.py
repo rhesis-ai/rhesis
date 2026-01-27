@@ -9,6 +9,7 @@ import pandas as pd
 
 from rhesis.sdk import adaptive_testing
 from rhesis.sdk.entities import Prompt, Test, TestSet
+from rhesis.sdk.models import BaseEmbedder
 
 from ._prompt_builder import PromptBuilder
 from ._test_tree_browser import TestTreeBrowser, is_subtopic
@@ -489,7 +490,7 @@ class TestTree:
         generator: Optional[Any] = None,
         endpoint: Optional[Callable[[List[str]], List[str]]] = None,
         metrics: Optional[Callable[[List[str], List[str]], List[float]]] = None,
-        embedder: Optional[Any] = None,
+        embedder: Optional[BaseEmbedder] = None,
         auto_save: bool = False,
         user: str = "anonymous",
         recompute_scores: bool = False,
@@ -516,12 +517,10 @@ class TestTree:
             The Rhesis scorer/metrics function that takes (inputs, outputs) and returns a list of
             scores. Scores should be between 0 and 1, where higher values indicate failures.
 
-        embedder : Embedder
-            The text embedding model to use for similarity-based suggestions. Must implement:
-            - `name` property: str - unique identifier for caching
-            - `__call__(strings: List[str]) -> np.ndarray` - returns 2D array of shape
-              (len(strings), embedding_dim)
-            If not provided, uses OpenAITextEmbedding with text-embedding-3-small (768 dims).
+        embedder : BaseEmbedder
+            The text embedding model to use for similarity-based suggestions. Should be an
+            instance of `rhesis.sdk.models.BaseEmbedder` (e.g., from `get_embedder()`).
+            If not provided, defaults to OpenAI text-embedding-3-small (768 dimensions).
 
         auto_save : bool
             Whether to automatically save the test tree after each edit.

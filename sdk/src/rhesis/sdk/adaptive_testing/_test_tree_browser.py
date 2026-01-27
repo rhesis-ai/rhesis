@@ -96,11 +96,13 @@ class TestTreeBrowser:
         score_filter,
     ):
         """Initialize the TestTreeBrowser."""
-        from .embedders import OpenAITextEmbedding
+        from rhesis.sdk.models import BaseEmbedder, get_embedder
+
+        from .embedders import EmbedderAdapter
 
         self.test_tree = test_tree
-        self.endpoint = endpoint if endpoint is not None else llm_endpoint
-        self.metrics = metrics if metrics is not None else rhesis_scorer
+        self.endpoint = endpoint
+        self.metrics = metrics
         self.generator = generator
         self.user = user
         self.auto_save = auto_save
@@ -113,11 +115,19 @@ class TestTreeBrowser:
         self.score_filter = score_filter
         self.filter_text = ""
 
-        # Set up embedder (default to OpenAI text-embedding-3-small)
+        # Set up embedder - wrap BaseEmbedder in adapter for caching compatibility
         if embedder is not None:
-            self.embedder = embedder
+            if isinstance(embedder, BaseEmbedder):
+                self.embedder = EmbedderAdapter(embedder)
+            else:
+                # Already an adapter or compatible object
+                self.embedder = embedder
         else:
-            self.embedder = OpenAITextEmbedding(model="text-embedding-3-small", dimensions=768)
+            # Default to OpenAI text-embedding-3-small
+            default_embedder = get_embedder(
+                provider="openai", model_name="text-embedding-3-small", dimensions=768
+            )
+            self.embedder = EmbedderAdapter(default_embedder)
 
         # Cast TestTree to TestTreeSource if needed
         if isinstance(self.generator, adaptive_testing._test_tree.TestTree):
