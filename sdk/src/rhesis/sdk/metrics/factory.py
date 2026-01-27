@@ -41,8 +41,10 @@ class MetricFactory:
         """Create a metric instance from the specified framework using class name.
 
         Args:
-            framework: The evaluation framework to use ('deepeval', 'ragas', 'rhesis', 'custom')
-            class_name: Class name of the metric to instantiate (e.g., 'DeepEvalContextualRecall')
+            framework: The evaluation framework to use
+                ('deepeval', 'ragas', 'rhesis', 'custom', 'garak')
+            class_name: Class name of the metric to instantiate
+                (e.g., 'DeepEvalContextualRecall')
             **kwargs: Additional parameters to pass to the metric constructor
 
         Returns:
@@ -69,11 +71,17 @@ class MetricFactory:
 
             return RhesisMetricFactory()
 
+        def get_garak_factory():
+            from rhesis.sdk.metrics.providers.garak import GarakMetricFactory
+
+            return GarakMetricFactory()
+
         factories = {
             "deepeval": get_deepeval_factory(),
             "ragas": get_ragas_factory(),
             "rhesis": get_rhesis_factory(),
             "custom": get_rhesis_factory(),
+            "garak": get_garak_factory(),
         }
 
         if framework not in factories:
@@ -87,7 +95,7 @@ class MetricFactory:
     @staticmethod
     def list_supported_frameworks() -> List[str]:
         """List all supported evaluation frameworks."""
-        return ["deepeval", "ragas", "rhesis", "custom"]
+        return ["deepeval", "ragas", "rhesis", "custom", "garak"]
 
     @staticmethod
     def list_supported_metrics_for_framework(framework: str) -> List[str]:
@@ -111,4 +119,8 @@ class MetricFactory:
             from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
 
             return RhesisMetricFactory().list_supported_metrics()
+        elif framework == "garak":
+            from rhesis.sdk.metrics.providers.garak import GarakMetricFactory
+
+            return GarakMetricFactory().list_supported_metrics()
         raise ValueError(f"Unsupported framework: {framework}")

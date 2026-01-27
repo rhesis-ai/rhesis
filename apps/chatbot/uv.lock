@@ -4355,6 +4355,7 @@ requires-dist = [
     { name = "bitsandbytes", marker = "extra == 'huggingface'", specifier = ">=0.45.0" },
     { name = "deepeval", specifier = "==3.7.0" },
     { name = "deepteam", specifier = ">=0.2.5" },
+    { name = "garak", marker = "extra == 'garak'", specifier = ">=0.9.0" },
     { name = "ipykernel", specifier = ">=7.1.0" },
     { name = "ipython", specifier = ">=8.37.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
@@ -4394,7 +4395,7 @@ requires-dist = [
     { name = "transformers", marker = "extra == 'huggingface'", specifier = "==4.57.1" },
     { name = "websockets", specifier = ">=12.0" },
 ]
-provides-extras = ["huggingface", "langchain", "langgraph", "autogen", "all-integrations", "all"]
+provides-extras = ["huggingface", "garak", "langchain", "langgraph", "autogen", "all-integrations", "all"]
 
 [package.metadata.requires-dev]
 dev = [

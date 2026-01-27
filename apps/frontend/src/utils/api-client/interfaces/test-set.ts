@@ -63,6 +63,29 @@ export interface TestSetType {
   organization_id?: UUID | null;
 }
 
+/**
+ * Metric reference for test sets - lightweight representation of associated metrics
+ */
+export interface TestSetMetric {
+  id: UUID;
+  name: string;
+  description?: string;
+  score_type?: 'numeric' | 'categorical';
+  threshold?: number;
+  threshold_operator?: string;
+  class_name?: string;
+  backend_type?: {
+    id: UUID;
+    type_name: string;
+    type_value: string;
+  };
+  metric_type?: {
+    id: UUID;
+    type_name: string;
+    type_value: string;
+  };
+}
+
 export interface TestSet {
   id: UUID;
   name: string;
@@ -92,6 +115,11 @@ export interface TestSet {
     behaviors?: string[];
     use_cases?: string[];
     categories?: string[];
+    // Garak-specific attributes
+    source?: string;
+    garak_version?: string;
+    garak_modules?: string[];
+    last_synced_at?: string;
   };
   user_id?: UUID;
   user?: User;

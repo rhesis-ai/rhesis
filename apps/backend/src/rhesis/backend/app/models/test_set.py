@@ -9,6 +9,16 @@ from .base import Base
 from .mixins import ActivityTrackableMixin, CommentsMixin, CountsMixin, TagsMixin, TasksMixin
 from .test import test_test_set_association
 
+# Association table for test_set and metric
+test_set_metric_association = Table(
+    "test_set_metric",
+    Base.metadata,
+    Column("test_set_id", GUID(), ForeignKey("test_set.id"), primary_key=True),
+    Column("metric_id", GUID(), ForeignKey("metric.id"), primary_key=True),
+    Column("user_id", GUID(), ForeignKey("user.id"), nullable=False),
+    Column("organization_id", GUID(), ForeignKey("organization.id"), nullable=False),
+)
+
 """
 The TestSet model represents a collection of prompts that are used to test the performance 
 of a model.
@@ -82,6 +92,11 @@ class TestSet(Base, ActivityTrackableMixin, TagsMixin, CommentsMixin, TasksMixin
 
     tests = relationship(
         "Test", secondary=test_test_set_association, back_populates="test_sets", viewonly=True
+    )
+
+    # Metrics relationship - test set metrics override behavior metrics when present
+    metrics = relationship(
+        "Metric", secondary=test_set_metric_association, back_populates="test_sets"
     )
 
     # Comment relationship (polymorphic)

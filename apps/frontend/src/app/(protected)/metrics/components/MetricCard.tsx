@@ -14,6 +14,7 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import NumbersIcon from '@mui/icons-material/Numbers';
 import CategoryIcon from '@mui/icons-material/Category';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
+import BugReportIcon from '@mui/icons-material/BugReport';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
 
 // Custom Rhesis AI icon component using inline SVG
@@ -61,6 +62,8 @@ const getBackendIcon = (backend: string) => {
       return <HandymanIcon fontSize="small" />;
     case 'ragas':
       return <HandymanIcon fontSize="small" />;
+    case 'garak':
+      return <BugReportIcon fontSize="small" />;
     case 'rhesis ai':
     case 'rhesis':
       return <RhesisAIIcon fontSize="small" />;

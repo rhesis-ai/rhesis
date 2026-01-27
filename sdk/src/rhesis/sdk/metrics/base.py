@@ -35,6 +35,7 @@ class Backend(str, Enum):
     DEEPEVAL = "deepeval"
     RAGAS = "ragas"
     CUSTOM = "custom"
+    GARAK = "garak"
 
 
 class ScoreType(str, Enum):
