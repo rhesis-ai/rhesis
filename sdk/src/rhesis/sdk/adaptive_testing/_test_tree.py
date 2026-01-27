@@ -230,10 +230,6 @@ class TestTree:
         return self._tests.shape
 
     @property
-    def str(self):
-        return self._tests.str
-
-    @property
     def iterrows(self):
         return self._tests.iterrows
 
