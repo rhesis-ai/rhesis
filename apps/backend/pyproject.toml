@@ -53,6 +53,7 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http>=1.32.1",
     "opentelemetry-instrumentation-fastapi>=0.45b0",
     "garak>=0.9.0",
+    "torch",  # Explicit dep to force CPU-only via [tool.uv.sources]
 ]
 
 [dependency-groups]
@@ -71,13 +72,16 @@ dev = [
     "factory-boy>=3.3.0",
 ]
 
-[tool.uv.sources.rhesis-sdk]
-path = "../../sdk"
-editable = true
+# Use CPU-only PyTorch to reduce image size (~200MB instead of ~3GB)
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
-[tool.uv.sources.rhesis-penelope]
-path = "../../penelope"
-editable = true
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+rhesis-sdk = { path = "../../sdk", editable = true }
+rhesis-penelope = { path = "../../penelope", editable = true }
 
 [tool.hatch.build.targets.wheel]
 packages = [
