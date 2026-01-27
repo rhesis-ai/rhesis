@@ -11,12 +11,15 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
 
     metric_type = MetricType.RAG
     requires_ground_truth = False
+    requires_context = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Answer Relevancy",
             metric_type=self.metric_type,
             model=model,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
         )
         from deepeval.metrics import AnswerRelevancyMetric  # type: ignore
 
@@ -46,13 +49,15 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
 
     metric_type = MetricType.RAG
     requires_ground_truth = False
+    requires_context = True
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Faithfulness",
             metric_type=self.metric_type,
             model=model,
-            requires_context=True,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
         )
         from deepeval.metrics import FaithfulnessMetric  # type: ignore
 
@@ -97,13 +102,15 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
 
     metric_type = MetricType.RAG
     requires_ground_truth = False
+    requires_context = True
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Contextual Relevancy",
             metric_type=self.metric_type,
             model=model,
-            requires_context=True,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
         )
         from deepeval.metrics import ContextualRelevancyMetric  # type: ignore
 
@@ -147,14 +154,15 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
 
     metric_type = MetricType.RAG
     requires_ground_truth = True
+    requires_context = True
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Contextual Precision",
             metric_type=self.metric_type,
             model=model,
-            requires_context=True,
-            requires_ground_truth=True,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
         )
         from deepeval.metrics import ContextualPrecisionMetric  # type: ignore
 
@@ -200,14 +208,15 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
 
     metric_type = MetricType.RAG
     requires_ground_truth = True
+    requires_context = True
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Contextual Recall",
             metric_type=self.metric_type,
             model=model,
-            requires_context=True,
-            requires_ground_truth=True,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
         )
         from deepeval.metrics import ContextualRecallMetric  # type: ignore
 
@@ -253,12 +262,15 @@ class DeepEvalBias(DeepEvalMetricBase):
 
     metric_type = MetricType.CLASSIFICATION
     requires_ground_truth = False
+    requires_context = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Bias",
             metric_type=self.metric_type,
             model=model,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
         )
         from deepeval.metrics import BiasMetric  # type: ignore
 
@@ -288,12 +300,15 @@ class DeepEvalToxicity(DeepEvalMetricBase):
 
     metric_type = MetricType.CLASSIFICATION
     requires_ground_truth = False
+    requires_context = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="Toxicity",
             metric_type=self.metric_type,
             model=model,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
         )
         from deepeval.metrics import ToxicityMetric  # type: ignore
 
@@ -323,6 +338,7 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
 
     metric_type = MetricType.CLASSIFICATION
     requires_ground_truth = False
+    requires_context = False
 
     def __init__(
         self,
@@ -334,6 +350,8 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
             name="Non-Advice",
             metric_type=self.metric_type,
             model=model,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
         )
         from deepeval.metrics import NonAdviceMetric  # type: ignore
 
@@ -368,6 +386,7 @@ class DeepEvalMisuse(DeepEvalMetricBase):
 
     metric_type = MetricType.CLASSIFICATION
     requires_ground_truth = False
+    requires_context = False
 
     def __init__(
         self,
@@ -379,6 +398,8 @@ class DeepEvalMisuse(DeepEvalMetricBase):
             name="Misuse",
             metric_type=self.metric_type,
             model=model,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
         )
         from deepeval.metrics import MisuseMetric  # type: ignore
 
@@ -408,12 +429,15 @@ class DeepEvalPIILeakage(DeepEvalMetricBase):
 
     metric_type = MetricType.CLASSIFICATION
     requires_ground_truth = False
+    requires_context = False
 
     def __init__(self, threshold: float = 0.5, model: Optional[Union[BaseLLM, str]] = None):
         super().__init__(
             name="PII Leakage",
             metric_type=self.metric_type,
             model=model,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
         )
         from deepeval.metrics import PIILeakageMetric  # type: ignore
 
@@ -443,6 +467,7 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
 
     metric_type = MetricType.CLASSIFICATION
     requires_ground_truth = False
+    requires_context = False
 
     def __init__(
         self,
@@ -454,6 +479,8 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
             name="Role Violation",
             metric_type=self.metric_type,
             model=model,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
         )
         from deepeval.metrics import RoleViolationMetric  # type: ignore
 
@@ -488,13 +515,20 @@ class DeepTeamIllegal(DeepEvalMetricBase):
 
     metric_type = MetricType.CLASSIFICATION
     requires_ground_truth = False
+    requires_context = False
 
     def __init__(
         self,
         illegal_category: Optional[str] = None,
         model: Optional[Union[BaseLLM, str]] = None,
     ):
-        super().__init__(name="Illegal", metric_type=self.metric_type, model=model)
+        super().__init__(
+            name="Illegal",
+            metric_type=self.metric_type,
+            model=model,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
+        )
         from deepteam.metrics import IllegalMetric  # type: ignore
 
         # Use a sensible default if no category is provided
@@ -524,13 +558,20 @@ class DeepTeamSafety(DeepEvalMetricBase):
 
     metric_type = MetricType.CLASSIFICATION
     requires_ground_truth = False
+    requires_context = False
 
     def __init__(
         self,
         safety_category: Optional[str] = None,
         model: Optional[Union[BaseLLM, str]] = None,
     ):
-        super().__init__(name="Safety", metric_type=self.metric_type, model=model)
+        super().__init__(
+            name="Safety",
+            metric_type=self.metric_type,
+            model=model,
+            requires_context=self.requires_context,
+            requires_ground_truth=self.requires_ground_truth,
+        )
         from deepteam.metrics import SafetyMetric  # type: ignore
 
         # Use a sensible default if no category is provided
