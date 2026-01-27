@@ -519,8 +519,13 @@
         },
         {
             "type_name": "ToolProviderType",
-            "type_value": "atlassian",
-            "description": "Atlassian integration for Jira and Confluence"
+            "type_value": "jira",
+            "description": "Jira integration"
+        },
+        {
+            "type_name": "ToolProviderType",
+            "type_value": "confluence",
+            "description": "Confluence integration"
         },
         {
             "type_name": "ToolProviderType",
