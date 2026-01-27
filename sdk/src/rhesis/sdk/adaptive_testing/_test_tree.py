@@ -516,10 +516,12 @@ class TestTree:
             The Rhesis scorer/metrics function that takes (inputs, outputs) and returns a list of
             scores. Scores should be between 0 and 1, where higher values indicate failures.
 
-        embedder : object
-            The text embedding model to use for similarity-based suggestions. Should have a
-            __call__ method that takes a list of strings and returns embeddings. If not provided,
-            uses OpenAITextEmbedding with text-embedding-3-small (768 dimensions).
+        embedder : Embedder
+            The text embedding model to use for similarity-based suggestions. Must implement:
+            - `name` property: str - unique identifier for caching
+            - `__call__(strings: List[str]) -> np.ndarray` - returns 2D array of shape
+              (len(strings), embedding_dim)
+            If not provided, uses OpenAITextEmbedding with text-embedding-3-small (768 dims).
 
         auto_save : bool
             Whether to automatically save the test tree after each edit.
