@@ -271,6 +271,7 @@ export const metadata: Metadata = {
 const BRANDING: BrandingProps = {
   title: '',
   logo: <ThemeAwareLogo />,
+  homeUrl: '/dashboard',
 };
 
 const AUTHENTICATION: AuthenticationProps = {
