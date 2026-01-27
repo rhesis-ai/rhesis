@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "confluenceApi": {
+      "command": "mcp-atlassian",
+      "args": [],
+      "transport": "stdio",
+      "env": {
+        "CONFLUENCE_URL": {{ CONFLUENCE_URL | tojson }},
+        "CONFLUENCE_USERNAME": {{ CONFLUENCE_USERNAME | tojson }},
+        "CONFLUENCE_API_TOKEN": {{ CONFLUENCE_API_TOKEN | tojson }}
+      }
+    }
+  }
+}
