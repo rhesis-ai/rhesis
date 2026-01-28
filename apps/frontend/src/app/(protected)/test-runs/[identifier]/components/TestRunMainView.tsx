@@ -10,6 +10,7 @@ import TestsTableView from './TestsTableView';
 import ComparisonView from './ComparisonView';
 import TestRunHeader from './TestRunHeader';
 import TestRunTags from './TestRunTags';
+import RerunTestRunDrawer from './RerunTestRunDrawer';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -59,7 +60,7 @@ export default function TestRunMainView({
   const router = useRouter();
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isRerunning, setIsRerunning] = useState(false);
+  const [isRerunDrawerOpen, setIsRerunDrawerOpen] = useState(false);
   const [isComparisonMode, setIsComparisonMode] = useState(false);
   const [viewMode, setViewMode] = useState<'split' | 'table'>('split');
   const [page, setPage] = useState(0);
@@ -292,8 +293,8 @@ export default function TestRunMainView({
     }
   }, [testRunId, sessionToken, notifications]);
 
-  // Handle re-run button click
-  const handleRerun = useCallback(async () => {
+  // Handle re-run button click - opens the rerun drawer
+  const handleRerun = useCallback(() => {
     if (!testRun.test_configuration_id) {
       notifications.show('Cannot re-run: No test configuration found', {
         severity: 'error',
@@ -301,34 +302,29 @@ export default function TestRunMainView({
       return;
     }
 
-    try {
-      setIsRerunning(true);
-      const apiFactory = new ApiClientFactory(sessionToken);
-      const testConfigurationsClient = apiFactory.getTestConfigurationsClient();
+    // Check if we have the required data for re-run
+    const testSet = testRun.test_configuration?.test_set;
+    const endpoint = testRun.test_configuration?.endpoint;
 
-      // Execute the test configuration (creates a new test run)
-      await testConfigurationsClient.executeTestConfiguration(
-        testRun.test_configuration_id
-      );
-
-      notifications.show(
-        'Test run started successfully. Redirecting to test runs page...',
-        {
-          severity: 'success',
-        }
-      );
-
-      // Navigate to the test runs page to see the new test run
-      // The test run is created asynchronously, so we can't navigate directly to it
-      router.push('/test-runs');
-    } catch (error) {
-      notifications.show('Failed to start test run', {
+    if (!testSet?.id || !endpoint?.id) {
+      notifications.show('Cannot re-run: Missing test set or endpoint data', {
         severity: 'error',
       });
-    } finally {
-      setIsRerunning(false);
+      return;
     }
-  }, [testRun.test_configuration_id, sessionToken, notifications, router]);
+
+    setIsRerunDrawerOpen(true);
+  }, [
+    testRun.test_configuration_id,
+    testRun.test_configuration,
+    notifications,
+  ]);
+
+  // Handle rerun drawer success
+  const handleRerunSuccess = useCallback(() => {
+    // Navigate to the test runs page to see the new test run
+    router.push('/test-runs');
+  }, [router]);
 
   // Fetch available test runs for comparison (lazy-loaded when compare is clicked)
   const fetchTestRuns = useCallback(async () => {
@@ -518,7 +514,7 @@ export default function TestRunMainView({
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onRerun={handleRerun}
-            isRerunning={isRerunning}
+            isRerunning={isRerunDrawerOpen}
             canRerun={!!testRun.test_configuration_id}
           />
 
@@ -655,6 +651,25 @@ export default function TestRunMainView({
           projectName={testRun.test_configuration?.endpoint?.project?.name}
         />
       )}
+
+      {/* Re-run Test Run Drawer */}
+      <RerunTestRunDrawer
+        open={isRerunDrawerOpen}
+        onClose={() => setIsRerunDrawerOpen(false)}
+        rerunConfig={{
+          testSetId: testRun.test_configuration?.test_set?.id || '',
+          testSetName: testRun.test_configuration?.test_set?.name || 'Unknown',
+          testSetType:
+            testRun.test_configuration?.test_set?.test_set_type?.type_value,
+          endpointId: testRun.test_configuration?.endpoint?.id || '',
+          endpointName: testRun.test_configuration?.endpoint?.name || 'Unknown',
+          projectName:
+            testRun.test_configuration?.endpoint?.project?.name || 'Unknown',
+          originalAttributes: testRun.test_configuration?.attributes,
+        }}
+        sessionToken={sessionToken}
+        onSuccess={handleRerunSuccess}
+      />
     </Box>
   );
 }

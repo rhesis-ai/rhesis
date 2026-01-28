@@ -39,7 +39,6 @@ import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import ReplayIcon from '@mui/icons-material/Replay';
-import CircularProgress from '@mui/material/CircularProgress';
 
 export interface FilterState {
   searchQuery: string;
@@ -363,17 +362,11 @@ export default function TestRunFilterBar({
             size="small"
             variant="contained"
             color="primary"
-            startIcon={
-              isRerunning ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <ReplayIcon />
-              )
-            }
+            startIcon={<ReplayIcon />}
             onClick={onRerun}
             disabled={isRerunning || !canRerun}
           >
-            {isRerunning ? 'Re-running...' : 'Re-run'}
+            Re-run
           </Button>
         )}
       </Box>
