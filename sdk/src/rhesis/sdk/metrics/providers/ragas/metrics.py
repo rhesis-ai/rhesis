@@ -40,7 +40,6 @@ class RagasContextRelevance(RagasMetricBase):
                     ),
                     "is_successful": False,
                     "threshold": self.threshold,
-                    "error": "Context is required for Context Relevance metric evaluation",
                 },
             )
         sample = SingleTurnSample(
@@ -133,12 +132,10 @@ class RagasFaithfulness(RagasMetricBase):
                 score=0.0,
                 details={
                     "reason": (
-                        "Faithfulness metric requires context to verify claims. "
-                        "No context was provided."
+                        "Faithfulness metric requires context to evaluate. No context was provided."
                     ),
                     "is_successful": False,
                     "threshold": self.threshold,
-                    "error": "Context is required for Faithfulness metric evaluation",
                 },
             )
         sample = SingleTurnSample(
