@@ -1,3 +1,5 @@
+# ruff: noqa: E501
+# This file has example strings in templatize() that are intentionally formatted
 import copy
 import itertools
 import json
@@ -161,8 +163,10 @@ class TestTreeBrowser:
         # define our current mode, and set of supported modes
         self.mode = "tests" if self.test_tree.shape[0] > 0 else "topics"
         self.mode_options = [
-            # "validity focused", # focus first on making valid in-topic tests, then secondarily on making those tests high scoring
-            # "failure focused", # focus on making high scoring (failing) tests, then secondarily on making those tests valid and in-topic
+            # "validity focused", # focus first on making valid in-topic tests,
+            #   then secondarily on making those tests high scoring
+            # "failure focused", # focus on making high scoring (failing) tests,
+            #   then secondarily on making those tests valid and in-topic
             "tests",  # suggest new tests
             "topics",  # suggest new subtopics
         ]
@@ -228,8 +232,11 @@ class TestTreeBrowser:
   {js_data};
   AdaTestReactDOM.render(
     AdaTestReact.createElement(AdaTest, {{
-      interfaceId: "{self._id}", environment: "{environment}", startingTopic: "{self.current_topic}", prefix: "{prefix}",
-      websocket_server: {"undefined" if websocket_server is None else '"' + websocket_server + '"'},\
+      interfaceId: "{self._id}",
+      environment: "{environment}",
+      startingTopic: "{self.current_topic}",
+      prefix: "{prefix}",
+      websocket_server: {"undefined" if websocket_server is None else '"' + websocket_server + '"'},
     }}, null),
     document.getElementById('adatest_container_{self._id}')
   );
@@ -243,8 +250,9 @@ class TestTreeBrowser:
         Parameters
         ----------
         msg : dict
-            The event messages from the client. Each key in the dictionary is a separate message to either the row
-            specified by the key or to whole browser object if the key is 'browser'.
+            The event messages from the client. Each key in the dictionary is a
+            separate message to either the row specified by the key or to whole
+            browser object if the key is 'browser'.
         """
 
         log.debug(f"interface_event({msg})")
@@ -276,7 +284,10 @@ class TestTreeBrowser:
 
             # # Ensure valid suggestions exist.
             # if self.suggestions.shape[0] > 0:
-            #     self.suggestions.sort_values(self.score_columns[0], inplace=True, ascending=False, key=np.vectorize(score_max))
+            #     self.suggestions.sort_values(
+            #         self.score_columns[0], inplace=True, ascending=False,
+            #         key=np.vectorize(score_max)
+            #     )
             #     self._suggestions_error = ""
             # else:
             #     self._suggestions_error = True # Not sure if we should do this?
@@ -291,7 +302,8 @@ class TestTreeBrowser:
             self.current_topic = msg["topic"]
             # self.suggestions = pd.DataFrame([], columns=self.test_tree.columns)
 
-            # see if we have only topics are direct children, if so, we suggest topics, otherwise we suggest tests
+            # see if we have only topics as direct children, if so,
+            # we suggest topics, otherwise we suggest tests
             has_direct_tests = self.test_tree.topic_has_direct_tests(self.current_topic)
             has_known_subtopics = self.test_tree.topic_has_subtopics(self.current_topic)
             if not has_direct_tests and has_known_subtopics:
@@ -325,7 +337,8 @@ class TestTreeBrowser:
             # add the new test row
             row = {
                 "topic": self.current_topic,
-                "input": "New test",  # The special value "New test" causes the interface to auto-select the text
+                # The special value "New test" causes the interface to auto-select
+                "input": "New test",
                 "output": "",
                 "label": "",
                 "labeler": "imputed",
@@ -425,8 +438,12 @@ class TestTreeBrowser:
                 )
             elif event_id == "change_label":
                 # sign = -1 if msg["label"] == "pass" else 1
-                # self.test_tree.loc[test_id, self.score_columns] = abs(float(self.test_tree.loc[test_id, self.score_columns])) * sign
-                pass  # SML: we could recompute the scores here but then that would change the output of stochastic output models
+                # self.test_tree.loc[test_id, self.score_columns] = (
+                #     abs(float(self.test_tree.loc[test_id, self.score_columns])) * sign
+                # )
+                # SML: we could recompute the scores here but then that would change
+                # the output of stochastic output models
+                pass
                 # self._compute_embeddings_and_scores(self.test_tree, overwrite_outputs=False)
 
             # send just the data that changed back to the frontend
@@ -449,9 +466,9 @@ class TestTreeBrowser:
                 for c in self.score_columns
             }
             sendback_data["raw_outputs"] = outputs
-            if (
-                "output" not in msg
-            ):  # if the output was given to us the client is managing its current state so we shouldn't send it back
+            # if the output was given to us the client is managing its current state
+            # so we shouldn't send it back
+            if "output" not in msg:
                 sendback_data["output"] = self.test_tree.loc[test_id, "output"]
             sendback_data["label"] = self.test_tree.loc[test_id, "label"]
             sendback_data["labeler"] = self.test_tree.loc[test_id, "labeler"]
@@ -570,7 +587,8 @@ class TestTreeBrowser:
             data, self.test_tree, self.current_topic + "/__suggestions__"
         )
 
-        # TODO: This is a complete hack to hide lower scoring suggestions when we are likely already in the exploit phase
+        # TODO: This is a complete hack to hide lower scoring suggestions when we are
+        # likely already in the exploit phase
         # this is just for users who don't know when to stop scrolling down...
         # SML: I expect we can delete this at some point?
         if self.score_filter == "auto":
@@ -655,8 +673,10 @@ class TestTreeBrowser:
             else:
                 test_map[test.topic + " __JOIN__ " + test.input] = True
 
-        # validity focused (focus first on making valid in-topic tests, then secondarily on making those tests high scoring)
-        # failure focused (focus on making high scoring (failing) tests, then secondarily on making those tests valid and in-topic)
+        # validity focused (focus first on making valid in-topic tests,
+        #   then secondarily on making those tests high scoring)
+        # failure focused (focus on making high scoring (failing) tests,
+        #   then secondarily on making those tests valid and in-topic)
         # topics (suggest new sub-topics)
         # file_name dataset (suggest tests based on samples from the provided dataset)
 
@@ -731,7 +751,8 @@ class TestTreeBrowser:
                     self.test_tree.loc[id, "to_eval"] = True
 
                     # s = {
-                    #     "topic": self.current_topic + "/__suggestions__" + ("/"+input if self.mode == "topics" else ""),
+                    #     "topic": self.current_topic + "/__suggestions__"
+                    #         + ("/" + input if self.mode == "topics" else ""),
                     #     "input": "" if self.mode == "topics" else input,
                     #     "output": "",
                     #     "label": "",
@@ -744,7 +765,10 @@ class TestTreeBrowser:
                     if str_val is not None:
                         test_map_tmp[str_val] = True
 
-            # suggestions = pd.DataFrame(suggestions, index=[uuid.uuid4().hex for _ in range(len(suggestions))], columns=self.test_tree.columns)
+            # suggestions = pd.DataFrame(
+            #     suggestions, index=[uuid.uuid4().hex for _ in range(len(suggestions))],
+            #     columns=self.test_tree.columns
+            # )
             # make sure any duplicates we may have introduced are removed
             self.test_tree.deduplicate()
 
@@ -768,7 +792,8 @@ class TestTreeBrowser:
         self, tests, recompute=False, overwrite_outputs=False, save_outputs=False
     ):
         log.debug(
-            f"compute_embeddings_and_scores(tests=<DataFrame shape={tests.shape}>, recompute={recompute})"
+            f"compute_embeddings_and_scores(tests=<DataFrame shape={tests.shape}>, "
+            f"recompute={recompute})"
         )
 
         # Ensure to_eval column exists
@@ -836,7 +861,9 @@ class TestTreeBrowser:
         #     max_score_ind = np.argmax([float(v) for v in test[self.score_columns[0]].split("|")])
 
         # if test.type == "{} should not be completed to become {}":
-        #     value1_outputs = safe_json_load(test.get(self.score_columns[0][:-6] + " value1 outputs", "{}")).get("string", [""])
+        #     value1_outputs = safe_json_load(
+        #         test.get(self.score_columns[0][:-6] + " value1 outputs", "{}")
+        #     ).get("string", [""])
         #     if not isinstance(value1_outputs, list):
         #         value1_outputs = [value1_outputs]
         #     if len(value1_outputs) == 1:
@@ -844,11 +871,13 @@ class TestTreeBrowser:
         #     else:
         #         value1_outputs_str = "{" + "|".join(value1_outputs) + "}"
 
-        #     # hispanic / 95f08d610df74679afc1217f03b9c1b3.template[0] "this is a test of[]" should not be completed to become "toxic"
+        #     # hispanic / 95f08d610df74679afc1217f03b9c1b3.template[0]
+        #     # "this is a test of[]" should not be completed to become "toxic"
         #     # {}
 
         #     out = []
-        #     for i,option in enumerate(expand_template(test.value1 + "|||" + value1_outputs_str + "|||" + test.value2, keep_braces=False)):
+        #     expansion_str = test.value1 + "|||" + value1_outputs_str + "|||" + test.value2
+        #     for i, option in enumerate(expand_template(expansion_str, keep_braces=False)):
         #         value1_disp,d_text1b,value2_disp = option.split("|||")
         #         out.append({
         #             "d_text1a": '"',
@@ -950,7 +979,8 @@ def score_max(s, nan_val=-1e3):
 def ui_score_parts(s, label):
     """Split a score into its parts and encode the label into the sign.
 
-    Note this encoding is just used for passing scores to the UI (scores are not signed in the TestTree).
+    Note this encoding is just used for passing scores to the UI
+    (scores are not signed in the TestTree).
     """
     offset = 0
     if label == "pass":

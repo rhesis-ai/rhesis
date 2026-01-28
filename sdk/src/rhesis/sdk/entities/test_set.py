@@ -524,9 +524,7 @@ class TestSet(BaseEntity):
         if self.tests:
             for i, test in enumerate(self.tests):
                 missing_test_fields = [
-                    field
-                    for field in Test._push_required_fields
-                    if not getattr(test, field, None)
+                    field for field in Test._push_required_fields if not getattr(test, field, None)
                 ]
                 if missing_test_fields:
                     raise ValueError(

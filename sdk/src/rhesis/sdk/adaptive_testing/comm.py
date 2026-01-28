@@ -38,5 +38,6 @@ class JupyterComm:
                 )  # we encode the JSON so iPython doesn't mess it up
                 return
         raise Exception(
-            "The Jupyter comm channel was never opened from the other side, so no message can be sent!"
+            "The Jupyter comm channel was never opened from the other side, "
+            "so no message can be sent!"
         )

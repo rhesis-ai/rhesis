@@ -207,7 +207,8 @@ class TestTreeSource(Generator):
         max_length=100,
     ):
         if len(prompts) == 0:
-            # Randomly return instances without any prompts to go off of. TODO: Consider better alternatives like max-failure?
+            # Randomly return instances without any prompts to go off of.
+            # TODO: Consider better alternatives like max-failure?
             return self.source.iloc[
                 np.random.choice(
                     self.source.shape[0], size=min(50, self.source.shape[0]), replace=False
@@ -216,7 +217,8 @@ class TestTreeSource(Generator):
 
         prompts, prompt_ids = self._validate_prompts(prompts)
 
-        # TODO: Currently only returns valid subtopics. Update to include similar topics based on embedding distance?
+        # TODO: Currently only returns valid subtopics. Update to include similar
+        # topics based on embedding distance?
         if mode == "topics":
             proposals = []
             for id, test in self.source.iterrows():
@@ -230,8 +232,10 @@ class TestTreeSource(Generator):
             return proposals
 
         # Find tests closest to the proposals in the embedding space
-        # TODO: Hallicunate extra samples if len(prompts) is insufficient for good embedding calculations.
-        # TODO: Handle case when suggestion_threads>1 better than just selecting the first set of prompts as we do here
+        # TODO: Hallucinate extra samples if len(prompts) is insufficient for
+        # good embedding calculations.
+        # TODO: Handle case when suggestion_threads>1 better than just selecting
+        # the first set of prompts as we do here
         topic_embeddings = np.vstack(
             [adaptive_testing._embedding_cache[input] for topic, input in prompts[0]]
         )

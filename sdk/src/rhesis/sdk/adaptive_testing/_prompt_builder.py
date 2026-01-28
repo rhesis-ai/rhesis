@@ -39,12 +39,13 @@ class PromptBuilder:
             The proportion of times we skip over top ranking tests when building the prompt.
 
         prompt_diversity : bool
-            Whether to include a diversity term when selecting tests for the prompt. This diversity term is based
-            on the embeddings of each test.
+            Whether to include a diversity term when selecting tests for the prompt.
+            This diversity term is based on the embeddings of each test.
 
         subtopic_diversity : bool
-            If true, we will try and pick tests from a diverse set of subtopics of the current topic (if we are
-            using subtopic tests and not direct child tests).
+            If true, we will try and pick tests from a diverse set of subtopics
+            of the current topic (if we are using subtopic tests and not direct
+            child tests).
         """
 
         assert skip_randomization < 0.99, (
@@ -53,7 +54,8 @@ class PromptBuilder:
 
         self.prompt_size = prompt_size
         self.slot_randomization = slot_randomization
-        self.score_randomization = score_randomization  # TODO: make this scale according to the stddev of the top 7 entries?
+        # TODO: make this scale according to the stddev of the top 7 entries?
+        self.score_randomization = score_randomization
         self.skip_randomization = skip_randomization
         self.prompt_diversity = prompt_diversity
         self.subtopic_diversity = subtopic_diversity
@@ -84,7 +86,8 @@ class PromptBuilder:
             The column to use for scoring the tests.
 
         repetitions : int
-            The number of times to repeat the prompt generation process. This is how many prompots we will return.
+            The number of times to repeat the prompt generation process.
+            This is how many prompts we will return.
 
         filter : str
             A filter to apply to the test set before selecting tests to build the prompt.
@@ -93,12 +96,14 @@ class PromptBuilder:
             If true, we will create a prompt filled with topic names instead of a list of tests.
 
         working_set_size : int
-            How many top tests to consider when doing the full iterative scoring process. Larger values may take longer.
-            Note that this has no effect as long as we never go more than working_set_size tests deep during the prompt
-            item selection process.
+            How many top tests to consider when doing the full iterative scoring
+            process. Larger values may take longer. Note that this has no effect
+            as long as we never go more than working_set_size tests deep during
+            the prompt item selection process.
 
         embeddings : dict
-            A dictionary of embeddings to use for the prompt. This is used to compute the prompt_diversity.
+            A dictionary of embeddings to use for the prompt.
+            This is used to compute the prompt_diversity.
         """
 
         ids = np.array(test_tree.index)
@@ -177,8 +182,8 @@ class PromptBuilder:
             # score randomization
             scores_curr += self.score_randomization * np.random.rand(len(ids))
 
-            # sim_avoidance is a vector that marks which items (and items related through similarities)
-            # should be avoided (ranked lower for prompt selection)
+            # sim_avoidance is a vector that marks which items (and items related
+            # through similarities) should be avoided (ranked lower for prompt selection)
             if self.prompt_diversity and embed_fn is not None:
                 sim_avoidance = np.zeros(len(ids))
                 if suggest_topics:

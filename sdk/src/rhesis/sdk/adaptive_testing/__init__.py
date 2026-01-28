@@ -4,4 +4,12 @@ from ._test_tree import TestTree
 from ._test_tree_browser import TestTreeBrowser
 from .embedders import embed_with_cache
 
+__all__ = [
+    "generators",
+    "serve",
+    "TestTree",
+    "TestTreeBrowser",
+    "embed_with_cache",
+]
+
 __version__ = "0.3.5"
