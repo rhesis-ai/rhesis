@@ -216,8 +216,20 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Garak cache pre-warming failed (non-fatal): {e}")
 
-    # Launch as background task - don't block startup
-    asyncio.create_task(warm_garak_cache())
+    # Launch as background task - store reference to prevent GC before completion
+    # (per Python asyncio docs, tasks without references may be garbage collected)
+    garak_cache_task = asyncio.create_task(warm_garak_cache())
+
+    # Add exception handler to log errors (task runs in background, errors would be silent)
+    def _log_task_exception(t: asyncio.Task) -> None:
+        try:
+            t.result()
+        except asyncio.CancelledError:
+            pass  # Expected during shutdown
+        except Exception as e:
+            logger.error(f"Garak cache pre-warming task failed: {e}", exc_info=True)
+
+    garak_cache_task.add_done_callback(_log_task_exception)
 
     yield  # Application is running
 
