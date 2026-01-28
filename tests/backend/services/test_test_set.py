@@ -361,6 +361,93 @@ class TestTestSetExecution:
                 db=test_db, test_set_identifier="test_set_id", endpoint_id=None, current_user=user
             )
 
+    def test_execute_test_set_on_endpoint_with_metrics(
+        self, test_db: Session, authenticated_user_id, test_org_id, db_user, test_organization
+    ):
+        """Test test set execution with execution-time metrics."""
+        # Create test set
+        test_set_data = create_test_set_data()
+        test_set = models.TestSet(
+            **test_set_data, organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        # Create a project first (required for endpoint.project_id FK)
+        project = models.Project(
+            name="Test Set Project with Metrics",
+            organization_id=test_organization.id,
+            user_id=db_user.id,
+        )
+        test_db.add(project)
+        test_db.commit()
+        test_db.refresh(project)
+
+        # Create endpoint
+        endpoint_data = create_endpoint_data()
+        endpoint = models.Endpoint(
+            **endpoint_data,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            project_id=project.id,
+        )
+        test_db.add(endpoint)
+        test_db.commit()
+
+        # User already exists from authenticated_user_id fixture - get it from DB
+        user = test_db.query(models.User).filter(models.User.id == authenticated_user_id).first()
+
+        # Define execution-time metrics
+        metrics = [
+            {"id": str(uuid.uuid4()), "name": "Execution Metric 1", "scope": ["Single-Turn"]},
+            {"id": str(uuid.uuid4()), "name": "Execution Metric 2", "scope": ["Single-Turn"]},
+        ]
+
+        # Mock all the dependencies
+        with (
+            patch("rhesis.backend.app.crud.resolve_test_set") as mock_resolve_test_set,
+            patch("rhesis.backend.app.crud.get_endpoint") as mock_get_endpoint,
+            patch(
+                "rhesis.backend.app.services.test_set._validate_user_access"
+            ) as mock_validate_access,
+            patch(
+                "rhesis.backend.app.services.test_set._create_test_configuration"
+            ) as mock_create_config,
+            patch(
+                "rhesis.backend.app.services.test_set._submit_test_configuration_for_execution"
+            ) as mock_submit,
+        ):
+            # Setup mocks
+            mock_resolve_test_set.return_value = test_set
+            mock_get_endpoint.return_value = endpoint
+            mock_validate_access.return_value = None
+            mock_create_config.return_value = "test_config_id"
+
+            # Mock task result
+            mock_task = MagicMock()
+            mock_task.id = "task_id_123"
+            mock_submit.return_value = mock_task
+
+            # Call the function with metrics
+            result = test_set_service.execute_test_set_on_endpoint(
+                db=test_db,
+                test_set_identifier=str(test_set.id),
+                endpoint_id=endpoint.id,
+                current_user=user,
+                test_configuration_attributes={"execution_mode": "Parallel"},
+                metrics=metrics,
+            )
+
+            # Verify result
+            assert result["status"] == "submitted"
+            assert result["test_configuration_id"] == "test_config_id"
+
+            # Verify _create_test_configuration was called with metrics
+            mock_create_config.assert_called_once()
+            call_args = mock_create_config.call_args
+            # Check that metrics were passed
+            assert call_args[0][7] == metrics  # metrics is the 8th positional arg
+
 
 @pytest.mark.unit
 @pytest.mark.service

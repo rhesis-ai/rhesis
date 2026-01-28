@@ -82,6 +82,7 @@ class SingleTurnRunner(BaseRunner):
         evaluate_metrics: bool = True,
         test_execution_context: Optional[Dict[str, str]] = None,
         test_set: Optional[Any] = None,
+        test_configuration: Optional[Any] = None,
     ) -> Tuple[float, Dict[str, Any], Dict[str, Any]]:
         """
         Execute single-turn test.
@@ -98,6 +99,7 @@ class SingleTurnRunner(BaseRunner):
             evaluate_metrics: Whether to evaluate metrics
             test_execution_context: Optional dict with test_run_id, test_result_id, test_id
             test_set: Optional TestSet model instance for metric override
+            test_configuration: Optional TestConfiguration for execution-time metric override
 
         Returns:
             Tuple of (execution_time_ms, processed_result, metrics_results)
@@ -106,10 +108,17 @@ class SingleTurnRunner(BaseRunner):
         test_id = str(test.id)
 
         # Prepare metrics if evaluation requested
-        # Test set metrics override behavior metrics when present
+        # Metric resolution priority: execution-time > test set > behavior
         metric_configs = []
         if evaluate_metrics:
-            metrics = get_test_metrics(test, db, organization_id, user_id, test_set=test_set)
+            metrics = get_test_metrics(
+                test,
+                db,
+                organization_id,
+                user_id,
+                test_set=test_set,
+                test_configuration=test_configuration,
+            )
             metric_configs = prepare_metric_configs(metrics, test_id, scope=MetricScope.SINGLE_TURN)
             logger.debug(f"Prepared {len(metric_configs)} metrics for test {test_id}")
 
@@ -172,6 +181,8 @@ class MultiTurnRunner(BaseRunner):
         user_id: Optional[str] = None,
         model: Optional[Any] = None,
         test_execution_context: Optional[Dict[str, str]] = None,
+        test_set: Optional[Any] = None,
+        test_configuration: Optional[Any] = None,
     ) -> Tuple[float, Dict[str, Any], Dict[str, Any]]:
         """
         Execute multi-turn test with Penelope.
@@ -184,9 +195,17 @@ class MultiTurnRunner(BaseRunner):
             user_id: User ID
             model: Optional model override for Penelope
             test_execution_context: Optional dict with test_run_id, test_result_id, test_id
+            test_set: Optional TestSet model instance for metric override (reserved for future)
+            test_configuration: Optional TestConfiguration for execution-time metric override
+                               (reserved for future Penelope integration)
 
         Returns:
             Tuple of (execution_time_ms, penelope_trace, metrics_results)
+
+        Note:
+            Currently, multi-turn metrics are evaluated by Penelope internally.
+            The test_set and test_configuration parameters are accepted for
+            consistency with SingleTurnRunner and future metric integration.
         """
         start_time = datetime.utcnow()
 

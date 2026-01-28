@@ -10,6 +10,7 @@ from rhesis.backend.app.models.test import Test
 from rhesis.backend.logging.rhesis_logger import logger
 
 if TYPE_CHECKING:
+    from rhesis.backend.app.models.test_configuration import TestConfiguration
     from rhesis.backend.app.models.test_set import TestSet
 
 
@@ -80,27 +81,34 @@ def get_test_metrics(
     organization_id: Optional[str] = None,
     user_id: Optional[str] = None,
     test_set: Optional["TestSet"] = None,
+    test_configuration: Optional["TestConfiguration"] = None,
 ) -> List:
     """
     Retrieve and validate metrics for a test.
 
-    Metric resolution follows override precedence:
-    1. If test_set is provided and has associated metrics, use those exclusively
-    2. Otherwise, fall back to behavior metrics
+    Metric resolution follows a 3-level override precedence:
+    1. Execution-time metrics from test_configuration.attributes["metrics"]
+       (highest priority - completely overrides other levels)
+    2. Test set metrics - if test_set has associated metrics
+    3. Behavior metrics - fallback to metrics defined on the test's behavior
 
-    This allows Garak-imported test sets to use their detector metrics
-    without mixing with behavior-level metrics.
+    This hierarchy allows:
+    - Execution-time metrics for quick validation with specific metrics
+    - Garak-imported test sets to use their detector metrics
+    - Default behavior-level metrics as fallback
 
     Args:
         test: Test model instance
-        db: Database session (needed for RLS context)
+        db: Database session (needed for RLS context and metric queries)
         organization_id: Organization ID for RLS policies
         user_id: User ID for RLS policies
         test_set: Optional TestSet model instance for metric override
+        test_configuration: Optional TestConfiguration for execution-time metric override
 
     Returns:
         List of valid Metric models
     """
+    from rhesis.backend.app.models.metric import Metric
 
     metrics = []
 
@@ -114,7 +122,32 @@ def get_test_metrics(
         except Exception as e:
             logger.error(f"Failed to set RLS session variables: {e}")
 
-    # Priority 1: Test set metrics override behavior metrics
+    # Priority 1: Execution-time metrics from test_configuration.attributes["metrics"]
+    # These completely override all other metric configurations
+    if test_configuration and test_configuration.attributes:
+        config_metrics = test_configuration.attributes.get("metrics")
+        if config_metrics:
+            # Extract metric IDs from the stored configuration
+            metric_ids = [m.get("id") for m in config_metrics if m.get("id")]
+            if metric_ids:
+                # Load metrics from database by IDs
+                try:
+                    loaded_metrics = (
+                        db.query(Metric)
+                        .filter(Metric.id.in_([UUID(mid) for mid in metric_ids]))
+                        .all()
+                    )
+                    metrics = [m for m in loaded_metrics if m.class_name]
+                    if metrics:
+                        logger.debug(
+                            f"Using {len(metrics)} execution-time metrics for test {test.id} "
+                            f"(overriding test set and behavior metrics)"
+                        )
+                        return metrics
+                except Exception as e:
+                    logger.warning(f"Failed to load execution-time metrics for test {test.id}: {e}")
+
+    # Priority 2: Test set metrics override behavior metrics
     if test_set and hasattr(test_set, "metrics") and test_set.metrics:
         metrics = [metric for metric in test_set.metrics if metric.class_name]
         if metrics:
@@ -130,7 +163,7 @@ def get_test_metrics(
                 )
             return metrics
 
-    # Priority 2: Fall back to behavior metrics
+    # Priority 3: Fall back to behavior metrics
     behavior = test.behavior
     if behavior and behavior.metrics:
         # Return Metric models directly - evaluator accepts them

@@ -1,9 +1,18 @@
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.tag import Tag
+
+
+class MetricsSource(str, Enum):
+    """Enum for tracking the source of metrics used in a test execution."""
+
+    BEHAVIOR = "behavior"
+    TEST_SET = "test_set"
+    EXECUTION_TIME = "execution_time"
 
 
 # TestSet schemas
@@ -191,10 +200,23 @@ class TestSetBulkDisassociateResponse(BaseModel):
     message: str
 
 
+class ExecutionMetric(BaseModel):
+    """Metric specification for execution-time metric override.
+
+    When specified at execution time, these metrics completely override
+    test set metrics and behavior metrics.
+    """
+
+    id: UUID4
+    name: str
+    scope: Optional[List[str]] = None  # e.g., ["Single-Turn"], ["Multi-Turn"], or both
+
+
 class TestSetExecutionRequest(BaseModel):
     """Request model for test set execution with flexible execution options."""
 
     execution_options: Optional[Dict[str, Any]] = None
+    metrics: Optional[List[ExecutionMetric]] = None
 
     @field_validator("execution_options")
     @classmethod

@@ -13,10 +13,19 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Alert,
+  Button,
+  IconButton,
 } from '@mui/material';
 import {
   ArrowForward as ArrowForwardIcon,
   CallSplit as CallSplitIcon,
+  Add as AddIcon,
+  Close as CloseIcon,
+  AutoGraph as AutoGraphIcon,
+  Tune as TuneIcon,
+  Psychology as PsychologyIcon,
+  Edit as EditIcon,
 } from '@mui/icons-material';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -29,6 +38,8 @@ import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { pollForTestRun } from '@/utils/test-run-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
+import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
+import type { TestSetMetric } from '@/utils/api-client/interfaces/test-set';
 
 interface ProjectOption {
   id: UUID;
@@ -40,6 +51,14 @@ interface EndpointOption {
   name: string;
   environment?: 'development' | 'staging' | 'production' | 'local';
   project_id?: string;
+}
+
+type MetricMode = 'use_test_set' | 'use_behavior' | 'define_custom';
+
+interface SelectedMetric {
+  id: UUID;
+  name: string;
+  scope?: string[];
 }
 
 interface ExecuteTestSetDrawerProps {
@@ -69,7 +88,16 @@ export default function ExecuteTestSetDrawer({
   const [tags, setTags] = useState<string[]>([]);
   const notifications = useNotifications();
 
-  // Fetch projects and endpoints when drawer opens
+  // Test set info state
+  const [testSetType, setTestSetType] = useState<string | null>(null);
+  const [testSetMetrics, setTestSetMetrics] = useState<TestSetMetric[]>([]);
+
+  // Metrics section state
+  const [metricMode, setMetricMode] = useState<MetricMode>('use_behavior');
+  const [selectedMetrics, setSelectedMetrics] = useState<SelectedMetric[]>([]);
+  const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
+
+  // Fetch projects, endpoints, and test set info when drawer opens
   useEffect(() => {
     const fetchData = async () => {
       if (!sessionToken || !open) return;
@@ -79,6 +107,33 @@ export default function ExecuteTestSetDrawer({
         setError(undefined);
 
         const clientFactory = new ApiClientFactory(sessionToken);
+
+        // Fetch test set info (type and metrics)
+        try {
+          const testSetsClient = clientFactory.getTestSetsClient();
+          const testSet = await testSetsClient.getTestSet(testSetId);
+          if (testSet) {
+            // Get test set type
+            const typeValue = testSet.test_set_type?.type_value || null;
+            setTestSetType(typeValue);
+
+            // Get test set metrics
+            const metrics = await testSetsClient.getTestSetMetrics(testSetId);
+            setTestSetMetrics(metrics || []);
+
+            // Set default metric mode based on whether test set has metrics
+            if (metrics && metrics.length > 0) {
+              setMetricMode('use_test_set');
+            } else {
+              setMetricMode('use_behavior');
+            }
+          }
+        } catch (testSetError) {
+          console.warn('Failed to fetch test set info:', testSetError);
+          setTestSetType(null);
+          setTestSetMetrics([]);
+          setMetricMode('use_behavior');
+        }
 
         // Fetch projects
         try {
@@ -147,8 +202,9 @@ export default function ExecuteTestSetDrawer({
       setSelectedProject(null);
       setSelectedEndpoint(null);
       setTags([]);
+      setSelectedMetrics([]);
     }
-  }, [sessionToken, open]);
+  }, [sessionToken, open, testSetId]);
 
   // Filter endpoints when project changes
   useEffect(() => {
@@ -177,6 +233,32 @@ export default function ExecuteTestSetDrawer({
     setSelectedEndpoint(value.id);
   };
 
+  // Handle adding a metric from the dialog
+  const handleAddMetric = async (metricId: UUID) => {
+    try {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const metricsClient = clientFactory.getMetricsClient();
+      const metric = await metricsClient.getMetric(metricId);
+      if (metric) {
+        setSelectedMetrics(prev => [
+          ...prev,
+          {
+            id: metric.id as UUID,
+            name: metric.name,
+            scope: metric.metric_scope,
+          },
+        ]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch metric details:', err);
+    }
+  };
+
+  // Handle removing a selected metric
+  const handleRemoveMetric = (metricId: UUID) => {
+    setSelectedMetrics(prev => prev.filter(m => m.id !== metricId));
+  };
+
   const handleExecute = async () => {
     if (!selectedEndpoint) return;
 
@@ -184,13 +266,21 @@ export default function ExecuteTestSetDrawer({
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = apiFactory.getTestSetsClient();
-      const testConfigurationsClient = apiFactory.getTestConfigurationsClient();
       const tagsClient = new TagsClient(sessionToken);
 
       // Prepare test configuration attributes
-      const testConfigurationAttributes = {
+      const testConfigurationAttributes: Record<string, any> = {
         execution_mode: executionMode,
       };
+
+      // Add execution-time metrics if custom metrics are defined
+      if (metricMode === 'define_custom' && selectedMetrics.length > 0) {
+        testConfigurationAttributes.metrics = selectedMetrics.map(m => ({
+          id: m.id,
+          name: m.name,
+          scope: m.scope,
+        }));
+      }
 
       // Execute test set against the selected endpoint with test configuration attributes
       const result = await testSetsClient.executeTestSet(
@@ -270,7 +360,8 @@ export default function ExecuteTestSetDrawer({
       title="Execute Test Set"
       loading={loading || executing}
       error={error}
-      onSave={isFormValid ? handleExecute : undefined}
+      onSave={handleExecute}
+      saveDisabled={!isFormValid}
       saveButtonText="Execute Test Set"
     >
       {loading ? (
@@ -418,6 +509,130 @@ export default function ExecuteTestSetDrawer({
               </MenuItem>
             </Select>
           </FormControl>
+
+          <Divider />
+
+          {/* Test Run Metrics Section */}
+          <Typography variant="subtitle2" color="text.secondary">
+            Test Run Metrics
+          </Typography>
+
+          <FormControl fullWidth>
+            <InputLabel>Metrics Source</InputLabel>
+            <Select
+              value={metricMode}
+              onChange={e => {
+                setMetricMode(e.target.value as MetricMode);
+                if (e.target.value !== 'define_custom') {
+                  setSelectedMetrics([]);
+                }
+              }}
+              label="Metrics Source"
+            >
+              {testSetMetrics.length > 0 && (
+                <MenuItem value="use_test_set">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TuneIcon fontSize="small" />
+                    <Box>
+                      <Typography variant="body1">Test Set Metrics</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Use {testSetMetrics.length} metric
+                        {testSetMetrics.length !== 1 ? 's' : ''} configured on
+                        this test set
+                      </Typography>
+                    </Box>
+                  </Box>
+                </MenuItem>
+              )}
+              <MenuItem value="use_behavior">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <PsychologyIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Behavior Metrics</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Use default metrics defined on each test&apos;s behavior
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>
+              <MenuItem value="define_custom">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <EditIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Custom Metrics</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Define specific metrics for this execution only
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
+
+          {metricMode === 'define_custom' && (
+            <Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                These metrics will only be used for this specific execution and
+                will not be saved to the test set.
+              </Alert>
+
+              {selectedMetrics.length > 0 && (
+                <Stack spacing={1} sx={{ mb: 2 }}>
+                  {selectedMetrics.map(metric => (
+                    <Box
+                      key={metric.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 1,
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: theme => theme.spacing(1),
+                      }}
+                    >
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
+                        <AutoGraphIcon fontSize="small" color="primary" />
+                        <Typography variant="body2">{metric.name}</Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemoveMetric(metric.id)}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={() => setMetricsDialogOpen(true)}
+              >
+                Add Metric
+              </Button>
+
+              <SelectMetricsDialog
+                open={metricsDialogOpen}
+                onClose={() => setMetricsDialogOpen(false)}
+                onSelect={handleAddMetric}
+                sessionToken={sessionToken}
+                excludeMetricIds={selectedMetrics.map(m => m.id)}
+                title="Add Metric to Execution"
+                subtitle="Select a metric to use for this test run"
+                scopeFilter={
+                  testSetType === 'Single-Turn' || testSetType === 'Multi-Turn'
+                    ? (testSetType as 'Single-Turn' | 'Multi-Turn')
+                    : undefined
+                }
+              />
+            </Box>
+          )}
 
           <Divider />
 

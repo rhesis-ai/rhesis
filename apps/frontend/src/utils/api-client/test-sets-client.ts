@@ -322,21 +322,36 @@ export class TestSetsClient extends BaseApiClient {
     endpointId: string,
     testConfigurationAttributes?: {
       execution_mode?: string;
+      metrics?: Array<{ id: string; name: string; scope?: string[] }>;
       [key: string]: any;
     }
   ): Promise<TestSet> {
-    const requestBody = testConfigurationAttributes
-      ? { execution_options: testConfigurationAttributes }
-      : undefined;
+    // Build request body with execution_options and metrics
+    const requestBody: Record<string, any> = {};
+
+    if (testConfigurationAttributes) {
+      // Extract metrics if present (goes at top level)
+      const { metrics, ...executionOptions } = testConfigurationAttributes;
+
+      // Add execution_options if there are any
+      if (Object.keys(executionOptions).length > 0) {
+        requestBody.execution_options = executionOptions;
+      }
+
+      // Add metrics at top level if present
+      if (metrics && metrics.length > 0) {
+        requestBody.metrics = metrics;
+      }
+    }
+
+    const hasBody = Object.keys(requestBody).length > 0;
 
     return this.fetch<TestSet>(
       `${API_ENDPOINTS.testSets}/${testSetId}/execute/${endpointId}`,
       {
         method: 'POST',
-        body: requestBody ? JSON.stringify(requestBody) : undefined,
-        headers: requestBody
-          ? { 'Content-Type': 'application/json' }
-          : undefined,
+        body: hasBody ? JSON.stringify(requestBody) : undefined,
+        headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
       }
     );
   }

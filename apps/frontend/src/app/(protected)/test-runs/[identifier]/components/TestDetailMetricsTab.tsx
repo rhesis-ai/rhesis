@@ -31,6 +31,10 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
+import {
+  MetricsSource,
+  getMetricsSourceLabel,
+} from '@/utils/api-client/interfaces/test-configuration';
 
 interface TestDetailMetricsTabProps {
   test: TestResultDetail;
@@ -40,6 +44,8 @@ interface TestDetailMetricsTabProps {
     description?: string;
     metrics: Array<{ name: string; description?: string }>;
   }>;
+  /** Source of metrics used in this test run */
+  metricsSource?: MetricsSource | string;
 }
 
 interface MetricSummary {
@@ -52,6 +58,7 @@ interface MetricSummary {
 export default function TestDetailMetricsTab({
   test,
   behaviors,
+  metricsSource,
 }: TestDetailMetricsTabProps) {
   const theme = useTheme();
   const [filterStatus, setFilterStatus] = useState<'all' | 'passed' | 'failed'>(
@@ -87,8 +94,18 @@ export default function TestDetailMetricsTab({
     // Check if we have behavior definitions
     const hasBehaviors = Boolean(behaviors && behaviors.length > 0);
 
-    if (hasBehaviors) {
-      // Handle behavior-based metrics (single-turn tests)
+    // Determine if we should use behavior-based grouping
+    // Only use behavior grouping when:
+    // 1. metricsSource is 'behavior' (or not set)
+    // 2. We have behaviors defined
+    // 3. It's not a multi-turn test
+    const useBehaviorGrouping =
+      (metricsSource === MetricsSource.BEHAVIOR || !metricsSource) &&
+      hasBehaviors &&
+      !isMultiTurn;
+
+    if (useBehaviorGrouping) {
+      // Handle behavior-based metrics (single-turn tests with behavior source)
       behaviors.forEach(behavior => {
         behavior.metrics.forEach(metric => {
           const metricResult = testMetrics[metric.name];
@@ -105,11 +122,25 @@ export default function TestDetailMetricsTab({
       });
     }
 
-    // Handle direct metrics (multi-turn tests or when no behaviors defined)
-    // Process any metrics that weren't already added via behaviors
-    if (!hasBehaviors || allMetrics.length === 0) {
-      // Use appropriate category name based on test type
-      const categoryName = isMultiTurn ? 'Multi-Turn Test' : 'General Metrics';
+    // Handle direct metrics:
+    // - When metricsSource is test_set or execution_time
+    // - When multi-turn tests
+    // - When no behaviors are defined
+    // - When behavior grouping didn't find any metrics
+    if (!useBehaviorGrouping || allMetrics.length === 0) {
+      // Use appropriate category name based on metrics source or test type
+      let categoryName: string;
+      if (metricsSource && metricsSource !== MetricsSource.BEHAVIOR) {
+        // test_set or execution_time
+        categoryName = getMetricsSourceLabel(metricsSource);
+      } else if (isMultiTurn) {
+        categoryName = 'Multi-Turn Test';
+      } else if (metricsSource === MetricsSource.BEHAVIOR && hasBehaviors) {
+        // Fallback for behavior source when behavior metrics didn't match
+        categoryName = 'Behavior Metrics';
+      } else {
+        categoryName = 'Metrics'; // Generic fallback
+      }
 
       Object.entries(testMetrics).forEach(
         ([metricName, metricResult]: [string, any]) => {
@@ -134,7 +165,7 @@ export default function TestDetailMetricsTab({
     }
 
     return allMetrics;
-  }, [test, behaviors]);
+  }, [test, behaviors, metricsSource, isMultiTurn]);
 
   // Filter metrics based on selected status
   const filteredMetrics = useMemo(() => {
@@ -305,7 +336,9 @@ export default function TestDetailMetricsTab({
                     color="text.secondary"
                     gutterBottom
                   >
-                    Best Behavior
+                    {metricsSource === MetricsSource.BEHAVIOR || !metricsSource
+                      ? 'Best Behavior'
+                      : 'Best Performing'}
                   </Typography>
                   <Typography variant="h6" fontWeight={600} noWrap>
                     {behaviorStats.best?.name || 'N/A'}
@@ -332,7 +365,9 @@ export default function TestDetailMetricsTab({
                     color="text.secondary"
                     gutterBottom
                   >
-                    Worst Behavior
+                    {metricsSource === MetricsSource.BEHAVIOR || !metricsSource
+                      ? 'Worst Behavior'
+                      : 'Worst Performing'}
                   </Typography>
                   <Typography variant="h6" fontWeight={600} noWrap>
                     {behaviorStats.worst?.name || 'N/A'}
@@ -356,10 +391,14 @@ export default function TestDetailMetricsTab({
             <Card>
               <CardContent>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Behavior
+                  {metricsSource === MetricsSource.BEHAVIOR || !metricsSource
+                    ? 'Behavior'
+                    : 'Metrics Source'}
                 </Typography>
                 <Typography variant="h6" fontWeight={600} noWrap>
-                  {behaviorStats.best?.name || 'N/A'}
+                  {metricsSource === MetricsSource.BEHAVIOR || !metricsSource
+                    ? behaviorStats.best?.name || 'N/A'
+                    : getMetricsSourceLabel(metricsSource)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {behaviorStats.best

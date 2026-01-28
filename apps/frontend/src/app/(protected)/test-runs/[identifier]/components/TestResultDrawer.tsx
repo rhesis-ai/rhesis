@@ -41,6 +41,8 @@ interface TestResultDrawerProps {
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
+  /** Source of metrics used in this test run */
+  metricsSource?: string;
 }
 
 interface TabPanelProps {
@@ -123,6 +125,7 @@ export default function TestResultDrawer({
   testSetType,
   project,
   projectName,
+  metricsSource,
 }: TestResultDrawerProps) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [reviewInitialComment, setReviewInitialComment] = useState<string>('');
@@ -388,7 +391,11 @@ export default function TestResultDrawer({
           )}
 
           <TabPanel value={activeTab} index={isMultiTurn ? 2 : 1}>
-            <TestDetailMetricsTab test={test} behaviors={behaviors} />
+            <TestDetailMetricsTab
+              test={test}
+              behaviors={behaviors}
+              metricsSource={metricsSource}
+            />
           </TabPanel>
 
           <TabPanel value={activeTab} index={isMultiTurn ? 3 : 2}>

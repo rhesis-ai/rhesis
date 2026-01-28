@@ -30,6 +30,8 @@ interface SelectMetricsDialogProps {
   excludeMetricIds?: UUID[];
   title?: string;
   subtitle?: string;
+  /** Filter metrics by scope (Single-Turn or Multi-Turn) */
+  scopeFilter?: 'Single-Turn' | 'Multi-Turn';
 }
 
 export default function SelectMetricsDialog({
@@ -40,6 +42,7 @@ export default function SelectMetricsDialog({
   excludeMetricIds = [],
   title = 'Add Metric',
   subtitle = 'Select a metric to add',
+  scopeFilter,
 }: SelectMetricsDialogProps) {
   const [metrics, setMetrics] = React.useState<MetricDetail[]>([]);
   const [filteredMetrics, setFilteredMetrics] = React.useState<MetricDetail[]>(
@@ -69,10 +72,17 @@ export default function SelectMetricsDialog({
         sort_order: 'asc',
       });
 
-      // Filter out excluded metrics
-      const availableMetrics = response.data.filter(
-        metric => !excludeMetricIds.includes(metric.id)
-      );
+      // Filter out excluded metrics and apply scope filter
+      const availableMetrics = response.data.filter(metric => {
+        // Exclude already-selected metrics
+        if (excludeMetricIds.includes(metric.id)) return false;
+        // Apply scope filter if provided
+        if (scopeFilter && metric.metric_scope) {
+          return metric.metric_scope.includes(scopeFilter);
+        }
+        // If no scope filter, or metric has no scope defined, include it
+        return true;
+      });
 
       setMetrics(availableMetrics);
       setFilteredMetrics(availableMetrics);

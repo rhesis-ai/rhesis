@@ -482,12 +482,28 @@ async def execute_test_set(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Submit a test set for execution against an endpoint."""
+    """Submit a test set for execution against an endpoint.
+
+    The request body can include:
+    - execution_options: Execution mode (Parallel/Sequential)
+    - metrics: Optional list of execution-time metrics that override test set
+               and behavior metrics. Each metric should have id, name, and scope.
+    """
     try:
         # Extract test configuration attributes from request body, default to Parallel mode
         attributes = None
         if test_configuration_attributes and test_configuration_attributes.execution_options:
             attributes = test_configuration_attributes.execution_options
+
+        # Extract execution-time metrics from request body
+        # These override test set metrics and behavior metrics
+        metrics = None
+        if test_configuration_attributes and test_configuration_attributes.metrics:
+            # Convert ExecutionMetric objects to dictionaries for storage
+            metrics = [
+                {"id": str(m.id), "name": m.name, "scope": m.scope}
+                for m in test_configuration_attributes.metrics
+            ]
 
         organization_id, user_id = tenant_context
         result = execute_test_set_on_endpoint(
@@ -498,6 +514,7 @@ async def execute_test_set(
             test_configuration_attributes=attributes,
             organization_id=organization_id,
             user_id=user_id,
+            metrics=metrics,
         )
         return result
 
