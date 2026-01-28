@@ -109,7 +109,9 @@ class TestMCPClient:
             with patch(
                 "rhesis.sdk.services.mcp.client.streamablehttp_client", return_value=mock_context
             ):
-                with patch("rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session):
+                with patch(
+                    "rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session
+                ):
                     await client.connect()
 
         assert client.session == mock_session
@@ -143,7 +145,9 @@ class TestMCPClient:
 
         with patch("rhesis.sdk.services.mcp.client.httpx.AsyncClient", return_value=mock_client):
             with patch("rhesis.sdk.services.mcp.client.sse_client", return_value=mock_context):
-                with patch("rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session):
+                with patch(
+                    "rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session
+                ):
                     await client.connect()
 
         assert client.session == mock_session
@@ -437,7 +441,11 @@ class TestMCPClientFactory:
         """Test creating factory from provider name"""
         mock_template_file = Mock()
         mock_template_file.exists.return_value = True
-        mock_template_file.read_text.return_value = '{"mcpServers": {"notionApi": {"command": "npx", "args": ["-y", "@notionhq/notion-mcp-server"], "env": {"NOTION_TOKEN": "{{ NOTION_TOKEN }}"}}}}'
+        mock_template_file.read_text.return_value = (
+            '{"mcpServers": {"notion": {"command": "npx", '
+            '"args": ["-y", "@notionhq/notion-mcp-server"], '
+            '"env": {"NOTION_TOKEN": "{{ NOTION_TOKEN }}"}}}}'
+        )
 
         mock_templates_dir = Mock()
         mock_templates_dir.__truediv__ = Mock(return_value=mock_template_file)

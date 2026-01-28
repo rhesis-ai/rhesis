@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "jiraApi": {
-      "command": "mcp-atlassian",
-      "args": [],
+    "jira": {
       "transport": "stdio",
+      "command": "uvx",
+      "args": ["mcp-atlassian"],
       "env": {
         "JIRA_URL": {{ JIRA_URL | tojson }},
         "JIRA_USERNAME": {{ JIRA_USERNAME | tojson }},

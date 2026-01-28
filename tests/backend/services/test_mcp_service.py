@@ -194,7 +194,7 @@ class TestGetMCPClientByToolId:
         mock_factory.from_provider.assert_called_once_with(
             provider="notion", credentials={"NOTION_TOKEN": "test_token"}
         )
-        mock_factory_instance.create_client.assert_called_once_with("notionApi")
+        mock_factory_instance.create_client.assert_called_once_with("notion")
 
     @patch("rhesis.backend.app.services.mcp_service.MCPClientFactory")
     @patch("rhesis.backend.app.services.mcp_service.crud")

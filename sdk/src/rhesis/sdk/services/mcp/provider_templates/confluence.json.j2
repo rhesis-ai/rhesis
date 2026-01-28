@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "confluenceApi": {
-      "command": "mcp-atlassian",
-      "args": [],
+    "confluence": {
       "transport": "stdio",
+      "command": "uvx",
+      "args": ["mcp-atlassian"],
       "env": {
         "CONFLUENCE_URL": {{ CONFLUENCE_URL | tojson }},
         "CONFLUENCE_USERNAME": {{ CONFLUENCE_USERNAME | tojson }},
