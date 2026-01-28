@@ -24,7 +24,10 @@ import {
 
 interface TestDetailOverviewTabProps {
   test: TestResultDetail;
-  prompts: Record<string, { content: string; name?: string; expected_response?: string }>;
+  prompts: Record<
+    string,
+    { content: string; name?: string; expected_response?: string }
+  >;
   sessionToken: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
@@ -265,9 +268,9 @@ export default function TestDetailOverviewTab({
             }}
           >
             {test.test_output?.context &&
-            test.test_output.context.filter((item) => item.trim()).length > 0 ? (
+            test.test_output.context.filter(item => item.trim()).length > 0 ? (
               test.test_output.context
-                .filter((item) => item.trim())
+                .filter(item => item.trim())
                 .map((item, index, filteredArray) => (
                   <Box
                     key={`context-${index}-${item.slice(0, 20)}`}
