@@ -216,36 +216,55 @@ export default function TestDetailOverviewTab({
         </Box>
 
         {/* Context Section */}
-        {test.test_output?.context && test.test_output.context.length > 0 && (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-              Context
-            </Typography>
-            <Paper
-              variant="outlined"
-              sx={{
-                p: 2,
-                backgroundColor: theme.palette.background.default,
-                maxHeight: 200,
-                overflow: 'auto',
-              }}
-            >
-              {test.test_output.context.map((item, index) => (
-                <Typography
-                  key={index}
-                  variant="body2"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    mb: index < test.test_output!.context.length - 1 ? 1 : 0,
-                  }}
-                >
-                  {item}
-                </Typography>
-              ))}
-            </Paper>
-          </Box>
-        )}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Context
+          </Typography>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              backgroundColor: theme.palette.background.default,
+              maxHeight: 200,
+              overflow: 'auto',
+            }}
+          >
+            {test.test_output?.context &&
+            test.test_output.context.filter((item) => item.trim()).length > 0 ? (
+              test.test_output.context
+                .filter((item) => item.trim())
+                .map((item, index, filteredArray) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      display: 'flex',
+                      gap: 1,
+                      mb: index < filteredArray.length - 1 ? 0.5 : 0,
+                    }}
+                  >
+                    <Typography variant="body2">•</Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        flex: 1,
+                      }}
+                    >
+                      {item}
+                    </Typography>
+                  </Box>
+                ))
+            ) : (
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.secondary', fontStyle: 'italic' }}
+              >
+                No context provided
+              </Typography>
+            )}
+          </Paper>
+        </Box>
 
         {/* Tags Section */}
         <Box sx={{ mb: 3 }}>
