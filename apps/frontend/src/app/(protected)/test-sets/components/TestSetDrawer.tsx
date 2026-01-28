@@ -44,6 +44,19 @@ export default function TestSetDrawer({
   const [selectedTestSetTypeId, setSelectedTestSetTypeId] = React.useState<
     string | undefined
   >(testSet?.test_set_type_id);
+  const [validationError, setValidationError] = React.useState<string>('');
+
+  // Reset fields when drawer opens
+  React.useEffect(() => {
+    if (open) {
+      setName(testSet?.name || '');
+      setDescription(testSet?.description || '');
+      setShortDescription(testSet?.short_description || '');
+      setSelectedTestSetTypeId(testSet?.test_set_type_id);
+      setValidationError('');
+      setError(undefined);
+    }
+  }, [open, testSet]);
 
   // Fetch test set types on mount
   React.useEffect(() => {
@@ -85,17 +98,37 @@ export default function TestSetDrawer({
   const handleSave = async () => {
     if (!sessionToken) return;
 
+    // Validation
+    setValidationError('');
+    setError(undefined);
+
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      setValidationError('Test set name is required');
+      return;
+    }
+
+    if (trimmedName.length < 2) {
+      setValidationError('Test set name must be at least 2 characters');
+      return;
+    }
+
+    if (!selectedTestSetTypeId) {
+      setValidationError('Test set type is required');
+      return;
+    }
+
     try {
       setLoading(true);
-      setError(undefined);
 
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
 
       const testSetData = {
-        name,
-        description,
-        short_description: shortDescription,
+        name: trimmedName,
+        description: description.trim(),
+        short_description: shortDescription.trim(),
         priority: 1, // Default to Medium priority
         visibility: 'organization' as const,
         is_published: false,
@@ -138,16 +171,25 @@ export default function TestSetDrawer({
             <TextField
               label="Name"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={e => {
+                setName(e.target.value);
+                if (validationError) setValidationError('');
+              }}
               required
               fullWidth
+              disabled={loading}
+              error={!!validationError}
+              helperText={validationError || 'A clear, descriptive name for this test set'}
             />
 
-            <FormControl fullWidth>
+            <FormControl fullWidth disabled={loading}>
               <InputLabel>Test Set Type</InputLabel>
               <Select
                 value={selectedTestSetTypeId || ''}
-                onChange={e => setSelectedTestSetTypeId(e.target.value)}
+                onChange={e => {
+                  setSelectedTestSetTypeId(e.target.value);
+                  if (validationError) setValidationError('');
+                }}
                 label="Test Set Type"
                 required
               >
@@ -164,6 +206,7 @@ export default function TestSetDrawer({
               value={shortDescription}
               onChange={e => setShortDescription(e.target.value)}
               fullWidth
+              disabled={loading}
             />
 
             <TextField
@@ -173,6 +216,7 @@ export default function TestSetDrawer({
               multiline
               rows={4}
               fullWidth
+              disabled={loading}
             />
           </Stack>
         </Stack>
