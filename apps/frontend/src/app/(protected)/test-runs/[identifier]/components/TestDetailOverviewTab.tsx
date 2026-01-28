@@ -24,7 +24,7 @@ import {
 
 interface TestDetailOverviewTabProps {
   test: TestResultDetail;
-  prompts: Record<string, { content: string; name?: string }>;
+  prompts: Record<string, { content: string; name?: string; expected_response?: string }>;
   sessionToken: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
@@ -212,6 +212,41 @@ export default function TestDetailOverviewTab({
             >
               {responseContent}
             </Typography>
+          </Paper>
+        </Box>
+
+        {/* Expected Response Section */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Expected Response
+          </Typography>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              backgroundColor: theme.palette.background.default,
+              maxHeight: 200,
+              overflow: 'auto',
+            }}
+          >
+            {test.prompt_id && prompts[test.prompt_id]?.expected_response ? (
+              <Typography
+                variant="body2"
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {prompts[test.prompt_id].expected_response}
+              </Typography>
+            ) : (
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.secondary', fontStyle: 'italic' }}
+              >
+                No expected response provided
+              </Typography>
+            )}
           </Paper>
         </Box>
 
