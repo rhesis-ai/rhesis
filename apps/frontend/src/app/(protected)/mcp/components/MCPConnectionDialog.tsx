@@ -198,17 +198,11 @@ export function MCPConnectionDialog({
           setRepositoryUrl('');
         }
 
-        // Extract Jira/Confluence URL and username from tool_metadata
-        if (currentProviderType === 'jira' && tool.tool_metadata) {
-          setInstanceUrl((tool.tool_metadata as any).JIRA_URL || '');
-          setUsername((tool.tool_metadata as any).JIRA_USERNAME || '');
-        } else if (currentProviderType === 'confluence' && tool.tool_metadata) {
-          setInstanceUrl((tool.tool_metadata as any).CONFLUENCE_URL || '');
-          setUsername((tool.tool_metadata as any).CONFLUENCE_USERNAME || '');
-        } else {
-          setInstanceUrl('');
-          setUsername('');
-        }
+        // Note: Jira/Confluence URL and username are stored in encrypted credentials
+        // We cannot display them in edit mode as they're encrypted
+        // Users must re-enter these values if they want to change them
+        setInstanceUrl('');
+        setUsername('');
 
         setError(null);
         setJsonError(null);
@@ -245,10 +239,16 @@ export function MCPConnectionDialog({
       // (not when name/description change, as they don't affect connection)
       setConnectionTested(false);
       setTestResult(null);
-    } else if (authToken && authToken !== '************') {
-      // In edit mode, reset only if auth token was actually changed
-      setConnectionTested(false);
-      setTestResult(null);
+    } else {
+      // In edit mode, reset if any credential field was changed
+      const tokenChanged = authToken && authToken !== '************';
+      const urlChanged = instanceUrl && instanceUrl.trim() !== '';
+      const usernameChanged = username && username.trim() !== '';
+
+      if (tokenChanged || urlChanged || usernameChanged) {
+        setConnectionTested(false);
+        setTestResult(null);
+      }
     }
   }, [
     authToken,
@@ -388,11 +388,6 @@ export function MCPConnectionDialog({
             JIRA_USERNAME: username.trim(),
             JIRA_API_TOKEN: authToken.trim(),
           };
-          // Also store URL and username in metadata for display in edit mode
-          parsedMetadata = {
-            JIRA_URL: normalizedUrl,
-            JIRA_USERNAME: username.trim(),
-          };
         }
         // Handle Confluence credentials
         else if (provider.type_value === 'confluence') {
@@ -401,11 +396,6 @@ export function MCPConnectionDialog({
             CONFLUENCE_URL: normalizedUrl,
             CONFLUENCE_USERNAME: username.trim(),
             CONFLUENCE_API_TOKEN: authToken.trim(),
-          };
-          // Also store URL and username in metadata for display in edit mode
-          parsedMetadata = {
-            CONFLUENCE_URL: normalizedUrl,
-            CONFLUENCE_USERNAME: username.trim(),
           };
         }
         // Handle other providers
@@ -500,54 +490,67 @@ export function MCPConnectionDialog({
         const currentProviderType =
           provider?.type_value || tool.tool_provider_type?.type_value;
 
-        // Only include credentials if token was changed (not the placeholder)
-        if (authToken && authToken.trim() && authToken !== '************') {
-          // Handle Jira credentials
-          if (currentProviderType === 'jira') {
+        // Handle Jira/Confluence credentials
+        // For Jira/Confluence, we must update credentials if ANY field changed (URL, email, or token)
+        // because all three are stored together in the encrypted credentials field
+        if (
+          currentProviderType === 'jira' ||
+          currentProviderType === 'confluence'
+        ) {
+          const hasUrlOrUsername = instanceUrl.trim() || username.trim();
+          const hasToken =
+            authToken && authToken.trim() && authToken !== '************';
+
+          if (hasUrlOrUsername || hasToken) {
+            if (!instanceUrl.trim() || !username.trim()) {
+              setError(
+                'Both URL and email are required for Jira/Confluence connections.'
+              );
+              setLoading(false);
+              return;
+            }
+
+            if (!hasToken) {
+              setError(
+                'API token is required when updating URL or email. Please re-enter your API token.'
+              );
+              setLoading(false);
+              return;
+            }
+
             const normalizedUrl = normalizeUrl(instanceUrl);
-            updates.credentials = {
-              JIRA_URL: normalizedUrl,
-              JIRA_USERNAME: username.trim(),
-              JIRA_API_TOKEN: authToken.trim(),
-            };
+            if (currentProviderType === 'jira') {
+              updates.credentials = {
+                JIRA_URL: normalizedUrl,
+                JIRA_USERNAME: username.trim(),
+                JIRA_API_TOKEN: authToken.trim(),
+              };
+            } else {
+              updates.credentials = {
+                CONFLUENCE_URL: normalizedUrl,
+                CONFLUENCE_USERNAME: username.trim(),
+                CONFLUENCE_API_TOKEN: authToken.trim(),
+              };
+            }
           }
-          // Handle Confluence credentials
-          else if (currentProviderType === 'confluence') {
-            const normalizedUrl = normalizeUrl(instanceUrl);
-            updates.credentials = {
-              CONFLUENCE_URL: normalizedUrl,
-              CONFLUENCE_USERNAME: username.trim(),
-              CONFLUENCE_API_TOKEN: authToken.trim(),
-            };
-          }
-          // Handle other providers
-          else {
-            const credentialKey = getCredentialKey(currentProviderType);
-            updates.credentials = {
-              [credentialKey]: authToken.trim(),
-            };
-          }
+        }
+        // Handle other providers - only update if token was changed
+        else if (
+          authToken &&
+          authToken.trim() &&
+          authToken !== '************'
+        ) {
+          const credentialKey = getCredentialKey(currentProviderType);
+          updates.credentials = {
+            [credentialKey]: authToken.trim(),
+          };
         }
 
         // Include tool_metadata if it was provided
         let metadataToUpdate: Record<string, any> | undefined = undefined;
 
-        // Store URL and username in metadata for Jira/Confluence (even if only token changed)
-        if (currentProviderType === 'jira') {
-          const normalizedUrl = normalizeUrl(instanceUrl);
-          metadataToUpdate = {
-            ...(tool.tool_metadata || {}),
-            JIRA_URL: normalizedUrl,
-            JIRA_USERNAME: username.trim(),
-          };
-        } else if (currentProviderType === 'confluence') {
-          const normalizedUrl = normalizeUrl(instanceUrl);
-          metadataToUpdate = {
-            ...(tool.tool_metadata || {}),
-            CONFLUENCE_URL: normalizedUrl,
-            CONFLUENCE_USERNAME: username.trim(),
-          };
-        } else if (toolMetadata.trim()) {
+        // For non-Jira/Confluence providers, handle metadata
+        if (toolMetadata.trim()) {
           const validatedMetadata = validateToolMetadata(toolMetadata);
           if (validatedMetadata !== null) {
             metadataToUpdate = validatedMetadata;
@@ -653,11 +656,6 @@ export function MCPConnectionDialog({
               JIRA_USERNAME: username.trim(),
               JIRA_API_TOKEN: authToken.trim(),
             };
-            // Store URL and username in metadata for display in edit mode
-            parsedMetadata = {
-              JIRA_URL: normalizedUrl,
-              JIRA_USERNAME: username.trim(),
-            };
           }
           // Handle Confluence credentials
           else if (provider.type_value === 'confluence') {
@@ -666,11 +664,6 @@ export function MCPConnectionDialog({
               CONFLUENCE_URL: normalizedUrl,
               CONFLUENCE_USERNAME: username.trim(),
               CONFLUENCE_API_TOKEN: authToken.trim(),
-            };
-            // Store URL and username in metadata for display in edit mode
-            parsedMetadata = {
-              CONFLUENCE_URL: normalizedUrl,
-              CONFLUENCE_USERNAME: username.trim(),
             };
           }
           // Handle other providers
@@ -1090,18 +1083,14 @@ export function MCPConnectionDialog({
             </Alert>
           </Box>
         )}
-        {isEditMode &&
-          requiresToken &&
-          authToken !== '************' &&
-          !connectionTested &&
-          !testResult && (
-            <Box sx={{ px: 3, pb: 1 }}>
-              <Alert severity="info">
-                Please test the connection with the new credentials before
-                updating.
-              </Alert>
-            </Box>
-          )}
+        {isEditMode && !connectionTested && !testResult && (
+          <Box sx={{ px: 3, pb: 1 }}>
+            <Alert severity="info">
+              Please test the connection with the updated credentials before
+              saving.
+            </Alert>
+          </Box>
+        )}
 
         <DialogActions
           sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}
@@ -1115,14 +1104,11 @@ export function MCPConnectionDialog({
             disabled={
               !name ||
               (!isEditMode && !authToken) ||
-              (!isEditMode &&
-                (providerType === 'jira' || providerType === 'confluence') &&
+              ((providerType === 'jira' || providerType === 'confluence') &&
                 (!instanceUrl || !username)) ||
               (!isEditMode && isCustomProvider && !toolMetadata.trim()) ||
               (!isEditMode && !connectionTested) ||
-              (isEditMode &&
-                authToken !== '************' &&
-                !connectionTested) || // Require test if token changed in edit mode
+              (isEditMode && !connectionTested) || // Require test if any credential changed in edit mode
               loading ||
               !!jsonError
             }
