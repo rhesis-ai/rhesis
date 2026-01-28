@@ -376,6 +376,6 @@ For cloud deployments, telemetry is always enabled as part of the Terms & Condit
 
 ---
 
-**Made with ❤️ in Potsdam, Germany**
+**Made with ![Rhesis AI_Logo_RGB_Favicon](https://github.com/user-attachments/assets/598c2d81-572c-46bd-b718-dee32cdc749c) in Potsdam, Germany 🇩🇪**
 
 Learn more at [rhesis.ai](https://rhesis.ai)
