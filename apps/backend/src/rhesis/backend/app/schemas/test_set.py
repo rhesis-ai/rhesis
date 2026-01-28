@@ -191,10 +191,23 @@ class TestSetBulkDisassociateResponse(BaseModel):
     message: str
 
 
+class ExecutionMetric(BaseModel):
+    """Metric specification for execution-time metric override.
+
+    When specified at execution time, these metrics completely override
+    test set metrics and behavior metrics.
+    """
+
+    id: UUID4
+    name: str
+    scope: Optional[List[str]] = None  # e.g., ["Single-Turn"], ["Multi-Turn"], or both
+
+
 class TestSetExecutionRequest(BaseModel):
     """Request model for test set execution with flexible execution options."""
 
     execution_options: Optional[Dict[str, Any]] = None
+    metrics: Optional[List[ExecutionMetric]] = None
 
     @field_validator("execution_options")
     @classmethod

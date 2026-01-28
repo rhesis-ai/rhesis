@@ -81,8 +81,9 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 db, test_id, organization_id
             )
 
-            # Load test_set from test_configuration for metric override support
-            # Test set metrics override behavior metrics when present
+            # Load test_configuration for metric override support
+            # Metric resolution priority: execution-time > test set > behavior
+            test_config = None
             test_set = None
             if test_config_id:
                 test_config = (
@@ -115,6 +116,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 evaluate_metrics=True,
                 test_execution_context=test_execution_context,
                 test_set=test_set,
+                test_configuration=test_config,
             )
 
             # Persist to database and link traces

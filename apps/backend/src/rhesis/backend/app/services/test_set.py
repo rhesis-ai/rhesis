@@ -519,9 +519,11 @@ def execute_test_set_on_endpoint(
     test_configuration_attributes: Dict[str, Any] = None,
     organization_id: str = None,
     user_id: str = None,
+    metrics: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Execute a test set against an endpoint by creating a test configuration and submitting it for execution.
+    Execute a test set against an endpoint by creating a test configuration
+    and submitting it for execution.
 
     Args:
         db: Database session
@@ -531,6 +533,8 @@ def execute_test_set_on_endpoint(
         test_configuration_attributes: Optional attributes for test configuration
         organization_id: Organization ID for tenant context
         user_id: User ID for tenant context
+        metrics: Optional list of execution-time metrics to override test set/behavior metrics.
+                 Each metric should have: id, name, and optionally scope.
 
     Returns:
         Dict containing execution status and metadata
@@ -586,6 +590,7 @@ def execute_test_set_on_endpoint(
         test_configuration_attributes,
         organization_id,
         user_id,
+        metrics,
     )
 
     # Submit for execution
@@ -643,8 +648,25 @@ def _create_test_configuration(
     test_configuration_attributes: Dict[str, Any] = None,
     organization_id: str = None,
     user_id: str = None,
+    metrics: List[Dict[str, Any]] = None,
 ) -> str:
-    """Create test configuration and return its ID as string."""
+    """Create test configuration and return its ID as string.
+
+    Args:
+        db: Database session
+        endpoint_id: Endpoint UUID
+        test_set_id: Test set UUID
+        current_user: Current authenticated user
+        test_configuration_attributes: Optional attributes for test configuration
+        organization_id: Organization ID for tenant context
+        user_id: User ID for tenant context
+        metrics: Optional list of execution-time metrics. When provided, these
+                 override test set metrics and behavior metrics during execution.
+                 Each metric should have: id, name, and optionally scope.
+
+    Returns:
+        Test configuration ID as string
+    """
     from rhesis.backend.app import crud, schemas
 
     logger.debug(
@@ -659,6 +681,11 @@ def _create_test_configuration(
         logger.debug(
             f"Adding execution options to test configuration: {test_configuration_attributes}"
         )
+
+    # Add execution-time metrics if provided
+    if metrics:
+        attributes["metrics"] = metrics
+        logger.debug(f"Adding {len(metrics)} execution-time metrics to test configuration")
 
     test_config = schemas.TestConfigurationCreate(
         endpoint_id=endpoint_id,

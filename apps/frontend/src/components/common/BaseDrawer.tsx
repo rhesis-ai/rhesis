@@ -19,6 +19,8 @@ export interface BaseDrawerProps {
   children: React.ReactNode;
   loading?: boolean;
   onSave?: () => void;
+  /** Disable the save button (button remains visible) */
+  saveDisabled?: boolean;
   error?: string;
   saveButtonText?: string;
   closeButtonText?: string;
@@ -59,6 +61,7 @@ export default function BaseDrawer({
   children,
   loading = false,
   onSave,
+  saveDisabled = false,
   error,
   saveButtonText = 'Save Changes',
   closeButtonText = 'Cancel',
@@ -152,12 +155,18 @@ export default function BaseDrawer({
             <Button
               variant="contained"
               onClick={onSave}
-              disabled={loading}
+              disabled={loading || saveDisabled}
               startIcon={
                 loading ? (
                   <CircularProgress size={16} color="inherit" />
                 ) : undefined
               }
+              sx={{
+                '&.Mui-disabled': {
+                  bgcolor: 'action.disabledBackground',
+                  color: 'action.disabled',
+                },
+              }}
             >
               {loading ? 'Executing...' : saveButtonText}
             </Button>
