@@ -207,6 +207,8 @@ class TestTestSetExecution:
         )
         test_db.add(test_set)
         test_db.commit()
+        # Set metrics to empty list to prevent lazy loading (table may not exist in test DB)
+        test_set.metrics = []
 
         # Create a project first (required for endpoint.project_id FK)
         project = models.Project(
@@ -287,7 +289,15 @@ class TestTestSetExecution:
             )
             mock_validate_access.assert_called_once_with(user, test_set, endpoint)
             mock_create_config.assert_called_once_with(
-                test_db, endpoint.id, test_set.id, user, {"param": "value"}, None, None
+                test_db,
+                endpoint.id,
+                test_set.id,
+                user,
+                {"param": "value"},
+                None,
+                None,
+                None,
+                "behavior",
             )
             mock_submit.assert_called_once_with("test_config_id", user)
 
