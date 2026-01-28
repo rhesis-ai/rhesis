@@ -215,6 +215,38 @@ export default function TestDetailOverviewTab({
           </Paper>
         </Box>
 
+        {/* Context Section */}
+        {test.test_output?.context && test.test_output.context.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              Context
+            </Typography>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2,
+                backgroundColor: theme.palette.background.default,
+                maxHeight: 200,
+                overflow: 'auto',
+              }}
+            >
+              {test.test_output.context.map((item, index) => (
+                <Typography
+                  key={index}
+                  variant="body2"
+                  sx={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    mb: index < test.test_output!.context.length - 1 ? 1 : 0,
+                  }}
+                >
+                  {item}
+                </Typography>
+              ))}
+            </Paper>
+          </Box>
+        )}
+
         {/* Tags Section */}
         <Box sx={{ mb: 3 }}>
           <TestResultTags
