@@ -196,11 +196,37 @@ async def lifespan(app: FastAPI):
             "Workers will not be able to invoke SDK functions."
         )
 
+    # Initialize Garak probe cache (optional, doesn't fail startup)
+    from rhesis.backend.app.services.garak.cache import GarakProbeCache
+
+    await GarakProbeCache.initialize()
+
+    # Pre-warm Garak probe cache in background (non-blocking)
+    # This ensures the first user request doesn't have to wait for probe enumeration
+    import asyncio
+
+    async def warm_garak_cache():
+        """Background task to pre-warm Garak probe cache."""
+        try:
+            from rhesis.backend.app.services.garak import GarakProbeService
+
+            service = GarakProbeService()
+            await service.warm_cache()
+            # Logging is handled by enumerate_probe_modules_cached
+        except Exception as e:
+            logger.warning(f"Garak cache pre-warming failed (non-fatal): {e}")
+
+    # Launch as background task - don't block startup
+    asyncio.create_task(warm_garak_cache())
+
     yield  # Application is running
 
-    # Shutdown: Clean up Redis connection
+    # Shutdown: Clean up Redis connections
     if redis_manager.is_available:
         await redis_manager.close()
+
+    # Close Garak cache Redis connection
+    await GarakProbeCache.close()
 
 
 app = FastAPI(
