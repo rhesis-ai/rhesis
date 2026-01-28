@@ -46,5 +46,17 @@ def downgrade() -> None:
         )
     )
 
-    # Step 2: Delete new provider types
+    # Step 2: Delete all tools that use the jira or confluence provider types
+    op.execute(
+        """
+        DELETE FROM tool
+        WHERE tool_provider_type_id IN (
+            SELECT id FROM type_lookup
+            WHERE type_name = 'ToolProviderType'
+            AND type_value IN ('jira', 'confluence')
+        );
+        """
+    )
+
+    # Step 3: Delete new provider types
     op.execute(load_cleanup_type_lookup_template("ToolProviderType", "'jira', 'confluence'"))
