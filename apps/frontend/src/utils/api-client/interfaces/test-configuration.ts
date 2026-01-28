@@ -20,11 +20,11 @@ export enum MetricsSource {
 export function getMetricsSourceLabel(source: MetricsSource | string): string {
   switch (source) {
     case MetricsSource.BEHAVIOR:
-      return 'Behavior Metrics';
+      return 'Behavior';
     case MetricsSource.TEST_SET:
-      return 'Test Set Metrics';
+      return 'Test Set';
     case MetricsSource.EXECUTION_TIME:
-      return 'Execution-Time Metrics';
+      return 'Execution-Time';
     default:
       return 'Unknown';
   }
