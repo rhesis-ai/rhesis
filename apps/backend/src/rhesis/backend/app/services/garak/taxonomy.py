@@ -30,6 +30,14 @@ class GarakTaxonomy:
 
     # Mapping of Garak probe modules to Rhesis taxonomy
     MODULE_MAPPINGS: Dict[str, GarakMapping] = {
+        "art": GarakMapping(
+            category="Harmful",
+            topic="Automatic Red-Team",
+            behavior="Robustness",
+            # ART uses a separate model to generate adversarial prompts
+            default_detector="garak.detectors.perspective.Toxicity",
+            description="Automatic Red-Team (ART) adversarial prompt generation",
+        ),
         "dan": GarakMapping(
             category="Harmful",
             topic="Jailbreak",

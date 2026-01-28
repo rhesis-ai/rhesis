@@ -100,15 +100,41 @@ class TestGarakProbeServiceInit:
         assert service._probe_cache == {}
         assert service._garak_version is None
 
-    def test_known_probe_modules_defined(self):
-        """Test that known probe modules are defined."""
-        modules = GarakProbeService.KNOWN_PROBE_MODULES
+    def test_excluded_modules_defined(self):
+        """Test that excluded modules are defined."""
+        excluded = GarakProbeService.EXCLUDED_MODULES
 
-        assert isinstance(modules, list)
-        assert len(modules) > 0
-        assert "dan" in modules
-        assert "encoding" in modules
-        assert "xss" in modules
+        assert isinstance(excluded, set)
+        assert "base" in excluded
+        assert "test" in excluded
+
+    def test_discover_probe_modules(self):
+        """Test that probe modules can be discovered dynamically."""
+        service = GarakProbeService()
+
+        # Mock the garak.probes package
+        with patch("pkgutil.iter_modules") as mock_iter:
+            mock_iter.return_value = [
+                (None, "dan", False),
+                (None, "encoding", False),
+                (None, "base", False),  # Should be excluded
+                (None, "test", False),  # Should be excluded
+            ]
+
+            with patch("importlib.import_module") as mock_import:
+                mock_probes = MagicMock()
+                mock_probes.__path__ = ["/fake/path"]
+                mock_import.return_value = mock_probes
+
+                # Reset cached modules
+                service._discovered_modules = None
+                modules = service._discover_probe_modules()
+
+                assert isinstance(modules, list)
+                assert "dan" in modules
+                assert "encoding" in modules
+                assert "base" not in modules
+                assert "test" not in modules
 
     def test_garak_version_property_when_installed(self):
         """Test garak_version property when garak is installed."""
@@ -222,7 +248,7 @@ class TestGarakProbeServiceEnumeration:
 
         # Mock both the initial import check and the module info getter
         with patch(
-            "rhesis.backend.app.services.garak.probes.importlib.import_module"
+            "rhesis.backend.app.services.garak.probes.service.importlib.import_module"
         ) as mock_import:
             mock_import.return_value = MagicMock()  # Simulate successful import
 

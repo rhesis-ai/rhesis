@@ -49,17 +49,23 @@ async def list_probe_modules(
 
     Returns a list of probe modules with their metadata, taxonomy mapping,
     and individual probe class details.
+
+    Uses Redis caching to avoid re-enumerating probes on every request.
+    The cache is pre-warmed on application startup.
     """
     try:
         probe_service = GarakProbeService()
-        modules = probe_service.enumerate_probe_modules()
+
+        # Use cached enumeration - checks L1 memory cache, then L2 Redis cache,
+        # and only generates probe data on cache miss
+        modules, probes_by_module = await probe_service.enumerate_probe_modules_cached()
 
         module_responses = []
         for module in modules:
             mapping = GarakTaxonomy.get_mapping(module.name)
 
-            # Get individual probe details
-            probes = probe_service.extract_probes_from_module(module.name)
+            # Get probes from cached data
+            probes = probes_by_module.get(module.name, [])
             probe_responses = [
                 GarakProbeClassResponse(
                     class_name=p.class_name,
