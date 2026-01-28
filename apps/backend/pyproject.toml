@@ -54,6 +54,7 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.45b0",
     "garak>=0.9.0",
     "torch",  # Explicit dep to force CPU-only via [tool.uv.sources]
+    "mcp-atlassian>=0.13.0",
 ]
 
 [dependency-groups]

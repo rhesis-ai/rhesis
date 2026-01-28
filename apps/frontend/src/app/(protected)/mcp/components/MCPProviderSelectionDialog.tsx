@@ -52,12 +52,13 @@ export function MCPProviderSelectionDialog({
     );
   }
 
-  // Custom order: Notion first, then custom, then GitHub, then Atlassian
+  // Custom order: Notion first, then GitHub, then Jira, then Confluence, then custom
   const providerOrder: Record<string, number> = {
     notion: 1,
     github: 2,
-    custom: 3,
-    atlassian: 4,
+    jira: 3,
+    confluence: 4,
+    custom: 5,
   };
 
   const sortedProviders = [...providers].sort((a, b) => {
@@ -76,10 +77,12 @@ export function MCPProviderSelectionDialog({
               provider.type_value
             );
             const isCustom = provider.type_value === 'custom';
-            // Enable Notion, custom, and GitHub providers
+            // Enable Notion, GitHub, Jira, Confluence, and custom providers
             const isEnabled =
               provider.type_value === 'notion' ||
               provider.type_value === 'github' ||
+              provider.type_value === 'jira' ||
+              provider.type_value === 'confluence' ||
               provider.type_value === 'custom';
 
             // Customize provider names and descriptions
@@ -95,17 +98,18 @@ export function MCPProviderSelectionDialog({
               providerName = providerName
                 .replace(/\s*with manual configuration$/i, '')
                 .trim();
-            } else if (provider.type_value === 'atlassian') {
-              providerName = providerName
-                .replace(/\s*for jira and confluence$/i, '')
-                .trim();
-              providerDescription = providerDescription
-                .replace(/\s*for jira and confluence$/i, '')
-                .trim();
             } else if (provider.type_value === 'github') {
               providerName = providerName.replace(/\s*repository$/i, '').trim();
               providerDescription = providerDescription
                 .replace(/\s*repository$/i, '')
+                .trim();
+            } else if (provider.type_value === 'jira') {
+              providerName = providerName
+                .replace(/\s*for issue tracking$/i, '')
+                .trim();
+            } else if (provider.type_value === 'confluence') {
+              providerName = providerName
+                .replace(/\s*for documentation$/i, '')
                 .trim();
             }
 

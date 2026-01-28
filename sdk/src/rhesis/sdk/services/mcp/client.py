@@ -29,7 +29,7 @@ class MCPClient:
         Initialize MCP client with transport configuration.
 
         Args:
-            server_name: Friendly name for the server (e.g., "notionApi")
+            server_name: Name for the server (e.g., "notion")
             transport_type: Type of transport ("stdio", "http", or "sse")
             transport_params: Transport-specific parameters:
                 - stdio: {"command": str, "args": List[str], "env": Dict[str, str]}
@@ -270,41 +270,6 @@ class MCPClientFactory:
 
         return config
 
-    def _detect_transport_type(
-        self, server_config: Dict[str, Any]
-    ) -> Literal["stdio", "http", "sse"]:
-        """
-        Auto-detect transport type from server configuration structure.
-
-        Detection rules:
-        - Has 'command' field → stdio
-        - Has 'url' + 'headers' with Authorization → http
-        - Has 'url' only → sse
-
-        Args:
-            server_config: Single server configuration dictionary
-
-        Returns:
-            Transport type: "stdio", "http", or "sse"
-
-        Raises:
-            ValueError: If transport type cannot be determined
-        """
-        if "command" in server_config:
-            return "stdio"
-        elif "url" in server_config:
-            # Check if headers contain Authorization (typical for HTTP APIs)
-            headers = server_config.get("headers", {})
-            if headers and any(k.lower() == "authorization" for k in headers.keys()):
-                return "http"
-            else:
-                return "sse"
-        else:
-            raise ValueError(
-                "Cannot detect transport type from config. "
-                "Config must have either 'command' (stdio) or 'url' (HTTP/SSE) field."
-            )
-
     def create_client(self, server_name: str) -> MCPClient:
         """
         Create an MCP client from configuration.
@@ -335,7 +300,7 @@ class MCPClientFactory:
         server_config = servers[server_name]
 
         # Detect transport type
-        transport_type = self._detect_transport_type(server_config)
+        transport_type = server_config.get("transport")
 
         # Create client with pre-configured transport
         client = MCPClient(
@@ -347,42 +312,31 @@ class MCPClientFactory:
         return client
 
     @classmethod
-    def from_tool_config(cls, tool_name: str, tool_config: Dict, credentials: Dict[str, str]):
+    def from_tool_config(cls, tool_config: Dict, credentials: Dict[str, str]):
         """
-        Create MCPClientFactory from database tool configuration.
-
-        The user provides the complete tool_metadata JSON in full MCP format with
-        credential placeholders. This method substitutes the placeholders with
-        the actual credential values.
+        Create MCPClientFactory from MCP configuration with credential substitution.
 
         Args:
-            tool_name: Name for the MCP server (e.g., "notionApi") - ignored if
-                       tool_config contains mcpServers
             tool_config: Full MCP config with credential placeholders:
                         {"mcpServers": {"name": {...}}}
-            credentials: Dictionary of credential key-value pairs
+            credentials: Dictionary of credential key-value pairs to substitute
 
         Returns:
             MCPClientFactory instance configured with the tool
 
-        Note:
-            tool_config should be the full MCP structure matching standard format.
-            This method performs credential substitution via Jinja2 templates.
-
         Example:
             tool_config = {
                 "mcpServers": {
-                    "notionApi": {
+                    "notion": {
+                        "transport": "stdio",
                         "command": "npx",
                         "args": ["-y", "@notionhq/notion-mcp-server"],
-                        "env": {
-                            "NOTION_TOKEN": "{{ NOTION_TOKEN }}"
-                        }
+                        "env": {"NOTION_TOKEN": "{{ NOTION_TOKEN }}"}
                     }
                 }
             }
             credentials = {"NOTION_TOKEN": "ntn_abc123..."}
-            factory = MCPClientFactory.from_tool_config("notionApi", tool_config, credentials)
+            factory = MCPClientFactory.from_tool_config(tool_config, credentials)
         """
         # Use Jinja to safely render the placeholders
         env = jinja2.Environment(autoescape=False)
@@ -390,8 +344,7 @@ class MCPClientFactory:
         rendered = template.render(**credentials)
         processed_config = json.loads(rendered)
 
-        # Config should already have mcpServers structure
-        # Validate it has the expected format
+        # Validate structure
         if "mcpServers" not in processed_config:
             raise ValueError(
                 "tool_config must contain 'mcpServers' key. "
@@ -403,45 +356,44 @@ class MCPClientFactory:
     @classmethod
     def from_provider(cls, provider: str, credentials: Dict[str, str]):
         """
-        Create MCPClientFactory from a provider name.
+        Create MCPClientFactory from a built-in provider template.
 
-        Automatically loads the right MCP config template for that provider,
-        renders it with the provided credentials, and creates a factory.
+        Loads the provider's template file and renders it with credentials.
 
         Args:
-            provider: Provider name (e.g., "notion", "github", "atlassian")
+            provider: Provider name (e.g., "notion", "github", "jira")
             credentials: Dictionary of credential key-value pairs
 
         Returns:
             MCPClientFactory instance ready to use
 
         Example:
-            credentials = {"NOTION_TOKEN": "ntn_abc123..."}
-            factory = MCPClientFactory.from_provider("notion", credentials)
+            factory = MCPClientFactory.from_provider(
+                "notion",
+                {"NOTION_TOKEN": "ntn_abc123..."}
+            )
         """
-        # Load and render Jinja template
+        # Load template file
         templates_dir = Path(__file__).parent / "provider_templates"
         template_file = templates_dir / f"{provider}.json.j2"
 
         if not template_file.exists():
-            # Provide a helpful error listing available providers
             available = [p.stem.split(".")[0] for p in templates_dir.glob("*.json.j2")]
-            raise ValueError(f"MCP provider '{provider}' not supported. Available: {available}")
-
+            raise ValueError(f"Provider '{provider}' not supported. Available: {available}")
+        # Render the Jinja2 template with credentials
         env = jinja2.Environment(autoescape=False)
         template = env.from_string(template_file.read_text())
-
-        # Render with proper JSON-escaping via the built-in `tojson` filter
         rendered = template.render(**credentials)
 
-        # Parse rendered JSON into dict (templates already include full mcpServers structure)
-        config_dict = json.loads(rendered)
+        # Parse the rendered JSON
+        tool_config = json.loads(rendered)
 
         # Validate structure
-        if "mcpServers" not in config_dict:
+        if "mcpServers" not in tool_config:
             raise ValueError(
                 f"Provider template for '{provider}' is invalid. "
                 "Expected format: {'mcpServers': {'serverName': {...}}}"
             )
 
-        return cls(config_dict=config_dict)
+        # Return factory with the rendered config
+        return cls(config_dict=tool_config)

@@ -169,7 +169,6 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
             raise MCPConfigurationError("Custom provider tools require tool_metadata configuration")
 
         factory = MCPClientFactory.from_tool_config(
-            tool_name=f"{provider}Api",
             tool_config=tool.tool_metadata,
             credentials=credentials_dict,
         )
@@ -180,7 +179,7 @@ def _get_mcp_tool_config(db: Session, tool_id: str, organization_id: str, user_i
             credentials=credentials_dict,
         )
 
-    client = factory.create_client(f"{provider}Api")
+    client = factory.create_client(provider)
     return client, provider, repository_context
 
 
@@ -227,7 +226,6 @@ def _get_mcp_client_from_params(
             raise ValueError("Custom provider requires tool_metadata configuration")
 
         factory = MCPClientFactory.from_tool_config(
-            tool_name=f"{provider}Api",
             tool_config=tool_metadata,
             credentials=credentials,
         )
@@ -238,7 +236,7 @@ def _get_mcp_client_from_params(
             credentials=credentials,
         )
 
-    client = factory.create_client(f"{provider}Api")
+    client = factory.create_client(provider)
     return client
 
 

@@ -449,7 +449,7 @@ async def search_mcp_server(
         POST /mcp/search
         {
             "query": "Find pages about authentication",
-            "server_name": "notionApi"
+            "server_name": "notion"
         }
     """
     try:
@@ -534,7 +534,7 @@ async def query_mcp_server(
 
     Examples:
         # Create content
-        {"query": "Create a page titled 'Q1 Planning'", "server_name": "notionApi"}
+        {"query": "Create a page titled 'Q1 Planning'", "server_name": "notion"}
 
         # Custom agent behavior
         {
