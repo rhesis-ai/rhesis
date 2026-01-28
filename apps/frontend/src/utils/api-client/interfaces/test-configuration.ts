@@ -4,6 +4,51 @@ import { Prompt } from './prompt';
 import { TestSet } from './test-set';
 import { Endpoint } from './endpoint';
 
+/**
+ * Enum for tracking the source of metrics used in a test execution.
+ * Must match the backend MetricsSource enum in schemas/test_set.py
+ */
+export enum MetricsSource {
+  BEHAVIOR = 'behavior',
+  TEST_SET = 'test_set',
+  EXECUTION_TIME = 'execution_time',
+}
+
+/**
+ * Helper to get display label for MetricsSource
+ */
+export function getMetricsSourceLabel(source: MetricsSource | string): string {
+  switch (source) {
+    case MetricsSource.BEHAVIOR:
+      return 'Behavior Metrics';
+    case MetricsSource.TEST_SET:
+      return 'Test Set Metrics';
+    case MetricsSource.EXECUTION_TIME:
+      return 'Execution-Time Metrics';
+    default:
+      return 'Unknown';
+  }
+}
+
+/**
+ * Execution metric stored in test configuration attributes
+ */
+export interface ExecutionMetric {
+  id: string;
+  name: string;
+  scope?: string[];
+}
+
+/**
+ * Typed test configuration attributes
+ */
+export interface TestConfigurationAttributes {
+  execution_mode?: 'Parallel' | 'Sequential';
+  metrics?: ExecutionMetric[];
+  metrics_source?: MetricsSource;
+  [key: string]: unknown;
+}
+
 // Test Configuration interfaces
 export interface TestConfigurationBase {
   endpoint_id: UUID;
@@ -15,7 +60,7 @@ export interface TestConfigurationBase {
   user_id: UUID;
   organization_id?: UUID;
   status_id?: UUID;
-  attributes?: Record<string, any>;
+  attributes?: TestConfigurationAttributes;
 }
 
 export type TestConfigurationCreate = TestConfigurationBase;

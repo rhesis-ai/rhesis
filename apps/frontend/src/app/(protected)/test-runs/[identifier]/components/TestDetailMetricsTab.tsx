@@ -31,6 +31,10 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
+import {
+  MetricsSource,
+  getMetricsSourceLabel,
+} from '@/utils/api-client/interfaces/test-configuration';
 
 interface TestDetailMetricsTabProps {
   test: TestResultDetail;
@@ -40,6 +44,8 @@ interface TestDetailMetricsTabProps {
     description?: string;
     metrics: Array<{ name: string; description?: string }>;
   }>;
+  /** Source of metrics used in this test run */
+  metricsSource?: MetricsSource | string;
 }
 
 interface MetricSummary {
@@ -52,6 +58,7 @@ interface MetricSummary {
 export default function TestDetailMetricsTab({
   test,
   behaviors,
+  metricsSource,
 }: TestDetailMetricsTabProps) {
   const theme = useTheme();
   const [filterStatus, setFilterStatus] = useState<'all' | 'passed' | 'failed'>(
@@ -108,8 +115,15 @@ export default function TestDetailMetricsTab({
     // Handle direct metrics (multi-turn tests or when no behaviors defined)
     // Process any metrics that weren't already added via behaviors
     if (!hasBehaviors || allMetrics.length === 0) {
-      // Use appropriate category name based on test type
-      const categoryName = isMultiTurn ? 'Multi-Turn Test' : 'General Metrics';
+      // Use appropriate category name based on metrics source or test type
+      let categoryName: string;
+      if (metricsSource) {
+        categoryName = getMetricsSourceLabel(metricsSource);
+      } else if (isMultiTurn) {
+        categoryName = 'Multi-Turn Test';
+      } else {
+        categoryName = 'Behavior Metrics'; // Default fallback
+      }
 
       Object.entries(testMetrics).forEach(
         ([metricName, metricResult]: [string, any]) => {
@@ -134,7 +148,7 @@ export default function TestDetailMetricsTab({
     }
 
     return allMetrics;
-  }, [test, behaviors]);
+  }, [test, behaviors, metricsSource, isMultiTurn]);
 
   // Filter metrics based on selected status
   const filteredMetrics = useMemo(() => {

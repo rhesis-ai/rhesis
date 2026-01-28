@@ -47,6 +47,8 @@ interface TestDetailPanelProps {
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
+  /** Source of metrics used in this test run */
+  metricsSource?: string;
 }
 
 interface TabPanelProps {
@@ -127,6 +129,7 @@ export default function TestDetailPanel({
   testSetType,
   project,
   projectName,
+  metricsSource,
 }: TestDetailPanelProps) {
   const [activeTab, setActiveTab] = useState(0);
   const [reviewInitialComment, setReviewInitialComment] = useState<string>('');
@@ -344,7 +347,11 @@ export default function TestDetailPanel({
         )}
 
         <TabPanel value={activeTab} index={isMultiTurn ? 2 : 1}>
-          <TestDetailMetricsTab test={test} behaviors={behaviors} />
+          <TestDetailMetricsTab
+            test={test}
+            behaviors={behaviors}
+            metricsSource={metricsSource}
+          />
         </TabPanel>
 
         <TabPanel value={activeTab} index={isMultiTurn ? 3 : 2}>

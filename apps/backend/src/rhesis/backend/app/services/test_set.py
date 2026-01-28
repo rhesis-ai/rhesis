@@ -581,6 +581,24 @@ def execute_test_set_on_endpoint(
     # Check user access permissions
     _validate_user_access(current_user, db_test_set, db_endpoint)
 
+    # Determine metrics source based on the hierarchy:
+    # 1. Execution-time metrics (if provided) -> "execution_time"
+    # 2. Test set metrics (if test set has metrics) -> "test_set"
+    # 3. Behavior metrics (fallback) -> "behavior"
+    from rhesis.backend.app.schemas.test_set import MetricsSource
+
+    if metrics and len(metrics) > 0:
+        metrics_source = MetricsSource.EXECUTION_TIME.value
+        logger.debug("Metrics source: execution_time (user-provided metrics)")
+    elif db_test_set.metrics and len(db_test_set.metrics) > 0:
+        metrics_source = MetricsSource.TEST_SET.value
+        logger.debug(
+            f"Metrics source: test_set ({len(db_test_set.metrics)} metrics on test set)"
+        )
+    else:
+        metrics_source = MetricsSource.BEHAVIOR.value
+        logger.debug("Metrics source: behavior (fallback to test behaviors)")
+
     # Create test configuration
     test_config_id = _create_test_configuration(
         db,
@@ -591,6 +609,7 @@ def execute_test_set_on_endpoint(
         organization_id,
         user_id,
         metrics,
+        metrics_source,
     )
 
     # Submit for execution
@@ -649,6 +668,7 @@ def _create_test_configuration(
     organization_id: str = None,
     user_id: str = None,
     metrics: List[Dict[str, Any]] = None,
+    metrics_source: str = None,
 ) -> str:
     """Create test configuration and return its ID as string.
 
@@ -663,6 +683,8 @@ def _create_test_configuration(
         metrics: Optional list of execution-time metrics. When provided, these
                  override test set metrics and behavior metrics during execution.
                  Each metric should have: id, name, and optionally scope.
+        metrics_source: Source of metrics used for this execution.
+                       One of: "behavior", "test_set", "execution_time"
 
     Returns:
         Test configuration ID as string
@@ -686,6 +708,11 @@ def _create_test_configuration(
     if metrics:
         attributes["metrics"] = metrics
         logger.debug(f"Adding {len(metrics)} execution-time metrics to test configuration")
+
+    # Store the metrics source for later retrieval
+    if metrics_source:
+        attributes["metrics_source"] = metrics_source
+        logger.debug(f"Metrics source set to: {metrics_source}")
 
     test_config = schemas.TestConfigurationCreate(
         endpoint_id=endpoint_id,

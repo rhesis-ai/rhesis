@@ -588,6 +588,9 @@ export default function TestRunMainView({
                     projectName={
                       testRun.test_configuration?.endpoint?.project?.name
                     }
+                    metricsSource={
+                      testRun.test_configuration?.attributes?.metrics_source
+                    }
                   />
                 </Box>
               </Box>
@@ -627,6 +630,9 @@ export default function TestRunMainView({
               }
               project={testRun.test_configuration?.endpoint?.project}
               projectName={testRun.test_configuration?.endpoint?.project?.name}
+              metricsSource={
+                testRun.test_configuration?.attributes?.metrics_source
+              }
             />
           )}
 
