@@ -238,7 +238,7 @@ export default function ExecuteTestSetDrawer({
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const metricsClient = clientFactory.getMetricsClient();
-      const metric = await metricsClient.getMetric(metricId as string);
+      const metric = await metricsClient.getMetric(metricId);
       if (metric) {
         setSelectedMetrics(prev => [
           ...prev,
@@ -591,7 +591,9 @@ export default function ExecuteTestSetDrawer({
                         borderRadius: 1,
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                      >
                         <AutoGraphIcon fontSize="small" color="primary" />
                         <Typography variant="body2">{metric.name}</Typography>
                       </Box>
