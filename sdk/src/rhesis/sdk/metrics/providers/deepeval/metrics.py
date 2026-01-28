@@ -77,12 +77,10 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
                 score=0.0,
                 details={
                     "reason": (
-                        "Faithfulness metric requires context to verify claims. "
-                        "No context was provided."
+                        "Faithfulness metric requires context to evaluate. No context was provided."
                     ),
                     "is_successful": False,
                     "threshold": self.threshold,
-                    "error": "Context is required for Faithfulness metric evaluation",
                 },
             )
         test_case = self._create_test_case(input, output, context=context)
@@ -134,7 +132,6 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
                     ),
                     "is_successful": False,
                     "threshold": self.threshold,
-                    "error": "Context is required for Contextual Relevancy metric evaluation",
                 },
             )
         test_case = self._create_test_case(input=input, context=context)
@@ -188,7 +185,6 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
                     ),
                     "is_successful": False,
                     "threshold": self.threshold,
-                    "error": "Context is required for Contextual Precision metric evaluation",
                 },
             )
         test_case = self._create_test_case(input, output, expected_output, context)
@@ -242,7 +238,6 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
                     ),
                     "is_successful": False,
                     "threshold": self.threshold,
-                    "error": "Context is required for Contextual Recall metric evaluation",
                 },
             )
         test_case = self._create_test_case(input, output, expected_output, context)
