@@ -9,7 +9,7 @@ import pandas as pd
 
 from rhesis.sdk import adaptive_testing
 from rhesis.sdk.entities import Prompt, Test, TestSet
-from rhesis.sdk.models import BaseEmbedder
+from rhesis.sdk.models import BaseEmbedder, BaseLLM
 
 from ._prompt_builder import PromptBuilder
 from ._test_tree_browser import TestTreeBrowser, is_subtopic
@@ -33,12 +33,10 @@ if TYPE_CHECKING:
 class TestTree:
     """A hierarchically organized set of tests represented as a DataFrame.
 
-    This represents a hierarchically organized set of tests that all target a specific
-    class of models (such as sentiment analysis models, or translation models). To
-    interact with a test tree you can use either the `__call__` method to view and
-    create tests directly in a Jupyter notebook, or you can call the `serve` method
-    to launch a standalone webserver. A TestTree object also conforms to most of the
-    standard pandas DataFrame API.
+    This represents a hierarchically organized set of tests that all target a specific class of models (such as sentiment
+    analysis models, or translation models). To interact with a test tree you can use either the `__call__` method to
+    view and create tests directly in a Jupyter notebook, or you can call the `serve` method to launch a standalone
+    webserver. A TestTree object also conforms to most of the standard pandas DataFrame API.
     """
 
     def __init__(
@@ -54,11 +52,9 @@ class TestTree:
         Parameters
         ----------
         tests : str or DataFrame or list or tuple or None
-            The tests to load as a test tree. If a string is provided, it is assumed
-            to be a path to a CSV file containing the tests. If tests is a tuple of
-            two elements, it is assumed to be a dataset of (data, labels) which will
-            be used to build a test tree. Otherwise tests is passed to the pandas
-            DataFrame constructor to load the tests as a DataFrame.
+            The tests to load as a test tree. If a string is provided, it is assumed to be a path to a CSV file containing
+            the tests. If tests is a tuple of two elements, it is assumed to be a dataset of (data, labels) which will be used to build a test tree.
+            Otherwise tests is passed to the pandas DataFrame constructor to load the tests as a DataFrame.
 
         index : list or list-like or None
             Assigns an index to underlying tests frame, or auto generates if not provided.
@@ -92,9 +88,8 @@ class TestTree:
         elif (
             isinstance(tests, tuple) and len(tests) == 2
         ):  # Dataset loader TODO: fix this for topic models
-            # column_names = ['topic', 'type', 'value1', 'value2', 'value3',
-            #   'author', 'description', 'model value1 outputs',
-            #   'model value2 outputs', 'model value3 outputs', 'model score']
+            # column_names = ['topic', 'type', 'value1', 'value2', 'value3', 'author', 'description', \
+            # 'model value1 outputs', 'model value2 outputs', 'model value3 outputs', 'model score']
 
             self._tests = pd.DataFrame(columns=column_names)
             self._tests_location = None
@@ -129,9 +124,7 @@ class TestTree:
 
         # # ensure auto saving is possible when requested
         # if auto_save and self._tests_location is None:
-        #     raise Exception(
-        #         "auto_save=True is only supported when loading from a file or IO stream"
-        #     )
+        #     raise Exception("auto_save=True is only supported when loading from a file or IO stream")
         # self.auto_save = auto_save
 
         # ensure we have required columns
@@ -260,8 +253,7 @@ class TestTree:
     def sort_values(self):
         return self._tests.sort_values
 
-    # NOTE: Can't delegate to df.append as it is deprecated in favor of pd.concat,
-    # which we can't use due to type checks
+    # NOTE: Can't delegate to df.append as it is deprecated in favor of pd.concat, which we can't use due to type checks
     def append(self, test_tree, axis=0):
         if isinstance(test_tree, pd.DataFrame):
             self._tests = pd.concat([self._tests, test_tree], axis=axis)
@@ -557,9 +549,9 @@ class TestTree:
         score_filter : float
             Minimum score threshold for filtering suggestions.
         """
-        # Use default generator if none provided
-        if generator is None:
-            generator = adaptive_testing.generators.OpenAI()
+        # Wrap BaseLLM instances in LLMGenerator
+        if generator is not None and isinstance(generator, BaseLLM):
+            generator = adaptive_testing.generators.LLMGenerator(generator)
 
         # regenerate_outputs implies recompute_scores
         if regenerate_outputs:
@@ -690,10 +682,7 @@ class TestTree:
     #             features.append(np.hstack([embeddings[ind1], embeddings[ind2]]))
     #         features = np.vstack(features)
 
-    #         label = np.array(
-    #             [v == "pass" for v in self.topic_model(topic)(features)],
-    #             dtype=np.float32
-    #         )
+    #         label = np.array([v == "pass" for v in self.topic_model(topic)(features)], dtype=np.float32)
     #         for i, (j,_,_) in enumerate(topics[topic]):
     #             out[j] = label[i]
 
@@ -709,10 +698,7 @@ class TestTreeLocIndexer:
         self.test_tree = test_tree
 
     def __repr__(self):
-        return (
-            "TestTreeLocIndexer is an intermediate object for operating on TestTrees. "
-            "Slice this object further to yield useful results."
-        )
+        return "TestTreeLocIndexer is an intermediate object for operating on TestTrees. Slice this object further to yield useful results."
 
     def __getitem__(self, key):
         # If all columns haven't changed, it's still a valid test tree
@@ -738,10 +724,7 @@ class TestTreeILocIndexer:
         self.test_tree = test_tree
 
     def __repr__(self):
-        return (
-            "TestTreeILocIndexer is an intermediate object for operating on TestTrees. "
-            "Slice this object further to yield useful results."
-        )
+        return "TestTreeILocIndexer is an intermediate object for operating on TestTrees. Slice this object further to yield useful results."
 
     def __getitem__(self, key):
         # If all columns haven't changed, it's still a valid test tree

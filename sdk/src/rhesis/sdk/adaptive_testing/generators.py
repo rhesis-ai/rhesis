@@ -1,13 +1,15 @@
 """A set of generators for Adaptive Testing."""
 
 import urllib
-from typing import Optional
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rhesis.sdk.models.base import BaseLLM
 
 import numpy as np
 from profanity import profanity
 
 from rhesis.sdk import adaptive_testing
-from rhesis.sdk.models import get_model
 
 from .embedders import cos_sim
 
@@ -125,13 +127,26 @@ class TextCompletionGenerator(Generator):
         return list(set(samples))
 
 
-class OpenAI(TextCompletionGenerator):
-    """Backend wrapper for the OpenAI API that exposes GPT-3."""
+class LLMGenerator(TextCompletionGenerator):
+    """Generator that accepts any BaseLLM instance from the SDK.
+
+    This allows users to use any LLM provider (OpenAI, Anthropic, etc.) for test generation.
+
+    Example:
+        >>> from rhesis.sdk.models import get_model
+        >>> from rhesis.sdk.adaptive_testing import generators
+        >>>
+        >>> # Create any BaseLLM instance
+        >>> llm = get_model("openai", model_name="gpt-4o-mini")
+        >>> # Or: llm = get_model("anthropic", model_name="claude-3-sonnet")
+        >>>
+        >>> # Use it as a generator
+        >>> gen = generators.LLMGenerator(llm, temperature=2.0)
+    """
 
     def __init__(
         self,
-        model: str = "gpt-4.1-mini",
-        api_key: Optional[str] = None,
+        llm: "BaseLLM",
         sep: str = "\n",
         subsep: str = " ",
         quote: str = '"',
@@ -139,14 +154,31 @@ class OpenAI(TextCompletionGenerator):
         top_p: float = 0.95,
         filter=profanity.censor,
     ):
-        super().__init__(model, sep, subsep, quote, filter)
+        """Create a new LLMGenerator with a BaseLLM instance.
+
+        Args:
+            llm: A BaseLLM instance from get_model() or any compatible implementation.
+            sep: Separator between prompt entries (default: newline).
+            subsep: Sub-separator within entries (default: space).
+            quote: Quote character for prompt formatting (default: double quote).
+            temperature: Sampling temperature for generation (default: 2.0).
+            top_p: Top-p sampling parameter (default: 0.95).
+            filter: Filter function to apply to generated texts (default: profanity.censor).
+        """
+        # Import here to avoid circular imports
+        from rhesis.sdk.models.base import BaseLLM
+
+        if not isinstance(llm, BaseLLM):
+            raise TypeError(
+                f"Expected a BaseLLM instance, got {type(llm).__name__}. "
+                "Use get_model() to create an LLM instance."
+            )
+
+        super().__init__(llm.model_name, sep, subsep, quote, filter)
         self.gen_type = "model"
-        self.api_key = api_key
-        self.model_name = model
+        self._model = llm
         self.temperature = temperature
         self.top_p = top_p
-        # Initialize the model using get_model
-        self._model = get_model("openai", model_name=model, api_key=api_key)
 
     def __call__(self, prompts, topic, mode, num_samples=1, max_length=100):
         if len(prompts[0]) == 0:
