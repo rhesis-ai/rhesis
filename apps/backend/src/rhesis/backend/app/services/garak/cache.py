@@ -13,6 +13,7 @@ import json
 import os
 from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional
+from urllib.parse import urlparse, urlunparse
 
 import redis.asyncio as redis
 
@@ -59,7 +60,9 @@ class GarakProbeCache:
         try:
             redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
             # Use database 2 for application cache (0 and 1 are for Celery)
-            cache_url = redis_url.rsplit("/", 1)[0] + "/2"
+            # Parse URL properly to handle cases where BROKER_URL has no database suffix
+            parsed = urlparse(redis_url)
+            cache_url = urlunparse(parsed._replace(path="/2"))
             cls._redis_client = await redis.from_url(
                 cache_url,
                 decode_responses=True,

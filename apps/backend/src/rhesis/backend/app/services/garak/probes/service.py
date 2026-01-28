@@ -36,23 +36,23 @@ class GarakProbeService:
 
         Returns:
             List of probe module names
+
+        Raises:
+            ImportError: If garak package is not installed
         """
         if self._discovered_modules is not None:
             return self._discovered_modules
 
-        try:
-            import garak.probes
+        # Let ImportError propagate - callers handle garak not being installed
+        import garak.probes
 
-            modules = []
-            for importer, modname, ispkg in pkgutil.iter_modules(garak.probes.__path__):
-                if modname not in self.EXCLUDED_MODULES:
-                    modules.append(modname)
+        modules = []
+        for importer, modname, ispkg in pkgutil.iter_modules(garak.probes.__path__):
+            if modname not in self.EXCLUDED_MODULES:
+                modules.append(modname)
 
-            self._discovered_modules = sorted(modules)
-            return self._discovered_modules
-        except ImportError:
-            # garak not installed - return empty list
-            return []
+        self._discovered_modules = sorted(modules)
+        return self._discovered_modules
 
     @property
     def garak_version(self) -> str:
@@ -303,10 +303,19 @@ class GarakProbeService:
 
         Returns:
             Dictionary mapping module names to lists of GarakProbeInfo
+
+        Raises:
+            RuntimeError: If garak package is not installed
         """
         all_probes = {}
 
-        for module_name in self._discover_probe_modules():
+        try:
+            probe_modules = self._discover_probe_modules()
+        except ImportError as e:
+            logger.error(f"Garak package not installed: {e}")
+            raise RuntimeError("Garak package is not installed") from e
+
+        for module_name in probe_modules:
             probes = self.extract_probes_from_module(module_name)
             if probes:
                 all_probes[module_name] = probes
