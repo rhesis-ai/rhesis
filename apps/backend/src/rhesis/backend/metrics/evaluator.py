@@ -320,7 +320,11 @@ class MetricEvaluator:
                     continue
 
                 # Check if metric requires context and skip if context is not available
-                context_required = self._get_config_value(metric_config, "context_required", False)
+                # Support both backend field name (context_required) and SDK field name
+                # (requires_context)
+                context_required = self._get_config_value(
+                    metric_config, "context_required", False
+                ) or self._get_config_value(metric_config, "requires_context", False)
                 if context_required and not context_available:
                     metric_name = self._get_config_value(metric_config, "name", class_name)
                     logger.warning(

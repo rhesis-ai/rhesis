@@ -24,7 +24,10 @@ import {
 
 interface TestDetailOverviewTabProps {
   test: TestResultDetail;
-  prompts: Record<string, { content: string; name?: string }>;
+  prompts: Record<
+    string,
+    { content: string; name?: string; expected_response?: string }
+  >;
   sessionToken: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
@@ -212,6 +215,92 @@ export default function TestDetailOverviewTab({
             >
               {responseContent}
             </Typography>
+          </Paper>
+        </Box>
+
+        {/* Expected Response Section */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Expected Response
+          </Typography>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              backgroundColor: theme.palette.background.default,
+              maxHeight: 200,
+              overflow: 'auto',
+            }}
+          >
+            {test.prompt_id && prompts[test.prompt_id]?.expected_response ? (
+              <Typography
+                variant="body2"
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {prompts[test.prompt_id].expected_response}
+              </Typography>
+            ) : (
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.secondary', fontStyle: 'italic' }}
+              >
+                No expected response provided
+              </Typography>
+            )}
+          </Paper>
+        </Box>
+
+        {/* Context Section */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+            Context
+          </Typography>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              backgroundColor: theme.palette.background.default,
+              maxHeight: 200,
+              overflow: 'auto',
+            }}
+          >
+            {test.test_output?.context &&
+            test.test_output.context.filter(item => item.trim()).length > 0 ? (
+              test.test_output.context
+                .filter(item => item.trim())
+                .map((item, index, filteredArray) => (
+                  <Box
+                    key={`context-${index}-${item.slice(0, 20)}`}
+                    sx={{
+                      display: 'flex',
+                      gap: 1,
+                      mb: index < filteredArray.length - 1 ? 0.5 : 0,
+                    }}
+                  >
+                    <Typography variant="body2">•</Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        flex: 1,
+                      }}
+                    >
+                      {item}
+                    </Typography>
+                  </Box>
+                ))
+            ) : (
+              <Typography
+                variant="body2"
+                sx={{ color: 'text.secondary', fontStyle: 'italic' }}
+              >
+                No context provided
+              </Typography>
+            )}
           </Paper>
         </Box>
 

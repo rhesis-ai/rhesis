@@ -16,12 +16,16 @@ class RagasMetricBase(BaseMetric):
         score_type: Optional[Union[str, ScoreType]] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
         model: Optional[Any] = None,
+        requires_context: bool = False,
+        requires_ground_truth: bool = False,
     ):
         config = MetricConfig(
             name=name,
             description=description,
             score_type=score_type,
             metric_type=metric_type,
+            requires_context=requires_context,
+            requires_ground_truth=requires_ground_truth,
         )
         super().__init__(config=config, model=model)
 
