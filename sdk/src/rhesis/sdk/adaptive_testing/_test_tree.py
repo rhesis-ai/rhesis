@@ -1,6 +1,3 @@
-import io
-import os
-import re
 import urllib.parse
 import uuid
 from typing import TYPE_CHECKING, Any, Callable, List, Optional
@@ -8,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable, List, Optional
 import pandas as pd
 
 from rhesis.sdk import adaptive_testing
+from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode
 from rhesis.sdk.entities import Prompt, Test, TestSet
 from rhesis.sdk.models import BaseEmbedder, BaseLLM
 
@@ -63,195 +61,11 @@ class TestTree:
             Additional keyword arguments are passed to the pandas DataFrame constructor.
         """
 
-        # the canonical ordered list of test tree columns
-        column_names = ["topic", "input", "output", "label", "labeler"]
-
-        # create a new test tree in memory
-        if tests is None:
-            self._tests = pd.DataFrame([], columns=column_names, dtype=str)
-            self._tests_location = None
-
-        # create a new test tree on disk (lazily saved)
-        elif isinstance(tests, str) and not os.path.isfile(tests):
-            self._tests = pd.DataFrame([], columns=column_names)
-            self._tests_location = tests
-
-        # load the test tree from a file or IO stream
-        elif isinstance(tests, str) or isinstance(tests, io.TextIOBase):
-            self._tests_location = tests
-            if os.path.isfile(tests) or isinstance(tests, io.TextIOBase):
-                self._tests = pd.read_csv(tests, index_col=0, dtype=str, keep_default_na=False)
-                self._tests.index = self._tests.index.map(str)
-            else:
-                raise Exception(f"The provided tests file is not supported: {tests}")
-
-        elif (
-            isinstance(tests, tuple) and len(tests) == 2
-        ):  # Dataset loader TODO: fix this for topic models
-            # column_names = ['topic', 'type', 'value1', 'value2', 'value3', 'author', 'description', \
-            # 'model value1 outputs', 'model value2 outputs', 'model value3 outputs', 'model score']
-
-            self._tests = pd.DataFrame(columns=column_names)
-            self._tests_location = None
-
-            self._tests["input"] = tests[0]
-            self._tests["output"] = tests[1]
-
-            # Constants
-            self._tests["topic"] = ""
-            self._tests["label"] = ""
-            self._tests["labeler"] = "dataset"
-
-        elif isinstance(tests, list) and isinstance(tests[0], str):
-            self._tests = pd.DataFrame(columns=column_names)
-            self._tests["input"] = tests
-            self._tests["output"] = "[no output]"
-            self._tests["topic"] = ""
-            self._tests["label"] = ""
-            self._tests["labeler"] = ""
-            self._tests_location = None
-
-            if index is None:
-                index = [uuid.uuid4().hex for _ in range(len(tests))]
-            self._tests.index = index
-
-        else:
-            if index is None:
-                index = [uuid.uuid4().hex for _ in range(len(tests))]
-            self._tests = pd.DataFrame(tests, **kwargs)
-            self._tests.index = index
-            self._tests_location = None
-
-        # # ensure auto saving is possible when requested
-        # if auto_save and self._tests_location is None:
-        #     raise Exception("auto_save=True is only supported when loading from a file or IO stream")
-        # self.auto_save = auto_save
-
-        # ensure we have required columns
-        for c in ["input", "output", "label"]:
-            if c not in self._tests.columns:
-                raise Exception("The test tree being loaded must contain a '" + c + "' column!")
-
-        # fill in any other missing columns
-        if "topic" not in self._tests.columns:
-            self._tests["topic"] = ["" for _ in range(self._tests.shape[0])]
-        if "labeler" not in self._tests.columns:
-            self._tests["labeler"] = ["imputed" for _ in range(self._tests.shape[0])]
-
-        # ensure that all topics have a topic_marker entry
-        if ensure_topic_markers:
-            self.ensure_topic_markers()
-
-        # drop any duplicate index values
-        self._tests = self._tests.groupby(level=0).first()
-
-        # fix spaces in topics names that are not URI encoded
-        self._tests["topic"] = self._tests["topic"].apply(lambda x: x.replace(" ", "%20"))
-
-        # drop any duplicate rows
-        self._tests.drop_duplicates(["topic", "input", "output", "labeler"], inplace=True)
-
-        # put the columns in a consistent order
-        self._tests = self._tests[
-            column_names + [c for c in self._tests.columns if c not in column_names]
-        ]
-
-        # replace any invalid topics with the empty string
-        for i, row in self._tests.iterrows():
-            if not isinstance(row.topic, str) or not row.topic.startswith("/"):
-                self._tests.loc[i, "topic"] = ""
-
-        # Track associated test set ID (for sync with backend)
-        self._test_set_id: str | None = None
-
-        # # keep track of our original state
-        # if self.auto_save:
-        #     self._last_saved_tests = self._tests.copy()
+        self._tests = tests
 
     @property
     def name(self):
-        return (
-            re.split(r"\/", self._tests_location)[-1]
-            if self._tests_location is not None
-            else "Tests"
-        )
-
-    def ensure_topic_markers(self):
-        marked_topics = {
-            t: True for t in set(self._tests.loc[self._tests["label"] == "topic_marker"]["topic"])
-        }
-        for topic in set(self._tests["topic"]):
-            parts = topic.split("/")
-            for i in range(1, len(parts) + 1):
-                parent_topic = "/".join(parts[:i])
-                if parent_topic not in marked_topics:
-                    self._tests.loc[uuid.uuid4().hex] = {
-                        "label": "topic_marker",
-                        "topic": parent_topic,
-                        "labeler": "imputed",
-                        "input": "",
-                        "output": "",
-                    }
-                    marked_topics[parent_topic] = True
-
-    def __getitem__(self, key):
-        """TestSets act just like a DataFrame when sliced."""
-        subset = self._tests[key]
-        if (
-            hasattr(subset, "columns")
-            and len(set(["topic", "input", "output", "label"]) - set(subset.columns)) == 0
-        ):
-            return self.__class__(subset, index=subset.index)
-        return subset
-
-    def __setitem__(self, key, value):
-        """TestSets act just like a DataFrame when sliced, including assignment."""
-        self._tests[key] = value
-
-    # all these methods directly expose the underlying DataFrame API
-    @property
-    def loc(self):
-        return TestTreeLocIndexer(self)
-
-    @property
-    def iloc(self):
-        return TestTreeILocIndexer(self)
-
-    @property
-    def index(self):
-        return self._tests.index
-
-    @property
-    def columns(self):
-        return self._tests.columns
-
-    @property
-    def shape(self):
-        return self._tests.shape
-
-    @property
-    def iterrows(self):
-        return self._tests.iterrows
-
-    @property
-    def groupby(self):
-        return self._tests.groupby
-
-    @property
-    def drop(self):
-        return self._tests.drop
-
-    @property
-    def insert(self):
-        return self._tests.insert
-
-    @property
-    def copy(self):
-        return self._tests.copy
-
-    @property
-    def sort_values(self):
-        return self._tests.sort_values
+        return "Tests"
 
     # NOTE: Can't delegate to df.append as it is deprecated in favor of pd.concat, which we can't use due to type checks
     def append(self, test_tree, axis=0):
@@ -279,16 +93,7 @@ class TestTree:
         return None  # TODO: Rethink append logic -- return copy vs. in place update?
 
     def __len__(self):
-        return self._tests.__len__()
-
-    def to_csv(self, file=None):
-        no_suggestions = self._tests.loc[
-            ["/__suggestions__" not in topic for topic in self._tests["topic"]]
-        ]
-        if file is None:
-            no_suggestions.to_csv(self._tests_location)
-        else:
-            no_suggestions.to_csv(file)
+        return len(self._tests)
 
     def to_test_set(
         self,
@@ -334,27 +139,27 @@ class TestTree:
 
         tests = []
 
-        for row_id, row in self._tests.iterrows():
+        for node in self._tests:
             # Skip topic markers - they're structural, not actual tests
-            if row.label == "topic_marker":
+            if node.label == "topic_marker":
                 continue
 
             # Skip suggestions unless explicitly included
-            if not include_suggestions and "/__suggestions__" in row.topic:
+            if not include_suggestions and "/__suggestions__" in node.topic:
                 continue
 
             # Decode URI-encoded topic (spaces are encoded as %20)
-            topic = urllib.parse.unquote(row.topic) if row.topic else ""
+            topic = urllib.parse.unquote(node.topic) if node.topic else ""
 
             # Build the prompt with input only
             # Output is execution data (goes to TestResult), not test definition
             prompt = Prompt(
-                content=row.input,
+                content=node.input,
             )
 
             # Minimal metadata - just track origin for potential round-trips
             metadata = {
-                "tree_id": str(row_id),
+                "tree_id": str(node.id),
             }
 
             # Create the test
@@ -373,7 +178,7 @@ class TestTree:
         )
 
     @classmethod
-    def from_test_set(cls, test_set: "TestSet") -> "TestTree":
+    def from_test_set(cls, test_set: "TestSet") -> "TestTreeData":
         """Create a TestTree from an SDK TestSet.
 
         This method converts SDK Test entities back into the hierarchical
@@ -413,7 +218,7 @@ class TestTree:
         - Tests without prompts are skipped (e.g., multi-turn tests)
         """
 
-        rows = []
+        nodes = []
 
         for test in test_set.tests or []:
             # Handle both dict and Test objects
@@ -434,26 +239,18 @@ class TestTree:
             # when tests are executed, not from the Test definition
             output = "[no output]"
 
-            rows.append(
-                {
-                    "topic": topic,
-                    "input": test.prompt.content,
-                    "output": output,
-                    "label": "",  # Will be set after execution/evaluation
-                    "labeler": "imported",
-                }
+            nodes.append(
+                TestTreeNode(
+                    topic=topic,
+                    input=test.prompt.content,
+                    output=output,
+                    label="",  # Will be set after execution/evaluation
+                    labeler="imported",
+                )
             )
 
-        if not rows:
-            return cls()
-
-        # Create DataFrame with UUIDs as index
-        df = pd.DataFrame(rows)
-        index = [uuid.uuid4().hex for _ in range(len(rows))]
-
-        tree = cls(df, index=index, ensure_topic_markers=True)
-        tree._test_set_id = test_set.id  # Track source for potential sync
-        return tree
+        test_data = TestTreeData(nodes=nodes)
+        return test_data
 
     def topic(self, topic):
         """Return a subset of the test tree containing only tests that match the given topic.

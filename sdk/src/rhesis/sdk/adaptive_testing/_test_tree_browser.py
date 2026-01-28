@@ -1,4 +1,5 @@
 # ruff: noqa: E501
+# This file has example strings in templatize() that are intentionally formatted
 import copy
 import itertools
 import json
@@ -11,6 +12,8 @@ from typing import TYPE_CHECKING, Callable, Union
 
 import numpy as np
 import pandas as pd
+
+from rhesis.sdk.adaptive_testing.tree_data_ops import return_eval_ids
 
 # from ._scorer import expand_template, clean_template, Scorer
 from .comm import JupyterComm
@@ -133,47 +136,20 @@ class TestTreeBrowser:
             raise ValueError("Embedder is required")
 
         # if we are recomputing the scores then we erase all the old scores
+        # +++ Change to use remove_scores function
         if recompute_scores is True:
             for c in self.test_tree.columns:
                 if c.endswith("score"):
                     self.test_tree.drop(c, axis=1, inplace=True)
 
-        # ensure "model score" column exists
-        if "model score" not in self.test_tree.columns:
-            self.test_tree["model score"] = np.nan
-
-        # ensure "to_eval" column exists
-        if "to_eval" not in self.test_tree.columns:
-            self.test_tree["to_eval"] = True
-
         # if regenerating outputs, force all tests to be re-evaluated
+        # +++ Change to use set_evaluation_status function
         if regenerate_outputs is True:
             self.test_tree["to_eval"] = True
-
-        # a unique identifier for this test set instance, used for UI connections
-        self._id = uuid.uuid4().hex
 
         # these are all temporary state
         self._hidden_topics = {}
         self.comm = None
-
-        # define our current mode, and set of supported modes
-        self.mode = "tests" if self.test_tree.shape[0] > 0 else "topics"
-        self.mode_options = [
-            # "validity focused", # focus first on making valid in-topic tests,
-            #   then secondarily on making those tests high scoring
-            # "failure focused", # focus on making high scoring (failing) tests,
-            #   then secondarily on making those tests valid and in-topic
-            "tests",  # suggest new tests
-            "topics",  # suggest new subtopics
-        ]
-
-        # ensure the model score column exists
-        self.score_columns = ["model score"]
-        if "model score" not in self.test_tree.columns:
-            self.test_tree["model score"] = np.nan
-        if "to_eval" not in self.test_tree.columns:
-            self.test_tree["to_eval"] = True
 
         # apply all the scorers to the test tree (this updates the test tree)
         # When regenerate_outputs=True, overwrite existing outputs with fresh ones from endpoint
@@ -415,6 +391,12 @@ class TestTreeBrowser:
         ):
             sendback_data = {}
             test_id = msg["test_ids"][0]
+
+            # convert template expansions into a standard value update
+            if msg.get("action", "") == "template_expand":
+                template_value = self.templatize(self.test_tree.loc[test_id, msg["value"]])
+                msg = {msg["value"]: template_value}
+                sendback_data[msg["value"]] = template_value
 
             # update the row and recompute scores
             metadata_fields = ["event_id", "test_ids"]
@@ -783,19 +765,11 @@ class TestTreeBrowser:
         self, tests, recompute=False, overwrite_outputs=False, save_outputs=False
     ):
         log.debug(
-            f"compute_embeddings_and_scores(tests=<DataFrame shape={tests.shape}>, "
+            f"compute_embeddings_and_scores(tests=<DataFrame shape={len(tests)}>, "
             f"recompute={recompute})"
         )
 
-        # Ensure to_eval column exists
-        if "to_eval" not in tests.columns:
-            tests["to_eval"] = True
-
-        eval_ids = tests.index[
-            ((tests["to_eval"] == True) | (tests["output"] == "[no output]"))  # noqa: E712
-            & (tests["label"] != "topic_marker")
-            & (tests["label"] != "off_topic")
-        ]
+        eval_ids = return_eval_ids(tests)
 
         if len(eval_ids) > 0:
             # run the scorer
@@ -899,6 +873,56 @@ class TestTreeBrowser:
         ]
 
         return {"display_parts": out}
+
+    def templatize(self, s):
+        """This is an experimental function that is not meant to be used generally."""
+        from openai import OpenAI
+
+        client = OpenAI()
+        prompt = """INPUT: "Where are regular people on Twitter"
+    OUTPUT: "Where are {regular|normal|sane|typical} people on {Twitter|Facebook|Reddit|Instagram}"
+    ###
+    INPUT: "Anyone who says this food tastes horrible is out of their mind"
+    OUTPUT: "{Anyone|Someone|He|She} who says this food tastes {horrible|terrible|rotten} is out of their mind"
+    ###
+    INPUT: "great"
+    OUTPUT: "{great|excellent|wonderful|superb|delightful}"
+    ###
+    INPUT: "If you haven't come here before, you probably live under a rock"
+    OUTPUT: "If you haven't come here {before|in the past|before now|yet}, you probably {live under a rock|never get out|are a hermit|are isolated}"
+    ###
+    INPUT: "Only crazy people would say they had a lousy time"
+    OUTPUT: "Only {crazy people|insane people|people with no sense|those out of their mind} would say they had a {lousy|terrible|bad|miserable} time"
+    ###
+    INPUT: "If I didn't come here again, I would be very happy for the rest of my life"
+    OUTPUT: "If I didn't come {here|hereabouts|around here} {again|once more|all over again}, I would be very {happy|glad|pleased|elated} for the rest of my life"
+    ###
+    INPUT: "I don't know what James was talking about when they said they loved the food."
+    OUTPUT: "I don't know what {James|John|Robert|Steve|Bob} was talking about when they {said they|stated that|claimed that|mentioned that} they {loved|liked|adored|appreciated} the food."
+    ###
+    INPUT: "new_input_value"
+    OUTPUT: \""""
+        prompt = prompt.replace("new_input_value", s)
+        # Use a default model if self.engine is not set (experimental function)
+        model = getattr(self, "engine", "text-davinci-003")
+        response = client.completions.create(
+            model=model, prompt=prompt, max_tokens=300, temperature=0.7, n=4, stop='"'
+        )
+
+        lines = [choice.text for choice in response.choices]
+        options = []
+        for line in lines:
+            line = clean_template(line)
+            valid = False
+            for option in expand_template(line):
+                if option == s:
+                    valid = True
+                    break
+            if valid:
+                options.append((-len(line), line))
+        options.sort()
+        log.debug(f"options = {options}")
+        return options[0][1]
 
     def _auto_save(self):
         """Save the current state of the model if we are auto saving."""

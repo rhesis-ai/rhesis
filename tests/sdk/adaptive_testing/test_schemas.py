@@ -56,6 +56,16 @@ class TestTestTreeNode:
         with pytest.raises(Exception):
             TestTreeNode()
 
+    def test_topic_spaces_are_encoded(self):
+        """Should encode spaces as %20 in topic field."""
+        node = TestTreeNode(input="test", topic="/Safety Topic/Sub Topic")
+        assert node.topic == "/Safety%20Topic/Sub%20Topic"
+
+    def test_topic_already_encoded_remains_unchanged(self):
+        """Should not double-encode already encoded topics."""
+        node = TestTreeNode(input="test", topic="/Safety%20Topic")
+        assert node.topic == "/Safety%20Topic"
+
 
 class TestTestTreeData:
     """Tests for TestTreeData collection."""

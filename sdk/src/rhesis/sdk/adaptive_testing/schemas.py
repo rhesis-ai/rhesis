@@ -1,7 +1,7 @@
 import uuid
 from typing import Iterator, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class TestTreeNode(BaseModel):
@@ -13,6 +13,14 @@ class TestTreeNode(BaseModel):
     labeler: str = ""
     to_eval: bool = True
     model_score: float = 0.0
+
+    @field_validator("topic", mode="before")
+    @classmethod
+    def encode_topic_spaces(cls, v: str) -> str:
+        """Replace spaces with %20 in topic paths."""
+        if isinstance(v, str):
+            return v.replace(" ", "%20")
+        return v
 
 
 class TestTreeData:
