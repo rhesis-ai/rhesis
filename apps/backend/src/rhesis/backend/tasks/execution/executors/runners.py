@@ -112,7 +112,10 @@ class SingleTurnRunner(BaseRunner):
         metric_configs = []
         if evaluate_metrics:
             metrics = get_test_metrics(
-                test, db, organization_id, user_id,
+                test,
+                db,
+                organization_id,
+                user_id,
                 test_set=test_set,
                 test_configuration=test_configuration,
             )

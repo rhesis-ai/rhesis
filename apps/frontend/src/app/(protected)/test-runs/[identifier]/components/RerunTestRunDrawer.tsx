@@ -146,7 +146,12 @@ export default function RerunTestRunDrawer({
       // Reset tags when drawer opens
       setTags([]);
     }
-  }, [sessionToken, open, rerunConfig.testSetId, rerunConfig.originalAttributes]);
+  }, [
+    sessionToken,
+    open,
+    rerunConfig.testSetId,
+    rerunConfig.originalAttributes,
+  ]);
 
   // Handle adding a metric from the dialog
   const handleAddMetric = async (metricId: UUID) => {

@@ -145,9 +145,7 @@ def get_test_metrics(
                         )
                         return metrics
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to load execution-time metrics for test {test.id}: {e}"
-                    )
+                    logger.warning(f"Failed to load execution-time metrics for test {test.id}: {e}")
 
     # Priority 2: Test set metrics override behavior metrics
     if test_set and hasattr(test_set, "metrics") and test_set.metrics:
