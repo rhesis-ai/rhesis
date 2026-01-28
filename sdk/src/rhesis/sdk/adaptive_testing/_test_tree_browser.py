@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Callable, Union
 import numpy as np
 import pandas as pd
 
+from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode
 from rhesis.sdk.adaptive_testing.tree_data_ops import return_eval_ids
 
 # from ._scorer import expand_template, clean_template, Scorer
@@ -24,7 +25,6 @@ if TYPE_CHECKING:
     from rhesis.sdk.models import BaseEmbedder
 
     from ._prompt_builder import PromptBuilder
-    from ._test_tree import TestTree
     from .embedders import EmbedderAdapter
 
 log = logging.getLogger(__name__)
@@ -90,7 +90,7 @@ class TestTreeBrowser:
 
     def __init__(
         self,
-        test_tree: "TestTree",
+        test_tree: "TestTreeData",
         generator: Generator,
         endpoint: Callable[[list[str]], list[str]],
         metrics: Callable[[list[str], list[str]], list[float]],
@@ -777,7 +777,7 @@ class TestTreeBrowser:
             eval_inputs = []
             eval_inds = []
             for i, id in enumerate(eval_ids):
-                test = tests.loc[id]
+                test = tests[id]
                 template_expansions = expand_template(test.input)
                 for expansion in template_expansions:
                     eval_inputs.append(expansion)
@@ -788,34 +788,17 @@ class TestTreeBrowser:
             scores = self.metrics(eval_inputs, new_outputs)
 
             # update the scores in the test tree
-            current_outputs = tests["output"]
             for i, id in enumerate(eval_ids):
                 # tests.loc[id, k+" score"] = scores[i]
 
-                if (
-                    not overwrite_outputs
-                    and current_outputs.loc[id] != "[no output]"
-                    and current_outputs.loc[id] != new_outputs[i]
-                ):
-                    # mark the current row as nan score (meaning the output does not match)
-                    tests.loc[id, "model score"] = np.nan
+                node = TestTreeNode(id=id)
+                node.output = new_outputs[i]
+                node.model_score = scores[i]
+                node.label = "fail" if scores[i] > 0.5 else "pass"
+                node.labeler = "scored"
+                node.to_eval = False
 
-                    # add a new test where the model output does match if we are saving outputs
-                    if save_outputs:
-                        id_new = uuid.uuid4().hex
-                        tests.loc[id_new, "topic"] = tests.loc[id, "topic"]
-                        tests.loc[id_new, "input"] = tests.loc[id, "input"]
-                        tests.loc[id_new, "output"] = new_outputs[i]
-                        tests.loc[id_new, "labeler"] = "scored"
-                        tests.loc[id_new, "label"] = "fail" if scores[i] > 0.5 else "pass"
-                        tests.loc[id_new, "model score"] = scores[i]
-                        tests.loc[id_new, "to_eval"] = False
-                else:
-                    tests.loc[id, "output"] = new_outputs[i]
-                    tests.loc[id, "model score"] = scores[i]
-                    tests.loc[id, "label"] = "fail" if scores[i] > 0.5 else "pass"
-                    tests.loc[id, "labeler"] = "scored"
-                    tests.loc[id, "to_eval"] = False
+                self.test_tree[id] = node
 
     def test_display_parts(self, test):
         # # find which template instantiation has the highest score (and so should be displayed)

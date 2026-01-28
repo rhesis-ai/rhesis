@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 class TestTreeNode(BaseModel):
     id: str = Field(default_factory=lambda: uuid.uuid4().hex)
     topic: str = ""
-    input: str
+    input: str = ""
     output: str = ""
     label: str = ""
     labeler: str = ""
@@ -46,6 +46,20 @@ class TestTreeData:
     def shape(self) -> tuple[int, int]:
         return (len(self._nodes), 5)  # 5
 
-    def __getitem__(self, key: int) -> TestTreeNode:
-        keys = list(self._nodes.keys())
-        return self._nodes[keys[key]]
+    def __getitem__(self, key: int | str) -> TestTreeNode:
+        if isinstance(key, int):
+            keys = list(self._nodes.keys())
+            return self._nodes[keys[key]]
+        elif isinstance(key, str):
+            return self._nodes[key]
+        else:
+            raise ValueError(f"Invalid key type: {type(key)}")
+
+    def __setitem__(self, key: int | str, value: TestTreeNode) -> None:
+        if isinstance(key, int):
+            keys = list(self._nodes.keys())
+            self._nodes[keys[key]] = value
+        elif isinstance(key, str):
+            self._nodes[key] = value
+        else:
+            raise ValueError(f"Invalid key type: {type(key)}")

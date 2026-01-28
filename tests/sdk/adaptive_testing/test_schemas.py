@@ -116,3 +116,26 @@ class TestTestTreeData:
         """Should return (0, 5) for empty data."""
         data = TestTreeData()
         assert data.shape == (0, 5)
+
+    def test_getitem_by_int(self, sample_nodes):
+        """Should get node by integer index."""
+        data = TestTreeData(sample_nodes)
+        assert data[0] == sample_nodes[0]
+        assert data[1] == sample_nodes[1]
+        assert data[2] == sample_nodes[2]
+
+    def test_getitem_by_str(self, sample_nodes):
+        """Should get node by string ID."""
+        data = TestTreeData(sample_nodes)
+        assert data["node1"] == sample_nodes[0]
+
+    def test_setitem_by_int(self, sample_nodes):
+        """Should set node by integer index."""
+        data = TestTreeData(sample_nodes)
+        data[0] = TestTreeNode(id="node1", input="input1")
+        assert data[0] == TestTreeNode(id="node1", input="input1")
+
+    def test_setitem_by_str(self, sample_nodes):
+        """Should set node by string ID."""
+        data = TestTreeData(sample_nodes)
+        data["node1"] = TestTreeNode(id="node1", input="input1")
