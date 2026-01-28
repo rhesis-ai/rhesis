@@ -588,7 +588,7 @@ export default function ExecuteTestSetDrawer({
                         p: 1,
                         border: 1,
                         borderColor: 'divider',
-                        borderRadius: 1,
+                        borderRadius: (theme) => theme.spacing(1),
                       }}
                     >
                       <Box

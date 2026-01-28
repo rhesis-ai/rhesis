@@ -401,7 +401,7 @@ export default function RerunTestRunDrawer({
                         p: 1,
                         border: 1,
                         borderColor: 'divider',
-                        borderRadius: 1,
+                        borderRadius: (theme) => theme.spacing(1),
                       }}
                     >
                       <Box

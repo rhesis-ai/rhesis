@@ -592,9 +592,7 @@ def execute_test_set_on_endpoint(
         logger.debug("Metrics source: execution_time (user-provided metrics)")
     elif db_test_set.metrics and len(db_test_set.metrics) > 0:
         metrics_source = MetricsSource.TEST_SET.value
-        logger.debug(
-            f"Metrics source: test_set ({len(db_test_set.metrics)} metrics on test set)"
-        )
+        logger.debug(f"Metrics source: test_set ({len(db_test_set.metrics)} metrics on test set)")
     else:
         metrics_source = MetricsSource.BEHAVIOR.value
         logger.debug("Metrics source: behavior (fallback to test behaviors)")
