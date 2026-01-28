@@ -61,6 +61,21 @@ Rhesis is an open-source platform for testing and evaluating LLM & agentic appli
 
 ---
 
+## Why Rhesis?
+
+**Built for teams, not just engineers**: UI for non-technical stakeholders to define requirements and review results. SDK for engineers to work from their IDE and integrate into CI/CD. Comments, tasks, and review workflows so legal, compliance, and domain experts can collaborate without writing code.
+
+### Rhesis vs...
+
+| Alternative | Rhesis Difference |
+|-------------|-------------------|
+| **Manual testing** | Generates hundreds of test cases automatically instead of writing them by hand |
+| **Traditional test frameworks** | Built for non-deterministic LLM behavior, not deterministic code |
+| **LLM observability tools** | Focuses on **pre-production** validation, not just production monitoring |
+| **Red-teaming services** | Continuous and self-service, not a one-time audit |
+
+---
+
 ## Reliability Testing & Adversarial Testing
 
 <!-- VISUAL: testing-types.png
