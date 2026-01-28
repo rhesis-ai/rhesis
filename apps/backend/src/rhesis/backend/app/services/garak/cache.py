@@ -80,7 +80,13 @@ class GarakProbeCache:
                 f"Garak probe cache: Redis not available ({type(e).__name__}: {e}). "
                 "Operating in memory-only mode."
             )
-            cls._redis_client = None
+            # Close client if it was created (e.g., from_url succeeded but ping failed)
+            if cls._redis_client:
+                try:
+                    await cls._redis_client.close()
+                except Exception:
+                    pass
+                cls._redis_client = None
             cls._initialized = True  # Mark as initialized even without Redis
 
     @classmethod
@@ -96,12 +102,13 @@ class GarakProbeCache:
 
     @classmethod
     async def close(cls) -> None:
-        """Close Redis connection if open."""
+        """Close Redis connection and reset state for potential reinitialization."""
         if cls._redis_client:
             await cls._redis_client.close()
             cls._redis_client = None
-            cls._initialized = False
             logger.info("Garak probe cache: Redis connection closed")
+        # Always reset _initialized so initialize() can attempt Redis reconnection
+        cls._initialized = False
 
     @classmethod
     def _cache_key(cls, garak_version: str) -> str:

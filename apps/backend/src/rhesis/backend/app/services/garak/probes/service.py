@@ -356,33 +356,24 @@ class GarakProbeService:
             return deserialize_probe_data(cached_data)
 
         # Cache miss - generate probe data
-        # Suppress verbose output during enumeration (print statements and logging)
+        # Suppress verbose output during enumeration (print statements and garak logging)
         import contextlib
         import io
         import logging
 
         logger.info(f"Garak probe cache MISS: generating probe data (v{self.garak_version})...")
 
-        # Suppress all output: garak uses print() statements, and we have debug logs
+        # Suppress stdout/stderr (garak uses print() for "loading probe:" messages)
         null_output = io.StringIO()
 
-        # Get all loggers that might produce output during enumeration
-        root_logger = logging.getLogger()
+        # Only suppress garak-specific loggers to avoid affecting concurrent requests
+        # DO NOT suppress root logger - it would affect all loggers in the async app
         garak_logger = logging.getLogger("garak")
-        rhesis_logger = logging.getLogger("__rhesis__")
-
-        # Save original levels
-        original_levels = {
-            "root": root_logger.level,
-            "garak": garak_logger.level,
-            "rhesis": rhesis_logger.level,
-        }
+        original_garak_level = garak_logger.level
 
         try:
-            # Suppress all logging during enumeration
-            root_logger.setLevel(logging.CRITICAL)
+            # Suppress only garak's logging during enumeration
             garak_logger.setLevel(logging.CRITICAL)
-            rhesis_logger.setLevel(logging.CRITICAL)
 
             # Suppress stdout/stderr (garak uses print() for "loading probe:" messages)
             with contextlib.redirect_stdout(null_output), contextlib.redirect_stderr(null_output):
@@ -395,10 +386,8 @@ class GarakProbeService:
                     if probes:
                         probes_by_module[module.name] = probes
         finally:
-            # Restore original log levels
-            root_logger.setLevel(original_levels["root"])
-            garak_logger.setLevel(original_levels["garak"])
-            rhesis_logger.setLevel(original_levels["rhesis"])
+            # Restore garak logger level
+            garak_logger.setLevel(original_garak_level)
 
         # Store in cache
         cache_data = serialize_probe_data(modules, probes_by_module)
