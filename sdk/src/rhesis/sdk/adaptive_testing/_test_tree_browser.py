@@ -1,5 +1,4 @@
 # ruff: noqa: E501
-# This file has example strings in templatize() that are intentionally formatted
 import copy
 import itertools
 import json
@@ -8,16 +7,22 @@ import pathlib
 import re
 import urllib.parse
 import uuid
+from typing import TYPE_CHECKING, Callable, Union
 
 import numpy as np
 import pandas as pd
 
 # from ._scorer import expand_template, clean_template, Scorer
-from rhesis.sdk import adaptive_testing  # Need to import like this to prevent circular dependencies
-
 from .comm import JupyterComm
-from .generators import TestTreeSource
+from .generators import Generator
 from .utils import is_subtopic
+
+if TYPE_CHECKING:
+    from rhesis.sdk.models import BaseEmbedder
+
+    from ._prompt_builder import PromptBuilder
+    from ._test_tree import TestTree
+    from .embedders import EmbedderAdapter
 
 log = logging.getLogger(__name__)
 
@@ -82,23 +87,23 @@ class TestTreeBrowser:
 
     def __init__(
         self,
-        test_tree,
-        generator,
-        endpoint,
-        metrics,
-        embedder,
-        user,
-        auto_save,
-        recompute_scores,
-        regenerate_outputs,
-        max_suggestions,
-        prompt_variants,
-        prompt_builder,
-        starting_path,
-        score_filter,
-    ):
+        test_tree: "TestTree",
+        generator: Generator,
+        endpoint: Callable[[list[str]], list[str]],
+        metrics: Callable[[list[str], list[str]], list[float]],
+        embedder: Union["BaseEmbedder", "EmbedderAdapter", None],
+        user: str,
+        auto_save: bool,
+        recompute_scores: bool,
+        regenerate_outputs: bool,
+        max_suggestions: int,
+        prompt_variants: int,
+        prompt_builder: "PromptBuilder",
+        starting_path: str,
+        score_filter: Union[float, str],
+    ) -> None:
         """Initialize the TestTreeBrowser."""
-        from rhesis.sdk.models import BaseEmbedder, get_embedder
+        from rhesis.sdk.models import BaseEmbedder
 
         from .embedders import EmbedderAdapter
 
@@ -125,15 +130,7 @@ class TestTreeBrowser:
                 # Already an adapter or compatible object
                 self.embedder = embedder
         else:
-            # Default to OpenAI text-embedding-3-small
-            default_embedder = get_embedder(
-                provider="openai", model_name="text-embedding-3-small", dimensions=768
-            )
-            self.embedder = EmbedderAdapter(default_embedder)
-
-        # Cast TestTree to TestTreeSource if needed
-        if isinstance(self.generator, adaptive_testing._test_tree.TestTree):
-            self.generator = TestTreeSource(self.generator)
+            raise ValueError("Embedder is required")
 
         # if we are recomputing the scores then we erase all the old scores
         if recompute_scores is True:
@@ -418,12 +415,6 @@ class TestTreeBrowser:
         ):
             sendback_data = {}
             test_id = msg["test_ids"][0]
-
-            # convert template expansions into a standard value update
-            if msg.get("action", "") == "template_expand":
-                template_value = self.templatize(self.test_tree.loc[test_id, msg["value"]])
-                msg = {msg["value"]: template_value}
-                sendback_data[msg["value"]] = template_value
 
             # update the row and recompute scores
             metadata_fields = ["event_id", "test_ids"]
@@ -908,56 +899,6 @@ class TestTreeBrowser:
         ]
 
         return {"display_parts": out}
-
-    def templatize(self, s):
-        """This is an experimental function that is not meant to be used generally."""
-        from openai import OpenAI
-
-        client = OpenAI()
-        prompt = """INPUT: "Where are regular people on Twitter"
-    OUTPUT: "Where are {regular|normal|sane|typical} people on {Twitter|Facebook|Reddit|Instagram}"
-    ###
-    INPUT: "Anyone who says this food tastes horrible is out of their mind"
-    OUTPUT: "{Anyone|Someone|He|She} who says this food tastes {horrible|terrible|rotten} is out of their mind"
-    ###
-    INPUT: "great"
-    OUTPUT: "{great|excellent|wonderful|superb|delightful}"
-    ###
-    INPUT: "If you haven't come here before, you probably live under a rock"
-    OUTPUT: "If you haven't come here {before|in the past|before now|yet}, you probably {live under a rock|never get out|are a hermit|are isolated}"
-    ###
-    INPUT: "Only crazy people would say they had a lousy time"
-    OUTPUT: "Only {crazy people|insane people|people with no sense|those out of their mind} would say they had a {lousy|terrible|bad|miserable} time"
-    ###
-    INPUT: "If I didn't come here again, I would be very happy for the rest of my life"
-    OUTPUT: "If I didn't come {here|hereabouts|around here} {again|once more|all over again}, I would be very {happy|glad|pleased|elated} for the rest of my life"
-    ###
-    INPUT: "I don't know what James was talking about when they said they loved the food."
-    OUTPUT: "I don't know what {James|John|Robert|Steve|Bob} was talking about when they {said they|stated that|claimed that|mentioned that} they {loved|liked|adored|appreciated} the food."
-    ###
-    INPUT: "new_input_value"
-    OUTPUT: \""""
-        prompt = prompt.replace("new_input_value", s)
-        # Use a default model if self.engine is not set (experimental function)
-        model = getattr(self, "engine", "text-davinci-003")
-        response = client.completions.create(
-            model=model, prompt=prompt, max_tokens=300, temperature=0.7, n=4, stop='"'
-        )
-
-        lines = [choice.text for choice in response.choices]
-        options = []
-        for line in lines:
-            line = clean_template(line)
-            valid = False
-            for option in expand_template(line):
-                if option == s:
-                    valid = True
-                    break
-            if valid:
-                options.append((-len(line), line))
-        options.sort()
-        log.debug(f"options = {options}")
-        return options[0][1]
 
     def _auto_save(self):
         """Save the current state of the model if we are auto saving."""
