@@ -29,14 +29,32 @@ const BehaviorDrawer = ({
   const [currentName, setCurrentName] = React.useState(initialName);
   const [currentDescription, setCurrentDescription] =
     React.useState(initialDescription);
+  const [validationError, setValidationError] = React.useState<string>('');
 
   React.useEffect(() => {
-    setCurrentName(initialName);
-    setCurrentDescription(initialDescription);
+    if (open) {
+      setCurrentName(initialName);
+      setCurrentDescription(initialDescription);
+      setValidationError('');
+    }
   }, [initialName, initialDescription, open]);
 
   const handleSaveInternal = () => {
-    onSave(currentName, currentDescription);
+    setValidationError('');
+
+    const trimmedName = currentName.trim();
+
+    if (!trimmedName) {
+      setValidationError('Behavior name is required');
+      return;
+    }
+
+    if (trimmedName.length < 2) {
+      setValidationError('Behavior name must be at least 2 characters');
+      return;
+    }
+
+    onSave(trimmedName, currentDescription.trim());
   };
 
   const drawerTitle = isNew ? 'Add New Behavior' : 'Edit Behavior';
@@ -63,12 +81,16 @@ const BehaviorDrawer = ({
           <TextField
             label="Name"
             value={currentName}
-            onChange={e => setCurrentName(e.target.value)}
+            onChange={e => {
+              setCurrentName(e.target.value);
+              if (validationError) setValidationError('');
+            }}
             fullWidth
             required
             variant="outlined"
             disabled={loading}
-            helperText="A clear, descriptive name for this behavior"
+            error={!!validationError}
+            helperText={validationError || "A clear, descriptive name for this behavior"}
           />
 
           <TextField

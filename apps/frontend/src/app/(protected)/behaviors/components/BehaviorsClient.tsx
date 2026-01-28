@@ -131,13 +131,27 @@ export default function BehaviorsClient({
       setDrawerLoading(true);
       setDrawerError(undefined);
 
+      // Validation
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        setDrawerError('Behavior name is required');
+        setDrawerLoading(false);
+        return;
+      }
+
+      if (trimmedName.length < 2) {
+        setDrawerError('Behavior name must be at least 2 characters');
+        setDrawerLoading(false);
+        return;
+      }
+
       const behaviorClient = new BehaviorClient(sessionToken);
 
       if (isNewBehavior) {
         // Create new behavior
         const created = await behaviorClient.createBehavior({
-          name,
-          description: description || null,
+          name: trimmedName,
+          description: description?.trim() || null,
           organization_id: organizationId,
         });
 
@@ -157,8 +171,8 @@ export default function BehaviorsClient({
         const updated = await behaviorClient.updateBehavior(
           editingBehavior.id,
           {
-            name,
-            description: description || null,
+            name: trimmedName,
+            description: description?.trim() || null,
           }
         );
 
