@@ -224,7 +224,6 @@ class TestGetMCPClientByToolId:
         assert provider_name == "custom"
         assert repository_context is None
         mock_factory.from_tool_config.assert_called_once_with(
-            tool_name="custom",
             tool_config={"command": "npx", "args": ["@example/mcp-server"]},
             credentials={"TOKEN": "test_token"},
         )
@@ -363,7 +362,7 @@ class TestGetMCPClientFromParams:
         # Assert
         assert result == mock_client
         mock_factory.from_tool_config.assert_called_once_with(
-            tool_name="custom", tool_config=tool_metadata, credentials=credentials
+            tool_config=tool_metadata, credentials=credentials
         )
 
     @patch("rhesis.backend.app.services.mcp_service.crud")
