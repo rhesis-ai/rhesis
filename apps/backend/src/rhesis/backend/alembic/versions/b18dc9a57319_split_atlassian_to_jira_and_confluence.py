@@ -27,7 +27,7 @@ def upgrade() -> None:
     op.execute(
         """
         DELETE FROM tool
-        WHERE tool_provider_type_id = (
+        WHERE tool_provider_type_id IN (
             SELECT id FROM type_lookup
             WHERE type_name = 'ToolProviderType' AND type_value = 'atlassian'
         );
