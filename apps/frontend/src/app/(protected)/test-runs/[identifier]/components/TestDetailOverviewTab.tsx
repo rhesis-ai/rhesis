@@ -235,7 +235,7 @@ export default function TestDetailOverviewTab({
                 .filter((item) => item.trim())
                 .map((item, index, filteredArray) => (
                   <Box
-                    key={index}
+                    key={`context-${index}-${item.slice(0, 20)}`}
                     sx={{
                       display: 'flex',
                       gap: 1,
