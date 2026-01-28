@@ -580,3 +580,5 @@ async def run_mcp_authentication_test(
 
     if not result.success:
         raise ValueError(f"Authentication test failed: {result.error}")
+
+    return json.loads(result.final_answer)
