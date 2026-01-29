@@ -236,17 +236,7 @@ dev_start() {
         sleep 1
     done
 
-    # Step 4: Run migrations
-    echo ""
-    echo -e "${YELLOW}🔄 Running database migrations...${NC}"
-    cd "$SCRIPT_DIR/apps/backend" || exit 1
-    if [ -f "migrate.sh" ]; then
-        ./migrate.sh && echo -e "${GREEN}✅ Migrations completed${NC}" || \
-            echo -e "${YELLOW}⚠️  Migrations may have failed, check output above${NC}"
-    fi
-    cd "$SCRIPT_DIR"
-
-    # Step 5: Display instructions
+    # Step 4: Display instructions
     echo ""
     echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
     echo -e "${GREEN}✅ Development environment ready!${NC}"
@@ -260,7 +250,7 @@ dev_start() {
     echo -e "   ${GREEN}cd apps/backend && ./start.sh${NC}"
     echo ""
     echo -e "${CYAN}🌐 To start the frontend:${NC}"
-    echo -e "   ${GREEN}cd apps/frontend && npm install && npm run dev${NC}"
+    echo -e "   ${GREEN}./rh frontend start${NC}"
     echo ""
     echo -e "${CYAN}⚙️  To start the worker (optional):${NC}"
     echo -e "   ${GREEN}./rh worker start${NC}"
