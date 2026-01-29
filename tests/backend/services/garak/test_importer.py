@@ -347,18 +347,14 @@ class TestGarakImporterPreview:
 class TestGarakImporterMetricCreation:
     """Tests for metric creation/lookup."""
 
-    def test_get_or_create_garak_metric_naming(
-        self, test_db: Session, authenticated_user_id, test_org_id
-    ):
+    def test_get_or_create_garak_metric_naming(self):
         """Test _get_or_create_garak_metric generates correct metric name."""
-        importer = GarakImporter(test_db)
-
-        # Test the metric name generation logic by checking the query
-        # The method looks for metrics named "Garak: {detector_class_name}"
+        # Test the metric name generation logic
+        # The method looks for metrics named "{detector_class_name}" (no prefix)
         detector_class = "garak.detectors.mitigation.MitigationBypass"
-        expected_name = f"Garak: {detector_class.split('.')[-1]}"
+        expected_name = detector_class.split(".")[-1]
 
-        assert expected_name == "Garak: MitigationBypass"
+        assert expected_name == "MitigationBypass"
 
     def test_garak_metric_constants(self):
         """Test GarakImporter metric class constants."""
