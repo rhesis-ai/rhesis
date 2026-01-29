@@ -44,21 +44,21 @@ export default function TestSetDrawer({
   const [selectedTestSetTypeId, setSelectedTestSetTypeId] = React.useState<
     string | undefined
   >(testSet?.test_set_type_id);
-  const [validationError, setValidationError] = React.useState<string>('');
+  const [nameError, setNameError] = React.useState<string>('');
 
-  // Reset fields when drawer opens
   React.useEffect(() => {
     if (open) {
       setName(testSet?.name || '');
       setDescription(testSet?.description || '');
       setShortDescription(testSet?.short_description || '');
-      setSelectedTestSetTypeId(testSet?.test_set_type_id);
-      setValidationError('');
+      if (testSet) {
+        setSelectedTestSetTypeId(testSet.test_set_type_id);
+      }
+      setNameError('');
       setError(undefined);
     }
   }, [open, testSet]);
 
-  // Fetch test set types on mount
   React.useEffect(() => {
     const fetchTestSetTypes = async () => {
       if (!sessionToken) return;
@@ -75,7 +75,6 @@ export default function TestSetDrawer({
 
         setTestSetTypes(types);
 
-        // Set default to Single-Turn if creating a new test set
         if (!testSet && types.length > 0) {
           const singleTurnType = types.find(
             t => t.type_value === 'Single-Turn'
@@ -83,7 +82,6 @@ export default function TestSetDrawer({
           if (singleTurnType) {
             setSelectedTestSetTypeId(singleTurnType.id);
           } else {
-            // Fallback to first type if Single-Turn not found
             setSelectedTestSetTypeId(types[0].id);
           }
         }
@@ -98,24 +96,18 @@ export default function TestSetDrawer({
   const handleSave = async () => {
     if (!sessionToken) return;
 
-    // Validation
-    setValidationError('');
+    setNameError('');
     setError(undefined);
 
     const trimmedName = name.trim();
 
     if (!trimmedName) {
-      setValidationError('Test set name is required');
+      setNameError('Test set name is required');
       return;
     }
 
     if (trimmedName.length < 2) {
-      setValidationError('Test set name must be at least 2 characters');
-      return;
-    }
-
-    if (!selectedTestSetTypeId) {
-      setValidationError('Test set type is required');
+      setNameError('Test set name must be at least 2 characters');
       return;
     }
 
@@ -161,7 +153,6 @@ export default function TestSetDrawer({
       onSave={handleSave}
     >
       <Stack spacing={3}>
-        {/* Test Set Details Section */}
         <Stack spacing={2}>
           <Typography variant="subtitle2" color="text.secondary">
             Test Set Details
@@ -173,23 +164,20 @@ export default function TestSetDrawer({
               value={name}
               onChange={e => {
                 setName(e.target.value);
-                if (validationError) setValidationError('');
+                if (nameError) setNameError('');
               }}
               required
               fullWidth
               disabled={loading}
-              error={!!validationError}
-              helperText={validationError || 'A clear, descriptive name for this test set'}
+              error={!!nameError}
+              helperText={nameError || 'A clear, descriptive name for this test set'}
             />
 
             <FormControl fullWidth disabled={loading}>
               <InputLabel>Test Set Type</InputLabel>
               <Select
                 value={selectedTestSetTypeId || ''}
-                onChange={e => {
-                  setSelectedTestSetTypeId(e.target.value);
-                  if (validationError) setValidationError('');
-                }}
+                onChange={e => setSelectedTestSetTypeId(e.target.value)}
                 label="Test Set Type"
                 required
               >
