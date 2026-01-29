@@ -53,6 +53,8 @@ export default function TestSetDrawer({
       setShortDescription(testSet?.short_description || '');
       if (testSet) {
         setSelectedTestSetTypeId(testSet.test_set_type_id);
+      } else {
+        setSelectedTestSetTypeId(undefined);
       }
       setNameError('');
       setError(undefined);
