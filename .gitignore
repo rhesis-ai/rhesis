@@ -73,6 +73,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/src/public/_pagefind/
 
 # PyBuilder
 .pybuilder/
@@ -299,6 +300,9 @@ deepeval_telemetry.jsonl.gz.part
 
 # Exclude Pycharm settings
 .idea/
+
+# Cursor IDE
+.cursor/plans/
 
 # Playground
 playground/*
