@@ -13,6 +13,42 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-01-29
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.1**
+- **Frontend 0.6.2**
+- **SDK 0.6.2**
+
+### Summary of Changes
+
+**Backend v0.6.1:**
+- Added Garak LLM vulnerability scanner integration with Redis caching for probe enumeration.
+- Implemented 3-level metrics hierarchy for test execution allowing execution-time metric overrides.
+- Added MCP Jira/Confluence (Atlassian Stdio), GitHub repository retrieval, and observability integrations.
+- Upgraded FastAPI/Starlette, security dependencies, and optimized Docker image with CPU-only PyTorch.
+
+**Frontend v0.6.2:**
+- Added 3-level metrics hierarchy UI for test execution with metric source selection.
+- Integrated Garak LLM vulnerability scanner import UI for test sets.
+- Added MCP Atlassian, GitHub, and observability support in the UI.
+- Added context and expected response fields to test run detail view.
+
+**SDK v0.6.2:**
+- Added Model entity with provider auto-resolution and Project entity with integration tests.
+- Implemented batch processing, embedders framework, and Vertex AI support.
+- Added Garak detector metric integration and MCP observability with OpenTelemetry tracing.
+- Implemented continuous slow retry mode for connector resilience.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.5.5] - 2026-01-15
 
 ### Platform Release

@@ -57,11 +57,11 @@ class MappingSource(str, Enum):
 class MappingResult(BaseModel):
     """Result of mapping generation with metadata."""
 
-    request_mapping: Dict[str, str] = Field(
+    request_mapping: Dict[str, Any] = Field(
         description="Jinja2 template mapping standard fields to function parameters"
     )
-    response_mapping: Dict[str, str] = Field(
-        description="Mapping from function output to standard fields"
+    response_mapping: Dict[str, Any] = Field(
+        description="Mapping from function output to standard fields (supports nested dicts)"
     )
     source: MappingSource = Field(
         description=(

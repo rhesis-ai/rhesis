@@ -32,8 +32,74 @@ class ResponseMapper:
             logger.warning(f"JSONPath extraction failed for '{path}': {str(e)}")
             return None
 
+    def _map_single_value(self, response_data: Dict[str, Any], mapping_value: str) -> Any:
+        """
+        Map a single string mapping expression to a value.
+
+        Args:
+            response_data: Raw response data from API
+            mapping_value: The mapping expression (JSONPath or Jinja2 template)
+
+        Returns:
+            The mapped value or None if extraction failed
+        """
+        # Step 1: Render as Jinja2 template with response_data as context
+        # Also provide jsonpath() function for extracting nested fields
+        template = Template(mapping_value)
+
+        # Build template context: merge response_data fields with jsonpath function
+        template_context = dict(response_data)
+        template_context["jsonpath"] = lambda path: self._jsonpath_extract(response_data, path)
+
+        rendered_value = template.render(**template_context)
+
+        # Step 2: If result starts with '$', treat as JSONPath expression
+        if rendered_value.startswith("$"):
+            jsonpath_expr = jsonpath_ng.parse(rendered_value)
+            matches = jsonpath_expr.find(response_data)
+            if matches:
+                return matches[0].value
+            else:
+                # If no match found, return None
+                return None
+        else:
+            # Direct template result (not a JSONPath expression)
+            return rendered_value if rendered_value else None
+
+    def _map_nested_value(self, response_data: Dict[str, Any], mapping_value: Any) -> Any:
+        """
+        Recursively map a value that can be a string, dict, or list.
+
+        Args:
+            response_data: Raw response data from API
+            mapping_value: The mapping value (string, dict, or list)
+
+        Returns:
+            The mapped value
+        """
+        if isinstance(mapping_value, str):
+            return self._map_single_value(response_data, mapping_value)
+        elif isinstance(mapping_value, dict):
+            # Recursively map nested dictionaries
+            result = {}
+            for key, value in mapping_value.items():
+                try:
+                    result[key] = self._map_nested_value(response_data, value)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to map nested field '{key}' with mapping '{value}': {str(e)}"
+                    )
+                    result[key] = None
+            return result
+        elif isinstance(mapping_value, list):
+            # Recursively map list items
+            return [self._map_nested_value(response_data, item) for item in mapping_value]
+        else:
+            # For other types (int, float, bool, None), return as-is
+            return mapping_value
+
     def map_response(
-        self, response_data: Dict[str, Any], mappings: Dict[str, str]
+        self, response_data: Dict[str, Any], mappings: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Map response data using configured mappings.
@@ -42,10 +108,11 @@ class ResponseMapper:
         - Pure JSONPath: "$.field.path"
         - Jinja2 template: "{{ field1 or field2 }}"
         - Jinja2 with JSONPath: "{{ jsonpath('$.nested.field') or 'default' }}"
+        - Nested dictionaries: {"field1": "$.path1", "field2": "$.path2"}
 
         Args:
             response_data: Raw response data from API
-            mappings: Field mappings (output_key -> mapping_expression)
+            mappings: Field mappings (output_key -> mapping_expression or nested dict)
 
         Returns:
             Mapped response dictionary
@@ -56,31 +123,7 @@ class ResponseMapper:
         result = {}
         for output_key, mapping_value in mappings.items():
             try:
-                # Step 1: Render as Jinja2 template with response_data as context
-                # Also provide jsonpath() function for extracting nested fields
-                template = Template(mapping_value)
-
-                # Build template context: merge response_data fields with jsonpath function
-                template_context = dict(response_data)
-                template_context["jsonpath"] = lambda path: self._jsonpath_extract(
-                    response_data, path
-                )
-
-                rendered_value = template.render(**template_context)
-
-                # Step 2: If result starts with '$', treat as JSONPath expression
-                if rendered_value.startswith("$"):
-                    jsonpath_expr = jsonpath_ng.parse(rendered_value)
-                    matches = jsonpath_expr.find(response_data)
-                    if matches:
-                        result[output_key] = matches[0].value
-                    else:
-                        # If no match found, set to None
-                        result[output_key] = None
-                else:
-                    # Direct template result (not a JSONPath expression)
-                    result[output_key] = rendered_value if rendered_value else None
-
+                result[output_key] = self._map_nested_value(response_data, mapping_value)
             except Exception as e:
                 logger.warning(
                     f"Failed to map response field '{output_key}' "

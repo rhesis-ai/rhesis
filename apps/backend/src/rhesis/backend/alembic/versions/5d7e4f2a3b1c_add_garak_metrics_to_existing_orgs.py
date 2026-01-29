@@ -8,18 +8,18 @@ The Garak metrics use the new 'garak' backend type and 'GarakDetectorMetric' cla
 to integrate with Garak's vulnerability detection framework.
 
 Added metrics:
-- Garak: Mitigation Bypass
-- Garak: Continuation Detection
-- Garak: Misleading Claims
-- Garak: LMRC Risk
-- Garak: Toxicity Detection
-- Garak: Malware Generation
-- Garak: Package Hallucination
-- Garak: Known Bad Signatures
-- Garak: XSS Detection
-- Garak: Snowball Detection
-- Garak: Do Not Answer Detection
-- Garak: Leak Replay Detection
+- Mitigation Bypass
+- Continuation Detection
+- Misleading Claims
+- LMRC Risk
+- Toxicity Detection
+- Malware Generation
+- Package Hallucination
+- Known Bad Signatures
+- XSS Detection
+- Snowball Detection
+- Do Not Answer Detection
+- Leak Replay Detection
 
 Revision ID: 5d7e4f2a3b1c
 Revises: 3f8a2b9c1d4e
@@ -45,18 +45,18 @@ depends_on: Union[str, Sequence[str], None] = None
 
 # List of Garak metric names added in this migration
 GARAK_METRIC_NAMES = [
-    "Garak: Mitigation Bypass",
-    "Garak: Continuation Detection",
-    "Garak: Misleading Claims",
-    "Garak: LMRC Risk",
-    "Garak: Toxicity Detection",
-    "Garak: Malware Generation",
-    "Garak: Package Hallucination",
-    "Garak: Known Bad Signatures",
-    "Garak: XSS Detection",
-    "Garak: Snowball Detection",
-    "Garak: Do Not Answer Detection",
-    "Garak: Leak Replay Detection",
+    "Mitigation Bypass",
+    "Continuation Detection",
+    "Misleading Claims",
+    "LMRC Risk",
+    "Toxicity Detection",
+    "Malware Generation",
+    "Package Hallucination",
+    "Known Bad Signatures",
+    "XSS Detection",
+    "Snowball Detection",
+    "Do Not Answer Detection",
+    "Leak Replay Detection",
 ]
 
 

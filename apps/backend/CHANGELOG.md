@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-01-29
+
+### Added
+
+- Integrated Garak LLM vulnerability scanner for automated security testing. Features include GarakDetectorMetric for evaluating responses using Garak detectors, GarakProbeService for enumerating probes with taxonomy mapping, import UI with probe selection, test set to metric association table, and 12 built-in detector metrics (MitigationBypass, Continuation, Toxicity, etc.). Supports multi-strategy dynamic prompt extraction for comprehensive probe coverage. (#1190)
+- Added two-level Redis caching (memory L1 + Redis L2) for Garak probe enumeration with background pre-warming on startup for instant API responses. Includes graceful degradation when Redis is unavailable. (#1202)
+- Implemented 3-level metrics hierarchy for test execution. Execution-time metrics now override test set and behavior metrics, with MetricsSource enum (behavior, test_set, execution_time) for tracking. Added RerunTestRunDrawer component for re-running tests with metric source selection. (#1206)
+- Added separate MCP Jira and Confluence provider integrations with stdio transport support, replacing the combined Atlassian provider. Each provider has dedicated credential fields for URL, username/email, and API token. (#1197)
+- Added MCP GitHub repository retrieval with repository scope configuration, URL import tab for direct links, and provider-agnostic support for importing resources from URLs. (#1148)
+- Added MCP observability with ObservableMCPAgent featuring OpenTelemetry tracing, dynamic agent selection based on RhesisClient availability, and @endpoint decorator support for MCP service functions. Includes DisabledClient pattern for environments without observability credentials. (#1102)
+- Added context and expected response fields to test run detail view, displaying context array as bullet points and expected response in the test result overview tab. (#1201)
+- Added Model entity with provider auto-resolution (accepts provider name string instead of UUID), user settings management for default models, and get_model_instance() for converting to BaseLLM. Includes ModelRead schema to exclude sensitive API keys from responses. (#1132)
+
+### Changed
+
+- Refactored metrics context validation to SDK. Metrics requiring context now return visible failure results with unified error messages instead of being silently skipped. (#1200)
+- Upgraded FastAPI and Starlette to latest versions. (#1175)
+- Upgraded security-related dependencies to address vulnerabilities. (#1174)
+- Refactored telemetry infrastructure for improved observability. (#1125)
+
+### Fixed
+
+- Fixed migration CardinalityViolation error by using IN instead of = for multi-row subquery in type_lookup table queries. (#1207)
+- Added Rust build dependencies to Dockerfile.dev for garak's base2048 dependency compilation. (#1198)
+- Optimized Docker image by using CPU-only PyTorch, removing ~2.8GB of CUDA/nvidia packages. Image size reduced from 3.38GB to 2.60GB with Garak support. (#1196)
+- Fixed connector disabled state handling with RHESIS_CONNECTOR_DISABLE environment variable support. Backend and chatbot now default to DisabledClient when project_id is not set. (#1168)
+- Separated API client from observability client to fix initialization issues. RhesisClient.from_environment() now gracefully falls back to DisabledClient when credentials are missing. (#1155)
+- Fixed backend test cleanup by combining all database operations into a single transaction and adding proper asyncio.CancelledError handling in ConnectionManager. (#1142)
+- Updated langchain-core to 1.2.5 and urllib3 to 2.6.3 to address security vulnerabilities. (#1160)
+- Updated aiohttp to fix compatibility issues. (#1164)
+- Updated various packages to fix issues. (#1162)
+
+### Removed
+
+- Removed legacy document upload system in favor of source-based architecture. Updated tests to use file instead of deprecated document parameters. (#1169)
+
+
+
 ## [0.6.0] - 2026-01-15
 
 ### Added

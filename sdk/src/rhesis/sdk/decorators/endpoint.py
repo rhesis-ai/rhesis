@@ -83,6 +83,7 @@ def endpoint(
     name: str | None = None,
     request_mapping: dict | None = None,
     response_mapping: dict | None = None,
+    serializers: dict | None = None,
     span_name: str | None = None,
     observe: bool = True,
     bind: dict | None = None,
@@ -113,6 +114,13 @@ def endpoint(
                 "conv_id": "{{ session_id }}",
                 "policy_id": "{{ policy_number }}"  # Custom field
             }
+            For complex types, mapping keys should match function parameter names:
+            Example: {
+                "request": {
+                    "messages": [{"role": "user", "content": "{{ input }}"}],
+                    "context": {"conversation_id": "{{ session_id }}"},
+                }
+            }
         response_mapping: Manual output mappings (function output → Rhesis standard field)
             Maps your function's return value to Rhesis API response fields.
             Standard Rhesis RESPONSE fields: output, context, metadata, tool_calls
@@ -122,6 +130,16 @@ def endpoint(
                 "session_id": "$.conv_id",
                 "context": "$.sources",
                 "metadata": "$.stats"
+            }
+        serializers: Custom serializers for specific types (optional)
+            Provides custom dump (object→dict) and load (dict→object) functions
+            for types that don't follow standard patterns (Pydantic, dataclass, etc.)
+            Format: {Type: {"dump": callable, "load": callable}}
+            Example: {
+                MyClass: {
+                    "dump": lambda obj: obj.to_custom_format(),
+                    "load": lambda d: MyClass.from_custom(d),
+                }
             }
         bind: Infrastructure dependencies to inject into the function (optional)
             Binds parameters that won't appear in the remote function signature.
@@ -262,6 +280,8 @@ def endpoint(
             enriched_metadata["request_mapping"] = request_mapping
         if response_mapping:
             enriched_metadata["response_mapping"] = response_mapping
+        if serializers:
+            enriched_metadata["serializers"] = serializers
 
         # Store bound parameters and exclusion list
         if bind:
