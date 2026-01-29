@@ -32,9 +32,7 @@ class ResponseMapper:
             logger.warning(f"JSONPath extraction failed for '{path}': {str(e)}")
             return None
 
-    def _map_single_value(
-        self, response_data: Dict[str, Any], mapping_value: str
-    ) -> Any:
+    def _map_single_value(self, response_data: Dict[str, Any], mapping_value: str) -> Any:
         """
         Map a single string mapping expression to a value.
 
@@ -51,9 +49,7 @@ class ResponseMapper:
 
         # Build template context: merge response_data fields with jsonpath function
         template_context = dict(response_data)
-        template_context["jsonpath"] = lambda path: self._jsonpath_extract(
-            response_data, path
-        )
+        template_context["jsonpath"] = lambda path: self._jsonpath_extract(response_data, path)
 
         rendered_value = template.render(**template_context)
 
@@ -70,9 +66,7 @@ class ResponseMapper:
             # Direct template result (not a JSONPath expression)
             return rendered_value if rendered_value else None
 
-    def _map_nested_value(
-        self, response_data: Dict[str, Any], mapping_value: Any
-    ) -> Any:
+    def _map_nested_value(self, response_data: Dict[str, Any], mapping_value: Any) -> Any:
         """
         Recursively map a value that can be a string, dict, or list.
 
@@ -93,8 +87,7 @@ class ResponseMapper:
                     result[key] = self._map_nested_value(response_data, value)
                 except Exception as e:
                     logger.warning(
-                        f"Failed to map nested field '{key}' "
-                        f"with mapping '{value}': {str(e)}"
+                        f"Failed to map nested field '{key}' with mapping '{value}': {str(e)}"
                     )
                     result[key] = None
             return result
