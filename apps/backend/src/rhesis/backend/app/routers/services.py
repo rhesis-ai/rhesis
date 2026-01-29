@@ -9,6 +9,8 @@ from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_se
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest,
+    CreateJiraTicketFromTaskRequest,
+    CreateJiraTicketFromTaskResponse,
     ExtractMCPRequest,
     ExtractMCPResponse,
     GenerateContentRequest,
@@ -40,6 +42,7 @@ from rhesis.backend.app.services.generation import (
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.mcp_service import (
+    create_jira_ticket_from_task,
     extract_mcp,
     handle_mcp_exception,
     query_mcp,
@@ -635,6 +638,52 @@ async def test_mcp_connection(
         # Use handle_mcp_exception to properly handle MCP errors (401, 403, etc.)
         # This ensures authentication errors are properly mapped and don't log users out
         raise handle_mcp_exception(e, "test-connection")
+
+
+@router.post("/mcp/jira/create-ticket-from-task", response_model=CreateJiraTicketFromTaskResponse)
+async def create_jira_ticket_from_task_endpoint(
+    request: CreateJiraTicketFromTaskRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Create a Jira ticket from a task.
+
+    This endpoint creates a Jira issue using the MCP Jira integration,
+    mapping task fields to Jira issue fields.
+
+    Args:
+        request: CreateJiraTicketFromTaskRequest with task_id and tool_id
+
+    Returns:
+        CreateJiraTicketFromTaskResponse with issue key, URL, and message
+
+    Raises:
+        HTTPException: 400 if validation fails, 500 if creation fails
+
+    Example:
+        POST /mcp/jira/create-ticket-from-task
+        {
+            "task_id": "task-uuid-123",
+            "tool_id": "tool-uuid-456"
+        }
+    """
+    try:
+        organization_id, user_id = tenant_context
+        result = await create_jira_ticket_from_task(
+            task_id=request.task_id,
+            tool_id=request.tool_id,
+            db=db,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        return result
+    except ValueError as e:
+        logger.warning(f"Invalid request for Jira ticket creation: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise handle_mcp_exception(e, "create-jira-ticket")
 
 
 @router.get("/recent-activities", response_model=RecentActivitiesResponse)
