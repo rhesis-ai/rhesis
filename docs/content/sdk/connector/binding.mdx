@@ -1,0 +1,201 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Parameter Binding
+
+The `bind` parameter allows you to inject infrastructure dependencies (database connections, configuration, auth context) into your endpoint functions without exposing them in the remote function signature.
+
+## Why Use Parameter Binding?
+
+When your endpoint needs dependencies like database connections or authentication context, you have two options:
+
+1. **Framework DI** (e.g., FastAPI's `Depends()`): Use this for HTTP endpoints where the framework manages the request lifecycle
+2. **`bind` parameter**: Use this for SDK endpoints that need dependencies in both local execution and remote testing
+
+## Basic Usage
+
+<CodeBlock filename="bind_basic.py" language="python">
+{`from rhesis.sdk import endpoint
+
+# Bind a static configuration object
+@endpoint(
+    bind={
+        "config": AppConfig()  # Evaluated once at decoration time
+    }
+)
+def process_request(config, input: str) -> dict:
+    """config is injected automatically, only input appears in remote signature."""
+    return {"output": f"Using {config.api_url}: {input}"}`}
+</CodeBlock>
+
+## Late Binding with Callables
+
+Use callables (lambdas or functions) for dependencies that should be evaluated fresh on each call:
+
+<CodeBlock filename="bind_callable.py" language="python">
+{`@endpoint(
+    bind={
+        "db": lambda: get_db_session(),  # Fresh connection per call
+        "user": lambda: get_current_user_context(),  # Runtime context
+    }
+)
+async def authenticated_query(db, user, input: str) -> dict:
+    """db and user are injected, only input appears in remote signature."""
+    if not user.is_authenticated:
+        return {"output": "Unauthorized"}
+
+    results = db.query_for_user(user.id, input)
+    return {"output": format_results(results)}`}
+</CodeBlock>
+
+## Real-World Example
+
+<CodeBlock filename="bind_example.py" language="python">
+{`from rhesis.sdk import RhesisClient, endpoint
+from myapp.database import get_db_with_tenant
+from myapp.config import AppConfig
+from myapp.auth import get_current_user
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development"
+)
+
+@endpoint(
+    bind={
+        "db": lambda: get_db_with_tenant(org_id="org_123"),
+        "config": AppConfig(),
+        "user": lambda: get_current_user(),
+    }
+)
+async def query_mcp(db, config, user, input: str) -> dict:
+    """
+    All infrastructure dependencies are bound.
+    Remote signature only shows: query_mcp(input: str)
+    """
+    # Validate permissions
+    if not user.has_permission("query_mcp"):
+        return {"output": "Permission denied"}
+
+    # Use injected dependencies
+    results = await db.query(
+        table=config.mcp_table,
+        query=input,
+        user_id=user.id
+    )
+
+    return {
+        "output": format_results(results),
+        "session_id": user.session_id,
+    }`}
+</CodeBlock>
+
+## Key Concepts
+
+### Excluded from Remote Signature
+
+Bound parameters don't appear in the registered function signature, so remote tests only need to provide business logic parameters:
+
+```python
+# Function definition
+@endpoint(bind={"db": lambda: get_db(), "config": AppConfig()})
+def query_data(db, config, input: str, session_id: str = None):
+    ...
+
+# Remote signature (what tests see)
+query_data(input: str, session_id: str = None)
+```
+
+### Evaluation Timing
+
+- **Static values**: Evaluated once at decoration time
+- **Callables**: Evaluated fresh on each function call
+
+<CodeBlock filename="bind_timing.py" language="python">
+{`config = AppConfig()  # Created once
+
+@endpoint(
+    bind={
+        "config": config,  # Same instance every call
+        "db": lambda: get_db(),  # Fresh connection every call
+    }
+)
+def my_endpoint(config, db, input: str):
+    ...`}
+</CodeBlock>
+
+### No Override
+
+Bound parameters won't override explicitly provided values:
+
+<CodeBlock filename="bind_no_override.py" language="python">
+{`@endpoint(bind={"db": lambda: get_default_db()})
+def query(db, input: str):
+    return {"output": db.query(input)}
+
+# Explicitly provide db - uses provided value, not bound value
+result = query(db=custom_db, input="test")`}
+</CodeBlock>
+
+## Resource Cleanup
+
+The SDK automatically handles cleanup for generator-based dependencies:
+
+<CodeBlock filename="bind_cleanup.py" language="python">
+{`def get_db():
+    """Generator that yields database session with auto-cleanup."""
+    with database.get_session() as session:
+        yield session
+        # Cleanup happens automatically after function execution
+
+@endpoint(
+    bind={
+        "db": get_db,  # Pass the generator function
+    }
+)
+async def query_with_cleanup(db, input: str) -> dict:
+    # Database connection is automatically closed after execution
+    return {"output": db.query(input)}`}
+</CodeBlock>
+
+## When to Use `bind` vs Framework DI
+
+**Use `bind` when:**
+- Building SDK endpoints for remote testing
+- Need same dependencies in local execution and remote tests
+- Working outside web framework context
+- Want dependencies to work seamlessly with Rhesis platform
+
+**Use Framework DI (e.g., FastAPI `Depends()`) when:**
+- Building HTTP endpoints only
+- Framework manages request lifecycle
+- Need framework-specific features (request context, middleware)
+- Not using Rhesis SDK connector
+
+**Can use both:**
+
+<CodeBlock filename="bind_with_fastapi.py" language="python">
+{`from fastapi import FastAPI, Depends
+from rhesis.sdk import endpoint
+
+app = FastAPI()
+
+# FastAPI endpoint with Depends
+@app.post("/chat")
+def fastapi_chat(
+    input: str,
+    db = Depends(get_db),  # FastAPI DI
+):
+    return process_chat(db, input)
+
+# SDK endpoint with bind for remote testing
+@endpoint(bind={"db": lambda: get_db()})  # SDK bind
+def sdk_chat(db, input: str):
+    return process_chat(db, input)`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Next Steps** - See [Examples](./examples) for complete working examples - Learn about [Mapping](./mapping) for input/output transformations
+</Callout>
