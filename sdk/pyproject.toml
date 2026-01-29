@@ -65,6 +65,7 @@ huggingface = [
     "transformers==4.57.1",
     "accelerate>=1.2.0",
     "bitsandbytes>=0.45.0",
+    "lm-format-enforcer>=0.10.0",
 ]
 
 # Garak LLM vulnerability scanner integration
@@ -100,6 +101,7 @@ all = [
     "transformers==4.57.1",
     "accelerate>=1.2.0",
     "bitsandbytes>=0.45.0",
+    "lm-format-enforcer>=0.10.0",
     "langchain>=0.1.0",
     "langchain-core>=1.2.5",
     "langgraph>=0.0.26",
