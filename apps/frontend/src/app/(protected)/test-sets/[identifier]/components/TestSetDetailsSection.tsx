@@ -330,7 +330,11 @@ export default function TestSetDetailsSection({
               color="primary"
               startIcon={<CheckIcon />}
               onClick={handleConfirmTitleEdit}
-              disabled={isUpdating || !editedTitle.trim() || editedTitle.trim().length < 2}
+              disabled={
+                isUpdating ||
+                !editedTitle.trim() ||
+                editedTitle.trim().length < 2
+              }
             >
               Confirm
             </Button>

@@ -172,7 +172,9 @@ export default function TestSetDrawer({
               fullWidth
               disabled={loading}
               error={!!nameError}
-              helperText={nameError || 'A clear, descriptive name for this test set'}
+              helperText={
+                nameError || 'A clear, descriptive name for this test set'
+              }
             />
 
             <FormControl fullWidth disabled={loading}>

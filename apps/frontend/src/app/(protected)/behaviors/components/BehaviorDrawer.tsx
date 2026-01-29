@@ -90,7 +90,9 @@ const BehaviorDrawer = ({
             variant="outlined"
             disabled={loading}
             error={!!validationError}
-            helperText={validationError || "A clear, descriptive name for this behavior"}
+            helperText={
+              validationError || 'A clear, descriptive name for this behavior'
+            }
           />
 
           <TextField
