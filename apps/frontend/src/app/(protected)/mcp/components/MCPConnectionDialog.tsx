@@ -200,9 +200,9 @@ export function MCPConnectionDialog({
 
         // Note: Jira/Confluence URL and username are stored in encrypted credentials
         // We cannot display them in edit mode as they're encrypted
-        // Users must re-enter these values if they want to change them
-        setInstanceUrl('');
-        setUsername('');
+        // Show placeholder to indicate existing values
+        setInstanceUrl('************');
+        setUsername('************');
 
         setError(null);
         setJsonError(null);
@@ -242,8 +242,8 @@ export function MCPConnectionDialog({
     } else {
       // In edit mode, reset if any credential field was changed
       const tokenChanged = authToken && authToken !== '************';
-      const urlChanged = instanceUrl && instanceUrl.trim() !== '';
-      const usernameChanged = username && username.trim() !== '';
+      const urlChanged = instanceUrl && instanceUrl !== '************';
+      const usernameChanged = username && username !== '************';
 
       if (tokenChanged || urlChanged || usernameChanged) {
         setConnectionTested(false);
@@ -497,12 +497,13 @@ export function MCPConnectionDialog({
           currentProviderType === 'jira' ||
           currentProviderType === 'confluence'
         ) {
-          const hasUrlOrUsername = instanceUrl.trim() || username.trim();
+          const hasUrl = instanceUrl && instanceUrl !== '************';
+          const hasUsername = username && username !== '************';
           const hasToken =
             authToken && authToken.trim() && authToken !== '************';
 
-          if (hasUrlOrUsername || hasToken) {
-            if (!instanceUrl.trim() || !username.trim()) {
+          if (hasUrl || hasUsername || hasToken) {
+            if (!hasUrl || !hasUsername) {
               setError(
                 'Both URL and email are required for Jira/Confluence connections.'
               );
@@ -812,29 +813,63 @@ export function MCPConnectionDialog({
                         providerType === 'jira' ? 'Jira URL' : 'Confluence URL'
                       }
                       fullWidth
-                      required
+                      required={!isEditMode}
                       value={instanceUrl}
                       onChange={e => setInstanceUrl(e.target.value)}
+                      onFocus={e => {
+                        // Clear placeholder when user clicks on field in edit mode
+                        if (isEditMode && instanceUrl === '************') {
+                          setInstanceUrl('');
+                        }
+                      }}
+                      onBlur={e => {
+                        // Restore placeholder if field is empty in edit mode
+                        if (isEditMode && !e.target.value) {
+                          setInstanceUrl('************');
+                        }
+                      }}
                       placeholder={
                         providerType === 'jira'
                           ? 'https://your-domain.atlassian.net'
                           : 'https://your-domain.atlassian.net/wiki'
                       }
                       helperText={
-                        providerType === 'jira'
-                          ? 'Your Jira instance URL'
-                          : 'Your Confluence instance URL'
+                        isEditMode
+                          ? instanceUrl !== '************' && instanceUrl !== ''
+                            ? 'New URL will replace the current one'
+                            : 'Click to update the URL'
+                          : providerType === 'jira'
+                            ? 'Your Jira instance URL'
+                            : 'Your Confluence instance URL'
                       }
                     />
 
                     <TextField
                       label="Email"
                       fullWidth
-                      required
+                      required={!isEditMode}
                       value={username}
                       onChange={e => setUsername(e.target.value)}
+                      onFocus={e => {
+                        // Clear placeholder when user clicks on field in edit mode
+                        if (isEditMode && username === '************') {
+                          setUsername('');
+                        }
+                      }}
+                      onBlur={e => {
+                        // Restore placeholder if field is empty in edit mode
+                        if (isEditMode && !e.target.value) {
+                          setUsername('************');
+                        }
+                      }}
                       placeholder="your-email@example.com"
-                      helperText="Your Atlassian account email"
+                      helperText={
+                        isEditMode
+                          ? username !== '************' && username !== ''
+                            ? 'New email will replace the current one'
+                            : 'Click to update the email'
+                          : 'Your Atlassian account email'
+                      }
                     />
                   </>
                 )}
@@ -902,8 +937,18 @@ export function MCPConnectionDialog({
                       testingConnection ||
                       loading ||
                       !authToken ||
-                      ((providerType === 'jira' ||
-                        providerType === 'confluence') &&
+                      // For Jira/Confluence: in create mode, always require URL and username
+                      // In edit mode, only require them if any credential field was touched
+                      (!isEditMode &&
+                        (providerType === 'jira' ||
+                          providerType === 'confluence') &&
+                        (!instanceUrl || !username)) ||
+                      (isEditMode &&
+                        (providerType === 'jira' ||
+                          providerType === 'confluence') &&
+                        (instanceUrl ||
+                          username ||
+                          (authToken && authToken !== '************')) &&
                         (!instanceUrl || !username)) ||
                       (isCustomProvider && !toolMetadata.trim())
                     }
@@ -1104,7 +1149,16 @@ export function MCPConnectionDialog({
             disabled={
               !name ||
               (!isEditMode && !authToken) ||
-              ((providerType === 'jira' || providerType === 'confluence') &&
+              // For Jira/Confluence: in create mode, always require URL and username
+              // In edit mode, only require them if any credential field was touched
+              (!isEditMode &&
+                (providerType === 'jira' || providerType === 'confluence') &&
+                (!instanceUrl || !username)) ||
+              (isEditMode &&
+                (providerType === 'jira' || providerType === 'confluence') &&
+                (instanceUrl ||
+                  username ||
+                  (authToken && authToken !== '************')) &&
                 (!instanceUrl || !username)) ||
               (!isEditMode && isCustomProvider && !toolMetadata.trim()) ||
               (!isEditMode && !connectionTested) ||
