@@ -9,19 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.2] - 2026-01-29
 
-### Changed
+### Added
 
-- feat(execution): add 3-level metrics hierarchy for test execution (#1206)
-- Mcp Atlassian Stdio (#1197)
-- Add context and expected response fields to test run detail view (#1201)
-- Add Garak LLM vulnerability scanner integration (#1190)
-- fixed tags not showing up without refresh on source page (#1173)
-- Remove Documents (#1169)
-- Mcp Github Repo Retrieval (#1148)
-- fix(tests): handle object responses in trial drawer (#1156)
-- fix(frontend): prevent changing endpoint connection type during edit (#1158)
-- Merge pull request #1145 from rhesis-ai/release/frontend-v0.6.1
-- Mcp Observability (#1102)
+- Implemented 3-level metrics hierarchy for test execution. Added Test Run Metrics section to ExecuteTestSetDrawer with metric source selection dropdown (behavior, test set, execution-time). Includes RerunTestRunDrawer component for re-running tests with options, scope filtering in SelectMetricsDialog, and MetricsSource display in test detail view. (#1206)
+- Added Garak import UI for test sets with GarakImportDialog component for selecting and importing probes, 'Import from Garak' button in TestSetsGrid, sync button for garak-sourced test sets, and garak backend icon on metric cards. Features progress indicators, visual feedback, and probe-level selection within modules. (#1190)
+- Added context and expected response fields to test run detail view. Context array displays as bullet points with "No context provided" fallback, and expected response shows in the Overview tab. (#1201)
+- Split Atlassian MCP provider into separate Jira and Confluence providers with dedicated credential fields for URL, username/email, and API token. Values now stored in credentials only for proper edit mode persistence. (#1197)
+- Added MCP GitHub repository scope configuration with repository scope display in tool cards and import dialog. Added URL import tab (Direct Link) for importing MCP resources from URLs with provider-agnostic support. (#1148)
+- Added MCP observability support with dynamic agent selection based on RhesisClient availability. (#1102)
+
+### Fixed
+
+- Fixed tags not showing up without refresh on source page. (#1173)
+- Fixed object responses handling in trial drawer. (#1156)
+- Fixed endpoint connection type being changeable during edit mode - now properly prevented. (#1158)
+
+### Removed
+
+- Removed Documents feature from UI in favor of source-based architecture. (#1169)
 
 ## [0.6.1] - 2026-01-20
 

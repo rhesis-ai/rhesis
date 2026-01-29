@@ -25,13 +25,22 @@ This release includes the following component versions:
 ### Summary of Changes
 
 **Backend v0.6.1:**
-Key changes include: Fix migration CardinalityViolation error (#1207), feat(execution): add 3-level metrics hierarchy for test execution (#1206)....
+- Added Garak LLM vulnerability scanner integration with Redis caching for probe enumeration.
+- Implemented 3-level metrics hierarchy for test execution allowing execution-time metric overrides.
+- Added MCP Jira/Confluence (Atlassian Stdio), GitHub repository retrieval, and observability integrations.
+- Upgraded FastAPI/Starlette, security dependencies, and optimized Docker image with CPU-only PyTorch.
 
 **Frontend v0.6.2:**
-Key changes include: feat(execution): add 3-level metrics hierarchy for test execution (#1206), Mcp Atlassian Stdio (#1197)....
+- Added 3-level metrics hierarchy UI for test execution with metric source selection.
+- Integrated Garak LLM vulnerability scanner import UI for test sets.
+- Added MCP Atlassian, GitHub, and observability support in the UI.
+- Added context and expected response fields to test run detail view.
 
 **SDK v0.6.2:**
-Key changes include: Refactor metrics context validation to SDK (#1200), Mcp Atlassian Stdio (#1197)....
+- Added Model entity with provider auto-resolution and Project entity with integration tests.
+- Implemented batch processing, embedders framework, and Vertex AI support.
+- Added Garak detector metric integration and MCP observability with OpenTelemetry tracing.
+- Implemented continuous slow retry mode for connector resilience.
 
 See individual component changelogs for detailed changes:
 - [Backend Changelog](apps/backend/CHANGELOG.md)
