@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-01-29
+
+### Changed
+
+- Fix migration CardinalityViolation error (#1207)
+- feat(execution): add 3-level metrics hierarchy for test execution (#1206)
+- Add Redis caching for Garak probe enumeration (#1202)
+- Refactor metrics context validation to SDK (#1200)
+- Mcp Atlassian Stdio (#1197)
+- Add context and expected response fields to test run detail view (#1201)
+- fix(backend): add Rust build dependencies to Dockerfile.dev (#1198)
+- fix(backend): use CPU-only PyTorch to reduce build size (#1196)
+- Add Garak LLM vulnerability scanner integration (#1190)
+- feat(sdk): add missing fields to Endpoint class (#1189)
+- chore: upgrade FastAPI and starlette (#1175)
+- chore: upgrade security-related dependencies (#1174)
+- Remove Documents (#1169)
+- Fix: Connector Disabled Docker (#1168)
+- Mcp Github Repo Retrieval (#1148)
+- Fix: Chatbot Disable Client (#1155)
+- fix: update aiohttp (#1164)
+- Fix backend test cleanup transaction errors and async cancellation noise (#1142)
+- fix: packages update (#1162)
+- fix: update langchain-core and urllib3 for security vulnerabilities (#1160)
+- Add Model entity to SDK with provider auto-resolution (#1132)
+- Mcp Observability (#1102)
+- Refactor telemetry (#1125)
+- Prepare release
+
+
+
 ## [0.6.0] - 2026-01-15
 
 ### Added

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-01-29
+
+### Changed
+
+- feat(execution): add 3-level metrics hierarchy for test execution (#1206)
+- Mcp Atlassian Stdio (#1197)
+- Add context and expected response fields to test run detail view (#1201)
+- Add Garak LLM vulnerability scanner integration (#1190)
+- fixed tags not showing up without refresh on source page (#1173)
+- Remove Documents (#1169)
+- Mcp Github Repo Retrieval (#1148)
+- fix(tests): handle object responses in trial drawer (#1156)
+- fix(frontend): prevent changing endpoint connection type during edit (#1158)
+- Merge pull request #1145 from rhesis-ai/release/frontend-v0.6.1
+- Mcp Observability (#1102)
+
 ## [0.6.1] - 2026-01-20
 
 ### Fixed

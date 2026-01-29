@@ -13,6 +13,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-01-29
+
+### Changed
+
+- Refactor metrics context validation to SDK (#1200)
+- Mcp Atlassian Stdio (#1197)
+- Add context and expected response fields to test run detail view (#1201)
+- Add Garak LLM vulnerability scanner integration (#1190)
+- feat(sdk): add missing fields to Endpoint class (#1189)
+- doc(SDK): add copy button to code blocks and improve navigation spacing (#1177)
+- chore: upgrade security-related dependencies (#1174)
+- Fix: Connector Disabled Variable (#1167)
+- Mcp Github Repo Retrieval (#1148)
+- feat(api): add PATCH method to Methods enum in APIClient (#1165)
+- Fix: Chatbot Disable Client (#1155)
+- fix: update aiohttp (#1164)
+- Fix backend test cleanup transaction errors and async cancellation noise (#1142)
+- feat(sdk): add batch processing, embedders, and Vertex AI support (#1149)
+- fix: update langchain-core and urllib3 for security vulnerabilities (#1160)
+- Add Model entity to SDK with provider auto-resolution (#1132)
+- Mcp Observability (#1102)
+- Fix SDK entity bugs and improve CI/CD integration (#1129)
+- Add Project entity to SDK with integration tests (#1127)
+
+
+
 ## [0.6.1] - 2026-01-15
 
 ### Added
