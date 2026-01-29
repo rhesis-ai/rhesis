@@ -348,13 +348,11 @@ class TestTreeBrowser:
             # test_id can either be a unique test ID or a topic name
             for test_id in test_ids:
                 if test_id in self.test_tree.index:
-                    self.test_tree.loc[test_id, "topic"] = msg["topic"]
+                    self.test_tree[test_id].topic = msg["topic"]
                 if "/" in test_id:
-                    for id, test in self.test_tree.iterrows():
-                        if is_subtopic(test_id, test.topic):
-                            self.test_tree.loc[id, "topic"] = (
-                                msg["topic"] + test.topic[len(test_id) :]
-                            )
+                    for node in self.test_tree:
+                        if is_subtopic(test_id, node.topic):
+                            node.topic = msg["topic"] + node.topic[len(test_id) :]
             # Recompute any missing embeddings to handle any changes
             self._compute_embeddings_and_scores(self.test_tree)
             self._refresh_interface()
@@ -363,14 +361,18 @@ class TestTreeBrowser:
             log.debug("delete_test")
             test_ids = msg["test_ids"]
             # test_id can either be a unique test ID or a topic name
+            ids_to_delete = []
             for test_id in test_ids:
                 if test_id in self.test_tree.index:
-                    self.test_tree.drop(test_id, inplace=True)
+                    ids_to_delete.append(test_id)
                 if "/" in test_id:
-                    # Delete tests from subtopics
-                    for id, test in self.test_tree.iterrows():
-                        if is_subtopic(test_id, test.topic):
-                            self.test_tree.drop(id, inplace=True)
+                    # Collect tests from subtopics to delete
+                    for node in self.test_tree:
+                        if is_subtopic(test_id, node.topic):
+                            ids_to_delete.append(node.id)
+            # Delete collected nodes
+            for node_id in ids_to_delete:
+                del self.test_tree._nodes[node_id]
             self._compute_embeddings_and_scores(self.test_tree)
             self._refresh_interface()
 
@@ -381,20 +383,22 @@ class TestTreeBrowser:
             sendback_data = {}
             test_id = msg["test_ids"][0]
 
+            # update the node fields and recompute scores
+            node = self.test_tree[test_id]
+
             # convert template expansions into a standard value update
             if msg.get("action", "") == "template_expand":
-                template_value = self.templatize(self.test_tree.loc[test_id, msg["value"]])
+                template_value = self.templatize(getattr(node, msg["value"]))
                 msg = {msg["value"]: template_value}
                 sendback_data[msg["value"]] = template_value
 
-            # update the row and recompute scores
             metadata_fields = ["event_id", "test_ids"]
             for k2 in msg:
-                if k2 not in metadata_fields:
-                    self.test_tree.loc[test_id, k2] = msg[k2]
+                if k2 not in metadata_fields and hasattr(node, k2):
+                    setattr(node, k2, msg[k2])
             if event_id == "change_input":
-                self.test_tree.loc[test_id, self.score_columns] = np.nan
-                self.test_tree.loc[test_id, "to_eval"] = True
+                node.model_score = float("nan")
+                node.to_eval = True
                 self._compute_embeddings_and_scores(
                     self.test_tree, overwrite_outputs="output" not in msg
                 )
@@ -410,21 +414,15 @@ class TestTreeBrowser:
 
             # send just the data that changed back to the frontend
             sendback_data["scores"] = {
-                c: [
-                    [test_id, v]
-                    for v in ui_score_parts(
-                        self.test_tree.loc[test_id, c], self.test_tree.loc[test_id, "label"]
-                    )
-                ]
-                for c in self.score_columns
+                "model_score": [[test_id, v] for v in ui_score_parts(node.model_score, node.label)]
             }
             # if the output was given to us the client is managing its current state
             # so we shouldn't send it back
             if "output" not in msg:
-                sendback_data["output"] = self.test_tree.loc[test_id, "output"]
-            sendback_data["label"] = self.test_tree.loc[test_id, "label"]
-            sendback_data["labeler"] = self.test_tree.loc[test_id, "labeler"]
-            sendback_data.update(self.test_display_parts(self.test_tree.loc[test_id]))
+                sendback_data["output"] = node.output
+            sendback_data["label"] = node.label
+            sendback_data["labeler"] = node.labeler
+            sendback_data.update(self.test_display_parts(node))
             self.comm.send({test_id: sendback_data})
 
         else:
@@ -587,10 +585,13 @@ class TestTreeBrowser:
 
     def _clear_suggestions(self):
         """Clear the suggestions for the current topic."""
-        ids = list(self.test_tree.index)
-        for k in ids:
-            if self.test_tree.loc[k, "topic"].startswith(self.current_topic + "/__suggestions__"):
-                self.test_tree.drop(k, inplace=True)
+        ids_to_delete = [
+            node.id
+            for node in self.test_tree
+            if node.topic.startswith(self.current_topic + "/__suggestions__")
+        ]
+        for node_id in ids_to_delete:
+            del self.test_tree._nodes[node_id]
 
     def generate_suggestions(self, topic=None, filter=""):
         if topic is not None:
@@ -678,21 +679,20 @@ class TestTreeBrowser:
                 else:
                     str_val = self.current_topic + " __JOIN__ " + input
                 if str_val not in test_map_tmp:
-                    id = uuid.uuid4().hex
-                    self.test_tree.loc[id, "topic"] = (
-                        self.current_topic
-                        + "/__suggestions__"
-                        + ("/" + input if self.mode == "topics" else "")
+                    node = TestTreeNode(
+                        topic=(
+                            self.current_topic
+                            + "/__suggestions__"
+                            + ("/" + input if self.mode == "topics" else "")
+                        ),
+                        input="" if self.mode == "topics" else input,
+                        output="[no output]",
+                        label="topic_marker" if self.mode == "topics" else "",
+                        labeler="imputed",
+                        model_score=float("nan"),
+                        to_eval=True,
                     )
-                    self.test_tree.loc[id, "input"] = "" if self.mode == "topics" else input
-                    self.test_tree.loc[id, "output"] = "[no output]"
-                    self.test_tree.loc[id, "label"] = (
-                        "topic_marker" if self.mode == "topics" else ""
-                    )
-                    self.test_tree.loc[id, "labeler"] = "imputed"
-                    for c in self.score_columns:
-                        self.test_tree.loc[id, c] = np.nan
-                    self.test_tree.loc[id, "to_eval"] = True
+                    self.test_tree[node.id] = node
 
                     # s = {
                     #     "topic": self.current_topic + "/__suggestions__"
