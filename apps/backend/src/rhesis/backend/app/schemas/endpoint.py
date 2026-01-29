@@ -87,7 +87,7 @@ class EndpointBase(Base):
 
     # Response Handling
     response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
-    response_mapping: Optional[Dict[str, str]] = None
+    response_mapping: Optional[Dict[str, Any]] = None
     validation_rules: Optional[Dict[str, Any]] = None
 
     project_id: Optional[UUID4] = None
@@ -145,7 +145,7 @@ class Endpoint(Base):
 
     # Response Handling
     response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
-    response_mapping: Optional[Dict[str, str]] = None
+    response_mapping: Optional[Dict[str, Any]] = None
     validation_rules: Optional[Dict[str, Any]] = None
 
     project_id: Optional[UUID4] = None
