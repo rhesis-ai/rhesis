@@ -284,7 +284,6 @@ class TestTree:
         endpoint: Optional[Callable[[List[str]], List[str]]] = None,
         metrics: Optional[Callable[[List[str], List[str]], List[float]]] = None,
         embedder: Optional[BaseEmbedder] = None,
-        auto_save: bool = False,
         user: str = "anonymous",
         recompute_scores: bool = False,
         regenerate_outputs: bool = False,
@@ -314,9 +313,6 @@ class TestTree:
             The text embedding model to use for similarity-based suggestions. Should be an
             instance of `rhesis.sdk.models.BaseEmbedder` (e.g., from `get_embedder()`).
             If not provided, defaults to OpenAI text-embedding-3-small (768 dimensions).
-
-        auto_save : bool
-            Whether to automatically save the test tree after each edit.
 
         user : str
             The user name to author new tests with.
@@ -361,7 +357,6 @@ class TestTree:
             endpoint=endpoint,
             metrics=metrics,
             embedder=embedder,
-            auto_save=auto_save,
             user=user,
             recompute_scores=recompute_scores,
             regenerate_outputs=regenerate_outputs,

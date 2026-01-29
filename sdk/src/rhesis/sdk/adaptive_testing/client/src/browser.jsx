@@ -258,11 +258,7 @@ export default class Browser extends React.Component {
             {!this.state.disable_suggestions && 
               <div onClick={this.refreshSuggestions} style={{color: "#555555", cursor: "pointer", display: "inline-block", padding: "2px", paddingLeft: "15px", paddingRight: "15px", marginBottom: "5px", background: "rgba(221, 221, 221, 0)", borderRadius: "7px"}}>
                 <div style={{width: "15px", display: "inline-block"}}><FontAwesomeIcon className={this.state.loading_suggestions ? "fa-spin" : ""} icon={faRedo} style={{fontSize: "13px", color: "#555555", display: "inline-block"}} /></div>
-                <span style={{fontSize: "13px", fontWeight: "bold"}}>&nbsp;&nbsp;Suggest&nbsp;<select dir="ltr" title="Current suggestion mode" className="adatest-plain-select" onClick={e => e.stopPropagation()} value={this.state.mode} onChange={this.changeMode} style={{fontWeight: "bold", color: "#555555", marginTop: "1px"}}>
-                  {(this.state.mode_options || []).map((mode_option) => {
-                    return <option key={mode_option}>{mode_option}</option>
-                  })}
-                </select></span>
+                <span style={{fontSize: "13px", fontWeight: "bold"}}>&nbsp;&nbsp;Suggest {this.state.mode}</span>
                 {this.state.generator_options && this.state.generator_options.length > 1 &&
                 <select dir="rtl" title="Current suggestion engine" className="adatest-plain-select" onClick={e => e.stopPropagation()} value={this.state.active_generator} onChange={this.changeGenerator} style={{position: "absolute", color: "rgb(170, 170, 170)", marginTop: "1px", right: "13px"}}>
                   {this.state.generator_options.map((generator_option) => {
@@ -270,11 +266,6 @@ export default class Browser extends React.Component {
                   })}
                 </select>
                 }
-                {/* <select dir="rtl" title="Current suggestion mode" className="adatest-plain-select" onClick={e => e.stopPropagation()} value={this.state.mode} onChange={this.changeMode} style={{position: "absolute", color: "rgb(140, 140, 140)", marginTop: "1px", right: "13px"}}>
-                  {(this.state.mode_options || []).map((mode_option) => {
-                    return <option key={mode_option}>{mode_option}</option>
-                  })}
-                </select> */}
               </div>
             }
             {this.state.suggestions_error && 

@@ -96,7 +96,6 @@ class TestTreeBrowser:
         metrics: Callable[[list[str], list[str]], list[float]],
         embedder: Union["BaseEmbedder", "EmbedderAdapter", None],
         user: str,
-        auto_save: bool,
         recompute_scores: bool,
         regenerate_outputs: bool,
         max_suggestions: int,
@@ -115,7 +114,6 @@ class TestTreeBrowser:
         self.metrics = metrics
         self.generator = generator
         self.user = user
-        self.auto_save = auto_save
         self.recompute_scores = recompute_scores
         self.regenerate_outputs = regenerate_outputs
         self.max_suggestions = max_suggestions
@@ -125,6 +123,7 @@ class TestTreeBrowser:
         self.score_filter = score_filter
         self.filter_text = ""
         self._id = uuid.uuid4().hex
+        self.mode = "tests"  # default mode: "tests" or "topics"
 
         # Set up embedder - wrap BaseEmbedder in adapter for caching compatibility
         if embedder is not None:
@@ -292,31 +291,29 @@ class TestTreeBrowser:
 
         # add a new empty subtopic to the current topic
         elif event_id == "add_new_topic":
-            self.test_tree.loc[uuid.uuid4().hex] = {
-                "topic": self.current_topic + "/New topic",
-                "label": "topic_marker",
-                "input": "",
-                "output": "",
-                "labeler": self.user,
-            }
+            node = TestTreeNode(
+                topic=self.current_topic + "/New topic",
+                label="topic_marker",
+                input="",
+                output="",
+                labeler=self.user,
+            )
+            self.test_tree[node.id] = node
             self._compute_embeddings_and_scores(self.test_tree)
-            self._auto_save()
             self._refresh_interface()
 
         # add a new empty test to the current topic
         elif event_id == "add_new_test":
-            # add the new test row
-            row = {
-                "topic": self.current_topic,
-                # The special value "New test" causes the interface to auto-select
-                "input": "New test",
-                "output": "",
-                "label": "",
-                "labeler": "imputed",
-            }
-            self.test_tree.loc[uuid.uuid4().hex] = row
+            # add the new test row (special value "New test" causes interface to auto-select)
+            node = TestTreeNode(
+                topic=self.current_topic,
+                input="New test",
+                output="",
+                label="",
+                labeler="imputed",
+            )
+            self.test_tree[node.id] = node
 
-            self._auto_save()
             self._refresh_interface()
 
         # change which scorer/model is used for sorting tests
@@ -333,7 +330,6 @@ class TestTreeBrowser:
             self.score_columns.remove(name)
             self.score_columns.insert(0, name)
 
-            self._auto_save()
             self._refresh_interface()
 
         elif event_id == "change_mode":
@@ -361,7 +357,6 @@ class TestTreeBrowser:
                             )
             # Recompute any missing embeddings to handle any changes
             self._compute_embeddings_and_scores(self.test_tree)
-            self._auto_save()
             self._refresh_interface()
 
         elif event_id == "delete_test":
@@ -377,7 +372,6 @@ class TestTreeBrowser:
                         if is_subtopic(test_id, test.topic):
                             self.test_tree.drop(id, inplace=True)
             self._compute_embeddings_and_scores(self.test_tree)
-            self._auto_save()
             self._refresh_interface()
 
         # if we are just updating a single row in tests then we only recompute the scores
@@ -432,8 +426,6 @@ class TestTreeBrowser:
             sendback_data["labeler"] = self.test_tree.loc[test_id, "labeler"]
             sendback_data.update(self.test_display_parts(self.test_tree.loc[test_id]))
             self.comm.send({test_id: sendback_data})
-
-            self._auto_save()
 
         else:
             log.error(f"Unable to parse the interface message: {msg}")
@@ -583,11 +575,10 @@ class TestTreeBrowser:
             "score_filter": score_filter,
             "disable_suggestions": False,
             "read_only": False,
-            "score_columns": self.score_columns,
+            "score_columns": ["model_score"],
             "suggestions_error": self._suggestions_error,
             "mode": self.mode,
-            "mode_options": self.mode_options,
-            "test_tree_name": self.test_tree.name,
+            "test_tree_name": "Tests",
             # "test_types": test_types,
             # "test_type_parts": test_type_parts,
         }
