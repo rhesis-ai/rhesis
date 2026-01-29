@@ -69,6 +69,30 @@ check_docker() {
     fi
 }
 
+# Function to check if uv is installed
+check_uv() {
+    if ! command -v uv &> /dev/null; then
+        echo -e "${RED}❌ Error: uv is not installed${NC}"
+        echo -e "${YELLOW}💡 Install uv with: curl -LsSf https://astral.sh/uv/install.sh | sh${NC}"
+        echo -e "${YELLOW}   Or visit: https://docs.astral.sh/uv/getting-started/installation/${NC}"
+        exit 1
+    fi
+}
+
+# Function to check if Node.js and npm are installed
+check_node() {
+    if ! command -v node &> /dev/null; then
+        echo -e "${RED}❌ Error: Node.js is not installed${NC}"
+        echo -e "${YELLOW}💡 Install Node.js from: https://nodejs.org/${NC}"
+        exit 1
+    fi
+    if ! command -v npm &> /dev/null; then
+        echo -e "${RED}❌ Error: npm is not installed${NC}"
+        echo -e "${YELLOW}💡 npm should come with Node.js. Reinstall Node.js from: https://nodejs.org/${NC}"
+        exit 1
+    fi
+}
+
 # Function to generate encryption key using Docker
 generate_encryption_key() {
     docker run --rm python:3.10.17-slim sh -c \
@@ -186,7 +210,10 @@ dev_start() {
         exit 1
     }
 
+    # Check prerequisites
     check_docker
+    check_uv
+    check_node
 
     # Step 1: Generate encryption key
     echo -e "${YELLOW}🔑 Generating encryption key...${NC}"
