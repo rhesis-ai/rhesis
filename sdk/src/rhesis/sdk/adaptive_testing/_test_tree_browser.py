@@ -154,8 +154,7 @@ class TestTreeBrowser:
         # apply all the scorers to the test tree (this updates the test tree)
         # When regenerate_outputs=True, overwrite existing outputs with fresh ones from endpoint
         self._compute_embeddings_and_scores(
-            self.test_tree,
-            self.recompute_scores,
+            recompute=self.recompute_scores,
             overwrite_outputs=self.regenerate_outputs,
             save_outputs=not self.regenerate_outputs,
         )
@@ -299,7 +298,7 @@ class TestTreeBrowser:
                 labeler=self.user,
             )
             self.test_tree[node.id] = node
-            self._compute_embeddings_and_scores(self.test_tree)
+            self._compute_embeddings_and_scores()
             self._refresh_interface()
 
         # add a new empty test to the current topic
@@ -354,7 +353,7 @@ class TestTreeBrowser:
                         if is_subtopic(test_id, node.topic):
                             node.topic = msg["topic"] + node.topic[len(test_id) :]
             # Recompute any missing embeddings to handle any changes
-            self._compute_embeddings_and_scores(self.test_tree)
+            self._compute_embeddings_and_scores()
             self._refresh_interface()
 
         elif event_id == "delete_test":
@@ -373,7 +372,7 @@ class TestTreeBrowser:
             # Delete collected nodes
             for node_id in ids_to_delete:
                 del self.test_tree._nodes[node_id]
-            self._compute_embeddings_and_scores(self.test_tree)
+            self._compute_embeddings_and_scores()
             self._refresh_interface()
 
         # if we are just updating a single row in tests then we only recompute the scores
@@ -399,9 +398,7 @@ class TestTreeBrowser:
             if event_id == "change_input":
                 node.model_score = float("nan")
                 node.to_eval = True
-                self._compute_embeddings_and_scores(
-                    self.test_tree, overwrite_outputs="output" not in msg
-                )
+                self._compute_embeddings_and_scores(overwrite_outputs="output" not in msg)
             elif event_id == "change_label":
                 # sign = -1 if msg["label"] == "pass" else 1
                 # self.test_tree.loc[test_id, self.score_columns] = (
@@ -717,7 +714,7 @@ class TestTreeBrowser:
             self.test_tree.deduplicate()
 
             # compute the scores for the new tests
-            self._compute_embeddings_and_scores(self.test_tree)
+            self._compute_embeddings_and_scores()
 
     def _get_topic_marker_id(self, topic):
         """
@@ -736,14 +733,14 @@ class TestTreeBrowser:
         return topic_marker_index
 
     def _compute_embeddings_and_scores(
-        self, tests, recompute=False, overwrite_outputs=False, save_outputs=False
+        self, recompute=False, overwrite_outputs=False, save_outputs=False
     ):
         log.debug(
-            f"compute_embeddings_and_scores(tests=<DataFrame shape={len(tests)}>, "
+            f"compute_embeddings_and_scores(tests=<TestTreeData len={len(self.test_tree)}>, "
             f"recompute={recompute})"
         )
 
-        eval_ids = return_eval_ids(tests)
+        eval_ids = return_eval_ids(self.test_tree)
 
         if len(eval_ids) > 0:
             # run the scorer
@@ -751,7 +748,7 @@ class TestTreeBrowser:
             eval_inputs = []
             eval_inds = []
             for i, id in enumerate(eval_ids):
-                test = tests[id]
+                test = self.test_tree[id]
                 template_expansions = expand_template(test.input)
                 for expansion in template_expansions:
                     eval_inputs.append(expansion)
@@ -763,16 +760,12 @@ class TestTreeBrowser:
 
             # update the scores in the test tree
             for i, id in enumerate(eval_ids):
-                # tests.loc[id, k+" score"] = scores[i]
-
-                node = TestTreeNode(id=id)
+                node = self.test_tree[id]
                 node.output = new_outputs[i]
                 node.model_score = scores[i]
                 node.label = "fail" if scores[i] > 0.5 else "pass"
                 node.labeler = "scored"
                 node.to_eval = False
-
-                self.test_tree[id] = node
 
     def test_display_parts(self, test):
         # # find which template instantiation has the highest score (and so should be displayed)
