@@ -63,3 +63,11 @@ class TestTreeData:
             self._nodes[key] = value
         else:
             raise ValueError(f"Invalid key type: {type(key)}")
+
+    def get_topics(self) -> List["TestTreeNode"]:
+        """Get all topic marker nodes."""
+        return [node for node in self if node.label == "topic_marker"]
+
+    def get_tests(self) -> List["TestTreeNode"]:
+        """Get all actual test nodes (non-topic markers)."""
+        return [node for node in self if node.label != "topic_marker"]

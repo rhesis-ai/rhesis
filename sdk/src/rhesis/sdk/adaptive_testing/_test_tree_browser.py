@@ -71,7 +71,7 @@ def matches_filter(test, filter_text):
     if filter_text is None or filter_text == "":
         return True
     else:
-        return filter_text in test["input"] or filter_text in test["output"]
+        return filter_text in test.input or filter_text in test.output
 
 
 valid_comparators = ["should not be", "should be", "should be the same as for"]
@@ -110,7 +110,7 @@ class TestTreeBrowser:
 
         from .embedders import EmbedderAdapter
 
-        self.test_tree = test_tree
+        self.test_tree = test_tree._tests
         self.endpoint = endpoint
         self.metrics = metrics
         self.generator = generator
@@ -124,6 +124,7 @@ class TestTreeBrowser:
         self.current_topic = starting_path
         self.score_filter = score_filter
         self.filter_text = ""
+        self._id = uuid.uuid4().hex
 
         # Set up embedder - wrap BaseEmbedder in adapter for caching compatibility
         if embedder is not None:
@@ -166,9 +167,6 @@ class TestTreeBrowser:
         # ensure test tree based generator has embeddings calculated
         if getattr(self.generator, "gen_type", "") == "test_tree":
             self.generator.source._cache_embeddings(embedder=self.embedder)
-
-        # save the current state of the test tree
-        self._auto_save()
 
         # init a blank set of suggetions
         self._suggestions_error = ""  # tracks if we failed to generate suggestions
@@ -316,9 +314,6 @@ class TestTreeBrowser:
                 "label": "",
                 "labeler": "imputed",
             }
-            for c in self.score_columns:
-                row[c] = np.nan
-                row[c[:-6] + " raw outputs"] = "{}"
             self.test_tree.loc[uuid.uuid4().hex] = row
 
             self._auto_save()
@@ -429,16 +424,6 @@ class TestTreeBrowser:
                 ]
                 for c in self.score_columns
             }
-            outputs = {
-                c: [
-                    [
-                        test_id,
-                        json.loads(self.test_tree.loc[test_id].get(c[:-6] + " raw outputs", "{}")),
-                    ]
-                ]
-                for c in self.score_columns
-            }
-            sendback_data["raw_outputs"] = outputs
             # if the output was given to us the client is managing its current state
             # so we shouldn't send it back
             if "output" not in msg:
@@ -463,9 +448,11 @@ class TestTreeBrowser:
             children = []
 
             # add tests and topics to the data lookup structure
-            subtopic_ids = tests.index[tests["topic"].str.match(r"^%s(/|$)" % re.escape(topic))]
+            subtopic_ids = [
+                node.id for node in tests if re.match(r"^%s(/|$)" % re.escape(topic), node.topic)
+            ]
             for k in subtopic_ids:
-                test = tests.loc[k]
+                test = tests[k]
 
                 # add a topic
                 if test.label == "topic_marker":
@@ -475,7 +462,7 @@ class TestTreeBrowser:
                             data[test.topic] = {
                                 "label": test.label,
                                 "labeler": test.labeler,
-                                "scores": {c: [] for c in self.score_columns},
+                                "scores": {"model_score": []},
                                 "topic_marker_id": k,
                                 "topic_name": name,
                                 "editing": test.topic.endswith("/New topic"),
@@ -490,23 +477,20 @@ class TestTreeBrowser:
                         "label": test.label,
                         "labeler": test.labeler,
                         "scores": {
-                            c: [[k, v] for v in ui_score_parts(test[c], test.label)]
-                            for c in self.score_columns
+                            "model_score": [
+                                [k, v] for v in ui_score_parts(test.model_score, test.label)
+                            ]
                         },
                         "editing": test.input == "New test",
                     }
 
-                    data[k]["raw_outputs"] = {
-                        c: [[k, safe_json_load(test.get(c[:-6] + " raw outputs", "{}"))]]
-                        for c in self.score_columns
-                    }
                     data[k].update(self.test_display_parts(test))
                     if test.topic == topic:
                         children.append(k)
 
             # fill in the scores for the child topics
             for k in subtopic_ids:
-                test = tests.loc[k]
+                test = tests[k]
                 if (
                     "/__suggestions__" not in test.topic
                     and is_subtopic(topic, test.topic)
@@ -514,8 +498,9 @@ class TestTreeBrowser:
                 ):
                     child_topic = test.topic[len(topic) :].split("/", 2)[1]
                     scores = data[topic + "/" + child_topic]["scores"]
-                    for c in self.score_columns:
-                        scores[c].extend([[k, v] for v in ui_score_parts(test[c], test.label)])
+                    scores["model_score"].extend(
+                        [[k, v] for v in ui_score_parts(test.model_score, test.label)]
+                    )
 
             # sort by score and always put new topics first
             def sort_key(id):
@@ -523,7 +508,7 @@ class TestTreeBrowser:
                     total = 0
                     count = 0
                     # offset = 0 if data[id]["label"] == "fail" else -1
-                    for s in data[id]["scores"][self.score_columns[0]]:
+                    for s in data[id]["scores"]["model_score"]:
                         val = score_max(s[1], nan_val=np.nan)
                         if not np.isnan(val) and val is not None:
                             total += val  # + offset
@@ -533,9 +518,8 @@ class TestTreeBrowser:
                     else:
                         return -total / count
                 except Exception as e:
-                    print(e)
-                    print(id)
-                    print(val)
+                    log.warning(f"Error sorting {id}: {e}")
+                    return 1e3  # default sort to end
 
             sorted_children = sorted(children, key=sort_key)
             sorted_children = sorted(
@@ -570,17 +554,13 @@ class TestTreeBrowser:
             else:
                 children_scores = sorted(
                     [
-                        np.max(
-                            [score_max(x[1]) for x in data[key]["scores"][self.score_columns[0]]]
-                        )
+                        np.max([score_max(x[1]) for x in data[key]["scores"]["model_score"]])
                         for key in children
                     ]
                 )
                 suggestions_children_scores = sorted(
                     [
-                        np.max(
-                            [score_max(x[1]) for x in data[key]["scores"][self.score_columns[0]]]
-                        )
+                        np.max([score_max(x[1]) for x in data[key]["scores"]["model_score"]])
                         for key in suggestions_children
                     ]
                 )
@@ -657,7 +637,7 @@ class TestTreeBrowser:
         prompts = self.prompt_builder(
             test_tree=self.test_tree,
             topic=self.current_topic,
-            score_column=self.score_columns[0],
+            score_column="model_score",
             repetitions=self.prompt_variants,
             filter=filter,
             suggest_topics=self.mode == "topics",
@@ -753,11 +733,14 @@ class TestTreeBrowser:
         Returns the id of the topic marker row for the given topic.
         Returns None if not found.
         """
-        topic_marker_index_df = self.test_tree.index[
-            (self.test_tree["topic"] == topic) & (self.test_tree["label"] == "topic_marker")
-        ]
-        topic_marker_index = (
-            topic_marker_index_df.tolist()[0] if len(topic_marker_index_df) > 0 else None
+        # next() returns first match from generator, or None if no match
+        topic_marker_index = next(
+            (
+                node.id
+                for node in self.test_tree
+                if node.topic == topic and node.label == "topic_marker"
+            ),
+            None,
         )
         return topic_marker_index
 
@@ -906,11 +889,6 @@ class TestTreeBrowser:
         options.sort()
         log.debug(f"options = {options}")
         return options[0][1]
-
-    def _auto_save(self):
-        """Save the current state of the model if we are auto saving."""
-        if self.auto_save:
-            self.test_tree.to_csv()
 
 
 def score_max(s, nan_val=-1e3):

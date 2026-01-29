@@ -49,3 +49,59 @@ def test_return_eval_ids():
         ]
     )
     assert return_eval_ids(test_tree_data) == ["node1", "node3"]
+
+
+def test_get_topics():
+    """Test that get_topics returns only topic marker nodes."""
+    test_tree_data = TestTreeData(
+        nodes=[
+            TestTreeNode(id="topic1", topic="sentiment", label="topic_marker", input="", output=""),
+            TestTreeNode(
+                id="test1", topic="sentiment", label="", input="I love this!", output="positive"
+            ),
+            TestTreeNode(
+                id="topic2", topic="sentiment/positive", label="topic_marker", input="", output=""
+            ),
+            TestTreeNode(
+                id="test2",
+                topic="sentiment/positive",
+                label="",
+                input="Great product!",
+                output="positive",
+            ),
+        ]
+    )
+
+    topics = test_tree_data.get_topics()
+
+    assert len(topics) == 2
+    assert all(node.label == "topic_marker" for node in topics)
+    assert {node.id for node in topics} == {"topic1", "topic2"}
+
+
+def test_get_tests():
+    """Test that get_tests returns only actual test nodes (non-topic markers)."""
+    test_tree_data = TestTreeData(
+        nodes=[
+            TestTreeNode(id="topic1", topic="sentiment", label="topic_marker", input="", output=""),
+            TestTreeNode(
+                id="test1", topic="sentiment", label="", input="I love this!", output="positive"
+            ),
+            TestTreeNode(
+                id="topic2", topic="sentiment/positive", label="topic_marker", input="", output=""
+            ),
+            TestTreeNode(
+                id="test2",
+                topic="sentiment/positive",
+                label="",
+                input="Great product!",
+                output="positive",
+            ),
+        ]
+    )
+
+    tests = test_tree_data.get_tests()
+
+    assert len(tests) == 2
+    assert all(node.label != "topic_marker" for node in tests)
+    assert {node.id for node in tests} == {"test1", "test2"}
