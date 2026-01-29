@@ -187,6 +187,11 @@ export default function TestSetDetailsSection({
   const handleConfirmTitleEdit = async () => {
     if (!sessionToken) return;
 
+    const trimmedTitle = editedTitle.trim();
+
+    // Button is disabled if validation fails, but check anyway
+    if (!trimmedTitle || trimmedTitle.length < 2) return;
+
     setIsUpdating(true);
     try {
       const clientFactory: ApiClientFactory = new ApiClientFactory(
@@ -195,11 +200,12 @@ export default function TestSetDetailsSection({
       const testSetsClient = clientFactory.getTestSetsClient();
 
       await testSetsClient.updateTestSet(testSet.id, {
-        name: editedTitle,
+        name: trimmedTitle,
       });
 
       // Update the testSet object to reflect the new title
-      testSet.name = editedTitle;
+      testSet.name = trimmedTitle;
+      setEditedTitle(trimmedTitle);
       setIsEditingTitle(false);
 
       // Refresh the page to update breadcrumbs and title
@@ -405,6 +411,7 @@ export default function TestSetDetailsSection({
             }}
             sx={{ mb: 2 }}
             autoFocus
+            disabled={isUpdating}
           />
         ) : (
           <Box sx={{ position: 'relative', mb: 3 }}>
@@ -471,7 +478,11 @@ export default function TestSetDetailsSection({
               color="primary"
               startIcon={<CheckIcon />}
               onClick={handleConfirmTitleEdit}
-              disabled={isUpdating}
+              disabled={
+                isUpdating ||
+                !editedTitle.trim() ||
+                editedTitle.trim().length < 2
+              }
             >
               Confirm
             </Button>
