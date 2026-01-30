@@ -192,7 +192,6 @@ class TestGarakMetricFactoryIntegration:
         assert len(importable_paths) > 0, (
             "At least some factory detector paths should be importable"
         )
-        print(f"\nImportable detectors: {importable_paths}")
 
 
 @pytest.mark.integration
@@ -303,7 +302,6 @@ class TestGarakVersionCompatibility:
         assert GARAK_VERSION is not None
         # Version should be a string like "0.9.0.4"
         assert len(GARAK_VERSION) > 0
-        print(f"\nDetected garak version: {GARAK_VERSION}")
 
     def test_core_garak_modules_exist(self):
         """Test that core garak modules exist."""
