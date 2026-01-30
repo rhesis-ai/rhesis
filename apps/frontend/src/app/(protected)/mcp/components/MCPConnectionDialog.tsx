@@ -243,7 +243,13 @@ export function MCPConnectionDialog({
         setToolMetadata('');
         setRepositoryUrl('');
         setInstanceUrl('');
-        setUsername('');
+        // Pre-fill email with logged-in user's email for Jira/Confluence
+        const isAtlassian =
+          currentProviderType === 'jira' ||
+          currentProviderType === 'confluence';
+        setUsername(
+          isAtlassian && session?.user?.email ? session.user.email : ''
+        );
         setSelectedSpaceKey('');
         setAvailableSpaces([]);
         setShowSpaceSelector(false);
@@ -256,7 +262,14 @@ export function MCPConnectionDialog({
         setConnectionTested(false);
       }
     }
-  }, [open, provider, tool, isEditMode, isCustomProvider]);
+  }, [
+    open,
+    provider,
+    tool,
+    isEditMode,
+    isCustomProvider,
+    session?.user?.email,
+  ]);
 
   // Reset connection test status when critical credential fields change
   // Note: name and description changes don't affect connection validity
@@ -876,9 +889,7 @@ export function MCPConnectionDialog({
                 {(providerType === 'jira' || providerType === 'confluence') && (
                   <>
                     <TextField
-                      label={
-                        providerType === 'jira' ? 'Jira URL' : 'Confluence URL'
-                      }
+                      label="Atlassian Organization URL"
                       fullWidth
                       required={!isEditMode}
                       value={instanceUrl}
