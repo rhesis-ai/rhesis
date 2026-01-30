@@ -12,17 +12,17 @@ os.environ["SQLALCHEMY_DB_MODE"] = "test"
 os.environ["RHESIS_CONNECTOR_DISABLED"] = "true"
 os.environ["RHESIS_PROJECT_ID"] = "12340000-0000-4000-8000-000000001234"
 
-# Database configuration for docker-compose integration tests (port 10010)
+# Database configuration for docker-compose integration tests (port 12000)
 # These are set directly (not setdefault) to override any .env file values
 os.environ["SQLALCHEMY_DB_HOST"] = "localhost"
-os.environ["SQLALCHEMY_DB_PORT"] = "10010"
+os.environ["SQLALCHEMY_DB_PORT"] = "12000"
 os.environ["SQLALCHEMY_DB_NAME"] = "rhesis-test-db"
 os.environ["SQLALCHEMY_DB_USER"] = "rhesis-user"
 os.environ["SQLALCHEMY_DB_PASS"] = "your-secured-password"
 os.environ["SQLALCHEMY_DB_DRIVER"] = "postgresql"
 # Don't set SQLALCHEMY_DATABASE_URL - let the isolation check distinguish test from prod
 os.environ["SQLALCHEMY_DATABASE_TEST_URL"] = (
-    "postgresql://rhesis-user:your-secured-password@localhost:10010/rhesis-test-db"
+    "postgresql://rhesis-user:your-secured-password@localhost:12000/rhesis-test-db"
 )
 
 # JWT configuration
@@ -62,7 +62,7 @@ def run_migrations_once():
     env["SQLALCHEMY_DB_MODE"] = "test"
     env["SQLALCHEMY_DATABASE_TEST_URL"] = os.environ.get(
         "SQLALCHEMY_DATABASE_TEST_URL",
-        "postgresql://rhesis-user:your-secured-password@localhost:10010/rhesis-test-db",
+        "postgresql://rhesis-user:your-secured-password@localhost:12000/rhesis-test-db",
     )
     env["DB_ENCRYPTION_KEY"] = os.environ.get(
         "DB_ENCRYPTION_KEY", "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="

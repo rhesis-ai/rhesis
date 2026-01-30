@@ -1,7 +1,7 @@
 # Backend Integration Tests - Database Configuration
 # Uses different ports than SDK tests to avoid conflicts:
-# - PostgreSQL: 10010 (SDK uses 10000)
-# - Redis: 10012 (SDK uses 10002)
+# - PostgreSQL: 12000 (SDK uses 10000)
+# - Redis: 12002 (SDK uses 10002)
 
 services:
   # PostgreSQL Database
@@ -13,7 +13,9 @@ services:
       POSTGRES_USER: rhesis-user
       POSTGRES_PASSWORD: your-secured-password
     ports:
-      - "10010:5432"
+      - "12000:5432"
+    tmpfs:
+      - /var/lib/postgresql/data:rw,noexec,nosuid,size=512m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-test-db"]
       interval: 10s
@@ -28,9 +30,11 @@ services:
     container_name: rhesis-redis-backend-integration
     command: redis-server --requirepass rhesis-redis-pass
     ports:
-      - "10012:6379"
+      - "12002:6379"
     environment:
       - REDIS_PASSWORD=rhesis-redis-pass
+    tmpfs:
+      - /data:rw,noexec,nosuid,size=256m
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "rhesis-redis-pass", "ping"]
       interval: 10s
