@@ -38,7 +38,7 @@ export default function DashboardPage() {
   }, [session?.session_token, forceSyncToDatabase]);
 
   return (
-    <PageContainer>
+    <PageContainer breadcrumbs={[]}>
       {!allLoaded && (
         <Box
           sx={{

@@ -90,10 +90,7 @@ export default function ProjectsClientWrapper({
   // Show error state if no session token
   if (!sessionToken) {
     return (
-      <PageContainer
-        title="Projects"
-        breadcrumbs={[{ title: 'Projects', path: '/projects' }]}
-      >
+      <PageContainer title="Projects" breadcrumbs={[]}>
         <Alert severity="error" sx={{ mb: 3 }}>
           Session expired. Please refresh the page or log in again.
         </Alert>
@@ -106,10 +103,7 @@ export default function ProjectsClientWrapper({
   }
 
   return (
-    <PageContainer
-      title="Projects"
-      breadcrumbs={[{ title: 'Projects', path: '/projects' }]}
-    >
+    <PageContainer title="Projects" breadcrumbs={[]}>
       {/* Header with actions */}
       <Box
         sx={{
