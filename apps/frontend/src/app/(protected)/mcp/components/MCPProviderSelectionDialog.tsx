@@ -85,38 +85,34 @@ export function MCPProviderSelectionDialog({
               provider.type_value === 'confluence' ||
               provider.type_value === 'custom';
 
-            // Customize provider names and descriptions
-            let providerName = provider.description || provider.type_value;
-            let providerDescription = provider.description || '';
-
-            // Clean up provider names
-            if (provider.type_value === 'notion') {
-              providerName = providerName
-                .replace(/\s*integration$/i, '')
-                .trim();
-            } else if (provider.type_value === 'custom') {
-              providerName = providerName
-                .replace(/\s*with manual configuration$/i, '')
-                .trim();
-            } else if (provider.type_value === 'github') {
-              providerName = providerName.replace(/\s*repository$/i, '').trim();
-              providerDescription = providerDescription
-                .replace(/\s*repository$/i, '')
-                .trim();
-            } else if (provider.type_value === 'jira') {
-              providerName = providerName
-                .replace(/\s*for issue tracking$/i, '')
-                .trim();
-            } else if (provider.type_value === 'confluence') {
-              providerName = providerName
-                .replace(/\s*for documentation$/i, '')
-                .trim();
+            // Use clean provider names based on type_value
+            let providerName: string;
+            switch (provider.type_value) {
+              case 'notion':
+                providerName = 'Notion';
+                break;
+              case 'github':
+                providerName = 'GitHub';
+                break;
+              case 'jira':
+                providerName = 'Jira';
+                break;
+              case 'confluence':
+                providerName = 'Confluence';
+                break;
+              case 'atlassian':
+                providerName = 'Atlassian';
+                break;
+              case 'custom':
+                providerName = 'Custom provider';
+                break;
+              default:
+                providerName = provider.type_value;
             }
 
-            const providerInfo: MCPProviderInfo = {
+            const providerInfo = {
               id: provider.type_value,
               name: providerName,
-              description: providerDescription,
               icon: MCP_PROVIDER_ICONS[provider.type_value] || (
                 <SmartToyIcon
                   sx={{ fontSize: theme => theme.iconSizes.large }}
@@ -177,10 +173,6 @@ export function MCPProviderSelectionDialog({
                       )}
                     </Box>
                   }
-                  secondary={providerInfo.description}
-                  secondaryTypographyProps={{
-                    sx: { opacity: isEnabled ? 1 : 0.6 },
-                  }}
                 />
               </ListItemButton>
             );
