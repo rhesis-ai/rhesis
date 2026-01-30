@@ -231,12 +231,12 @@ make all
 ```
 
 
-4. 📝 **Commit your changes** (with DCO sign-off):
+4. 📝 **Commit your changes** (with recommended DCO sign-off):
 ```bash
 git add .
 git commit -s -m "feat: your descriptive commit message"
 ```
-> **Note:** The `-s` flag adds the required `Signed-off-by` line for the [Developer Certificate of Origin](#legal-notice).
+> **Tip:** The `-s` flag adds a `Signed-off-by` line for the [Developer Certificate of Origin](#legal-notice). We recommend using it for all contributions.
 
 5. 📤 **Push changes and create a Pull Request**:
 ```bash
@@ -614,11 +614,11 @@ Thank you for contributing to Rhesis! 🎉
 <a id="legal-notice"></a>
 ## ⚖️ Legal Notice
 
-When contributing to this project, you must agree that you have authored 100% of the content, that you have the necessary rights to the content, and that the content you contribute may be provided under the project's [MIT License](LICENSE).
+By contributing to this project, you confirm that you have authored the content, that you have the necessary rights to the content, and that the content you contribute may be provided under the project's [MIT License](LICENSE).
 
 ### Developer Certificate of Origin (DCO)
 
-All contributors must sign off on their commits to certify they have the right to submit their contributions under the project's open source license. We use the same [Developer Certificate of Origin (DCO)](https://developercertificate.org/) as the Linux Foundation.
+We encourage contributors to sign off on their commits to certify they have the right to submit their contributions under the project's open source license. We follow the same [Developer Certificate of Origin (DCO)](https://developercertificate.org/) as the Linux Foundation.
 
 By making a contribution to this project, I certify that:
 
