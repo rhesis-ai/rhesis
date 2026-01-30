@@ -1,0 +1,234 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import {
+  Button,
+  CircularProgress,
+  Menu,
+  MenuItem,
+  Typography,
+} from '@mui/material';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Tool } from '@/utils/api-client/interfaces/tool';
+import { Task } from '@/types/tasks';
+import { useNotifications } from '@/components/common/NotificationContext';
+import LaunchIcon from '@mui/icons-material/Launch';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+
+interface CreateJiraIssueButtonProps {
+  task: Task;
+  onIssueCreated?: () => void;
+}
+
+interface CreateJiraTicketResponse {
+  issue_key: string;
+  issue_url: string;
+  message: string;
+}
+
+export default function CreateJiraIssueButton({
+  task,
+  onIssueCreated,
+}: CreateJiraIssueButtonProps) {
+  const { data: session } = useSession();
+  const { show } = useNotifications();
+  const [jiraTools, setJiraTools] = useState<Tool[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
+
+  // Check if task already has a Jira issue
+  const hasJiraIssue = Boolean(task.task_metadata?.jira_issue);
+  const jiraIssue = task.task_metadata?.jira_issue as
+    | {
+        issue_key: string;
+        issue_url: string;
+      }
+    | undefined;
+
+  useEffect(() => {
+    const fetchJiraTools = async () => {
+      if (!session?.session_token) return;
+
+      setLoading(true);
+      try {
+        const clientFactory = new ApiClientFactory(session.session_token);
+        const toolsClient = clientFactory.getToolsClient();
+
+        // Fetch all tools and filter by Jira provider
+        const response = await toolsClient.getTools({});
+        const tools = response.data || [];
+
+        // Filter for Jira tools that have project_key configured
+        const jiraToolsList = tools.filter(
+          tool =>
+            tool.tool_provider_type?.type_value === 'jira' &&
+            tool.tool_metadata?.project_key
+        );
+
+        setJiraTools(jiraToolsList);
+      } catch {
+        // Silently fail - button will not render if no tools available
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJiraTools();
+  }, [session?.session_token]);
+
+  const handleCreateIssue = async (toolId?: string) => {
+    // Close menu if open
+    setAnchorEl(null);
+
+    // Use the first tool if no toolId provided
+    const selectedToolId = toolId || jiraTools[0]?.id;
+    if (!selectedToolId) return;
+
+    if (!session?.session_token) {
+      show('Session not available', { severity: 'error' });
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const response = await fetch(
+        '/api/services/mcp/jira/create-ticket-from-task',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.session_token}`,
+          },
+          body: JSON.stringify({
+            task_id: task.id,
+            tool_id: selectedToolId,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.detail || `Failed to create Jira issue: ${response.status}`
+        );
+      }
+
+      const result: CreateJiraTicketResponse = await response.json();
+
+      show(result.message || 'Jira issue created successfully', {
+        severity: 'success',
+      });
+
+      // Notify parent to refetch task
+      if (onIssueCreated) {
+        onIssueCreated();
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to create Jira issue';
+      show(errorMessage, { severity: 'error' });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleOpenJiraIssue = () => {
+    if (jiraIssue?.issue_url) {
+      window.open(jiraIssue.issue_url, '_blank');
+    }
+  };
+
+  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    if (jiraTools.length === 1) {
+      // If only one tool, create issue directly
+      handleCreateIssue(jiraTools[0].id);
+    } else {
+      // Show menu to select project
+      setAnchorEl(event.currentTarget);
+    }
+  };
+
+  const handleCloseMenu = () => {
+    setAnchorEl(null);
+  };
+
+  // Don't render if loading or no tools available
+  if (loading || jiraTools.length === 0) {
+    return null;
+  }
+
+  // If task already has a Jira issue, show "View in Jira" button
+  if (hasJiraIssue && jiraIssue) {
+    return (
+      <Button
+        variant="outlined"
+        size="small"
+        onClick={handleOpenJiraIssue}
+        startIcon={<OpenInNewIcon />}
+        sx={{
+          textTransform: 'none',
+        }}
+      >
+        View in Jira
+      </Button>
+    );
+  }
+
+  // Show "Create Jira Issue" button
+  return (
+    <>
+      <Button
+        variant="outlined"
+        size="small"
+        onClick={handleClick}
+        disabled={isCreating}
+        startIcon={
+          isCreating ? (
+            <CircularProgress size={16} />
+          ) : (
+            <LaunchIcon sx={{ transform: 'rotate(45deg)' }} />
+          )
+        }
+        endIcon={jiraTools.length > 1 ? <ArrowDropDownIcon /> : undefined}
+        sx={{
+          textTransform: 'none',
+        }}
+      >
+        {isCreating ? 'Creating...' : 'Create Jira Issue'}
+      </Button>
+
+      {/* Dropdown menu for multiple tools */}
+      {jiraTools.length > 1 && (
+        <Menu
+          anchorEl={anchorEl}
+          open={open}
+          onClose={handleCloseMenu}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'right',
+          }}
+          transformOrigin={{
+            vertical: 'top',
+            horizontal: 'right',
+          }}
+        >
+          {jiraTools.map(tool => (
+            <MenuItem
+              key={tool.id}
+              onClick={() => handleCreateIssue(tool.id)}
+              sx={{ minWidth: 200 }}
+            >
+              <Typography variant="body2">
+                {tool.tool_metadata?.project_key || tool.name}
+              </Typography>
+            </MenuItem>
+          ))}
+        </Menu>
+      )}
+    </>
+  );
+}
