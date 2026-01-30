@@ -85,7 +85,8 @@ class HuggingFaceLLM(BaseLLM):
         If the model or tokenizer is loaded, unload them to free up resources.
         Unloading manually is cleaner, but this is a fallback.
         """
-        if self.model is not None or self.tokenizer is not None:
+        # Use getattr to handle partially constructed objects (if __init__ failed early)
+        if getattr(self, "model", None) is not None or getattr(self, "tokenizer", None) is not None:
             self.unload_model()
 
     def load_model(self):
