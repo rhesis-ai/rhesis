@@ -1,15 +1,120 @@
 name: "[Test] Backend Local-Style"
 
-# Placeholder workflow to register the workflow in GitHub Actions.
-# Full implementation will be added in a follow-up PR.
+# This workflow mirrors the local development testing workflow:
+# 1. Start Docker services using docker-compose (make docker-up)
+# 2. Run tests using make test
 
 on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'apps/backend/**'
+      - 'sdk/**'
+      - '.github/workflows/backend-test-local.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'apps/backend/**'
+      - '.github/workflows/backend-test-local.yml'
+      - 'sdk/**'
   workflow_dispatch:
+    inputs:
+      test_markers:
+        description: 'Test markers to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - 'all'
+          - 'unit'
+          - 'integration'
+          - 'slow'
+          - 'ai'
+          - 'critical'
+          - 'security'
+          - 'unit,critical'
+          - 'integration,security'
+          - 'custom'
+      custom_markers:
+        description: 'Custom marker expression (only if "custom" is selected above)'
+        required: false
+        default: ''
+        type: string
+      run_coverage:
+        description: 'Generate coverage report'
+        required: false
+        default: true
+        type: boolean
+  schedule:
+    - cron: '0 0 * * *'
+
+env:
+  # Database configuration (matches tests/backend/integration/docker-compose.yml)
+  SQLALCHEMY_DATABASE_URL: postgresql://rhesis-user:your-secured-password@localhost:12000/rhesis-test-db
+  SQLALCHEMY_DB_DRIVER: postgresql
+  SQLALCHEMY_DB_PORT: "12000"
+  SQLALCHEMY_DB_USER: rhesis-user
+  SQLALCHEMY_DB_PASS: your-secured-password
+  SQLALCHEMY_DB_HOST: localhost
+  SQLALCHEMY_DB_NAME: rhesis-test-db
+
+  # Redis configuration (matches tests/backend/integration/docker-compose.yml)
+  REDIS_URL: redis://:rhesis-redis-pass@localhost:12002/0
+  BROKER_URL: redis://:rhesis-redis-pass@localhost:12002/0
+  CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@localhost:12002/1
+
+  # Application configuration
+  DB_ENCRYPTION_KEY: UNXfgCCzYS8AhNE0cNJTsPSUup1xjL2coSvsInOI-sE=
+  ENVIRONMENT: test
+  BACKEND_ENV: test
+  LOG_LEVEL: WARNING
+
+  # JWT configuration
+  JWT_SECRET_KEY: test-jwt-secret-key-for-ci-only
+  JWT_ALGORITHM: HS256
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "10080"
+
+  # PYTHONPATH for imports
+  PYTHONPATH: ${{ github.workspace }}/apps/backend/src:${{ github.workspace }}
 
 jobs:
-  placeholder:
-    name: 🚧 Placeholder
+  test:
+    name: 🧪 Backend Tests (Local-Style)
     runs-on: ubuntu-latest
+
     steps:
-      - name: Info
-        run: echo "This workflow will mirror the local backend testing workflow (make docker-up && make test)"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10.17'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-backend-${{ hashFiles('apps/backend/uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-backend-
+
+      - name: Start Docker services
+        run: make docker-up
+        working-directory: apps/backend
+
+      - name: Install dependencies
+        run: uv sync --dev
+        working-directory: apps/backend
+
+      - name: Run tests
+        run: make test
+        working-directory: apps/backend
+
+      - name: Stop Docker services
+        if: always()
+        run: make docker-down
+        working-directory: apps/backend
