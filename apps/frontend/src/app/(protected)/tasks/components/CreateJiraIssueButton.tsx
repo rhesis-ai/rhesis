@@ -13,9 +13,16 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Tool } from '@/utils/api-client/interfaces/tool';
 import { Task } from '@/types/tasks';
 import { useNotifications } from '@/components/common/NotificationContext';
-import LaunchIcon from '@mui/icons-material/Launch';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import SvgIcon from '@mui/material/SvgIcon';
+
+// Jira icon component
+const JiraIcon = (props: any) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    <path d="M11.571 11.513H0a5.218 5.218 0 0 0 5.232 5.215h2.13v2.057A5.215 5.215 0 0 0 12.575 24V12.518a1.005 1.005 0 0 0-1.004-1.005zm5.723-5.756H5.736a5.215 5.215 0 0 0 5.215 5.214h2.129v2.058a5.218 5.218 0 0 0 5.215 5.214V6.758a1.001 1.001 0 0 0-1.001-1.001zM23.013 0H11.455a5.215 5.215 0 0 0 5.215 5.215h2.129v2.057A5.215 5.215 0 0 0 24 12.483V1.005A1.001 1.001 0 0 0 23.013 0z" />
+  </SvgIcon>
+);
 
 interface CreateJiraIssueButtonProps {
   task: Task;
@@ -186,13 +193,7 @@ export default function CreateJiraIssueButton({
         size="small"
         onClick={handleClick}
         disabled={isCreating}
-        startIcon={
-          isCreating ? (
-            <CircularProgress size={16} />
-          ) : (
-            <LaunchIcon sx={{ transform: 'rotate(45deg)' }} />
-          )
-        }
+        startIcon={isCreating ? <CircularProgress size={16} /> : <JiraIcon />}
         endIcon={jiraTools.length > 1 ? <ArrowDropDownIcon /> : undefined}
         sx={{
           textTransform: 'none',
