@@ -1,16 +1,16 @@
 You are creating a Jira issue from task information.
 
 Use the create_issue tool with the following parameters:
-- project_key: "{{ project_key }}"
+- space_key: "{{ space_key }}"
 - summary: "{{ summary }}"
 - issue_type: "Task"
 - description: "{{ description }}"
 
 After creating the issue, return ONLY a JSON object with this exact format:
 {
-  "issue_key": "PROJ-123",
-  "issue_url": "https://your-domain.atlassian.net/browse/PROJ-123",
-  "message": "Successfully created Jira issue PROJ-123"
+  "issue_key": "SPACE-123",
+  "issue_url": "https://your-domain.atlassian.net/browse/SPACE-123",
+  "message": "Successfully created Jira issue SPACE-123"
 }
 
 Do not include any additional text or explanation.

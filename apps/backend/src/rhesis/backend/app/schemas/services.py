@@ -335,7 +335,7 @@ class TestMCPConnectionResponse(BaseModel):
 
     is_authenticated: str  # "Yes" or "No"
     message: str
-    additional_metadata: Optional[Dict[str, Any]] = None  # For provider-specific data like projects
+    additional_metadata: Optional[Dict[str, Any]] = None  # For provider-specific data like spaces
 
 
 class CreateJiraTicketFromTaskRequest(BaseModel):

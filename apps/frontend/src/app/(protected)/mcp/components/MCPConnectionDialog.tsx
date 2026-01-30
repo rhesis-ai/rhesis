@@ -139,7 +139,7 @@ export function MCPConnectionDialog({
     is_authenticated: string;
     message: string;
     additional_metadata?: {
-      projects?: Array<{ key: string; name: string }>;
+      spaces?: Array<{ key: string; name: string }>;
       [key: string]: any;
     };
   } | null>(null);
@@ -152,12 +152,12 @@ export function MCPConnectionDialog({
   const [instanceUrl, setInstanceUrl] = useState('');
   const [username, setUsername] = useState('');
 
-  // Jira project selection
-  const [availableProjects, setAvailableProjects] = useState<
+  // Jira space selection
+  const [availableSpaces, setAvailableSpaces] = useState<
     Array<{ key: string; name: string }>
   >([]);
-  const [selectedProjectKey, setSelectedProjectKey] = useState<string>('');
-  const [showProjectSelector, setShowProjectSelector] = useState(false);
+  const [selectedSpaceKey, setSelectedSpaceKey] = useState<string>('');
+  const [showSpaceSelector, setShowSpaceSelector] = useState(false);
 
   const isEditMode = mode === 'edit';
 
@@ -219,14 +219,14 @@ export function MCPConnectionDialog({
         setInstanceUrl('');
         setUsername('');
 
-        // Extract project_key from tool_metadata if it exists (for Jira)
-        if (currentProviderType === 'jira' && tool.tool_metadata?.project_key) {
-          setSelectedProjectKey(tool.tool_metadata.project_key);
+        // Extract space_key from tool_metadata if it exists (for Jira)
+        if (currentProviderType === 'jira' && tool.tool_metadata?.space_key) {
+          setSelectedSpaceKey(tool.tool_metadata.space_key);
         } else {
-          setSelectedProjectKey('');
+          setSelectedSpaceKey('');
         }
-        setAvailableProjects([]);
-        setShowProjectSelector(false);
+        setAvailableSpaces([]);
+        setShowSpaceSelector(false);
 
         setError(null);
         setJsonError(null);
@@ -244,9 +244,9 @@ export function MCPConnectionDialog({
         setRepositoryUrl('');
         setInstanceUrl('');
         setUsername('');
-        setSelectedProjectKey('');
-        setAvailableProjects([]);
-        setShowProjectSelector(false);
+        setSelectedSpaceKey('');
+        setAvailableSpaces([]);
+        setShowSpaceSelector(false);
         setError(null);
         setJsonError(null);
         setShowAuthToken(false);
@@ -474,22 +474,22 @@ export function MCPConnectionDialog({
       if (result.is_authenticated === 'Yes') {
         setConnectionTested(true);
 
-        // Check if we have projects in additional_metadata (for Jira)
+        // Check if we have spaces in additional_metadata (for Jira)
         if (
           providerType === 'jira' &&
-          result.additional_metadata?.projects &&
-          result.additional_metadata.projects.length > 0
+          result.additional_metadata?.spaces &&
+          result.additional_metadata.spaces.length > 0
         ) {
-          setAvailableProjects(result.additional_metadata.projects);
-          setShowProjectSelector(true);
+          setAvailableSpaces(result.additional_metadata.spaces);
+          setShowSpaceSelector(true);
         } else {
-          setAvailableProjects([]);
-          setShowProjectSelector(false);
+          setAvailableSpaces([]);
+          setShowSpaceSelector(false);
         }
       } else {
         setConnectionTested(false);
-        setAvailableProjects([]);
-        setShowProjectSelector(false);
+        setAvailableSpaces([]);
+        setShowSpaceSelector(false);
       }
     } catch (err) {
       // Display error in testResult (under the button) instead of error state (at top)
@@ -628,11 +628,11 @@ export function MCPConnectionDialog({
           }
         }
 
-        // Add or update project_key metadata for Jira
-        if (providerType === 'jira' && selectedProjectKey) {
+        // Add or update space_key metadata for Jira
+        if (providerType === 'jira' && selectedSpaceKey) {
           metadataToUpdate = {
             ...(metadataToUpdate || tool.tool_metadata || {}),
-            project_key: selectedProjectKey,
+            space_key: selectedSpaceKey,
           };
         }
 
@@ -678,13 +678,13 @@ export function MCPConnectionDialog({
         return;
       }
 
-      // Validate Jira project selection
+      // Validate Jira space selection
       if (
         provider.type_value === 'jira' &&
-        showProjectSelector &&
-        !selectedProjectKey
+        showSpaceSelector &&
+        !selectedSpaceKey
       ) {
-        setError('Please select a Jira project.');
+        setError('Please select a Jira space.');
         return;
       }
 
@@ -762,11 +762,11 @@ export function MCPConnectionDialog({
             };
           }
 
-          // Add project_key metadata for Jira if selected
-          if (providerType === 'jira' && selectedProjectKey) {
+          // Add space_key metadata for Jira if selected
+          if (providerType === 'jira' && selectedSpaceKey) {
             parsedMetadata = {
               ...(parsedMetadata || {}),
-              project_key: selectedProjectKey,
+              space_key: selectedSpaceKey,
             };
           }
 
@@ -798,8 +798,9 @@ export function MCPConnectionDialog({
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
   );
 
-  const displayName =
-    provider?.description || provider?.type_value || 'MCP Provider';
+  const displayName = provider?.type_value
+    ? provider.type_value.charAt(0).toUpperCase() + provider.type_value.slice(1)
+    : 'MCP Provider';
 
   return (
     <Dialog
@@ -816,7 +817,7 @@ export function MCPConnectionDialog({
           {providerIcon}
           <Box>
             <Typography variant="h6" component="div">
-              {isEditMode ? `Edit ${displayName}` : `Connect to ${displayName}`}
+              {displayName}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {isEditMode
@@ -850,7 +851,6 @@ export function MCPConnectionDialog({
               required
               value={name}
               onChange={e => setName(e.target.value)}
-              helperText="A unique name to identify this MCP connection"
             />
 
             <TextField
@@ -860,7 +860,6 @@ export function MCPConnectionDialog({
               rows={2}
               value={description}
               onChange={e => setDescription(e.target.value)}
-              helperText="Optional description for this MCP connection"
             />
 
             {requiresToken && (
@@ -888,11 +887,6 @@ export function MCPConnectionDialog({
                           ? 'https://your-domain.atlassian.net'
                           : 'https://your-domain.atlassian.net/wiki'
                       }
-                      helperText={
-                        providerType === 'jira'
-                          ? 'Your Jira instance URL'
-                          : 'Your Confluence instance URL'
-                      }
                     />
 
                     <TextField
@@ -902,7 +896,6 @@ export function MCPConnectionDialog({
                       value={username}
                       onChange={e => setUsername(e.target.value)}
                       placeholder="your-email@example.com"
-                      helperText="Your Atlassian account email"
                     />
                   </>
                 )}
@@ -935,9 +928,7 @@ export function MCPConnectionDialog({
                       ? authToken !== '************' && authToken !== ''
                         ? 'New API token will replace the current one'
                         : 'Click to update the API token'
-                      : providerType === 'jira' || providerType === 'confluence'
-                        ? 'Your Atlassian API token'
-                        : 'Your authentication token for this MCP provider'
+                      : undefined
                   }
                   InputProps={{
                     endAdornment:
@@ -1007,9 +998,9 @@ export function MCPConnectionDialog({
                   )}
                 </Box>
 
-                {/* Jira Project Selection */}
-                {showProjectSelector &&
-                  availableProjects.length > 0 &&
+                {/* Jira Space Selection */}
+                {showSpaceSelector &&
+                  availableSpaces.length > 0 &&
                   providerType === 'jira' && (
                     <Box sx={{ mt: 2 }}>
                       <Typography
@@ -1020,18 +1011,18 @@ export function MCPConnectionDialog({
                           color: 'primary.main',
                         }}
                       >
-                        Project Selection
+                        Space Selection
                       </Typography>
                       <FormControl fullWidth required>
-                        <InputLabel>Jira Project</InputLabel>
+                        <InputLabel>Jira Space</InputLabel>
                         <Select
-                          value={selectedProjectKey}
-                          onChange={e => setSelectedProjectKey(e.target.value)}
-                          label="Jira Project"
+                          value={selectedSpaceKey}
+                          onChange={e => setSelectedSpaceKey(e.target.value)}
+                          label="Jira Space"
                         >
-                          {availableProjects.map(project => (
-                            <MenuItem key={project.key} value={project.key}>
-                              {project.name} ({project.key})
+                          {availableSpaces.map(space => (
+                            <MenuItem key={space.key} value={space.key}>
+                              {space.name} ({space.key})
                             </MenuItem>
                           ))}
                         </Select>
@@ -1041,7 +1032,7 @@ export function MCPConnectionDialog({
                         color="text.secondary"
                         sx={{ mt: 0.5, display: 'block' }}
                       >
-                        Select the Jira project where issues will be created
+                        Select the Jira space where issues will be created
                       </Typography>
                     </Box>
                   )}
