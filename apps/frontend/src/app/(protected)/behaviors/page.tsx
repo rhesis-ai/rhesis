@@ -25,10 +25,7 @@ export default function BehaviorsPage() {
   // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer
-        title="Behaviors"
-        breadcrumbs={[{ title: 'Behaviors', path: '/behaviors' }]}
-      >
+      <PageContainer title="Behaviors" breadcrumbs={[]}>
         <Box
           sx={{
             p: 3,
@@ -50,10 +47,7 @@ export default function BehaviorsPage() {
   // Handle no session state
   if (!sessionToken) {
     return (
-      <PageContainer
-        title="Behaviors"
-        breadcrumbs={[{ title: 'Behaviors', path: '/behaviors' }]}
-      >
+      <PageContainer title="Behaviors" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography color="error">
             Authentication required. Please log in.
@@ -64,10 +58,7 @@ export default function BehaviorsPage() {
   }
 
   return (
-    <PageContainer
-      title="Behaviors"
-      breadcrumbs={[{ title: 'Behaviors', path: '/behaviors' }]}
-    >
+    <PageContainer title="Behaviors" breadcrumbs={[]}>
       <BehaviorsClient
         sessionToken={sessionToken}
         organizationId={organizationId}

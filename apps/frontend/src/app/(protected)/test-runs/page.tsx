@@ -29,10 +29,7 @@ export default function TestRunsPage() {
   // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer
-        title="Test Runs"
-        breadcrumbs={[{ title: 'Test Runs', path: '/test-runs' }]}
-      >
+      <PageContainer title="Test Runs" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography>Loading...</Typography>
         </Box>
@@ -43,10 +40,7 @@ export default function TestRunsPage() {
   // Handle no session state
   if (!session?.session_token) {
     return (
-      <PageContainer
-        title="Test Runs"
-        breadcrumbs={[{ title: 'Test Runs', path: '/test-runs' }]}
-      >
+      <PageContainer title="Test Runs" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography color="error">No session token available</Typography>
         </Box>
@@ -55,10 +49,7 @@ export default function TestRunsPage() {
   }
 
   return (
-    <PageContainer
-      title="Test Runs"
-      breadcrumbs={[{ title: 'Test Runs', path: '/test-runs' }]}
-    >
+    <PageContainer title="Test Runs" breadcrumbs={[]}>
       {/* Charts Section */}
       <TestRunCharts
         sessionToken={session.session_token}

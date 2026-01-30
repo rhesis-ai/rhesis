@@ -15,10 +15,7 @@ export default async function TokensPage() {
   }
 
   return (
-    <PageContainer
-      title="API Tokens"
-      breadcrumbs={[{ title: 'API Tokens', path: '/tokens' }]}
-    >
+    <PageContainer title="API Tokens" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Create API tokens to authenticate with the Rhesis SDK and

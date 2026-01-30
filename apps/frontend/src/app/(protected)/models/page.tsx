@@ -170,10 +170,7 @@ export default function ModelsPage() {
   };
 
   return (
-    <PageContainer
-      title="Models"
-      breadcrumbs={[{ title: 'Models', path: '/models' }]}
-    >
+    <PageContainer title="Models" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Connect to leading AI model providers to power your evaluation and

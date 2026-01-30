@@ -71,7 +71,7 @@ export default function EndpointsPage() {
   }
 
   return (
-    <PageContainer title="Endpoints" breadcrumbs={[{ title: 'Endpoints' }]}>
+    <PageContainer title="Endpoints" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Connect the Rhesis platform to your application under test via

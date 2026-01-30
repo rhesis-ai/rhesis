@@ -25,10 +25,7 @@ export default function MetricsPage() {
   // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer
-        title="Metrics"
-        breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}
-      >
+      <PageContainer title="Metrics" breadcrumbs={[]}>
         <Box
           sx={{
             p: 3,
@@ -50,10 +47,7 @@ export default function MetricsPage() {
   // Handle no session state
   if (!sessionToken) {
     return (
-      <PageContainer
-        title="Metrics"
-        breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}
-      >
+      <PageContainer title="Metrics" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography color="error">
             Authentication required. Please log in.
@@ -64,10 +58,7 @@ export default function MetricsPage() {
   }
 
   return (
-    <PageContainer
-      title="Metrics"
-      breadcrumbs={[{ title: 'Metrics', path: '/metrics' }]}
-    >
+    <PageContainer title="Metrics" breadcrumbs={[]}>
       <MetricsClientComponent
         sessionToken={sessionToken}
         organizationId={organizationId}

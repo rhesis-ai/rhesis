@@ -67,10 +67,7 @@ export default async function TestSetsPage() {
     );
 
     return (
-      <PageContainer
-        title="Test Sets"
-        breadcrumbs={[{ title: 'Test Sets', path: '/test-sets' }]}
-      >
+      <PageContainer title="Test Sets" breadcrumbs={[]}>
         {/* Charts Section - Client Component */}
         <TestSetsCharts />
 

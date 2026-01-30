@@ -67,10 +67,7 @@ export default function KnowledgeClientWrapper({
   // Show error state if no session token
   if (!sessionToken) {
     return (
-      <PageContainer
-        title="Knowledge"
-        breadcrumbs={[{ title: 'Knowledge', path: '/knowledge' }]}
-      >
+      <PageContainer title="Knowledge" breadcrumbs={[]}>
         <Alert severity="error" className={styles.marginBottom3}>
           Session expired. Please refresh the page or log in again.
         </Alert>
@@ -83,10 +80,7 @@ export default function KnowledgeClientWrapper({
   }
 
   return (
-    <PageContainer
-      title="Knowledge"
-      breadcrumbs={[{ title: 'Knowledge', path: '/knowledge' }]}
-    >
+    <PageContainer title="Knowledge" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Upload knowledge sources to use as context for test generation and

@@ -191,7 +191,7 @@ export default function MCPSPage() {
   };
 
   return (
-    <PageContainer title="MCP" breadcrumbs={[{ title: 'MCP', path: '/mcp' }]}>
+    <PageContainer title="MCP" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Connect to Model Context Protocol (MCP) providers to import knowledge

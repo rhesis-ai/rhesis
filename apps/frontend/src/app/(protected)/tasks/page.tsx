@@ -24,10 +24,7 @@ export default function TasksPage() {
   // Handle loading state
   if (status === 'loading') {
     return (
-      <PageContainer
-        title="Tasks"
-        breadcrumbs={[{ title: 'Tasks', path: '/tasks' }]}
-      >
+      <PageContainer title="Tasks" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography>Loading...</Typography>
         </Box>
@@ -38,10 +35,7 @@ export default function TasksPage() {
   // Handle no session state
   if (!session?.session_token) {
     return (
-      <PageContainer
-        title="Tasks"
-        breadcrumbs={[{ title: 'Tasks', path: '/tasks' }]}
-      >
+      <PageContainer title="Tasks" breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography color="error">No session token available</Typography>
         </Box>
@@ -50,10 +44,7 @@ export default function TasksPage() {
   }
 
   return (
-    <PageContainer
-      title="Tasks"
-      breadcrumbs={[{ title: 'Tasks', path: '/tasks' }]}
-    >
+    <PageContainer title="Tasks" breadcrumbs={[]}>
       {/* Charts Section */}
       <TasksCharts
         sessionToken={session.session_token}
