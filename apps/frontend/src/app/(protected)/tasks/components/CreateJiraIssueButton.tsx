@@ -62,11 +62,11 @@ export default function CreateJiraIssueButton({
         const response = await toolsClient.getTools({});
         const tools = response.data || [];
 
-        // Filter for Jira tools that have project_key configured
+        // Filter for Jira tools that have space_key configured
         const jiraToolsList = tools.filter(
           tool =>
             tool.tool_provider_type?.type_value === 'jira' &&
-            tool.tool_metadata?.project_key
+            tool.tool_metadata?.space_key
         );
 
         setJiraTools(jiraToolsList);
@@ -223,7 +223,7 @@ export default function CreateJiraIssueButton({
               sx={{ minWidth: 200 }}
             >
               <Typography variant="body2">
-                {tool.tool_metadata?.project_key || tool.name}
+                {tool.tool_metadata?.space_key || tool.name}
               </Typography>
             </MenuItem>
           ))}

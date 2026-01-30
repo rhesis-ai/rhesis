@@ -144,8 +144,8 @@ export function ConnectedToolCard({
             </Typography>
           )}
 
-          {/* Project info for Jira */}
-          {providerName === 'jira' && tool.tool_metadata?.project_key && (
+          {/* Space info for Jira */}
+          {providerName === 'jira' && tool.tool_metadata?.space_key && (
             <Typography
               variant="caption"
               color="text.secondary"
@@ -155,14 +155,14 @@ export function ConnectedToolCard({
                 fontStyle: 'italic',
               }}
             >
-              Project: {tool.tool_metadata.project_key}
+              Space: {tool.tool_metadata.space_key}
             </Typography>
           )}
 
           {/* Spacing for tools without additional info */}
           {!(
             (providerName === 'github' && tool.tool_metadata?.repository) ||
-            (providerName === 'jira' && tool.tool_metadata?.project_key)
+            (providerName === 'jira' && tool.tool_metadata?.space_key)
           ) && <Box sx={{ mb: 1.5 }} />}
 
           {/* Connected status */}

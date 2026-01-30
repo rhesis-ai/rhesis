@@ -9,13 +9,13 @@ Look at the available tools and select one that would require authentication, su
 - Any tool that would fail with a 401 unauthorized error if not authenticated
 
 {% if provider == "jira" %}
-ADDITIONAL TASK FOR JIRA: After verifying authentication, list all available Jira projects with their keys and names.
+ADDITIONAL TASK FOR JIRA: After verifying authentication, list all available Jira spaces with their keys and names.
 
 Call the tool and then provide your final answer in this exact JSON format:
 {
   "is_authenticated": "Yes" or "No",
   "message": "Brief explanation of the authentication status",
-  "projects": [{"key": "PROJ", "name": "Project Name"}, ...]
+  "spaces": [{"key": "SPACE", "name": "Space Name"}, ...]
 }
 {% else %}
 Call the tool and then provide your final answer in this exact JSON format:
@@ -27,4 +27,4 @@ Call the tool and then provide your final answer in this exact JSON format:
 
 Use "Yes" if the tool call succeeded, or "No" if you received any authentication error (such as 401 unauthorized, authentication failed, etc.).
 
-Be concise and direct - your goal is to verify authentication status{% if provider == "jira" %} and retrieve projects{% endif %}.
+Be concise and direct - your goal is to verify authentication status{% if provider == "jira" %} and retrieve spaces{% endif %}.

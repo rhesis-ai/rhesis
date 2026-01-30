@@ -545,7 +545,7 @@ async def run_mcp_authentication_test(
         - is_authenticated: str - "Yes" or "No" determined by the LLM based on tool call results
         - message: str - Message from the LLM explaining the authentication status
         - additional_metadata: Optional[Dict[str, Any]] - Provider-specific metadata
-          (e.g., projects for Jira)
+          (e.g., spaces for Jira)
 
     Raises:
         ValueError: If authentication test fails due to connection issues
@@ -591,10 +591,10 @@ async def run_mcp_authentication_test(
     # Parse the response
     response = json.loads(result.final_answer)
 
-    # Extract projects if present (Jira-specific) and move to additional_metadata
+    # Extract spaces if present (Jira-specific) and move to additional_metadata
     additional_metadata = None
-    if "projects" in response:
-        additional_metadata = {"projects": response.pop("projects")}
+    if "spaces" in response:
+        additional_metadata = {"spaces": response.pop("spaces")}
 
     # Add additional_metadata to response
     if additional_metadata:
@@ -637,12 +637,12 @@ async def create_jira_ticket_from_task(
     if provider != "jira":
         raise ValueError(f"Tool must be a Jira integration, got '{provider}'")
 
-    # 3. Extract project_key from tool metadata
+    # 3. Extract space_key from tool metadata
     tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
-    if not tool.tool_metadata or "project_key" not in tool.tool_metadata:
-        raise ValueError("Jira tool is not configured with a project_key")
+    if not tool.tool_metadata or "space_key" not in tool.tool_metadata:
+        raise ValueError("Jira tool is not configured with a space_key")
 
-    project_key = tool.tool_metadata["project_key"]
+    space_key = tool.tool_metadata["space_key"]
 
     # 4. Get user's generation model
     user = crud.get_user_by_id(db, user_id)
@@ -650,7 +650,7 @@ async def create_jira_ticket_from_task(
 
     # 5. Prepare prompt with task data
     create_issue_prompt = jinja_env.get_template("mcp_jira_create_issue_prompt.jinja2").render(
-        project_key=project_key,
+        space_key=space_key,
         summary=task.title,
         description=task.description or "",
     )
