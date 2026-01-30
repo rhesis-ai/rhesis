@@ -27,41 +27,482 @@ show_help() {
     echo -e "${PURPLE}════════════════════════════════════════${NC}"
     echo ""
     echo -e "${YELLOW}Usage:${NC}"
-    echo -e "  ${GREEN}./rh start${NC}           - Start all services with Docker (zero-config)"
-    echo -e "  ${GREEN}./rh stop${NC}            - Stop all Docker services"
-    echo -e "  ${GREEN}./rh restart${NC}         - Restart all Docker services"
-    echo -e "  ${GREEN}./rh logs${NC}            - View logs from all services"
-    echo -e "  ${GREEN}./rh delete${NC}          - Delete all services, images, volumes, and data"
-    echo -e "  ${GREEN}./rh backend start${NC}   - Start the backend server (local)"
-    echo -e "  ${GREEN}./rh frontend start${NC}  - Start the frontend server (local)"
-    echo -e "  ${GREEN}./rh frontend test${NC}   - Run frontend tests"
-    echo -e "  ${GREEN}./rh chatbot start${NC}   - Start the chatbot server (local)"
-    echo -e "  ${GREEN}./rh docs start${NC}      - Start the documentation server (local)"
-    echo -e "  ${GREEN}./rh worker start${NC}    - Start the Celery worker (local)"
-    echo -e "  ${GREEN}./rh polyphemus start${NC} - Start the Polyphemus service (local)"
-    echo -e "  ${GREEN}./rh help${NC}            - Show this help message"
+    echo -e "  ${GREEN}./rh start${NC}             - Start all services with Docker (zero-config)"
+    echo -e "  ${GREEN}./rh stop${NC}              - Stop all Docker services"
+    echo -e "  ${GREEN}./rh restart${NC}           - Restart all Docker services"
+    echo -e "  ${GREEN}./rh logs${NC}              - View logs from all services"
+    echo -e "  ${GREEN}./rh delete${NC}            - Delete all services, images, volumes, and data"
+    echo ""
+    echo -e "${YELLOW}Local Development:${NC}"
+    echo -e "  ${GREEN}./rh dev init${NC}          - Initialize env files (one-time setup)"
+    echo -e "  ${GREEN}./rh dev up${NC}            - Start dev infrastructure (postgres:11000, redis:11001)"
+    echo -e "  ${GREEN}./rh dev down${NC}          - Stop dev infrastructure"
+    echo -e "  ${GREEN}./rh dev clean${NC}         - Remove containers and volumes (resets database)"
+    echo -e "  ${GREEN}./rh dev status${NC}        - Show dev environment status"
+    echo -e "  ${GREEN}./rh dev backend${NC}       - Start the backend server (local)"
+    echo -e "  ${GREEN}./rh dev frontend${NC}      - Start the frontend server (local)"
+    echo -e "  ${GREEN}./rh dev chatbot${NC}       - Start the chatbot server (local)"
+    echo -e "  ${GREEN}./rh dev docs${NC}          - Start the documentation server (local)"
+    echo -e "  ${GREEN}./rh dev worker${NC}        - Start the Celery worker (local)"
+    echo -e "  ${GREEN}./rh dev polyphemus${NC}    - Start the Polyphemus service (local)"
+    echo ""
+    echo -e "${YELLOW}Testing:${NC}"
+    echo -e "  ${GREEN}./rh test frontend${NC}     - Run frontend tests"
+    echo ""
+    echo -e "${YELLOW}Other:${NC}"
+    echo -e "  ${GREEN}./rh help${NC}              - Show this help message"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
     echo -e "  ${BLUE}./rh start${NC}               # Start all services with Docker"
+    echo -e "  ${BLUE}./rh dev init${NC}            # Initialize environment files (first time)"
+    echo -e "  ${BLUE}./rh dev up${NC}              # Bring up dev infrastructure"
+    echo -e "  ${BLUE}./rh dev backend${NC}         # Start backend locally (without Docker)"
+    echo -e "  ${BLUE}./rh dev frontend${NC}        # Start frontend locally (without Docker)"
     echo -e "  ${BLUE}./rh stop${NC}                # Stop all Docker services"
     echo -e "  ${BLUE}./rh delete${NC}              # Delete everything (services, images, volumes, data)"
     echo -e "  ${BLUE}./rh logs backend${NC}        # View backend logs"
-    echo -e "  ${BLUE}./rh backend start${NC}       # Start backend locally (without Docker)"
-    echo -e "  ${BLUE}./rh frontend start${NC}      # Start frontend locally (without Docker)"
-    echo -e "  ${BLUE}./rh frontend test${NC}       # Run frontend tests"
-    echo -e "  ${BLUE}./rh chatbot start${NC}       # Start chatbot locally (without Docker)"
-    echo -e "  ${BLUE}./rh polyphemus start${NC}    # Start Polyphemus locally (without Docker)"
+    echo -e "  ${BLUE}./rh test frontend${NC}       # Run frontend tests"
+    echo ""
+}
+
+# ============================================================================
+# Common utility functions
+# ============================================================================
+
+# Function to check if Docker is running
+check_docker() {
+    if ! docker info > /dev/null 2>&1; then
+        echo -e "${RED}❌ Error: Docker is not running${NC}"
+        echo -e "${YELLOW}   Please start Docker Desktop and try again${NC}"
+        exit 1
+    fi
+}
+
+# Function to check if uv is installed
+check_uv() {
+    if ! command -v uv &> /dev/null; then
+        echo -e "${RED}❌ Error: uv is not installed${NC}"
+        echo -e "${YELLOW}   Install uv with: curl -LsSf https://astral.sh/uv/install.sh | sh${NC}"
+        echo -e "${YELLOW}   Or visit: https://docs.astral.sh/uv/getting-started/installation/${NC}"
+        exit 1
+    fi
+}
+
+# Function to check if Node.js and npm are installed
+check_node() {
+    if ! command -v node &> /dev/null; then
+        echo -e "${RED}❌ Error: Node.js is not installed${NC}"
+        echo -e "${YELLOW}   Install Node.js from: https://nodejs.org/${NC}"
+        exit 1
+    fi
+    if ! command -v npm &> /dev/null; then
+        echo -e "${RED}❌ Error: npm is not installed${NC}"
+        echo -e "${YELLOW}   npm should come with Node.js. Reinstall Node.js from: https://nodejs.org/${NC}"
+        exit 1
+    fi
+}
+
+# Function to generate encryption key using Docker
+generate_encryption_key() {
+    docker run --rm python:3.10.17-slim sh -c \
+        "pip install --quiet --no-cache-dir cryptography > /dev/null 2>&1 && \
+         python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'" 2>/dev/null
+}
+
+# ============================================================================
+# Dev environment functions
+# ============================================================================
+
+# Dev environment configuration (distinct from prod:5432/6379 and test:10000/10002)
+DEV_POSTGRES_PORT=11000
+DEV_REDIS_PORT=11001
+DEV_ENV_MARKER="# Generated by ./rh dev init"
+DEV_BACKEND_ENV="$SCRIPT_DIR/apps/backend/.env"
+DEV_FRONTEND_ENV="$SCRIPT_DIR/apps/frontend/.env.local"
+
+# Function to check if env file was generated by dev script
+is_dev_generated() {
+    local file="$1"
+    [ -f "$file" ] && head -n1 "$file" | grep -qF "$DEV_ENV_MARKER"
+}
+
+# Function to check if env files are initialized
+check_env_files_exist() {
+    [ -f "$DEV_BACKEND_ENV" ] && [ -f "$DEV_FRONTEND_ENV" ]
+}
+
+# Function to prompt for overwrite
+prompt_overwrite() {
+    local file="$1"
+    echo -e "${YELLOW}⚠️  File exists: $file${NC}"
+    echo -e "${YELLOW}   This file was NOT generated by ./rh dev init.${NC}"
+    read -p "$(echo -e ${YELLOW}Overwrite? [y/N]: ${NC})" -r
+    [[ $REPLY =~ ^[Yy]$ ]]
+}
+
+# Function to create/update backend .env file
+create_backend_env() {
+    local env_file="$DEV_BACKEND_ENV"
+    local encryption_key="$1"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    # Check if file exists and wasn't generated by us
+    if [ -f "$env_file" ] && ! is_dev_generated "$env_file"; then
+        if ! prompt_overwrite "$env_file"; then
+            echo -e "${BLUE}   Skipping $env_file${NC}"
+            return 0
+        fi
+    fi
+
+    echo -e "${GREEN}Creating $env_file${NC}"
+    cat > "$env_file" << EOF
+$DEV_ENV_MARKER on $timestamp
+
+QUICK_START=true
+
+# Database (dev ports)
+SQLALCHEMY_DATABASE_URL=postgresql://rhesis-user:rhesis-password@localhost:${DEV_POSTGRES_PORT}/rhesis-db
+SQLALCHEMY_DB_DRIVER=postgresql
+SQLALCHEMY_DB_PORT=${DEV_POSTGRES_PORT}
+SQLALCHEMY_DB_USER=rhesis-user
+SQLALCHEMY_DB_PASS=rhesis-password
+SQLALCHEMY_DB_HOST=localhost:${DEV_POSTGRES_PORT}
+SQLALCHEMY_DB_NAME=rhesis-db
+DB_ENCRYPTION_KEY=${encryption_key}
+
+# Redis (dev ports)
+REDIS_URL=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/0
+BROKER_URL=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/0
+CELERY_RESULT_BACKEND=redis://:rhesis-redis-pass@localhost:${DEV_REDIS_PORT}/1
+
+# Environment
+ENVIRONMENT=local
+BACKEND_ENV=local
+LOG_LEVEL=DEBUG
+
+# URLs
+FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:8080
+
+# JWT
+JWT_SECRET_KEY=dev-jwt-secret-key-change-in-production
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=10080
+EOF
+}
+
+# Function to create/update frontend .env.local file
+create_frontend_env() {
+    local env_file="$DEV_FRONTEND_ENV"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    # Check if file exists and wasn't generated by us
+    if [ -f "$env_file" ] && ! is_dev_generated "$env_file"; then
+        if ! prompt_overwrite "$env_file"; then
+            echo -e "${BLUE}   Skipping $env_file${NC}"
+            return 0
+        fi
+    fi
+
+    echo -e "${GREEN}Creating $env_file${NC}"
+    cat > "$env_file" << EOF
+$DEV_ENV_MARKER on $timestamp
+
+NEXT_PUBLIC_QUICK_START=true
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+BACKEND_URL=http://localhost:8080
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=dev-nextauth-secret-change-in-production
+NEXT_TELEMETRY_DISABLED=1
+EOF
+}
+
+# Function to initialize dev environment files (one-time setup)
+dev_init() {
+    echo -e "${GREEN}Initializing Rhesis Development Environment...${NC}"
+    echo ""
+
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+
+    # Check prerequisites
+    check_docker
+
+    # Check if files already exist
+    if check_env_files_exist; then
+        echo -e "${YELLOW}⚠️  Environment files already exist:${NC}"
+        echo -e "   - ${BLUE}apps/backend/.env${NC}"
+        echo -e "   - ${BLUE}apps/frontend/.env.local${NC}"
+        echo ""
+        echo -e "${YELLOW}Consider backing up these files before continuing if they contain${NC}"
+        echo -e "${YELLOW}   custom configuration or secrets you want to preserve.${NC}"
+        echo ""
+        read -p "$(echo -e ${YELLOW}Do you want to reinitialize? This will overwrite existing files. [y/N]: ${NC})" -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo -e "${GREEN}✅ Keeping existing configuration${NC}"
+            return 0
+        fi
+    fi
+
+    # Step 1: Generate encryption key
+    echo -e "${YELLOW}Generating encryption key...${NC}"
+    ENCRYPTION_KEY=$(generate_encryption_key)
+    if [ -z "$ENCRYPTION_KEY" ]; then
+        echo -e "${RED}❌ Error: Failed to generate encryption key${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}✅ Encryption key generated${NC}"
+
+    # Step 2: Create env files
+    echo ""
+    echo -e "${YELLOW}Creating environment files...${NC}"
+    create_backend_env "$ENCRYPTION_KEY"
+    create_frontend_env
+
+    # Step 3: Display success message and backup reminder
+    echo ""
+    echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}✅ Environment files created!${NC}"
+    echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${CYAN}Created files:${NC}"
+    echo -e "   - ${WHITE}apps/backend/.env${NC}"
+    echo -e "   - ${WHITE}apps/frontend/.env.local${NC}"
+    echo ""
+    echo -e "${CYAN}Next step:${NC}"
+    echo -e "   ${GREEN}./rh dev up${NC}  # Start dev infrastructure (postgres, redis)"
+    echo ""
+}
+
+# Function to start dev infrastructure
+dev_up() {
+    echo -e "${GREEN}Starting Rhesis Development Infrastructure...${NC}"
+    echo ""
+
+    cd "$SCRIPT_DIR" || {
+        echo -e "${RED}❌ Error: Script directory not found${NC}"
+        exit 1
+    }
+
+    # Check prerequisites
+    check_docker
+    check_uv
+    check_node
+
+    # Check if env files exist
+    if ! check_env_files_exist; then
+        echo -e "${RED}❌ Environment files not found!${NC}"
+        echo ""
+        echo -e "${YELLOW}Please run initialization first:${NC}"
+        echo -e "   ${GREEN}./rh dev init${NC}"
+        echo ""
+        echo -e "${CYAN}This will create the following files:${NC}"
+        echo -e "   - ${WHITE}apps/backend/.env${NC}"
+        echo -e "   - ${WHITE}apps/frontend/.env.local${NC}"
+        echo ""
+        exit 1
+    fi
+
+    # Check if env files were generated by us (have the marker)
+    if ! is_dev_generated "$DEV_BACKEND_ENV" || ! is_dev_generated "$DEV_FRONTEND_ENV"; then
+        echo -e "${RED}❌ Environment files exist but were not created by ./rh dev init${NC}"
+        echo -e "   - ${BLUE}apps/backend/.env${NC}"
+        echo -e "   - ${BLUE}apps/frontend/.env.local${NC}"
+        echo ""
+        echo -e "${YELLOW}Using manually created files may cause port or configuration mismatches.${NC}"
+        echo -e "${YELLOW}Please initialize proper dev environment files first:${NC}"
+        echo -e "   ${GREEN}./rh dev init${NC}"
+        echo ""
+        exit 1
+    fi
+
+    # Start postgres and redis with dev ports
+    echo -e "${YELLOW}Starting dev containers (postgres:${DEV_POSTGRES_PORT}, redis:${DEV_REDIS_PORT})...${NC}"
+
+    # Use a separate compose project name to avoid conflicts
+    COMPOSE_PROJECT_NAME=rhesis-dev docker compose \
+        -f docker-compose.yml \
+        up -d postgres redis \
+        -p ${DEV_POSTGRES_PORT}:5432 2>/dev/null || \
+    docker run -d \
+        --name rhesis-dev-postgres \
+        -e POSTGRES_DB=rhesis-db \
+        -e POSTGRES_USER=rhesis-user \
+        -e POSTGRES_PASSWORD=rhesis-password \
+        -p ${DEV_POSTGRES_PORT}:5432 \
+        postgres:16-alpine 2>/dev/null || true
+
+    docker run -d \
+        --name rhesis-dev-redis \
+        -p ${DEV_REDIS_PORT}:6379 \
+        redis:7-alpine \
+        redis-server --requirepass rhesis-redis-pass 2>/dev/null || true
+
+    # Wait for postgres to be ready
+    echo -e "${BLUE}Waiting for PostgreSQL to be ready...${NC}"
+    for i in {1..30}; do
+        if docker exec rhesis-dev-postgres pg_isready -U rhesis-user -d rhesis-db > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ PostgreSQL is ready${NC}"
+            break
+        fi
+        sleep 1
+    done
+
+    # Display success message
+    echo ""
+    echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}✅ Development infrastructure ready!${NC}"
+    echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${CYAN}Running services:${NC}"
+    echo -e "   PostgreSQL: ${WHITE}localhost:${DEV_POSTGRES_PORT}${NC}"
+    echo -e "   Redis:      ${WHITE}localhost:${DEV_REDIS_PORT}${NC}"
+    echo -e "   ${BLUE}Run ${GREEN}./rh dev status${BLUE} to check environment anytime${NC}"
+    echo ""
+    echo -e "${CYAN}Start services:${NC}"
+    echo -e "   ${GREEN}./rh dev backend${NC}   or  ${GREEN}cd apps/backend && ./start.sh${NC}"
+    echo -e "   ${GREEN}./rh dev frontend${NC}  or  ${GREEN}cd apps/frontend && ./start.sh${NC}"
+    echo -e "   ${GREEN}./rh dev worker${NC}    or  ${GREEN}cd apps/worker && ./start.sh${NC} (optional)"
+    echo ""
+    echo -e "${YELLOW}Stop infrastructure (postgres, redis):${NC}"
+    echo -e "   ${GREEN}./rh dev down${NC}    # Stop containers"
+    echo -e "   ${GREEN}./rh dev clean${NC}   # Remove containers and volumes (resets database)"
+    echo ""
+}
+
+# Function to stop dev infrastructure
+dev_down() {
+    echo -e "${YELLOW}Stopping Rhesis Development Infrastructure...${NC}"
+    echo ""
+
+    # Stop and remove containers
+    docker stop rhesis-dev-postgres rhesis-dev-redis 2>/dev/null || true
+    docker rm rhesis-dev-postgres rhesis-dev-redis 2>/dev/null || true
+
+    echo -e "${GREEN}✅ Development infrastructure stopped${NC}"
+    echo ""
+    echo -e "${CYAN}To start again:${NC}"
+    echo -e "   ${GREEN}./rh dev up${NC}"
+    echo ""
+}
+
+# Function to clean dev infrastructure (remove containers and volumes)
+dev_clean() {
+    echo -e "${RED}Cleaning Rhesis Development Infrastructure...${NC}"
+    echo ""
+    echo -e "${YELLOW}This will remove:${NC}"
+    echo -e "   - Dev containers (rhesis-dev-postgres, rhesis-dev-redis)"
+    echo -e "   - Associated Docker volumes (DATABASE DATA WILL BE LOST!)"
+    echo ""
+    read -p "$(echo -e ${YELLOW}Are you sure? [y/N]: ${NC})" -r
+    echo ""
+
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${GREEN}✅ Clean cancelled${NC}"
+        return 0
+    fi
+
+    # Stop containers first
+    echo -e "${YELLOW}Stopping containers...${NC}"
+    docker stop rhesis-dev-postgres rhesis-dev-redis 2>/dev/null || true
+
+    # Remove containers
+    echo -e "${YELLOW}Removing containers...${NC}"
+    docker rm rhesis-dev-postgres rhesis-dev-redis 2>/dev/null || true
+
+    # Remove volumes
+    echo -e "${YELLOW}Removing volumes...${NC}"
+    docker volume rm rhesis-dev-postgres-data 2>/dev/null || true
+    docker volume rm rhesis-dev-redis-data 2>/dev/null || true
+
+    # Also try to remove any anonymous volumes that might have been created
+    # by finding volumes with rhesis-dev prefix
+    docker volume ls -q --filter "name=rhesis-dev" 2>/dev/null | xargs -r docker volume rm 2>/dev/null || true
+
+    echo ""
+    echo -e "${GREEN}✅ Development infrastructure cleaned${NC}"
+    echo ""
+    echo -e "${CYAN}To set up again:${NC}"
+    echo -e "   ${GREEN}./rh dev up${NC}    # Start fresh containers"
+    echo ""
+}
+
+# Function to show dev environment status
+dev_status() {
+    echo -e "${CYAN}Rhesis Development Environment Status${NC}"
+    echo -e "${PURPLE}════════════════════════════════════════════════${NC}"
+    echo ""
+
+    # Check env files
+    echo -e "${YELLOW}Environment Files:${NC}"
+    if [ -f "$DEV_BACKEND_ENV" ]; then
+        if is_dev_generated "$DEV_BACKEND_ENV"; then
+            local created_at=$(head -n1 "$DEV_BACKEND_ENV" | sed 's/.*on //')
+            echo -e "   ${GREEN}✅${NC} apps/backend/.env (initialized: $created_at)"
+        else
+            echo -e "   ${GREEN}✅${NC} apps/backend/.env (manually created)"
+        fi
+    else
+        echo -e "   ${RED}❌${NC} apps/backend/.env (missing)"
+    fi
+
+    if [ -f "$DEV_FRONTEND_ENV" ]; then
+        if is_dev_generated "$DEV_FRONTEND_ENV"; then
+            local created_at=$(head -n1 "$DEV_FRONTEND_ENV" | sed 's/.*on //')
+            echo -e "   ${GREEN}✅${NC} apps/frontend/.env.local (initialized: $created_at)"
+        else
+            echo -e "   ${GREEN}✅${NC} apps/frontend/.env.local (manually created)"
+        fi
+    else
+        echo -e "   ${RED}❌${NC} apps/frontend/.env.local (missing)"
+    fi
+
+    echo ""
+
+    # Check containers
+    echo -e "${YELLOW}Infrastructure:${NC}"
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "rhesis-dev-postgres"; then
+        echo -e "   PostgreSQL: ${GREEN}✅ Running${NC} (localhost:${DEV_POSTGRES_PORT})"
+    else
+        echo -e "   PostgreSQL: ${RED}Stopped${NC}"
+    fi
+
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "rhesis-dev-redis"; then
+        echo -e "   Redis:      ${GREEN}✅ Running${NC} (localhost:${DEV_REDIS_PORT})"
+    else
+        echo -e "   Redis:      ${RED}Stopped${NC}"
+    fi
+
+    echo ""
+
+    # Show next steps based on status
+    if ! check_env_files_exist; then
+        echo -e "${YELLOW}Next step:${NC}"
+        echo -e "   ${GREEN}./rh dev init${NC}  # Initialize environment files"
+    elif ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "rhesis-dev-postgres"; then
+        echo -e "${YELLOW}Next step:${NC}"
+        echo -e "   ${GREEN}./rh dev up${NC}    # Start dev infrastructure"
+    else
+        echo -e "${YELLOW}Start services:${NC}"
+        echo -e "   ${GREEN}./rh dev backend${NC}   # Start backend"
+        echo -e "   ${GREEN}./rh dev frontend${NC}  # Start frontend"
+        echo -e "   ${GREEN}./rh dev worker${NC}    # Start worker (optional)"
+    fi
     echo ""
 }
 
 # Function to start all services with Docker Compose
 start_all() {
-    echo -e "${GREEN}🚀 Starting all Rhesis services with Docker...${NC}"
-    echo -e "${BLUE}ℹ️  Using zero-configuration local setup${NC}"
+    echo -e "${GREEN}Starting all Rhesis services with Docker...${NC}"
+    echo -e "${BLUE}Using zero-configuration local setup${NC}"
     echo ""
     echo "#####################################################################################"
     echo ""
-    echo -e "${CYAN}📊 Telemetry Notice:${NC}"
+    echo -e "${CYAN}Telemetry Notice:${NC}"
     echo -e "${WHITE}   Rhesis AI automatically collects anonymous usage statistics to help improve the platform.${NC}"
     echo -e "${WHITE}   To disable telemetry, set: ${YELLOW}OTEL_RHESIS_TELEMETRY_ENABLED=false${NC}"
     echo ""
@@ -73,24 +514,16 @@ start_all() {
         exit 1
     }
 
-    # Check if Docker is running
-    if ! docker info > /dev/null 2>&1; then
-        echo -e "${RED}❌ Error: Docker is not running${NC}"
-        echo -e "${YELLOW}💡 Please start Docker Desktop and try again${NC}"
-        exit 1
-    fi
+    check_docker
 
     # Check if .env.docker.local exists and has DB_ENCRYPTION_KEY
     if [ ! -f ".env.docker.local" ] || ! grep -q "^DB_ENCRYPTION_KEY=.\+" .env.docker.local 2>/dev/null; then
         echo -e "${YELLOW}🔑 Generating DB_ENCRYPTION_KEY...${NC}"
 
-        # Generate encryption key using Docker to avoid installing cryptography globally
-        # Use Python 3.10-slim image (same as backend) with cryptography pre-installed
-        ENCRYPTION_KEY=$(docker run --rm python:3.10.17-slim sh -c "pip install --quiet --no-cache-dir cryptography > /dev/null 2>&1 && python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'" 2>/dev/null)
+        ENCRYPTION_KEY=$(generate_encryption_key)
 
-        if [ $? -ne 0 ] || [ -z "$ENCRYPTION_KEY" ]; then
-            echo -e "${RED}❌ Error: Failed to generate encryption key using Docker${NC}"
-            echo -e "${YELLOW}💡 Make sure Docker is running and can pull images${NC}"
+        if [ -z "$ENCRYPTION_KEY" ]; then
+            echo -e "${RED}❌ Error: Failed to generate encryption key${NC}"
             exit 1
         fi
 
@@ -136,19 +569,19 @@ start_all() {
     fi
 
     echo ""
-    echo -e "${YELLOW}📦 Starting services ...${NC}"
+    echo -e "${YELLOW}Starting services ...${NC}"
     
 docker compose --env-file .env.docker.local up --build -d postgres redis backend worker frontend
     if [ $? -eq 0 ]; then
         echo ""
         echo -e "${GREEN}✅ All services started successfully!${NC}"
         echo ""
-        echo -e "${CYAN}🌐 Access the platform:${NC}"
+        echo -e "${CYAN}Access the platform:${NC}"
         echo -e "   Frontend:  ${WHITE}http://localhost:3000${NC} (auto-login enabled)"
         echo -e "   Backend:   ${WHITE}http://localhost:8080/docs${NC}"
         echo -e "   Worker:    ${WHITE}http://localhost:8081/health/basic${NC}"
         echo ""
-        echo -e "${YELLOW}💡 Useful commands:${NC}"
+        echo -e "${YELLOW}Useful commands:${NC}"
         echo -e "   View logs:    ${GREEN}./rh logs${NC}"
         echo -e "   Stop all:     ${GREEN}./rh stop${NC}"
         echo -e "   Restart all:  ${GREEN}./rh restart${NC}"
@@ -161,7 +594,7 @@ docker compose --env-file .env.docker.local up --build -d postgres redis backend
 
 # Function to stop all services
 stop_all() {
-    echo -e "${YELLOW}🛑 Stopping all Rhesis services...${NC}"
+    echo -e "${YELLOW}Stopping all Rhesis services...${NC}"
 
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
@@ -180,7 +613,7 @@ stop_all() {
 
 # Function to restart all services
 restart_all() {
-    echo -e "${YELLOW}🔄 Restarting all Rhesis services...${NC}"
+    echo -e "${YELLOW}Restarting all Rhesis services...${NC}"
 
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
@@ -199,7 +632,7 @@ restart_all() {
 
 # Function to view logs
 view_logs() {
-    echo -e "${BLUE}📋 Viewing logs...${NC}"
+    echo -e "${BLUE}Viewing logs...${NC}"
 
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
@@ -235,7 +668,7 @@ delete_all() {
         exit 0
     fi
 
-    echo -e "${YELLOW}🗑️  Deleting all Rhesis Docker resources...${NC}"
+    echo -e "${YELLOW}Deleting all Rhesis Docker resources...${NC}"
 
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
@@ -251,7 +684,7 @@ delete_all() {
         echo ""
         echo -e "${GREEN}✅ All Rhesis Docker resources deleted successfully!${NC}"
         echo ""
-        echo -e "${CYAN}💡 To start fresh:${NC}"
+        echo -e "${CYAN}To start fresh:${NC}"
         echo -e "   ${GREEN}./rh start${NC}"
         echo ""
     else
@@ -262,7 +695,7 @@ delete_all() {
 
 # Function to start backend
 start_backend() {
-    echo -e "${GREEN}🔧 Starting Rhesis Backend...${NC}"
+    echo -e "${GREEN}Starting Rhesis Backend...${NC}"
     cd "$SCRIPT_DIR/apps/backend" || {
         echo -e "${RED}❌ Error: Backend directory not found${NC}"
         exit 1
@@ -278,7 +711,7 @@ start_backend() {
 
 # Function to start frontend
 start_frontend() {
-    echo -e "${GREEN}🌐 Starting Rhesis Frontend...${NC}"
+    echo -e "${GREEN}Starting Rhesis Frontend...${NC}"
     cd "$SCRIPT_DIR/apps/frontend" || {
         echo -e "${RED}❌ Error: Frontend directory not found${NC}"
         exit 1
@@ -294,16 +727,16 @@ start_frontend() {
 
 # Function to start chatbot
 start_chatbot() {
-    echo -e "${GREEN}🤖 Starting Rhesis Chatbot...${NC}"
+    echo -e "${GREEN}Starting Rhesis Chatbot...${NC}"
     cd "$SCRIPT_DIR/apps/chatbot" || {
         echo -e "${RED}❌ Error: Chatbot directory not found${NC}"
         exit 1
     }
 
-    echo -e "${GREEN}🚀 Starting Chatbot service...${NC}"
-    echo -e "${BLUE}🌐 Service will be available at: http://localhost:8000${NC}"
-    echo -e "${BLUE}📚 API docs will be available at: http://localhost:8000/docs${NC}"
-    echo -e "${YELLOW}💡 Press Ctrl+C to stop the service${NC}"
+    echo -e "${GREEN}Starting Chatbot service...${NC}"
+    echo -e "${BLUE}Service will be available at: http://localhost:8000${NC}"
+    echo -e "${BLUE}API docs will be available at: http://localhost:8000/docs${NC}"
+    echo -e "${YELLOW}Press Ctrl+C to stop the service${NC}"
     echo ""
 
     # Run uvicorn with reload for development
@@ -312,7 +745,7 @@ start_chatbot() {
 
 # Function to start docs
 start_docs() {
-    echo -e "${GREEN}📚 Starting Rhesis Documentation...${NC}"
+    echo -e "${GREEN}Starting Rhesis Documentation...${NC}"
     cd "$SCRIPT_DIR/docs/src" || {
         echo -e "${RED}❌ Error: Documentation directory not found${NC}"
         exit 1
@@ -328,7 +761,7 @@ start_docs() {
 
 # Function to start polyphemus
 start_polyphemus() {
-    echo -e "${GREEN}🔮 Starting Rhesis Polyphemus...${NC}"
+    echo -e "${GREEN}Starting Rhesis Polyphemus...${NC}"
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
         exit 1
@@ -336,7 +769,7 @@ start_polyphemus() {
 
     # Check if virtual environment exists
     if [ ! -d ".venv" ]; then
-        echo -e "${YELLOW}📦 Creating virtual environment...${NC}"
+        echo -e "${YELLOW}Creating virtual environment...${NC}"
         uv venv || {
             echo -e "${RED}❌ Error: Failed to create virtual environment${NC}"
             exit 1
@@ -350,37 +783,37 @@ start_polyphemus() {
     }
 
     # Install SDK first with huggingface extras (required by polyphemus)
-    echo -e "${YELLOW}📦 Installing SDK with HuggingFace support...${NC}"
+    echo -e "${YELLOW}Installing SDK with HuggingFace support...${NC}"
     uv pip install -e "sdk[huggingface]" || {
         echo -e "${RED}❌ Error: Failed to install SDK${NC}"
         exit 1
     }
 
     # Install Penelope
-    echo -e "${YELLOW}📦 Installing Penelope...${NC}"
+    echo -e "${YELLOW}Installing Penelope...${NC}"
     uv pip install -e penelope || {
         echo -e "${RED}❌ Error: Failed to install Penelope${NC}"
         exit 1
     }
 
     # Install Backend
-    echo -e "${YELLOW}📦 Installing Backend...${NC}"
+    echo -e "${YELLOW}Installing Backend...${NC}"
     uv pip install -e apps/backend || {
         echo -e "${RED}❌ Error: Failed to install Backend${NC}"
         exit 1
     }
 
     # Install Polyphemus (all dependencies now resolved)
-    echo -e "${YELLOW}📦 Installing Polyphemus...${NC}"
+    echo -e "${YELLOW}Installing Polyphemus...${NC}"
     uv pip install -e apps/polyphemus || {
         echo -e "${RED}❌ Error: Failed to install Polyphemus${NC}"
         exit 1
     }
 
-    echo -e "${GREEN}🚀 Starting Polyphemus service...${NC}"
-    echo -e "${BLUE}🌐 Service will be available at: http://localhost:8082${NC}"
-    echo -e "${BLUE}📚 API docs will be available at: http://localhost:8082/docs${NC}"
-    echo -e "${YELLOW}💡 Press Ctrl+C to stop the service${NC}"
+    echo -e "${GREEN}Starting Polyphemus service...${NC}"
+    echo -e "${BLUE}Service will be available at: http://localhost:8082${NC}"
+    echo -e "${BLUE}API docs will be available at: http://localhost:8082/docs${NC}"
+    echo -e "${YELLOW}Press Ctrl+C to stop the service${NC}"
     echo ""
 
     # Run uvicorn
@@ -389,21 +822,21 @@ start_polyphemus() {
 
 # Function to start worker
 start_worker() {
-    echo -e "${GREEN}⚙️  Starting Rhesis Worker...${NC}"
+    echo -e "${GREEN}Starting Rhesis Worker...${NC}"
 
     # Kill any existing celery workers first
-    echo -e "${YELLOW}🔍 Checking for existing Celery workers...${NC}"
+    echo -e "${YELLOW}Checking for existing Celery workers...${NC}"
     if pgrep -f celery > /dev/null; then
-        echo -e "${YELLOW}🛑 Stopping existing Celery workers...${NC}"
+        echo -e "${YELLOW}Stopping existing Celery workers...${NC}"
         pkill -9 -f celery
         sleep 1
         echo -e "${GREEN}✅ Existing workers stopped${NC}"
     else
-        echo -e "${BLUE}ℹ️  No existing workers found${NC}"
+        echo -e "${BLUE}No existing workers found${NC}"
     fi
 
     # Clear Python cache
-    echo -e "${YELLOW}🧹 Clearing Python cache...${NC}"
+    echo -e "${YELLOW}Clearing Python cache...${NC}"
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
         exit 1
@@ -418,13 +851,13 @@ start_worker() {
     }
 
     LOG_FILE="$SCRIPT_DIR/celery.log"
-    echo -e "${GREEN}🚀 Starting new Celery worker...${NC}"
-    echo -e "${BLUE}📝 Logs will be written to: ${LOG_FILE}${NC}"
-    echo -e "${YELLOW}💡 Press Ctrl+C to stop the worker${NC}"
+    echo -e "${GREEN}Starting new Celery worker...${NC}"
+    echo -e "${BLUE}Logs will be written to: ${LOG_FILE}${NC}"
+    echo -e "${YELLOW}Press Ctrl+C to stop the worker${NC}"
     echo ""
 
     # Set up trap to handle Ctrl+C gracefully
-    trap "echo -e '\n${YELLOW}🛑 Shutting down worker...${NC}'; exit" INT TERM
+    trap "echo -e '\n${YELLOW}Shutting down worker...${NC}'; exit" INT TERM
 
     # Set CELERY_WORKER_NAME environment variable (using hostname-UUID for uniqueness)
     # Generate unique worker ID using hostname + UUID
@@ -452,7 +885,7 @@ start_worker() {
 
 # Function to run frontend tests
 test_frontend() {
-    echo -e "${GREEN}🧪 Running Frontend Tests...${NC}"
+    echo -e "${GREEN}Running Frontend Tests...${NC}"
     cd "$SCRIPT_DIR/apps/frontend" || {
         echo -e "${RED}❌ Error: Frontend directory not found${NC}"
         exit 1
@@ -460,7 +893,7 @@ test_frontend() {
 
     # Check if node_modules exists
     if [ ! -d "node_modules" ]; then
-        echo -e "${YELLOW}📦 Installing dependencies first...${NC}"
+        echo -e "${YELLOW}Installing dependencies first...${NC}"
         npm install || {
             echo -e "${RED}❌ Error: Failed to install dependencies${NC}"
             exit 1
@@ -468,7 +901,7 @@ test_frontend() {
     fi
 
     # Run tests
-    echo -e "${BLUE}🧪 Executing tests...${NC}"
+    echo -e "${BLUE}Executing tests...${NC}"
     npm test || {
         echo -e "${RED}❌ Error: Tests failed${NC}"
         exit 1
@@ -482,6 +915,73 @@ case "$1" in
     "start")
         start_all
         ;;
+    "dev")
+        case "$2" in
+            "init")
+                dev_init
+                ;;
+            "up")
+                dev_up
+                ;;
+            "down")
+                dev_down
+                ;;
+            "clean")
+                dev_clean
+                ;;
+            "status")
+                dev_status
+                ;;
+            "backend")
+                start_backend
+                ;;
+            "frontend")
+                start_frontend
+                ;;
+            "chatbot")
+                start_chatbot
+                ;;
+            "docs")
+                start_docs
+                ;;
+            "worker")
+                start_worker
+                ;;
+            "polyphemus")
+                start_polyphemus
+                ;;
+            ""|"help")
+                echo -e "${CYAN}Local Development Commands:${NC}"
+                echo ""
+                echo -e "${YELLOW}Setup:${NC}"
+                echo -e "  ${GREEN}./rh dev init${NC}          - Initialize env files (one-time setup)"
+                echo -e "  ${GREEN}./rh dev up${NC}            - Start dev infrastructure (postgres, redis)"
+                echo -e "  ${GREEN}./rh dev down${NC}          - Stop dev infrastructure"
+                echo -e "  ${GREEN}./rh dev clean${NC}         - Remove containers and volumes (resets database)"
+                echo -e "  ${GREEN}./rh dev status${NC}        - Show dev environment status"
+                echo ""
+                echo -e "${YELLOW}Services:${NC}"
+                echo -e "  ${GREEN}./rh dev backend${NC}       - Start the backend server"
+                echo -e "  ${GREEN}./rh dev frontend${NC}      - Start the frontend server"
+                echo -e "  ${GREEN}./rh dev worker${NC}        - Start the Celery worker"
+                echo -e "  ${GREEN}./rh dev chatbot${NC}       - Start the chatbot server"
+                echo -e "  ${GREEN}./rh dev docs${NC}          - Start the documentation server"
+                echo -e "  ${GREEN}./rh dev polyphemus${NC}    - Start the Polyphemus service"
+                echo ""
+                echo -e "${YELLOW}Typical workflow:${NC}"
+                echo -e "  ${BLUE}./rh dev init${NC}          # First time only"
+                echo -e "  ${BLUE}./rh dev up${NC}            # Each session"
+                echo -e "  ${BLUE}./rh dev backend${NC}       # In one terminal"
+                echo -e "  ${BLUE}./rh dev frontend${NC}      # In another terminal"
+                echo ""
+                ;;
+            *)
+                echo -e "${RED}❌ Unknown dev command: $2${NC}"
+                echo -e "${YELLOW}Run ${GREEN}./rh dev${NC}${YELLOW} for available commands${NC}"
+                exit 1
+                ;;
+        esac
+        ;;
     "stop")
         stop_all
         ;;
@@ -494,77 +994,14 @@ case "$1" in
     "delete")
         delete_all
         ;;
-    "backend")
+    "test")
         case "$2" in
-            "start")
-                start_backend
-                ;;
-            *)
-                echo -e "${RED}❌ Unknown backend command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh backend start${NC}"
-                exit 1
-                ;;
-        esac
-        ;;
-    "frontend")
-        case "$2" in
-            "start")
-                start_frontend
-                ;;
-            "test")
+            "frontend")
                 test_frontend
                 ;;
             *)
-                echo -e "${RED}❌ Unknown frontend command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh frontend start or ./rh frontend test${NC}"
-                exit 1
-                ;;
-        esac
-        ;;
-    "chatbot")
-        case "$2" in
-            "start")
-                start_chatbot
-                ;;
-            *)
-                echo -e "${RED}❌ Unknown chatbot command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh chatbot start${NC}"
-                exit 1
-                ;;
-        esac
-        ;;
-    "docs")
-        case "$2" in
-            "start")
-                start_docs
-                ;;
-            *)
-                echo -e "${RED}❌ Unknown docs command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh docs start${NC}"
-                exit 1
-                ;;
-        esac
-        ;;
-    "worker")
-        case "$2" in
-            "start")
-                start_worker
-                ;;
-            *)
-                echo -e "${RED}❌ Unknown worker command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh worker start${NC}"
-                exit 1
-                ;;
-        esac
-        ;;
-    "polyphemus")
-        case "$2" in
-            "start")
-                start_polyphemus
-                ;;
-            *)
-                echo -e "${RED}❌ Unknown polyphemus command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh polyphemus start${NC}"
+                echo -e "${RED}❌ Unknown test command: $2${NC}"
+                echo -e "${YELLOW}Available: ./rh test frontend${NC}"
                 exit 1
                 ;;
         esac

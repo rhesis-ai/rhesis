@@ -1,0 +1,168 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Input/Output Mapping
+
+Map your function's parameters and return values to Rhesis's standardized request/response format. The SDK supports both automatic detection and manual configuration.
+
+## Auto-Mapping (Recommended)
+
+Use standard field names for automatic detection:
+
+<CodeBlock filename="auto_mapping.py" language="python">
+{`@endpoint()
+def chat(input: str, session_id: str = None) -> dict:
+    """Standard names auto-detect."""
+    return {
+        "output": process_message(input),
+        "session_id": session_id,
+    }`}
+</CodeBlock>
+
+**Standard fields**:
+
+- Request: `input`, `session_id`, `context`, `metadata`, `tool_calls`
+- Response: `output`, `context`, `metadata`, `tool_calls`, `session_id`
+
+## Manual Mapping
+
+For custom parameter names or complex structures, provide explicit mappings:
+
+<CodeBlock filename="manual_mapping.py" language="python">
+{`@endpoint(
+    request_mapping={
+        "user_query": "{{ input }}",
+        "conv_id": "{{ session_id }}",
+    },
+    response_mapping={
+        "output": "$.result.text",
+        "session_id": "$.conv_id",
+    },
+)
+def chat(user_query: str, conv_id: str = None) -> dict:
+    """Custom names require manual mapping."""
+    return {"result": {"text": "..."}, "conv_id": conv_id}`}
+</CodeBlock>
+
+## Request Mapping (Jinja2 Templates)
+
+Request mapping transforms incoming Rhesis request fields to your function parameters.
+
+- Use Jinja2 template syntax: `{{ variable_name }}`
+- Maps standard Rhesis request fields (`input`, `session_id`, `context`) to your function parameters
+- Custom fields from the request are passed through automatically
+- Example: `"user_message": "{{ input }}"` maps the Rhesis `input` field to your function's `user_message` parameter
+
+### Simple Mappings
+
+<CodeBlock filename="simple_request.py" language="python">
+{`@endpoint(
+    request_mapping={
+        "user_message": "{{ input }}",
+        "conv_id": "{{ session_id }}",
+    }
+)
+def chat(user_message: str, conv_id: str = None) -> dict:
+    return {"output": process(user_message)}`}
+</CodeBlock>
+
+### Complex Structures
+
+For functions that accept complex types (like Pydantic models), mapping keys should match function parameter names:
+
+<CodeBlock filename="complex_request.py" language="python">
+{`@endpoint(
+    request_mapping={
+        "request": {
+            "messages": [{"role": "user", "content": "{{ input }}"}],
+            "context": {"conversation_id": "{{ session_id }}"},
+        },
+    }
+)
+def agent(request: ChatAgentRequest) -> ChatAgentResponse:
+    # The SDK automatically constructs ChatAgentRequest from the mapped dict
+    return ChatAgentResponse(...)`}
+</CodeBlock>
+
+<Callout type="info">
+  See [Advanced Mapping](./serializers) for how complex types like Pydantic models are automatically constructed from mapped dictionaries.
+</Callout>
+
+## Response Mapping (JSONPath or Jinja2)
+
+Response mapping extracts values from your function's return value to Rhesis's standardized format.
+
+### JSONPath Syntax
+
+Use JSONPath expressions (starting with `$`) for direct field extraction:
+
+<CodeBlock filename="jsonpath_response.py" language="python">
+{`@endpoint(
+    response_mapping={
+        "output": "$.choices[0].message.content",  # Nested extraction
+        "session_id": "$.conv_id",                 # Top-level field
+        "context": "$.sources",                    # Array field
+    }
+)
+def chat(input: str) -> dict:
+    return {
+        "choices": [{"message": {"content": "Hello!"}}],
+        "conv_id": "abc123",
+        "sources": ["doc1.pdf", "doc2.pdf"]
+    }`}
+</CodeBlock>
+
+**Common JSONPath patterns:**
+
+| Pattern | Description |
+|---------|-------------|
+| `$.field` | Top-level field |
+| `$.nested.field` | Nested field |
+| `$.array[0]` | First array element |
+| `$.array[-1]` | Last array element |
+| `$.array[*].field` | Field from all array elements |
+
+### Jinja2 Templates with JSONPath
+
+Use Jinja2 templates with the `jsonpath()` function for conditional logic or complex extraction:
+
+<CodeBlock filename="jinja2_response.py" language="python">
+{`@endpoint(
+    response_mapping={
+        # Try first path, fall back to second if empty
+        "output": "{{ jsonpath('$.text_response') or jsonpath('$.result.content') }}",
+        # Direct JSONPath still works
+        "conversation_id": "$.conv_id",
+    },
+)
+def chat(input: str) -> dict:
+    """Extract output from multiple possible locations."""
+    return {"text_response": "...", "conv_id": "abc123"}`}
+</CodeBlock>
+
+## Custom Request Fields
+
+You can pass custom fields through the API that aren't part of the standard schema:
+
+<CodeBlock filename="custom_fields.py" language="python">
+{`@endpoint(
+    request_mapping={
+        "question": "{{ input }}",
+        "policy_id": "{{ policy_number }}",  # Custom field from request
+        "tier": "{{ customer_tier }}",        # Another custom field
+    },
+    response_mapping={"output": "$.answer"},
+)
+def insurance_query(question: str, policy_id: str, tier: str) -> dict:
+    # Custom fields (policy_number, customer_tier) must be included in API request
+    return {"answer": lookup_policy(question, policy_id, tier)}`}
+</CodeBlock>
+
+<Callout type="warning">
+  Custom fields must be included in the API request body when invoking the endpoint.
+</Callout>
+
+---
+
+<Callout type="default">
+  **Next Steps** - Learn about [Advanced Mapping](./serializers) for handling complex objects - See [Examples](./examples) for complete working examples
+</Callout>

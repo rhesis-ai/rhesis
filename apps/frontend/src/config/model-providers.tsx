@@ -37,13 +37,19 @@ export const SUPPORTED_PROVIDERS = [
   'together_ai',
   'cohere',
   'huggingface',
+  'lmformatenforcer',
   'meta_llama',
 ];
 
-export const LOCAL_PROVIDERS = ['huggingface', 'ollama'];
+export const LOCAL_PROVIDERS = ['huggingface', 'lmformatenforcer', 'ollama'];
 
 // Providers that require custom endpoint URLs (self-hosted or local)
-export const PROVIDERS_REQUIRING_ENDPOINT = ['ollama', 'vllm', 'huggingface'];
+export const PROVIDERS_REQUIRING_ENDPOINT = [
+  'ollama',
+  'vllm',
+  'huggingface',
+  'lmformatenforcer',
+];
 
 // Default endpoints for providers that need them
 export const DEFAULT_ENDPOINTS: Record<string, string> = {
@@ -60,6 +66,7 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   gemini: <SiGoogle className="h-8 w-8" />,
   groq: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   huggingface: <SiHuggingface className="h-8 w-8" />,
+  lmformatenforcer: <SiHuggingface className="h-8 w-8" />,
   meta: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   mistral: <MistralIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   ollama: <SiOllama className="h-8 w-8" />,

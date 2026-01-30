@@ -215,6 +215,11 @@ export default function BaseLineChart({
       backgroundColor: theme.palette.background.paper,
       border: `1px solid ${theme.palette.divider}`,
       borderRadius: '4px',
+    },
+    itemStyle: {
+      color: theme.palette.text.primary,
+    },
+    labelStyle: {
       color: theme.palette.text.primary,
     },
   };

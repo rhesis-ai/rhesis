@@ -47,6 +47,19 @@ show_banner() {
     echo ""
 }
 
+# Function to ensure dependencies are installed
+ensure_dependencies() {
+    if [ ! -d "node_modules" ]; then
+        log "${YELLOW}📦 node_modules not found, installing dependencies...${NC}"
+        if npm install; then
+            log "${GREEN}✅ Dependencies installed successfully${NC}"
+        else
+            handle_error "Failed to install dependencies"
+        fi
+        echo ""
+    fi
+}
+
 # Function to start the server
 start_server() {
     local port="${PORT:-3000}"
@@ -114,6 +127,9 @@ main() {
     log "${BLUE}👤 Running as user: $(whoami)${NC}"
     log "${BLUE}📁 Working directory: $(pwd)${NC}"
     echo ""
+    
+    # Ensure dependencies are installed
+    ensure_dependencies
     
     # Start the server
     start_server

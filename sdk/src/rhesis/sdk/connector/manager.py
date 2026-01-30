@@ -210,9 +210,15 @@ class ConnectorManager:
                 )
                 return
 
-            # Execute function via executor
+            # Get function and its metadata (including serializers)
             func = self._registry.get(function_name)
-            result = await self._executor.execute(func, function_name, inputs)
+            metadata = self._registry.get_metadata(function_name) or {}
+            serializers = metadata.get("serializers")
+
+            # Execute function via executor with serializers
+            result = await self._executor.execute(
+                func, function_name, inputs, serializers=serializers
+            )
 
             # Send result
             await self._send_test_result(

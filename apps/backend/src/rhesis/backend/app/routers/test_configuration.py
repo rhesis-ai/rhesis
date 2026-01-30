@@ -199,12 +199,6 @@ def execute_test_configuration_endpoint(
     if db_test_configuration is None:
         raise HTTPException(status_code=404, detail="Test configuration not found")
 
-    # Check if the user has permission to execute this test configuration
-    if db_test_configuration.user_id != current_user.id and not current_user.is_superuser:
-        raise HTTPException(
-            status_code=403, detail="Not authorized to execute this test configuration"
-        )
-
     # Submit the celery task with the task_launcher which automatically adds context
     task = task_launcher(
         execute_test_configuration, str(test_configuration_id), current_user=current_user

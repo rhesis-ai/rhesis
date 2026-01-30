@@ -267,6 +267,12 @@ export default function TestSetDetailCharts({
               borderRadius: '4px',
               color: theme.palette.text.primary,
             },
+            itemStyle: {
+              color: theme.palette.text.primary,
+            },
+            labelStyle: {
+              color: theme.palette.text.primary,
+            },
             formatter: (value: number, name: string, props: any) => {
               const item = props.payload;
               return [`${value} (${item.percentage})`, item.fullName || name];

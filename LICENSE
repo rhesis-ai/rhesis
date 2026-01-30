@@ -2,7 +2,7 @@ Copyright (c) 2025 Rhesis AI GmbH
 
 This software contains components governed by various licensing terms:
 - Any files located within directories labeled "/ee/" (if present) are governed by the license terms specified in the "ee/LICENSE" file.
-- Third-party libraries and tools included in the Rhesis software are used under the original licenses provided by their respective copyright holders.
+- Third-party libraries and tools included in the Rhesis software are used under the original licenses provided by their respective copyright holders. See the NOTICE file for required attributions and third-party license information.
 - All other source code and materials in this repository are made available under the MIT Expat license outlined below.
 
 Permission is granted, free of charge, to anyone obtaining a copy of this software and its accompanying documentation (the "Software"), to use the Software without restriction. This includes, but is not limited to, rights to use, copy, alter, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to allow others to do the same, provided the following conditions are met:

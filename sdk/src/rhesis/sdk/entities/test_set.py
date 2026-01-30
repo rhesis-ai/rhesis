@@ -41,8 +41,23 @@ class TestSet(BaseEntity):
     @field_validator("test_set_type", mode="before")
     @classmethod
     def extract_test_set_type(cls, v: Any) -> Optional[str]:
-        """Extract type_value from nested dict if backend returns full TypeLookup object."""
-        return v.get("type_value")
+        """Extract type_value from nested dict if backend returns full TypeLookup object.
+
+        Handles multiple input types:
+        - None: returns None
+        - TestType enum: returns the enum value string
+        - str: returns as-is (Pydantic handles enum conversion)
+        - dict: extracts 'type_value' key (backend API response format)
+        """
+        if v is None:
+            return None
+        if isinstance(v, TestType):
+            return v.value
+        if isinstance(v, str):
+            return v
+        if isinstance(v, dict):
+            return v.get("type_value")
+        return v
 
     @handle_http_errors
     def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:

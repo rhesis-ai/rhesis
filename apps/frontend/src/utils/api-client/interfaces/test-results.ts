@@ -168,7 +168,7 @@ export interface Endpoint {
   request_mapping: Record<string, any>;
   input_mappings?: any;
   response_format: string;
-  response_mapping: Record<string, string>;
+  response_mapping: Record<string, any>;
   validation_rules?: any;
   project_id: UUID;
   status_id?: UUID;

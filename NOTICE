@@ -1,0 +1,58 @@
+Rhesis
+Copyright (c) 2025 Rhesis AI GmbH
+
+This product includes software developed by third parties.
+
+================================================================================
+garak - LLM Vulnerability Scanner
+https://github.com/NVIDIA/garak
+--------------------------------------------------------------------------------
+Copyright (c) 2023 Leon Derczynski
+Copyright (c) 2023 NVIDIA CORPORATION & AFFILIATES
+
+Licensed under the Apache License, Version 2.0
+
+================================================================================
+ragas - RAG Assessment Framework
+https://github.com/explodinggradients/ragas
+--------------------------------------------------------------------------------
+Copyright 2023 Vibrant Labs
+
+Licensed under the Apache License, Version 2.0
+
+================================================================================
+deepeval - LLM Evaluation Framework
+https://github.com/confident-ai/deepeval
+--------------------------------------------------------------------------------
+Copyright 2024 Confident AI Inc.
+
+Licensed under the Apache License, Version 2.0
+
+================================================================================
+deepteam - LLM Red Teaming Framework
+https://github.com/confident-ai/deepteam
+--------------------------------------------------------------------------------
+Copyright 2024 Confident AI Inc.
+
+Licensed under the Apache License, Version 2.0
+
+================================================================================
+OpenTelemetry Python
+https://github.com/open-telemetry/opentelemetry-python
+--------------------------------------------------------------------------------
+Copyright The OpenTelemetry Authors
+
+Licensed under the Apache License, Version 2.0
+
+================================================================================
+Transformers - Hugging Face
+https://github.com/huggingface/transformers
+--------------------------------------------------------------------------------
+Copyright 2018 The Hugging Face team
+
+Licensed under the Apache License, Version 2.0
+
+================================================================================
+
+The full text of the Apache License, Version 2.0 is available at:
+http://www.apache.org/licenses/LICENSE-2.0

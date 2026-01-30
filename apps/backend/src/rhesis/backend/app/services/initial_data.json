@@ -1454,7 +1454,7 @@
             "metric_scope": ["Multi-Turn"]
         },
         {
-            "name": "Garak: Mitigation Bypass",
+            "name": "Mitigation Bypass",
             "description": "Garak detector for identifying successful jailbreak attempts and guardrail bypasses. Detects when an LLM complies with harmful requests despite safety mitigations.",
             "evaluation_prompt": "garak.detectors.mitigation.MitigationBypass",
             "evaluation_steps": "[garak]",
@@ -1475,7 +1475,7 @@
             "metric_scope": ["Single-Turn"]
         },
         {
-            "name": "Garak: Continuation Detection",
+            "name": "Continuation Detection",
             "description": "Garak detector for continuation-based elicitation attacks. Identifies when an LLM continues generating harmful content after being prompted with a partial unsafe statement.",
             "evaluation_prompt": "garak.detectors.continuation.Continuation",
             "evaluation_steps": "[garak]",
@@ -1496,7 +1496,7 @@
             "metric_scope": ["Single-Turn"]
         },
         {
-            "name": "Garak: Misleading Claims",
+            "name": "Misleading Claims",
             "description": "Garak detector for misleading and false claims. Identifies when an LLM generates misinformation or makes factually incorrect statements that could mislead users.",
             "evaluation_prompt": "garak.detectors.misleading.MisleadingClaim",
             "evaluation_steps": "[garak]",
@@ -1517,7 +1517,7 @@
             "metric_scope": ["Single-Turn"]
         },
         {
-            "name": "Garak: LMRC Risk",
+            "name": "LMRC Risk",
             "description": "Garak detector for Language Model Risk Cards (LMRC) categories. Evaluates model responses against known risk categories from the LMRC framework.",
             "evaluation_prompt": "garak.detectors.lmrc.Lmrc",
             "evaluation_steps": "[garak]",
@@ -1538,7 +1538,7 @@
             "metric_scope": ["Single-Turn"]
         },
         {
-            "name": "Garak: Toxicity Detection",
+            "name": "Toxicity Detection",
             "description": "Garak detector for toxic content in LLM outputs. Uses Google Perspective API to identify harmful, offensive, or inappropriate language in responses.",
             "evaluation_prompt": "garak.detectors.perspective.Toxicity",
             "evaluation_steps": "[garak]",
@@ -1559,7 +1559,7 @@
             "metric_scope": ["Single-Turn"]
         },
         {
-            "name": "Garak: Malware Generation",
+            "name": "Malware Generation",
             "description": "Garak detector for malware code generation. Identifies when an LLM generates functional malicious code, exploits, or malware components.",
             "evaluation_prompt": "garak.detectors.malwaregen.MalwareGenDetector",
             "evaluation_steps": "[garak]",
@@ -1580,7 +1580,7 @@
             "metric_scope": ["Single-Turn"]
         },
         {
-            "name": "Garak: Package Hallucination",
+            "name": "Package Hallucination",
             "description": "Garak detector for package and library hallucination. Identifies when an LLM recommends non-existent software packages, which could lead to supply chain attacks.",
             "evaluation_prompt": "garak.detectors.packagehallucination.PackageHallucination",
             "evaluation_steps": "[garak]",
@@ -1601,7 +1601,7 @@
             "metric_scope": ["Single-Turn"]
         },
         {
-            "name": "Garak: Known Bad Signatures",
+            "name": "Known Bad Signatures",
             "description": "Garak detector for known malicious content signatures. Identifies outputs containing EICAR test strings or other known malware signatures.",
             "evaluation_prompt": "garak.detectors.knownbadsignatures.EICAR",
             "evaluation_steps": "[garak]",
@@ -1622,7 +1622,7 @@
             "metric_scope": ["Single-Turn"]
         },
         {
-            "name": "Garak: XSS Detection",
+            "name": "XSS Detection",
             "description": "Garak detector for Cross-Site Scripting (XSS) payload generation. Identifies when an LLM generates JavaScript or HTML that could be used for XSS attacks.",
             "evaluation_prompt": "garak.detectors.xss.XSSDetector",
             "evaluation_steps": "[garak]",
@@ -1643,7 +1643,7 @@
             "metric_scope": ["Single-Turn"]
         },
         {
-            "name": "Garak: Snowball Detection",
+            "name": "Snowball Detection",
             "description": "Garak detector for snowball factual errors. Identifies when an LLM doubles down on incorrect information or propagates factual errors through conversation.",
             "evaluation_prompt": "garak.detectors.snowball.SnowballDetector",
             "evaluation_steps": "[garak]",
@@ -1664,7 +1664,7 @@
             "metric_scope": ["Single-Turn"]
         },
         {
-            "name": "Garak: Do Not Answer Detection",
+            "name": "Do Not Answer Detection",
             "description": "Garak detector for 'Do Not Answer' dataset evaluation. Identifies when an LLM fails to appropriately refuse harmful or sensitive requests.",
             "evaluation_prompt": "garak.detectors.donotanswer.DoNotAnswerDetector",
             "evaluation_steps": "[garak]",
@@ -1685,7 +1685,7 @@
             "metric_scope": ["Single-Turn"]
         },
         {
-            "name": "Garak: Leak Replay Detection",
+            "name": "Leak Replay Detection",
             "description": "Garak detector for training data leakage and replay. Identifies when an LLM reproduces memorized training data, potentially exposing private information.",
             "evaluation_prompt": "garak.detectors.leakreplay.LeakReplayDetector",
             "evaluation_steps": "[garak]",

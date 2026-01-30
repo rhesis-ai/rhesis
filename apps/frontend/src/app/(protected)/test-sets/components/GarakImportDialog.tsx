@@ -52,6 +52,7 @@ export default function GarakImportDialog({
   const [loading, setLoading] = React.useState(false);
   const [loadingModules, setLoadingModules] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
+  const [preparingImport, setPreparingImport] = React.useState(false);
   const [error, setError] = React.useState<string>();
   const [modules, setModules] = React.useState<GarakProbeModule[]>([]);
   // Track selected probes by full_name (e.g., "dan.Dan_11_0")
@@ -66,9 +67,12 @@ export default function GarakImportDialog({
   );
   // Progress tracking during import
   const [importProgress, setImportProgress] = React.useState<{
-    currentIndex: number;
-    total: number;
+    currentProbeIndex: number;
+    totalProbes: number;
+    currentTestCount: number;
+    totalTests: number;
     currentProbe: GarakProbePreview | null;
+    isComplete: boolean;
   } | null>(null);
 
   // Fetch available modules when dialog opens
@@ -209,7 +213,7 @@ export default function GarakImportDialog({
     let previewData = preview;
     if (!previewData) {
       try {
-        setLoading(true);
+        setPreparingImport(true);
         const clientFactory = new ApiClientFactory(sessionToken);
         const garakClient = clientFactory.getGarakClient();
         previewData = await garakClient.previewImport({
@@ -219,10 +223,10 @@ export default function GarakImportDialog({
         setPreview(previewData);
       } catch (err: any) {
         setError(err.message || 'Failed to get import preview');
-        setLoading(false);
+        setPreparingImport(false);
         return;
       } finally {
-        setLoading(false);
+        setPreparingImport(false);
       }
     }
 
@@ -230,22 +234,58 @@ export default function GarakImportDialog({
       setImporting(true);
       setError(undefined);
 
-      // Initialize progress tracking
+      // Calculate cumulative test counts for progress tracking
+      const cumulativeTestCounts = previewData.probes.reduce<number[]>(
+        (acc, probe, idx) => {
+          const prevCount = idx > 0 ? acc[idx - 1] : 0;
+          acc.push(prevCount + probe.prompt_count);
+          return acc;
+        },
+        []
+      );
+
+      // Initialize progress tracking with total tests
       setImportProgress({
-        currentIndex: 0,
-        total: previewData.probes.length,
+        currentProbeIndex: 0,
+        totalProbes: previewData.probes.length,
+        currentTestCount: 0,
+        totalTests: previewData.total_tests,
         currentProbe: previewData.probes[0] || null,
+        isComplete: false,
       });
 
       // Simulate progress updates while import happens
+      // Cap at 95% until the import actually completes
+      const maxSimulatedProgress = Math.floor(previewData.total_tests * 0.95);
       const progressInterval = setInterval(() => {
         setImportProgress(prev => {
-          if (!prev || !previewData) return prev;
-          const nextIndex = Math.min(prev.currentIndex + 1, prev.total - 1);
+          if (!prev || !previewData || prev.isComplete) return prev;
+
+          // Calculate estimated tests per interval based on total tests
+          // Aim to reach ~95% over the expected import time
+          const testsPerInterval = Math.max(
+            1,
+            Math.ceil(previewData.total_tests / 60)
+          ); // ~30 seconds to reach 95%
+          const nextTestCount = Math.min(
+            prev.currentTestCount + testsPerInterval,
+            maxSimulatedProgress
+          );
+
+          // Find which probe we're on based on cumulative test count
+          let probeIndex = prev.currentProbeIndex;
+          while (
+            probeIndex < cumulativeTestCounts.length - 1 &&
+            nextTestCount >= cumulativeTestCounts[probeIndex]
+          ) {
+            probeIndex++;
+          }
+
           return {
-            currentIndex: nextIndex,
-            total: prev.total,
-            currentProbe: previewData.probes[nextIndex] || prev.currentProbe,
+            ...prev,
+            currentProbeIndex: probeIndex,
+            currentTestCount: nextTestCount,
+            currentProbe: previewData.probes[probeIndex] || prev.currentProbe,
           };
         });
       }, 500);
@@ -260,11 +300,14 @@ export default function GarakImportDialog({
 
       clearInterval(progressInterval);
 
-      // Show completion
+      // Show completion at 100%
       setImportProgress({
-        currentIndex: previewData.probes.length,
-        total: previewData.probes.length,
+        currentProbeIndex: previewData.probes.length,
+        totalProbes: previewData.probes.length,
+        currentTestCount: previewData.total_tests,
+        totalTests: previewData.total_tests,
         currentProbe: null,
+        isComplete: true,
       });
 
       // Small delay to show completion before closing
@@ -286,6 +329,7 @@ export default function GarakImportDialog({
     setPreview(null);
     setError(undefined);
     setImportProgress(null);
+    setPreparingImport(false);
     onClose();
   };
 
@@ -536,18 +580,19 @@ export default function GarakImportDialog({
                     mb={0.5}
                   >
                     <Typography variant="body2" color="text.secondary">
-                      Progress
+                      {importProgress.currentTestCount.toLocaleString()} of{' '}
+                      {importProgress.totalTests.toLocaleString()} tests
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {importProgress.currentIndex + 1} of{' '}
-                      {importProgress.total} test sets
+                      {importProgress.currentProbeIndex + 1} of{' '}
+                      {importProgress.totalProbes} probes
                     </Typography>
                   </Stack>
                   <LinearProgress
                     variant="determinate"
                     value={
-                      ((importProgress.currentIndex + 1) /
-                        importProgress.total) *
+                      (importProgress.currentTestCount /
+                        importProgress.totalTests) *
                       100
                     }
                     sx={theme => ({
@@ -588,20 +633,19 @@ export default function GarakImportDialog({
                   </Paper>
                 )}
 
-                {!importProgress.currentProbe &&
-                  importProgress.currentIndex === importProgress.total && (
-                    <Stack
-                      direction="row"
-                      alignItems="center"
-                      spacing={1}
-                      sx={{ color: 'success.main' }}
-                    >
-                      <CheckCircleIcon />
-                      <Typography variant="body1" fontWeight="medium">
-                        Import complete!
-                      </Typography>
-                    </Stack>
-                  )}
+                {importProgress.isComplete && (
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    spacing={1}
+                    sx={{ color: 'success.main' }}
+                  >
+                    <CheckCircleIcon />
+                    <Typography variant="body1" fontWeight="medium">
+                      Import complete!
+                    </Typography>
+                  </Stack>
+                )}
               </Stack>
             </Paper>
           )}
@@ -638,24 +682,46 @@ export default function GarakImportDialog({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose} disabled={importing}>
+        <Button
+          onClick={handleClose}
+          disabled={importing || preparingImport}
+          sx={{
+            '&.Mui-disabled': {
+              color: 'text.disabled',
+            },
+          }}
+        >
           Cancel
         </Button>
         <Button
           onClick={handlePreview}
-          disabled={loading || importing || selectedProbes.size === 0}
+          disabled={
+            loading || importing || preparingImport || selectedProbes.size === 0
+          }
           variant="outlined"
+          sx={{
+            '&.Mui-disabled': {
+              color: 'text.disabled',
+              borderColor: 'action.disabled',
+            },
+          }}
         >
-          {loading ? <CircularProgress size={20} /> : 'Preview'}
+          Preview
         </Button>
         <Button
           onClick={handleImport}
-          disabled={importing || selectedProbes.size === 0}
+          disabled={
+            loading || importing || preparingImport || selectedProbes.size === 0
+          }
           variant="contained"
           color="primary"
-          startIcon={importing ? <CircularProgress size={16} /> : undefined}
+          startIcon={
+            preparingImport || importing ? (
+              <CircularProgress size={16} />
+            ) : undefined
+          }
         >
-          {importing
+          {preparingImport || importing
             ? 'Importing...'
             : `Import ${selectedProbes.size} Probe${selectedProbes.size !== 1 ? 's' : ''}`}
         </Button>

@@ -26,7 +26,7 @@ export interface Endpoint {
 
   // Response Handling
   response_format: 'json' | 'xml' | 'text';
-  response_mapping?: Record<string, string>;
+  response_mapping?: Record<string, any>;
   validation_rules?: Record<string, any>;
 
   status_id?: string;

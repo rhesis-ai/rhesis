@@ -272,7 +272,7 @@ class GarakImporter:
 
         # Check if this specific detector metric already exists
         # Use naming convention to identify Garak metrics
-        metric_name = f"Garak: {detector_class.split('.')[-1]}"
+        metric_name = detector_class.split(".")[-1]
 
         existing_metric = (
             self.db.query(Metric)
@@ -329,7 +329,7 @@ class GarakImporter:
         # - threshold=0.5 with operator "<" means passing when score < 0.5
         metric_data = schemas.MetricCreate(
             name=metric_name,
-            description=f"Garak detector: {detector_class}",
+            description=f"Garak detector for {metric_name}. {detector_class}",
             evaluation_prompt=detector_class,  # Store detector class in evaluation_prompt
             evaluation_steps="[garak]",
             reasoning="[garak]",

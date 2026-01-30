@@ -44,8 +44,23 @@ export default function TestSetDrawer({
   const [selectedTestSetTypeId, setSelectedTestSetTypeId] = React.useState<
     string | undefined
   >(testSet?.test_set_type_id);
+  const [nameError, setNameError] = React.useState<string>('');
 
-  // Fetch test set types on mount
+  React.useEffect(() => {
+    if (open) {
+      setName(testSet?.name || '');
+      setDescription(testSet?.description || '');
+      setShortDescription(testSet?.short_description || '');
+      if (testSet) {
+        setSelectedTestSetTypeId(testSet.test_set_type_id);
+      } else {
+        setSelectedTestSetTypeId(undefined);
+      }
+      setNameError('');
+      setError(undefined);
+    }
+  }, [open, testSet]);
+
   React.useEffect(() => {
     const fetchTestSetTypes = async () => {
       if (!sessionToken) return;
@@ -62,7 +77,6 @@ export default function TestSetDrawer({
 
         setTestSetTypes(types);
 
-        // Set default to Single-Turn if creating a new test set
         if (!testSet && types.length > 0) {
           const singleTurnType = types.find(
             t => t.type_value === 'Single-Turn'
@@ -70,7 +84,6 @@ export default function TestSetDrawer({
           if (singleTurnType) {
             setSelectedTestSetTypeId(singleTurnType.id);
           } else {
-            // Fallback to first type if Single-Turn not found
             setSelectedTestSetTypeId(types[0].id);
           }
         }
@@ -85,17 +98,31 @@ export default function TestSetDrawer({
   const handleSave = async () => {
     if (!sessionToken) return;
 
+    setNameError('');
+    setError(undefined);
+
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      setNameError('Test set name is required');
+      return;
+    }
+
+    if (trimmedName.length < 2) {
+      setNameError('Test set name must be at least 2 characters');
+      return;
+    }
+
     try {
       setLoading(true);
-      setError(undefined);
 
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
 
       const testSetData = {
-        name,
-        description,
-        short_description: shortDescription,
+        name: trimmedName,
+        description: description.trim(),
+        short_description: shortDescription.trim(),
         priority: 1, // Default to Medium priority
         visibility: 'organization' as const,
         is_published: false,
@@ -128,7 +155,6 @@ export default function TestSetDrawer({
       onSave={handleSave}
     >
       <Stack spacing={3}>
-        {/* Test Set Details Section */}
         <Stack spacing={2}>
           <Typography variant="subtitle2" color="text.secondary">
             Test Set Details
@@ -138,12 +164,20 @@ export default function TestSetDrawer({
             <TextField
               label="Name"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={e => {
+                setName(e.target.value);
+                if (nameError) setNameError('');
+              }}
               required
               fullWidth
+              disabled={loading}
+              error={!!nameError}
+              helperText={
+                nameError || 'A clear, descriptive name for this test set'
+              }
             />
 
-            <FormControl fullWidth>
+            <FormControl fullWidth disabled={loading}>
               <InputLabel>Test Set Type</InputLabel>
               <Select
                 value={selectedTestSetTypeId || ''}
@@ -164,6 +198,7 @@ export default function TestSetDrawer({
               value={shortDescription}
               onChange={e => setShortDescription(e.target.value)}
               fullWidth
+              disabled={loading}
             />
 
             <TextField
@@ -173,6 +208,7 @@ export default function TestSetDrawer({
               multiline
               rows={4}
               fullWidth
+              disabled={loading}
             />
           </Stack>
         </Stack>

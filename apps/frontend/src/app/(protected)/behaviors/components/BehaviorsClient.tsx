@@ -136,8 +136,8 @@ export default function BehaviorsClient({
       if (isNewBehavior) {
         // Create new behavior
         const created = await behaviorClient.createBehavior({
-          name,
-          description: description || null,
+          name: name.trim(),
+          description: description?.trim() || null,
           organization_id: organizationId,
         });
 
@@ -157,8 +157,8 @@ export default function BehaviorsClient({
         const updated = await behaviorClient.updateBehavior(
           editingBehavior.id,
           {
-            name,
-            description: description || null,
+            name: name.trim(),
+            description: description?.trim() || null,
           }
         );
 

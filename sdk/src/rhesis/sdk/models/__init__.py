@@ -15,6 +15,13 @@ try:
 except ImportError:
     HUGGINGFACE_AVAILABLE = False
 
+try:
+    from rhesis.sdk.models.providers.lmformatenforcer import LMFormatEnforcerLLM
+
+    LMFORMATENFORCER_AVAILABLE = True
+except ImportError:
+    LMFORMATENFORCER_AVAILABLE = False
+
 __all__ = [
     "BaseEmbedder",
     "BaseLLM",
@@ -34,3 +41,6 @@ __all__ = [
 
 if HUGGINGFACE_AVAILABLE:
     __all__.append("HuggingFaceLLM")
+
+if LMFORMATENFORCER_AVAILABLE:
+    __all__.append("LMFormatEnforcerLLM")

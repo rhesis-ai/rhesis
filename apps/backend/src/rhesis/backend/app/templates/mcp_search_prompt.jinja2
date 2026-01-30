@@ -1,16 +1,26 @@
-{% if provider == "github" and repository_context %}
-IMPORTANT RESTRICTION: You are restricted to the following GitHub repository:
-- Owner: {{ repository_context.owner }}
-- Repository: {{ repository_context.repo }}
-- Full Name: {{ repository_context.full_name }}
 
-When using GitHub tools, ALWAYS include these parameters:
-- owner: "{{ repository_context.owner }}"
-- repo: "{{ repository_context.repo }}"
+{% if provider == "github" %}
 
-Do not access any other repositories.
+If the user asks for searching a file, use search_code tool.
+
+Otherwise, for issues and pull requests, you can use list_pull_requests or list_issues.
+
+    {% if repository_context %}
+    You are restricted to the following GitHub repository:
+    - Owner: {{ repository_context.owner }}
+    - Repository: {{ repository_context.repo }}
+    - Full Name: {{ repository_context.full_name }}
+
+    When using GitHub tools, ALWAYS include these parameters:
+    - owner: "{{ repository_context.owner }}"
+    - repo: "{{ repository_context.repo }}"
+
+    Do not access any other repositories!
+
+    {% endif %}
 
 {% endif %}
+
 Search for items matching the query using available tools.
 
 Return JSON array: [{"id": "item_id", "url": "item_url", "title": "Item Title"}]

@@ -20,6 +20,7 @@ DEFAULT_MODELS = {
     "gemini": "gemini-2.0-flash",
     "groq": "llama3-8b-8192",
     "huggingface": "meta-llama/Llama-2-7b-chat-hf",
+    "lmformatenforcer": "meta-llama/Llama-2-7b-chat-hf",
     "meta_llama": "Llama-3.3-70B-Instruct",
     "mistral": "mistral-medium-latest",
     "ollama": "llama3.1",
@@ -110,6 +111,14 @@ def _create_huggingface_llm(model_name: str, api_key: Optional[str], **kwargs) -
     return HuggingFaceLLM(model_name=model_name, **kwargs)
 
 
+def _create_lmformatenforcer_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
+    """Factory function for LMFormatEnforcerLLM."""
+    from rhesis.sdk.models.providers.lmformatenforcer import LMFormatEnforcerLLM
+
+    # Note: api_key is ignored for LMFormatEnforcer as it uses local models
+    return LMFormatEnforcerLLM(model_name=model_name, **kwargs)
+
+
 def _create_meta_llama_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
     """Factory function for MetaLlamaLLM."""
     from rhesis.sdk.models.providers.meta_llama import MetaLlamaLLM
@@ -167,6 +176,7 @@ PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
     "gemini": _create_gemini_llm,
     "groq": _create_groq_llm,
     "huggingface": _create_huggingface_llm,
+    "lmformatenforcer": _create_lmformatenforcer_llm,
     "meta_llama": _create_meta_llama_llm,
     "mistral": _create_mistral_llm,
     "ollama": _create_ollama_llm,

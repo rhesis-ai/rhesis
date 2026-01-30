@@ -1,0 +1,227 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Advanced Mapping
+
+Learn how to map complex objects like Pydantic models, dataclasses, and custom types as function parameters and return values. The SDK automatically handles serialization and deserialization.
+
+## How It Works
+
+When using `request_mapping`, the SDK:
+1. **Input (load)**: Converts mapped dictionaries to typed objects based on function parameter type hints
+2. **Output (dump)**: Serializes return values to JSON-compatible dictionaries
+
+This means you can use native type signatures without manual conversion:
+
+<CodeBlock filename="native_types.py" language="python">
+{`from pydantic import BaseModel
+
+class ChatRequest(BaseModel):
+    messages: list[dict]
+    context: dict | None = None
+
+class ChatResponse(BaseModel):
+    output: str
+    session_id: str
+
+@endpoint(
+    request_mapping={
+        "request": {
+            "messages": [{"role": "user", "content": "{{ input }}"}],
+            "context": {"conversation_id": "{{ session_id }}"},
+        },
+    },
+    response_mapping={
+        "output": "$.output",
+        "session_id": "$.session_id",
+    },
+)
+def chat(request: ChatRequest) -> ChatResponse:
+    # request is automatically constructed from the mapped dict
+    # ChatResponse is automatically serialized to dict
+    return ChatResponse(output="Hello!", session_id="abc123")`}
+</CodeBlock>
+
+## Automatic Type Detection
+
+The SDK automatically detects and handles common serialization patterns:
+
+| Type | Output (dump) | Input (load) |
+|------|---------------|--------------|
+| Pydantic v2 | `model_dump()` | `model_validate()` |
+| Pydantic v1 | `dict()` | `parse_obj()` |
+| Dataclass | `dataclasses.asdict()` | `Type(**dict)` |
+| NamedTuple | `_asdict()` | `Type(**dict)` |
+| `to_dict`/`from_dict` | `to_dict()` | `from_dict()` |
+| Primitives | pass through | pass through |
+
+## Using with Pydantic Models
+
+### mlflow Agent Example
+
+For mlflow's ChatAgent framework:
+
+<CodeBlock filename="mlflow_agent.py" language="python">
+{`from mlflow.types.agent import ChatAgentRequest, ChatAgentResponse, ChatAgentMessage, ChatContext
+import uuid
+
+@endpoint(
+    name="mlflow_chat_agent",
+    request_mapping={
+        "request": {
+            "messages": [{"role": "user", "content": "{{ input }}"}],
+            "context": {"conversation_id": "{{ session_id }}"},
+        },
+    },
+    response_mapping={
+        "output": "$.messages[-1].content",
+        "session_id": "$.messages[-1].id",
+        "metadata": "$.custom_outputs",
+    },
+)
+def my_mlflow_agent(request: ChatAgentRequest) -> ChatAgentResponse:
+    """Native mlflow agent signature - no wrapper needed."""
+    user_content = request.messages[-1].content
+    conv_id = request.context.conversation_id if request.context else None
+    
+    return ChatAgentResponse(
+        messages=[
+            ChatAgentMessage(
+                id=str(uuid.uuid4()),
+                role="assistant",
+                content=f"Response to: {user_content}",
+            )
+        ],
+        finish_reason="stop",
+        custom_outputs={"conversation_id": conv_id},
+    )`}
+</CodeBlock>
+
+## Using with Dataclasses
+
+<CodeBlock filename="dataclass_example.py" language="python">
+{`from dataclasses import dataclass
+
+@dataclass
+class QueryRequest:
+    query: str
+    max_results: int = 10
+
+@dataclass  
+class QueryResponse:
+    results: list[str]
+    total: int
+
+@endpoint(
+    request_mapping={
+        "request": {"query": "{{ input }}", "max_results": 5}
+    },
+    response_mapping={
+        "output": "$.results[0]",
+        "context": "$.results",
+    },
+)
+def search(request: QueryRequest) -> QueryResponse:
+    results = perform_search(request.query, request.max_results)
+    return QueryResponse(results=results, total=len(results))`}
+</CodeBlock>
+
+## Mixed Parameters
+
+Functions can mix typed objects with primitives:
+
+<CodeBlock filename="mixed_params.py" language="python">
+{`@endpoint(
+    request_mapping={
+        "request": {"messages": [{"role": "user", "content": "{{ input }}"}]},
+        "debug": "{{ debug_mode | default(false) }}",
+        "max_tokens": 1000,
+    },
+)
+def agent(
+    request: ChatAgentRequest,  # Pydantic - constructed from dict
+    debug: bool = False,        # Primitive - passed through
+    max_tokens: int = 500,      # Primitive - passed through
+) -> ChatAgentResponse:
+    if debug:
+        print(f"Processing with max_tokens={max_tokens}")
+    return ChatAgentResponse(...)`}
+</CodeBlock>
+
+## Custom Serializers
+
+For types that don't follow standard patterns, provide custom serializers:
+
+<CodeBlock filename="custom_serializer.py" language="python">
+{`class LegacyResponse:
+    """Third-party class with non-standard serialization."""
+    def __init__(self, data):
+        self._internal = data
+    
+    def get_output(self):
+        return self._internal["result"]
+
+@endpoint(
+    serializers={
+        LegacyResponse: {
+            "dump": lambda r: {"result": r.get_output()},
+            "load": lambda d: LegacyResponse(d),
+        }
+    }
+)
+def legacy_endpoint(input: str) -> LegacyResponse:
+    return LegacyResponse({"result": f"Processed: {input}"})`}
+</CodeBlock>
+
+### Serializer Format
+
+The `serializers` parameter accepts a dictionary mapping types to their handlers:
+
+```python
+serializers={
+    MyType: {
+        "dump": lambda obj: {...},  # object → dict (for output)
+        "load": lambda d: MyType(...),  # dict → object (for input)
+    }
+}
+```
+
+You can provide just `dump`, just `load`, or both depending on your needs.
+
+## Backward Compatibility
+
+The serialization system is fully backward compatible. Functions with simple parameters work exactly as before:
+
+<CodeBlock filename="backward_compat.py" language="python">
+{`# Still works - no changes needed
+@endpoint(request_mapping={"message": "{{ input }}"})
+def simple_function(message: str) -> dict:
+    return {"output": message.upper()}
+
+# Also still works
+@endpoint()
+def auto_mapped(input: str, session_id: str = None) -> dict:
+    return {"output": process(input), "session_id": session_id}`}
+</CodeBlock>
+
+## How It Works Internally
+
+All values flow through the same serialization path:
+
+```
+Input Flow:
+  Rhesis Request → request_mapping → TypeSerializer.load() → Function Parameter
+
+Output Flow:
+  Function Return → TypeSerializer.dump() → response_mapping → Rhesis Response
+```
+
+The serializer automatically:
+- Detects the appropriate method based on object type
+- Recursively handles nested structures  
+- Falls back gracefully for unknown types
+
+---
+
+<Callout type="default">
+  **Next Steps** - See [Mapping](./mapping) for request/response mapping syntax - Explore [Examples](./examples) for complete working examples
+</Callout>

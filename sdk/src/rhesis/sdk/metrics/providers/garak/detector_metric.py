@@ -78,7 +78,7 @@ class GarakDetectorMetric(BaseMetric):
         config = MetricConfig(
             class_name="GarakDetectorMetric",
             backend=Backend.GARAK,
-            name=name or f"Garak: {detector_class.split('.')[-1]}",
+            name=name or detector_class.split(".")[-1],
             description=description or f"Garak detector: {detector_class}",
             score_type=ScoreType.NUMERIC,
             metric_type=MetricType.CUSTOM_CODE,

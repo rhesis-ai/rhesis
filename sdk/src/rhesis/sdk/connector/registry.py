@@ -55,6 +55,18 @@ class FunctionRegistry:
         """
         return name in self._functions
 
+    def get_metadata(self, name: str) -> dict[str, Any] | None:
+        """
+        Get metadata for a specific function.
+
+        Args:
+            name: Function name
+
+        Returns:
+            Function metadata dictionary or None if not found
+        """
+        return self._metadata.get(name)
+
     def get_all_metadata(self) -> list[FunctionMetadata]:
         """
         Get metadata for all registered functions.

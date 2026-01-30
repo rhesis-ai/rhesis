@@ -48,6 +48,7 @@ export type NavigationItem =
 export interface BrandingProps {
   title: string;
   logo: ReactNode;
+  homeUrl?: string;
 }
 
 export interface AuthenticationProps {

@@ -16,12 +16,12 @@ from rhesis.sdk.models.factory import get_model
 class MappingGenerationOutput(BaseModel):
     """Structured output schema for LLM mapping generation."""
 
-    request_mapping: Dict[str, str] = Field(
+    request_mapping: Dict[str, Any] = Field(
         description=(
             'Function parameter mappings using Jinja2 syntax: {"param": "{{ standard_field }}"}'
         )
     )
-    response_mapping: Dict[str, str] = Field(
+    response_mapping: Dict[str, Any] = Field(
         description=(
             'Output field mappings using JSONPath/Jinja2: {"standard_field": "$.output.path"}'
         )

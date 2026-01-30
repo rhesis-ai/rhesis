@@ -17,7 +17,7 @@ class TestGarakDetectorMetricInitialization:
 
         assert metric.detector_class_path == "garak.detectors.mitigation.MitigationBypass"
         assert metric.threshold == GarakDetectorMetric.DEFAULT_THRESHOLD
-        assert metric.name == "Garak: MitigationBypass"
+        assert metric.name == "MitigationBypass"
         assert metric.score_type == ScoreType.NUMERIC
         assert metric.metric_type == MetricType.CUSTOM_CODE
         assert MetricScope.SINGLE_TURN in metric.metric_scope
@@ -27,7 +27,7 @@ class TestGarakDetectorMetricInitialization:
         metric = GarakDetectorMetric(detector_class="mitigation.MitigationBypass")
 
         assert metric.detector_class_path == "mitigation.MitigationBypass"
-        assert metric.name == "Garak: MitigationBypass"
+        assert metric.name == "MitigationBypass"
 
     def test_initialization_with_custom_name(self):
         """Test initialization with a custom metric name."""

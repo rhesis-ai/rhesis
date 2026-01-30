@@ -105,8 +105,6 @@ apps/backend/
     │   ├── utils/              # Utility functions (18 files)
     │   │   ├── crud_utils.py, odata.py, encryption.py, rate_limit.py
     │   │
-    │   └── integrations/
-    │       └── mcp_connect.py  # MCP protocol integration
     │
     ├── alembic/                # Database migrations
     │   ├── env.py              # Alembic environment config
