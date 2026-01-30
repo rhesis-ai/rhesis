@@ -5,7 +5,7 @@ Contains different model classes that can be used based on configuration.
 
 import logging
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from rhesis.sdk.models import BaseLLM
 from rhesis.sdk.models.factory import get_model
@@ -287,6 +287,36 @@ class LazyModelLoader(BaseLLM):
         # Delegate to the internal model
         return self._internal_model.generate(
             prompt=prompt,
+            system_prompt=system_prompt,
+            schema=schema,
+            **kwargs,
+        )
+
+    def generate_batch(
+        self,
+        prompts: List[str],
+        system_prompt: Optional[str] = None,
+        schema: Optional[Any] = None,
+        **kwargs,
+    ) -> List[Union[str, Dict[str, Any]]]:
+        """
+        Generate responses for multiple prompts using the loaded model.
+
+        Args:
+            prompts: List of user prompts
+            system_prompt: Optional system prompt
+            schema: Optional schema for structured output
+            **kwargs: Additional generation parameters
+
+        Returns:
+            List of generated responses (strings or dicts)
+        """
+        if self._internal_model is None:
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        # Delegate to the internal model
+        return self._internal_model.generate_batch(
+            prompts=prompts,
             system_prompt=system_prompt,
             schema=schema,
             **kwargs,
