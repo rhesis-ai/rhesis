@@ -1,0 +1,15 @@
+name: "[Test] Backend Local-Style"
+
+# Placeholder workflow to register the workflow in GitHub Actions.
+# Full implementation will be added in a follow-up PR.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    name: 🚧 Placeholder
+    runs-on: ubuntu-latest
+    steps:
+      - name: Info
+        run: echo "This workflow will mirror the local backend testing workflow (make docker-up && make test)"
