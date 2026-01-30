@@ -4319,7 +4319,7 @@ requires-dist = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.6.1"
+version = "0.6.2"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "deepeval" },
@@ -4372,6 +4372,8 @@ requires-dist = [
     { name = "langgraph", marker = "extra == 'all-integrations'", specifier = ">=0.0.26" },
     { name = "langgraph", marker = "extra == 'langgraph'", specifier = ">=0.0.26" },
     { name = "litellm", specifier = ">=1.76.0" },
+    { name = "lm-format-enforcer", marker = "extra == 'all'", specifier = ">=0.10.0" },
+    { name = "lm-format-enforcer", marker = "extra == 'huggingface'", specifier = ">=0.10.0" },
     { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], specifier = ">=0.1.0" },
     { name = "mcp", specifier = ">=1.2.0" },
     { name = "opentelemetry-api", specifier = ">=1.32.1" },
