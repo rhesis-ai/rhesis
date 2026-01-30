@@ -7,7 +7,6 @@ from rhesis.sdk.models.utils import validate_llm_response
 
 
 def test_validate_llm_response():
-    print("test")
     # Schema needs to be in OpenAI json_schema format
     json_schema = {
         "type": "json_schema",
