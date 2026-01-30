@@ -27,32 +27,36 @@ show_help() {
     echo -e "${PURPLE}════════════════════════════════════════${NC}"
     echo ""
     echo -e "${YELLOW}Usage:${NC}"
-    echo -e "  ${GREEN}./rh start${NC}           - Start all services with Docker (zero-config)"
-    echo -e "  ${GREEN}./rh dev${NC}             - Setup local dev environment (postgres:11000, redis:11001)"
-    echo -e "  ${GREEN}./rh stop${NC}            - Stop all Docker services"
-    echo -e "  ${GREEN}./rh restart${NC}         - Restart all Docker services"
-    echo -e "  ${GREEN}./rh logs${NC}            - View logs from all services"
-    echo -e "  ${GREEN}./rh delete${NC}          - Delete all services, images, volumes, and data"
-    echo -e "  ${GREEN}./rh backend start${NC}   - Start the backend server (local)"
-    echo -e "  ${GREEN}./rh frontend start${NC}  - Start the frontend server (local)"
-    echo -e "  ${GREEN}./rh frontend test${NC}   - Run frontend tests"
-    echo -e "  ${GREEN}./rh chatbot start${NC}   - Start the chatbot server (local)"
-    echo -e "  ${GREEN}./rh docs start${NC}      - Start the documentation server (local)"
-    echo -e "  ${GREEN}./rh worker start${NC}    - Start the Celery worker (local)"
-    echo -e "  ${GREEN}./rh polyphemus start${NC} - Start the Polyphemus service (local)"
-    echo -e "  ${GREEN}./rh help${NC}            - Show this help message"
+    echo -e "  ${GREEN}./rh start${NC}             - Start all services with Docker (zero-config)"
+    echo -e "  ${GREEN}./rh stop${NC}              - Stop all Docker services"
+    echo -e "  ${GREEN}./rh restart${NC}           - Restart all Docker services"
+    echo -e "  ${GREEN}./rh logs${NC}              - View logs from all services"
+    echo -e "  ${GREEN}./rh delete${NC}            - Delete all services, images, volumes, and data"
+    echo ""
+    echo -e "${YELLOW}Local Development:${NC}"
+    echo -e "  ${GREEN}./rh dev${NC}               - Setup local dev environment (postgres:11000, redis:11001)"
+    echo -e "  ${GREEN}./rh dev backend${NC}       - Start the backend server (local)"
+    echo -e "  ${GREEN}./rh dev frontend${NC}      - Start the frontend server (local)"
+    echo -e "  ${GREEN}./rh dev chatbot${NC}       - Start the chatbot server (local)"
+    echo -e "  ${GREEN}./rh dev docs${NC}          - Start the documentation server (local)"
+    echo -e "  ${GREEN}./rh dev worker${NC}        - Start the Celery worker (local)"
+    echo -e "  ${GREEN}./rh dev polyphemus${NC}    - Start the Polyphemus service (local)"
+    echo ""
+    echo -e "${YELLOW}Testing:${NC}"
+    echo -e "  ${GREEN}./rh test frontend${NC}     - Run frontend tests"
+    echo ""
+    echo -e "${YELLOW}Other:${NC}"
+    echo -e "  ${GREEN}./rh help${NC}              - Show this help message"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
     echo -e "  ${BLUE}./rh start${NC}               # Start all services with Docker"
     echo -e "  ${BLUE}./rh dev${NC}                 # Setup dev environment (different ports)"
+    echo -e "  ${BLUE}./rh dev backend${NC}         # Start backend locally (without Docker)"
+    echo -e "  ${BLUE}./rh dev frontend${NC}        # Start frontend locally (without Docker)"
     echo -e "  ${BLUE}./rh stop${NC}                # Stop all Docker services"
     echo -e "  ${BLUE}./rh delete${NC}              # Delete everything (services, images, volumes, data)"
     echo -e "  ${BLUE}./rh logs backend${NC}        # View backend logs"
-    echo -e "  ${BLUE}./rh backend start${NC}       # Start backend locally (without Docker)"
-    echo -e "  ${BLUE}./rh frontend start${NC}      # Start frontend locally (without Docker)"
-    echo -e "  ${BLUE}./rh frontend test${NC}       # Run frontend tests"
-    echo -e "  ${BLUE}./rh chatbot start${NC}       # Start chatbot locally (without Docker)"
-    echo -e "  ${BLUE}./rh polyphemus start${NC}    # Start Polyphemus locally (without Docker)"
+    echo -e "  ${BLUE}./rh test frontend${NC}       # Run frontend tests"
     echo ""
 }
 
@@ -274,13 +278,13 @@ dev_start() {
     echo -e "   Redis:      ${WHITE}localhost:${DEV_REDIS_PORT}${NC}"
     echo ""
     echo -e "${CYAN}🚀 To start the backend:${NC}"
-    echo -e "   ${GREEN}./rh backend start${NC}  or directly ${GREEN}cd apps/backend && ./start.sh${NC}"
+    echo -e "   ${GREEN}./rh dev backend${NC}  or directly ${GREEN}cd apps/backend && ./start.sh${NC}"
     echo ""
     echo -e "${CYAN}🌐 To start the frontend:${NC}"
-    echo -e "   ${GREEN}./rh frontend start${NC}  or directly ${GREEN}cd apps/frontend && ./start.sh${NC}"
+    echo -e "   ${GREEN}./rh dev frontend${NC}  or directly ${GREEN}cd apps/frontend && ./start.sh${NC}"
     echo ""
     echo -e "${CYAN}⚙️  To start the worker (optional):${NC}"
-    echo -e "   ${GREEN}./rh worker start${NC}  or directly ${GREEN}cd apps/worker && ./start.sh${NC}"
+    echo -e "   ${GREEN}./rh dev worker${NC}  or directly ${GREEN}cd apps/worker && ./start.sh${NC}"
     echo ""
     echo -e "${YELLOW}💡 To stop dev containers:${NC}"
     echo -e "   ${GREEN}docker stop rhesis-dev-postgres rhesis-dev-redis${NC}"
@@ -709,7 +713,34 @@ case "$1" in
         start_all
         ;;
     "dev")
-        dev_start
+        case "$2" in
+            ""|"setup")
+                dev_start
+                ;;
+            "backend")
+                start_backend
+                ;;
+            "frontend")
+                start_frontend
+                ;;
+            "chatbot")
+                start_chatbot
+                ;;
+            "docs")
+                start_docs
+                ;;
+            "worker")
+                start_worker
+                ;;
+            "polyphemus")
+                start_polyphemus
+                ;;
+            *)
+                echo -e "${RED}❌ Unknown dev command: $2${NC}"
+                echo -e "${YELLOW}Available: ./rh dev [backend|frontend|chatbot|docs|worker|polyphemus]${NC}"
+                exit 1
+                ;;
+        esac
         ;;
     "stop")
         stop_all
@@ -723,77 +754,14 @@ case "$1" in
     "delete")
         delete_all
         ;;
-    "backend")
+    "test")
         case "$2" in
-            "start")
-                start_backend
-                ;;
-            *)
-                echo -e "${RED}❌ Unknown backend command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh backend start${NC}"
-                exit 1
-                ;;
-        esac
-        ;;
-    "frontend")
-        case "$2" in
-            "start")
-                start_frontend
-                ;;
-            "test")
+            "frontend")
                 test_frontend
                 ;;
             *)
-                echo -e "${RED}❌ Unknown frontend command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh frontend start or ./rh frontend test${NC}"
-                exit 1
-                ;;
-        esac
-        ;;
-    "chatbot")
-        case "$2" in
-            "start")
-                start_chatbot
-                ;;
-            *)
-                echo -e "${RED}❌ Unknown chatbot command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh chatbot start${NC}"
-                exit 1
-                ;;
-        esac
-        ;;
-    "docs")
-        case "$2" in
-            "start")
-                start_docs
-                ;;
-            *)
-                echo -e "${RED}❌ Unknown docs command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh docs start${NC}"
-                exit 1
-                ;;
-        esac
-        ;;
-    "worker")
-        case "$2" in
-            "start")
-                start_worker
-                ;;
-            *)
-                echo -e "${RED}❌ Unknown worker command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh worker start${NC}"
-                exit 1
-                ;;
-        esac
-        ;;
-    "polyphemus")
-        case "$2" in
-            "start")
-                start_polyphemus
-                ;;
-            *)
-                echo -e "${RED}❌ Unknown polyphemus command: $2${NC}"
-                echo -e "${YELLOW}Use: ./rh polyphemus start${NC}"
+                echo -e "${RED}❌ Unknown test command: $2${NC}"
+                echo -e "${YELLOW}Available: ./rh test frontend${NC}"
                 exit 1
                 ;;
         esac
