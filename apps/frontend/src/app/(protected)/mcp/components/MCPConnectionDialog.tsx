@@ -13,6 +13,10 @@ import {
   Alert,
   Stack,
   Collapse,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -134,6 +138,10 @@ export function MCPConnectionDialog({
   const [testResult, setTestResult] = useState<{
     is_authenticated: string;
     message: string;
+    additional_metadata?: {
+      projects?: Array<{ key: string; name: string }>;
+      [key: string]: any;
+    };
   } | null>(null);
   const [connectionTested, setConnectionTested] = useState(false);
 
@@ -143,6 +151,13 @@ export function MCPConnectionDialog({
   // Jira and Confluence fields
   const [instanceUrl, setInstanceUrl] = useState('');
   const [username, setUsername] = useState('');
+
+  // Jira project selection
+  const [availableProjects, setAvailableProjects] = useState<
+    Array<{ key: string; name: string }>
+  >([]);
+  const [selectedProjectKey, setSelectedProjectKey] = useState<string>('');
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
 
   const isEditMode = mode === 'edit';
 
@@ -204,6 +219,15 @@ export function MCPConnectionDialog({
         setInstanceUrl('************');
         setUsername('************');
 
+        // Extract project_key from tool_metadata if it exists (for Jira)
+        if (currentProviderType === 'jira' && tool.tool_metadata?.project_key) {
+          setSelectedProjectKey(tool.tool_metadata.project_key);
+        } else {
+          setSelectedProjectKey('');
+        }
+        setAvailableProjects([]);
+        setShowProjectSelector(false);
+
         setError(null);
         setJsonError(null);
         setShowAuthToken(false);
@@ -220,6 +244,9 @@ export function MCPConnectionDialog({
         setRepositoryUrl('');
         setInstanceUrl('');
         setUsername('');
+        setSelectedProjectKey('');
+        setAvailableProjects([]);
+        setShowProjectSelector(false);
         setError(null);
         setJsonError(null);
         setShowAuthToken(false);
@@ -446,8 +473,23 @@ export function MCPConnectionDialog({
       // Mark as tested if successful
       if (result.is_authenticated === 'Yes') {
         setConnectionTested(true);
+
+        // Check if we have projects in additional_metadata (for Jira)
+        if (
+          providerType === 'jira' &&
+          result.additional_metadata?.projects &&
+          result.additional_metadata.projects.length > 0
+        ) {
+          setAvailableProjects(result.additional_metadata.projects);
+          setShowProjectSelector(true);
+        } else {
+          setAvailableProjects([]);
+          setShowProjectSelector(false);
+        }
       } else {
         setConnectionTested(false);
+        setAvailableProjects([]);
+        setShowProjectSelector(false);
       }
     } catch (err) {
       // Display error in testResult (under the button) instead of error state (at top)
@@ -587,6 +629,14 @@ export function MCPConnectionDialog({
           }
         }
 
+        // Add or update project_key metadata for Jira
+        if (providerType === 'jira' && selectedProjectKey) {
+          metadataToUpdate = {
+            ...(metadataToUpdate || tool.tool_metadata || {}),
+            project_key: selectedProjectKey,
+          };
+        }
+
         if (metadataToUpdate) {
           updates.tool_metadata = metadataToUpdate;
         }
@@ -626,6 +676,16 @@ export function MCPConnectionDialog({
         (!instanceUrl || !username)
       ) {
         setError('Please fill in all required fields (URL and email).');
+        return;
+      }
+
+      // Validate Jira project selection
+      if (
+        provider.type_value === 'jira' &&
+        showProjectSelector &&
+        !selectedProjectKey
+      ) {
+        setError('Please select a Jira project.');
         return;
       }
 
@@ -700,6 +760,14 @@ export function MCPConnectionDialog({
             parsedMetadata = {
               ...(parsedMetadata || {}),
               repository: repoData,
+            };
+          }
+
+          // Add project_key metadata for Jira if selected
+          if (providerType === 'jira' && selectedProjectKey) {
+            parsedMetadata = {
+              ...(parsedMetadata || {}),
+              project_key: selectedProjectKey,
             };
           }
 
@@ -983,6 +1051,45 @@ export function MCPConnectionDialog({
                     </Alert>
                   )}
                 </Box>
+
+                {/* Jira Project Selection */}
+                {showProjectSelector &&
+                  availableProjects.length > 0 &&
+                  providerType === 'jira' && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: 600,
+                          mb: 1,
+                          color: 'primary.main',
+                        }}
+                      >
+                        Project Selection
+                      </Typography>
+                      <FormControl fullWidth required>
+                        <InputLabel>Jira Project</InputLabel>
+                        <Select
+                          value={selectedProjectKey}
+                          onChange={e => setSelectedProjectKey(e.target.value)}
+                          label="Jira Project"
+                        >
+                          {availableProjects.map(project => (
+                            <MenuItem key={project.key} value={project.key}>
+                              {project.name} ({project.key})
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ mt: 0.5, display: 'block' }}
+                      >
+                        Select the Jira project where issues will be created
+                      </Typography>
+                    </Box>
+                  )}
               </>
             )}
 

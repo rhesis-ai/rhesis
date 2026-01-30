@@ -120,6 +120,21 @@ export interface TestMCPConnectionRequest {
 export interface TestMCPConnectionResponse {
   is_authenticated: string; // "Yes" or "No"
   message: string;
+  additional_metadata?: {
+    projects?: Array<{ key: string; name: string }>;
+    [key: string]: any;
+  };
+}
+
+export interface CreateJiraTicketFromTaskRequest {
+  task_id: string;
+  tool_id: string;
+}
+
+export interface CreateJiraTicketFromTaskResponse {
+  issue_key: string;
+  issue_url: string;
+  message: string;
 }
 
 export class ServicesClient extends BaseApiClient {

@@ -117,29 +117,18 @@ export function ConnectedToolCard({
           </Box>
 
           {/* Tool description */}
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 'auto', minHeight: '2.5em' }}
-          >
-            {tool.description || 'MCP connection'}
-          </Typography>
+          {tool.description && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mb: 'auto', minHeight: '2.5em' }}
+            >
+              {tool.description}
+            </Typography>
+          )}
         </Box>
 
         <Box sx={{ mt: 2 }}>
-          {/* Provider info */}
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              display: 'block',
-              mb: 0.5,
-              minHeight: '1.5em',
-            }}
-          >
-            Provider: {tool.tool_provider_type?.description || providerName}
-          </Typography>
-
           {/* Repository info for GitHub */}
           {providerName === 'github' && tool.tool_metadata?.repository && (
             <Typography
@@ -155,10 +144,26 @@ export function ConnectedToolCard({
             </Typography>
           )}
 
-          {/* Spacing for non-GitHub or GitHub without repository */}
-          {!(providerName === 'github' && tool.tool_metadata?.repository) && (
-            <Box sx={{ mb: 1.5 }} />
+          {/* Project info for Jira */}
+          {providerName === 'jira' && tool.tool_metadata?.project_key && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                display: 'block',
+                mb: 1.5,
+                fontStyle: 'italic',
+              }}
+            >
+              Project: {tool.tool_metadata.project_key}
+            </Typography>
           )}
+
+          {/* Spacing for tools without additional info */}
+          {!(
+            (providerName === 'github' && tool.tool_metadata?.repository) ||
+            (providerName === 'jira' && tool.tool_metadata?.project_key)
+          ) && <Box sx={{ mb: 1.5 }} />}
 
           {/* Connected status */}
           <Chip
