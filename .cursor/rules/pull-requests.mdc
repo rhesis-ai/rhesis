@@ -25,7 +25,6 @@ Pull request creation should be based on the GitHub CLI (`gh`) and follow best p
 ## GitHub CLI Requirements
 
 ### Prerequisites
-- Ensure GitHub CLI (`gh`) is installed and authenticated
 - Verify you're in a git repository with a remote origin
 
 ### Basic PR Creation Command
@@ -243,9 +242,6 @@ Resolve memory leak that occurs during large data processing operations.
 ```
 
 ## Integration with Project Tools
-
-### Using Project's PR Script (When Appropriate)
-The project has existing PR tools in `.github/pr` and `.github/create-pr.sh`. These are for automated workflows and should not be used by Cursor. Always use `gh` CLI directly as specified in this rule.
 
 ### Branch Naming
 Follow the project's branch naming conventions:
