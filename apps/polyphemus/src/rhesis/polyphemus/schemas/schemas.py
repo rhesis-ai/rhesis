@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel
 
@@ -38,3 +38,4 @@ class GenerateRequest(BaseModel):
     repetition_penalty: Optional[float] = 1.2  # Penalty for repetition (>1.0 = penalty)
     top_p: Optional[float] = None  # Nucleus sampling parameter
     top_k: Optional[int] = None  # Top-k sampling parameter
+    schema: Optional[Any] = None  # Optional Pydantic schema for structured JSON output

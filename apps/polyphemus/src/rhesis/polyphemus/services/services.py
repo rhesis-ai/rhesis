@@ -266,6 +266,11 @@ async def generate_text(request: GenerateRequest) -> Dict:
     if top_k is not None:
         gen_kwargs["top_k"] = top_k
 
+    # Add schema for structured JSON output if provided
+    if request.schema is not None:
+        gen_kwargs["schema"] = request.schema
+        logger.info(f"Using schema for structured output: {request.schema}")
+
     logger.info(f"⏱️ Generation config: max_new_tokens={max_new_tokens}, temperature={temperature}")
 
     # Run the blocking generate call in a thread pool to avoid blocking the event loop

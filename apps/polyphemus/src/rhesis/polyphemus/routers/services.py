@@ -36,7 +36,17 @@ async def generate(
             ],
             "temperature": 0.7,
             "max_tokens": 512,
-            "model": "huggingface/distilgpt2"  # optional
+            "model": "huggingface/distilgpt2",  # optional
+            "schema": { ... }  # optional Pydantic schema for JSON output
+        }
+
+    For structured JSON output with lmformatenforcer:
+        {
+            "messages": [
+                { "content": "What is 2+2?", "role": "user" }
+            ],
+            "model": "lmformatenforcer/model-name",
+            "schema": <Pydantic BaseModel schema as dict>
         }
 
     Returns:
