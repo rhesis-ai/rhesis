@@ -17,6 +17,7 @@ Thank you for your interest in contributing to Rhesis! This document provides **
 - 🤖 [GitHub Automation Tools](#github-automation-tools)
 - 🏷️ [Versioning and Release Process](#versioning-and-release-process)
 - ❓ [Questions or Need Help?](#questions-or-need-help)
+- ⚖️ [Legal Notice](#legal-notice)
 
 <a id="component-specific-contributing-guides"></a>
 ## 📖 Component-Specific Contributing Guides
@@ -230,11 +231,12 @@ make all
 ```
 
 
-4. 📝 **Commit your changes**:
+4. 📝 **Commit your changes** (with DCO sign-off):
 ```bash
 git add .
-git commit -m "feat: your descriptive commit message"
+git commit -s -m "feat: your descriptive commit message"
 ```
+> **Note:** The `-s` flag adds the required `Signed-off-by` line for the [Developer Certificate of Origin](#legal-notice).
 
 5. 📤 **Push changes and create a Pull Request**:
 ```bash
@@ -608,3 +610,53 @@ If you have questions or need help with the contribution process:
 - Check our [documentation](https://docs.rhesis.ai)
 
 Thank you for contributing to Rhesis! 🎉
+
+<a id="legal-notice"></a>
+## ⚖️ Legal Notice
+
+When contributing to this project, you must agree that you have authored 100% of the content, that you have the necessary rights to the content, and that the content you contribute may be provided under the project's [MIT License](LICENSE).
+
+### Developer Certificate of Origin (DCO)
+
+All contributors must sign off on their commits to certify they have the right to submit their contributions under the project's open source license. We use the same [Developer Certificate of Origin (DCO)](https://developercertificate.org/) as the Linux Foundation.
+
+By making a contribution to this project, I certify that:
+
+> (a) The contribution was created in whole or in part by me and I have the right to submit it under the open source license indicated in the file; or
+>
+> (b) The contribution is based upon previous work that, to the best of my knowledge, is covered under an appropriate open source license and I have the right under that license to submit that work with modifications, whether created in whole or in part by me, under the same open source license (unless I am permitted to submit under a different license), as indicated in the file; or
+>
+> (c) The contribution was provided directly to me by some other person who certified (a), (b) or (c) and I have not modified it.
+>
+> (d) I understand and agree that this project and the contribution are public and that a record of the contribution (including all personal information I submit with it, including my sign-off) is maintained indefinitely and may be redistributed consistent with this project or the open source license(s) involved.
+
+### How to Sign Your Commits
+
+Add a `Signed-off-by` line to your commit messages using the `-s` flag:
+
+```bash
+git commit -s -m "feat: add new feature"
+```
+
+This will automatically add a line like:
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+Make sure your Git configuration matches:
+```bash
+git config user.name "Your Name"
+git config user.email "your.email@example.com"
+```
+
+### Signing Past Commits
+
+If you need to sign off on commits that have already been made, you can amend the most recent commit:
+```bash
+git commit --amend -s
+```
+
+Or rebase multiple commits:
+```bash
+git rebase --signoff HEAD~n  # where n is the number of commits
+```
