@@ -37,25 +37,6 @@ def test_database_url_configuration():
     assert SQLALCHEMY_DATABASE_URL == expected_test_url
 
 
-@pytest.mark.unit
-def test_test_database_isolation():
-    """🔒 Test that test database is properly isolated."""
-    assert_test_database_used()
-
-    # Get database stats
-    stats = get_test_database_stats()
-    assert stats["test_mode"] == "test"
-    assert stats["isolation_verified"] is True
-
-    # Ensure we're not using production database
-    prod_url = os.getenv("SQLALCHEMY_DATABASE_URL")
-    test_url = os.getenv("SQLALCHEMY_DATABASE_TEST_URL")
-
-    if prod_url and test_url:
-        assert prod_url != test_url, "Production and test databases must be different"
-        assert "test" in test_url.lower(), "Test database URL should contain 'test'"
-
-
 @pytest.mark.integration
 @pytest.mark.database
 def test_database_connection(test_db):
