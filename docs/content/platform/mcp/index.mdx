@@ -6,7 +6,63 @@ These sources can then be used in test generation and other workflows.
 ![MCP Page](/screenshots/rhesis-ai-mcp.png)
 ## Setting Up an MCP Connection
 
-### Quick Setup Video
+
+
+<details>
+<summary><strong>Notion</strong></summary>
+
+1. Create a Notion integration at [https://www.notion.so/profile/integrations](https://www.notion.so/profile/integrations).
+2. After creating the integration, click on the "Access" tab to grant access to the pages and teamspaces you want to export from. *Note: This step is required for the integration to access your content.*
+3. In Rhesis, go to the MCP page and click "Add MCP Server"
+4. Select "Notion" as the provider type
+5. Enter a connection name and paste the token (it should start with "ntn...")
+6. Test the connection
+7. Save
+</details>
+
+<details>
+<summary><strong>GitHub</strong></summary>
+
+1. Log in to GitHub and click your profile picture → Settings.
+2. Select "Developer Settings" from the left sidebar
+3. From there, click on "Personal Access Tokens" → "Tokens (classics)"
+4. Click on "Generate new token" → "Generate new token (classics)"
+5. Choose the scopes required. For Rhesis, you will need to select repo (permission to full access to repositories).
+6. In Rhesis, go to the MCP page and click "Add MCP Server."
+7. Select "GitHub" as the provider type.
+8. Enter the connection name and paste the token (it should start with "ghp...").
+9. Test the connection
+10. Save
+</details>
+
+<details>
+<summary><strong>Jira or Confluence</strong></summary>
+
+1. Go to https://id.atlassian.com/manage-profile/security
+2. Scroll down and click on "Create and manage API token"
+3. Follow the instructions to verify your identity
+4. Click on "Create an API token", then select a name and a expiration date
+5. In Rhesis, go to the MCP page and click "Add MCP Server."
+7. Select either "Jira" or "Confluence" as provider type (you can use the same API token for both!)
+5. In addition to the API token, also insert the email you are registred with Atlassian, and the atlassian workspace URL (yourorg.atlassian.net)
+5. Test the connection
+6. Save
+</details>
+
+<details>
+<summary><strong>Custom MCP Servers</strong></summary>
+
+1. Select "Custom" as the provider type
+2. Enter a connection name
+3. Provide the full MCP server configuration as JSON in tool metadata
+4. Include required authentication tokens in credentials
+5. Test the connection
+6. Save
+
+**Note**: Custom MCP server support may not be fully functional in all cases. [Contact us](https://www.rhesis.ai/contact-us) if you have any issues with setting it up!
+
+</details>
+
 
 Watch this video to see how to connect your Notion workspace and export pages as knowledge sources:
 
@@ -19,56 +75,6 @@ Watch this video to see how to connect your Notion workspace and export pages as
     allowFullScreen
   />
 </div>
-
-
-
-### Add a MCP Connection to Notion
-
-1. Create a Notion integration at [https://www.notion.so/profile/integrations](https://www.notion.so/profile/integrations).
-2. After creating the integration, click on the "Access" tab to grant access to the pages and teamspaces you want to export from. *Note: This step is required for the integration to access your content.*
-3. In Rhesis, go to the MCP page and click "Add MCP Server"
-4. Select "Notion" as the provider type
-5. Enter a connection name and paste the token (it should start with "ntn...")
-6. Test the connection
-7. Save
-
-### Add a MCP Connection to GitHub
-
-1. Log in to GitHub and click your profile picture → Settings.
-2. Select "Developer Settings" from the left sidebar
-3. From there, click on "Personal Access Tokens" → "Tokens (classics)"
-4. Click on "Generate new token" → "Generate new token (classics)"
-5. Choose the scopes required. For Rhesis, you will need to select repo (permission to full access to repositories).
-6. In Rhesis, go to the MCP page and click "Add MCP Server."
-7. Select "GitHub" as the provider type.
-8. Enter the connection name and paste the token (it should start with "ghp...").
-9. Test the connection
-10. Save
-
-### Add a MCP Connection to Jira or Confluence
-
-1. Go to https://id.atlassian.com/manage-profile/security
-2. Scroll down and click on "Create and manage API token"
-3. Follow the instructions to verify your identity
-4. Click on "Create an API token", then select a name and a expiration date
-5. In Rhesis, go to the MCP page and click "Add MCP Server."
-7. Select either "Jira" or "Confluence" as provider type (you can use the same API token for both!)
-5. In addition to the API token, also insert the email you are registred with Atlassian, and the atlassian workspace URL (yourorg.atlassian.net)
-5. Test the connection
-6. Save
-
-
-### Add a MCP Connection to Custom MCP Servers
-
-1. Select "Custom" as the provider type
-2. Enter a connection name
-3. Provide the full MCP server configuration as JSON in tool metadata
-4. Include required authentication tokens in credentials
-5. Test the connection
-6. Save
-
-**Note**: Custom MCP server support may not be fully functional in all cases.
-
 
 ---
 

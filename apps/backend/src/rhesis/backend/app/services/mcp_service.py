@@ -3,6 +3,7 @@
 import json
 import os
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -10,7 +11,7 @@ import jinja2
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.llm_utils import get_user_generation_model
@@ -543,16 +544,24 @@ async def run_mcp_authentication_test(
         Dict with:
         - is_authenticated: str - "Yes" or "No" determined by the LLM based on tool call results
         - message: str - Message from the LLM explaining the authentication status
+        - additional_metadata: Optional[Dict[str, Any]] - Provider-specific metadata
+          (e.g., spaces for Jira)
 
     Raises:
         ValueError: If authentication test fails due to connection issues
     """
     model = get_user_generation_model(db, user)
 
-    # Load MCP client from either tool_id or parameters
+    # Load MCP client from either tool_id or parameters and get provider name
+    provider = None
     if tool_id is not None:
-        client, _, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
+        client, provider, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
     else:
+        # Get provider name from provider_type_id
+        provider_type = crud.get_type_lookup(db, provider_type_id, organization_id, user_id)
+        if provider_type:
+            provider = provider_type.type_value
+
         client = _get_mcp_client_from_params(
             provider_type_id=provider_type_id,
             credentials=credentials,
@@ -562,8 +571,8 @@ async def run_mcp_authentication_test(
             user_id=user_id,
         )
 
-    # Load the authentication test prompt
-    auth_prompt = jinja_env.get_template("mcp_test_auth_prompt.jinja2").render()
+    # Load the authentication test prompt with provider context
+    auth_prompt = jinja_env.get_template("mcp_test_auth_prompt.jinja2").render(provider=provider)
     agent = MCPAgent(
         model=model,
         mcp_client=client,
@@ -579,4 +588,110 @@ async def run_mcp_authentication_test(
     if not result.success:
         raise ValueError(f"Authentication test failed: {result.error}")
 
-    return json.loads(result.final_answer)
+    # Parse the response
+    response = json.loads(result.final_answer)
+
+    # Extract spaces if present (Jira-specific) and move to additional_metadata
+    additional_metadata = None
+    if "spaces" in response:
+        additional_metadata = {"spaces": response.pop("spaces")}
+
+    # Add additional_metadata to response
+    if additional_metadata:
+        response["additional_metadata"] = additional_metadata
+
+    return response
+
+
+async def create_jira_ticket_from_task(
+    task_id: uuid.UUID,
+    tool_id: str,
+    db: Session,
+    organization_id: str,
+    user_id: str,
+) -> Dict[str, Any]:
+    """
+    Create a Jira ticket from a task.
+
+    Args:
+        task_id: ID of the task to create a ticket from
+        tool_id: ID of the Jira MCP tool
+        db: Database session
+        organization_id: Organization ID
+        user_id: User ID
+
+    Returns:
+        Dict with issue_key, issue_url, and message
+
+    Raises:
+        ValueError: If task not found, tool not found, or tool not configured for Jira
+        MCPError: If ticket creation fails
+    """
+    # 1. Fetch task from database
+    task = crud.get_task(db, task_id, organization_id, user_id)
+    if not task:
+        raise ValueError(f"Task '{task_id}' not found")
+
+    # 2. Get MCP client and verify it's Jira
+    client, provider, _ = _get_mcp_tool_config(db, tool_id, organization_id, user_id)
+    if provider != "jira":
+        raise ValueError(f"Tool must be a Jira integration, got '{provider}'")
+
+    # 3. Extract space_key from tool metadata
+    tool = crud.get_tool(db, uuid.UUID(tool_id), organization_id, user_id)
+    if not tool.tool_metadata or "space_key" not in tool.tool_metadata:
+        raise ValueError("Jira tool is not configured with a space_key")
+
+    space_key = tool.tool_metadata["space_key"]
+
+    # 4. Get user's generation model
+    user = crud.get_user_by_id(db, user_id)
+    model = get_user_generation_model(db, user)
+
+    # 5. Prepare prompt with task data
+    create_issue_prompt = jinja_env.get_template("mcp_jira_create_issue_prompt.jinja2").render(
+        space_key=space_key,
+        summary=task.title,
+        description=task.description or "",
+    )
+
+    # 6. Use agent to create issue
+    agent = MCPAgent(
+        model=model,
+        mcp_client=client,
+        system_prompt=create_issue_prompt,
+        max_iterations=5,
+        verbose=False,
+    )
+
+    query = "Create the Jira issue as specified"
+    result = await agent.run_async(query)
+
+    if not result.success:
+        raise ValueError(f"Failed to create Jira ticket: {result.error}")
+
+    # 7. Parse response
+    response_data = json.loads(result.final_answer)
+
+    # 8. Update task_metadata with Jira issue information
+    if not task.task_metadata:
+        task.task_metadata = {}
+
+    task.task_metadata["jira_issue"] = {
+        "issue_key": response_data["issue_key"],
+        "issue_url": response_data["issue_url"],
+        "tool_id": tool_id,
+        "created_at": datetime.utcnow().isoformat(),
+    }
+
+    # Save updated task
+    crud.update_task(
+        db=db,
+        task_id=task_id,
+        task=schemas.TaskUpdate(task_metadata=task.task_metadata),
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    # 9. Return response
+    return response_data

@@ -875,10 +875,16 @@ class TestTestMCPAuthentication:
 
     @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_client_from_params")
+    @patch("rhesis.backend.app.services.mcp_service.crud")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
     async def test_authentication_with_params(
-        self, mock_jinja_env, mock_get_model, mock_get_client_from_params, mock_agent_class
+        self,
+        mock_jinja_env,
+        mock_get_model,
+        mock_crud,
+        mock_get_client_from_params,
+        mock_agent_class,
     ):
         """Test successfully test authentication using provider_type_id and credentials"""
         provider_type_id = uuid.uuid4()
@@ -888,6 +894,11 @@ class TestTestMCPAuthentication:
         user = Mock(spec=User)
 
         mock_get_model.return_value = Mock(spec=BaseLLM)
+
+        # Mock the provider type lookup
+        mock_provider_type = Mock()
+        mock_provider_type.type_value = "notion"
+        mock_crud.get_type_lookup.return_value = mock_provider_type
 
         mock_client = Mock()
         mock_client.connect = AsyncMock()
@@ -915,6 +926,7 @@ class TestTestMCPAuthentication:
         # Assert
         assert isinstance(result, dict)
         assert result["is_authenticated"] == "No"
+        mock_crud.get_type_lookup.assert_called_once_with(db, provider_type_id, org_id, None)
         mock_get_client_from_params.assert_called_once_with(
             provider_type_id=provider_type_id,
             credentials=credentials,
