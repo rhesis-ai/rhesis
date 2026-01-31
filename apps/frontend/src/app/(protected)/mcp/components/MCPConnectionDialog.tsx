@@ -39,6 +39,7 @@ import { UUID } from 'crypto';
 import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { getErrorMessage } from '@/utils/entity-error-handler';
+import Link from '@mui/material/Link';
 
 // Lazy load Monaco Editor
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -836,7 +837,15 @@ export function MCPConnectionDialog({
             <Typography variant="body2" color="text.secondary">
               {isEditMode
                 ? 'Update your MCP connection settings'
-                : 'Configure your MCP connection settings below'}
+                : 'Configure your MCP connection settings below'}{' '}
+              <Link
+                href="https://docs.rhesis.ai/platform/mcp#provider-setup-instructions"
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ textDecoration: 'none' }}
+              >
+                (setup guide)
+              </Link>
             </Typography>
           </Box>
         </Box>
