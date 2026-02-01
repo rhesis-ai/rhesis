@@ -154,6 +154,11 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: AZURE_OPENAI_API_VERSION
+        - name: PERSPECTIVE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: PERSPECTIVE_API_KEY
         # SMTP configuration for email notifications
         - name: SMTP_HOST
           valueFrom:
