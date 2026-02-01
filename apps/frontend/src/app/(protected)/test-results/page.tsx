@@ -15,10 +15,7 @@ export default async function TestResultsPage() {
     }
 
     return (
-      <PageContainer
-        title="Test Results"
-        breadcrumbs={[{ title: 'Test Results', path: '/test-results' }]}
-      >
+      <PageContainer title="Test Results" breadcrumbs={[]}>
         <Box sx={{ mb: 3 }}>
           <Typography variant="body1" color="text.secondary">
             Track and analyze test performance over time. Filter by time range,
@@ -31,7 +28,7 @@ export default async function TestResultsPage() {
   } catch (error) {
     const errorMessage = (error as Error).message;
     return (
-      <PageContainer title="Test Results">
+      <PageContainer title="Test Results" breadcrumbs={[]}>
         <Paper elevation={2} sx={{ p: 3 }}>
           <Typography color="error" variant="h6" gutterBottom>
             Error Loading Test Results
