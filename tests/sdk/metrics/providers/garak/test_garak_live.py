@@ -196,7 +196,6 @@ class TestGarakMetricFactoryIntegration:
         assert len(importable_paths) > 0, (
             "At least some factory detector paths should be importable"
         )
-        print(f"\nImportable detectors: {importable_paths}")
 
 
 @pytest.mark.integration
@@ -307,7 +306,6 @@ class TestGarakVersionCompatibility:
         assert GARAK_VERSION is not None
         # Version should be a string like "0.9.0.4"
         assert len(GARAK_VERSION) > 0
-        print(f"\nDetected garak version: {GARAK_VERSION}")
 
     def test_core_garak_modules_exist(self):
         """Test that core garak modules exist."""
@@ -395,42 +393,18 @@ class TestGarakUpgradeReadiness:
             except ImportError as e:
                 failed_imports.append((short_name, full_path, str(e)))
 
-        if failed_imports:
-            print(f"\n❌ SDK FACTORY DETECTOR IMPORT FAILURES ({len(failed_imports)}):")
-            for name, path, error in failed_imports:
-                print(f"    {name}: {path}")
-                print(f"       Error: {error}")
-            print("\n   → Update GarakMetricFactory.DETECTOR_PATHS with valid paths")
-
-        total = len(factory.DETECTOR_PATHS)
-        print(f"\n✅ Successfully imported {len(successful_imports)}/{total} factory detectors")
-
         # At least some detectors should be importable
-        assert len(successful_imports) > 0, "No factory detectors could be imported!"
+        assert len(successful_imports) > 0, (
+            f"No factory detectors could be imported! "
+            f"Failed: {[f[0] for f in failed_imports]}"
+        )
 
     def test_garak_version_tracking(self):
-        """
-        Track garak version for SDK upgrade awareness.
-
-        Update LAST_TESTED_VERSION when you've verified SDK compatibility.
-        """
-        LAST_TESTED_VERSION = "0.9.0.4"  # Update after successful upgrade testing
-
+        """Test that garak version can be retrieved."""
         from importlib.metadata import version
 
         current_version = version("garak")
-
-        print("\n📦 SDK Garak Compatibility:")
-        print(f"    Last tested: {LAST_TESTED_VERSION}")
-        print(f"    Current:     {current_version}")
-
-        if current_version != LAST_TESTED_VERSION:
-            print("\n⚠️  VERSION MISMATCH - Review SDK test results carefully!")
-            print("   → If all tests pass, update LAST_TESTED_VERSION")
-        else:
-            print("\n✅ Running on last tested version")
-
-        assert True
+        assert current_version is not None
 
     def test_attempt_class_api_compatibility(self):
         """
@@ -455,8 +429,6 @@ class TestGarakUpgradeReadiness:
 
             assert attempt.prompt == "test prompt"
             assert attempt.outputs == ["test output"]
-
-            print("\n✅ Attempt class API is compatible")
 
         except Exception as e:
             pytest.fail(f"Attempt class API has changed: {e}")
@@ -490,8 +462,6 @@ class TestGarakUpgradeReadiness:
                 assert isinstance(score, (int, float)), (
                     f"Score should be numeric, got {type(score)}"
                 )
-
-            print(f"\n✅ detector.detect() API is compatible (returned {len(results_list)} scores)")
 
         except Exception as e:
             pytest.fail(f"Detector detect() API has changed: {e}")

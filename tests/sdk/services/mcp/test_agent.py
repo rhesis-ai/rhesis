@@ -385,27 +385,28 @@ class TestMCPAgent:
 
         assert formatted == ""
 
-    @pytest.mark.asyncio
-    async def test_run_sync_wrapper(self, agent, mock_mcp_client, mock_model):
-        """Test synchronous run wrapper"""
-        # Mock available tools
-        mock_executor = Mock()
-        mock_executor.get_available_tools = AsyncMock(return_value=[])
-        agent.executor = mock_executor
-
-        action = AgentAction(reasoning="Done", action="finish", final_answer="Answer")
-        mock_model.generate.return_value = action.model_dump()
+    def test_run_sync_wrapper(self, agent, mock_mcp_client, mock_model):
+        """Test synchronous run wrapper calls asyncio.run with run_async coroutine"""
+        # Mock asyncio.run to avoid actually running the async code
+        # and to verify the sync wrapper delegates correctly
+        expected_result = AgentResult(
+            final_answer="Answer",
+            execution_history=[],
+            iterations_used=1,
+            max_iterations_reached=False,
+            success=True,
+        )
 
         with patch("rhesis.sdk.services.mcp.agent.asyncio.run") as mock_run:
-            mock_run.return_value = AgentResult(
-                final_answer="Answer",
-                execution_history=[],
-                iterations_used=1,
-                max_iterations_reached=False,
-                success=True,
-            )
+            mock_run.return_value = expected_result
 
             result = agent.run("Test query")
 
             assert result.success is True
+            assert result == expected_result
             mock_run.assert_called_once()
+            # Verify a coroutine was passed to asyncio.run
+            call_args = mock_run.call_args[0][0]
+            assert hasattr(call_args, "cr_code")  # Verify it's a coroutine
+            # Close the unawaited coroutine to prevent ResourceWarning
+            call_args.close()
