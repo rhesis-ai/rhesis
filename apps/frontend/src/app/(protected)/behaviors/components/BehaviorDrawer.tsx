@@ -2,6 +2,7 @@ import React from 'react';
 import { Typography, TextField, Button, Stack, Divider } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { useFormChangeDetection } from '@/hooks/useFormChangeDetection';
 
 interface BehaviorDrawerProps {
   open: boolean;
@@ -31,6 +32,17 @@ const BehaviorDrawer = ({
     React.useState(initialDescription);
   const [validationError, setValidationError] = React.useState<string>('');
 
+  const { hasChanges } = useFormChangeDetection({
+    initialData: {
+      name: initialName,
+      description: initialDescription,
+    },
+    currentData: {
+      name: currentName,
+      description: currentDescription,
+    },
+  });
+
   React.useEffect(() => {
     if (open) {
       setCurrentName(initialName);
@@ -41,6 +53,10 @@ const BehaviorDrawer = ({
 
   const handleSaveInternal = () => {
     setValidationError('');
+
+    if (!isNew && !hasChanges) {
+      return;
+    }
 
     const trimmedName = currentName.trim();
 
@@ -67,6 +83,7 @@ const BehaviorDrawer = ({
       title={drawerTitle}
       onSave={handleSaveInternal}
       saveButtonText={saveButtonText}
+      saveDisabled={!isNew && !hasChanges}
       loading={loading}
       error={error}
       width={600}
