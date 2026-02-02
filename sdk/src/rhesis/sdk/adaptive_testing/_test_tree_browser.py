@@ -434,16 +434,24 @@ class TestTreeBrowser:
             children = []
 
             # add tests and topics to the data lookup structure
-            subtopic_ids = [
-                node.id for node in tests if re.match(r"^%s(/|$)" % re.escape(topic), node.topic)
-            ]
+            if topic:
+                subtopic_ids = [
+                    node.id
+                    for node in tests
+                    if re.match(r"^%s(/|$)" % re.escape(topic), node.topic)
+                ]
+            else:
+                # at root, include all nodes
+                subtopic_ids = [node.id for node in tests]
             for k in subtopic_ids:
                 test = tests[k]
 
                 # add a topic
                 if test.label == "topic_marker":
                     if test.topic != topic:
-                        name = test.topic[len(topic) + 1 :]
+                        # extract direct child name (skip parent topic + separator)
+                        start = len(topic) + 1 if topic else 0
+                        name = test.topic[start:]
                         if "/" not in name:  # only add direct children
                             data[test.topic] = {
                                 "label": test.label,
@@ -451,7 +459,8 @@ class TestTreeBrowser:
                                 "scores": {"model_score": []},
                                 "topic_marker_id": k,
                                 "topic_name": name,
-                                "editing": test.topic.endswith("/New topic"),
+                                "editing": test.topic.endswith("/New%20topic")
+                                or test.topic == "New%20topic",
                             }
                             children.append(test.topic)
 
@@ -483,7 +492,10 @@ class TestTreeBrowser:
                     and test.topic != topic
                 ):
                     child_topic = test.topic[len(topic) :].split("/", 2)[1]
-                    scores = data[topic + "/" + child_topic]["scores"]
+                    full_child_topic = topic + "/" + child_topic if topic else child_topic
+                    if full_child_topic not in data:
+                        continue
+                    scores = data[full_child_topic]["scores"]
                     scores["model_score"].extend(
                         [[k, v] for v in ui_score_parts(test.model_score, test.label)]
                     )
@@ -518,7 +530,9 @@ class TestTreeBrowser:
             sorted_children = sorted(
                 sorted_children,
                 key=lambda id: 0
-                if id.endswith("/New topic") or data[id].get("value1", "") == "New test"
+                if id.endswith("/New%20topic")
+                or id == "New%20topic"
+                or data[id].get("value1", "") == "New test"
                 else 1,
             )  # put new items first
 
@@ -737,7 +751,10 @@ class TestTreeBrowser:
             f"recompute={recompute})"
         )
 
-        eval_ids = [node.id for node in self.test_tree if node.to_eval]
+        eval_ids = [
+            node.id for node in self.test_tree
+            if node.to_eval and node.label != "topic_marker"
+        ]
 
         if len(eval_ids) > 0:
             # run the scorer
@@ -758,6 +775,9 @@ class TestTreeBrowser:
             # update the scores in the test tree
             for i, id in enumerate(eval_ids):
                 node = self.test_tree[id]
+                # skip topic markers - they shouldn't have outputs or scores
+                if node.label == "topic_marker":
+                    continue
                 node.output = new_outputs[i]
                 node.model_score = scores[i]
                 node.label = "fail" if scores[i] > 0.5 else "pass"
