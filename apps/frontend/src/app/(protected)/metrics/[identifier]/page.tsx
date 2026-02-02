@@ -82,6 +82,7 @@ export default function MetricDetailPage() {
   const [stepsWithIds, setStepsWithIds] = useState<StepWithId[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const dataFetchedRef = useRef(false);
+  const [textFieldsTouched, setTextFieldsTouched] = useState(false);
 
   // Set document title dynamically
   useDocumentTitle(metric?.name || null);
@@ -139,6 +140,124 @@ export default function MetricDetailPage() {
 
     fetchData();
   }, [identifier, session?.session_token, notifications, router]);
+
+  const checkForChanges = React.useCallback((): boolean => {
+    if (!metric || !isEditing) return false;
+
+    if (textFieldsTouched) {
+      const fieldValues = collectFieldValues();
+
+      if (isEditing === 'general') {
+        if (
+          fieldValues.name?.trim() !== (metric.name || '').trim() ||
+          fieldValues.description?.trim() !== (metric.description || '').trim()
+        ) {
+          return true;
+        }
+      } else if (isEditing === 'evaluation') {
+        if (
+          fieldValues.evaluation_prompt?.trim() !== (metric.evaluation_prompt || '').trim() ||
+          fieldValues.reasoning?.trim() !== (metric.reasoning || '').trim()
+        ) {
+          return true;
+        }
+
+        const currentSteps = fieldValues.evaluation_steps || [];
+        const originalSteps = metric.evaluation_steps?.split('\n---\n').map(step =>
+          step.replace(/^Step \d+:\n?/, '').trim()
+        ) || [''];
+
+        if (currentSteps.length !== originalSteps.length) {
+          return true;
+        }
+
+        for (let i = 0; i < currentSteps.length; i++) {
+          if (currentSteps[i].trim() !== originalSteps[i].trim()) {
+            return true;
+          }
+        }
+      } else if (isEditing === 'configuration') {
+        if (
+          fieldValues.explanation?.trim() !== (metric.explanation || '').trim()
+        ) {
+          return true;
+        }
+      }
+    }
+
+    if (isEditing === 'general') {
+      const currentTags = editData.tags || [];
+      const originalTags = metric.tags?.map(tag => tag.name) || [];
+      if (
+        currentTags.length !== originalTags.length ||
+        !currentTags.every(tag => originalTags.includes(tag))
+      ) {
+        return true;
+      }
+    } else if (isEditing === 'evaluation') {
+      if (editData.model_id && editData.model_id !== metric.model_id) {
+        return true;
+      }
+    } else if (isEditing === 'configuration') {
+      if (editData.score_type && editData.score_type !== metric.score_type) {
+        return true;
+      }
+
+      const currentCategories = editData.categories || metric.categories || [];
+      const originalCategories = metric.categories || [];
+      if (
+        currentCategories.length !== originalCategories.length ||
+        !currentCategories.every(cat => originalCategories.includes(cat))
+      ) {
+        return true;
+      }
+
+      const currentPassingCategories = editData.passing_categories || metric.passing_categories || [];
+      const originalPassingCategories = metric.passing_categories || [];
+      if (
+        currentPassingCategories.length !== originalPassingCategories.length ||
+        !currentPassingCategories.every(cat => originalPassingCategories.includes(cat))
+      ) {
+        return true;
+      }
+
+      if (
+        editData.min_score !== undefined &&
+        editData.min_score !== metric.min_score
+      ) {
+        return true;
+      }
+      if (
+        editData.max_score !== undefined &&
+        editData.max_score !== metric.max_score
+      ) {
+        return true;
+      }
+      if (
+        editData.threshold !== undefined &&
+        editData.threshold !== metric.threshold
+      ) {
+        return true;
+      }
+      if (
+        editData.threshold_operator &&
+        editData.threshold_operator !== metric.threshold_operator
+      ) {
+        return true;
+      }
+
+      const currentScope = editData.metric_scope || metric.metric_scope || [];
+      const originalScope = metric.metric_scope || [];
+      if (
+        currentScope.length !== originalScope.length ||
+        !currentScope.every(scope => originalScope.includes(scope))
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }, [metric, isEditing, textFieldsTouched, editData]);
 
   // Helper function to collect current field values without triggering re-renders
   const collectFieldValues = React.useCallback((): Partial<EditData> => {
@@ -222,8 +341,8 @@ export default function MetricDetailPage() {
       if (!metric) return;
 
       setIsEditing(section);
+      setTextFieldsTouched(false);
 
-      // Populate refs with initial values (no re-renders)
       populateFieldRefs(section, metric);
 
       // Only set editData for select fields (model, score_type, etc.)
@@ -283,6 +402,7 @@ export default function MetricDetailPage() {
     setIsEditing(null);
     setEditData({});
     setStepsWithIds([]);
+    setTextFieldsTouched(false);
     // Clear step refs
     stepRefs.current.clear();
   }, []);
@@ -426,6 +546,7 @@ export default function MetricDetailPage() {
       setIsEditing(null);
       setEditData({});
       setStepsWithIds([]);
+      setTextFieldsTouched(false);
 
       notifications.show('Metric updated successfully', {
         severity: 'success',
@@ -452,15 +573,15 @@ export default function MetricDetailPage() {
       const newStep = { id: `step-${Date.now()}-${prev.length}`, content: '' };
       return [...prev, newStep];
     });
+    setTextFieldsTouched(true);
   }, []);
 
   const removeStep = React.useCallback((stepId: string) => {
     setStepsWithIds(prev => prev.filter(step => step.id !== stepId));
-    // Clean up the ref for the removed step
     stepRefs.current.delete(stepId);
+    setTextFieldsTouched(true);
   }, []);
 
-  // Move EditableSection completely outside the main component
   const EditableSection = React.memo(
     ({
       title,
@@ -472,6 +593,7 @@ export default function MetricDetailPage() {
       onCancel,
       onConfirm,
       isSaving,
+      checkChanges,
     }: {
       title: string;
       icon: React.ReactNode;
@@ -482,7 +604,9 @@ export default function MetricDetailPage() {
       onCancel: () => void;
       onConfirm: () => void;
       isSaving?: boolean;
+      checkChanges: () => boolean;
     }) => {
+      const hasChanges = isEditing === section ? checkChanges() : false;
       return (
         <Paper
           sx={{
@@ -569,11 +693,15 @@ export default function MetricDetailPage() {
                   color="primary"
                   startIcon={<CheckIcon />}
                   onClick={onConfirm}
-                  disabled={isSaving}
+                  disabled={isSaving || !hasChanges}
                   sx={{
                     bgcolor: theme.palette.primary.main,
                     '&:hover': {
                       bgcolor: theme.palette.primary.dark,
+                    },
+                    '&.Mui-disabled': {
+                      bgcolor: theme.palette.action.disabledBackground,
+                      color: theme.palette.action.disabled,
                     },
                   }}
                 >
@@ -728,6 +856,7 @@ export default function MetricDetailPage() {
               onCancel={handleCancelEdit}
               onConfirm={handleConfirmEdit}
               isSaving={isSaving}
+              checkChanges={checkForChanges}
             >
               <InfoRow label="Name">
                 {isEditing === 'general' ? (
@@ -738,6 +867,7 @@ export default function MetricDetailPage() {
                     inputRef={nameRef}
                     defaultValue={metric.name || ''}
                     placeholder="Enter metric name"
+                    onChange={() => setTextFieldsTouched(true)}
                   />
                 ) : (
                   <Typography>{metric.name}</Typography>
@@ -754,6 +884,7 @@ export default function MetricDetailPage() {
                     inputRef={descriptionRef}
                     defaultValue={metric.description || ''}
                     placeholder="Enter metric description"
+                    onChange={() => setTextFieldsTouched(true)}
                   />
                 ) : (
                   <Typography>{metric.description || '-'}</Typography>
@@ -795,6 +926,7 @@ export default function MetricDetailPage() {
               onCancel={handleCancelEdit}
               onConfirm={handleConfirmEdit}
               isSaving={isSaving}
+              checkChanges={checkForChanges}
             >
               <InfoRow label="LLM Judge Model">
                 {isEditing === 'evaluation' ? (
@@ -858,6 +990,7 @@ export default function MetricDetailPage() {
                     inputRef={evaluationPromptRef}
                     defaultValue={metric.evaluation_prompt || ''}
                     placeholder="Enter evaluation prompt"
+                    onChange={() => setTextFieldsTouched(true)}
                   />
                 ) : (
                   <Typography
@@ -896,6 +1029,7 @@ export default function MetricDetailPage() {
                           }}
                           defaultValue={step.content}
                           placeholder={`Step ${index + 1}: Describe this evaluation step...`}
+                          onChange={() => setTextFieldsTouched(true)}
                         />
                         <IconButton
                           onClick={() => removeStep(step.id)}
@@ -965,6 +1099,7 @@ export default function MetricDetailPage() {
                     inputRef={reasoningRef}
                     defaultValue={metric.reasoning || ''}
                     placeholder="Enter reasoning instructions"
+                    onChange={() => setTextFieldsTouched(true)}
                   />
                 ) : (
                   <Typography
@@ -996,6 +1131,7 @@ export default function MetricDetailPage() {
               onCancel={handleCancelEdit}
               onConfirm={handleConfirmEdit}
               isSaving={isSaving}
+              checkChanges={checkForChanges}
             >
               <InfoRow label="Score Type">
                 {isEditing === 'configuration' ? (
@@ -1406,6 +1542,7 @@ export default function MetricDetailPage() {
                     inputRef={explanationRef}
                     defaultValue={metric.explanation || ''}
                     placeholder="Enter result explanation"
+                    onChange={() => setTextFieldsTouched(true)}
                   />
                 ) : (
                   <Typography
