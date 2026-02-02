@@ -141,6 +141,32 @@ export default function MetricDetailPage() {
     fetchData();
   }, [identifier, session?.session_token, notifications, router]);
 
+  const collectFieldValues = React.useCallback((): Partial<EditData> => {
+    const values: Partial<EditData> = {};
+
+    if (nameRef.current) values.name = nameRef.current.value;
+    if (descriptionRef.current)
+      values.description = descriptionRef.current.value;
+    if (evaluationPromptRef.current)
+      values.evaluation_prompt = evaluationPromptRef.current.value;
+    if (reasoningRef.current) values.reasoning = reasoningRef.current.value;
+    if (explanationRef.current)
+      values.explanation = explanationRef.current.value;
+
+    const stepValues: string[] = [];
+    stepsWithIds.forEach(step => {
+      const stepElement = stepRefs.current.get(step.id);
+      if (stepElement) {
+        stepValues.push(stepElement.value);
+      }
+    });
+    if (stepValues.length > 0) {
+      values.evaluation_steps = stepValues;
+    }
+
+    return values;
+  }, [stepsWithIds]);
+
   const checkForChanges = React.useCallback((): boolean => {
     if (!metric || !isEditing) return false;
 
@@ -156,16 +182,17 @@ export default function MetricDetailPage() {
         }
       } else if (isEditing === 'evaluation') {
         if (
-          fieldValues.evaluation_prompt?.trim() !== (metric.evaluation_prompt || '').trim() ||
+          fieldValues.evaluation_prompt?.trim() !==
+            (metric.evaluation_prompt || '').trim() ||
           fieldValues.reasoning?.trim() !== (metric.reasoning || '').trim()
         ) {
           return true;
         }
 
         const currentSteps = fieldValues.evaluation_steps || [];
-        const originalSteps = metric.evaluation_steps?.split('\n---\n').map(step =>
-          step.replace(/^Step \d+:\n?/, '').trim()
-        ) || [''];
+        const originalSteps = metric.evaluation_steps
+          ?.split('\n---\n')
+          .map(step => step.replace(/^Step \d+:\n?/, '').trim()) || [''];
 
         if (currentSteps.length !== originalSteps.length) {
           return true;
@@ -212,11 +239,14 @@ export default function MetricDetailPage() {
         return true;
       }
 
-      const currentPassingCategories = editData.passing_categories || metric.passing_categories || [];
+      const currentPassingCategories =
+        editData.passing_categories || metric.passing_categories || [];
       const originalPassingCategories = metric.passing_categories || [];
       if (
         currentPassingCategories.length !== originalPassingCategories.length ||
-        !currentPassingCategories.every(cat => originalPassingCategories.includes(cat))
+        !currentPassingCategories.every(cat =>
+          originalPassingCategories.includes(cat)
+        )
       ) {
         return true;
       }
@@ -257,35 +287,7 @@ export default function MetricDetailPage() {
     }
 
     return false;
-  }, [metric, isEditing, textFieldsTouched, editData]);
-
-  // Helper function to collect current field values without triggering re-renders
-  const collectFieldValues = React.useCallback((): Partial<EditData> => {
-    const values: Partial<EditData> = {};
-
-    if (nameRef.current) values.name = nameRef.current.value;
-    if (descriptionRef.current)
-      values.description = descriptionRef.current.value;
-    if (evaluationPromptRef.current)
-      values.evaluation_prompt = evaluationPromptRef.current.value;
-    if (reasoningRef.current) values.reasoning = reasoningRef.current.value;
-    if (explanationRef.current)
-      values.explanation = explanationRef.current.value;
-
-    // Collect step values
-    const stepValues: string[] = [];
-    stepsWithIds.forEach(step => {
-      const stepElement = stepRefs.current.get(step.id);
-      if (stepElement) {
-        stepValues.push(stepElement.value);
-      }
-    });
-    if (stepValues.length > 0) {
-      values.evaluation_steps = stepValues;
-    }
-
-    return values;
-  }, [stepsWithIds]);
+  }, [metric, isEditing, textFieldsTouched, editData, collectFieldValues]);
 
   // Helper function to populate refs with initial values when entering edit mode
   const populateFieldRefs = React.useCallback(
@@ -560,6 +562,7 @@ export default function MetricDetailPage() {
     }
   }, [
     session?.session_token,
+    session?.user?.id,
     metric,
     collectFieldValues,
     editData,
