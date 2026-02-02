@@ -562,6 +562,18 @@ class TestTreeBrowser:
         else:
             score_filter = self.score_filter
 
+        # Compute mode based on current topic structure
+        # "topics" mode: Generate creates subtopics; "tests" mode: Generate creates tests
+        current = self.topic_tree.get(self.current_topic) if self.current_topic else None
+        if current:
+            has_direct_tests = self.topic_tree.has_direct_tests(current)
+            has_subtopics = self.topic_tree.has_subtopics(current)
+        else:
+            # At root level
+            has_direct_tests = False
+            has_subtopics = len(self.topic_tree.get_children(None)) > 0
+        self.mode = "topics" if not has_direct_tests and has_subtopics else "tests"
+
         topic_marker_id = self._get_topic_marker_id(self.current_topic)
         # compile the global browser state for the frontend
         data["browser"] = {
