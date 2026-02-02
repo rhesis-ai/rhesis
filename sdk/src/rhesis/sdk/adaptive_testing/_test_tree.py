@@ -93,8 +93,6 @@ class TestTree:
             else:
                 self._tests = pd.concat([self._tests, pd.DataFrame(test_tree)], axis=axis)
 
-        # self.deduplicate()
-        # self.compute_embeddings()
         return None  # TODO: Rethink append logic -- return copy vs. in place update?
 
     def __len__(self):
@@ -266,7 +264,8 @@ class TestTree:
             The topic to filter the test tree by.
         """
         ids = [id for id, test in self._tests.iterrows() if is_subtopic(topic, test.topic)]
-        return self.loc[ids]
+        subset = self._tests.loc[ids]
+        return TestTree(subset, index=subset.index, ensure_topic_markers=False)
 
     def topic_has_direct_tests(self, target_topic: str) -> bool:
         """Check if a topic has direct tests."""
@@ -378,39 +377,6 @@ class TestTree:
     def _repr_html_(self):
         return self._tests._repr_html_()
 
-    def deduplicate(self):
-        """Remove duplicate tests from the test tree.
-
-        Note that we give precendence to the first test in a set of duplicates.
-        """
-
-        already_seen = {}
-        drop_ids = []
-
-        # catch duplicate tests in the same topic
-        for id, test in self._tests.iterrows():
-            k = test.topic + "|_ADA_JOIN_|" + test.input + "|_ADA_JOIN_|" + test.output
-            if k in already_seen:
-                drop_ids.append(id)
-            else:
-                already_seen[k] = True
-
-        # see if any suggestions are duplicates of things already in the their topic
-        # (note we do this as a second loop so we know we have already marked all the
-        # members of the topic in already_seen)
-        for id, test in self._tests.iterrows():
-            if test.topic.endswith("/__suggestions__"):
-                k = (
-                    test.topic[: -len("/__suggestions__")]
-                    + "|_ADA_JOIN_|"
-                    + test.input
-                    + "|_ADA_JOIN_|"
-                    + test.output
-                )
-                if k in already_seen:
-                    drop_ids.append(id)
-        self._tests.drop(drop_ids, axis=0, inplace=True)
-
     def _cache_embeddings(self, ids=None, embedder=None):
         """Pre-compute the embeddings for the given test cases.
 
@@ -447,104 +413,6 @@ class TestTree:
         if all_strings:
             embed_with_cache(embedder, all_strings)
 
-    # def predict_labels(self, topical_io_pairs):
-    #     """ Return the label probabilities for a set of input-output pairs. [NOT USED RIGHT NOW]
-
-    #     Parameters
-    #     ----------
-    #     io_pairs : list[(str, str)]
-    #         A list of input-output pairs to score.
-
-    #     Returns
-    #     -------
-    #     list[float]
-    #         A list of label probabilities.
-    #     """
-
-    #     out = np.zeros(len(topical_io_pairs))
-
-    #     to_embed = []
-    #     topics = {}
-    #     for i,(topic,input,output) in enumerate(topical_io_pairs):
-    #         if topic not in topics:
-    #             topics[topic] = []
-    #         to_embed.append(input)
-    #         to_embed.append(output)
-    #         topics[topic].append((i, len(to_embed) - 2, len(to_embed) - 1))
-    #     embeddings = adaptive_testing.embed(to_embed)
-    #     features = [None for i in range(len(topical_io_pairs))]
-    #     for topic in topics:
-    #         features = []
-    #         for i,ind1,ind2 in topics[topic]:
-    #             features.append(np.hstack([embeddings[ind1], embeddings[ind2]]))
-    #         features = np.vstack(features)
-
-    #         label = np.array(
-    #             [v == "pass" for v in self.topic_model(topic)(features)],
-    #             dtype=np.float32)
-    #         for i, (j,_,_) in enumerate(topics[topic]):
-    #             out[j] = label[i]
-
-    #     return np.array(out)
-
     def drop_topic(self, topic):
         """Remove a topic from the test tree."""
         self._tests = self._tests.loc[self._tests["topic"] != topic]
-
-
-class TestTreeLocIndexer:
-    def __init__(self, test_tree):
-        self.test_tree = test_tree
-
-    def __repr__(self):
-        return (
-            "TestTreeLocIndexer is an intermediate object for operating on "
-            "TestTrees. Slice this object further to yield useful results."
-        )
-
-    def __getitem__(self, key):
-        # If all columns haven't changed, it's still a valid test tree
-        # If columns have been dropped, return a Pandas object
-
-        subset = self.test_tree._tests.loc[key]
-        if (
-            hasattr(subset, "columns")
-            and len(set(["topic", "input", "output", "label"]) - set(subset.columns)) == 0
-        ):
-            test_tree_slice = TestTree(subset, index=subset.index, ensure_topic_markers=False)
-            test_tree_slice._tests_location = self.test_tree._tests_location
-            return test_tree_slice
-        else:
-            return subset
-
-    def __setitem__(self, key, value):
-        self.test_tree._tests.loc[key] = value
-
-
-class TestTreeILocIndexer:
-    def __init__(self, test_tree):
-        self.test_tree = test_tree
-
-    def __repr__(self):
-        return (
-            "TestTreeILocIndexer is an intermediate object for operating on "
-            "TestTrees. Slice this object further to yield useful results."
-        )
-
-    def __getitem__(self, key):
-        # If all columns haven't changed, it's still a valid test tree
-        # If columns have been dropped, return a Pandas object
-
-        subset = self.test_tree._tests.iloc[key]
-        if (
-            hasattr(subset, "columns")
-            and len(set(["topic", "input", "output", "label"]) - set(subset.columns)) == 0
-        ):
-            test_tree_slice = TestTree(subset, ensure_topic_markers=False)
-            test_tree_slice._tests_location = self.test_tree._tests_location
-            return test_tree_slice
-        else:
-            return subset
-
-    def __setitem__(self, key, value):
-        self.test_tree._tests.iloc[key] = value
