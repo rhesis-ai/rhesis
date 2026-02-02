@@ -4,9 +4,24 @@ import urllib.parse
 import numpy as np
 
 from .embedders import cos_sim
-from .utils import is_subtopic
+from .schemas import Topic
 
 log = logging.getLogger(__name__)
+
+
+def _is_under_topic(parent_path: str, child_path: str) -> bool:
+    """Check if child_path is equal to or under parent_path.
+
+    This is equivalent to the old is_subtopic() function.
+    Returns True if child_path == parent_path or child_path is a descendant of parent_path.
+    """
+    if parent_path == child_path:
+        return True
+    if not parent_path:
+        return True  # Everything is under root
+    parent = Topic(path=parent_path)
+    child = Topic(path=child_path)
+    return parent.is_ancestor_of(child)
 
 
 class PromptBuilder:
@@ -231,7 +246,7 @@ class PromptBuilder:
 
                 # make it unlikely we will choose the same outside topic twice
                 new_ind_topic = test_tree[ids[new_ind]].topic
-                if not is_subtopic(topic, new_ind_topic):
+                if not _is_under_topic(topic, new_ind_topic):
                     outside_topics_used *= 1 - 0.9 * np.array(
                         [test_tree[id].topic == new_ind_topic for id in ids]
                     )
@@ -251,10 +266,13 @@ class PromptBuilder:
                 # lower the weight of the subtopic we just picked from
                 if self.subtopic_diversity:
                     new_topic = test_tree[ids[new_ind]].topic
-                    if topic != new_topic and is_subtopic(topic, new_topic):
+                    if topic != new_topic and _is_under_topic(topic, new_topic):
                         subtopic = topic + "/" + new_topic[(len(topic) + 1) :].split("/")[0]
                         subtopic_scaling = np.array(
-                            [0.001 if is_subtopic(subtopic, test_tree[k].topic) else 1 for k in ids]
+                            [
+                                0.001 if _is_under_topic(subtopic, test_tree[k].topic) else 1
+                                for k in ids
+                            ]
                         )
                         topic_scaling_curr *= subtopic_scaling
 

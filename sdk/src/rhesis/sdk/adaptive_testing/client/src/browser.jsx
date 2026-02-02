@@ -150,7 +150,9 @@ export default class Browser extends React.Component {
     let topicPath = "";
     // console.log("tests.render4", this.state.tests, stripSlash(this.stripPrefix(this.props.location.pathname)), this.state.topic);
 
-    let breadCrumbParts = stripSlash(this.stripPrefix(this.state.topic)).split("/");
+    // Always include root ("") as first element, then topic parts
+    const topicStr = stripSlash(this.stripPrefix(this.state.topic));
+    let breadCrumbParts = topicStr === "" ? [""] : ["", ...topicStr.split("/")];
     // let totalPasses = <TotalValue activeIds={this.state.tests} ref={(el) => this.totalPassesObj = el} />;
     // let totalFailures = <TotalValue activeIds={this.state.tests} ref={(el) => this.totalFailuresObj = el} />;
 

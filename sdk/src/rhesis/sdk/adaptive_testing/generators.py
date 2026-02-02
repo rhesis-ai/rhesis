@@ -253,14 +253,14 @@ class TestTreeSource(Generator):
         # topics based on embedding distance?
         if mode == "topics":
             proposals = []
-            for id, test in self.source.iterrows():
+            for node in self.source._tests:
                 # check if requested topic is *direct* parent of test topic
                 if (
-                    test.label == "topic_marker"
-                    and topic == test.topic[0 : test.topic.rfind("/")]
-                    and test.topic != ""
+                    node.label == "topic_marker"
+                    and topic == node.topic[0 : node.topic.rfind("/")]
+                    and node.topic != ""
                 ):
-                    proposals.append(urllib.parse.unquote(test.topic.rsplit("/", 2)[1]))
+                    proposals.append(urllib.parse.unquote(node.topic.rsplit("/", 2)[1]))
             return proposals
 
         # Find tests closest to the proposals in the embedding space

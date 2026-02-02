@@ -5,12 +5,24 @@ from typing import TYPE_CHECKING, Any, Callable, List, Optional
 import pandas as pd
 
 from rhesis.sdk import adaptive_testing
-from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode
+from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode, Topic
 from rhesis.sdk.entities import Prompt, Test, TestSet
 from rhesis.sdk.models import BaseEmbedder, BaseLLM
 
 from ._prompt_builder import PromptBuilder
-from ._test_tree_browser import TestTreeBrowser, is_subtopic
+from ._test_tree_browser import TestTreeBrowser
+
+
+def _is_under_topic(parent_path: str, child_path: str) -> bool:
+    """Check if child_path is equal to or under parent_path."""
+    if parent_path == child_path:
+        return True
+    if not parent_path:
+        return True  # Everything is under root
+    parent = Topic(path=parent_path)
+    child = Topic(path=child_path)
+    return parent.is_ancestor_of(child)
+
 
 if TYPE_CHECKING:
     from rhesis.sdk.entities import TestSet
@@ -255,32 +267,29 @@ class TestTree:
         test_data = TestTreeData(nodes=nodes)
         return test_data
 
-    def topic(self, topic):
+    def topic(self, topic_path: str) -> "TestTree":
         """Return a subset of the test tree containing only tests that match the given topic.
 
         Parameters
         ----------
-        topic : str
+        topic_path : str
             The topic to filter the test tree by.
         """
-        ids = [id for id, test in self._tests.iterrows() if is_subtopic(topic, test.topic)]
-        subset = self._tests.loc[ids]
-        return TestTree(subset, index=subset.index, ensure_topic_markers=False)
+        filtered_nodes = [node for node in self._tests if _is_under_topic(topic_path, node.topic)]
+        return TestTree(TestTreeData(nodes=filtered_nodes), ensure_topic_markers=False)
 
     def topic_has_direct_tests(self, target_topic: str) -> bool:
         """Check if a topic has direct tests."""
-        hdt_df = self._tests.apply(
-            lambda row: row["topic"] == target_topic and row["label"] != "topic_marker", axis=1
+        return any(
+            node.topic == target_topic and node.label != "topic_marker" for node in self._tests
         )
-        return hdt_df.any()
 
     def topic_has_subtopics(self, target_topic: str) -> bool:
         """Check if a topic has subtopics."""
-        has_subtopics_df = self._tests.apply(
-            lambda row: row["topic"] != target_topic and is_subtopic(target_topic, row["topic"]),
-            axis=1,
+        return any(
+            node.topic != target_topic and _is_under_topic(target_topic, node.topic)
+            for node in self._tests
         )
-        return has_subtopics_df.any()
 
     def adapt(
         self,
@@ -399,20 +408,22 @@ class TestTree:
 
         # see what new embeddings we need to compute
         all_strings = []
-        for id in ids:
-            test = self._tests.loc[id]
-            if test.label == "topic_marker":
-                parts = test.topic.rsplit("/", 1)
+        for node_id in ids:
+            node = self._tests[node_id]
+            if node.label == "topic_marker":
+                parts = node.topic.rsplit("/", 1)
                 s = parts[1] if len(parts) == 2 else ""
                 all_strings.append(s)
             else:
-                for s in [test.input, test.output]:
+                for s in [node.input, node.output]:
                     all_strings.append(s)
 
         # cache the embeddings
         if all_strings:
             embed_with_cache(embedder, all_strings)
 
-    def drop_topic(self, topic):
+    def drop_topic(self, topic_path: str):
         """Remove a topic from the test tree."""
-        self._tests = self._tests.loc[self._tests["topic"] != topic]
+        ids_to_remove = [node.id for node in self._tests if node.topic == topic_path]
+        for node_id in ids_to_remove:
+            self._tests.remove(node_id)
