@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 
 from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode
-from rhesis.sdk.adaptive_testing.tree_data_ops import return_eval_ids
 
 # from ._scorer import expand_template, clean_template, Scorer
 from .comm import JupyterComm
@@ -740,7 +739,7 @@ class TestTreeBrowser:
             f"recompute={recompute})"
         )
 
-        eval_ids = return_eval_ids(self.test_tree)
+        eval_ids = [node.id for node in self.test_tree if node.to_eval]
 
         if len(eval_ids) > 0:
             # run the scorer
