@@ -88,3 +88,13 @@ class TestTreeData:
             and node.label == "topic_marker"
             for node in self
         )
+
+    def append(self, nodes: List["TestTreeNode"]) -> None:
+        """Add nodes to the collection."""
+        for node in nodes:
+            self._nodes[node.id] = node
+
+    def remove(self, node_id: str) -> None:
+        """Remove a node by ID."""
+        if node_id in self._nodes:
+            del self._nodes[node_id]

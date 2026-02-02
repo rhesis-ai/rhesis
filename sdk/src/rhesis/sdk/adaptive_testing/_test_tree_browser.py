@@ -11,7 +11,6 @@ import uuid
 from typing import TYPE_CHECKING, Callable, Union
 
 import numpy as np
-import pandas as pd
 
 from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode
 
@@ -135,16 +134,16 @@ class TestTreeBrowser:
             raise ValueError("Embedder is required")
 
         # if we are recomputing the scores then we erase all the old scores
-        # +++ Change to use remove_scores function
+        # Reset scores if recomputing
         if recompute_scores is True:
-            for c in self.test_tree.columns:
-                if c.endswith("score"):
-                    self.test_tree.drop(c, axis=1, inplace=True)
+            for node in self.test_tree:
+                node.model_score = float("nan")
 
         # if regenerating outputs, force all tests to be re-evaluated
-        # +++ Change to use set_evaluation_status function
         if regenerate_outputs is True:
-            self.test_tree["to_eval"] = True
+            for node in self.test_tree:
+                if node.label != "topic_marker":
+                    node.to_eval = True
 
         # these are all temporary state
         self._hidden_topics = {}
@@ -320,19 +319,8 @@ class TestTreeBrowser:
             self._refresh_interface()
 
         # change which scorer/model is used for sorting tests
+        # NOTE: Currently only single model_score supported, this is a no-op
         elif event_id == "set_first_model":
-            name = msg["model"]
-
-            # move to front of score columns
-            pos = len(self.test_tree.columns) - len(self.score_columns)
-            tmp = self.test_tree[name]
-            self.test_tree.drop(labels=[name], axis=1, inplace=True)
-            self.test_tree.insert(pos, name, tmp)
-
-            # update score columns list
-            self.score_columns.remove(name)
-            self.score_columns.insert(0, name)
-
             self._refresh_interface()
 
         elif event_id == "change_mode":
@@ -665,21 +653,8 @@ class TestTreeBrowser:
         if self.mode == "topics":
             proposals = [urllib.parse.quote(x) for x in proposals]
 
-        # Build up suggestions catalog, unless generating from a test tree source.
-        # NOTE: Doing safe checks for TestTree type in order to prevent circular imports
-        if isinstance(proposals, pd.DataFrame) or proposals.__class__.__name__ == "TestTree":
-            suggestions = proposals
-            suggestions["topic"] = (
-                self.current_topic
-                + "/__suggestions__"
-                + suggestions["topic"].apply(
-                    lambda x: x[len(self.current_topic) :] if x != "" else ""
-                )
-            )
-            self.test_tree.append(suggestions)
-            print("appended suggestions into self.test_tree")
-            # assert False, "This needs to be fixed to dump into /__suggestions__"
-        else:
+        # Build up suggestions catalog
+        if True:  # Always use node-based approach
             # suggestions = []
             test_map_tmp = copy.copy(test_map)
             for input in proposals:
