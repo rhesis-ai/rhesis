@@ -279,16 +279,10 @@ class TestTreeBrowser:
 
         # add a new empty subtopic to the current topic
         elif event_id == "add_new_topic":
-            new_topic = self.current_topic + "/New%20topic" if self.current_topic else "New%20topic"
-            node = TestTreeNode(
-                topic=new_topic,
-                label="topic_marker",
-                input="",
-                output="",
-                labeler=self.user,
-                to_eval=False,  # topic markers shouldn't be evaluated
+            new_topic_path = (
+                self.current_topic + "/New%20topic" if self.current_topic else "New%20topic"
             )
-            self.test_tree[node.id] = node
+            self.topic_tree.create(new_topic_path, labeler=self.user)
             self._refresh_interface()
 
         # add a new empty test to the current topic
@@ -318,48 +312,40 @@ class TestTreeBrowser:
             self.filter_text = msg["filter_text"]
             self._refresh_interface()
 
-        # Move a test/topic to a new topic
-        # Also used to rename
+        # Move a test/topic to a new path (also used for renaming)
         elif event_id == "move_test":
-            print(f"move_test: test_ids={msg['test_ids']}, topic={msg['topic']}")
+            log.debug(f"move_test: test_ids={msg['test_ids']}, topic={msg['topic']}")
             test_ids = msg["test_ids"]
-            new_topic = msg["topic"].lstrip("/")  # Remove leading slash if present
-            # test_id can either be a unique test ID or a topic path
+            new_path = msg["topic"].lstrip("/")  # Remove leading slash if present
+
             for test_id in test_ids:
-                print(f"  Processing test_id={test_id}, in index={test_id in self.test_tree.index}")
-                # If test_id is a node UUID, update that node's topic
                 if test_id in self.test_tree.index:
-                    old_topic = self.test_tree[test_id].topic
-                    self.test_tree[test_id].topic = new_topic
-                    print(f"  Updated node {test_id} topic: {old_topic} -> {new_topic}")
-                # If test_id is a topic path, update all nodes in that topic/subtopic
-                # This handles renaming: old topic path -> new topic path
+                    # It's a node UUID - move that single node to the new topic
+                    self.test_tree[test_id].topic = new_path
+                    log.debug(f"  Moved node {test_id} to {new_path}")
                 else:
-                    for node in self.test_tree:
-                        if is_subtopic(test_id, node.topic):
-                            old_topic = node.topic
-                            node.topic = new_topic + node.topic[len(test_id) :]
-                            print(f"  Updated node {node.id} topic: {old_topic} -> {node.topic}")
-            # Recompute any missing embeddings to handle any changes
+                    # It's a topic path - move/rename the entire topic
+                    topic = self.topic_tree.get(test_id)
+                    if topic:
+                        self.topic_tree.move(topic, new_path)
+                        log.debug(f"  Moved topic {test_id} to {new_path}")
+
             self._compute_embeddings_and_scores()
             self._refresh_interface()
 
         elif event_id == "delete_test":
             log.debug("delete_test")
             test_ids = msg["test_ids"]
-            # test_id can either be a unique test ID or a topic name
-            ids_to_delete = []
+            # test_id can either be a unique test ID or a topic path
             for test_id in test_ids:
                 if test_id in self.test_tree.index:
-                    ids_to_delete.append(test_id)
-                if "/" in test_id:
-                    # Collect tests from subtopics to delete
-                    for node in self.test_tree:
-                        if is_subtopic(test_id, node.topic):
-                            ids_to_delete.append(node.id)
-            # Delete collected nodes
-            for node_id in ids_to_delete:
-                del self.test_tree._nodes[node_id]
+                    # It's a node UUID - delete that single node
+                    del self.test_tree._nodes[test_id]
+                else:
+                    # It's a topic path - delete the topic and all its contents
+                    topic = self.topic_tree.get(test_id)
+                    if topic:
+                        self.topic_tree.delete(topic, recursive=True)
             self._compute_embeddings_and_scores()
             self._refresh_interface()
 
@@ -725,21 +711,15 @@ class TestTreeBrowser:
             # compute the scores for the new tests
             self._compute_embeddings_and_scores()
 
-    def _get_topic_marker_id(self, topic):
+    def _get_topic_marker_id(self, topic_path: str) -> str | None:
         """
-        Returns the id of the topic marker row for the given topic.
+        Returns the id of the topic marker row for the given topic path.
         Returns None if not found.
         """
-        # next() returns first match from generator, or None if no match
-        topic_marker_index = next(
-            (
-                node.id
-                for node in self.test_tree
-                if node.topic == topic and node.label == "topic_marker"
-            ),
-            None,
-        )
-        return topic_marker_index
+        topic = self.topic_tree.get(topic_path)
+        if topic:
+            return self.topic_tree.get_topic_marker_id(topic)
+        return None
 
     def _compute_embeddings_and_scores(
         self, recompute=False, overwrite_outputs=False, save_outputs=False
