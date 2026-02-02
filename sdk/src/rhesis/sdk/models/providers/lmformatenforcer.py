@@ -173,8 +173,15 @@ class LMFormatEnforcerLLM(BaseLLM):
         load_kwargs = {**self.load_kwargs}
 
         if self.model_path:
-            # Local path - need trust_remote_code for custom model architectures
-            load_kwargs["trust_remote_code"] = True
+            # Local path with local_files_only - do NOT use trust_remote_code
+            # trust_remote_code=True causes Hub connections even with local paths
+            if load_kwargs.get("local_files_only"):
+                # When using local_files_only, trust_remote_code must be False
+                load_kwargs["trust_remote_code"] = False
+            else:
+                # Local path without local_files_only - need trust_remote_code
+                # for custom model architectures
+                load_kwargs["trust_remote_code"] = True
 
         # Load model and tokenizer
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -184,8 +191,13 @@ class LMFormatEnforcerLLM(BaseLLM):
         )
 
         # Tokenizer loaded WITHOUT trust_remote_code to avoid config dict/object issues
+        # Pass local_files_only to tokenizer if model is using it
+        tokenizer_kwargs = {}
+        if load_kwargs.get("local_files_only"):
+            tokenizer_kwargs["local_files_only"] = True
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_source,
+            **tokenizer_kwargs,
         )
 
         # Get the device for input tensors
