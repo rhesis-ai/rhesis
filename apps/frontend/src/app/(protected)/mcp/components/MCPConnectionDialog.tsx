@@ -910,18 +910,6 @@ export function MCPConnectionDialog({
                           ? 'https://your-domain.atlassian.net'
                           : 'https://your-domain.atlassian.net/wiki'
                       }
-<<<<<<< HEAD
-                      helperText={
-                        isEditMode
-                          ? instanceUrl !== '************' && instanceUrl !== ''
-                            ? 'New URL will replace the current one'
-                            : 'Click to update the URL'
-                          : providerType === 'jira'
-                            ? 'Your Jira instance URL'
-                            : 'Your Confluence instance URL'
-                      }
-=======
->>>>>>> dc18692db (chore: change nomenclature from jira projects to jira spaces)
                     />
 
                     <TextField
