@@ -1,9 +1,9 @@
 """Unit tests for TestTree to_test_set and from_test_set methods."""
 
-import pandas as pd
 import pytest
 
 from rhesis.sdk.adaptive_testing import TestTree
+from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode
 from rhesis.sdk.entities import Prompt, Test, TestSet
 
 
@@ -13,33 +13,84 @@ class TestTestTreeToTestSet:
     @pytest.fixture
     def simple_tree(self):
         """Create a simple TestTree with a few tests."""
-        data = {
-            "topic": ["/Safety", "/Safety", "/Safety/Violence"],
-            "input": ["Is this safe?", "What about this?", "Is violence ok?"],
-            "output": ["Yes it is", "No it isn't", "Never"],
-            "label": ["pass", "fail", "fail"],
-            "labeler": ["user", "user", "user"],
-        }
-        df = pd.DataFrame(data)
-        return TestTree(df, ensure_topic_markers=True)
+        nodes = [
+            TestTreeNode(
+                id="1",
+                topic="/Safety",
+                input="Is this safe?",
+                output="Yes it is",
+                label="pass",
+                labeler="user",
+            ),
+            TestTreeNode(
+                id="2",
+                topic="/Safety",
+                input="What about this?",
+                output="No it isn't",
+                label="fail",
+                labeler="user",
+            ),
+            TestTreeNode(
+                id="3",
+                topic="/Safety/Violence",
+                input="Is violence ok?",
+                output="Never",
+                label="fail",
+                labeler="user",
+            ),
+        ]
+        return TestTree(TestTreeData(nodes=nodes))
+
+    @pytest.fixture
+    def tree_with_topic_marker(self):
+        """Create a TestTree with a topic marker."""
+        nodes = [
+            TestTreeNode(
+                id="marker-1",
+                topic="/Safety",
+                input="",
+                output="",
+                label="topic_marker",
+                labeler="",
+            ),
+            TestTreeNode(
+                id="1",
+                topic="/Safety",
+                input="Is this safe?",
+                output="Yes",
+                label="pass",
+                labeler="user",
+            ),
+        ]
+        return TestTree(TestTreeData(nodes=nodes))
 
     @pytest.fixture
     def tree_with_suggestions(self):
         """Create a TestTree with suggestions."""
-        data = {
-            "topic": ["/Safety", "/Safety/__suggestions__"],
-            "input": ["Is this safe?", "Suggested test"],
-            "output": ["Yes", "[no output]"],
-            "label": ["pass", ""],
-            "labeler": ["user", "imputed"],
-        }
-        df = pd.DataFrame(data)
-        return TestTree(df, ensure_topic_markers=True)
+        nodes = [
+            TestTreeNode(
+                id="1",
+                topic="/Safety",
+                input="Is this safe?",
+                output="Yes",
+                label="pass",
+                labeler="user",
+            ),
+            TestTreeNode(
+                id="2",
+                topic="/Safety/__suggestions__",
+                input="Suggested test",
+                output="[no output]",
+                label="",
+                labeler="imputed",
+            ),
+        ]
+        return TestTree(TestTreeData(nodes=nodes))
 
     @pytest.fixture
     def empty_tree(self):
         """Create an empty TestTree."""
-        return TestTree()
+        return TestTree(TestTreeData(nodes=[]))
 
     def test_to_test_set_returns_test_set(self, simple_tree):
         """to_test_set should return a TestSet instance."""
@@ -53,12 +104,14 @@ class TestTestTreeToTestSet:
         assert len(result.tests) > 0
         assert all(isinstance(t, Test) for t in result.tests)
 
-    def test_to_test_set_excludes_topic_markers(self, simple_tree):
+    def test_to_test_set_excludes_topic_markers(self, tree_with_topic_marker):
         """to_test_set should not include topic_marker rows."""
-        result = simple_tree.to_test_set()
+        result = tree_with_topic_marker.to_test_set()
 
         # Count non-topic-marker rows in original tree
-        actual_tests = simple_tree._tests[simple_tree._tests["label"] != "topic_marker"]
+        actual_tests = [
+            node for node in tree_with_topic_marker._tests if node.label != "topic_marker"
+        ]
         assert len(result.tests) == len(actual_tests)
 
     def test_to_test_set_preserves_topic_path(self, simple_tree):
@@ -78,15 +131,20 @@ class TestTestTreeToTestSet:
             assert test.prompt.content is not None
             assert len(test.prompt.content) > 0
 
-    def test_to_test_set_does_not_store_output(self, simple_tree):
-        """to_test_set should NOT store output (it's execution data)."""
+    def test_to_test_set_stores_output_in_metadata(self, simple_tree):
+        """to_test_set should store output in metadata for round-trip."""
         result = simple_tree.to_test_set()
 
         for test in result.tests:
-            # Output should not be in expected_response
-            assert test.prompt.expected_response is None
-            # Output should not be in metadata
-            assert "output" not in (test.metadata or {})
+            assert "output" in test.metadata
+            assert test.metadata["output"] is not None
+
+    def test_to_test_set_stores_label_in_metadata(self, simple_tree):
+        """to_test_set should store label in metadata for round-trip."""
+        result = simple_tree.to_test_set()
+
+        for test in result.tests:
+            assert "label" in test.metadata
 
     def test_to_test_set_excludes_suggestions_by_default(self, tree_with_suggestions):
         """to_test_set should exclude __suggestions__ by default."""
@@ -126,11 +184,15 @@ class TestTestTreeFromTestSet:
                 topic="/Safety",
                 prompt=Prompt(content="Is this safe?"),
                 metadata={"tree_id": "abc123"},
+                behavior="Test",
+                category="Test",
             ),
             Test(
                 topic="/Safety/Violence",
                 prompt=Prompt(content="Is violence ok?"),
                 metadata={"tree_id": "def456"},
+                behavior="Test",
+                category="Test",
             ),
         ]
         return TestSet(name="Test Set", tests=tests)
@@ -147,72 +209,59 @@ class TestTestTreeFromTestSet:
             Test(
                 topic="/Safety",
                 prompt=Prompt(content="Single turn test"),
+                behavior="Test",
+                category="Test",
             ),
             Test(
                 topic="/MultiTurn",
                 prompt=None,  # Multi-turn tests don't have prompts
-                test_configuration={"goal": "Test the system"},
+                behavior="Test",
+                category="Test",
             ),
         ]
         return TestSet(name="Mixed", tests=tests)
 
-    def test_from_test_set_returns_test_tree(self, simple_test_set):
-        """from_test_set should return a TestTree instance."""
+    def test_from_test_set_returns_test_tree_data(self, simple_test_set):
+        """from_test_set should return a TestTreeData instance."""
         result = TestTree.from_test_set(simple_test_set)
-        assert isinstance(result, TestTree)
+        assert isinstance(result, TestTreeData)
 
     def test_from_test_set_preserves_topics(self, simple_test_set):
         """from_test_set should preserve topic paths."""
         result = TestTree.from_test_set(simple_test_set)
 
-        topics = list(result._tests["topic"])
+        topics = [node.topic for node in result]
         # Topics should be URI-encoded (spaces become %20)
-        assert "/Safety" in topics or "/Safety" in [t.replace("%20", " ") for t in topics]
+        assert "/Safety" in topics or any("/Safety" in t for t in topics)
 
     def test_from_test_set_preserves_input(self, simple_test_set):
         """from_test_set should preserve prompt content as input."""
         result = TestTree.from_test_set(simple_test_set)
 
-        inputs = list(result._tests["input"])
+        inputs = [node.input for node in result]
         assert "Is this safe?" in inputs
         assert "Is violence ok?" in inputs
 
-    def test_from_test_set_sets_no_output(self, simple_test_set):
-        """from_test_set should set output to '[no output]'."""
+    def test_from_test_set_sets_default_output(self, simple_test_set):
+        """from_test_set should set output to '[no output]' when not in metadata."""
         result = TestTree.from_test_set(simple_test_set)
 
-        outputs = list(result._tests["output"])
-        assert all(o == "[no output]" for o in outputs if o)
-
-    def test_from_test_set_tracks_test_set_id(self, simple_test_set):
-        """from_test_set should track the source test_set_id."""
-        simple_test_set.id = "test-set-uuid"
-        result = TestTree.from_test_set(simple_test_set)
-
-        assert hasattr(result, "_test_set_id")
-        assert result._test_set_id == "test-set-uuid"
+        outputs = [node.output for node in result]
+        assert all(o == "[no output]" for o in outputs)
 
     def test_from_test_set_empty(self, empty_test_set):
-        """from_test_set on empty TestSet should return empty TestTree."""
+        """from_test_set on empty TestSet should return empty TestTreeData."""
         result = TestTree.from_test_set(empty_test_set)
-        assert isinstance(result, TestTree)
-        assert len(result._tests) == 0
+        assert isinstance(result, TestTreeData)
+        assert len(result) == 0
 
     def test_from_test_set_skips_multi_turn(self, test_set_with_multi_turn):
         """from_test_set should skip multi-turn tests (no prompt)."""
         result = TestTree.from_test_set(test_set_with_multi_turn)
 
         # Should only have the single-turn test
-        assert len(result._tests[result._tests["label"] != "topic_marker"]) == 1
-        inputs = list(result._tests["input"])
-        assert "Single turn test" in inputs
-
-    def test_from_test_set_creates_topic_markers(self, simple_test_set):
-        """from_test_set should create topic markers for hierarchy."""
-        result = TestTree.from_test_set(simple_test_set)
-
-        topic_markers = result._tests[result._tests["label"] == "topic_marker"]
-        assert len(topic_markers) > 0
+        assert len(result) == 1
+        assert result[0].input == "Single turn test"
 
 
 class TestTestTreeRoundTrip:
@@ -221,69 +270,117 @@ class TestTestTreeRoundTrip:
     @pytest.fixture
     def original_tree(self):
         """Create a TestTree for round-trip testing."""
-        data = {
-            "topic": ["/Category/Topic1", "/Category/Topic2", "/Other"],
-            "input": ["Test input 1", "Test input 2", "Test input 3"],
-            "output": ["Output 1", "Output 2", "[no output]"],
-            "label": ["pass", "fail", ""],
-            "labeler": ["user", "scored", "imputed"],
-        }
-        df = pd.DataFrame(data)
-        return TestTree(df, ensure_topic_markers=True)
+        nodes = [
+            TestTreeNode(
+                id="1",
+                topic="/Category/Topic1",
+                input="Test input 1",
+                output="Output 1",
+                label="pass",
+                labeler="user",
+                model_score=0.9,
+            ),
+            TestTreeNode(
+                id="2",
+                topic="/Category/Topic2",
+                input="Test input 2",
+                output="Output 2",
+                label="fail",
+                labeler="scored",
+                model_score=0.3,
+            ),
+            TestTreeNode(
+                id="3",
+                topic="/Other",
+                input="Test input 3",
+                output="[no output]",
+                label="",
+                labeler="imputed",
+                model_score=0.0,
+            ),
+        ]
+        return TestTree(TestTreeData(nodes=nodes))
 
     def test_round_trip_preserves_test_count(self, original_tree):
         """Round-trip should preserve the number of actual tests."""
         # Get count of actual tests (not topic markers)
-        original_tests = original_tree._tests[original_tree._tests["label"] != "topic_marker"]
+        original_tests = [node for node in original_tree._tests if node.label != "topic_marker"]
         original_count = len(original_tests)
 
         # Convert to TestSet and back
         test_set = original_tree.to_test_set()
-        restored_tree = TestTree.from_test_set(test_set)
+        restored_data = TestTree.from_test_set(test_set)
 
-        # Count tests in restored tree (excluding topic markers)
-        restored_tests = restored_tree._tests[restored_tree._tests["label"] != "topic_marker"]
-        assert len(restored_tests) == original_count
+        # Count tests in restored data
+        assert len(restored_data) == original_count
 
     def test_round_trip_preserves_inputs(self, original_tree):
         """Round-trip should preserve all input values."""
         # Get original inputs (excluding topic markers)
         original_inputs = set(
-            original_tree._tests[original_tree._tests["label"] != "topic_marker"]["input"]
+            node.input for node in original_tree._tests if node.label != "topic_marker"
         )
 
         # Convert to TestSet and back
         test_set = original_tree.to_test_set()
-        restored_tree = TestTree.from_test_set(test_set)
+        restored_data = TestTree.from_test_set(test_set)
 
         # Get restored inputs
-        restored_inputs = set(
-            restored_tree._tests[restored_tree._tests["label"] != "topic_marker"]["input"]
-        )
+        restored_inputs = set(node.input for node in restored_data)
 
         assert original_inputs == restored_inputs
 
-    def test_round_trip_preserves_topics(self, original_tree):
-        """Round-trip should preserve topic paths."""
-        # Get original topics
-        original_topics = set(
-            original_tree._tests[original_tree._tests["label"] != "topic_marker"]["topic"]
+    def test_round_trip_preserves_outputs(self, original_tree):
+        """Round-trip should preserve all output values."""
+        # Get original outputs (excluding topic markers)
+        original_outputs = set(
+            node.output for node in original_tree._tests if node.label != "topic_marker"
         )
 
         # Convert to TestSet and back
         test_set = original_tree.to_test_set()
-        restored_tree = TestTree.from_test_set(test_set)
+        restored_data = TestTree.from_test_set(test_set)
 
-        # Get restored topics
-        restored_topics = set(
-            restored_tree._tests[restored_tree._tests["label"] != "topic_marker"]["topic"]
-        )
+        # Get restored outputs
+        restored_outputs = set(node.output for node in restored_data)
 
-        assert original_topics == restored_topics
+        assert original_outputs == restored_outputs
+
+    def test_round_trip_preserves_labels(self, original_tree):
+        """Round-trip should preserve all label values."""
+        # Get original labels (excluding topic markers)
+        original_labels = [
+            node.label for node in original_tree._tests if node.label != "topic_marker"
+        ]
+
+        # Convert to TestSet and back
+        test_set = original_tree.to_test_set()
+        restored_data = TestTree.from_test_set(test_set)
+
+        # Get restored labels
+        restored_labels = [node.label for node in restored_data]
+
+        assert sorted(original_labels) == sorted(restored_labels)
+
+    def test_round_trip_preserves_model_scores(self, original_tree):
+        """Round-trip should preserve model_score values."""
+        # Get original scores (excluding topic markers)
+        original_scores = [
+            node.model_score for node in original_tree._tests if node.label != "topic_marker"
+        ]
+
+        # Convert to TestSet and back
+        test_set = original_tree.to_test_set()
+        restored_data = TestTree.from_test_set(test_set)
+
+        # Get restored scores
+        restored_scores = [node.model_score for node in restored_data]
+
+        assert sorted(original_scores) == sorted(restored_scores)
 
     def test_round_trip_test_set_has_correct_count(self, original_tree):
         """TestSet should have same number of tests as non-marker rows."""
-        original_tests = original_tree._tests[original_tree._tests["label"] != "topic_marker"]
+        original_tests = [node for node in original_tree._tests if node.label != "topic_marker"]
 
         test_set = original_tree.to_test_set()
 

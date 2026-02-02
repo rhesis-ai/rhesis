@@ -246,17 +246,19 @@ class TestTree:
             # Extract all fields from metadata with defaults for backward compatibility
             meta = test.metadata or {}
 
-            nodes.append(
-                TestTreeNode(
-                    id=meta.get("tree_id"),
-                    topic=topic,
-                    input=test.prompt.content,
-                    output=meta.get("output", "[no output]"),
-                    label=meta.get("label", ""),
-                    labeler=meta.get("labeler", "imported"),
-                    model_score=meta.get("model_score", 0.0),
-                )
-            )
+            # Build node kwargs - only include id if present in metadata
+            node_kwargs = {
+                "topic": topic,
+                "input": test.prompt.content,
+                "output": meta.get("output", "[no output]"),
+                "label": meta.get("label", ""),
+                "labeler": meta.get("labeler", "imported"),
+                "model_score": meta.get("model_score", 0.0),
+            }
+            if meta.get("tree_id"):
+                node_kwargs["id"] = meta["tree_id"]
+
+            nodes.append(TestTreeNode(**node_kwargs))
 
         return TestTreeData(nodes=nodes)
 

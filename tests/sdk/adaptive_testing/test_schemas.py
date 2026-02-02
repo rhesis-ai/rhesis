@@ -51,10 +51,10 @@ class TestTestTreeNode:
         assert node.to_eval is False
         assert node.model_score == 0.95
 
-    def test_missing_input_raises_error(self):
-        """Should raise validation error when input is missing."""
-        with pytest.raises(Exception):
-            TestTreeNode()
+    def test_missing_input_uses_default(self):
+        """Should use empty string as default for input."""
+        node = TestTreeNode()
+        assert node.input == ""
 
     def test_topic_spaces_are_encoded(self):
         """Should encode spaces as %20 in topic field."""
