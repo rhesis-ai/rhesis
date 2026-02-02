@@ -20,7 +20,7 @@ COMPONENTS = {
         "apps/frontend/package.json", "package", "apps/frontend/CHANGELOG.md"
     ),
     "worker": ComponentConfig(
-        "apps/worker/requirements.txt", "requirements", "apps/worker/CHANGELOG.md"
+        "apps/worker/pyproject.toml", "pyproject", "apps/worker/CHANGELOG.md"
     ),
     "chatbot": ComponentConfig(
         "apps/chatbot/requirements.txt", "requirements", "apps/chatbot/CHANGELOG.md"

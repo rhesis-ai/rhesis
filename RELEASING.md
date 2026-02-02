@@ -27,9 +27,9 @@ The Rhesis repository uses a **component-based release strategy** where each com
 |-----------|-------------|----------------|
 | backend | `apps/backend/pyproject.toml` | `apps/backend/CHANGELOG.md` |
 | frontend | `apps/frontend/package.json` | `apps/frontend/CHANGELOG.md` |
-| worker | `apps/worker/requirements.txt` | `apps/worker/CHANGELOG.md` |
+| worker | `apps/worker/pyproject.toml` | `apps/worker/CHANGELOG.md` |
 | chatbot | `apps/chatbot/requirements.txt` | `apps/chatbot/CHANGELOG.md` |
-| polyphemus | `apps/polyphemus/requirements.txt` | `apps/polyphemus/CHANGELOG.md` |
+| polyphemus | `apps/polyphemus/pyproject.toml` | `apps/polyphemus/CHANGELOG.md` |
 | sdk | `sdk/pyproject.toml` | `sdk/CHANGELOG.md` |
 | platform | `VERSION` | `CHANGELOG.md` |
 
