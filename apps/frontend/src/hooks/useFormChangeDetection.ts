@@ -15,7 +15,9 @@ function compareFormData<T extends Record<string, any>>(
     const initialValue = initial[key];
 
     if (typeof currentValue === 'string' || typeof initialValue === 'string') {
-      return normalizeFormValue(currentValue) !== normalizeFormValue(initialValue);
+      return (
+        normalizeFormValue(currentValue) !== normalizeFormValue(initialValue)
+      );
     }
 
     return currentValue !== initialValue;
