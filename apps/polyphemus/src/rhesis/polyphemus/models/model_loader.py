@@ -187,15 +187,33 @@ class LazyModelLoader(BaseLLM):
             logger.info(f"Loading with configuration: {default_load_kwargs}")
 
             try:
-                self._internal_model = get_model(
-                    self._model_name,
-                    auto_loading=False,
-                    model_path=model_source,
-                    load_kwargs=default_load_kwargs,
-                )
-            except TypeError:
+                if model_source:
+                    # When loading from local/mounted path, prevent HuggingFace Hub lookups
+                    # This avoids the 15-20 minute delay from trying to download/validate
+                    local_load_kwargs = {**default_load_kwargs, "local_files_only": True}
+                    logger.info(
+                        "Loading from local path with local_files_only=True "
+                        "to prevent Hub downloads"
+                    )
+                    self._internal_model = get_model(
+                        self._model_name,
+                        auto_loading=False,
+                        model_path=model_source,
+                        load_kwargs=local_load_kwargs,
+                    )
+                else:
+                    # No valid model_source, let the provider download from HuggingFace Hub
+                    logger.info("Loading from HuggingFace Hub (no valid local path)")
+                    self._internal_model = get_model(
+                        self._model_name,
+                        auto_loading=False,
+                        load_kwargs=default_load_kwargs,
+                    )
+            except TypeError as e:
                 # If model_path is not supported by this model type, try without it
-                logger.info("model_path not supported for this model type, creating without it")
+                logger.info(
+                    f"model_path not supported for this model type ({e}), creating without it"
+                )
                 self._internal_model = get_model(self._model_name, auto_loading=False)
 
             # Load the model (for HuggingFace models, this loads model and tokenizer)
