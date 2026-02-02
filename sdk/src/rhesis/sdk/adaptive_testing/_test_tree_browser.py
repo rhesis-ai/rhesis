@@ -17,7 +17,6 @@ from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode
 # from ._scorer import expand_template, clean_template, Scorer
 from .comm import JupyterComm
 from .generators import Generator
-from .utils import is_subtopic
 
 if TYPE_CHECKING:
     from rhesis.sdk.models import BaseEmbedder
@@ -402,123 +401,16 @@ class TestTreeBrowser:
     def _refresh_interface(self):
         """Send our entire current state to the frontend interface."""
 
-        # get the children of the current topic
         data = {}
 
-        def create_children(data, tests, topic):
-            children = []
+        # Build data for current topic
+        children = self._build_topic_children(data, self.current_topic)
 
-            # add tests and topics to the data lookup structure
-            if topic:
-                subtopic_ids = [
-                    node.id
-                    for node in tests
-                    if re.match(r"^%s(/|$)" % re.escape(topic), node.topic)
-                ]
-            else:
-                # at root, include all nodes
-                subtopic_ids = [node.id for node in tests]
-            for k in subtopic_ids:
-                test = tests[k]
-
-                # add a topic
-                if test.label == "topic_marker":
-                    if test.topic != topic:
-                        # extract direct child name (skip parent topic + separator)
-                        start = len(topic) + 1 if topic else 0
-                        name = test.topic[start:]
-                        if "/" not in name:  # only add direct children
-                            data[test.topic] = {
-                                "label": test.label,
-                                "labeler": test.labeler,
-                                "scores": {"model_score": []},
-                                "topic_marker_id": k,
-                                "topic_name": name,
-                                "editing": test.topic.endswith("/New%20topic")
-                                or test.topic == "New%20topic",
-                            }
-                            children.append(test.topic)
-
-                # add a test
-                elif matches_filter(test, self.filter_text):
-                    data[k] = {
-                        "input": test.input,
-                        "output": test.output,
-                        "label": test.label,
-                        "labeler": test.labeler,
-                        "scores": {
-                            "model_score": [
-                                [k, v] for v in ui_score_parts(test.model_score, test.label)
-                            ]
-                        },
-                        "editing": test.input == "New test",
-                    }
-
-                    data[k].update(self.test_display_parts(test))
-                    if test.topic == topic:
-                        children.append(k)
-
-            # fill in the scores for the child topics
-            for k in subtopic_ids:
-                test = tests[k]
-                if (
-                    "/__suggestions__" not in test.topic
-                    and is_subtopic(topic, test.topic)
-                    and test.topic != topic
-                ):
-                    child_topic = test.topic[len(topic) :].split("/", 2)[1]
-                    full_child_topic = topic + "/" + child_topic if topic else child_topic
-                    if full_child_topic not in data:
-                        continue
-                    scores = data[full_child_topic]["scores"]
-                    scores["model_score"].extend(
-                        [[k, v] for v in ui_score_parts(test.model_score, test.label)]
-                    )
-
-            # sort by score and always put new topics first
-            def sort_key(id):
-                try:
-                    total = 0
-                    count = 0
-                    # offset = 0 if data[id]["label"] == "fail" else -1
-                    for s in data[id]["scores"]["model_score"]:
-                        val = score_max(s[1], nan_val=np.nan)
-                        if not np.isnan(val) and val is not None:
-                            total += val  # + offset
-                            count += 1
-                    if count == 0:
-                        return 1e3
-                    else:
-                        return -total / count
-                except Exception as e:
-                    log.warning(f"Error sorting {id}: {e}")
-                    return 1e3  # default sort to end
-
-            sorted_children = sorted(children, key=sort_key)
-            sorted_children = sorted(
-                sorted_children,
-                key=lambda id: 0 if data[id].get("label", "") == "topic_marker" else 1,
-            )  # put folders first
-            sorted_children = sorted(
-                sorted_children, key=lambda id: 1 if data[id].get("label", "") == "off_topic" else 0
-            )  # off topic last
-            sorted_children = sorted(
-                sorted_children,
-                key=lambda id: 0
-                if id.endswith("/New%20topic")
-                or id == "New%20topic"
-                or data[id].get("value1", "") == "New test"
-                else 1,
-            )  # put new items first
-
-            return sorted_children
-
-        # get the children of the current topic
-        children = create_children(data, self.test_tree, self.current_topic)
+        # Build data for suggestions
         suggestions_topic = (
             self.current_topic + "/__suggestions__" if self.current_topic else "__suggestions__"
         )
-        suggestions_children = create_children(data, self.test_tree, suggestions_topic)
+        suggestions_children = self._build_topic_children(data, suggestions_topic)
 
         # TODO: This is a complete hack to hide lower scoring suggestions when we are
         # likely already in the exploit phase
@@ -580,6 +472,151 @@ class TestTreeBrowser:
         }
 
         self.comm.send(data)
+
+    def _build_topic_children(self, data: dict, topic_path: str) -> list[str]:
+        """Build UI data for children of a topic and return sorted child IDs.
+
+        Args:
+            data: Dictionary to populate with UI data (modified in place)
+            topic_path: The topic path to get children for
+
+        Returns:
+            Sorted list of child IDs (topic paths for folders, node IDs for tests)
+        """
+        children = []
+
+        # Get child topics (folders)
+        child_topics = self._get_child_topics_for_path(topic_path)
+        for child_topic in child_topics:
+            marker_id = self.topic_tree.get_topic_marker_id(child_topic)
+
+            # Get all tests under this topic for aggregate scoring
+            all_tests = self.topic_tree.get_tests(child_topic, recursive=True)
+            scores = []
+            for test in all_tests:
+                scores.extend([[test.id, v] for v in ui_score_parts(test.model_score, test.label)])
+
+            data[child_topic.path] = {
+                "label": "topic_marker",
+                "labeler": "",
+                "scores": {"model_score": scores},
+                "topic_marker_id": marker_id,
+                "topic_name": child_topic.name,
+                "editing": child_topic.name == "New%20topic",
+            }
+            children.append(child_topic.path)
+
+        # Get direct tests (not in subtopics)
+        direct_tests = self._get_direct_tests_for_path(topic_path)
+        for test in direct_tests:
+            if not matches_filter(test, self.filter_text):
+                continue
+
+            data[test.id] = {
+                "input": test.input,
+                "output": test.output,
+                "label": test.label,
+                "labeler": test.labeler,
+                "scores": {
+                    "model_score": [
+                        [test.id, v] for v in ui_score_parts(test.model_score, test.label)
+                    ]
+                },
+                "editing": test.input == "New test",
+            }
+            data[test.id].update(self.test_display_parts(test))
+            children.append(test.id)
+
+        # Sort children
+        return self._sort_children(children, data)
+
+    def _get_child_topics_for_path(self, topic_path: str) -> list:
+        """Get child topics for a path, handling __suggestions__ pseudo-topics."""
+        from .schemas import Topic
+
+        if "__suggestions__" in topic_path:
+            # For suggestions, manually find child topic markers
+            child_topics = []
+            prefix = topic_path + "/"
+            seen = set()
+            for node in self.test_tree:
+                if node.label == "topic_marker" and node.topic.startswith(prefix):
+                    # Extract direct child only
+                    remainder = node.topic[len(prefix) :]
+                    if "/" not in remainder and node.topic not in seen:
+                        seen.add(node.topic)
+                        child_topics.append(Topic(path=node.topic))
+            return child_topics
+        else:
+            # Use TopicTree for regular topics
+            topic = self.topic_tree.get(topic_path) if topic_path else None
+            return self.topic_tree.get_children(topic)
+
+    def _get_direct_tests_for_path(self, topic_path: str) -> list:
+        """Get direct tests for a path, handling __suggestions__ pseudo-topics."""
+        if "__suggestions__" in topic_path:
+            # For suggestions, manually find direct tests
+            return [
+                node
+                for node in self.test_tree
+                if node.topic == topic_path and node.label != "topic_marker"
+            ]
+        else:
+            # Use TopicTree for regular topics
+            topic = self.topic_tree.get(topic_path) if topic_path else None
+            if topic:
+                return self.topic_tree.get_tests(topic, recursive=False)
+            else:
+                # Root level - get tests with empty topic
+                return [
+                    node
+                    for node in self.test_tree
+                    if node.topic == "" and node.label != "topic_marker"
+                ]
+
+    def _sort_children(self, children: list[str], data: dict) -> list[str]:
+        """Sort children by score and type."""
+
+        def sort_key(id):
+            try:
+                total = 0
+                count = 0
+                for s in data[id]["scores"]["model_score"]:
+                    val = score_max(s[1], nan_val=np.nan)
+                    if not np.isnan(val) and val is not None:
+                        total += val
+                        count += 1
+                if count == 0:
+                    return 1e3
+                else:
+                    return -total / count
+            except Exception as e:
+                log.warning(f"Error sorting {id}: {e}")
+                return 1e3
+
+        # Sort by score
+        sorted_children = sorted(children, key=sort_key)
+        # Put folders first
+        sorted_children = sorted(
+            sorted_children,
+            key=lambda id: 0 if data[id].get("label", "") == "topic_marker" else 1,
+        )
+        # Put off_topic last
+        sorted_children = sorted(
+            sorted_children,
+            key=lambda id: 1 if data[id].get("label", "") == "off_topic" else 0,
+        )
+        # Put new items first
+        sorted_children = sorted(
+            sorted_children,
+            key=lambda id: 0
+            if id.endswith("/New%20topic")
+            or id == "New%20topic"
+            or data[id].get("value1", "") == "New test"
+            else 1,
+        )
+
+        return sorted_children
 
     def _clear_suggestions(self):
         """Clear the suggestions for the current topic."""
