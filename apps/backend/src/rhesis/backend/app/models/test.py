@@ -72,6 +72,16 @@ class Test(
         "TestSet", secondary=test_test_set_association, back_populates="tests", viewonly=True
     )
 
+    # Embedding relationship (polymorphic)
+    embeddings = relationship(
+        "Embedding",
+        primaryjoin=(
+            "and_(Embedding.entity_id == foreign(Test.id), Embedding.entity_type == 'Test')"
+        ),
+        foreign_keys="[Embedding.entity_id]",
+        viewonly=True,
+    )
+
     # Comment relationship (polymorphic)
     comments = relationship(
         "Comment",

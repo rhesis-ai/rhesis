@@ -51,6 +51,17 @@ class Source(
     prompt_templates = relationship("PromptTemplate", back_populates="source")
     prompts = relationship("Prompt", back_populates="source")
     tests = relationship("Test", back_populates="source")
+
+    # Embedding relationship (polymorphic)
+    embeddings = relationship(
+        "Embedding",
+        primaryjoin=(
+            "and_(Embedding.entity_id == foreign(Source.id), Embedding.entity_type == 'Source')"
+        ),
+        foreign_keys="[Embedding.entity_id]",
+        viewonly=True,
+    )
+
     # Comment relationship (polymorphic)
     comments = relationship(
         "Comment",
