@@ -76,7 +76,6 @@ def upgrade() -> None:
         sa.Column("embedding_768", Vector(768), nullable=True),
         sa.Column("embedding_1024", Vector(1024), nullable=True),
         sa.Column("embedding_1536", Vector(1536), nullable=True),
-        # Foreign keys
         sa.ForeignKeyConstraint(["model_id"], ["model.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["organization_id"], ["organization.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["user.id"], ondelete="SET NULL"),

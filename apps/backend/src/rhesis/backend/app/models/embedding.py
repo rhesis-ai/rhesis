@@ -51,6 +51,7 @@ class EmbeddingConfig:
             )
 
 
+
 class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
     __tablename__ = "embedding"
 
