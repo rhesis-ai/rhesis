@@ -265,7 +265,10 @@ class PromptBuilder:
                 if suggest_topics:
                     if node.topic == "":
                         continue  # we can't use the root to help suggest topic names
-                    parents, child = node.topic.rsplit("/", 1)
+                    if "/" in node.topic:
+                        parents, child = node.topic.rsplit("/", 1)
+                    else:
+                        parents, child = "", node.topic  # root-level topic
                     prompt.append((k, parents, urllib.parse.unquote(child)))
                 else:
                     prompt.append((k, node.topic, node.input))

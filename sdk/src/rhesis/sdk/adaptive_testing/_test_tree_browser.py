@@ -108,6 +108,8 @@ class TestTreeBrowser:
         from .embedders import EmbedderAdapter
 
         self.test_tree = test_tree._tests
+        self.topic_tree = self.test_tree.topics
+
         self.endpoint = endpoint
         self.metrics = metrics
         self.generator = generator
@@ -264,20 +266,9 @@ class TestTreeBrowser:
             #     self._suggestions_error = True
             self._refresh_interface()
 
-        # change the current topic
+        # change the current topic (navigate to a different topic)
         elif event_id == "change_topic":
-            self.current_topic = msg["topic"]
-            # self.suggestions = pd.DataFrame([], columns=self.test_tree.columns)
-
-            # see if we have only topics as direct children, if so,
-            # we suggest topics, otherwise we suggest tests
-            has_direct_tests = self.test_tree.topic_has_direct_tests(self.current_topic)
-            has_known_subtopics = self.test_tree.topic_has_subtopics(self.current_topic)
-            if not has_direct_tests and has_known_subtopics:
-                self.mode = "topics"
-            else:
-                self.mode = "tests"
-
+            self.current_topic = msg["topic"].lstrip("/")  # Remove leading slash
             self._refresh_interface()
 
         # clear the current set of suggestions
@@ -288,11 +279,7 @@ class TestTreeBrowser:
 
         # add a new empty subtopic to the current topic
         elif event_id == "add_new_topic":
-            new_topic = (
-                self.current_topic + "/New%20topic"
-                if self.current_topic
-                else "New%20topic"
-            )
+            new_topic = self.current_topic + "/New%20topic" if self.current_topic else "New%20topic"
             node = TestTreeNode(
                 topic=new_topic,
                 label="topic_marker",
@@ -334,16 +321,25 @@ class TestTreeBrowser:
         # Move a test/topic to a new topic
         # Also used to rename
         elif event_id == "move_test":
-            log.debug("move_test")
+            print(f"move_test: test_ids={msg['test_ids']}, topic={msg['topic']}")
             test_ids = msg["test_ids"]
-            # test_id can either be a unique test ID or a topic name
+            new_topic = msg["topic"].lstrip("/")  # Remove leading slash if present
+            # test_id can either be a unique test ID or a topic path
             for test_id in test_ids:
+                print(f"  Processing test_id={test_id}, in index={test_id in self.test_tree.index}")
+                # If test_id is a node UUID, update that node's topic
                 if test_id in self.test_tree.index:
-                    self.test_tree[test_id].topic = msg["topic"]
-                if "/" in test_id:
+                    old_topic = self.test_tree[test_id].topic
+                    self.test_tree[test_id].topic = new_topic
+                    print(f"  Updated node {test_id} topic: {old_topic} -> {new_topic}")
+                # If test_id is a topic path, update all nodes in that topic/subtopic
+                # This handles renaming: old topic path -> new topic path
+                else:
                     for node in self.test_tree:
                         if is_subtopic(test_id, node.topic):
-                            node.topic = msg["topic"] + node.topic[len(test_id) :]
+                            old_topic = node.topic
+                            node.topic = new_topic + node.topic[len(test_id) :]
+                            print(f"  Updated node {node.id} topic: {old_topic} -> {node.topic}")
             # Recompute any missing embeddings to handle any changes
             self._compute_embeddings_and_scores()
             self._refresh_interface()
@@ -533,9 +529,10 @@ class TestTreeBrowser:
 
         # get the children of the current topic
         children = create_children(data, self.test_tree, self.current_topic)
-        suggestions_children = create_children(
-            data, self.test_tree, self.current_topic + "/__suggestions__"
+        suggestions_topic = (
+            self.current_topic + "/__suggestions__" if self.current_topic else "__suggestions__"
         )
+        suggestions_children = create_children(data, self.test_tree, suggestions_topic)
 
         # TODO: This is a complete hack to hide lower scoring suggestions when we are
         # likely already in the exploit phase
@@ -588,10 +585,11 @@ class TestTreeBrowser:
 
     def _clear_suggestions(self):
         """Clear the suggestions for the current topic."""
+        suggestions_prefix = (
+            self.current_topic + "/__suggestions__" if self.current_topic else "__suggestions__"
+        )
         ids_to_delete = [
-            node.id
-            for node in self.test_tree
-            if node.topic.startswith(self.current_topic + "/__suggestions__")
+            node.id for node in self.test_tree if node.topic.startswith(suggestions_prefix)
         ]
         for node_id in ids_to_delete:
             del self.test_tree._nodes[node_id]
@@ -669,12 +667,20 @@ class TestTreeBrowser:
                 else:
                     str_val = self.current_topic + " __JOIN__ " + input
                 if str_val not in test_map_tmp:
-                    node = TestTreeNode(
-                        topic=(
+                    # Build suggestion topic path
+                    if self.current_topic:
+                        suggestion_topic = (
                             self.current_topic
                             + "/__suggestions__"
                             + ("/" + input if self.mode == "topics" else "")
-                        ),
+                        )
+                    else:
+                        # Root level suggestions
+                        suggestion_topic = "__suggestions__" + (
+                            "/" + input if self.mode == "topics" else ""
+                        )
+                    node = TestTreeNode(
+                        topic=suggestion_topic,
                         input="" if self.mode == "topics" else input,
                         output="[no output]",
                         label="topic_marker" if self.mode == "topics" else "",
@@ -732,8 +738,7 @@ class TestTreeBrowser:
         )
 
         eval_ids = [
-            node.id for node in self.test_tree
-            if node.to_eval and node.label != "topic_marker"
+            node.id for node in self.test_tree if node.to_eval and node.label != "topic_marker"
         ]
 
         if len(eval_ids) > 0:
