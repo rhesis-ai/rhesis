@@ -289,15 +289,20 @@ class TestTreeBrowser:
 
         # add a new empty subtopic to the current topic
         elif event_id == "add_new_topic":
+            new_topic = (
+                self.current_topic + "/New%20topic"
+                if self.current_topic
+                else "New%20topic"
+            )
             node = TestTreeNode(
-                topic=self.current_topic + "/New topic",
+                topic=new_topic,
                 label="topic_marker",
                 input="",
                 output="",
                 labeler=self.user,
+                to_eval=False,  # topic markers shouldn't be evaluated
             )
             self.test_tree[node.id] = node
-            self._compute_embeddings_and_scores()
             self._refresh_interface()
 
         # add a new empty test to the current topic

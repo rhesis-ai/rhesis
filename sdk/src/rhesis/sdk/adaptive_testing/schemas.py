@@ -71,3 +71,20 @@ class TestTreeData:
     def get_tests(self) -> List["TestTreeNode"]:
         """Get all actual test nodes (non-topic markers)."""
         return [node for node in self if node.label != "topic_marker"]
+
+    def topic_has_direct_tests(self, target_topic: str) -> bool:
+        """Check if a topic has direct tests (non-topic-marker nodes)."""
+        return any(
+            node.topic == target_topic and node.label != "topic_marker"
+            for node in self
+        )
+
+    def topic_has_subtopics(self, target_topic: str) -> bool:
+        """Check if a topic has subtopics."""
+        prefix = target_topic + "/" if target_topic else ""
+        return any(
+            node.topic != target_topic
+            and node.topic.startswith(prefix)
+            and node.label == "topic_marker"
+            for node in self
+        )
