@@ -175,10 +175,7 @@ class PromptBuilder:
                 if suggest_topics:
                     embeddings_arr = np.vstack(
                         embed_fn(
-                            [
-                                urllib.parse.unquote(test_tree[id].topic.split("/")[-1])
-                                for id in ids
-                            ]
+                            [urllib.parse.unquote(test_tree[id].topic.split("/")[-1]) for id in ids]
                         )
                     )
                 else:
@@ -257,10 +254,7 @@ class PromptBuilder:
                     if topic != new_topic and is_subtopic(topic, new_topic):
                         subtopic = topic + "/" + new_topic[(len(topic) + 1) :].split("/")[0]
                         subtopic_scaling = np.array(
-                            [
-                                0.001 if is_subtopic(subtopic, test_tree[k].topic) else 1
-                                for k in ids
-                            ]
+                            [0.001 if is_subtopic(subtopic, test_tree[k].topic) else 1 for k in ids]
                         )
                         topic_scaling_curr *= subtopic_scaling
 
