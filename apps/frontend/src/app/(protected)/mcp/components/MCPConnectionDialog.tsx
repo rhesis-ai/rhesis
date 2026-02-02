@@ -693,16 +693,6 @@ export function MCPConnectionDialog({
         return;
       }
 
-      // Validate Jira space selection
-      if (
-        provider.type_value === 'jira' &&
-        showSpaceSelector &&
-        !selectedSpaceKey
-      ) {
-        setError('Please select a Jira space.');
-        return;
-      }
-
       // For custom providers, tool_metadata is required
       if (isCustomProvider && !toolMetadata.trim()) {
         setError('Tool metadata is required for custom providers.');
@@ -1078,9 +1068,9 @@ export function MCPConnectionDialog({
                           color: 'primary.main',
                         }}
                       >
-                        Space Selection
+                        Space Selection (Optional)
                       </Typography>
-                      <FormControl fullWidth required>
+                      <FormControl fullWidth>
                         <InputLabel>Jira Space</InputLabel>
                         <Select
                           value={selectedSpaceKey}
@@ -1099,7 +1089,8 @@ export function MCPConnectionDialog({
                         color="text.secondary"
                         sx={{ mt: 0.5, display: 'block' }}
                       >
-                        Select the Jira space where issues will be created
+                        Optional: Select a default Jira space for issue
+                        creation.
                       </Typography>
                     </Box>
                   )}
