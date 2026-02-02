@@ -148,10 +148,9 @@ class TestTree:
         -----
         - Topic markers (rows with label="topic_marker") are skipped
         - The full topic path (e.g., "/Safety/Violence") is preserved in Test.topic
-        - Only the input (prompt) is stored - output is execution data, not test definition
-        - Test metadata includes: tree_id (for reference back to original tree row)
+        - All node fields are stored in metadata for complete round-trip support:
+          tree_id, output, label, labeler, model_score
         """
-
         tests = []
 
         for node in self._tests:
@@ -166,18 +165,17 @@ class TestTree:
             # Decode URI-encoded topic (spaces are encoded as %20)
             topic = urllib.parse.unquote(node.topic) if node.topic else ""
 
-            # Build the prompt with input only
-            # Output is execution data (goes to TestResult), not test definition
-            prompt = Prompt(
-                content=node.input,
-            )
+            prompt = Prompt(content=node.input)
 
-            # Minimal metadata - just track origin for potential round-trips
+            # Store all node fields in metadata for complete round-trip
             metadata = {
                 "tree_id": str(node.id),
+                "output": node.output,
+                "label": node.label,
+                "labeler": node.labeler,
+                "model_score": node.model_score,
             }
 
-            # Create the test
             test = Test(
                 topic=topic,
                 prompt=prompt,
@@ -187,10 +185,7 @@ class TestTree:
             )
             tests.append(test)
 
-        return TestSet(
-            name=self.name,
-            tests=tests,
-        )
+        return TestSet(name=self.name, tests=tests)
 
     @classmethod
     def from_test_set(cls, test_set: "TestSet") -> "TestTreeData":
@@ -229,10 +224,10 @@ class TestTree:
         -----
         - Test.topic is used directly as the hierarchical topic path
         - Test.prompt.content becomes input
-        - Output is set to "[no output]" (outputs come from TestResults, not Tests)
+        - All fields (output, label, labeler, model_score) are restored from metadata
+          with sensible defaults for backward compatibility
         - Tests without prompts are skipped (e.g., multi-turn tests)
         """
-
         nodes = []
 
         for test in test_set.tests or []:
@@ -244,28 +239,26 @@ class TestTree:
             if not test.prompt or not test.prompt.content:
                 continue
 
-            # Get topic - use the full path as stored
+            # Get topic and URI encode for internal consistency
             topic = test.topic or ""
-
-            # URI encode topic path (spaces become %20) for internal consistency
             topic = urllib.parse.quote(topic, safe="/")
 
-            # Output is "[no output]" - actual outputs come from TestResults
-            # when tests are executed, not from the Test definition
-            output = "[no output]"
+            # Extract all fields from metadata with defaults for backward compatibility
+            meta = test.metadata or {}
 
             nodes.append(
                 TestTreeNode(
+                    id=meta.get("tree_id"),
                     topic=topic,
                     input=test.prompt.content,
-                    output=output,
-                    label="",  # Will be set after execution/evaluation
-                    labeler="imported",
+                    output=meta.get("output", "[no output]"),
+                    label=meta.get("label", ""),
+                    labeler=meta.get("labeler", "imported"),
+                    model_score=meta.get("model_score", 0.0),
                 )
             )
 
-        test_data = TestTreeData(nodes=nodes)
-        return test_data
+        return TestTreeData(nodes=nodes)
 
     def topic(self, topic_path: str) -> "TestTree":
         """Return a subset of the test tree containing only tests that match the given topic.
