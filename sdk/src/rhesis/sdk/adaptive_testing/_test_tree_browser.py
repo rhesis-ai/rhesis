@@ -607,12 +607,12 @@ class TestTreeBrowser:
         # --Backend-driven suggestions--
 
         # save a lookup we can use to detect duplicate tests
-        test_map = {}
-        for _, test in self.test_tree.iterrows():
-            if test.label == "topic_marker":
-                test_map[test.topic + " __topic_marker__"] = True
-            else:
-                test_map[test.topic + " __JOIN__ " + test.input] = True
+        test_map = {
+            f"{test.topic} __topic_marker__"
+            if test.label == "topic_marker"
+            else f"{test.topic} __JOIN__ {test.input}"
+            for test in self.test_tree
+        }
 
         # validity focused (focus first on making valid in-topic tests,
         #   then secondarily on making those tests high scoring)
@@ -703,14 +703,12 @@ class TestTreeBrowser:
                     #     s[c] = ""
                     # suggestions.append(s)
                     if str_val is not None:
-                        test_map_tmp[str_val] = True
+                        test_map_tmp.add(str_val)
 
             # suggestions = pd.DataFrame(
             #     suggestions, index=[uuid.uuid4().hex for _ in range(len(suggestions))],
             #     columns=self.test_tree.columns
             # )
-            # make sure any duplicates we may have introduced are removed
-            self.test_tree.deduplicate()
 
             # compute the scores for the new tests
             self._compute_embeddings_and_scores()
