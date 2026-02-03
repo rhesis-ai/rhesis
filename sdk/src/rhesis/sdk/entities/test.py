@@ -71,6 +71,23 @@ class Test(BaseEntity):
 
         return data
 
+    @model_validator(mode="before")
+    @classmethod
+    def map_test_metadata(cls, data: Any) -> Any:
+        """Map test_metadata from backend response to metadata.
+
+        The backend uses 'test_metadata' (to avoid SQLAlchemy reserved name),
+        but the SDK uses 'metadata' for consistency.
+        """
+        if isinstance(data, dict):
+            # If test_metadata exists and metadata doesn't, copy it over
+            if "test_metadata" in data and "metadata" not in data:
+                data["metadata"] = data.pop("test_metadata") or {}
+            elif "test_metadata" in data:
+                # Remove test_metadata if metadata already exists
+                data.pop("test_metadata", None)
+        return data
+
     @field_validator("category", "topic", "behavior", mode="before")
     @classmethod
     def extract_name_from_dict(cls, v: Any) -> Optional[str]:
