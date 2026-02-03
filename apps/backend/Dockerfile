@@ -57,9 +57,11 @@ COPY penelope /app/penelope/
 RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
 
-# Install dependencies
+# Install dependencies (torch is in optional dependencies, not installed by default)
+# To install with CPU torch, use: uv sync --extra cpu
+# To install with GPU torch, use: uv sync --extra gpu
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync
+    uv sync --extra cpu
 
 # Remove PyTorch to reduce image size (~780MB savings)
 # Garak declares torch as a dependency, but our usage (probe enumeration and

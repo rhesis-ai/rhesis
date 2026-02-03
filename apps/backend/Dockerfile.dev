@@ -51,7 +51,7 @@ COPY apps/backend/src /app/src/
 
 # Install the project (backend, sdk, and penelope)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync
+    uv sync --extra cpu
 
 
 # ============================================================================
