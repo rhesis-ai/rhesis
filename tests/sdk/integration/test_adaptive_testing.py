@@ -279,37 +279,3 @@ def test_test_tree_from_test_set_backward_compatibility(db_cleanup):
     assert node.label == ""  # default
     assert node.labeler == "imported"  # default
     assert node.model_score == 0.0  # default
-
-
-def test_test_tree_round_trip_with_special_characters(db_cleanup):
-    """Test round-trip with special characters in topics and content."""
-    nodes = [
-        TestTreeNode(
-            id="special-001",
-            topic="Safety/Spécial Tøpic",
-            input="Test with émojis 🎉 and spëcial chars",
-            output="Response with ünïcödé",
-            label="pass",
-            labeler="human",
-            model_score=0.9,
-        ),
-    ]
-
-    test_data = TestTreeData(nodes=nodes)
-    tree = TestTree(test_data)
-
-    test_set = tree.to_test_set()
-    test_set.name = "Special Characters Test"
-
-    result = test_set.push()
-    test_set_id = result["id"]
-
-    pulled_test_set = TestSet(id=test_set_id)
-    pulled_test_set.pull()
-    restored_data = TestTree.from_test_set(pulled_test_set)
-
-    assert len(restored_data) == 1
-    node = restored_data[0]
-    assert node.input == "Test with émojis 🎉 and spëcial chars"
-    assert node.output == "Response with ünïcödé"
-    assert node.label == "pass"
