@@ -1,6 +1,6 @@
 from typing import Any, ClassVar, Dict, Optional
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
@@ -70,6 +70,45 @@ class Test(BaseEntity):
                 data.pop(field, None)
 
         return data
+
+    @field_validator("category", "topic", "behavior", mode="before")
+    @classmethod
+    def extract_name_from_dict(cls, v: Any) -> Optional[str]:
+        """Extract name from nested dict if backend returns full object.
+
+        Handles:
+        - None: returns None
+        - str: returns as-is
+        - dict: extracts 'name' key (backend API response format)
+        """
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v
+        if isinstance(v, dict):
+            return v.get("name")
+        return v
+
+    @field_validator("test_type", mode="before")
+    @classmethod
+    def extract_test_type(cls, v: Any) -> Optional[str]:
+        """Extract type_value from nested dict if backend returns full TypeLookup object.
+
+        Handles:
+        - None: returns None
+        - TestType enum: returns the enum value string
+        - str: returns as-is (Pydantic handles enum conversion)
+        - dict: extracts 'type_value' key (backend API response format)
+        """
+        if v is None:
+            return None
+        if isinstance(v, TestType):
+            return v.value
+        if isinstance(v, str):
+            return v
+        if isinstance(v, dict):
+            return v.get("type_value")
+        return v
 
     @handle_http_errors
     def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:

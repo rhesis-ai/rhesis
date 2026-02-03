@@ -65,6 +65,65 @@ class TestSet(BaseEntity):
             return v.get("type_value")
         return v
 
+    @handle_http_errors
+    def fetch_tests(self, skip: int = 0, limit: int = 100) -> List[Test]:
+        """Fetch tests associated with this test set from the API.
+
+        Args:
+            skip: Number of tests to skip (for pagination). Defaults to 0.
+            limit: Maximum number of tests to fetch. Defaults to 100.
+
+        Returns:
+            List of Test objects associated with this test set.
+
+        Raises:
+            ValueError: If test set ID is not set.
+
+        Example:
+            >>> test_set = TestSet(id='test-set-123')
+            >>> tests = test_set.fetch_tests()
+            >>> print(f"Fetched {len(tests)} tests")
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before fetching tests")
+
+        client = APIClient()
+        response = client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/tests",
+            params={"skip": skip, "limit": limit},
+        )
+
+        if response:
+            self.tests = [Test.model_validate(t) for t in response]
+            self.test_count = len(self.tests)
+            return self.tests
+        return []
+
+    def pull(self, include_tests: bool = True) -> "TestSet":
+        """Pull the test set from the database and update this instance.
+
+        Args:
+            include_tests: If True (default), also fetches associated tests.
+
+        Returns:
+            TestSet: Returns self for method chaining.
+
+        Example:
+            >>> test_set = TestSet(id='test-set-123')
+            >>> test_set.pull()  # Fetches test set metadata and tests
+            >>> print(f"Test set has {len(test_set.tests)} tests")
+        """
+        # Call parent pull() to get test set metadata
+        super().pull()
+
+        # Fetch tests if requested
+        if include_tests:
+            self.fetch_tests()
+
+        return self
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
