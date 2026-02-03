@@ -175,6 +175,12 @@ async function getNavigationItems(
       title: 'Test Sets',
       icon: <CategoryIcon />,
     },
+    {
+      kind: 'page',
+      segment: 'test-explorer',
+      title: 'Test Explorer',
+      icon: <GridViewIcon />,
+    },
     // Results Section
     {
       kind: 'header',
