@@ -19,8 +19,10 @@ import ApiIcon from '@mui/icons-material/Api';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import Link from 'next/link';
 import SpanTreeView from './SpanTreeView';
+import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -49,6 +51,7 @@ export default function TraceDrawer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
+  const [viewTab, setViewTab] = useState<number>(0);
 
   useEffect(() => {
     if (open && traceId && projectId) {
@@ -294,7 +297,8 @@ export default function TraceDrawer({
               }}
             >
               <Tabs
-                value={0}
+                value={viewTab}
+                onChange={(_, newValue) => setViewTab(newValue)}
                 aria-label="span hierarchy tabs"
                 variant="scrollable"
                 scrollButtons="auto"
@@ -340,18 +344,38 @@ export default function TraceDrawer({
                   id="span-hierarchy-tab-0"
                   aria-controls="span-hierarchy-tabpanel-0"
                 />
+                <Tab
+                  icon={<BubbleChartIcon fontSize="small" />}
+                  iconPosition="start"
+                  label="Graph View"
+                  id="span-hierarchy-tab-1"
+                  aria-controls="span-hierarchy-tabpanel-1"
+                />
               </Tabs>
             </Box>
 
             {/* Tab Content */}
             <Box
-              sx={{ flex: 1, overflow: 'auto', p: theme => theme.spacing(2) }}
+              sx={{
+                flex: 1,
+                overflow: viewTab === 1 ? 'hidden' : 'auto',
+                p: viewTab === 1 ? 0 : theme => theme.spacing(2),
+              }}
             >
-              <SpanTreeView
-                spans={trace.root_spans}
-                selectedSpan={selectedSpan}
-                onSpanSelect={handleSpanSelect}
-              />
+              {viewTab === 0 && (
+                <SpanTreeView
+                  spans={trace.root_spans}
+                  selectedSpan={selectedSpan}
+                  onSpanSelect={handleSpanSelect}
+                />
+              )}
+              {viewTab === 1 && (
+                <SpanGraphView
+                  spans={trace.root_spans}
+                  selectedSpan={selectedSpan}
+                  onSpanSelect={handleSpanSelect}
+                />
+              )}
             </Box>
           </Box>
 
