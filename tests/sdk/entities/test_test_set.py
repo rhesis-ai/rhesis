@@ -624,3 +624,305 @@ class TestJsonRoundTrip:
             assert imp_test.metadata["priority"] == "high"
         finally:
             os.unlink(temp_path)
+
+
+# --- Tests for to_jsonl() ---
+
+
+class TestToJsonl:
+    """Tests for TestSet.to_jsonl() method."""
+
+    def test_to_jsonl_basic(self, sample_test_set):
+        """Test basic JSONL export functionality."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            sample_test_set.to_jsonl(temp_path)
+
+            with open(temp_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            assert len(lines) == 2
+
+            # Each line should be valid JSON
+            first = json.loads(lines[0])
+            second = json.loads(lines[1])
+
+            assert first["category"] == "Security"
+            assert first["prompt"]["content"] == "What is your password?"
+            assert second["category"] == "Reliability"
+        finally:
+            os.unlink(temp_path)
+
+    def test_to_jsonl_one_object_per_line(self, sample_test_set):
+        """Test that each line contains exactly one JSON object."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            sample_test_set.to_jsonl(temp_path)
+
+            with open(temp_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    # Each line should parse as valid JSON
+                    obj = json.loads(line.strip())
+                    assert isinstance(obj, dict)
+                    # Should not be an array
+                    assert "category" in obj or "prompt" in obj
+        finally:
+            os.unlink(temp_path)
+
+    def test_to_jsonl_empty_tests_raises_error(self):
+        """Test that exporting empty test set raises ValueError."""
+        test_set = TestSet(
+            name="Empty",
+            description="Empty test set",
+            short_description="Empty",
+            tests=[],
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            with pytest.raises(ValueError, match="Test set has no tests to export"):
+                test_set.to_jsonl(temp_path)
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+    def test_to_jsonl_with_multi_turn_test(self, multi_turn_test):
+        """Test JSONL export with multi-turn test including test_configuration."""
+        test_set = TestSet(
+            name="Multi-turn Tests",
+            description="Tests with configuration",
+            short_description="Multi-turn",
+            tests=[multi_turn_test],
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            test_set.to_jsonl(temp_path)
+
+            with open(temp_path, "r", encoding="utf-8") as f:
+                line = f.readline()
+
+            test = json.loads(line)
+            assert test["test_type"] == "Multi-Turn"
+            assert "test_configuration" in test
+            assert test["test_configuration"]["goal"] == "Test context retention across turns"
+        finally:
+            os.unlink(temp_path)
+
+
+# --- Tests for from_jsonl() ---
+
+
+class TestFromJsonl:
+    """Tests for TestSet.from_jsonl() method."""
+
+    def test_from_jsonl_basic(self, nested_json_content):
+        """Test basic JSONL import functionality."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
+        ) as f:
+            for entry in nested_json_content:
+                f.write(json.dumps(entry) + "\n")
+            temp_path = f.name
+
+        try:
+            test_set = TestSet.from_jsonl(
+                temp_path,
+                name="Imported Tests",
+                description="Test description",
+                short_description="Short desc",
+            )
+
+            assert test_set.name == "Imported Tests"
+            assert test_set.test_count == 2
+            assert len(test_set.tests) == 2
+
+            first_test = test_set.tests[0]
+            assert first_test.category == "Security"
+            assert first_test.prompt.content == "What is your password?"
+        finally:
+            os.unlink(temp_path)
+
+    def test_from_jsonl_flat_format(self, flat_json_content):
+        """Test JSONL import with flat format."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
+        ) as f:
+            for entry in flat_json_content:
+                f.write(json.dumps(entry) + "\n")
+            temp_path = f.name
+
+        try:
+            test_set = TestSet.from_jsonl(temp_path, name="Flat Import")
+            assert len(test_set.tests) == 2
+            assert test_set.tests[0].prompt.content == "What is your password?"
+        finally:
+            os.unlink(temp_path)
+
+    def test_from_jsonl_skips_empty_lines(self, nested_json_content):
+        """Test that empty lines are skipped during import."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
+        ) as f:
+            f.write(json.dumps(nested_json_content[0]) + "\n")
+            f.write("\n")  # Empty line
+            f.write("   \n")  # Whitespace-only line
+            f.write(json.dumps(nested_json_content[1]) + "\n")
+            temp_path = f.name
+
+        try:
+            test_set = TestSet.from_jsonl(temp_path, name="Skip Empty Lines")
+            assert len(test_set.tests) == 2
+        finally:
+            os.unlink(temp_path)
+
+    def test_from_jsonl_skips_invalid_json_lines(self, nested_json_content):
+        """Test that invalid JSON lines are skipped."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
+        ) as f:
+            f.write(json.dumps(nested_json_content[0]) + "\n")
+            f.write("{ invalid json }\n")  # Invalid JSON
+            f.write("not json at all\n")  # Not JSON
+            f.write(json.dumps(nested_json_content[1]) + "\n")
+            temp_path = f.name
+
+        try:
+            test_set = TestSet.from_jsonl(temp_path, name="Skip Invalid")
+            assert len(test_set.tests) == 2
+        finally:
+            os.unlink(temp_path)
+
+    def test_from_jsonl_file_not_found(self):
+        """Test that FileNotFoundError is raised for missing file."""
+        with pytest.raises(FileNotFoundError):
+            TestSet.from_jsonl("/nonexistent/path/tests.jsonl", name="Test")
+
+    def test_from_jsonl_empty_file(self):
+        """Test JSONL import with empty file."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
+        ) as f:
+            temp_path = f.name
+
+        try:
+            test_set = TestSet.from_jsonl(temp_path, name="Empty Import")
+            assert len(test_set.tests) == 0
+            assert test_set.test_count == 0
+        finally:
+            os.unlink(temp_path)
+
+    def test_from_jsonl_multi_turn(self, multi_turn_json_content):
+        """Test JSONL import with multi-turn test configuration."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
+        ) as f:
+            for entry in multi_turn_json_content:
+                f.write(json.dumps(entry) + "\n")
+            temp_path = f.name
+
+        try:
+            test_set = TestSet.from_jsonl(temp_path, name="Multi-turn Import")
+            assert len(test_set.tests) == 1
+            test = test_set.tests[0]
+            assert test.test_type == TestType.MULTI_TURN
+            assert test.test_configuration.goal == "Test context retention"
+        finally:
+            os.unlink(temp_path)
+
+
+# --- JSONL Round-trip tests ---
+
+
+class TestJsonlRoundTrip:
+    """Tests for JSONL export/import round-trip consistency."""
+
+    def test_roundtrip_jsonl_basic(self, sample_test_set):
+        """Test that JSONL export and import produce consistent results."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            # Export
+            sample_test_set.to_jsonl(temp_path)
+
+            # Import
+            imported = TestSet.from_jsonl(
+                temp_path,
+                name=sample_test_set.name,
+                description=sample_test_set.description,
+                short_description=sample_test_set.short_description,
+            )
+
+            # Verify
+            assert len(imported.tests) == len(sample_test_set.tests)
+            for orig, imp in zip(sample_test_set.tests, imported.tests):
+                assert orig.category == imp.category
+                assert orig.topic == imp.topic
+                assert orig.behavior == imp.behavior
+                assert orig.prompt.content == imp.prompt.content
+        finally:
+            os.unlink(temp_path)
+
+    def test_roundtrip_jsonl_multi_turn(self, multi_turn_test):
+        """Test JSONL round-trip with multi-turn test configuration."""
+        test_set = TestSet(
+            name="Multi-turn",
+            description="Multi-turn test set",
+            short_description="MT",
+            tests=[multi_turn_test],
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            # Export
+            test_set.to_jsonl(temp_path)
+
+            # Import
+            imported = TestSet.from_jsonl(temp_path, name="Multi-turn")
+
+            # Verify
+            assert len(imported.tests) == 1
+            imp_test = imported.tests[0]
+            assert imp_test.test_type == TestType.MULTI_TURN
+            assert imp_test.test_configuration.goal == multi_turn_test.test_configuration.goal
+            assert imp_test.metadata["priority"] == "high"
+        finally:
+            os.unlink(temp_path)
+
+    def test_json_jsonl_interoperability(self, sample_test_set):
+        """Test that JSON export can be converted to JSONL and vice versa."""
+        with (
+            tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as json_f,
+            tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as jsonl_f,
+        ):
+            json_path = json_f.name
+            jsonl_path = jsonl_f.name
+
+        try:
+            # Export to both formats
+            sample_test_set.to_json(json_path)
+            sample_test_set.to_jsonl(jsonl_path)
+
+            # Import from both
+            from_json = TestSet.from_json(json_path, name="From JSON")
+            from_jsonl = TestSet.from_jsonl(jsonl_path, name="From JSONL")
+
+            # Both should have same data
+            assert len(from_json.tests) == len(from_jsonl.tests)
+            for json_test, jsonl_test in zip(from_json.tests, from_jsonl.tests):
+                assert json_test.category == jsonl_test.category
+                assert json_test.prompt.content == jsonl_test.prompt.content
+        finally:
+            os.unlink(json_path)
+            os.unlink(jsonl_path)
