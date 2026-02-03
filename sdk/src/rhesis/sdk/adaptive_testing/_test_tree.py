@@ -154,10 +154,6 @@ class TestTree:
         tests = []
 
         for node in self._tests:
-            # Skip topic markers - they're structural, not actual tests
-            if node.label == "topic_marker":
-                continue
-
             # Skip suggestions unless explicitly included
             if not include_suggestions and "/__suggestions__" in node.topic:
                 continue
@@ -235,21 +231,23 @@ class TestTree:
             if isinstance(test, dict):
                 test = Test(**test)
 
+            # Extract metadata early to check for topic markers
+            meta = test.metadata or {}
+            is_topic_marker = meta.get("label") == "topic_marker"
+
             # Skip tests without prompts (multi-turn tests use test_configuration)
-            if not test.prompt or not test.prompt.content:
+            # But allow topic markers which have empty prompts
+            if not is_topic_marker and (not test.prompt or not test.prompt.content):
                 continue
 
             # Get topic and URI encode for internal consistency
             topic = test.topic or ""
             topic = urllib.parse.quote(topic, safe="/")
 
-            # Extract all fields from metadata with defaults for backward compatibility
-            meta = test.metadata or {}
-
             # Build node kwargs - only include id if present in metadata
             node_kwargs = {
                 "topic": topic,
-                "input": test.prompt.content,
+                "input": test.prompt.content if test.prompt else "",
                 "output": meta.get("output", "[no output]"),
                 "label": meta.get("label", ""),
                 "labeler": meta.get("labeler", "imported"),
