@@ -26,6 +26,7 @@ import EditIcon from '@mui/icons-material/EditOutlined';
 import TestSetTags from './TestSetTags';
 import TestSetMetrics from './TestSetMetrics';
 import type { GarakSyncPreviewResponse } from '@/utils/api-client/garak-client';
+import { formatDate } from '@/utils/date';
 
 interface TestSetDetailsSectionProps {
   testSet: TestSet;
@@ -585,6 +586,23 @@ export default function TestSetDetailsSection({
           }}
         >
           {testSet.user?.name || testSet.user?.email || 'Not available'}
+        </Typography>
+      </Box>
+
+      {/* Creation Date */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+          Created
+        </Typography>
+        <Typography
+          variant="body2"
+          sx={{
+            bgcolor: 'action.hover',
+            borderRadius: theme => theme.shape.borderRadius * 0.25,
+            padding: 1,
+          }}
+        >
+          {testSet.created_at ? formatDate(testSet.created_at) : 'Not available'}
         </Typography>
       </Box>
 
