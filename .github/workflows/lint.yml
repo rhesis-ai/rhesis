@@ -80,19 +80,19 @@ jobs:
 
     # Frontend & Docs Linting (both use Node.js)
     - name: Set up Node.js for Frontend/Docs
-      if: steps.filter.outputs.frontend == 'true' || steps.filter.outputs.docs == 'true'
+      if: steps.filter.outputs.frontend == 'true' || steps.filter.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
       uses: actions/setup-node@v4
       with:
         node-version: '20'
 
     - name: Install frontend dependencies
-      if: steps.filter.outputs.frontend == 'true'
+      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
       run: |
         cd apps/frontend
         npm ci --legacy-peer-deps
 
     - name: Run frontend validation (format, lint, type-check, build)
-      if: steps.filter.outputs.frontend == 'true'
+      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
       run: |
         cd apps/frontend
         ./scripts/validate.sh
@@ -152,7 +152,7 @@ jobs:
           echo "- **Penelope**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
         fi
 
-        if [ "${{ steps.filter.outputs.frontend }}" == "true" ]; then
+        if [ "${{ steps.filter.outputs.frontend }}" == "true" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           echo "- **Frontend**: ESLint, Prettier formatting, TypeScript type checking, and build validation ✅" >> "$GITHUB_STEP_SUMMARY"
         else
           echo "- **Frontend**: Skipped (no changes detected)" >> "$GITHUB_STEP_SUMMARY"
