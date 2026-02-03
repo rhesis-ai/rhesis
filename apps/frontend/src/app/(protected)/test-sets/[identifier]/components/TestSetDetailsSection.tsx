@@ -602,7 +602,9 @@ export default function TestSetDetailsSection({
             padding: 1,
           }}
         >
-          {testSet.created_at ? formatDate(testSet.created_at) : 'Not available'}
+          {testSet.created_at
+            ? formatDate(testSet.created_at)
+            : 'Not available'}
         </Typography>
       </Box>
 
