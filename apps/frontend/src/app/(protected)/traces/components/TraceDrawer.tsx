@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -53,6 +53,11 @@ export default function TraceDrawer({
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
   const [viewTab, setViewTab] = useState<number>(0);
 
+  // Resizable split pane state
+  const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (open && traceId && projectId) {
       fetchTrace();
@@ -101,6 +106,48 @@ export default function TraceDrawer({
   const handleSpanSelect = (span: SpanNode) => {
     setSelectedSpan(span);
   };
+
+  // Resizable split pane handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging || !containerRef.current) return;
+
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+
+      // Clamp between 20% and 80%
+      const clampedWidth = Math.min(Math.max(newWidth, 20), 80);
+      setLeftPanelWidth(clampedWidth);
+    },
+    [isDragging]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Add/remove mouse event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      // Prevent text selection while dragging
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   const drawerContent = () => {
     if (loading) {
@@ -273,16 +320,15 @@ export default function TraceDrawer({
         </Box>
 
         {/* Content - Split Layout */}
-        <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <Box ref={containerRef} sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Left: Span Tree */}
           <Box
             sx={{
-              width: '40%',
-              borderRight: 1,
-              borderColor: 'divider',
+              width: `${leftPanelWidth}%`,
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
+              flexShrink: 0,
             }}
           >
             {/* Tabs Header */}
@@ -379,11 +425,38 @@ export default function TraceDrawer({
             </Box>
           </Box>
 
+          {/* Draggable Divider */}
+          <Box
+            onMouseDown={handleMouseDown}
+            sx={{
+              width: theme => theme.spacing(0.125),
+              flexShrink: 0,
+              backgroundColor: theme =>
+                isDragging ? theme.palette.primary.main : theme.palette.divider,
+              cursor: 'col-resize',
+              transition: theme =>
+                isDragging ? 'none' : theme.transitions.create('background-color'),
+              position: 'relative',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: theme => theme.spacing(-0.5),
+                right: theme => theme.spacing(-0.5),
+              },
+              '&:hover': {
+                backgroundColor: theme => theme.palette.primary.main,
+              },
+            }}
+          />
+
           {/* Right: Span Details */}
           <Box
             sx={{
-              width: '60%',
+              flex: 1,
               overflow: 'auto',
+              minWidth: 0,
             }}
           >
             <SpanDetailsPanel
