@@ -4,7 +4,9 @@ import logging
 from typing import List
 
 from rhesis.sdk.telemetry.integrations.base import BaseIntegration
-from rhesis.sdk.telemetry.integrations.langchain import LangChainIntegration
+from rhesis.sdk.telemetry.integrations.langchain import (
+    get_integration as get_langchain_integration,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +20,14 @@ class LangGraphIntegration(BaseIntegration):
     calculation features automatically work with LangGraph.
 
     Auto-instrumentation is transparent - just call auto_instrument("langgraph")
-    and all LangGraph operations will be automatically traced. This uses the
-    tracing_v2_callback_var context variable for global callback registration
-    (same approach as LangSmith).
+    and all LangGraph operations will be automatically traced, including:
+    - LLM invocations (with token counts and costs)
+    - Tool executions (input/output captured)
+    - Chain and graph node transitions
+
+    IMPORTANT: This integration shares the callback with LangChain to avoid
+    duplicate span creation. When both LangChain and LangGraph are instrumented,
+    they use the same callback instance.
     """
 
     @property
@@ -51,16 +58,22 @@ class LangGraphIntegration(BaseIntegration):
         - Provider-agnostic token extraction
         - Automatic cost calculation (USD + EUR)
         - Support for all LLM providers (OpenAI, Anthropic, Google, etc.)
+        - Tool execution tracing (on_tool_start, on_tool_end, on_tool_error)
         """
-        lc_integration = LangChainIntegration()
+        # Use the singleton LangChain integration to share callback
+        lc_integration = get_langchain_integration()
         return lc_integration._create_callback()
 
     def enable(self) -> bool:
         """
         Enable observation for LangGraph.
 
-        Uses tracing_v2_callback_var context variable to enable global callbacks
-        for both LangChain and LangGraph (transparent auto-instrumentation).
+        This method:
+        1. Gets or enables the LangChain integration (shares callback to avoid duplicates)
+        2. Sets up global callback via tracing_v2_callback_var context variable
+        3. Ensures all LangGraph operations are traced, including ToolNode executions
+
+        IMPORTANT: Uses singleton LangChain integration to prevent duplicate callbacks.
 
         Returns:
             True if successfully enabled, False if not installed
@@ -74,15 +87,20 @@ class LangGraphIntegration(BaseIntegration):
             return False
 
         try:
-            # Create callback via LangChain integration
-            lc_integration = LangChainIntegration()
-            if lc_integration.enable():
-                self._callback = lc_integration.callback()
-            else:
-                logger.warning(
-                    f"⚠️  Could not enable {self.framework_name}: LangChain integration failed"
-                )
-                return False
+            # Get the singleton LangChain integration (shared callback)
+            lc_integration = get_langchain_integration()
+
+            # Enable LangChain if not already enabled
+            # This sets up the callback and patches tools ONCE
+            if not lc_integration.enabled:
+                if not lc_integration.enable():
+                    logger.warning(
+                        f"⚠️  Could not enable {self.framework_name}: LangChain integration failed"
+                    )
+                    return False
+
+            # Use the same callback instance (prevents duplicate spans)
+            self._callback = lc_integration.callback()
 
             # Set up global callback for LangGraph using context variable
             # This is how LangSmith achieves transparent tracing
@@ -93,20 +111,19 @@ class LangGraphIntegration(BaseIntegration):
                 # LangGraph will pick it up via _get_trace_callbacks()
                 tracing_v2_callback_var.set(self._callback)
 
-                self._enabled = True
-                logger.info(f"✅ Auto-instrumented frameworks: {self.instrumented_libraries}")
                 logger.debug(
-                    f"   Set global callback via tracing_v2_callback_var: "
+                    f"Set global callback via tracing_v2_callback_var: "
                     f"{type(self._callback).__name__}"
                 )
-                return True
             except (ImportError, AttributeError) as e:
-                logger.warning(
-                    f"⚠️  Could not set global LangGraph callback: {e}. "
-                    f"You may need to pass callbacks explicitly via config."
+                logger.debug(
+                    f"Could not set tracing_v2_callback_var: {e}. "
+                    f"Tool tracing via BaseTool patching is still active."
                 )
-                self._enabled = True  # Still mark as enabled, but with fallback mode
-                return True
+
+            self._enabled = True
+            logger.info(f"✓ Observing {self.framework_name} (LLM + tools)")
+            return True
         except Exception as e:
             logger.warning(f"⚠️  Could not enable {self.framework_name} observation: {e}")
             logger.debug("   Full error:", exc_info=True)

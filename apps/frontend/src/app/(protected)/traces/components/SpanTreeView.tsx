@@ -41,6 +41,17 @@ interface SpanTreeNodeProps {
   level: number;
 }
 
+/**
+ * Get the display name for a span, including additional context from attributes
+ * when available (e.g., tool name for ai.tool.invoke spans)
+ */
+function getSpanDisplayName(span: SpanNode): string {
+  if (span.span_name === 'ai.tool.invoke' && span.attributes?.['ai.tool.name']) {
+    return `${span.span_name} (${span.attributes['ai.tool.name']})`;
+  }
+  return span.span_name;
+}
+
 function SpanTreeNode({
   span,
   selectedSpan,
@@ -125,7 +136,7 @@ function SpanTreeNode({
               whiteSpace: 'nowrap',
             }}
           >
-            {span.span_name}
+            {getSpanDisplayName(span)}
           </Typography>
         </Box>
 
