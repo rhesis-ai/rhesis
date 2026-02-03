@@ -117,7 +117,7 @@ jobs:
 
     services:
       postgres:
-        image: mirror.gcr.io/library/postgres:15
+        image: pgvector/pgvector:pg15
         env:
           POSTGRES_DB: postgres
           POSTGRES_USER: postgres
@@ -222,6 +222,7 @@ jobs:
 
           # Connect to the new database and grant schema permissions
           PGPASSWORD=postgres psql -h localhost -U postgres -d "$SQLALCHEMY_DB_NAME" -c "
+            CREATE EXTENSION IF NOT EXISTS vector;
             GRANT ALL ON SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
             GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
             GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
