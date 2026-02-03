@@ -13,9 +13,7 @@ from rhesis.sdk.models.factory import get_model
 logger = logging.getLogger("rhesis-polyphemus")
 
 # Default model for LazyModelLoader - can be overridden via environment variable
-DEFAULT_MODEL = os.environ.get(
-    "DEFAULT_MODEL", "lmformatenforcer/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1"
-)
+DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "huggingface/distilbert/distilgpt2")
 
 # Model path configuration - supports local path or GCS bucket location
 # For GCS paths, the bucket should be mounted at /gcs-models via Cloud Run volume mount
