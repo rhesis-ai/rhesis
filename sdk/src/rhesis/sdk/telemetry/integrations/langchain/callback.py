@@ -228,8 +228,126 @@ def create_langchain_callback():
                 self._end_span(run_id)
 
         # =========================================================================
+        # Agent Callbacks (for multi-agent systems)
+        # =========================================================================
+
+        def on_chain_start(
+            self,
+            serialized: Dict[str, Any],
+            inputs: Dict[str, Any],
+            *,
+            run_id: Any,
+            parent_run_id: Any = None,
+            tags: List[str] | None = None,
+            metadata: Dict[str, Any] | None = None,
+            **kwargs: Any,
+        ) -> None:
+            """Start agent span if this represents an agent."""
+            run_id_str = str(run_id)
+            if run_id_str in self._active_run_ids:
+                return
+
+            # Extract agent name
+            agent_name = self._extract_agent_name(serialized, tags, metadata)
+
+            # Only create spans for agents, skip everything else
+            if not self._is_agent(agent_name, tags, metadata):
+                return
+
+            self._active_run_ids.add(run_id_str)
+
+            span, parent_token, current_token = self._start_span(
+                AIOperationType.AGENT_INVOKE, run_id, parent_run_id
+            )
+
+            span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_AGENT_INVOKE)
+            span.set_attribute(AIAttributes.AGENT_NAME, agent_name)
+
+            self._spans[run_id_str] = (span, parent_token, current_token)
+
+        def on_chain_end(
+            self,
+            outputs: Dict[str, Any],
+            *,
+            run_id: Any,
+            parent_run_id: Any = None,
+            **kwargs: Any,
+        ) -> None:
+            """End agent span."""
+            span_data = self._spans.get(str(run_id))
+            if span_data:
+                span_data[0].set_status(Status(StatusCode.OK))
+                self._end_span(run_id)
+
+        def on_chain_error(
+            self,
+            error: BaseException,
+            *,
+            run_id: Any,
+            parent_run_id: Any = None,
+            **kwargs: Any,
+        ) -> None:
+            """Handle agent errors."""
+            span_data = self._spans.get(str(run_id))
+            if span_data:
+                span_data[0].set_status(Status(StatusCode.ERROR, str(error)))
+                span_data[0].record_exception(error)
+                self._end_span(run_id)
+
+        # =========================================================================
         # Helper Methods
         # =========================================================================
+
+        @staticmethod
+        def _extract_agent_name(
+            serialized: Dict, tags: List[str] | None, metadata: Dict | None
+        ) -> str:
+            """Extract agent name from metadata or serialized data."""
+            # Priority 1: Explicit agent name in metadata
+            if metadata:
+                if agent_name := metadata.get("agent_name"):
+                    return agent_name
+                # LangGraph uses langgraph_node for node names
+                if agent_name := metadata.get("langgraph_node"):
+                    return agent_name
+
+            # Priority 2: Name from serialized
+            if name := serialized.get("name"):
+                return name
+
+            # Priority 3: Extract from id path
+            if "id" in serialized and isinstance(serialized["id"], list):
+                return serialized["id"][-1] if serialized["id"] else "unknown"
+
+            return "unknown"
+
+        @staticmethod
+        def _is_agent(name: str, tags: List[str] | None, metadata: Dict | None) -> bool:
+            """Determine if this represents an agent."""
+            # Check for agent-related patterns in name
+            agent_patterns = [
+                "agent",
+                "specialist",
+                "orchestrator",
+                "coordinator",
+                "supervisor",
+            ]
+            name_lower = name.lower()
+            if any(p in name_lower for p in agent_patterns):
+                return True
+
+            # Check tags for agent markers
+            if tags:
+                for tag in tags:
+                    if any(p in tag.lower() for p in agent_patterns):
+                        return True
+
+            # Check metadata for agent indicators
+            if metadata:
+                if metadata.get("is_agent") or metadata.get("agent_name"):
+                    return True
+
+            return False
 
         def _set_llm_attributes(
             self, span: trace.Span, serialized: Dict, kwargs: Dict, request_type: str

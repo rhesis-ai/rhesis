@@ -43,12 +43,21 @@ interface SpanTreeNodeProps {
 
 /**
  * Get the display name for a span, including additional context from attributes
- * when available (e.g., tool name for ai.tool.invoke spans)
+ * when available (e.g., tool name for ai.tool.invoke spans, agent name for ai.agent.invoke)
  */
 function getSpanDisplayName(span: SpanNode): string {
-  if (span.span_name === 'ai.tool.invoke' && span.attributes?.['ai.tool.name']) {
-    return `${span.span_name} (${span.attributes['ai.tool.name']})`;
+  const attrs = span.attributes;
+  
+  // Tool invocations: show tool name
+  if (span.span_name === 'ai.tool.invoke' && attrs?.['ai.tool.name']) {
+    return `${span.span_name} (${attrs['ai.tool.name']})`;
   }
+  
+  // Agent invocations: show agent name
+  if (span.span_name === 'ai.agent.invoke' && attrs?.['ai.agent.name']) {
+    return `${span.span_name} (${attrs['ai.agent.name']})`;
+  }
+  
   return span.span_name;
 }
 

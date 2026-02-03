@@ -30,6 +30,8 @@ class AIAttributes:
     OPERATION_EVALUATION = "evaluation"
     OPERATION_GUARDRAIL = "guardrail"
     OPERATION_TRANSFORM = "transform"
+    OPERATION_AGENT_INVOKE = "agent.invoke"
+    OPERATION_AGENT_HANDOFF = "agent.handoff"
 
     # Model
     MODEL_PROVIDER = "ai.model.provider"
@@ -77,6 +79,11 @@ class AIAttributes:
     TRANSFORM_OPERATION = "ai.transform.operation"
     TRANSFORM_INPUT_SIZE = "ai.transform.input.size"
     TRANSFORM_OUTPUT_SIZE = "ai.transform.output.size"
+
+    # Agent (for multi-agent systems)
+    AGENT_NAME = "ai.agent.name"
+    AGENT_HANDOFF_FROM = "ai.agent.handoff.from"
+    AGENT_HANDOFF_TO = "ai.agent.handoff.to"
 
     # Error
     ERROR_TYPE = "ai.error.type"
