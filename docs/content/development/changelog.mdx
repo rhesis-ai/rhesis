@@ -8,6 +8,86 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.6.2] - 2026-01-29
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.1**
+- **Frontend 0.6.2**
+- **SDK 0.6.2**
+
+### Video Overview
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/fda6e93UGZ8"
+    title="Garak LLM Vulnerability Scanner - Release 0.6.2"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Summary
+
+This release introduces **Garak LLM vulnerability scanner integration** for comprehensive security testing of LLM applications, **3-level metrics hierarchy** for flexible test execution configuration, and **enhanced MCP integrations** including Jira/Confluence, GitHub, and observability support. The platform receives significant performance optimizations and infrastructure improvements across all components.
+
+### Featured Capabilities
+
+**Garak LLM Vulnerability Scanner**
+
+The platform now integrates [Garak](https://github.com/leondz/garak), one of the most popular vulnerability scanners for LLM and agentic applications:
+
+- **65+ Security Test Cases**: Import Garak's extensive probe library directly into Rhesis for testing prompt injection, jailbreaks, toxic outputs, data leakage, and other vulnerabilities
+- **No Command-Line Required**: Import test cases, execute them, and inspect results entirely through the UI—no terminal commands or JSON parsing needed
+- **Team Collaboration**: Review and discuss security test results with your team in one centralized platform
+- **Redis-Cached Probe Enumeration**: Efficient probe management with caching for improved performance
+- **Detector Metrics**: Built-in support for Garak detector metrics in the SDK
+- **CI/CD Integration**: Run security scans as part of your automated testing pipeline
+
+**3-Level Metrics Hierarchy**
+
+Enhanced flexibility in test execution with a new metrics hierarchy system:
+
+- **Behavior-Level Metrics**: Define default metrics at the behavior level
+- **Test-Level Overrides**: Override metrics for specific tests when needed
+- **Execution-Time Configuration**: Dynamically configure metrics at test execution time
+- **Metric Source Selection**: UI support for choosing which metric configuration to use
+- **Improved Test Flexibility**: Adapt evaluation criteria without modifying test definitions
+
+**Enhanced MCP Integrations**
+
+Expanded Model Context Protocol (MCP) support with new integrations:
+
+- **Atlassian Stdio**: Connect Jira and Confluence for issue tracking and documentation
+- **GitHub Repository Retrieval**: Access GitHub repositories and code context
+- **Observability Integration**: OpenTelemetry tracing with MCP support in SDK
+
+### Backend Highlights
+- Added Garak LLM vulnerability scanner integration with Redis caching for probe enumeration
+- Implemented 3-level metrics hierarchy (behavior → test → execution) allowing execution-time metric overrides
+- Added MCP Jira/Confluence (Atlassian Stdio), GitHub repository retrieval, and observability integrations
+- Upgraded FastAPI/Starlette and security dependencies for improved stability
+- Optimized Docker image with CPU-only PyTorch, reducing image size significantly
+
+### Frontend Highlights
+- Added 3-level metrics hierarchy UI for test execution with metric source selection
+- Integrated Garak LLM vulnerability scanner import UI for test sets
+- Added MCP Atlassian, GitHub, and observability support in the UI
+- Added context and expected response fields to test run detail view
+- Improved test execution configuration interface
+
+### SDK Highlights
+- Added Model entity with provider auto-resolution and Project entity with integration tests
+- Implemented batch processing framework and embedders support
+- Added Vertex AI support for embeddings and generation
+- Added Garak detector metric integration for security testing
+- Implemented MCP observability with OpenTelemetry tracing
+- Implemented continuous slow retry mode for connector resilience
+- Enhanced test execution with better error handling and recovery
+
 ## [0.6.0] - 2026-01-15
 
 ### Platform Release
