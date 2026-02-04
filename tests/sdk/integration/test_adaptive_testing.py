@@ -157,22 +157,24 @@ def test_test_tree_to_test_set_includes_topic_markers(db_cleanup):
     restored_data = TestTree.from_test_set(pulled_test_set)
 
     # Should have 2 nodes (topic marker included)
-    assert len(restored_data) == 2
-    assert restored_data[0].id == "test-001"
-    assert restored_data[0].topic == "Safety"
-    assert restored_data[0].input == "Test input"
-    assert restored_data[0].output == "Test output"
-    assert restored_data[0].label == "pass"
-    assert restored_data[0].labeler == "human"
-    assert restored_data[0].model_score == 0.8
 
-    assert restored_data[1].id == "marker-001"
+    assert len(restored_data) == 2
+
+    assert restored_data[0].id == "marker-001"
+    assert restored_data[0].topic == "Safety"
+    assert restored_data[0].input == ""
+    assert restored_data[0].output == ""
+    assert restored_data[0].label == "topic_marker"
+    assert restored_data[0].labeler == ""
+    assert restored_data[0].model_score == 0.0
+
+    assert restored_data[1].id == "test-001"
     assert restored_data[1].topic == "Safety"
-    assert restored_data[1].input == ""
-    assert restored_data[1].output == ""
-    assert restored_data[1].label == "topic_marker"
-    assert restored_data[1].labeler == ""
-    assert restored_data[1].model_score == 0.0
+    assert restored_data[1].input == "Test input"
+    assert restored_data[1].output == "Test output"
+    assert restored_data[1].label == "pass"
+    assert restored_data[1].labeler == "human"
+    assert restored_data[1].model_score == 0.8
 
 
 def test_test_tree_to_test_set_excludes_suggestions_by_default(db_cleanup):

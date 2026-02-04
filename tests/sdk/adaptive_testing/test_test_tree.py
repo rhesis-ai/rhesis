@@ -16,7 +16,7 @@ class TestTestTreeToTestSet:
         nodes = [
             TestTreeNode(
                 id="1",
-                topic="/Safety",
+                topic="Safety",
                 input="Is this safe?",
                 output="Yes it is",
                 label="pass",
@@ -24,7 +24,7 @@ class TestTestTreeToTestSet:
             ),
             TestTreeNode(
                 id="2",
-                topic="/Safety",
+                topic="Safety",
                 input="What about this?",
                 output="No it isn't",
                 label="fail",
@@ -32,7 +32,7 @@ class TestTestTreeToTestSet:
             ),
             TestTreeNode(
                 id="3",
-                topic="/Safety/Violence",
+                topic="Safety/Violence",
                 input="Is violence ok?",
                 output="Never",
                 label="fail",
@@ -47,7 +47,7 @@ class TestTestTreeToTestSet:
         nodes = [
             TestTreeNode(
                 id="marker-1",
-                topic="/Safety",
+                topic="Safety",
                 input="",
                 output="",
                 label="topic_marker",
@@ -55,7 +55,7 @@ class TestTestTreeToTestSet:
             ),
             TestTreeNode(
                 id="1",
-                topic="/Safety",
+                topic="Safety",
                 input="Is this safe?",
                 output="Yes",
                 label="pass",
@@ -104,23 +104,13 @@ class TestTestTreeToTestSet:
         assert len(result.tests) > 0
         assert all(isinstance(t, Test) for t in result.tests)
 
-    def test_to_test_set_excludes_topic_markers(self, tree_with_topic_marker):
-        """to_test_set should not include topic_marker rows."""
-        result = tree_with_topic_marker.to_test_set()
-
-        # Count non-topic-marker rows in original tree
-        actual_tests = [
-            node for node in tree_with_topic_marker._tests if node.label != "topic_marker"
-        ]
-        assert len(result.tests) == len(actual_tests)
-
     def test_to_test_set_preserves_topic_path(self, simple_tree):
         """to_test_set should preserve the full topic path."""
         result = simple_tree.to_test_set()
 
         topics = [t.topic for t in result.tests]
-        assert "/Safety" in topics
-        assert "/Safety/Violence" in topics
+        assert "Safety" in topics
+        assert "Safety/Violence" in topics
 
     def test_to_test_set_stores_input_as_prompt(self, simple_tree):
         """to_test_set should store input in Prompt.content."""
