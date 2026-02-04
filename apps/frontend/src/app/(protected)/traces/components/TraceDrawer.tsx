@@ -312,13 +312,6 @@ export default function TraceDrawer({
                 variant="outlined"
               />
             )}
-            {trace.total_cost_usd > 0 && (
-              <Chip
-                label={`$${trace.total_cost_usd.toFixed(4)}`}
-                size="small"
-                variant="outlined"
-              />
-            )}
           </Stack>
         </Box>
 
