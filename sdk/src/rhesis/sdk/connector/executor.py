@@ -76,14 +76,34 @@ class TestExecutor:
         """
         sig = inspect.signature(func)
         prepared = {}
+        has_var_keyword = False
+        named_params = set()
 
+        # First pass: identify named parameters and check for **kwargs
         for name, param in sig.parameters.items():
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                has_var_keyword = True
+            else:
+                named_params.add(name)
+
+        # Second pass: process named parameters
+        for name, param in sig.parameters.items():
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                continue  # Handle **kwargs separately below
+
             if name not in inputs:
                 continue
 
             value = inputs[name]
             # Let the serializer handle everything uniformly
             prepared[name] = serializer.load(value, param.annotation)
+
+        # If function accepts **kwargs, pass through all extra inputs
+        if has_var_keyword:
+            for name, value in inputs.items():
+                if name not in named_params and name not in prepared:
+                    # Pass through extra parameters (serializer with no type hint)
+                    prepared[name] = serializer.load(value, inspect.Parameter.empty)
 
         return prepared
 

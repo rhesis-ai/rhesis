@@ -13,6 +13,7 @@ def mock_client():
     """Create a mock RhesisClient for testing."""
     with patch("rhesis.sdk.decorators._state._default_client") as mock:
         mock._connector_manager = None
+        mock.is_disabled = False  # Ensure client is not disabled
         mock._tracer = Mock()
         mock._tracer.trace_execution = Mock(
             side_effect=lambda name, func, args, kwargs, span: func(*args, **kwargs)
