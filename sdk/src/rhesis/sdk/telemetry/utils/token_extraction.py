@@ -14,16 +14,29 @@ This module handles all variations automatically, making it easy to extract toke
 regardless of the provider or framework being used.
 """
 
-from typing import Dict, Tuple
+import logging
+from typing import Any, Dict, Tuple, Union
+
+logger = logging.getLogger(__name__)
 
 
-def get_first_value(data: Dict, keys: list, default: int = 0) -> int:
+def _safe_int(value: Any) -> int:
+    """Safely convert a value to int, handling None, strings, and floats."""
+    if value is None:
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def get_first_value(data: Union[Dict, Any], keys: list, default: int = 0) -> int:
     """
-    Extract first non-zero value from dict using multiple possible keys.
+    Extract first non-zero value from dict or object using multiple possible keys.
 
     Args:
-        data: Dictionary to search
-        keys: List of keys to try in order
+        data: Dictionary or object to search
+        keys: List of keys/attributes to try in order
         default: Default value if no keys found (default: 0)
 
     Returns:
@@ -34,22 +47,36 @@ def get_first_value(data: Dict, keys: list, default: int = 0) -> int:
         >>> get_first_value(data, ["output_tokens", "completion_tokens"])
         42
     """
+    if data is None:
+        return default
+
     for key in keys:
-        value = data.get(key)
-        if value:
-            return int(value)
+        # Try dict access first
+        if isinstance(data, dict):
+            value = data.get(key)
+            if value:
+                return _safe_int(value)
+        # Then try attribute access (for objects like UsageMetadata)
+        elif hasattr(data, key):
+            value = getattr(data, key, None)
+            if value:
+                return _safe_int(value)
+
     return default
 
 
-def extract_token_usage(usage_dict: Dict) -> Tuple[int, int, int]:
+def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
     """
-    Extract (input, output, total) token counts from a usage dictionary.
+    Extract (input, output, total) token counts from a usage dictionary or object.
 
     This function is provider-agnostic and handles all common key name variations
     used by different LLM providers (OpenAI, Anthropic, Google, Cohere, etc.).
 
+    Supports both dict-style access and object attribute access for compatibility
+    with various LangChain response formats.
+
     Args:
-        usage_dict: Dictionary containing token usage information
+        usage: Dictionary or object containing token usage information
 
     Returns:
         Tuple of (input_tokens, output_tokens, total_tokens)
@@ -70,30 +97,84 @@ def extract_token_usage(usage_dict: Dict) -> Tuple[int, int, int]:
         >>> extract_token_usage(usage)
         (12, 18, 30)
     """
-    if not usage_dict:
+    if usage is None:
+        return 0, 0, 0
+
+    # Convert object to dict if needed for consistent access
+    if not isinstance(usage, dict):
+        # Try to extract common attributes from object
+        usage_dict = {}
+        common_attrs = [
+            "input_tokens",
+            "output_tokens",
+            "total_tokens",
+            "prompt_tokens",
+            "completion_tokens",
+            "prompt_token_count",
+            "candidates_token_count",
+            "total_token_count",
+            "generated_tokens",
+        ]
+        for attr in common_attrs:
+            if hasattr(usage, attr):
+                value = getattr(usage, attr, None)
+                if value is not None:
+                    usage_dict[attr] = value
+
+        # If we got values, use them; otherwise try dict conversion
+        if usage_dict:
+            usage = usage_dict
+        else:
+            # Last resort: try to convert to dict
+            try:
+                if hasattr(usage, "model_dump"):
+                    usage = usage.model_dump()  # Pydantic v2
+                elif hasattr(usage, "dict"):
+                    usage = usage.dict()  # Pydantic v1
+                elif hasattr(usage, "__dict__"):
+                    usage = usage.__dict__
+                else:
+                    logger.debug(f"Could not convert usage object to dict: {type(usage)}")
+                    return 0, 0, 0
+            except Exception as e:
+                logger.debug(f"Error converting usage object: {e}")
+                return 0, 0, 0
+
+    if not usage:
         return 0, 0, 0
 
     # Extract input tokens (try all common key names)
     input_tokens = get_first_value(
-        usage_dict,
-        ["input_tokens", "prompt_tokens", "prompt_token_count"],
+        usage,
+        [
+            "input_tokens",
+            "prompt_tokens",
+            "prompt_token_count",
+            "promptTokenCount",  # camelCase variant
+        ],
     )
 
     # Extract output tokens (try all common key names)
     output_tokens = get_first_value(
-        usage_dict,
+        usage,
         [
             "output_tokens",
             "completion_tokens",
             "generated_tokens",
             "candidates_token_count",
+            "candidatesTokenCount",  # camelCase variant
+            "completionTokenCount",  # camelCase variant
         ],
     )
 
     # Extract total tokens (try all common key names)
     total_tokens = get_first_value(
-        usage_dict,
-        ["total_tokens", "total_token_count"],
+        usage,
+        [
+            "total_tokens",
+            "total_token_count",
+            "totalTokenCount",  # camelCase variant
+        ],
     )
 
     # Calculate total if not explicitly provided
