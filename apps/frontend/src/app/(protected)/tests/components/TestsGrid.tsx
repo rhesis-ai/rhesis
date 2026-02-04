@@ -30,7 +30,6 @@ import {
   getTestContentValue,
   renderTestContentCell,
 } from './test-grid-helpers';
-import { formatDate } from '@/utils/date';
 
 interface TestsTableProps {
   sessionToken: string;
@@ -301,20 +300,6 @@ export default function TestsTable({
                 />
               )}
             </Box>
-          );
-        },
-      },
-      {
-        field: 'created_at',
-        headerName: 'Created',
-        flex: 0.8,
-        minWidth: 120,
-        filterable: false,
-        renderCell: params => {
-          return (
-            <Typography variant="body2" color="text.secondary">
-              {formatDate(params.row.created_at)}
-            </Typography>
           );
         },
       },
