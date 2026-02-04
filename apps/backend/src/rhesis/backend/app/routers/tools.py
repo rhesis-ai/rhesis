@@ -73,7 +73,7 @@ def create_tool(
     organization_id, user_id = tenant_context
 
     # Validate provider-specific requirements
-    provider_type = crud.get_type_lookup(db, tool.tool_provider_type_id)
+    provider_type = crud.get_type_lookup(db, tool.tool_provider_type_id, organization_id, user_id)
     if provider_type:
         if provider_type.type_value == "github":
             if not tool.tool_metadata or "repository" not in tool.tool_metadata:
@@ -175,7 +175,9 @@ def update_tool(
         if not existing_tool:
             raise HTTPException(status_code=404, detail="Tool not found")
 
-        provider_type = crud.get_type_lookup(db, existing_tool.tool_provider_type_id)
+        provider_type = crud.get_type_lookup(
+            db, existing_tool.tool_provider_type_id, organization_id, user_id
+        )
         if provider_type:
             if provider_type.type_value == "github":
                 if "repository" not in tool.tool_metadata:
