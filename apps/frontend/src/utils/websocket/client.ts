@@ -267,7 +267,9 @@ export class WebSocketClient {
   private handleMessage(message: WebSocketMessage): void {
     // Handle connection confirmation
     if (message.type === EventType.CONNECTED) {
-      const payload = message.payload as unknown as ConnectedPayload | undefined;
+      const payload = message.payload as unknown as
+        | ConnectedPayload
+        | undefined;
       this.state.connectionId = payload?.connection_id;
       console.log(`WebSocket connection confirmed: ${this.state.connectionId}`);
     }
