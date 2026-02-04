@@ -29,7 +29,10 @@ interface UseWebSocketResult {
   /** Send a message to the server */
   send: (message: WebSocketMessage) => boolean;
   /** Subscribe to a specific event type */
-  subscribe: (eventType: EventType | string, handler: EventHandler) => () => void;
+  subscribe: (
+    eventType: EventType | string,
+    handler: EventHandler
+  ) => () => void;
   /** Subscribe to a backend channel */
   subscribeToChannel: (channel: string) => void;
   /** Unsubscribe from a backend channel */
@@ -65,7 +68,9 @@ interface UseWebSocketResult {
  * send({ type: EventType.PING });
  * ```
  */
-export function useWebSocket(options?: UseWebSocketOptions): UseWebSocketResult {
+export function useWebSocket(
+  options?: UseWebSocketOptions
+): UseWebSocketResult {
   const {
     isConnected,
     connectionId,
@@ -84,17 +89,22 @@ export function useWebSocket(options?: UseWebSocketOptions): UseWebSocketResult 
     }
 
     // Subscribe to all specified channels
-    options.channels.forEach((channel) => {
+    options.channels.forEach(channel => {
       subscribeToChannel(channel);
     });
 
     // Unsubscribe on unmount
     return () => {
-      options.channels?.forEach((channel) => {
+      options.channels?.forEach(channel => {
         unsubscribeFromChannel(channel);
       });
     };
-  }, [isConnected, options?.channels, subscribeToChannel, unsubscribeFromChannel]);
+  }, [
+    isConnected,
+    options?.channels,
+    subscribeToChannel,
+    unsubscribeFromChannel,
+  ]);
 
   // Set up event handlers
   useEffect(() => {
@@ -102,7 +112,7 @@ export function useWebSocket(options?: UseWebSocketOptions): UseWebSocketResult 
 
     // Set up catch-all handler if provided
     if (options?.onMessage) {
-      const unsubscribe = subscribe('*', (msg) => {
+      const unsubscribe = subscribe('*', msg => {
         setLastMessage(msg);
         options.onMessage?.(msg);
       });
@@ -113,7 +123,7 @@ export function useWebSocket(options?: UseWebSocketOptions): UseWebSocketResult 
     if (options?.eventHandlers) {
       Object.entries(options.eventHandlers).forEach(([eventType, handler]) => {
         if (handler) {
-          const unsubscribe = subscribe(eventType, (msg) => {
+          const unsubscribe = subscribe(eventType, msg => {
             setLastMessage(msg);
             handler(msg);
           });
@@ -129,7 +139,7 @@ export function useWebSocket(options?: UseWebSocketOptions): UseWebSocketResult 
     }
 
     return () => {
-      unsubscribers.forEach((unsub) => unsub());
+      unsubscribers.forEach(unsub => unsub());
     };
   }, [subscribe, options?.onMessage, options?.eventHandlers]);
 

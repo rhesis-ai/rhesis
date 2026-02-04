@@ -27,7 +27,10 @@ interface WebSocketContextValue {
   /** Send a message to the server */
   send: (message: WebSocketMessage) => boolean;
   /** Subscribe to a specific event type */
-  subscribe: (eventType: EventType | string, handler: EventHandler) => () => void;
+  subscribe: (
+    eventType: EventType | string,
+    handler: EventHandler
+  ) => () => void;
   /** Subscribe to a backend channel */
   subscribeToChannel: (channel: string) => void;
   /** Unsubscribe from a backend channel */
@@ -107,7 +110,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     const client = new WebSocketClient({
       url: wsUrl,
       token: session.session_token,
-      onConnectionChange: (connected) => {
+      onConnectionChange: connected => {
         setIsConnected(connected);
         if (!connected) {
           setConnectionId(undefined);
@@ -116,7 +119,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     });
 
     // Subscribe to connected event to capture connection ID
-    client.subscribe(EventType.CONNECTED, (msg) => {
+    client.subscribe(EventType.CONNECTED, msg => {
       const payload = msg.payload as { connection_id?: string } | undefined;
       if (payload?.connection_id) {
         setConnectionId(payload.connection_id);
