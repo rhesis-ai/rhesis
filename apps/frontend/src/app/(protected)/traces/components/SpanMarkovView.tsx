@@ -31,6 +31,7 @@ import ReactFlow, {
   getBezierPath,
   EdgeLabelRenderer,
   MarkerType,
+  Viewport,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import dagre from 'dagre';
@@ -914,6 +915,7 @@ export default function SpanMarkovView({
     timedTransitions,
     timedAgentEvents,
     timeRange,
+    defaultViewport,
   } = useMemo(() => {
     const {
       states,
@@ -933,6 +935,51 @@ export default function SpanMarkovView({
       toolEdgeColor
     );
     const layoutedNodes = applyDagreLayout(nodes, edges);
+    
+    // Calculate viewport that fits all nodes (for initial zoom level)
+    // This ensures the graph is properly zoomed even when starting at time zero
+    let defaultViewport: Viewport = { x: 0, y: 0, zoom: 1 };
+    if (layoutedNodes.length > 0) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      layoutedNodes.forEach(node => {
+        const isTool = node.id.startsWith('tool:');
+        const width = isTool ? TOOL_WIDTH : NODE_WIDTH;
+        const height = isTool ? TOOL_HEIGHT : NODE_HEIGHT;
+        minX = Math.min(minX, node.position.x);
+        minY = Math.min(minY, node.position.y);
+        maxX = Math.max(maxX, node.position.x + width);
+        maxY = Math.max(maxY, node.position.y + height);
+      });
+      
+      // Add padding
+      const padding = 50;
+      minX -= padding;
+      minY -= padding;
+      maxX += padding;
+      maxY += padding;
+      
+      // Calculate zoom to fit (assuming container is roughly 800x600)
+      // We'll use a conservative estimate and let ReactFlow adjust
+      const graphWidth = maxX - minX;
+      const graphHeight = maxY - minY;
+      const containerWidth = 800;
+      const containerHeight = 500;
+      const zoom = Math.min(
+        containerWidth / graphWidth,
+        containerHeight / graphHeight,
+        1 // Don't zoom in more than 1x
+      ) * 0.9; // 90% to leave some margin
+      
+      // Center the graph
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      defaultViewport = {
+        x: containerWidth / 2 - centerX * zoom,
+        y: containerHeight / 2 - centerY * zoom,
+        zoom,
+      };
+    }
+    
     return {
       states,
       transitions,
@@ -942,6 +989,7 @@ export default function SpanMarkovView({
       timedTransitions,
       timedAgentEvents,
       timeRange,
+      defaultViewport,
     };
   }, [spans, theme.palette.info.main, theme.palette.warning.main]);
 
@@ -1103,8 +1151,15 @@ export default function SpanMarkovView({
   // Playback controls
   const handlePlayPause = () => {
     if (!isPlaying) {
-      // Starting playback - always start from the beginning
-      setCurrentTime(timeRange.start);
+      // Starting playback - only reset to start if already at the end
+      if (currentTime >= timeRange.end) {
+        // Reset to start first, then start playing after a brief delay
+        // to ensure React has processed the time reset
+        setCurrentTime(timeRange.start);
+        setTimeout(() => setIsPlaying(true), 0);
+        return;
+      }
+      // Otherwise continue from current position
     }
     setIsPlaying(!isPlaying);
   };
@@ -1393,8 +1448,7 @@ export default function SpanMarkovView({
           onEdgeClick={onEdgeClick}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.3 }}
+          defaultViewport={defaultViewport}
           minZoom={0.1}
           maxZoom={2}
         >
