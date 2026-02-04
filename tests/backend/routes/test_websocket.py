@@ -336,9 +336,7 @@ class TestErrorSanitization:
             mock_mgr.disconnect = Mock()
             # Make handle_message raise an internal exception
             mock_mgr.handle_message = AsyncMock(
-                side_effect=RuntimeError(
-                    "Database connection failed: secret_db_host:5432"
-                )
+                side_effect=RuntimeError("Database connection failed: secret_db_host:5432")
             )
 
             with authenticated_client.websocket_connect("/ws?token=valid_token") as ws:

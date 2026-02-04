@@ -5,7 +5,6 @@ request limits to prevent denial of service attacks.
 """
 
 import time
-from unittest.mock import patch
 
 import pytest
 

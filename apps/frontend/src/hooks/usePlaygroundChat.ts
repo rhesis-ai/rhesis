@@ -45,8 +45,8 @@ interface UsePlaygroundChatResult {
   error: string | null;
   /** Whether the WebSocket is connected */
   isConnected: boolean;
-  /** Current conversation ID (if any) */
-  conversationId: string | null;
+  /** Current session ID for multi-turn conversations (if any) */
+  sessionId: string | null;
   /** Send a message to the endpoint */
   sendMessage: (message: string) => void;
   /** Clear all messages and reset conversation */
@@ -101,7 +101,7 @@ export function usePlaygroundChat(
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Track pending correlation IDs for request/response matching
   const pendingCorrelationRef = useRef<string | null>(null);
@@ -123,9 +123,9 @@ export function usePlaygroundChat(
           setIsLoading(false);
           setError(null);
 
-          // Update conversation ID if provided in response
-          if (payload?.conversation_id) {
-            setConversationId(payload.conversation_id);
+          // Update session ID if provided in response
+          if (payload?.session_id) {
+            setSessionId(payload.session_id);
           }
 
           // Add assistant message
@@ -222,14 +222,14 @@ export function usePlaygroundChat(
       // Set loading state
       setIsLoading(true);
 
-      // Send message via WebSocket (include conversation_id if we have one)
+      // Send message via WebSocket (include session_id if we have one)
       const sent = send({
         type: EventType.CHAT_MESSAGE,
         correlation_id: correlationId,
         payload: {
           endpoint_id: endpointId,
           message: trimmedMessage,
-          ...(conversationId && { conversation_id: conversationId }),
+          ...(sessionId && { session_id: sessionId }),
         },
       });
 
@@ -239,23 +239,23 @@ export function usePlaygroundChat(
         pendingCorrelationRef.current = null;
       }
     },
-    [endpointId, isConnected, isLoading, send, conversationId]
+    [endpointId, isConnected, isLoading, send, sessionId]
   );
 
   /**
-   * Clear all messages and reset conversation.
+   * Clear all messages and reset session.
    */
   const clearMessages = useCallback(() => {
     setMessages([]);
     setError(null);
     setIsLoading(false);
-    setConversationId(null);
+    setSessionId(null);
     pendingCorrelationRef.current = null;
   }, []);
 
-  // Reset conversation when endpoint changes
+  // Reset session when endpoint changes
   useEffect(() => {
-    setConversationId(null);
+    setSessionId(null);
   }, [endpointId]);
 
   return {
@@ -263,7 +263,7 @@ export function usePlaygroundChat(
     isLoading,
     error,
     isConnected,
-    conversationId,
+    sessionId,
     sendMessage,
     clearMessages,
   };

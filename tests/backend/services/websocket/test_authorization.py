@@ -83,9 +83,7 @@ class TestChannelAuthorizationSecurity:
         assert "other organization" in error.lower()
 
     @pytest.mark.asyncio
-    async def test_user_can_subscribe_to_own_user_channel(
-        self, authorizer, mock_user
-    ):
+    async def test_user_can_subscribe_to_own_user_channel(self, authorizer, mock_user):
         """User CAN subscribe to their own user channel."""
         own_channel = f"user:{mock_user.id}"
 
@@ -95,9 +93,7 @@ class TestChannelAuthorizationSecurity:
         assert error is None
 
     @pytest.mark.asyncio
-    async def test_user_can_subscribe_to_own_org_channel(
-        self, authorizer, mock_user
-    ):
+    async def test_user_can_subscribe_to_own_org_channel(self, authorizer, mock_user):
         """User CAN subscribe to their own organization's channel."""
         own_org_channel = f"org:{mock_user.organization_id}"
 
@@ -107,9 +103,7 @@ class TestChannelAuthorizationSecurity:
         assert error is None
 
     @pytest.mark.asyncio
-    async def test_unknown_channel_format_is_rejected(
-        self, authorizer, mock_user
-    ):
+    async def test_unknown_channel_format_is_rejected(self, authorizer, mock_user):
         """SECURITY: Unknown channel formats are rejected (fail-closed).
 
         This prevents potential bypasses using new/unknown channel types.
@@ -122,9 +116,7 @@ class TestChannelAuthorizationSecurity:
         assert error is not None
 
     @pytest.mark.asyncio
-    async def test_malformed_channel_id_is_rejected(
-        self, authorizer, mock_user
-    ):
+    async def test_malformed_channel_id_is_rejected(self, authorizer, mock_user):
         """SECURITY: Malformed resource IDs are rejected.
 
         This prevents injection attacks and malformed requests.
@@ -167,13 +159,9 @@ class TestChannelAuthorizationEdgeCases:
         assert error is not None
 
     @pytest.mark.asyncio
-    async def test_channel_with_multiple_colons_is_rejected(
-        self, authorizer, mock_user
-    ):
+    async def test_channel_with_multiple_colons_is_rejected(self, authorizer, mock_user):
         """Channel with multiple colons is rejected."""
-        authorized, error = await authorizer.authorize(
-            mock_user, f"test:run:{uuid4()}"
-        )
+        authorized, error = await authorizer.authorize(mock_user, f"test:run:{uuid4()}")
 
         assert authorized is False
         assert error is not None
