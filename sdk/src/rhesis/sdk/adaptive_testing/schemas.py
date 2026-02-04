@@ -503,7 +503,7 @@ class TopicTree:
 
     # --- Mutation methods ---
 
-    def create(self, path: str, labeler: str = "user") -> Topic:
+    def add_topic(self, path: str, labeler: str = "user") -> Topic:
         """Create a new topic by adding a topic_marker node.
 
         Returns the Topic (creates topic_marker node in TestTreeData).
