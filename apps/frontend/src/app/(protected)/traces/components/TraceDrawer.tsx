@@ -21,10 +21,12 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import TimelineIcon from '@mui/icons-material/Timeline';
+import HubIcon from '@mui/icons-material/Hub';
 import Link from 'next/link';
 import SpanTreeView from './SpanTreeView';
 import SpanGraphView from './SpanGraphView';
 import SpanSequenceView from './SpanSequenceView';
+import SpanMarkovView from './SpanMarkovView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -406,6 +408,13 @@ export default function TraceDrawer({
                   id="span-hierarchy-tab-2"
                   aria-controls="span-hierarchy-tabpanel-2"
                 />
+                <Tab
+                  icon={<HubIcon fontSize="small" />}
+                  iconPosition="start"
+                  label="Markov View"
+                  id="span-hierarchy-tab-3"
+                  aria-controls="span-hierarchy-tabpanel-3"
+                />
               </Tabs>
             </Box>
 
@@ -433,6 +442,13 @@ export default function TraceDrawer({
               )}
               {viewTab === 2 && (
                 <SpanSequenceView
+                  spans={trace.root_spans}
+                  selectedSpan={selectedSpan}
+                  onSpanSelect={handleSpanSelect}
+                />
+              )}
+              {viewTab === 3 && (
+                <SpanMarkovView
                   spans={trace.root_spans}
                   selectedSpan={selectedSpan}
                   onSpanSelect={handleSpanSelect}
