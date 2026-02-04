@@ -56,7 +56,7 @@ export default function TraceDrawer({
   const [viewTab, setViewTab] = useState<number>(0);
 
   // Resizable split pane state
-  const [leftPanelWidth, setLeftPanelWidth] = useState(40); // percentage
+  const [leftPanelWidth, setLeftPanelWidth] = useState(60); // percentage
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
