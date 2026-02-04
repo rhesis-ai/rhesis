@@ -1,14 +1,7 @@
 'use client';
 
 import React from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  IconButton,
-  Tooltip,
-  Skeleton,
-} from '@mui/material';
+import { Box, Paper, Typography, Tooltip, Skeleton } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import TimelineIcon from '@mui/icons-material/Timeline';
@@ -34,6 +27,18 @@ export default function MessageBubble({
 }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const hasTrace = !isUser && message.traceId && !message.isError;
+
+  // Debug logging for trace link
+  if (!isUser) {
+    console.log('[MessageBubble] Assistant message:', {
+      id: message.id,
+      role: message.role,
+      traceId: message.traceId,
+      isError: message.isError,
+      hasTrace,
+      hasOnViewTrace: !!onViewTrace,
+    });
+  }
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], {
@@ -64,8 +69,8 @@ export default function MessageBubble({
         {/* Avatar */}
         <Box
           sx={{
-            width: 32,
-            height: 32,
+            width: theme => theme.spacing(4),
+            height: theme => theme.spacing(4),
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
@@ -93,54 +98,77 @@ export default function MessageBubble({
         </Box>
 
         {/* Bubble */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            borderRadius: 2,
-            bgcolor: isUser
-              ? 'primary.main'
-              : message.isError
-                ? 'error.light'
-                : 'action.hover',
-            color: isUser
-              ? 'primary.contrastText'
-              : message.isError
-                ? 'error.contrastText'
-                : 'text.primary',
-            borderTopRightRadius: isUser ? 0 : 2,
-            borderTopLeftRadius: isUser ? 2 : 0,
-          }}
+        <Tooltip
+          title={hasTrace ? 'Click to view trace details' : ''}
+          placement="top"
+          disableHoverListener={!hasTrace}
         >
-          <Typography
-            variant="body2"
+          <Paper
+            elevation={0}
+            onClick={
+              hasTrace && onViewTrace
+                ? () => onViewTrace(message.traceId!)
+                : undefined
+            }
             sx={{
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
+              p: 2,
+              borderRadius: 2,
+              bgcolor: isUser
+                ? 'primary.main'
+                : message.isError
+                  ? 'error.light'
+                  : 'action.hover',
+              color: isUser
+                ? 'primary.contrastText'
+                : message.isError
+                  ? 'error.contrastText'
+                  : 'text.primary',
+              borderTopRightRadius: isUser ? 0 : 2,
+              borderTopLeftRadius: isUser ? 2 : 0,
+              ...(hasTrace && {
+                cursor: 'pointer',
+                transition: theme =>
+                  theme.transitions.create(['background-color', 'box-shadow'], {
+                    duration: theme.transitions.duration.short,
+                  }),
+                '&:hover': {
+                  bgcolor: 'action.selected',
+                  boxShadow: 1,
+                },
+              }),
             }}
           >
-            {message.content}
-          </Typography>
-        </Paper>
-
-        {/* Trace Button (for assistant messages with traces) */}
-        {hasTrace && onViewTrace && (
-          <Tooltip title="View trace details">
-            <IconButton
-              size="small"
-              onClick={() => onViewTrace(message.traceId!)}
+            <Box
               sx={{
-                alignSelf: 'center',
-                color: 'text.secondary',
-                '&:hover': {
-                  color: 'primary.main',
-                },
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 1,
               }}
             >
-              <TimelineIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        )}
+              <Typography
+                variant="body2"
+                sx={{
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  flex: 1,
+                }}
+              >
+                {message.content}
+              </Typography>
+              {/* Trace Icon indicator (for assistant messages with traces) */}
+              {hasTrace && (
+                <TimelineIcon
+                  fontSize="small"
+                  sx={{
+                    color: 'action.active',
+                    flexShrink: 0,
+                    mt: 0.25,
+                  }}
+                />
+              )}
+            </Box>
+          </Paper>
+        </Tooltip>
       </Box>
 
       {/* Timestamp */}
@@ -171,12 +199,18 @@ export function MessageBubbleSkeleton() {
         mb: 2,
       }}
     >
-      <Skeleton variant="circular" width={32} height={32} />
+      <Skeleton
+        variant="circular"
+        sx={{
+          width: theme => theme.spacing(4),
+          height: theme => theme.spacing(4),
+        }}
+      />
       <Box sx={{ flex: 1, maxWidth: '60%' }}>
         <Skeleton
           variant="rounded"
-          height={60}
           sx={{
+            height: theme => theme.spacing(7.5),
             borderRadius: 2,
             borderTopLeftRadius: 0,
           }}

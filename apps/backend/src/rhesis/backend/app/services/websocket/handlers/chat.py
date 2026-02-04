@@ -134,6 +134,12 @@ async def handle_chat_message(
             output = result.get("output", "")
             trace_id = result.get("trace_id")
 
+            # Debug: log result dict keys and trace_id
+            logger.info(
+                f"[DEBUG] Result dict keys: {list(result.keys())}, "
+                f"trace_id from result: {trace_id}"
+            )
+
             # Build response payload
             response_payload = {
                 "output": output,

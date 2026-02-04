@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.endpoint.validation import validate_and_update_status_async
+from rhesis.backend.app.utils.model_utils import QueryBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -92,15 +93,14 @@ class EndpointValidationService:
             # Create our own database session for this background task
             with get_db_with_tenant_variables(organization_id, user_id) as db:
                 # Get all endpoints for this project/environment
-                endpoints = (
-                    db.query(Endpoint)
-                    .filter(
-                        Endpoint.project_id == project_id,
-                        Endpoint.environment == environment,
-                        Endpoint.connection_type == "SDK",
-                    )
-                    .all()
+                # Use QueryBuilder which properly handles soft delete filtering
+                query_builder = QueryBuilder(db, Endpoint).with_organization_filter(organization_id)
+                query_builder.query = query_builder.query.filter(
+                    Endpoint.project_id == project_id,
+                    Endpoint.environment == environment,
+                    Endpoint.connection_type == "SDK",
                 )
+                endpoints = query_builder.all()
 
                 # Validate each endpoint
                 for endpoint in endpoints:

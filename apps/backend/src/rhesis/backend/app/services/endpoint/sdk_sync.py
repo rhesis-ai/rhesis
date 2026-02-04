@@ -12,6 +12,7 @@ from rhesis.backend.app.models.enums import (
     EndpointConnectionType,
     EndpointEnvironment,
 )
+from rhesis.backend.app.utils.model_utils import QueryBuilder
 from rhesis.backend.app.utils.status import get_or_create_status
 from rhesis.backend.logging import logger
 
@@ -82,16 +83,14 @@ async def sync_sdk_endpoints(
     logger.info(f"Project validated: {project_name} ({project_id})")
 
     # Get all existing SDK endpoints for this project/environment
-    existing_endpoints = (
-        db.query(models.Endpoint)
-        .filter(
-            models.Endpoint.project_id == project_id,
-            models.Endpoint.environment == environment,
-            models.Endpoint.connection_type == EndpointConnectionType.SDK.value,
-            models.Endpoint.organization_id == organization_id,
-        )
-        .all()
+    # Use QueryBuilder which properly handles soft delete filtering
+    query_builder = QueryBuilder(db, models.Endpoint).with_organization_filter(organization_id)
+    query_builder.query = query_builder.query.filter(
+        models.Endpoint.project_id == project_id,
+        models.Endpoint.environment == environment,
+        models.Endpoint.connection_type == EndpointConnectionType.SDK.value,
     )
+    existing_endpoints = query_builder.all()
 
     # Map existing endpoints by function name
     existing_by_function = {}

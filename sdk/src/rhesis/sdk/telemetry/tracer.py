@@ -11,7 +11,11 @@ from opentelemetry import trace
 
 from rhesis.sdk.telemetry.attributes import AIAttributes
 from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
-from rhesis.sdk.telemetry.context import get_test_execution_context
+from rhesis.sdk.telemetry.context import (
+    get_root_trace_id,
+    get_test_execution_context,
+    set_root_trace_id,
+)
 from rhesis.sdk.telemetry.provider import get_tracer_provider
 from rhesis.sdk.telemetry.schemas import TestExecutionContext
 
@@ -327,6 +331,14 @@ class Tracer:
             name=final_span_name,
             kind=trace.SpanKind.INTERNAL,
         ) as span:
+            # Set root trace_id if this is the root span (no existing trace_id in context)
+            # This allows the executor to return trace_id for frontend trace linking
+            is_root = get_root_trace_id() is None
+            if is_root:
+                trace_id = format(span.get_span_context().trace_id, "032x")
+                set_root_trace_id(trace_id)
+                logger.debug(f"[Tracer] Set root trace_id: {trace_id} for {function_name}")
+
             # Set up span attributes
             self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
 
@@ -383,6 +395,14 @@ class Tracer:
             name=final_span_name,
             kind=trace.SpanKind.INTERNAL,
         ) as span:
+            # Set root trace_id if this is the root span (no existing trace_id in context)
+            # This allows the executor to return trace_id for frontend trace linking
+            is_root = get_root_trace_id() is None
+            if is_root:
+                trace_id = format(span.get_span_context().trace_id, "032x")
+                set_root_trace_id(trace_id)
+                logger.debug(f"[Tracer] Set root trace_id: {trace_id} for {function_name}")
+
             # Set up span attributes
             self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
 

@@ -58,6 +58,7 @@ class TestResultMessage(BaseModel):
     output: Optional[Any] = None
     error: Optional[str] = None
     duration_ms: float
+    trace_id: Optional[str] = None  # 32-char hex trace ID for linking to traces
 
 
 class PingMessage(BaseModel):

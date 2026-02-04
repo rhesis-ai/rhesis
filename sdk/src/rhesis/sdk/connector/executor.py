@@ -12,7 +12,11 @@ from typing import Any
 from rhesis.sdk.connector.schemas import TestStatus
 from rhesis.sdk.connector.serializer import TypeSerializer
 from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
-from rhesis.sdk.telemetry.context import set_test_execution_context
+from rhesis.sdk.telemetry.context import (
+    get_root_trace_id,
+    set_root_trace_id,
+    set_test_execution_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -164,28 +168,36 @@ class TestExecutor:
 
                 duration_ms = (time.time() - start_time) * 1000
 
+                # Get trace_id from context (set by tracer during execution)
+                trace_id = get_root_trace_id()
+                logger.debug(f"[Executor] Retrieved trace_id from context: {trace_id}")
+
                 return {
                     "status": TestStatus.SUCCESS,
                     "output": result,
                     "error": None,
                     "duration_ms": duration_ms,
+                    "trace_id": trace_id,
                 }
 
             finally:
                 # Clear context after execution
                 set_test_execution_context(None)
+                set_root_trace_id(None)
 
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(f"Error executing function {function_name}: {e}")
             # Clear context on error too
             set_test_execution_context(None)
+            set_root_trace_id(None)
 
             return {
                 "status": TestStatus.ERROR,
                 "output": None,
                 "error": str(e),
                 "duration_ms": duration_ms,
+                "trace_id": None,
             }
 
     async def _consume_generator(self, result: Any) -> Any:

@@ -379,6 +379,12 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             if isinstance(result, ErrorResponse):
                 return result
 
+            # Debug: log raw SDK result
+            logger.info(
+                f"[DEBUG] Raw SDK result keys: {list(result.keys())}, "
+                f"trace_id in raw result: {result.get('trace_id')}"
+            )
+
             error_response = self._check_result_errors(result, function_name)
             if error_response:
                 return error_response
@@ -389,9 +395,13 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Step 7: Extract conversation ID if present
             self._extract_conversation_id(mapped_response, conversation_field)
 
+            # Step 8: Include trace_id from SDK result for trace linking
+            if result.get("trace_id"):
+                mapped_response["trace_id"] = result["trace_id"]
+
             logger.info(
                 f"SDK function {function_name} completed successfully "
-                f"in {result.get('duration_ms', 0)}ms"
+                f"in {result.get('duration_ms', 0)}ms, trace_id={result.get('trace_id')}"
             )
 
             return mapped_response
