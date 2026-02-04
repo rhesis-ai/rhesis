@@ -335,6 +335,22 @@ class TestMCPConnectionResponse(BaseModel):
 
     is_authenticated: str  # "Yes" or "No"
     message: str
+    additional_metadata: Optional[Dict[str, Any]] = None  # For provider-specific data like spaces
+
+
+class CreateJiraTicketFromTaskRequest(BaseModel):
+    """Request to create a Jira ticket from a task."""
+
+    task_id: UUID4
+    tool_id: str
+
+
+class CreateJiraTicketFromTaskResponse(BaseModel):
+    """Response from creating a Jira ticket."""
+
+    issue_key: str  # e.g., "PROJ-123"
+    issue_url: str  # Direct link to the created issue
+    message: str
 
 
 # Recent Activities Schemas

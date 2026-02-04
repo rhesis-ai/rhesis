@@ -13,6 +13,10 @@ import {
   Alert,
   Stack,
   Collapse,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -35,6 +39,7 @@ import { UUID } from 'crypto';
 import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { getErrorMessage } from '@/utils/entity-error-handler';
+import Link from '@mui/material/Link';
 
 // Lazy load Monaco Editor
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -134,6 +139,10 @@ export function MCPConnectionDialog({
   const [testResult, setTestResult] = useState<{
     is_authenticated: string;
     message: string;
+    additional_metadata?: {
+      spaces?: Array<{ key: string; name: string }>;
+      [key: string]: any;
+    };
   } | null>(null);
   const [connectionTested, setConnectionTested] = useState(false);
 
@@ -143,6 +152,13 @@ export function MCPConnectionDialog({
   // Jira and Confluence fields
   const [instanceUrl, setInstanceUrl] = useState('');
   const [username, setUsername] = useState('');
+
+  // Jira space selection
+  const [availableSpaces, setAvailableSpaces] = useState<
+    Array<{ key: string; name: string }>
+  >([]);
+  const [selectedSpaceKey, setSelectedSpaceKey] = useState<string>('');
+  const [showSpaceSelector, setShowSpaceSelector] = useState(false);
 
   const isEditMode = mode === 'edit';
 
@@ -204,6 +220,15 @@ export function MCPConnectionDialog({
         setInstanceUrl('************');
         setUsername('************');
 
+        // Extract space_key from tool_metadata if it exists (for Jira)
+        if (currentProviderType === 'jira' && tool.tool_metadata?.space_key) {
+          setSelectedSpaceKey(tool.tool_metadata.space_key);
+        } else {
+          setSelectedSpaceKey('');
+        }
+        setAvailableSpaces([]);
+        setShowSpaceSelector(false);
+
         setError(null);
         setJsonError(null);
         setShowAuthToken(false);
@@ -219,7 +244,16 @@ export function MCPConnectionDialog({
         setToolMetadata('');
         setRepositoryUrl('');
         setInstanceUrl('');
-        setUsername('');
+        // Pre-fill email with logged-in user's email for Jira/Confluence
+        const isAtlassian =
+          currentProviderType === 'jira' ||
+          currentProviderType === 'confluence';
+        setUsername(
+          isAtlassian && session?.user?.email ? session.user.email : ''
+        );
+        setSelectedSpaceKey('');
+        setAvailableSpaces([]);
+        setShowSpaceSelector(false);
         setError(null);
         setJsonError(null);
         setShowAuthToken(false);
@@ -229,7 +263,14 @@ export function MCPConnectionDialog({
         setConnectionTested(false);
       }
     }
-  }, [open, provider, tool, isEditMode, isCustomProvider]);
+  }, [
+    open,
+    provider,
+    tool,
+    isEditMode,
+    isCustomProvider,
+    session?.user?.email,
+  ]);
 
   // Reset connection test status when critical credential fields change
   // Note: name and description changes don't affect connection validity
@@ -446,8 +487,23 @@ export function MCPConnectionDialog({
       // Mark as tested if successful
       if (result.is_authenticated === 'Yes') {
         setConnectionTested(true);
+
+        // Check if we have spaces in additional_metadata (for Jira)
+        if (
+          providerType === 'jira' &&
+          result.additional_metadata?.spaces &&
+          result.additional_metadata.spaces.length > 0
+        ) {
+          setAvailableSpaces(result.additional_metadata.spaces);
+          setShowSpaceSelector(true);
+        } else {
+          setAvailableSpaces([]);
+          setShowSpaceSelector(false);
+        }
       } else {
         setConnectionTested(false);
+        setAvailableSpaces([]);
+        setShowSpaceSelector(false);
       }
     } catch (err) {
       // Display error in testResult (under the button) instead of error state (at top)
@@ -563,28 +619,38 @@ export function MCPConnectionDialog({
           return;
         }
 
-        // Add or update repository metadata for GitHub
+        // GitHub requires repository metadata
         if (providerType === 'github') {
-          if (repositoryUrl.trim()) {
-            const repoData = parseRepositoryUrl(repositoryUrl);
-            if (!repoData) {
-              setError(
-                'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
-              );
-              setLoading(false);
-              return;
-            }
-            metadataToUpdate = {
-              ...(metadataToUpdate || tool.tool_metadata || {}),
-              repository: repoData,
-            };
-          } else {
-            // Remove repository metadata if URL is empty
-            metadataToUpdate = {
-              ...(metadataToUpdate || tool.tool_metadata || {}),
-            };
-            delete metadataToUpdate.repository;
+          if (!repositoryUrl.trim()) {
+            setError('Repository URL is required for GitHub integrations');
+            setLoading(false);
+            return;
           }
+          const repoData = parseRepositoryUrl(repositoryUrl);
+          if (!repoData) {
+            setError(
+              'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
+            );
+            setLoading(false);
+            return;
+          }
+          metadataToUpdate = {
+            ...(metadataToUpdate || tool.tool_metadata || {}),
+            repository: repoData,
+          };
+        }
+
+        // Jira requires space_key metadata
+        if (providerType === 'jira') {
+          if (!selectedSpaceKey) {
+            setError('Jira space selection is required');
+            setLoading(false);
+            return;
+          }
+          metadataToUpdate = {
+            ...(metadataToUpdate || tool.tool_metadata || {}),
+            space_key: selectedSpaceKey,
+          };
         }
 
         if (metadataToUpdate) {
@@ -687,8 +753,13 @@ export function MCPConnectionDialog({
             parsedMetadata = validatedMetadata;
           }
 
-          // Add repository metadata for GitHub if provided
-          if (providerType === 'github' && repositoryUrl.trim()) {
+          // GitHub requires repository metadata
+          if (providerType === 'github') {
+            if (!repositoryUrl.trim()) {
+              setError('Repository URL is required for GitHub integrations');
+              setLoading(false);
+              return;
+            }
             const repoData = parseRepositoryUrl(repositoryUrl);
             if (!repoData) {
               setError(
@@ -700,6 +771,19 @@ export function MCPConnectionDialog({
             parsedMetadata = {
               ...(parsedMetadata || {}),
               repository: repoData,
+            };
+          }
+
+          // Jira requires space_key metadata
+          if (providerType === 'jira') {
+            if (!selectedSpaceKey) {
+              setError('Jira space selection is required');
+              setLoading(false);
+              return;
+            }
+            parsedMetadata = {
+              ...(parsedMetadata || {}),
+              space_key: selectedSpaceKey,
             };
           }
 
@@ -731,8 +815,9 @@ export function MCPConnectionDialog({
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
   );
 
-  const displayName =
-    provider?.description || provider?.type_value || 'MCP Provider';
+  const displayName = provider?.type_value
+    ? provider.type_value.charAt(0).toUpperCase() + provider.type_value.slice(1)
+    : 'MCP Provider';
 
   return (
     <Dialog
@@ -749,12 +834,20 @@ export function MCPConnectionDialog({
           {providerIcon}
           <Box>
             <Typography variant="h6" component="div">
-              {isEditMode ? `Edit ${displayName}` : `Connect to ${displayName}`}
+              {displayName}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {isEditMode
                 ? 'Update your MCP connection settings'
-                : 'Configure your MCP connection settings below'}
+                : 'Configure your MCP connection settings below'}{' '}
+              <Link
+                href="https://docs.rhesis.ai/platform/mcp#provider-setup-instructions"
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ textDecoration: 'none' }}
+              >
+                (setup guide)
+              </Link>
             </Typography>
           </Box>
         </Box>
@@ -783,7 +876,6 @@ export function MCPConnectionDialog({
               required
               value={name}
               onChange={e => setName(e.target.value)}
-              helperText="A unique name to identify this MCP connection"
             />
 
             <TextField
@@ -793,7 +885,6 @@ export function MCPConnectionDialog({
               rows={2}
               value={description}
               onChange={e => setDescription(e.target.value)}
-              helperText="Optional description for this MCP connection"
             />
 
             {requiresToken && (
@@ -809,9 +900,7 @@ export function MCPConnectionDialog({
                 {(providerType === 'jira' || providerType === 'confluence') && (
                   <>
                     <TextField
-                      label={
-                        providerType === 'jira' ? 'Jira URL' : 'Confluence URL'
-                      }
+                      label="Atlassian Organization URL"
                       fullWidth
                       required={!isEditMode}
                       value={instanceUrl}
@@ -832,15 +921,6 @@ export function MCPConnectionDialog({
                         providerType === 'jira'
                           ? 'https://your-domain.atlassian.net'
                           : 'https://your-domain.atlassian.net/wiki'
-                      }
-                      helperText={
-                        isEditMode
-                          ? instanceUrl !== '************' && instanceUrl !== ''
-                            ? 'New URL will replace the current one'
-                            : 'Click to update the URL'
-                          : providerType === 'jira'
-                            ? 'Your Jira instance URL'
-                            : 'Your Confluence instance URL'
                       }
                     />
 
@@ -863,13 +943,6 @@ export function MCPConnectionDialog({
                         }
                       }}
                       placeholder="your-email@example.com"
-                      helperText={
-                        isEditMode
-                          ? username !== '************' && username !== ''
-                            ? 'New email will replace the current one'
-                            : 'Click to update the email'
-                          : 'Your Atlassian account email'
-                      }
                     />
                   </>
                 )}
@@ -902,9 +975,7 @@ export function MCPConnectionDialog({
                       ? authToken !== '************' && authToken !== ''
                         ? 'New API token will replace the current one'
                         : 'Click to update the API token'
-                      : providerType === 'jira' || providerType === 'confluence'
-                        ? 'Your Atlassian API token'
-                        : 'Your authentication token for this MCP provider'
+                      : undefined
                   }
                   InputProps={{
                     endAdornment:
@@ -983,6 +1054,46 @@ export function MCPConnectionDialog({
                     </Alert>
                   )}
                 </Box>
+
+                {/* Jira Space Selection */}
+                {showSpaceSelector &&
+                  availableSpaces.length > 0 &&
+                  providerType === 'jira' && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: 600,
+                          mb: 1,
+                          color: 'primary.main',
+                        }}
+                      >
+                        Space Selection
+                      </Typography>
+                      <FormControl fullWidth required>
+                        <InputLabel>Jira Space</InputLabel>
+                        <Select
+                          value={selectedSpaceKey}
+                          onChange={e => setSelectedSpaceKey(e.target.value)}
+                          label="Jira Space"
+                          required
+                        >
+                          {availableSpaces.map(space => (
+                            <MenuItem key={space.key} value={space.key}>
+                              {space.name} ({space.key})
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ mt: 0.5, display: 'block' }}
+                      >
+                        Select the Jira space for issue creation
+                      </Typography>
+                    </Box>
+                  )}
               </>
             )}
 
@@ -993,16 +1104,17 @@ export function MCPConnectionDialog({
                   variant="subtitle1"
                   sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 2 }}
                 >
-                  Repository Scope (Optional)
+                  Repository Scope
                 </Typography>
 
                 <TextField
                   label="Repository URL"
                   fullWidth
+                  required
                   value={repositoryUrl}
                   onChange={e => setRepositoryUrl(e.target.value)}
                   placeholder="https://github.com/owner/repo"
-                  helperText="Optional: Restrict this connection to a specific repository. Leave empty for user-level access to all repositories."
+                  helperText="Specify the GitHub repository for this connection"
                 />
               </>
             )}

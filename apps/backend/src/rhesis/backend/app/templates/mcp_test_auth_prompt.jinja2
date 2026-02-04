@@ -8,12 +8,28 @@ Look at the available tools and select one that would require authentication, su
 - Accessing user-specific data
 - Any tool that would fail with a 401 unauthorized error if not authenticated
 
-Call the tool and then provide your final answer in this exact JSON format:
+{% if provider == "jira" %}
+ADDITIONAL TASK FOR JIRA: After verifying authentication, list all available Jira spaces with their keys and names.
+In Jira, a "space" is equal to "project". You can use the get_all_projects tool for that.
+
+CRITICAL: You MUST always provide your final answer in this exact JSON format (raw JSON without markdown code blocks):
+{
+  "is_authenticated": "Yes" or "No",
+  "message": "Brief explanation of the authentication status",
+  "spaces": [{"key": "SPACE", "name": "Space Name"}, ...]
+}
+
+If you cannot retrieve spaces, return an empty array for "spaces": []
+{% else %}
+CRITICAL: You MUST always provide your final answer in this exact JSON format (raw JSON without markdown code blocks):
 {
   "is_authenticated": "Yes" or "No",
   "message": "Brief explanation of the authentication status"
 }
+{% endif %}
 
-Use "Yes" if the tool call succeeded, or "No" if you received any authentication error (such as 401 unauthorized, authentication failed, etc.).
+Use "Yes" if the tool call succeeded, or "No" if you received any authentication error (such as 401 unauthorized, authentication failed, invalid credentials, etc.).
 
-Be concise and direct - your goal is to verify authentication status, not to perform a complex task.
+IMPORTANT: Even if the tool call fails or returns an error, you MUST still respond with the JSON format above. Never return an empty response.
+
+Be concise and direct - your goal is to verify authentication status{% if provider == "jira" %} and retrieve spaces{% endif %}.

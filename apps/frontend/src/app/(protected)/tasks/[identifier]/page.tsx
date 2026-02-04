@@ -33,6 +33,7 @@ import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
+import CreateJiraIssueButton from '../components/CreateJiraIssueButton';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -628,7 +629,209 @@ export default function TaskDetailPage({ params }: PageProps) {
         <Grid container spacing={3}>
           <Grid size={12}>
             <Paper sx={{ p: 4 }}>
-              {/* Task Details Section */}
+              {/* Task Details Section Header */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  mb: 4,
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="h6"
+                    component="h2"
+                    sx={{ fontWeight: 'bold', mb: 1 }}
+                  >
+                    Task Details
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Key information about this task.
+                  </Typography>
+                </Box>
+                <CreateJiraIssueButton
+                  task={editedTask || task}
+                  onIssueCreated={() => loadInitialData(true)}
+                />
+              </Box>
+
+              {/* Title */}
+              <Box sx={{ mb: 4 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mb: 1,
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    Title
+                  </Typography>
+                  {!isEditingTitle ? (
+                    <Tooltip title="Edit title">
+                      <IconButton
+                        onClick={() => setIsEditingTitle(true)}
+                        size="small"
+                        sx={{
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'primary.main',
+                          },
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  ) : null}
+                </Box>
+                {isEditingTitle ? (
+                  <Box sx={{ mb: 2 }}>
+                    <TextField
+                      value={editTitle}
+                      onChange={e => setEditTitle(e.target.value)}
+                      fullWidth
+                      variant="outlined"
+                      size="small"
+                      placeholder="Enter task title..."
+                      error={!editTitle.trim()}
+                      helperText={
+                        !editTitle.trim() ? 'Title cannot be empty' : ''
+                      }
+                      sx={{ mb: 1 }}
+                    />
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: 1,
+                      }}
+                    >
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          setIsEditingTitle(false);
+                          setEditTitle(task.title || '');
+                        }}
+                        disabled={isSaving}
+                        sx={{ textTransform: 'none', borderRadius: '16px' }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={handleSaveTitle}
+                        disabled={isSaving || !editTitle.trim()}
+                        sx={{ textTransform: 'none', borderRadius: '16px' }}
+                      >
+                        {isSaving ? 'Saving...' : 'Save'}
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      minHeight: '24px',
+                      color:
+                        editedTask?.title || task.title
+                          ? 'text.primary'
+                          : 'text.secondary',
+                      fontStyle:
+                        editedTask?.title || task.title ? 'normal' : 'italic',
+                    }}
+                  >
+                    {editedTask?.title || task.title || 'No title set'}
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Description */}
+              <Box sx={{ mb: 4 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    mb: 1,
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">
+                    Description
+                  </Typography>
+                  {!isEditingDescription ? (
+                    <Tooltip title="Edit description">
+                      <IconButton
+                        onClick={() => setIsEditingDescription(true)}
+                        size="small"
+                        sx={{
+                          color: 'text.secondary',
+                          '&:hover': {
+                            color: 'primary.main',
+                          },
+                        }}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  ) : null}
+                </Box>
+                {isEditingDescription ? (
+                  <Box sx={{ mb: 2 }}>
+                    <TextField
+                      value={editDescription}
+                      onChange={e => setEditDescription(e.target.value)}
+                      multiline
+                      rows={3}
+                      fullWidth
+                      variant="outlined"
+                      size="small"
+                      sx={{ mb: 1 }}
+                    />
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: 1,
+                      }}
+                    >
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          setIsEditingDescription(false);
+                          setEditDescription(task.description || '');
+                        }}
+                        sx={{ textTransform: 'none', borderRadius: '16px' }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={handleSaveDescription}
+                        disabled={isSaving || !editDescription.trim()}
+                        sx={{ textTransform: 'none', borderRadius: '16px' }}
+                      >
+                        {isSaving ? 'Saving...' : 'Save'}
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      mb: 2,
+                      lineHeight: 1.6,
+                      whiteSpace: 'pre-wrap',
+                      color: 'text.primary',
+                    }}
+                  >
+                    {task.description || 'No description provided'}
+                  </Typography>
+                )}
+              </Box>
 
               {/* Status and Priority Row */}
               <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -852,201 +1055,6 @@ export default function TaskDetailPage({ params }: PageProps) {
                   </FormControl>
                 </Grid>
               </Grid>
-
-              {/* Task Details Section */}
-              <Box sx={{ mb: 4 }}>
-                <Typography
-                  variant="h6"
-                  component="h2"
-                  sx={{ fontWeight: 'bold', mb: 1 }}
-                >
-                  Task Details
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 3 }}
-                >
-                  Key information about this task.
-                </Typography>
-              </Box>
-
-              {/* Title */}
-              <Box sx={{ mb: 4 }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: 1,
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Title
-                  </Typography>
-                  {!isEditingTitle ? (
-                    <Tooltip title="Edit title">
-                      <IconButton
-                        onClick={() => setIsEditingTitle(true)}
-                        size="small"
-                        sx={{
-                          color: 'text.secondary',
-                          '&:hover': {
-                            color: 'primary.main',
-                          },
-                        }}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  ) : null}
-                </Box>
-                {isEditingTitle ? (
-                  <Box sx={{ mb: 2 }}>
-                    <TextField
-                      value={editTitle}
-                      onChange={e => setEditTitle(e.target.value)}
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      placeholder="Enter task title..."
-                      error={!editTitle.trim()}
-                      helperText={
-                        !editTitle.trim() ? 'Title cannot be empty' : ''
-                      }
-                      sx={{ mb: 1 }}
-                    />
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        gap: 1,
-                      }}
-                    >
-                      <Button
-                        size="small"
-                        onClick={() => {
-                          setIsEditingTitle(false);
-                          setEditTitle(task.title || '');
-                        }}
-                        disabled={isSaving}
-                        sx={{ textTransform: 'none', borderRadius: '16px' }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={handleSaveTitle}
-                        disabled={isSaving || !editTitle.trim()}
-                        sx={{ textTransform: 'none', borderRadius: '16px' }}
-                      >
-                        {isSaving ? 'Saving...' : 'Save'}
-                      </Button>
-                    </Box>
-                  </Box>
-                ) : (
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      minHeight: '24px',
-                      color:
-                        editedTask?.title || task.title
-                          ? 'text.primary'
-                          : 'text.secondary',
-                      fontStyle:
-                        editedTask?.title || task.title ? 'normal' : 'italic',
-                    }}
-                  >
-                    {editedTask?.title || task.title || 'No title set'}
-                  </Typography>
-                )}
-              </Box>
-
-              {/* Description */}
-              <Box sx={{ mb: 4 }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: 1,
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary">
-                    Description
-                  </Typography>
-                  {!isEditingDescription ? (
-                    <Tooltip title="Edit description">
-                      <IconButton
-                        onClick={() => setIsEditingDescription(true)}
-                        size="small"
-                        sx={{
-                          color: 'text.secondary',
-                          '&:hover': {
-                            color: 'primary.main',
-                          },
-                        }}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  ) : null}
-                </Box>
-                {isEditingDescription ? (
-                  <Box sx={{ mb: 2 }}>
-                    <TextField
-                      value={editDescription}
-                      onChange={e => setEditDescription(e.target.value)}
-                      multiline
-                      rows={3}
-                      fullWidth
-                      variant="outlined"
-                      size="small"
-                      sx={{ mb: 1 }}
-                    />
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        gap: 1,
-                      }}
-                    >
-                      <Button
-                        size="small"
-                        onClick={() => {
-                          setIsEditingDescription(false);
-                          setEditDescription(task.description || '');
-                        }}
-                        sx={{ textTransform: 'none', borderRadius: '16px' }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={handleSaveDescription}
-                        disabled={isSaving || !editDescription.trim()}
-                        sx={{ textTransform: 'none', borderRadius: '16px' }}
-                      >
-                        {isSaving ? 'Saving...' : 'Save'}
-                      </Button>
-                    </Box>
-                  </Box>
-                ) : (
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      mb: 2,
-                      lineHeight: 1.6,
-                      whiteSpace: 'pre-wrap',
-                      color: 'text.primary',
-                    }}
-                  >
-                    {task.description || 'No description provided'}
-                  </Typography>
-                )}
-              </Box>
 
               {/* Divider between task details and comments */}
               <Divider sx={{ my: 4 }} />
