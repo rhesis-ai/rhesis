@@ -152,28 +152,26 @@ export default function PlaygroundClient() {
   };
 
   return (
-    <PageContainer
-      title="Playground"
-      breadcrumbs={[]}
-      slotProps={{
-        toolbar: {
-          children: (
-            <Chip
-              icon={isConnected ? <WifiIcon /> : <WifiOffIcon />}
-              label={isConnected ? 'Connected' : 'Disconnected'}
-              color={isConnected ? 'success' : 'default'}
-              variant="outlined"
-              size="small"
-            />
-          ),
-        },
-      }}
-    >
-      {/* Description */}
-      <Box sx={{ mb: 3 }}>
+    <PageContainer title="Playground" breadcrumbs={[]}>
+      {/* Description with connection status */}
+      <Box
+        sx={{
+          mb: 3,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
         <Typography color="text.secondary">
           Chat with your endpoints interactively to test their responses.
         </Typography>
+        <Chip
+          icon={isConnected ? <WifiIcon /> : <WifiOffIcon />}
+          label={isConnected ? 'Connected' : 'Disconnected'}
+          color={isConnected ? 'success' : 'default'}
+          variant="outlined"
+          size="small"
+        />
       </Box>
 
       {/* Endpoint Selector */}
