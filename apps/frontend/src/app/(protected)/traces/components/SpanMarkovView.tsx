@@ -36,6 +36,7 @@ import 'reactflow/dist/style.css';
 import dagre from 'dagre';
 import { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import BuildIcon from '@mui/icons-material/Build';
 
 interface SpanMarkovViewProps {
   spans: SpanNode[];
@@ -69,10 +70,11 @@ interface TimedAgentEvent {
   spanId: string;
 }
 
-// Interface for Markov state (agent)
+// Interface for Markov state (agent or tool)
 interface MarkovState {
   id: string;
   name: string;
+  type: 'agent' | 'tool';
   invocationCount: number;
   totalDurationMs: number;
   hasError: boolean;
@@ -80,7 +82,7 @@ interface MarkovState {
 }
 
 /**
- * Extract agent states and transitions from spans with timestamps
+ * Extract agent and tool states and transitions from spans with timestamps
  */
 function extractMarkovChain(spans: SpanNode[]): {
   states: Map<string, MarkovState>;
@@ -91,28 +93,67 @@ function extractMarkovChain(spans: SpanNode[]): {
 } {
   const states = new Map<string, MarkovState>();
   const transitionCounts = new Map<string, number>();
-  const agentSequence: { name: string; timestamp: number; spanId: string }[] = [];
+  const entitySequence: {
+    name: string;
+    timestamp: number;
+    spanId: string;
+    type: 'agent' | 'tool';
+  }[] = [];
   const timedTransitions: TimedTransition[] = [];
   const timedAgentEvents: TimedAgentEvent[] = [];
   let minTime = Infinity;
   let maxTime = -Infinity;
 
-  // Flatten spans and extract agent invocations in order
-  function traverse(span: SpanNode) {
+  // First pass: collect all agent invocations with their time ranges
+  const agentTimeRanges: {
+    name: string;
+    startTime: number;
+    endTime: number;
+    spanId: string;
+  }[] = [];
+
+  // Also collect all tools and handoffs for later processing
+  const toolInvocations: {
+    toolId: string;
+    toolName: string;
+    startTime: number;
+    endTime: number;
+    spanId: string;
+    hasError: boolean;
+    durationMs: number;
+  }[] = [];
+
+  const handoffs: {
+    from: string;
+    to: string;
+    timestamp: number;
+    spanId: string;
+  }[] = [];
+
+  // Flatten all spans and collect data
+  function collectSpans(span: SpanNode) {
     const spanTime = new Date(span.start_time).getTime();
     const spanEndTime = new Date(span.end_time).getTime();
     minTime = Math.min(minTime, spanTime);
     maxTime = Math.max(maxTime, spanEndTime);
 
-    // Check for agent invocations
+    // Collect agent invocations
     if (span.span_name === 'ai.agent.invoke') {
       const agentName = span.attributes?.['ai.agent.name'] as string;
       if (agentName) {
+        agentTimeRanges.push({
+          name: agentName,
+          startTime: spanTime,
+          endTime: spanEndTime,
+          spanId: span.span_id,
+        });
+
         // Add to sequence for transition tracking
-        agentSequence.push({
+        entitySequence.push({
           name: agentName,
           timestamp: spanTime,
           spanId: span.span_id,
+          type: 'agent',
         });
 
         // Add timed agent event
@@ -128,11 +169,15 @@ function extractMarkovChain(spans: SpanNode[]): {
           existing.invocationCount++;
           existing.totalDurationMs += span.duration_ms;
           existing.hasError = existing.hasError || span.status_code === 'ERROR';
-          existing.firstAppearance = Math.min(existing.firstAppearance, spanTime);
+          existing.firstAppearance = Math.min(
+            existing.firstAppearance,
+            spanTime
+          );
         } else {
           states.set(agentName, {
             id: agentName,
             name: agentName,
+            type: 'agent',
             invocationCount: 1,
             totalDurationMs: span.duration_ms,
             hasError: span.status_code === 'ERROR',
@@ -142,119 +187,189 @@ function extractMarkovChain(spans: SpanNode[]): {
       }
     }
 
-    // Check for explicit handoffs
+    // Collect tool invocations
+    if (span.span_name === 'ai.tool.invoke') {
+      const toolName = span.attributes?.['ai.tool.name'] as string;
+      if (toolName) {
+        toolInvocations.push({
+          toolId: `tool:${toolName}`,
+          toolName,
+          startTime: spanTime,
+          endTime: spanEndTime,
+          spanId: span.span_id,
+          hasError: span.status_code === 'ERROR',
+          durationMs: span.duration_ms,
+        });
+      }
+    }
+
+    // Collect handoffs
     if (span.span_name === 'ai.agent.handoff') {
       const from = span.attributes?.['ai.agent.handoff.from'] as string;
       const to = span.attributes?.['ai.agent.handoff.to'] as string;
       if (from && to) {
-        const key = `${from}->${to}`;
-        transitionCounts.set(key, (transitionCounts.get(key) || 0) + 1);
-
-        // Add timed transition
-        timedTransitions.push({
+        handoffs.push({
           from,
           to,
           timestamp: spanTime,
           spanId: span.span_id,
         });
-
-        // Ensure states exist
-        if (!states.has(from)) {
-          states.set(from, {
-            id: from,
-            name: from,
-            invocationCount: 0,
-            totalDurationMs: 0,
-            hasError: false,
-            firstAppearance: spanTime,
-          });
-        }
-        if (!states.has(to)) {
-          states.set(to, {
-            id: to,
-            name: to,
-            invocationCount: 0,
-            totalDurationMs: 0,
-            hasError: false,
-            firstAppearance: spanTime,
-          });
-        }
       }
     }
 
-    // Traverse children
-    span.children?.forEach(child => traverse(child));
+    // Recurse into children
+    span.children?.forEach(child => collectSpans(child));
   }
 
-  spans.forEach(span => traverse(span));
+  spans.forEach(span => collectSpans(span));
 
-  // Sort agent sequence by timestamp
-  agentSequence.sort((a, b) => a.timestamp - b.timestamp);
+  // Sort agent time ranges by start time
+  agentTimeRanges.sort((a, b) => a.startTime - b.startTime);
 
-  // Calculate transitions from agent sequence (for self-loops and implicit transitions)
-  for (let i = 0; i < agentSequence.length - 1; i++) {
-    const current = agentSequence[i];
-    const next = agentSequence[i + 1];
-    const key = `${current.name}->${next.name}`;
+  // Sort tool invocations by start time
+  toolInvocations.sort((a, b) => a.startTime - b.startTime);
 
-    // Add timed transition if not already from handoff
-    const existingTimedTransition = timedTransitions.find(
-      t => t.from === current.name && t.to === next.name && t.timestamp === next.timestamp
-    );
-    if (!existingTimedTransition) {
-      timedTransitions.push({
-        from: current.name,
-        to: next.name,
-        timestamp: next.timestamp,
-        spanId: next.spanId,
-      });
+  // Helper: find the agent that called a tool
+  // The calling agent is the most recently invoked agent BEFORE the tool started
+  // In the trace pattern: agent invokes -> tool executes -> agent resumes
+  // The tool is called by whichever agent was most recently active
+  function findCallingAgent(toolStartTime: number): string | null {
+    // Find the agent invocation that started most recently before the tool
+    let callingAgent: string | null = null;
+    let latestAgentStart = -Infinity;
+
+    for (const agent of agentTimeRanges) {
+      // Agent must have started before the tool
+      if (
+        agent.startTime < toolStartTime &&
+        agent.startTime > latestAgentStart
+      ) {
+        latestAgentStart = agent.startTime;
+        callingAgent = agent.name;
+      }
     }
 
-    // Only add to counts if not already counted from handoffs
-    if (!transitionCounts.has(key)) {
-      transitionCounts.set(key, 1);
-    }
+    return callingAgent;
   }
 
-  // Also track self-loops from consecutive invocations of the same agent
-  let currentAgent = '';
-  let currentCount = 0;
-  let lastTimestamp = 0;
-  let lastSpanId = '';
+  // Process tool invocations - find the calling agent based on sequence
+  for (const tool of toolInvocations) {
+    const callingAgent = findCallingAgent(tool.startTime);
 
-  for (const agent of agentSequence) {
-    if (agent.name === currentAgent) {
-      currentCount++;
-      // Add self-loop timed transition
-      timedTransitions.push({
-        from: agent.name,
-        to: agent.name,
-        timestamp: agent.timestamp,
-        spanId: agent.spanId,
-      });
+    // Add to sequence
+    entitySequence.push({
+      name: tool.toolId,
+      timestamp: tool.startTime,
+      spanId: tool.spanId,
+      type: 'tool',
+    });
+
+    // Add timed event
+    timedAgentEvents.push({
+      agentName: tool.toolId,
+      timestamp: tool.startTime,
+      spanId: tool.spanId,
+    });
+
+    // Update or create tool state
+    const existing = states.get(tool.toolId);
+    if (existing) {
+      existing.invocationCount++;
+      existing.totalDurationMs += tool.durationMs;
+      existing.hasError = existing.hasError || tool.hasError;
+      existing.firstAppearance = Math.min(
+        existing.firstAppearance,
+        tool.startTime
+      );
     } else {
-      if (currentCount > 1) {
-        // Record self-loops (count - 1 because first invocation doesn't loop)
-        const selfLoopKey = `${currentAgent}->${currentAgent}`;
-        transitionCounts.set(
-          selfLoopKey,
-          (transitionCounts.get(selfLoopKey) || 0) + (currentCount - 1)
-        );
-      }
-      currentAgent = agent.name;
-      currentCount = 1;
-      lastTimestamp = agent.timestamp;
-      lastSpanId = agent.spanId;
+      states.set(tool.toolId, {
+        id: tool.toolId,
+        name: tool.toolName,
+        type: 'tool',
+        invocationCount: 1,
+        totalDurationMs: tool.durationMs,
+        hasError: tool.hasError,
+        firstAppearance: tool.startTime,
+      });
+    }
+
+    // Create transitions if we found a calling agent
+    if (callingAgent) {
+      // Agent -> Tool transition
+      const agentToToolKey = `${callingAgent}->${tool.toolId}`;
+      transitionCounts.set(
+        agentToToolKey,
+        (transitionCounts.get(agentToToolKey) || 0) + 1
+      );
+
+      timedTransitions.push({
+        from: callingAgent,
+        to: tool.toolId,
+        timestamp: tool.startTime,
+        spanId: tool.spanId,
+      });
+
+      // Tool -> Agent return transition
+      const toolToAgentKey = `${tool.toolId}->${callingAgent}`;
+      transitionCounts.set(
+        toolToAgentKey,
+        (transitionCounts.get(toolToAgentKey) || 0) + 1
+      );
+
+      timedTransitions.push({
+        from: tool.toolId,
+        to: callingAgent,
+        timestamp: tool.endTime,
+        spanId: tool.spanId,
+      });
     }
   }
-  // Handle last group
-  if (currentCount > 1) {
-    const selfLoopKey = `${currentAgent}->${currentAgent}`;
-    transitionCounts.set(
-      selfLoopKey,
-      (transitionCounts.get(selfLoopKey) || 0) + (currentCount - 1)
-    );
+
+  // Process handoffs
+  for (const handoff of handoffs) {
+    const key = `${handoff.from}->${handoff.to}`;
+    transitionCounts.set(key, (transitionCounts.get(key) || 0) + 1);
+
+    timedTransitions.push({
+      from: handoff.from,
+      to: handoff.to,
+      timestamp: handoff.timestamp,
+      spanId: handoff.spanId,
+    });
+
+    // Ensure states exist
+    if (!states.has(handoff.from)) {
+      states.set(handoff.from, {
+        id: handoff.from,
+        name: handoff.from,
+        type: 'agent',
+        invocationCount: 0,
+        totalDurationMs: 0,
+        hasError: false,
+        firstAppearance: handoff.timestamp,
+      });
+    }
+    if (!states.has(handoff.to)) {
+      states.set(handoff.to, {
+        id: handoff.to,
+        name: handoff.to,
+        type: 'agent',
+        invocationCount: 0,
+        totalDurationMs: 0,
+        hasError: false,
+        firstAppearance: handoff.timestamp,
+      });
+    }
   }
+
+  // Sort entity sequence by timestamp
+  entitySequence.sort((a, b) => a.timestamp - b.timestamp);
+
+  // Note: We intentionally DON'T create agent-to-agent self-loops here.
+  // What looks like "safety_specialist → safety_specialist" is actually:
+  // "safety_specialist → tool → safety_specialist"
+  // The tool transitions (created above) correctly capture these cycles.
+  // Agent-to-agent transitions only happen via explicit handoffs (also handled above).
 
   // Sort timed transitions by timestamp
   timedTransitions.sort((a, b) => a.timestamp - b.timestamp);
@@ -304,7 +419,7 @@ function calculateProbabilities(
 }
 
 /**
- * Custom node component for Markov states (agents)
+ * Custom node component for Markov states (agents and tools)
  */
 function MarkovStateNode({ data }: NodeProps) {
   const theme = useTheme();
@@ -312,6 +427,11 @@ function MarkovStateNode({ data }: NodeProps) {
     state: MarkovState;
     isSelected: boolean;
   };
+
+  const isAgent = state.type === 'agent';
+  const stateColor = isAgent
+    ? theme.palette.info.main
+    : theme.palette.warning.main;
 
   const avgDuration =
     state.invocationCount > 0
@@ -324,18 +444,25 @@ function MarkovStateNode({ data }: NodeProps) {
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
+  // Tool nodes are pill/stadium shaped (rectangle with semi-circular sides)
+  const toolWidth = 180;
+  const toolHeight = 48;
+
   return (
     <Box
       sx={{
-        padding: theme.spacing(2),
-        borderRadius: theme.spacing(1),
+        padding: isAgent ? theme.spacing(2) : theme.spacing(1, 2),
+        // Pill shape for tools (border-radius = half height), rounded rect for agents
+        borderRadius: isAgent ? theme.spacing(1) : toolHeight / 2,
         backgroundColor: theme.palette.background.paper,
-        border: `3px solid ${isSelected ? theme.palette.primary.main : theme.palette.info.main}`,
+        border: `2px solid ${isSelected ? theme.palette.primary.main : stateColor}`,
         boxShadow: isSelected
           ? `0 0 0 3px ${theme.palette.primary.light}`
-          : theme.shadows[2],
-        minWidth: NODE_WIDTH,
-        minHeight: NODE_HEIGHT,
+          : theme.shadows[1],
+        width: isAgent ? NODE_WIDTH : toolWidth,
+        height: isAgent ? 'auto' : toolHeight,
+        minWidth: isAgent ? NODE_WIDTH : toolWidth,
+        minHeight: isAgent ? NODE_HEIGHT : toolHeight,
         cursor: 'pointer',
         transition: theme.transitions.create(['border-color', 'box-shadow']),
         '&:hover': {
@@ -343,7 +470,7 @@ function MarkovStateNode({ data }: NodeProps) {
           boxShadow: theme.shadows[4],
         },
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: isAgent ? 'column' : 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: theme.spacing(0.5),
@@ -353,7 +480,7 @@ function MarkovStateNode({ data }: NodeProps) {
         type="target"
         position={Position.Top}
         style={{
-          background: theme.palette.info.main,
+          background: stateColor,
           border: 'none',
           width: theme.spacing(1.5),
           height: theme.spacing(1.5),
@@ -364,66 +491,88 @@ function MarkovStateNode({ data }: NodeProps) {
         position={Position.Left}
         id="left"
         style={{
-          background: theme.palette.info.main,
+          background: stateColor,
           border: 'none',
           width: theme.spacing(1.5),
           height: theme.spacing(1.5),
         }}
       />
 
-      {/* Agent Icon */}
-      <SupportAgentIcon
-        sx={{
-          fontSize: theme.spacing(3),
-          color: state.hasError
-            ? theme.palette.error.main
-            : theme.palette.info.main,
-        }}
-      />
+      {/* Icon - Agent or Tool */}
+      {isAgent ? (
+        <SupportAgentIcon
+          sx={{
+            fontSize: theme.spacing(3),
+            color: state.hasError ? theme.palette.error.main : stateColor,
+          }}
+        />
+      ) : (
+        <BuildIcon
+          sx={{
+            fontSize: theme.spacing(2.5),
+            color: state.hasError ? theme.palette.error.main : stateColor,
+            flexShrink: 0,
+          }}
+        />
+      )}
 
       {/* State Name */}
       <Typography
-        variant="subtitle2"
+        variant={isAgent ? 'subtitle2' : 'body2'}
         sx={{
-          fontWeight: theme.typography.fontWeightBold,
+          fontWeight: isAgent
+            ? theme.typography.fontWeightBold
+            : theme.typography.fontWeightMedium,
           textAlign: 'center',
           color: state.hasError
             ? theme.palette.error.main
             : theme.palette.text.primary,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          maxWidth: isAgent ? 'none' : 120,
+          lineHeight: 1.2,
         }}
       >
         {state.name}
       </Typography>
 
-      {/* Stats */}
-      <Box
-        sx={{ display: 'flex', gap: theme.spacing(0.5), flexWrap: 'wrap', justifyContent: 'center' }}
-      >
-        <Chip
-          label={`${state.invocationCount}x`}
-          size="small"
+      {/* Stats - only show for agents */}
+      {isAgent && (
+        <Box
           sx={{
-            height: theme.spacing(2.5),
-            fontSize: theme.typography.caption.fontSize,
-            backgroundColor: theme.palette.info.light,
-            color: theme.palette.info.contrastText,
+            display: 'flex',
+            gap: theme.spacing(0.5),
+            flexWrap: 'wrap',
+            justifyContent: 'center',
           }}
-        />
-        <Chip
-          label={`avg: ${formatDuration(avgDuration)}`}
-          size="small"
-          sx={{
-            height: theme.spacing(2.5),
-            fontSize: theme.typography.caption.fontSize,
-          }}
-        />
-      </Box>
+        >
+          <Chip
+            label={`${state.invocationCount}x`}
+            size="small"
+            sx={{
+              height: theme.spacing(2.5),
+              fontSize: theme.typography.caption.fontSize,
+              backgroundColor: theme.palette.info.light,
+              color: theme.palette.info.contrastText,
+            }}
+          />
+          <Chip
+            label={`avg: ${formatDuration(avgDuration)}`}
+            size="small"
+            sx={{
+              height: theme.spacing(2.5),
+              fontSize: theme.typography.caption.fontSize,
+            }}
+          />
+        </Box>
+      )}
 
       <Handle
         type="source"
         position={Position.Bottom}
         style={{
-          background: theme.palette.info.main,
+          background: stateColor,
           border: 'none',
           width: theme.spacing(1.5),
           height: theme.spacing(1.5),
@@ -434,7 +583,7 @@ function MarkovStateNode({ data }: NodeProps) {
         position={Position.Right}
         id="right"
         style={{
-          background: theme.palette.info.main,
+          background: stateColor,
           border: 'none',
           width: theme.spacing(1.5),
           height: theme.spacing(1.5),
@@ -460,13 +609,14 @@ function ProbabilityEdge({
   style,
 }: EdgeProps) {
   const theme = useTheme();
-  const { probability, count, isSelfLoop, selfLoopIndex, selfLoopTotal } = data as {
-    probability: number;
-    count: number;
-    isSelfLoop: boolean;
-    selfLoopIndex?: number;
-    selfLoopTotal?: number;
-  };
+  const { probability, count, isSelfLoop, selfLoopIndex, selfLoopTotal } =
+    data as {
+      probability: number;
+      count: number;
+      isSelfLoop: boolean;
+      selfLoopIndex?: number;
+      selfLoopTotal?: number;
+    };
 
   // For self-loops, create a custom path with offset based on index
   // All loops start and end at the same points, but curve outward at different radii
@@ -475,7 +625,7 @@ function ProbabilityEdge({
     const radiusIncrement = 18;
     const index = selfLoopIndex || 0;
     const loopRadius = baseRadius + index * radiusIncrement;
-    
+
     // All arrows start and end at the same position
     // Only the control points (curve apex) are offset
     const path = `M ${sourceX} ${sourceY} 
@@ -484,7 +634,8 @@ function ProbabilityEdge({
                     ${targetX} ${targetY}`;
 
     // Only show label on the last (outermost) self-loop
-    const showLabel = selfLoopTotal === undefined || index === selfLoopTotal - 1;
+    const showLabel =
+      selfLoopTotal === undefined || index === selfLoopTotal - 1;
 
     return (
       <>
@@ -604,7 +755,8 @@ function convertToFlowElements(
   states: Map<string, MarkovState>,
   transitions: StateTransition[],
   probabilities: Map<string, number>,
-  edgeColor: string
+  agentEdgeColor: string,
+  toolEdgeColor: string
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
@@ -627,6 +779,10 @@ function convertToFlowElements(
     const isSelfLoop = t.from === t.to;
     const prob = probabilities.get(`${t.from}->${t.to}`) || 0;
 
+    // Determine if this transition involves a tool
+    const involvesTool = t.from.startsWith('tool:') || t.to.startsWith('tool:');
+    const edgeColor = involvesTool ? toolEdgeColor : agentEdgeColor;
+
     if (isSelfLoop && t.count > 1) {
       // Create multiple self-loop edges with different offsets
       for (let i = 0; i < t.count; i++) {
@@ -643,6 +799,7 @@ function convertToFlowElements(
             isSelfLoop: true,
             selfLoopIndex: i,
             selfLoopTotal: t.count,
+            involvesTool,
           },
           style: {
             stroke: edgeColor,
@@ -669,6 +826,7 @@ function convertToFlowElements(
           isSelfLoop,
           selfLoopIndex: 0,
           selfLoopTotal: 1,
+          involvesTool,
         },
         style: {
           stroke: edgeColor,
@@ -685,6 +843,10 @@ function convertToFlowElements(
   return { nodes, edges };
 }
 
+// Tool node dimensions (pill/stadium shape)
+const TOOL_WIDTH = 180;
+const TOOL_HEIGHT = 48;
+
 /**
  * Apply dagre layout to position nodes
  */
@@ -694,18 +856,21 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
   dagreGraph.setGraph({
-    rankdir: 'LR', // Left to right for Markov chains
+    rankdir: 'TB', // Top to bottom for better tool visualization
     align: 'UL',
     ranker: 'network-simplex',
-    nodesep: 100,
-    ranksep: 150,
-    edgesep: 50,
+    nodesep: 60,
+    ranksep: 80,
+    edgesep: 30,
     marginx: 50,
     marginy: 50,
   });
 
   nodes.forEach(node => {
-    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    const isTool = node.id.startsWith('tool:');
+    const width = isTool ? TOOL_WIDTH : NODE_WIDTH;
+    const height = isTool ? TOOL_HEIGHT : NODE_HEIGHT;
+    dagreGraph.setNode(node.id, { width, height });
   });
 
   // Filter out self-loops for layout purposes
@@ -719,11 +884,14 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
 
   return nodes.map(node => {
     const nodeWithPosition = dagreGraph.node(node.id);
+    const isTool = node.id.startsWith('tool:');
+    const width = isTool ? TOOL_WIDTH : NODE_WIDTH;
+    const height = isTool ? TOOL_HEIGHT : NODE_HEIGHT;
     return {
       ...node,
       position: {
-        x: nodeWithPosition.x - NODE_WIDTH / 2,
-        y: nodeWithPosition.y - NODE_HEIGHT / 2,
+        x: nodeWithPosition.x - width / 2,
+        y: nodeWithPosition.y - height / 2,
       },
     };
   });
@@ -755,12 +923,14 @@ export default function SpanMarkovView({
       timeRange,
     } = extractMarkovChain(spans);
     const probabilities = calculateProbabilities(transitions);
-    const edgeColor = theme.palette.info.main;
+    const agentEdgeColor = theme.palette.info.main;
+    const toolEdgeColor = theme.palette.warning.main;
     const { nodes, edges } = convertToFlowElements(
       states,
       transitions,
       probabilities,
-      edgeColor
+      agentEdgeColor,
+      toolEdgeColor
     );
     const layoutedNodes = applyDagreLayout(nodes, edges);
     return {
@@ -773,13 +943,13 @@ export default function SpanMarkovView({
       timedAgentEvents,
       timeRange,
     };
-  }, [spans, theme.palette.info.main]);
+  }, [spans, theme.palette.info.main, theme.palette.warning.main]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   // Time slider state
-  const [currentTime, setCurrentTime] = useState(timeRange.end);
+  const [currentTime, setCurrentTime] = useState(timeRange.start);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const animationRef = useRef<number | null>(null);
@@ -788,7 +958,7 @@ export default function SpanMarkovView({
   // Duration of the trace in ms
   const traceDuration = timeRange.end - timeRange.start;
 
-  // Reset to start when spans change
+  // Reset to start when spans change (start with empty graph)
   useEffect(() => {
     setCurrentTime(timeRange.start);
     setIsPlaying(false);
@@ -849,12 +1019,22 @@ export default function SpanMarkovView({
       }
     });
 
-    // Find which transitions have occurred by current time
+    // Find which transitions have occurred by current time and track the last one
     const transitionCounts = new Map<string, number>();
+    let lastTransition: { from: string; to: string; index: number } | null =
+      null;
+
     timedTransitions.forEach(t => {
       if (t.timestamp <= currentTime) {
         const key = `${t.from}->${t.to}`;
-        transitionCounts.set(key, (transitionCounts.get(key) || 0) + 1);
+        const currentCount = transitionCounts.get(key) || 0;
+        transitionCounts.set(key, currentCount + 1);
+        // Track the last transition (most recent by timestamp)
+        lastTransition = {
+          from: t.from,
+          to: t.to,
+          index: currentCount, // 0-based index for this specific transition
+        };
       }
     });
 
@@ -873,18 +1053,27 @@ export default function SpanMarkovView({
     // Update edges based on transitions that have occurred
     setEdges(prevEdges =>
       prevEdges.map(edge => {
-        const baseKey = edge.source === edge.target
-          ? `${edge.source}->${edge.target}`
-          : `${edge.source}->${edge.target}`;
+        const baseKey = `${edge.source}->${edge.target}`;
         const count = transitionCounts.get(baseKey) || 0;
+
+        // Check if this edge is the last transition
+        const isLastTransition =
+          lastTransition &&
+          edge.source === lastTransition.from &&
+          edge.target === lastTransition.to;
 
         // For self-loops, show based on index
         if (edge.data?.isSelfLoop && edge.data?.selfLoopIndex !== undefined) {
           const shouldShow = edge.data.selfLoopIndex < count;
+          // Only animate if this is the last transition AND this specific self-loop index
+          const shouldAnimate = Boolean(
+            isLastTransition &&
+            edge.data.selfLoopIndex === lastTransition!.index
+          );
           return {
             ...edge,
             hidden: !shouldShow,
-            animated: shouldShow && edge.data.selfLoopIndex === count - 1,
+            animated: shouldAnimate,
             style: {
               ...edge.style,
               opacity: shouldShow ? 1 : 0,
@@ -894,10 +1083,14 @@ export default function SpanMarkovView({
 
         // For regular edges
         const shouldShow = count > 0;
+        // Only animate if this is the very last transition
+        const shouldAnimate = Boolean(
+          isLastTransition && !edge.data?.isSelfLoop
+        );
         return {
           ...edge,
           hidden: !shouldShow,
-          animated: shouldShow,
+          animated: shouldAnimate,
           style: {
             ...edge.style,
             opacity: shouldShow ? 1 : 0,
@@ -909,7 +1102,8 @@ export default function SpanMarkovView({
 
   // Playback controls
   const handlePlayPause = () => {
-    if (currentTime >= timeRange.end) {
+    if (!isPlaying) {
+      // Starting playback - always start from the beginning
       setCurrentTime(timeRange.start);
     }
     setIsPlaying(!isPlaying);
@@ -942,56 +1136,88 @@ export default function SpanMarkovView({
     return `${seconds}.${milliseconds.toString().padStart(3, '0').slice(0, 1)}s`;
   };
 
-  // Handle node click - find an agent span with this name
+  // Handle node click - find an agent or tool span with this name
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      const agentName = node.id;
-      // Find first agent span with this name
-      function findAgentSpan(spans: SpanNode[]): SpanNode | null {
+      const nodeId = node.id;
+      const isTool = nodeId.startsWith('tool:');
+      const name = isTool ? nodeId.replace('tool:', '') : nodeId;
+
+      function findSpan(spans: SpanNode[]): SpanNode | null {
         for (const span of spans) {
+          // Find agent span
           if (
+            !isTool &&
             span.span_name === 'ai.agent.invoke' &&
-            span.attributes?.['ai.agent.name'] === agentName
+            span.attributes?.['ai.agent.name'] === name
+          ) {
+            return span;
+          }
+          // Find tool span
+          if (
+            isTool &&
+            span.span_name === 'ai.tool.invoke' &&
+            span.attributes?.['ai.tool.name'] === name
           ) {
             return span;
           }
           if (span.children) {
-            const found = findAgentSpan(span.children);
+            const found = findSpan(span.children);
             if (found) return found;
           }
         }
         return null;
       }
-      const agentSpan = findAgentSpan(spans);
-      if (agentSpan) {
-        onSpanSelect(agentSpan);
+      const foundSpan = findSpan(spans);
+      if (foundSpan) {
+        onSpanSelect(foundSpan);
       }
     },
     [spans, onSpanSelect]
   );
 
-  // Handle edge click - find the corresponding handoff or agent span
+  // Handle edge click - find the corresponding handoff, agent, or tool span
   const onEdgeClick = useCallback(
     (_: React.MouseEvent, edge: Edge) => {
-      const sourceAgent = edge.source;
-      const targetAgent = edge.target;
-      const isSelfLoop = sourceAgent === targetAgent;
+      const sourceId = edge.source;
+      const targetId = edge.target;
+      const isSelfLoop = sourceId === targetId;
+      const targetIsTool = targetId.startsWith('tool:');
+      const targetName = targetIsTool
+        ? targetId.replace('tool:', '')
+        : targetId;
 
       function findSpan(spans: SpanNode[]): SpanNode | null {
         for (const span of spans) {
-          // For transitions between different agents, look for handoff spans
-          if (!isSelfLoop && span.span_name === 'ai.agent.handoff') {
-            const from = span.attributes?.['ai.agent.handoff.from'];
-            const to = span.attributes?.['ai.agent.handoff.to'];
-            if (from === sourceAgent && to === targetAgent) {
+          // For transitions to tools, find the tool span
+          if (targetIsTool && span.span_name === 'ai.tool.invoke') {
+            const toolName = span.attributes?.['ai.tool.name'];
+            if (toolName === targetName) {
               return span;
             }
           }
 
-          // For self-loops, find the target agent's invoke span
-          if (isSelfLoop && span.span_name === 'ai.agent.invoke') {
+          // For transitions between different agents, look for handoff spans
+          if (
+            !isSelfLoop &&
+            !targetIsTool &&
+            span.span_name === 'ai.agent.handoff'
+          ) {
+            const from = span.attributes?.['ai.agent.handoff.from'];
+            const to = span.attributes?.['ai.agent.handoff.to'];
+            if (from === sourceId && to === targetId) {
+              return span;
+            }
+          }
+
+          // For self-loops on agents, find the target agent's invoke span
+          if (
+            isSelfLoop &&
+            !targetIsTool &&
+            span.span_name === 'ai.agent.invoke'
+          ) {
             const agentName = span.attributes?.['ai.agent.name'];
-            if (agentName === targetAgent) {
+            if (agentName === targetId) {
               return span;
             }
           }
@@ -1183,9 +1409,13 @@ export default function SpanMarkovView({
             }}
           />
           <MiniMap
-            nodeColor={node =>
-              node.hidden ? 'transparent' : theme.palette.info.main
-            }
+            nodeColor={node => {
+              if (node.hidden) return 'transparent';
+              const state = node.data?.state as MarkovState | undefined;
+              return state?.type === 'tool'
+                ? theme.palette.warning.main
+                : theme.palette.info.main;
+            }}
             maskColor={
               theme.palette.mode === 'dark'
                 ? 'rgba(0,0,0,0.8)'
@@ -1220,13 +1450,28 @@ export default function SpanMarkovView({
           >
             Markov Chain
           </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block' }}
-          >
-            States: {states.size} agents
-          </Typography>
+          <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
+            <Chip
+              icon={<SupportAgentIcon sx={{ fontSize: '14px !important' }} />}
+              label={`${Array.from(states.values()).filter(s => s.type === 'agent').length} agents`}
+              size="small"
+              sx={{
+                height: theme.spacing(2.5),
+                fontSize: theme.typography.caption.fontSize,
+                backgroundColor: theme.palette.info.light,
+              }}
+            />
+            <Chip
+              icon={<BuildIcon sx={{ fontSize: '14px !important' }} />}
+              label={`${Array.from(states.values()).filter(s => s.type === 'tool').length} tools`}
+              size="small"
+              sx={{
+                height: theme.spacing(2.5),
+                fontSize: theme.typography.caption.fontSize,
+                backgroundColor: theme.palette.warning.light,
+              }}
+            />
+          </Stack>
           <Typography
             variant="caption"
             color="text.secondary"
