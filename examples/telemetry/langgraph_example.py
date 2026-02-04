@@ -64,7 +64,7 @@ class State(TypedDict):
 
 # Initialize the LLM
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.0-flash",
     google_api_key=os.getenv("GOOGLE_API_KEY"),
     temperature=0.7,
 )
