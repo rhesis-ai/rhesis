@@ -18,6 +18,9 @@ from rhesis.sdk.telemetry.utils import (
 
 logger = logging.getLogger(__name__)
 
+# Content truncation limits
+_MAX_CONTENT_LENGTH = 8000  # Max characters for prompts, completions, inputs, outputs
+
 # Provider patterns for LangChain module paths
 _PROVIDER_PATTERNS = {
     "openai": ["openai", "langchain_openai"],
@@ -46,6 +49,12 @@ def create_langchain_callback():
             self.tracer = trace.get_tracer(__name__)
             self._spans: Dict[str, tuple[trace.Span, Any, Any]] = {}
             self._active_run_ids: set = set()
+            # Agent deduplication: track active agents to avoid nested duplicates
+            self._active_agents: set = set()  # Currently active agent names
+            self._agent_run_ids: Dict[str, str] = {}  # run_id -> agent_name mapping
+            # Track agents for handoff detection
+            self._current_agent: str | None = None
+            self._last_ended_agent: str | None = None
 
         # =========================================================================
         # Span Management
@@ -144,7 +153,7 @@ def create_langchain_callback():
                     AIEvents.PROMPT,
                     {
                         AIAttributes.PROMPT_ROLE: "user",
-                        AIAttributes.PROMPT_CONTENT: prompts[0][:1000],
+                        AIAttributes.PROMPT_CONTENT: prompts[0][:_MAX_CONTENT_LENGTH],
                     },
                 )
             self._spans[run_id_str] = (span, parent_token, current_token)
@@ -187,20 +196,42 @@ def create_langchain_callback():
             parent_run_id: Any = None,
             **kwargs: Any,
         ) -> None:
-            """Start tool span."""
+            """Start tool span or handoff span."""
             run_id_str = str(run_id)
             if run_id_str in self._active_run_ids:
                 return
 
             self._active_run_ids.add(run_id_str)
-            span, parent_token, current_token = self._start_span(
-                AIOperationType.TOOL_INVOKE, run_id, parent_run_id
-            )
+            tool_name = serialized.get("name", "unknown")
 
-            span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_TOOL_INVOKE)
-            span.set_attribute(AIAttributes.TOOL_NAME, serialized.get("name", "unknown"))
-            span.set_attribute(AIAttributes.TOOL_TYPE, "function")
-            span.add_event(AIEvents.TOOL_INPUT, {AIAttributes.TOOL_INPUT_CONTENT: input_str[:1000]})
+            # Detect handoff tools (transfer_to_* pattern)
+            if tool_name.startswith("transfer_to_"):
+                # Extract target agent from tool name (e.g., "transfer_to_safety_specialist")
+                target_agent = tool_name.replace("transfer_to_", "")
+
+                span, parent_token, current_token = self._start_span(
+                    AIOperationType.AGENT_HANDOFF, run_id, parent_run_id
+                )
+
+                span.set_attribute(
+                    AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_AGENT_HANDOFF
+                )
+                if self._current_agent:
+                    span.set_attribute(AIAttributes.AGENT_HANDOFF_FROM, self._current_agent)
+                span.set_attribute(AIAttributes.AGENT_HANDOFF_TO, target_agent)
+            else:
+                # Regular tool invocation
+                span, parent_token, current_token = self._start_span(
+                    AIOperationType.TOOL_INVOKE, run_id, parent_run_id
+                )
+
+                span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_TOOL_INVOKE)
+                span.set_attribute(AIAttributes.TOOL_NAME, tool_name)
+                span.set_attribute(AIAttributes.TOOL_TYPE, "function")
+                span.add_event(
+                    AIEvents.TOOL_INPUT,
+                    {AIAttributes.TOOL_INPUT_CONTENT: input_str[:_MAX_CONTENT_LENGTH]},
+                )
 
             self._spans[run_id_str] = (span, parent_token, current_token)
 
@@ -212,7 +243,8 @@ def create_langchain_callback():
             if span_data:
                 output_str = self._extract_tool_output(output)
                 span_data[0].add_event(
-                    AIEvents.TOOL_OUTPUT, {AIAttributes.TOOL_OUTPUT_CONTENT: output_str[:1000]}
+                    AIEvents.TOOL_OUTPUT,
+                    {AIAttributes.TOOL_OUTPUT_CONTENT: output_str[:_MAX_CONTENT_LENGTH]},
                 )
                 span_data[0].set_status(Status(StatusCode.OK))
                 self._end_span(run_id)
@@ -244,6 +276,8 @@ def create_langchain_callback():
         ) -> None:
             """Start agent span if this represents an agent."""
             run_id_str = str(run_id)
+
+            # Skip if we've already processed this run
             if run_id_str in self._active_run_ids:
                 return
 
@@ -254,7 +288,30 @@ def create_langchain_callback():
             if not self._is_agent(agent_name, tags, metadata):
                 return
 
+            # Deduplicate: Only create one span per agent name at a time
+            # LangGraph fires multiple on_chain_start for internal operations
+            # that inherit the same langgraph_node metadata
+            if agent_name in self._active_agents:
+                return
+
+            # Detect handoff: if a different agent is starting after another ended
+            if (
+                self._last_ended_agent
+                and self._last_ended_agent != agent_name
+                and self._last_ended_agent not in self._active_agents
+            ):
+                # Create handoff span
+                self._create_handoff_span(
+                    from_agent=self._last_ended_agent,
+                    to_agent=agent_name,
+                    parent_run_id=parent_run_id,
+                )
+                self._last_ended_agent = None  # Reset after creating handoff
+
             self._active_run_ids.add(run_id_str)
+            self._active_agents.add(agent_name)
+            self._agent_run_ids[run_id_str] = agent_name
+            self._current_agent = agent_name
 
             span, parent_token, current_token = self._start_span(
                 AIOperationType.AGENT_INVOKE, run_id, parent_run_id
@@ -262,6 +319,14 @@ def create_langchain_callback():
 
             span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_AGENT_INVOKE)
             span.set_attribute(AIAttributes.AGENT_NAME, agent_name)
+
+            # Capture agent input
+            input_str = self._extract_agent_input(inputs)
+            if input_str:
+                span.add_event(
+                    AIEvents.AGENT_INPUT,
+                    {AIAttributes.AGENT_INPUT_CONTENT: input_str[:_MAX_CONTENT_LENGTH]},
+                )
 
             self._spans[run_id_str] = (span, parent_token, current_token)
 
@@ -274,10 +339,24 @@ def create_langchain_callback():
             **kwargs: Any,
         ) -> None:
             """End agent span."""
-            span_data = self._spans.get(str(run_id))
+            run_id_str = str(run_id)
+            span_data = self._spans.get(run_id_str)
             if span_data:
+                # Capture agent output
+                output_str = self._extract_agent_output(outputs)
+                if output_str:
+                    span_data[0].add_event(
+                        AIEvents.AGENT_OUTPUT,
+                        {AIAttributes.AGENT_OUTPUT_CONTENT: output_str[:_MAX_CONTENT_LENGTH]},
+                    )
                 span_data[0].set_status(Status(StatusCode.OK))
                 self._end_span(run_id)
+                # Clear agent from active set and track for handoff detection
+                if run_id_str in self._agent_run_ids:
+                    agent_name = self._agent_run_ids.pop(run_id_str)
+                    self._active_agents.discard(agent_name)
+                    # Track this agent for potential handoff detection
+                    self._last_ended_agent = agent_name
 
         def on_chain_error(
             self,
@@ -288,11 +367,16 @@ def create_langchain_callback():
             **kwargs: Any,
         ) -> None:
             """Handle agent errors."""
-            span_data = self._spans.get(str(run_id))
+            run_id_str = str(run_id)
+            span_data = self._spans.get(run_id_str)
             if span_data:
                 span_data[0].set_status(Status(StatusCode.ERROR, str(error)))
                 span_data[0].record_exception(error)
                 self._end_span(run_id)
+                # Clear agent from active set
+                if run_id_str in self._agent_run_ids:
+                    agent_name = self._agent_run_ids.pop(run_id_str)
+                    self._active_agents.discard(agent_name)
 
         # =========================================================================
         # Helper Methods
@@ -300,7 +384,7 @@ def create_langchain_callback():
 
         @staticmethod
         def _extract_agent_name(
-            serialized: Dict, tags: List[str] | None, metadata: Dict | None
+            serialized: Dict | None, tags: List[str] | None, metadata: Dict | None
         ) -> str:
             """Extract agent name from metadata or serialized data."""
             # Priority 1: Explicit agent name in metadata
@@ -311,13 +395,14 @@ def create_langchain_callback():
                 if agent_name := metadata.get("langgraph_node"):
                     return agent_name
 
-            # Priority 2: Name from serialized
-            if name := serialized.get("name"):
-                return name
+            # Priority 2: Name from serialized (may be None for LangGraph)
+            if serialized:
+                if name := serialized.get("name"):
+                    return name
 
-            # Priority 3: Extract from id path
-            if "id" in serialized and isinstance(serialized["id"], list):
-                return serialized["id"][-1] if serialized["id"] else "unknown"
+                # Priority 3: Extract from id path
+                if "id" in serialized and isinstance(serialized["id"], list):
+                    return serialized["id"][-1] if serialized["id"] else "unknown"
 
             return "unknown"
 
@@ -349,6 +434,113 @@ def create_langchain_callback():
 
             return False
 
+        def _create_handoff_span(
+            self, from_agent: str, to_agent: str, parent_run_id: Any = None
+        ) -> None:
+            """Create a handoff span to trace agent transitions."""
+            import uuid
+
+            # Generate a unique run_id for the handoff span
+            handoff_run_id = str(uuid.uuid4())
+
+            span, parent_token, current_token = self._start_span(
+                AIOperationType.AGENT_HANDOFF, handoff_run_id, parent_run_id
+            )
+
+            span.set_attribute(AIAttributes.OPERATION_TYPE, AIAttributes.OPERATION_AGENT_HANDOFF)
+            span.set_attribute(AIAttributes.AGENT_HANDOFF_FROM, from_agent)
+            span.set_attribute(AIAttributes.AGENT_HANDOFF_TO, to_agent)
+
+            # End the handoff span immediately (it's a point-in-time event)
+            span.set_status(Status(StatusCode.OK))
+            span.end()
+
+            # Clean up context tokens
+            if current_token:
+                otel_context.detach(current_token)
+            if parent_token:
+                otel_context.detach(parent_token)
+
+        @staticmethod
+        def _extract_agent_input(inputs: Dict[str, Any]) -> str:
+            """Extract human-readable input from agent inputs."""
+            if not inputs:
+                return ""
+
+            # LangGraph typically passes messages in the inputs
+            if "messages" in inputs:
+                messages = inputs["messages"]
+                if messages and len(messages) > 0:
+                    # Get the last human message (typically the user's input)
+                    for msg in reversed(messages):
+                        if isinstance(msg, dict):
+                            msg_type = msg.get("type", "")
+                        else:
+                            msg_type = getattr(msg, "type", None) or ""
+                        if msg_type == "human":
+                            if isinstance(msg, dict):
+                                content = msg.get("content")
+                            else:
+                                content = getattr(msg, "content", None)
+                            if content:
+                                return str(content)[:_MAX_CONTENT_LENGTH]
+                    # Fallback to last message
+                    last_msg = messages[-1]
+                    if hasattr(last_msg, "content") and last_msg.content:
+                        return str(last_msg.content)[:_MAX_CONTENT_LENGTH]
+                    if isinstance(last_msg, dict) and last_msg.get("content"):
+                        return str(last_msg.get("content"))[:_MAX_CONTENT_LENGTH]
+
+            # Fallback: try to serialize the whole input
+            try:
+                import json
+
+                return json.dumps(inputs, default=str)[:_MAX_CONTENT_LENGTH]
+            except Exception:
+                return str(inputs)[:_MAX_CONTENT_LENGTH]
+
+        @staticmethod
+        def _extract_agent_output(outputs: Dict[str, Any]) -> str:
+            """Extract human-readable output from agent outputs."""
+            if not outputs:
+                return ""
+
+            # LangGraph typically returns messages in the outputs
+            if "messages" in outputs:
+                messages = outputs["messages"]
+                if messages and len(messages) > 0:
+                    # Get the last AI message
+                    last_msg = messages[-1]
+                    content = ""
+
+                    # Extract content
+                    if hasattr(last_msg, "content") and last_msg.content:
+                        content = str(last_msg.content)
+                    elif isinstance(last_msg, dict) and last_msg.get("content"):
+                        content = str(last_msg.get("content"))
+
+                    # If content is empty, check for tool calls
+                    if not content:
+                        tool_calls = getattr(last_msg, "tool_calls", None)
+                        if tool_calls:
+                            tool_names = [tc.get("name", "unknown") for tc in tool_calls]
+                            content = f"[Tool calls: {', '.join(tool_names)}]"
+
+                    if content:
+                        return content[:_MAX_CONTENT_LENGTH]
+
+            # Check for direct output key
+            if "output" in outputs:
+                return str(outputs["output"])[:_MAX_CONTENT_LENGTH]
+
+            # Fallback: try to serialize the whole output
+            try:
+                import json
+
+                return json.dumps(outputs, default=str)[:_MAX_CONTENT_LENGTH]
+            except Exception:
+                return str(outputs)[:_MAX_CONTENT_LENGTH]
+
         def _set_llm_attributes(
             self, span: trace.Span, serialized: Dict, kwargs: Dict, request_type: str
         ) -> None:
@@ -369,7 +561,7 @@ def create_langchain_callback():
                 return
 
             first_msg = messages[0][0]
-            content = str(getattr(first_msg, "content", ""))[:1000]
+            content = str(getattr(first_msg, "content", ""))[:_MAX_CONTENT_LENGTH]
             role = getattr(first_msg, "type", "user")
             span.add_event(
                 AIEvents.PROMPT,
@@ -390,16 +582,57 @@ def create_langchain_callback():
             if hasattr(response, "generations") and response.generations:
                 gen = response.generations[0][0]
 
-                # Extract completion
-                if hasattr(gen, "text"):
-                    span.add_event(
-                        AIEvents.COMPLETION, {AIAttributes.COMPLETION_CONTENT: gen.text[:1000]}
-                    )
-                elif hasattr(gen, "message") and hasattr(gen.message, "content"):
-                    span.add_event(
-                        AIEvents.COMPLETION,
-                        {AIAttributes.COMPLETION_CONTENT: str(gen.message.content)[:1000]},
-                    )
+                # Extract completion content
+                completion_content = ""
+                tool_calls_extracted = []
+
+                if hasattr(gen, "text") and gen.text:
+                    completion_content = gen.text
+                elif hasattr(gen, "message"):
+                    msg = gen.message
+                    # Get text content
+                    if hasattr(msg, "content") and msg.content:
+                        completion_content = str(msg.content)
+
+                    # Check for tool calls in multiple locations
+                    # Location 1: msg.tool_calls (standard LangChain)
+                    if hasattr(msg, "tool_calls") and msg.tool_calls:
+                        for tc in msg.tool_calls:
+                            if isinstance(tc, dict):
+                                tool_calls_extracted.append(tc.get("name", "unknown"))
+                            else:
+                                tool_calls_extracted.append(getattr(tc, "name", "unknown"))
+
+                    # Location 2: additional_kwargs.tool_calls (some providers)
+                    if not tool_calls_extracted:
+                        additional = getattr(msg, "additional_kwargs", {}) or {}
+                        if "tool_calls" in additional:
+                            for tc in additional["tool_calls"]:
+                                if isinstance(tc, dict):
+                                    func = tc.get("function", tc)
+                                    tool_calls_extracted.append(func.get("name", "unknown"))
+
+                    # Location 3: additional_kwargs.function_call (older format)
+                    if not tool_calls_extracted:
+                        additional = getattr(msg, "additional_kwargs", {}) or {}
+                        if "function_call" in additional:
+                            fc = additional["function_call"]
+                            tool_calls_extracted.append(fc.get("name", "unknown"))
+
+                # Build completion content
+                if not completion_content and tool_calls_extracted:
+                    completion_content = f"[Tool calls: {', '.join(tool_calls_extracted)}]"
+
+                # Always add completion event
+                content = (
+                    completion_content[:_MAX_CONTENT_LENGTH]
+                    if completion_content
+                    else "[No content]"
+                )
+                span.add_event(
+                    AIEvents.COMPLETION,
+                    {AIAttributes.COMPLETION_CONTENT: content},
+                )
 
                 # Try message.usage_metadata
                 if not total_tokens and hasattr(gen, "message"):

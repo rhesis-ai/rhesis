@@ -20,9 +20,11 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
+import TimelineIcon from '@mui/icons-material/Timeline';
 import Link from 'next/link';
 import SpanTreeView from './SpanTreeView';
 import SpanGraphView from './SpanGraphView';
+import SpanSequenceView from './SpanSequenceView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -397,6 +399,13 @@ export default function TraceDrawer({
                   id="span-hierarchy-tab-1"
                   aria-controls="span-hierarchy-tabpanel-1"
                 />
+                <Tab
+                  icon={<TimelineIcon fontSize="small" />}
+                  iconPosition="start"
+                  label="Sequence View"
+                  id="span-hierarchy-tab-2"
+                  aria-controls="span-hierarchy-tabpanel-2"
+                />
               </Tabs>
             </Box>
 
@@ -404,8 +413,8 @@ export default function TraceDrawer({
             <Box
               sx={{
                 flex: 1,
-                overflow: viewTab === 1 ? 'hidden' : 'auto',
-                p: viewTab === 1 ? 0 : theme => theme.spacing(2),
+                overflow: viewTab === 0 ? 'auto' : 'hidden',
+                p: viewTab === 0 ? theme => theme.spacing(2) : 0,
               }}
             >
               {viewTab === 0 && (
@@ -417,6 +426,13 @@ export default function TraceDrawer({
               )}
               {viewTab === 1 && (
                 <SpanGraphView
+                  spans={trace.root_spans}
+                  selectedSpan={selectedSpan}
+                  onSpanSelect={handleSpanSelect}
+                />
+              )}
+              {viewTab === 2 && (
+                <SpanSequenceView
                   spans={trace.root_spans}
                   selectedSpan={selectedSpan}
                   onSpanSelect={handleSpanSelect}

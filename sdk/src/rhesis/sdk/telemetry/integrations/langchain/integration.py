@@ -121,3 +121,26 @@ _langchain_integration = LangChainIntegration()
 def get_integration() -> LangChainIntegration:
     """Get the singleton LangChain integration instance."""
     return _langchain_integration
+
+
+def get_callback():
+    """
+    Get the global callback handler for use with LangGraph.
+
+    Use this to get the callback when invoking a LangGraph graph:
+
+        from rhesis.sdk.telemetry.integrations.langchain import get_callback
+
+        callback = get_callback()
+        if callback:
+            result = graph.invoke(state, config={"callbacks": [callback]})
+        else:
+            result = graph.invoke(state)
+
+    Returns:
+        The callback handler if enabled, None otherwise.
+    """
+    integration = get_integration()
+    if integration.enabled:
+        return integration.callback()
+    return None

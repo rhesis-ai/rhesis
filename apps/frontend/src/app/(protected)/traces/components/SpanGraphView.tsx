@@ -32,11 +32,30 @@ const NODE_HEIGHT = 60;
 
 /**
  * Get the display name for a span, including additional context from attributes
+ * (e.g., tool name for ai.tool.invoke spans, agent name for ai.agent.invoke)
  */
 function getSpanDisplayName(span: SpanNode): string {
-  if (span.span_name === 'ai.tool.invoke' && span.attributes?.['ai.tool.name']) {
-    return `${span.span_name} (${span.attributes['ai.tool.name']})`;
+  const attrs = span.attributes;
+
+  // Tool invocations: show tool name
+  if (span.span_name === 'ai.tool.invoke' && attrs?.['ai.tool.name']) {
+    return `${span.span_name} (${attrs['ai.tool.name']})`;
   }
+
+  // Agent invocations: show agent name
+  if (span.span_name === 'ai.agent.invoke' && attrs?.['ai.agent.name']) {
+    return `${span.span_name} (${attrs['ai.agent.name']})`;
+  }
+
+  // Agent handoffs: show from -> to
+  if (span.span_name === 'ai.agent.handoff') {
+    const from = attrs?.['ai.agent.handoff.from'];
+    const to = attrs?.['ai.agent.handoff.to'];
+    if (from && to) {
+      return `${span.span_name} (${from} → ${to})`;
+    }
+  }
+
   return span.span_name;
 }
 
@@ -64,14 +83,14 @@ function SpanNodeComponent({ data, selected }: NodeProps) {
   return (
     <Box
       sx={{
-        padding: 1.5,
-        borderRadius: 1,
+        padding: theme.spacing(1.5),
+        borderRadius: theme.shape.borderRadius,
         backgroundColor: theme.palette.background.paper,
         border: `2px solid ${isSelected ? theme.palette.primary.main : theme.palette.divider}`,
         boxShadow: isSelected ? `0 0 0 2px ${theme.palette.primary.light}` : theme.shadows[1],
         minWidth: NODE_WIDTH,
         cursor: 'pointer',
-        transition: 'all 0.2s ease',
+        transition: theme.transitions.create(['border-color', 'box-shadow']),
         '&:hover': {
           borderColor: theme.palette.primary.light,
           boxShadow: theme.shadows[3],
@@ -84,17 +103,17 @@ function SpanNodeComponent({ data, selected }: NodeProps) {
         style={{
           background: theme.palette.divider,
           border: 'none',
-          width: 8,
-          height: 8,
+          width: theme.spacing(1),
+          height: theme.spacing(1),
         }}
       />
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1) }}>
         {/* Icon */}
         <Box
           component={SpanIcon}
           sx={{
-            fontSize: 18,
+            fontSize: theme.typography.body1.fontSize,
             color: `${nodeColor} !important`,
             flexShrink: 0,
           }}
@@ -105,12 +124,14 @@ function SpanNodeComponent({ data, selected }: NodeProps) {
           variant="body2"
           sx={{
             fontFamily: 'monospace',
-            fontSize: 12,
+            fontSize: theme.typography.caption.fontSize,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             flex: 1,
-            fontWeight: isSelected ? 600 : 400,
+            fontWeight: isSelected
+              ? theme.typography.fontWeightMedium
+              : theme.typography.fontWeightRegular,
           }}
         >
           {getSpanDisplayName(span)}
@@ -121,8 +142,8 @@ function SpanNodeComponent({ data, selected }: NodeProps) {
           label={formatDuration(span.duration_ms)}
           size="small"
           sx={{
-            height: 20,
-            fontSize: 10,
+            height: theme.spacing(2.5),
+            fontSize: theme.typography.caption.fontSize,
             flexShrink: 0,
           }}
         />
@@ -134,8 +155,8 @@ function SpanNodeComponent({ data, selected }: NodeProps) {
             size="small"
             color="error"
             sx={{
-              height: 20,
-              fontSize: 10,
+              height: theme.spacing(2.5),
+              fontSize: theme.typography.caption.fontSize,
               flexShrink: 0,
             }}
           />
@@ -148,8 +169,8 @@ function SpanNodeComponent({ data, selected }: NodeProps) {
         style={{
           background: theme.palette.divider,
           border: 'none',
-          width: 8,
-          height: 8,
+          width: theme.spacing(1),
+          height: theme.spacing(1),
         }}
       />
     </Box>
@@ -166,7 +187,8 @@ const nodeTypes = {
  */
 function convertToFlowElements(
   spans: SpanNode[],
-  selectedSpan: SpanNode | null
+  selectedSpan: SpanNode | null,
+  edgeColor: string
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
@@ -191,7 +213,7 @@ function convertToFlowElements(
         target: nodeId,
         type: 'smoothstep',
         animated: false,
-        style: { stroke: '#888', strokeWidth: 1.5 },
+        style: { stroke: edgeColor, strokeWidth: 1.5 },
       });
     }
 
@@ -204,7 +226,7 @@ function convertToFlowElements(
 }
 
 /**
- * Apply dagre layout to position nodes
+ * Apply dagre layout to position nodes with optimized vertical alignment
  */
 function applyDagreLayout(
   nodes: Node[],
@@ -215,8 +237,17 @@ function applyDagreLayout(
   dagreGraph.setDefaultEdgeLabel(() => ({}));
   dagreGraph.setGraph({
     rankdir: direction,
-    nodesep: 40,
-    ranksep: 60,
+    // Align nodes to upper-left within their rank for consistent vertical alignment
+    align: 'UL',
+    // Use tight-tree ranker for better tree structure layout
+    ranker: 'tight-tree',
+    // Horizontal spacing between nodes at the same level
+    nodesep: 20,
+    // Vertical spacing between levels (ranks)
+    ranksep: 50,
+    // Edge spacing
+    edgesep: 10,
+    // Margins
     marginx: 20,
     marginy: 20,
   });
@@ -252,10 +283,11 @@ export default function SpanGraphView({
 
   // Convert spans to flow elements
   const { initialNodes, initialEdges } = useMemo(() => {
-    const { nodes, edges } = convertToFlowElements(spans, selectedSpan);
+    const edgeColor = theme.palette.grey[400];
+    const { nodes, edges } = convertToFlowElements(spans, selectedSpan, edgeColor);
     const layoutedNodes = applyDagreLayout(nodes, edges);
     return { initialNodes: layoutedNodes, initialEdges: edges };
-  }, [spans, selectedSpan]);
+  }, [spans, selectedSpan, theme.palette.grey]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -309,7 +341,7 @@ export default function SpanGraphView({
           type: 'smoothstep',
         }}
       >
-        <Background color={theme.palette.divider} gap={16} />
+        <Background color={theme.palette.divider} gap={Number(theme.spacing(2).replace('px', ''))} />
         <Controls
           style={{
             display: 'flex',
