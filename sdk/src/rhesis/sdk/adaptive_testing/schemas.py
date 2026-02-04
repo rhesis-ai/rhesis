@@ -287,7 +287,7 @@ class TestTreeData:
         }
 
 
-class Topic(BaseModel):
+class TopicNode(BaseModel):
     """Represents a hierarchical topic in the test tree."""
 
     path: str  # Full path like "Safety/Violence" (URL-encoded)
@@ -328,17 +328,17 @@ class Topic(BaseModel):
         """Human-readable full path with URL encoding decoded"""
         return urllib.parse.unquote(self.path)
 
-    def is_ancestor_of(self, other: "Topic") -> bool:
+    def is_ancestor_of(self, other: "TopicNode") -> bool:
         """Returns True if self is an ancestor of other"""
         if not self.path:
             return bool(other.path)  # Empty path is ancestor of everything
         return other.path.startswith(self.path + "/")
 
-    def is_descendant_of(self, other: "Topic") -> bool:
+    def is_descendant_of(self, other: "TopicNode") -> bool:
         """Returns True if self is a descendant of other"""
         return other.is_ancestor_of(self)
 
-    def is_direct_child_of(self, other: Optional["Topic"]) -> bool:
+    def is_direct_child_of(self, other: Optional["TopicNode"]) -> bool:
         """Returns True if self is a direct child of other"""
         if other is None:
             # Direct child of root = no "/" in path
@@ -352,13 +352,13 @@ class Topic(BaseModel):
         return child_name
 
     @classmethod
-    def from_display_name(cls, display_path: str) -> "Topic":
+    def from_display_name(cls, display_path: str) -> "TopicNode":
         """Create a Topic from a human-readable path (encodes spaces etc.)"""
         encoded = urllib.parse.quote(display_path, safe="/")
         return cls(path=encoded)
 
     @classmethod
-    def root(cls) -> "Topic":
+    def root(cls) -> "TopicNode":
         """Get the root topic (empty path)"""
         return cls(path="")
 
@@ -366,7 +366,7 @@ class Topic(BaseModel):
         return self.path
 
     def __repr__(self) -> str:
-        return f"Topic(path={self.path!r})"
+        return f"TopicNode(path={self.path!r})"
 
 
 class TopicTree:
@@ -378,16 +378,16 @@ class TopicTree:
 
     def __init__(self, test_tree_data: "TestTreeData"):
         self._data = test_tree_data
-        self._topic_cache: dict[str, Topic] = {}
+        self._topic_cache: dict[str, TopicNode] = {}
 
     def invalidate_cache(self):
         """Call when TestTreeData changes (add/remove/move nodes)"""
         self._topic_cache.clear()
 
-    def _get_or_create_topic(self, path: str) -> Topic:
-        """Get cached Topic or create new one"""
+    def _get_or_create_topic(self, path: str) -> TopicNode:
+        """Get cached TopicNode or create new one"""
         if path not in self._topic_cache:
-            self._topic_cache[path] = Topic(path=path)
+            self._topic_cache[path] = TopicNode(path=path)
         return self._topic_cache[path]
 
     def _is_real_topic(self, path: str) -> bool:
@@ -396,14 +396,14 @@ class TopicTree:
 
     # --- Query methods ---
 
-    def get(self, path: str) -> Topic | None:
+    def get(self, path: str) -> TopicNode | None:
         """Get a topic by path, or None if no topic_marker exists for it."""
         for node in self._data:
             if node.topic == path and node.label == "topic_marker":
                 return self._get_or_create_topic(path)
         return None
 
-    def get_all(self) -> list[Topic]:
+    def get_all(self) -> list[TopicNode]:
         """Get all topics (excludes __suggestions__ pseudo-topics)."""
         topics = []
         seen = set()
@@ -417,7 +417,7 @@ class TopicTree:
                 topics.append(self._get_or_create_topic(node.topic))
         return topics
 
-    def get_children(self, parent: Topic | None = None) -> list[Topic]:
+    def get_children(self, parent: TopicNode | None = None) -> list[TopicNode]:
         """Get direct child topics of the given topic (or root-level if None)."""
         parent_path = parent.path if parent else ""
         children = []
@@ -444,7 +444,7 @@ class TopicTree:
 
         return children
 
-    def get_ancestors(self, topic: Topic) -> list[Topic]:
+    def get_ancestors(self, topic: TopicNode) -> list[TopicNode]:
         """Get all ancestors from root to parent (not including topic itself)."""
         ancestors = []
         current_path = topic.parent_path
@@ -460,7 +460,7 @@ class TopicTree:
         return ancestors
 
     def get_tests(
-        self, topic: Topic | None = None, recursive: bool = False
+        self, topic: TopicNode | None = None, recursive: bool = False
     ) -> list["TestTreeNode"]:
         """Get test nodes (non-topic-markers) under a topic."""
         tests = []
@@ -486,7 +486,7 @@ class TopicTree:
 
         return tests
 
-    def has_direct_tests(self, topic: Topic) -> bool:
+    def has_direct_tests(self, topic: TopicNode) -> bool:
         """Check if topic has direct tests (not in subtopics)."""
         for node in self._data:
             if (
@@ -497,16 +497,16 @@ class TopicTree:
                 return True
         return False
 
-    def has_subtopics(self, topic: Topic) -> bool:
+    def has_subtopics(self, topic: TopicNode) -> bool:
         """Check if topic has any child topics."""
         return len(self.get_children(topic)) > 0
 
     # --- Mutation methods ---
 
-    def add_topic(self, path: str, labeler: str = "user") -> Topic:
+    def add_topic(self, path: str, labeler: str = "user") -> TopicNode:
         """Create a new topic by adding a topic_marker node.
 
-        Returns the Topic (creates topic_marker node in TestTreeData).
+        Returns the TopicNode (creates topic_marker node in TestTreeData).
         """
         # Check if already exists
         existing = self.get(path)
@@ -527,7 +527,7 @@ class TopicTree:
 
         return self._get_or_create_topic(path)
 
-    def delete(self, topic: Topic, move_tests_to_parent: bool = True) -> list[str]:
+    def delete(self, topic: TopicNode, move_tests_to_parent: bool = True) -> list[str]:
         """Delete a topic.
 
         Args:
@@ -573,7 +573,7 @@ class TopicTree:
         self.invalidate_cache()
         return deleted_ids
 
-    def rename(self, topic: Topic, new_name: str) -> Topic:
+    def rename(self, topic: TopicNode, new_name: str) -> TopicNode:
         """Rename a topic (changes the last segment of path).
 
         Updates all nodes under this topic.
@@ -585,7 +585,7 @@ class TopicTree:
 
         return self.move(topic, new_path)
 
-    def move(self, topic: Topic, new_path: str) -> Topic:
+    def move(self, topic: TopicNode, new_path: str) -> TopicNode:
         """Move a topic to a new path.
 
         Updates all nodes under this topic.
@@ -601,7 +601,7 @@ class TopicTree:
         self.invalidate_cache()
         return self._get_or_create_topic(new_path)
 
-    def get_topic_marker_id(self, topic: Topic) -> str | None:
+    def get_topic_marker_id(self, topic: TopicNode) -> str | None:
         """Get the node ID of the topic_marker for this topic."""
         for node in self._data:
             if node.topic == topic.path and node.label == "topic_marker":

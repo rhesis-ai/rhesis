@@ -4,7 +4,7 @@ import urllib.parse
 import numpy as np
 
 from .embedders import cos_sim
-from .schemas import Topic
+from .schemas import TopicNode
 
 log = logging.getLogger(__name__)
 
@@ -19,8 +19,8 @@ def _is_under_topic(parent_path: str, child_path: str) -> bool:
         return True
     if not parent_path:
         return True  # Everything is under root
-    parent = Topic(path=parent_path)
-    child = Topic(path=child_path)
+    parent = TopicNode(path=parent_path)
+    child = TopicNode(path=child_path)
     return parent.is_ancestor_of(child)
 
 

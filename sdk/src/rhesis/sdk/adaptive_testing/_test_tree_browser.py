@@ -532,7 +532,7 @@ class TestTreeBrowser:
 
     def _get_child_topics_for_path(self, topic_path: str) -> list:
         """Get child topics for a path, handling __suggestions__ pseudo-topics."""
-        from .schemas import Topic
+        from .schemas import TopicNode
 
         if "__suggestions__" in topic_path:
             # For suggestions, manually find child topic markers
@@ -545,7 +545,7 @@ class TestTreeBrowser:
                     remainder = node.topic[len(prefix) :]
                     if "/" not in remainder and node.topic not in seen:
                         seen.add(node.topic)
-                        child_topics.append(Topic(path=node.topic))
+                        child_topics.append(TopicNode(path=node.topic))
             return child_topics
         else:
             # Use TopicTree for regular topics

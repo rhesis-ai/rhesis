@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Callable, List, Optional
 import pandas as pd
 
 from rhesis.sdk import adaptive_testing
-from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode, Topic
+from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode, TopicNode
 from rhesis.sdk.entities import Prompt, Test, TestSet
 from rhesis.sdk.models import BaseEmbedder, BaseLLM
 
@@ -19,8 +19,8 @@ def _is_under_topic(parent_path: str, child_path: str) -> bool:
         return True
     if not parent_path:
         return True  # Everything is under root
-    parent = Topic(path=parent_path)
-    child = Topic(path=child_path)
+    parent = TopicNode(path=parent_path)
+    child = TopicNode(path=child_path)
     return parent.is_ancestor_of(child)
 
 
