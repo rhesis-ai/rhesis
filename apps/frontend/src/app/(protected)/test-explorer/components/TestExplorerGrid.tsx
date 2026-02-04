@@ -16,6 +16,11 @@ import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import PersonIcon from '@mui/icons-material/Person';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AdaptiveTestSetDrawer from './AdaptiveTestSetDrawer';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { useNotifications } from '@/components/common/NotificationContext';
 
 interface TestExplorerGridProps {
   testSets: TestSet[];
@@ -61,6 +66,7 @@ export default function TestExplorerGrid({
 }: TestExplorerGridProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  const notifications = useNotifications();
   const [loading, setLoading] = useState(initialLoading);
   const [testSets, setTestSets] = useState<TestSet[]>(initialTestSets);
   const [totalCount, setTotalCount] = useState<number>(
@@ -71,6 +77,9 @@ export default function TestExplorerGrid({
     pageSize: 25,
   });
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Set initial data from props
   useEffect(() => {
@@ -97,10 +106,10 @@ export default function TestExplorerGrid({
         sort_order: 'desc',
       });
 
-      // Filter test sets that have "Adaptive testing" behavior
+      // Filter test sets that have "Adaptive Testing" behavior
       const adaptiveTestSets = response.data.filter(testSet => {
         const behaviors = testSet.attributes?.metadata?.behaviors || [];
-        return behaviors.includes('Adaptive testing');
+        return behaviors.includes('Adaptive Testing');
       });
 
       setTestSets(adaptiveTestSets);
@@ -309,6 +318,96 @@ export default function TestExplorerGrid({
     setSelectedRows(newSelection);
   };
 
+  const handleNewTestSet = () => {
+    setDrawerOpen(true);
+  };
+
+  const handleDrawerClose = () => {
+    setDrawerOpen(false);
+  };
+
+  const handleTestSetSaved = async () => {
+    fetchTestSets();
+  };
+
+  const handleDeleteTestSets = () => {
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      setIsDeleting(true);
+      const token = sessionToken || session?.session_token;
+      const clientFactory = new ApiClientFactory(token!);
+      const testSetsClient = clientFactory.getTestSetsClient();
+
+      // Delete all selected test sets
+      await Promise.all(
+        selectedRows.map(id => testSetsClient.deleteTestSet(id as string))
+      );
+
+      // Show success notification
+      notifications.show(
+        `Successfully deleted ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}`,
+        { severity: 'success', autoHideDuration: 4000 }
+      );
+
+      // Clear selection and refresh data
+      setSelectedRows([]);
+      fetchTestSets();
+    } catch (error) {
+      notifications.show('Failed to delete test sets', {
+        severity: 'error',
+        autoHideDuration: 6000,
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false);
+  };
+
+  const getActionButtons = () => {
+    const buttons: {
+      label: string;
+      icon: React.ReactNode;
+      variant: 'text' | 'outlined' | 'contained';
+      color?:
+        | 'inherit'
+        | 'primary'
+        | 'secondary'
+        | 'success'
+        | 'error'
+        | 'info'
+        | 'warning';
+      onClick: () => void;
+    }[] = [
+      {
+        label: 'New Test Set',
+        icon: <AddIcon />,
+        variant: 'contained' as const,
+        onClick: handleNewTestSet,
+      },
+    ];
+
+    if (selectedRows.length > 0) {
+      buttons.push({
+        label: 'Delete Test Sets',
+        icon: <DeleteIcon />,
+        variant: 'outlined' as const,
+        color: 'error' as const,
+        onClick: handleDeleteTestSets,
+      });
+    }
+
+    return buttons;
+  };
+
   return (
     <>
       {selectedRows.length > 0 && (
@@ -335,6 +434,7 @@ export default function TestExplorerGrid({
         onRowClick={handleRowClick}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
+        actionButtons={getActionButtons()}
         checkboxSelection
         disableRowSelectionOnClick
         onRowSelectionModelChange={handleSelectionChange}
@@ -352,6 +452,26 @@ export default function TestExplorerGrid({
           },
         }}
       />
+
+      {(sessionToken || session?.session_token) && (
+        <>
+          <AdaptiveTestSetDrawer
+            open={drawerOpen}
+            onClose={handleDrawerClose}
+            sessionToken={sessionToken || session?.session_token || ''}
+            onSuccess={handleTestSetSaved}
+          />
+          <DeleteModal
+            open={deleteModalOpen}
+            onClose={handleDeleteCancel}
+            onConfirm={handleDeleteConfirm}
+            isLoading={isDeleting}
+            title="Delete Test Sets"
+            message={`Are you sure you want to delete ${selectedRows.length} ${selectedRows.length === 1 ? 'test set' : 'test sets'}? Don't worry, related data will not be deleted, only ${selectedRows.length === 1 ? 'this record' : 'these records'}.`}
+            itemType="test sets"
+          />
+        </>
+      )}
     </>
   );
 }
