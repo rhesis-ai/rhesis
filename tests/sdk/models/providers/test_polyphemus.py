@@ -80,16 +80,12 @@ class TestPolyphemusLLM:
         # Verify the request structure
         call_args = mock_post.call_args
         assert call_args.kwargs["json"]["messages"] == [{"role": "user", "content": prompt}]
-        assert call_args.kwargs["json"]["temperature"] == 0.7
-        assert call_args.kwargs["json"]["max_tokens"] == 512
 
     @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
     def test_generate_with_system_prompt(self, mock_post):
         """Test generate method with system prompt includes both messages"""
         mock_response = Mock()
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "Test response"}}]
-        }
+        mock_response.json.return_value = {"choices": [{"message": {"content": "Test response"}}]}
         mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
 
@@ -121,9 +117,7 @@ class TestPolyphemusLLM:
         # Mock the API response with JSON string
         mock_response = Mock()
         mock_response.json.return_value = {
-            "choices": [
-                {"message": {"content": '{"name": "John", "age": 30, "city": "New York"}'}}
-            ]
+            "choices": [{"message": {"content": '{"name": "John", "age": 30, "city": "New York"}'}}]
         }
         mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
@@ -171,9 +165,7 @@ class TestPolyphemusLLM:
     def test_generate_with_additional_kwargs(self, mock_post):
         """Test generate method passes additional kwargs to create_completion"""
         mock_response = Mock()
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "Test response"}}]
-        }
+        mock_response.json.return_value = {"choices": [{"message": {"content": "Test response"}}]}
         mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
 
@@ -192,9 +184,7 @@ class TestPolyphemusLLM:
     def test_generate_with_custom_model(self, mock_post):
         """Test generate method uses custom model name"""
         mock_response = Mock()
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "Test response"}}]
-        }
+        mock_response.json.return_value = {"choices": [{"message": {"content": "Test response"}}]}
         mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
 
@@ -211,9 +201,7 @@ class TestPolyphemusLLM:
     def test_generate_without_model_name(self, mock_post):
         """Test generate method without model name doesn't include model in request"""
         mock_response = Mock()
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "Test response"}}]
-        }
+        mock_response.json.return_value = {"choices": [{"message": {"content": "Test response"}}]}
         mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
 
@@ -231,11 +219,7 @@ class TestPolyphemusLLM:
         mock_response = Mock()
         mock_response.json.return_value = {
             "choices": [
-                {
-                    "message": {
-                        "content": "<think>This is reasoning</think>The actual response"
-                    }
-                }
+                {"message": {"content": "<think>This is reasoning</think>The actual response"}}
             ]
         }
         mock_response.raise_for_status = Mock()
@@ -255,11 +239,7 @@ class TestPolyphemusLLM:
         mock_response = Mock()
         mock_response.json.return_value = {
             "choices": [
-                {
-                    "message": {
-                        "content": "<think>This is reasoning</think>The actual response"
-                    }
-                }
+                {"message": {"content": "<think>This is reasoning</think>The actual response"}}
             ]
         }
         mock_response.raise_for_status = Mock()
@@ -303,13 +283,7 @@ class TestPolyphemusLLM:
         """Test that reasoning tokens are stripped case-insensitively"""
         mock_response = Mock()
         mock_response.json.return_value = {
-            "choices": [
-                {
-                    "message": {
-                        "content": "<THINK>Uppercase reasoning</THINK>Response"
-                    }
-                }
-            ]
+            "choices": [{"message": {"content": "<THINK>Uppercase reasoning</THINK>Response"}}]
         }
         mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
@@ -370,8 +344,8 @@ class TestPolyphemusLLM:
         assert result == "No response generated."
 
     @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
-    def test_create_completion_default_params(self, mock_post):
-        """Test create_completion uses default parameters"""
+    def test_create_completion_without_params(self, mock_post):
+        """Test create_completion without extra parameters only includes messages"""
         mock_response = Mock()
         mock_response.json.return_value = {"choices": [{"message": {"content": "Test"}}]}
         mock_response.raise_for_status = Mock()
@@ -385,13 +359,16 @@ class TestPolyphemusLLM:
         call_args = mock_post.call_args
         request_data = call_args.kwargs["json"]
 
-        # Check default values
-        assert request_data["temperature"] == 0.7
-        assert request_data["max_tokens"] == 512
-        assert request_data["stream"] is False
-        assert request_data["repetition_penalty"] == 1.2
-        assert request_data["top_p"] == 0
-        assert request_data["top_k"] == 0
+        # Check that only messages are included when no params passed
+        assert "messages" in request_data
+        assert request_data["messages"] == messages
+        # Default values should not be included unless explicitly passed
+        assert "temperature" not in request_data
+        assert "max_tokens" not in request_data
+        assert "stream" not in request_data
+        assert "repetition_penalty" not in request_data
+        assert "top_p" not in request_data
+        assert "top_k" not in request_data
 
     @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
     def test_create_completion_custom_params(self, mock_post):

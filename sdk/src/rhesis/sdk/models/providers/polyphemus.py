@@ -166,12 +166,6 @@ class PolyphemusLLM(BaseLLM):
     def create_completion(
         self,
         messages: list,
-        temperature: float = 0.7,
-        max_tokens: int = 512,
-        stream: bool = False,
-        repetition_penalty: float = 1.2,
-        top_p: float = 0,
-        top_k: int = 0,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """
@@ -179,12 +173,6 @@ class PolyphemusLLM(BaseLLM):
 
         Args:
             messages: List of message objects with role and content
-            temperature: Sampling temperature (0-1)
-            max_tokens: Maximum tokens to generate
-            stream: Whether to stream the response
-            repetition_penalty: Penalty for repetition
-            top_p: Top-p sampling parameter
-            top_k: Top-k sampling parameter
             **kwargs: Additional parameters to pass to the API
 
         Returns:
@@ -196,12 +184,6 @@ class PolyphemusLLM(BaseLLM):
         """
         request_data = {
             "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-            "stream": stream,
-            "repetition_penalty": repetition_penalty,
-            "top_p": top_p,
-            "top_k": top_k,
             **kwargs,
         }
 
