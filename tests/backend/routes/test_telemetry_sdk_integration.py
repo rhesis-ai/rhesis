@@ -69,6 +69,8 @@ class TestBackendSchemaImports:
         assert valid_span.span_name == "ai.llm.invoke"
 
         # Invalid span name should be rejected
+        # Note: "agent" is now allowed for multi-agent system tracing
+        # Only "chain", "workflow", "pipeline" are forbidden
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError, match="cannot use framework concept"):
@@ -76,7 +78,7 @@ class TestBackendSchemaImports:
                 trace_id="a" * 32,
                 span_id="b" * 16,
                 project_id="test",
-                span_name="ai.agent.run",
+                span_name="ai.chain.run",
                 start_time=now,
                 end_time=now,
             )
