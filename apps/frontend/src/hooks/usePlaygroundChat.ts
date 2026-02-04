@@ -115,10 +115,7 @@ export function usePlaygroundChat(
         const correlationId = msg.correlation_id;
 
         // Only process if this is the response we're waiting for
-        if (
-          correlationId &&
-          correlationId === pendingCorrelationRef.current
-        ) {
+        if (correlationId && correlationId === pendingCorrelationRef.current) {
           pendingCorrelationRef.current = null;
           setIsLoading(false);
           setError(null);
@@ -149,10 +146,7 @@ export function usePlaygroundChat(
         const correlationId = msg.correlation_id;
 
         // Only process if this is the response we're waiting for
-        if (
-          correlationId &&
-          correlationId === pendingCorrelationRef.current
-        ) {
+        if (correlationId && correlationId === pendingCorrelationRef.current) {
           pendingCorrelationRef.current = null;
           setIsLoading(false);
 
@@ -253,9 +247,13 @@ export function usePlaygroundChat(
     pendingCorrelationRef.current = null;
   }, []);
 
-  // Reset session when endpoint changes
+  // Reset entire conversation when endpoint changes
   useEffect(() => {
+    setMessages([]);
+    setError(null);
+    setIsLoading(false);
     setSessionId(null);
+    pendingCorrelationRef.current = null;
   }, [endpointId]);
 
   return {
