@@ -1,4 +1,3 @@
-import * as React from 'react';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { auth } from '@/auth';
@@ -34,6 +33,19 @@ export default async function TestExplorerDetailPage({
       skip: 0,
       limit: 100,
     });
+
+    // Extract unique topics from tests in this test set
+    const topicSet = new Set<string>();
+    testsResponse.data.forEach(test => {
+      const topicName = typeof test.topic === 'string' ? test.topic : test.topic?.name;
+      if (topicName) {
+        topicSet.add(topicName);
+      }
+    });
+    const topics = Array.from(topicSet).map((name, index) => ({
+      id: `derived-${index}` as `${string}-${string}-${string}-${string}-${string}`,
+      name,
+    }));
 
     // Transform tests to display format with input, output, score
     // Metadata is stored in test_metadata field
@@ -72,8 +84,10 @@ export default async function TestExplorerDetailPage({
         {/* Tests Explorer with Topic Tree */}
         <AdaptiveTestsExplorer
           tests={adaptiveTests}
+          topics={topics.map(t => ({ id: t.id, name: t.name }))}
           loading={false}
           sessionToken={session.session_token}
+          testSetId={identifier}
         />
       </PageContainer>
     );
