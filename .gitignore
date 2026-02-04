@@ -318,6 +318,9 @@ deepeval_telemetry.jsonl.gz.part
 # Playground
 playground/*
 
+# Simulations
+simulations/
+
 # K8s files
 infrastructure/k8s/manifests/secrets/*
 infrastructure/k8s/manifests/configmaps/*

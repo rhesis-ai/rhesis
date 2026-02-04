@@ -40,6 +40,7 @@ from .topic import router as topic_router
 from .type_lookup import router as type_lookup_router
 from .use_case import router as use_case_router
 from .user import router as user_router
+from .websocket import router as websocket_router
 
 # Export all modules for explicit imports
 __all__ = [
@@ -120,6 +121,7 @@ routers = sorted(
         tools_router,
         recycle_router,
         garak_router,
+        websocket_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )
