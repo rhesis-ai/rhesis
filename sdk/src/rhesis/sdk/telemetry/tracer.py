@@ -3,6 +3,7 @@
 import inspect
 import json
 import logging
+import threading
 from collections.abc import Callable, Generator
 from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Optional
@@ -20,6 +21,26 @@ from rhesis.sdk.telemetry.provider import get_tracer_provider
 from rhesis.sdk.telemetry.schemas import TestExecutionContext
 
 logger = logging.getLogger(__name__)
+
+# Thread-safe storage for trace_id to pass from tracer to executor
+# Key: id(result), Value: trace_id
+# This solves the issue with Pydantic models not accepting arbitrary attributes
+_result_trace_ids: dict[int, str] = {}
+_result_trace_ids_lock = threading.Lock()
+
+
+def store_result_trace_id(result: Any, trace_id: str) -> None:
+    """Store trace_id associated with a result object."""
+    result_id = id(result)
+    with _result_trace_ids_lock:
+        _result_trace_ids[result_id] = trace_id
+
+
+def pop_result_trace_id(result: Any) -> Optional[str]:
+    """Retrieve and remove trace_id associated with a result object."""
+    result_id = id(result)
+    with _result_trace_ids_lock:
+        return _result_trace_ids.pop(result_id, None)
 
 
 def _get_sdk_version() -> str:
@@ -334,10 +355,18 @@ class Tracer:
             # Set root trace_id if this is the root span (no existing trace_id in context)
             # This allows the executor to return trace_id for frontend trace linking
             is_root = get_root_trace_id() is None
+            trace_id = None
             if is_root:
-                trace_id = format(span.get_span_context().trace_id, "032x")
-                set_root_trace_id(trace_id)
-                logger.debug(f"[Tracer] Set root trace_id: {trace_id} for {function_name}")
+                try:
+                    raw_trace_id = span.get_span_context().trace_id
+                    # Only format if it's a real integer trace_id (not a mock)
+                    if isinstance(raw_trace_id, int):
+                        trace_id = format(raw_trace_id, "032x")
+                        set_root_trace_id(trace_id)
+                        logger.debug(f"[Tracer] Set root trace_id: {trace_id} for {function_name}")
+                except (TypeError, AttributeError):
+                    # Mock objects or invalid spans - skip trace_id extraction
+                    pass
 
             # Set up span attributes
             self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
@@ -354,6 +383,11 @@ class Tracer:
                 # Handle regular functions
                 span.set_status(trace.Status(trace.StatusCode.OK))
                 self._capture_function_result(span, result)
+
+                # For sync functions running in thread pools, context variables don't
+                # propagate back. Store trace_id in thread-safe dict keyed by result id.
+                if is_root and result is not None and trace_id:
+                    store_result_trace_id(result, trace_id)
 
                 return result
 
@@ -398,10 +432,16 @@ class Tracer:
             # Set root trace_id if this is the root span (no existing trace_id in context)
             # This allows the executor to return trace_id for frontend trace linking
             is_root = get_root_trace_id() is None
+            trace_id = None
             if is_root:
-                trace_id = format(span.get_span_context().trace_id, "032x")
-                set_root_trace_id(trace_id)
-                logger.debug(f"[Tracer] Set root trace_id: {trace_id} for {function_name}")
+                try:
+                    raw_trace_id = span.get_span_context().trace_id
+                    if isinstance(raw_trace_id, int):
+                        trace_id = format(raw_trace_id, "032x")
+                        set_root_trace_id(trace_id)
+                        logger.debug(f"[Tracer] Set root trace_id: {trace_id} for {function_name}")
+                except (TypeError, AttributeError):
+                    pass
 
             # Set up span attributes
             self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
@@ -413,6 +453,10 @@ class Tracer:
                 # Handle result
                 span.set_status(trace.Status(trace.StatusCode.OK))
                 self._capture_function_result(span, result)
+
+                # Store trace_id in thread-safe dict for consistency with sync version
+                if is_root and result is not None and trace_id:
+                    store_result_trace_id(result, trace_id)
 
                 return result
 

@@ -17,6 +17,7 @@ from rhesis.sdk.telemetry.context import (
     set_root_trace_id,
     set_test_execution_context,
 )
+from rhesis.sdk.telemetry.tracer import pop_result_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -163,14 +164,17 @@ class TestExecutor:
                 # Handle generators (consume and collect output)
                 result = await self._consume_generator(result)
 
+                # Get trace_id BEFORE serialization (which creates a new object)
+                # For sync functions in thread pools, context vars don't propagate back,
+                # so check for trace_id stored in thread-safe dict by tracer
+                trace_id = get_root_trace_id()
+                if trace_id is None and result is not None:
+                    trace_id = pop_result_trace_id(result)
+
                 # Serialize result to JSON-compatible format
                 result = self._serialize_result(result, serializer)
 
                 duration_ms = (time.time() - start_time) * 1000
-
-                # Get trace_id from context (set by tracer during execution)
-                trace_id = get_root_trace_id()
-                logger.debug(f"[Executor] Retrieved trace_id from context: {trace_id}")
 
                 return {
                     "status": TestStatus.SUCCESS,
