@@ -14,6 +14,8 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import TopicTreeView, {
@@ -733,9 +735,45 @@ export default function AdaptiveTestsExplorer({
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="subtitle2" color="text.secondary">
-                {selectedTopic ? decodeURIComponent(selectedTopic) : 'All Tests'}
-              </Typography>
+              {selectedTopic ? (
+                <Breadcrumbs separator="/" sx={{ '& .MuiBreadcrumbs-separator': { mx: 0.5 } }}>
+                  <Link
+                    component="button"
+                    variant="subtitle2"
+                    color="text.secondary"
+                    underline="hover"
+                    onClick={() => setSelectedTopic(null)}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    All Tests
+                  </Link>
+                  {selectedTopic.split('/').map((segment, index, arr) => {
+                    const path = arr.slice(0, index + 1).join('/');
+                    const isLast = index === arr.length - 1;
+                    return isLast ? (
+                      <Typography key={path} variant="subtitle2" color="text.primary">
+                        {decodeURIComponent(segment)}
+                      </Typography>
+                    ) : (
+                      <Link
+                        key={path}
+                        component="button"
+                        variant="subtitle2"
+                        color="text.secondary"
+                        underline="hover"
+                        onClick={() => setSelectedTopic(path)}
+                        sx={{ cursor: 'pointer' }}
+                      >
+                        {decodeURIComponent(segment)}
+                      </Link>
+                    );
+                  })}
+                </Breadcrumbs>
+              ) : (
+                <Typography variant="subtitle2" color="text.primary">
+                  All Tests
+                </Typography>
+              )}
               <Typography variant="caption" color="text.secondary">
                 ({filteredTests.length} {filteredTests.length === 1 ? 'test' : 'tests'})
               </Typography>
