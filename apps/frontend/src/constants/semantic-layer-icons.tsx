@@ -6,7 +6,7 @@ import FunctionsIcon from '@mui/icons-material/Functions';
 import StorageIcon from '@mui/icons-material/Storage';
 import HttpIcon from '@mui/icons-material/Http';
 import CodeIcon from '@mui/icons-material/Code';
-import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 
 /**
@@ -22,7 +22,7 @@ export const SEMANTIC_LAYER_ICONS = {
   'ai.embedding': ExtensionIcon, // Embedding generation
 
   // Agent Operations (framework-agnostic agent tracing)
-  'ai.agent.invoke': SupportAgentIcon, // Agent execution
+  'ai.agent.invoke': PsychologyIcon, // Agent execution
   'ai.agent.handoff': SwapHorizIcon, // Control transfer between agents
 
   // Common patterns

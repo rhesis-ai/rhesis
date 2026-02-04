@@ -35,7 +35,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import dagre from 'dagre';
 import { SpanNode } from '@/utils/api-client/interfaces/telemetry';
-import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import PsychologyIcon from '@mui/icons-material/Psychology';
 import BuildIcon from '@mui/icons-material/Build';
 
 interface SpanGraphViewProps {
@@ -394,7 +394,6 @@ function extractMarkovChain(spans: SpanNode[]): {
   };
 }
 
-
 /**
  * Custom node component for Markov states (agents and tools)
  */
@@ -477,7 +476,7 @@ function MarkovStateNode({ data }: NodeProps) {
 
       {/* Icon - Agent or Tool */}
       {isAgent ? (
-        <SupportAgentIcon
+        <PsychologyIcon
           sx={{
             fontSize: theme.spacing(3),
             color: state.hasError ? theme.palette.error.main : stateColor,
@@ -855,12 +854,15 @@ export default function SpanGraphView({
       toolEdgeColor
     );
     const layoutedNodes = applyDagreLayout(nodes, edges);
-    
+
     // Calculate viewport that fits all nodes (for initial zoom level)
     // This ensures the graph is properly zoomed even when starting at time zero
     let defaultViewport: Viewport = { x: 0, y: 0, zoom: 1 };
     if (layoutedNodes.length > 0) {
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
       layoutedNodes.forEach(node => {
         const isTool = node.id.startsWith('tool:');
         const width = isTool ? TOOL_WIDTH : NODE_WIDTH;
@@ -870,26 +872,27 @@ export default function SpanGraphView({
         maxX = Math.max(maxX, node.position.x + width);
         maxY = Math.max(maxY, node.position.y + height);
       });
-      
+
       // Add padding
       const padding = 50;
       minX -= padding;
       minY -= padding;
       maxX += padding;
       maxY += padding;
-      
+
       // Calculate zoom to fit (assuming container is roughly 800x600)
       // We'll use a conservative estimate and let ReactFlow adjust
       const graphWidth = maxX - minX;
       const graphHeight = maxY - minY;
       const containerWidth = 800;
       const containerHeight = 500;
-      const zoom = Math.min(
-        containerWidth / graphWidth,
-        containerHeight / graphHeight,
-        1 // Don't zoom in more than 1x
-      ) * 0.9; // 90% to leave some margin
-      
+      const zoom =
+        Math.min(
+          containerWidth / graphWidth,
+          containerHeight / graphHeight,
+          1 // Don't zoom in more than 1x
+        ) * 0.9; // 90% to leave some margin
+
       // Center the graph
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
@@ -899,7 +902,7 @@ export default function SpanGraphView({
         zoom,
       };
     }
-    
+
     return {
       states,
       transitions,
@@ -1227,7 +1230,7 @@ export default function SpanGraphView({
           gap: theme.spacing(2),
         }}
       >
-        <SupportAgentIcon
+        <PsychologyIcon
           sx={{ fontSize: theme.spacing(6), color: theme.palette.grey[400] }}
         />
         <Typography color="text.secondary">
@@ -1418,7 +1421,11 @@ export default function SpanGraphView({
         >
           <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
             <Chip
-              icon={<SupportAgentIcon sx={{ fontSize: `${theme.spacing(1.75)} !important` }} />}
+              icon={
+                <PsychologyIcon
+                  sx={{ fontSize: `${theme.spacing(1.75)} !important` }}
+                />
+              }
               label={`${Array.from(states.values()).filter(s => s.type === 'agent').length} agents`}
               size="small"
               sx={{
@@ -1428,7 +1435,11 @@ export default function SpanGraphView({
               }}
             />
             <Chip
-              icon={<BuildIcon sx={{ fontSize: `${theme.spacing(1.75)} !important` }} />}
+              icon={
+                <BuildIcon
+                  sx={{ fontSize: `${theme.spacing(1.75)} !important` }}
+                />
+              }
               label={`${Array.from(states.values()).filter(s => s.type === 'tool').length} tools`}
               size="small"
               sx={{
