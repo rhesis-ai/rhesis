@@ -312,4 +312,29 @@ export class ServicesClient extends BaseApiClient {
       }
     );
   }
+
+  /**
+   * Create a Jira ticket from a task
+   * @param taskId - ID of the task to create a ticket from
+   * @param toolId - ID of the Jira MCP tool integration
+   * @returns Promise with issue key, URL, and message
+   */
+  async createJiraTicketFromTask(
+    taskId: string,
+    toolId: string
+  ): Promise<CreateJiraTicketFromTaskResponse> {
+    return this.fetch<CreateJiraTicketFromTaskResponse>(
+      `${API_ENDPOINTS.services}/mcp/jira/create-ticket-from-task`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_id: taskId,
+          tool_id: toolId,
+        }),
+      }
+    );
+  }
 }

@@ -29,12 +29,6 @@ interface CreateJiraIssueButtonProps {
   onIssueCreated?: () => void;
 }
 
-interface CreateJiraTicketResponse {
-  issue_key: string;
-  issue_url: string;
-  message: string;
-}
-
 export default function CreateJiraIssueButton({
   task,
   onIssueCreated,
@@ -102,29 +96,13 @@ export default function CreateJiraIssueButton({
 
     setIsCreating(true);
     try {
-      const response = await fetch(
-        '/api/services/mcp/jira/create-ticket-from-task',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.session_token}`,
-          },
-          body: JSON.stringify({
-            task_id: task.id,
-            tool_id: selectedToolId,
-          }),
-        }
+      const clientFactory = new ApiClientFactory(session.session_token);
+      const servicesClient = clientFactory.getServicesClient();
+
+      const result = await servicesClient.createJiraTicketFromTask(
+        task.id,
+        selectedToolId
       );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.detail || `Failed to create Jira issue: ${response.status}`
-        );
-      }
-
-      const result: CreateJiraTicketResponse = await response.json();
 
       show(result.message || 'Jira issue created successfully', {
         severity: 'success',
