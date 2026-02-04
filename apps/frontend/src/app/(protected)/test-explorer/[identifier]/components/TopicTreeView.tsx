@@ -26,7 +26,8 @@ export interface TopicNode {
   name: string;
   path: string;
   children: TopicNode[];
-  testCount: number;
+  directTestCount: number; // Tests directly in this topic
+  totalTestCount: number; // Tests in this topic + all children
   avgScore: number | null;
 }
 
@@ -83,7 +84,8 @@ function buildTopicTree(tests: AdaptiveTest[], apiTopics: ApiTopic[] = []): Topi
           name: decodeURIComponent(part),
           path: currentPath,
           children: [],
-          testCount: 0,
+          directTestCount: 0,
+          totalTestCount: 0,
           avgScore: null,
         };
         currentMap.set(part, newNode);
@@ -125,7 +127,7 @@ function buildTopicTree(tests: AdaptiveTest[], apiTopics: ApiTopic[] = []): Topi
     if (!topic) continue;
 
     const node = getOrCreateNode(topic, rootNodes);
-    node.testCount++;
+    node.directTestCount++;
 
     if (test.score !== null) {
       if (node.avgScore === null) {
@@ -133,16 +135,16 @@ function buildTopicTree(tests: AdaptiveTest[], apiTopics: ApiTopic[] = []): Topi
       } else {
         // Running average
         node.avgScore =
-          (node.avgScore * (node.testCount - 1) + test.score) / node.testCount;
+          (node.avgScore * (node.directTestCount - 1) + test.score) / node.directTestCount;
       }
     }
   }
 
-  // Update parent counts recursively
+  // Update total counts recursively (directTestCount is already set)
   function updateCounts(node: TopicNode): { count: number; scoreSum: number; scoreCount: number } {
-    let totalCount = node.testCount;
-    let scoreSum = node.avgScore !== null ? node.avgScore * node.testCount : 0;
-    let scoreCount = node.avgScore !== null ? node.testCount : 0;
+    let totalCount = node.directTestCount;
+    let scoreSum = node.avgScore !== null ? node.avgScore * node.directTestCount : 0;
+    let scoreCount = node.avgScore !== null ? node.directTestCount : 0;
 
     for (const child of node.children) {
       const childStats = updateCounts(child);
@@ -151,7 +153,7 @@ function buildTopicTree(tests: AdaptiveTest[], apiTopics: ApiTopic[] = []): Topi
       scoreCount += childStats.scoreCount;
     }
 
-    node.testCount = totalCount;
+    node.totalTestCount = totalCount;
     node.avgScore = scoreCount > 0 ? scoreSum / scoreCount : null;
 
     return { count: totalCount, scoreSum, scoreCount };
@@ -326,13 +328,28 @@ function TopicTreeNode({
           {node.name}
         </Typography>
 
-        {/* Test Count */}
+        {/* Test Count: direct tests */}
         <Chip
-          label={node.testCount}
+          label={node.directTestCount}
           size="small"
           variant="outlined"
           sx={{ height: 20, fontSize: '0.75rem', ml: 1 }}
         />
+        {/* Children test count (only if > 0) */}
+        {node.totalTestCount > node.directTestCount && (
+          <Chip
+            label={`+${node.totalTestCount - node.directTestCount}`}
+            size="small"
+            variant="outlined"
+            sx={{
+              height: 18,
+              fontSize: '0.7rem',
+              ml: 0.5,
+              color: 'text.secondary',
+              borderColor: 'divider',
+            }}
+          />
+        )}
 
         {/* Average Score */}
         {node.avgScore !== null && (
