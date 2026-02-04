@@ -125,9 +125,18 @@ def get_integration() -> LangChainIntegration:
 
 def get_callback():
     """
-    Get the global callback handler for use with LangGraph.
+    Get the global callback handler for manual callback injection.
 
-    Use this to get the callback when invoking a LangGraph graph:
+    NOTE: When using auto_instrument("langgraph"), you typically don't need
+    to call this function - the SDK automatically patches CompiledGraph methods
+    to inject callbacks transparently.
+
+    This function is useful for:
+    - Edge cases where auto-instrumentation doesn't apply
+    - Custom integrations or wrappers around LangGraph
+    - Testing or debugging callback behavior
+
+    Example (only if needed):
 
         from rhesis.sdk.telemetry.integrations.langchain import get_callback
 

@@ -159,7 +159,7 @@ def main():
     print(f"Query: {query}\n")
 
     # LangGraph operations are automatically traced via the auto_instrument() call above
-    # (uses tracing_v2_callback_var context variable for transparent instrumentation)
+    # The SDK patches CompiledGraph.invoke() to inject callbacks automatically
     result = app.invoke({"messages": [HumanMessage(content=query)]})
 
     print("\n" + "=" * 70)
