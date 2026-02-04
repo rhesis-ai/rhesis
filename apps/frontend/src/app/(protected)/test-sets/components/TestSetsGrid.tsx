@@ -36,6 +36,7 @@ import TestRunDrawer from './TestRunDrawer';
 import GarakImportDialog from './GarakImportDialog';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { formatDate } from '@/utils/date';
 
 interface TestSetsGridProps {
   testSets: TestSet[];
@@ -164,6 +165,7 @@ export default function TestSetsGrid({
       counts: testSet.counts,
       sources: testSet.attributes?.metadata?.sources || [],
       tags: testSet.tags || [],
+      created_at: testSet.created_at,
     };
   });
 
@@ -196,6 +198,20 @@ export default function TestSetsGrid({
       renderCell: params => (
         <Chip label={params.value} size="small" variant="outlined" />
       ),
+    },
+    {
+      field: 'created_at',
+      headerName: 'Created',
+      flex: 0.8,
+      minWidth: 120,
+      filterable: false,
+      renderCell: params => {
+        return (
+          <Typography variant="body2" color="text.secondary">
+            {formatDate(params.row.created_at)}
+          </Typography>
+        );
+      },
     },
     {
       field: 'totalTests',

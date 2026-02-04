@@ -323,24 +323,22 @@ dev_up() {
     # Start postgres and redis with dev ports
     echo -e "${YELLOW}Starting dev containers (postgres:${DEV_POSTGRES_PORT}, redis:${DEV_REDIS_PORT})...${NC}"
 
-    # Use a separate compose project name to avoid conflicts
-    COMPOSE_PROJECT_NAME=rhesis-dev docker compose \
-        -f docker-compose.yml \
-        up -d postgres redis \
-        -p ${DEV_POSTGRES_PORT}:5432 2>/dev/null || \
+    # Start existing containers or create new ones
+    docker start rhesis-dev-postgres 2>/dev/null || \
     docker run -d \
         --name rhesis-dev-postgres \
         -e POSTGRES_DB=rhesis-db \
         -e POSTGRES_USER=rhesis-user \
         -e POSTGRES_PASSWORD=rhesis-password \
         -p ${DEV_POSTGRES_PORT}:5432 \
-        postgres:16-alpine 2>/dev/null || true
+        postgres:16-alpine
 
+    docker start rhesis-dev-redis 2>/dev/null || \
     docker run -d \
         --name rhesis-dev-redis \
         -p ${DEV_REDIS_PORT}:6379 \
         redis:7-alpine \
-        redis-server --requirepass rhesis-redis-pass 2>/dev/null || true
+        redis-server --requirepass rhesis-redis-pass
 
     # Wait for postgres to be ready
     echo -e "${BLUE}Waiting for PostgreSQL to be ready...${NC}"
