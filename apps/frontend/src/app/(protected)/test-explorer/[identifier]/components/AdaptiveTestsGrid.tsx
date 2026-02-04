@@ -3,10 +3,12 @@
 import React, { useState, useCallback, DragEvent } from 'react';
 import { GridColDef, GridPaginationModel, GridRenderCellParams } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { Box, Chip, Tooltip, Typography } from '@mui/material';
+import { Box, Chip, Tooltip, Typography, IconButton } from '@mui/material';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
-interface AdaptiveTest {
+export interface AdaptiveTest {
   id: string;
   input: string;
   output: string;
@@ -20,6 +22,8 @@ interface AdaptiveTestsGridProps {
   loading: boolean;
   sessionToken?: string;
   enableDragDrop?: boolean;
+  onEdit?: (test: AdaptiveTest) => void;
+  onDelete?: (test: AdaptiveTest) => void;
 }
 
 const getScoreColor = (
@@ -116,6 +120,8 @@ export default function AdaptiveTestsGrid({
   tests,
   loading,
   enableDragDrop = false,
+  onEdit,
+  onDelete,
 }: AdaptiveTestsGridProps) {
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
@@ -178,6 +184,41 @@ export default function AdaptiveTestsGrid({
         if (!label || label === 'topic_marker') return '-';
         return <Chip label={label} size="small" variant="outlined" />;
       },
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 100,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      renderCell: params => (
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <Tooltip title="Edit test">
+            <IconButton
+              size="small"
+              onClick={e => {
+                e.stopPropagation();
+                onEdit?.(params.row as AdaptiveTest);
+              }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete test">
+            <IconButton
+              size="small"
+              onClick={e => {
+                e.stopPropagation();
+                onDelete?.(params.row as AdaptiveTest);
+              }}
+              color="error"
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
     },
   ];
 
