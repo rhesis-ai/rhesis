@@ -387,12 +387,12 @@ class TestTestTreeRoundTrip:
         assert len(test_set.tests) == len(original_tests)
 
 
-class TestTestTreeValidate:
-    """Tests for TestTree.validate() method."""
+class TestTestTreeDataValidate:
+    """Tests for TestTreeData.validate() method."""
 
     @pytest.fixture
-    def valid_tree(self):
-        """Create a valid TestTree with all topic markers present."""
+    def valid_data(self):
+        """Create a valid TestTreeData with all topic markers present."""
         nodes = [
             # Topic markers
             TestTreeNode(
@@ -429,11 +429,11 @@ class TestTestTreeValidate:
                 labeler="user",
             ),
         ]
-        return TestTree(TestTreeData(nodes=nodes))
+        return TestTreeData(nodes=nodes)
 
     @pytest.fixture
-    def invalid_tree_missing_marker(self):
-        """Create a TestTree missing a topic marker."""
+    def invalid_data_missing_marker(self):
+        """Create a TestTreeData missing a topic marker."""
         nodes = [
             # Only marker for /Safety, but tests exist in /Safety/Violence
             TestTreeNode(
@@ -462,11 +462,11 @@ class TestTestTreeValidate:
                 labeler="user",
             ),
         ]
-        return TestTree(TestTreeData(nodes=nodes))
+        return TestTreeData(nodes=nodes)
 
     @pytest.fixture
-    def invalid_tree_missing_parent_marker(self):
-        """Create a TestTree missing a parent topic marker."""
+    def invalid_data_missing_parent_marker(self):
+        """Create a TestTreeData missing a parent topic marker."""
         nodes = [
             # Marker for /Safety/Violence but not for /Safety
             TestTreeNode(
@@ -486,16 +486,16 @@ class TestTestTreeValidate:
                 labeler="user",
             ),
         ]
-        return TestTree(TestTreeData(nodes=nodes))
+        return TestTreeData(nodes=nodes)
 
     @pytest.fixture
-    def empty_tree(self):
-        """Create an empty TestTree."""
-        return TestTree(TestTreeData(nodes=[]))
+    def empty_data(self):
+        """Create an empty TestTreeData."""
+        return TestTreeData(nodes=[])
 
     @pytest.fixture
-    def tree_with_only_markers(self):
-        """Create a TestTree with only topic markers (no actual tests)."""
+    def data_with_only_markers(self):
+        """Create a TestTreeData with only topic markers (no actual tests)."""
         nodes = [
             TestTreeNode(
                 id="marker-1",
@@ -506,58 +506,58 @@ class TestTestTreeValidate:
                 labeler="",
             ),
         ]
-        return TestTree(TestTreeData(nodes=nodes))
+        return TestTreeData(nodes=nodes)
 
-    def test_validate_returns_dict(self, valid_tree):
+    def test_validate_returns_dict(self, valid_data):
         """validate should return a dictionary."""
-        result = valid_tree.validate()
+        result = valid_data.validate()
         assert isinstance(result, dict)
 
-    def test_validate_has_required_keys(self, valid_tree):
+    def test_validate_has_required_keys(self, valid_data):
         """validate should return dict with all required keys."""
-        result = valid_tree.validate()
+        result = valid_data.validate()
         assert "valid" in result
         assert "missing_markers" in result
         assert "topics_with_tests" in result
         assert "topics_with_markers" in result
 
-    def test_validate_valid_tree_is_valid(self, valid_tree):
-        """validate on a valid tree should return valid=True."""
-        result = valid_tree.validate()
+    def test_validate_valid_data_is_valid(self, valid_data):
+        """validate on valid data should return valid=True."""
+        result = valid_data.validate()
         assert result["valid"] is True
         assert result["missing_markers"] == []
 
-    def test_validate_valid_tree_has_correct_topics(self, valid_tree):
+    def test_validate_valid_data_has_correct_topics(self, valid_data):
         """validate should correctly identify topics with tests and markers."""
-        result = valid_tree.validate()
+        result = valid_data.validate()
         assert "/Safety" in result["topics_with_tests"]
         assert "/Safety/Violence" in result["topics_with_tests"]
         assert "/Safety" in result["topics_with_markers"]
         assert "/Safety/Violence" in result["topics_with_markers"]
 
-    def test_validate_invalid_tree_missing_marker(self, invalid_tree_missing_marker):
+    def test_validate_invalid_data_missing_marker(self, invalid_data_missing_marker):
         """validate should detect missing topic marker."""
-        result = invalid_tree_missing_marker.validate()
+        result = invalid_data_missing_marker.validate()
         assert result["valid"] is False
         assert "/Safety/Violence" in result["missing_markers"]
 
-    def test_validate_invalid_tree_missing_parent_marker(self, invalid_tree_missing_parent_marker):
+    def test_validate_invalid_data_missing_parent_marker(self, invalid_data_missing_parent_marker):
         """validate should detect missing parent topic marker."""
-        result = invalid_tree_missing_parent_marker.validate()
+        result = invalid_data_missing_parent_marker.validate()
         assert result["valid"] is False
         assert "/Safety" in result["missing_markers"]
 
-    def test_validate_empty_tree(self, empty_tree):
-        """validate on empty tree should return valid=True."""
-        result = empty_tree.validate()
+    def test_validate_empty_data(self, empty_data):
+        """validate on empty data should return valid=True."""
+        result = empty_data.validate()
         assert result["valid"] is True
         assert result["missing_markers"] == []
         assert result["topics_with_tests"] == []
         assert result["topics_with_markers"] == []
 
-    def test_validate_tree_with_only_markers(self, tree_with_only_markers):
-        """validate on tree with only markers should return valid=True."""
-        result = tree_with_only_markers.validate()
+    def test_validate_data_with_only_markers(self, data_with_only_markers):
+        """validate on data with only markers should return valid=True."""
+        result = data_with_only_markers.validate()
         assert result["valid"] is True
         assert result["missing_markers"] == []
         # No actual tests, so topics_with_tests should be empty
@@ -585,8 +585,8 @@ class TestTestTreeValidate:
                 labeler="user",
             ),
         ]
-        tree = TestTree(TestTreeData(nodes=nodes))
-        result = tree.validate()
+        data = TestTreeData(nodes=nodes)
+        result = data.validate()
 
         assert result["valid"] is False
         # Should require markers for /A and /A/B
@@ -629,15 +629,15 @@ class TestTestTreeValidate:
                 labeler="user",
             ),
         ]
-        tree = TestTree(TestTreeData(nodes=nodes))
-        result = tree.validate()
+        data = TestTreeData(nodes=nodes)
+        result = data.validate()
 
         assert result["valid"] is True
         assert "/Safety" in result["topics_with_tests"]
 
-    def test_validate_returns_sorted_lists(self, valid_tree):
+    def test_validate_returns_sorted_lists(self, valid_data):
         """validate should return sorted lists."""
-        result = valid_tree.validate()
+        result = valid_data.validate()
         assert result["missing_markers"] == sorted(result["missing_markers"])
         assert result["topics_with_tests"] == sorted(result["topics_with_tests"])
         assert result["topics_with_markers"] == sorted(result["topics_with_markers"])

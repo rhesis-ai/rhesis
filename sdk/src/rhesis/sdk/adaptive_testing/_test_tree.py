@@ -444,32 +444,4 @@ class TestTree:
         >>> if not result['valid']:
         ...     print(f"Missing markers for: {result['missing_markers']}")
         """
-        # Collect all topics that have tests (excluding topic_marker nodes)
-        topics_with_tests = set()
-        for node in self._tests:
-            if node.label != "topic_marker" and node.topic:
-                # Add this topic and all parent topics
-                topic_path = node.topic
-                while topic_path:
-                    topics_with_tests.add(topic_path)
-                    # Get parent topic
-                    if "/" in topic_path:
-                        topic_path = topic_path.rsplit("/", 1)[0]
-                    else:
-                        break
-
-        # Collect all topics that have markers
-        topics_with_markers = set()
-        for node in self._tests:
-            if node.label == "topic_marker" and node.topic:
-                topics_with_markers.add(node.topic)
-
-        # Find topics missing markers
-        missing_markers = topics_with_tests - topics_with_markers
-
-        return {
-            "valid": len(missing_markers) == 0,
-            "missing_markers": sorted(list(missing_markers)),
-            "topics_with_tests": sorted(list(topics_with_tests)),
-            "topics_with_markers": sorted(list(topics_with_markers)),
-        }
+        return self._tests.validate()

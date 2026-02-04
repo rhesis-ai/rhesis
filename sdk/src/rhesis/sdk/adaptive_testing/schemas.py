@@ -105,6 +105,59 @@ class TestTreeData:
         if node_id in self._nodes:
             del self._nodes[node_id]
 
+    def validate(self) -> dict:
+        """Validate the test tree structure.
+
+        This method checks that for every topic used by tests, there exists a
+        corresponding topic_marker node. It also checks all parent topics in
+        the hierarchy.
+
+        Returns
+        -------
+        dict
+            A dictionary with validation results:
+            - 'valid': bool - True if all topics have markers
+            - 'missing_markers': list[str] - List of topic paths missing markers
+            - 'topics_with_tests': list[str] - All topics that have tests
+            - 'topics_with_markers': list[str] - All topics that have markers
+
+        Examples
+        --------
+        >>> data = TestTreeData(nodes)
+        >>> result = data.validate()
+        >>> if not result['valid']:
+        ...     print(f"Missing markers for: {result['missing_markers']}")
+        """
+        # Collect all topics that have tests (excluding topic_marker nodes)
+        topics_with_tests = set()
+        for node in self:
+            if node.label != "topic_marker" and node.topic:
+                # Add this topic and all parent topics
+                topic_path = node.topic
+                while topic_path:
+                    topics_with_tests.add(topic_path)
+                    # Get parent topic
+                    if "/" in topic_path:
+                        topic_path = topic_path.rsplit("/", 1)[0]
+                    else:
+                        break
+
+        # Collect all topics that have markers
+        topics_with_markers = set()
+        for node in self:
+            if node.label == "topic_marker" and node.topic:
+                topics_with_markers.add(node.topic)
+
+        # Find topics missing markers
+        missing_markers = topics_with_tests - topics_with_markers
+
+        return {
+            "valid": len(missing_markers) == 0,
+            "missing_markers": sorted(list(missing_markers)),
+            "topics_with_tests": sorted(list(topics_with_tests)),
+            "topics_with_markers": sorted(list(topics_with_markers)),
+        }
+
 
 class Topic(BaseModel):
     """Represents a hierarchical topic in the test tree."""
