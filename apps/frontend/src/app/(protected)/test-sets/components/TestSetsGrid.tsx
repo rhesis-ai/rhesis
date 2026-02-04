@@ -200,6 +200,20 @@ export default function TestSetsGrid({
       ),
     },
     {
+      field: 'created_at',
+      headerName: 'Created',
+      flex: 0.8,
+      minWidth: 120,
+      filterable: false,
+      renderCell: params => {
+        return (
+          <Typography variant="body2" color="text.secondary">
+            {formatDate(params.row.created_at)}
+          </Typography>
+        );
+      },
+    },
+    {
       field: 'totalTests',
       headerName: 'Tests',
       flex: 0.5,
@@ -338,20 +352,6 @@ export default function TestSetsGrid({
               />
             )}
           </Box>
-        );
-      },
-    },
-    {
-      field: 'created_at',
-      headerName: 'Created',
-      flex: 0.8,
-      minWidth: 120,
-      filterable: false,
-      renderCell: params => {
-        return (
-          <Typography variant="body2" color="text.secondary">
-            {formatDate(params.row.created_at)}
-          </Typography>
         );
       },
     },

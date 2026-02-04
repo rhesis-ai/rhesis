@@ -198,6 +198,20 @@ export default function TestsTable({
         },
       },
       {
+        field: 'created_at',
+        headerName: 'Created',
+        flex: 0.8,
+        minWidth: 120,
+        filterable: false,
+        renderCell: params => {
+          return (
+            <Typography variant="body2" color="text.secondary">
+              {formatDate(params.row.created_at)}
+            </Typography>
+          );
+        },
+      },
+      {
         field: 'counts.comments',
         headerName: 'Comments',
         width: 100,
@@ -301,20 +315,6 @@ export default function TestsTable({
                 />
               )}
             </Box>
-          );
-        },
-      },
-      {
-        field: 'created_at',
-        headerName: 'Created',
-        flex: 0.8,
-        minWidth: 120,
-        filterable: false,
-        renderCell: params => {
-          return (
-            <Typography variant="body2" color="text.secondary">
-              {formatDate(params.row.created_at)}
-            </Typography>
           );
         },
       },
