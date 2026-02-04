@@ -42,28 +42,28 @@ export default function MarkdownContent({
         // Set base font size and line height from the variant
         fontSize,
         lineHeight,
-        // Headings scale relative to the base font size
+        // Headings scale relative to the base font size using theme multipliers
         '& h1': {
-          fontSize: '1.4em',
-          fontWeight: 'fontWeightBold',
+          fontSize: theme.typography.markdownH1Scale,
+          fontWeight: theme.typography.fontWeightBold,
           mt: 1.5,
           mb: 0.75,
         },
         '& h2': {
-          fontSize: '1.25em',
-          fontWeight: 'fontWeightBold',
+          fontSize: theme.typography.markdownH2Scale,
+          fontWeight: theme.typography.fontWeightBold,
           mt: 1.25,
           mb: 0.5,
         },
         '& h3': {
-          fontSize: '1.1em',
-          fontWeight: 'fontWeightMedium',
+          fontSize: theme.typography.markdownH3Scale,
+          fontWeight: theme.typography.fontWeightMedium,
           mt: 1,
           mb: 0.5,
         },
         '& h4, & h5, & h6': {
-          fontSize: '1em',
-          fontWeight: 'fontWeightMedium',
+          fontSize: theme.typography.markdownH4Scale,
+          fontWeight: theme.typography.fontWeightMedium,
           mt: 1,
           mb: 0.5,
         },
@@ -76,7 +76,7 @@ export default function MarkdownContent({
         '& pre': {
           bgcolor: 'action.hover',
           p: 1.5,
-          borderRadius: 1,
+          borderRadius: theme.shape.borderRadius * 0.25,
           overflow: 'auto',
           mb: 1,
           '&:last-child': { mb: 0 },
@@ -86,7 +86,7 @@ export default function MarkdownContent({
           bgcolor: 'action.hover',
           px: 0.5,
           py: 0.25,
-          borderRadius: 0.5,
+          borderRadius: theme.shape.borderRadius * 0.125,
         },
         '& pre code': {
           bgcolor: 'inherit',

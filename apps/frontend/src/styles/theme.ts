@@ -189,6 +189,11 @@ const getDesignTokens = (mode: PaletteMode) => ({
       lineHeight: 1.43,
       color: mode === 'light' ? '#3D3D3D' : '#FFFFFF',
     },
+    // Markdown heading scale factors (relative em units for inline markdown content)
+    markdownH1Scale: '1.4em',
+    markdownH2Scale: '1.25em',
+    markdownH3Scale: '1.1em',
+    markdownH4Scale: '1em',
   },
   components: {
     MuiSvgIcon: {
@@ -426,6 +431,10 @@ declare module '@mui/material/styles' {
     chartLabel: React.CSSProperties;
     chartTick: React.CSSProperties;
     helperText: React.CSSProperties;
+    markdownH1Scale: string;
+    markdownH2Scale: string;
+    markdownH3Scale: string;
+    markdownH4Scale: string;
   }
 
   // Allow configuration using `createTheme`
@@ -433,6 +442,10 @@ declare module '@mui/material/styles' {
     chartLabel?: React.CSSProperties;
     chartTick?: React.CSSProperties;
     helperText?: React.CSSProperties;
+    markdownH1Scale?: string;
+    markdownH2Scale?: string;
+    markdownH3Scale?: string;
+    markdownH4Scale?: string;
   }
 
   interface Theme {

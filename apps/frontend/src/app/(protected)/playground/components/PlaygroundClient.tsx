@@ -199,7 +199,7 @@ export default function PlaygroundClient() {
         elevation={1}
         sx={{
           p: 2,
-          borderRadius: 3,
+          borderRadius: theme => theme.shape.borderRadius,
           mb: 2,
         }}
       >
@@ -252,7 +252,7 @@ export default function PlaygroundClient() {
                         ml: 2,
                         px: 1,
                         py: 0.25,
-                        borderRadius: 0.5,
+                        borderRadius: theme => theme.shape.borderRadius * 0.25,
                         bgcolor: 'action.hover',
                         color: getEnvironmentColor(option.environment),
                         fontWeight: 'medium',
@@ -290,7 +290,7 @@ export default function PlaygroundClient() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: 3,
+              borderRadius: theme => theme.shape.borderRadius,
             }}
           >
             <Stack spacing={1} alignItems="center">

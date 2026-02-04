@@ -95,7 +95,7 @@ export default function PlaygroundChat({
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          borderRadius: 3,
+          borderRadius: theme => theme.shape.borderRadius,
           overflow: 'hidden',
         }}
       >
@@ -199,7 +199,7 @@ export default function PlaygroundChat({
               size="small"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  borderRadius: 3,
+                  borderRadius: theme => theme.shape.borderRadius,
                 },
               }}
             />

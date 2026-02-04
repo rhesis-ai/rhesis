@@ -60,7 +60,7 @@ export default function MessageBubble({
           sx={{
             width: theme => theme.spacing(4),
             height: theme => theme.spacing(4),
-            borderRadius: '50%',
+            borderRadius: theme => theme.shape.circular,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -101,7 +101,7 @@ export default function MessageBubble({
             }
             sx={{
               p: 2,
-              borderRadius: 2,
+              borderRadius: theme => theme.shape.borderRadius * 0.5,
               bgcolor: isUser
                 ? 'primary.main'
                 : message.isError
@@ -207,7 +207,7 @@ export function MessageBubbleSkeleton() {
           variant="rounded"
           sx={{
             height: theme => theme.spacing(7.5),
-            borderRadius: 2,
+            borderRadius: theme => theme.shape.borderRadius * 0.5,
             borderTopLeftRadius: 0,
           }}
         />
