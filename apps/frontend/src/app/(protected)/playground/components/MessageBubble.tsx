@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Paper, Typography, Tooltip, Skeleton, IconButton } from '@mui/material';
+import {
+  Box,
+  Paper,
+  Typography,
+  Tooltip,
+  Skeleton,
+  IconButton,
+} from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import TimelineIcon from '@mui/icons-material/Timeline';
