@@ -71,6 +71,30 @@ def create_tool(
     ```
     """
     organization_id, user_id = tenant_context
+
+    # Validate provider-specific requirements
+    provider_type = crud.get_type_lookup(db, tool.tool_provider_type_id)
+    if provider_type:
+        if provider_type.type_value == "github":
+            if not tool.tool_metadata or "repository" not in tool.tool_metadata:
+                raise HTTPException(
+                    status_code=400, detail="GitHub integrations require repository metadata"
+                )
+            repo = tool.tool_metadata["repository"]
+            if not isinstance(repo, dict) or "owner" not in repo or "repo" not in repo:
+                raise HTTPException(
+                    status_code=400,
+                    detail="GitHub repository must include 'owner' and 'repo' fields",
+                )
+        elif provider_type.type_value == "jira":
+            if not tool.tool_metadata or "space_key" not in tool.tool_metadata:
+                raise HTTPException(status_code=400, detail="Jira integrations require 'space_key'")
+            if (
+                not isinstance(tool.tool_metadata["space_key"], str)
+                or not tool.tool_metadata["space_key"].strip()
+            ):
+                raise HTTPException(status_code=400, detail="Jira 'space_key' must be non-empty")
+
     return crud.create_tool(db=db, tool=tool, organization_id=organization_id, user_id=user_id)
 
 
@@ -142,6 +166,41 @@ def update_tool(
     {{ TOKEN }} (not {{ TOKEN | tojson }}) because the JSON must be valid before Jinja2 rendering.
     """
     organization_id, user_id = tenant_context
+
+    # Validate provider-specific requirements when updating metadata
+    if tool.tool_metadata is not None:
+        existing_tool = crud.get_tool(
+            db=db, tool_id=tool_id, organization_id=organization_id, user_id=user_id
+        )
+        if not existing_tool:
+            raise HTTPException(status_code=404, detail="Tool not found")
+
+        provider_type = crud.get_type_lookup(db, existing_tool.tool_provider_type_id)
+        if provider_type:
+            if provider_type.type_value == "github":
+                if "repository" not in tool.tool_metadata:
+                    raise HTTPException(
+                        status_code=400, detail="GitHub integrations require repository metadata"
+                    )
+                repo = tool.tool_metadata["repository"]
+                if not isinstance(repo, dict) or "owner" not in repo or "repo" not in repo:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="GitHub repository must include 'owner' and 'repo' fields",
+                    )
+            elif provider_type.type_value == "jira":
+                if "space_key" not in tool.tool_metadata:
+                    raise HTTPException(
+                        status_code=400, detail="Jira integrations require 'space_key'"
+                    )
+                if (
+                    not isinstance(tool.tool_metadata["space_key"], str)
+                    or not tool.tool_metadata["space_key"].strip()
+                ):
+                    raise HTTPException(
+                        status_code=400, detail="Jira 'space_key' must be non-empty"
+                    )
+
     db_tool = crud.update_tool(
         db=db, tool_id=tool_id, tool=tool, organization_id=organization_id, user_id=user_id
     )

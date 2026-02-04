@@ -619,32 +619,34 @@ export function MCPConnectionDialog({
           return;
         }
 
-        // Add or update repository metadata for GitHub
+        // GitHub requires repository metadata
         if (providerType === 'github') {
-          if (repositoryUrl.trim()) {
-            const repoData = parseRepositoryUrl(repositoryUrl);
-            if (!repoData) {
-              setError(
-                'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
-              );
-              setLoading(false);
-              return;
-            }
-            metadataToUpdate = {
-              ...(metadataToUpdate || tool.tool_metadata || {}),
-              repository: repoData,
-            };
-          } else {
-            // Remove repository metadata if URL is empty
-            metadataToUpdate = {
-              ...(metadataToUpdate || tool.tool_metadata || {}),
-            };
-            delete metadataToUpdate.repository;
+          if (!repositoryUrl.trim()) {
+            setError('Repository URL is required for GitHub integrations');
+            setLoading(false);
+            return;
           }
+          const repoData = parseRepositoryUrl(repositoryUrl);
+          if (!repoData) {
+            setError(
+              'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
+            );
+            setLoading(false);
+            return;
+          }
+          metadataToUpdate = {
+            ...(metadataToUpdate || tool.tool_metadata || {}),
+            repository: repoData,
+          };
         }
 
-        // Add or update space_key metadata for Jira
-        if (providerType === 'jira' && selectedSpaceKey) {
+        // Jira requires space_key metadata
+        if (providerType === 'jira') {
+          if (!selectedSpaceKey) {
+            setError('Jira space selection is required');
+            setLoading(false);
+            return;
+          }
           metadataToUpdate = {
             ...(metadataToUpdate || tool.tool_metadata || {}),
             space_key: selectedSpaceKey,
@@ -751,8 +753,13 @@ export function MCPConnectionDialog({
             parsedMetadata = validatedMetadata;
           }
 
-          // Add repository metadata for GitHub if provided
-          if (providerType === 'github' && repositoryUrl.trim()) {
+          // GitHub requires repository metadata
+          if (providerType === 'github') {
+            if (!repositoryUrl.trim()) {
+              setError('Repository URL is required for GitHub integrations');
+              setLoading(false);
+              return;
+            }
             const repoData = parseRepositoryUrl(repositoryUrl);
             if (!repoData) {
               setError(
@@ -767,8 +774,13 @@ export function MCPConnectionDialog({
             };
           }
 
-          // Add space_key metadata for Jira if selected
-          if (providerType === 'jira' && selectedSpaceKey) {
+          // Jira requires space_key metadata
+          if (providerType === 'jira') {
+            if (!selectedSpaceKey) {
+              setError('Jira space selection is required');
+              setLoading(false);
+              return;
+            }
             parsedMetadata = {
               ...(parsedMetadata || {}),
               space_key: selectedSpaceKey,
@@ -1056,14 +1068,15 @@ export function MCPConnectionDialog({
                           color: 'primary.main',
                         }}
                       >
-                        Space Selection (Optional)
+                        Space Selection
                       </Typography>
-                      <FormControl fullWidth>
+                      <FormControl fullWidth required>
                         <InputLabel>Jira Space</InputLabel>
                         <Select
                           value={selectedSpaceKey}
                           onChange={e => setSelectedSpaceKey(e.target.value)}
                           label="Jira Space"
+                          required
                         >
                           {availableSpaces.map(space => (
                             <MenuItem key={space.key} value={space.key}>
@@ -1077,8 +1090,7 @@ export function MCPConnectionDialog({
                         color="text.secondary"
                         sx={{ mt: 0.5, display: 'block' }}
                       >
-                        Optional: Select a default Jira space for issue
-                        creation.
+                        Select the Jira space for issue creation
                       </Typography>
                     </Box>
                   )}
@@ -1092,16 +1104,17 @@ export function MCPConnectionDialog({
                   variant="subtitle1"
                   sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 2 }}
                 >
-                  Repository Scope (Optional)
+                  Repository Scope
                 </Typography>
 
                 <TextField
                   label="Repository URL"
                   fullWidth
+                  required
                   value={repositoryUrl}
                   onChange={e => setRepositoryUrl(e.target.value)}
                   placeholder="https://github.com/owner/repo"
-                  helperText="Optional: Restrict this connection to a specific repository. Leave empty for user-level access to all repositories."
+                  helperText="Specify the GitHub repository for this connection"
                 />
               </>
             )}
