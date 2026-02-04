@@ -196,6 +196,15 @@ async def lifespan(app: FastAPI):
             "Workers will not be able to invoke SDK functions."
         )
 
+    # Initialize WebSocket Redis subscriber (optional, doesn't fail startup)
+    from rhesis.backend.app.services.websocket import start_redis_subscriber, ws_manager
+
+    try:
+        await start_redis_subscriber(ws_manager)
+        logger.info("🔌 WebSocket Redis subscriber started")
+    except Exception as e:
+        logger.warning(f"Failed to start WebSocket Redis subscriber: {e}")
+
     # Initialize Garak probe cache (optional, doesn't fail startup)
     from rhesis.backend.app.services.garak.cache import GarakProbeCache
 
@@ -239,6 +248,11 @@ async def lifespan(app: FastAPI):
 
     # Close Garak cache Redis connection
     await GarakProbeCache.close()
+
+    # Stop WebSocket Redis subscriber
+    from rhesis.backend.app.services.websocket import stop_redis_subscriber
+
+    await stop_redis_subscriber()
 
 
 app = FastAPI(
