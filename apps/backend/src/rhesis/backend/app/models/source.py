@@ -9,13 +9,20 @@ from .mixins import (
     ActivityTrackableMixin,
     CommentsMixin,
     CountsMixin,
+    EmbeddableMixin,
     OrganizationAndUserMixin,
     TagsMixin,
 )
 
 
 class Source(
-    Base, ActivityTrackableMixin, OrganizationAndUserMixin, TagsMixin, CommentsMixin, CountsMixin
+    Base,
+    EmbeddableMixin,
+    ActivityTrackableMixin,
+    OrganizationAndUserMixin,
+    TagsMixin,
+    CommentsMixin,
+    CountsMixin,
 ):
     __tablename__ = "source"
 
@@ -95,3 +102,22 @@ class Source(
     def file_size(cls):
         """SQLAlchemy expression for filtering file_size"""
         return cls.source_metadata["file_size"].astext.cast(Integer)
+
+    def to_searchable_text(self) -> str:
+        """Generate searchable text from source fields for embeddings and full-text search"""
+
+        # Truncate (embedding models have a token limit): this corresponds to ca. 5000 tokens
+        content_preview = self.content[:20000] if self.content else None
+
+        return " ".join(
+            filter(
+                None,
+                [
+                    self.title,
+                    self.description,
+                    content_preview,
+                    self.citation,
+                    self.url,
+                ],
+            )
+        )

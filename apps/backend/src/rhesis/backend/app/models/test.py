@@ -8,6 +8,7 @@ from .mixins import (
     ActivityTrackableMixin,
     CommentsMixin,
     CountsMixin,
+    EmbeddableMixin,
     OrganizationMixin,
     TagsMixin,
     TasksMixin,
@@ -26,6 +27,7 @@ test_test_set_association = Table(
 
 class Test(
     Base,
+    EmbeddableMixin,
     ActivityTrackableMixin,
     TagsMixin,
     OrganizationMixin,
@@ -89,3 +91,42 @@ class Test(
         viewonly=True,
         uselist=True,
     )
+
+    def to_searchable_text(self) -> str:
+        """
+        Generate searchable text from test fields for embeddings and full-text search.
+
+        Handles both test types:
+        - Single-turn: Uses prompt.content and expected_response
+        - Multi-turn: Uses test_configuration (goal, instructions, scenario, etc.)
+        """
+        from rhesis.backend.tasks.enums import TestType
+        from rhesis.backend.tasks.execution.modes import get_test_type
+
+        test_type = get_test_type(self)
+
+        # Common metadata for both types
+        metadata = [
+            self.topic.name if self.topic else None,
+            self.behavior.name if self.behavior else None,
+            self.category.name if self.category else None,
+        ]
+
+        if test_type == TestType.MULTI_TURN:
+            # Multi-turn: extract from test_configuration
+            test_config = self.test_configuration or {}
+            content = [
+                test_config.get("goal"),
+                test_config.get("instructions"),
+                test_config.get("scenario"),
+                test_config.get("restrictions"),
+                test_config.get("context"),
+            ]
+        else:  # SINGLE_TURN (default)
+            # Single-turn: extract from prompt
+            content = [
+                self.prompt.content if self.prompt else None,
+                self.prompt.expected_response if self.prompt else None,
+            ]
+
+        return " ".join(filter(None, content + metadata))
