@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 from sqlalchemy import Column, ForeignKey, and_
 from sqlalchemy.orm import declared_attr, relationship
 
