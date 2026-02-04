@@ -24,7 +24,7 @@ import HubIcon from '@mui/icons-material/Hub';
 import Link from 'next/link';
 import SpanTreeView from './SpanTreeView';
 import SpanSequenceView from './SpanSequenceView';
-import SpanMarkovView from './SpanMarkovView';
+import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -436,7 +436,7 @@ export default function TraceDrawer({
                 />
               )}
               {viewTab === 2 && (
-                <SpanMarkovView
+                <SpanGraphView
                   spans={trace.root_spans}
                   selectedSpan={selectedSpan}
                   onSpanSelect={handleSpanSelect}
