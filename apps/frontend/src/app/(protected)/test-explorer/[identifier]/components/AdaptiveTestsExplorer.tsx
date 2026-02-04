@@ -577,15 +577,15 @@ export default function AdaptiveTestsExplorer({
     [tests]
   );
 
-  // Filter tests based on selected topic
+  // Filter tests based on selected topic (exact match only, not children)
   const filteredTests = useMemo(() => {
     if (selectedTopic === null) {
       return tests;
     }
     return tests.filter(test => {
       const topic = typeof test.topic === 'string' ? test.topic : '';
-      // Match exact topic or any subtopic
-      return topic === selectedTopic || topic.startsWith(selectedTopic + '/');
+      // Match exact topic only
+      return topic === selectedTopic;
     });
   }, [tests, selectedTopic]);
 
