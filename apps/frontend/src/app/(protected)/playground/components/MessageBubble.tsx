@@ -7,6 +7,7 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
+import MarkdownContent from '@/components/common/MarkdownContent';
 
 interface MessageBubbleProps {
   /** The chat message to display */
@@ -27,18 +28,6 @@ export default function MessageBubble({
 }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const hasTrace = !isUser && message.traceId && !message.isError;
-
-  // Debug logging for trace link
-  if (!isUser) {
-    console.log('[MessageBubble] Assistant message:', {
-      id: message.id,
-      role: message.role,
-      traceId: message.traceId,
-      isError: message.isError,
-      hasTrace,
-      hasOnViewTrace: !!onViewTrace,
-    });
-  }
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], {
@@ -145,16 +134,23 @@ export default function MessageBubble({
                 gap: 1,
               }}
             >
-              <Typography
-                variant="body2"
-                sx={{
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  flex: 1,
-                }}
-              >
-                {message.content}
-              </Typography>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                {isUser ? (
+                  // User messages: plain text with pre-wrap
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {message.content}
+                  </Typography>
+                ) : (
+                  // Assistant messages: render markdown with same variant as user text
+                  <MarkdownContent content={message.content} variant="body2" />
+                )}
+              </Box>
               {/* Trace Icon indicator (for assistant messages with traces) */}
               {hasTrace && (
                 <TimelineIcon
