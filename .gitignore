@@ -327,3 +327,6 @@ infrastructure/k8s/manifests/configmaps/*
 *test_results*.json
 *TEST_ANALYSIS*.md
 sdk_test_analysis.md
+
+# Claude Code
+.claude/settings.local.json
