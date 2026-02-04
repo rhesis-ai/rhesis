@@ -1,11 +1,13 @@
 'use client';
 
-import React from 'react';
-import { Box, Paper, Typography, Tooltip, Skeleton } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Paper, Typography, Tooltip, Skeleton, IconButton } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckIcon from '@mui/icons-material/Check';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
 
@@ -26,6 +28,9 @@ export default function MessageBubble({
   message,
   onViewTrace,
 }: MessageBubbleProps) {
+  const [copied, setCopied] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
   const isUser = message.role === 'user';
   const hasTrace = !isUser && message.traceId && !message.isError;
 
@@ -34,6 +39,17 @@ export default function MessageBubble({
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering trace view
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
   };
 
   return (
@@ -87,84 +103,120 @@ export default function MessageBubble({
         </Box>
 
         {/* Bubble */}
-        <Tooltip
-          title={hasTrace ? 'Click to view trace details' : ''}
-          placement="top"
-          disableHoverListener={!hasTrace}
+        <Box
+          sx={{ position: 'relative' }}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
         >
-          <Paper
-            elevation={0}
-            onClick={
-              hasTrace && onViewTrace
-                ? () => onViewTrace(message.traceId!)
-                : undefined
-            }
-            sx={{
-              p: 2,
-              borderRadius: theme => theme.shape.borderRadius * 0.5,
-              bgcolor: isUser
-                ? 'primary.main'
-                : message.isError
-                  ? 'error.light'
-                  : 'action.hover',
-              color: isUser
-                ? 'primary.contrastText'
-                : message.isError
-                  ? 'error.contrastText'
-                  : 'text.primary',
-              borderTopRightRadius: isUser ? 0 : 2,
-              borderTopLeftRadius: isUser ? 2 : 0,
-              ...(hasTrace && {
-                cursor: 'pointer',
-                transition: theme =>
-                  theme.transitions.create(['background-color', 'box-shadow'], {
-                    duration: theme.transitions.duration.short,
-                  }),
-                '&:hover': {
-                  bgcolor: 'action.selected',
-                  boxShadow: 1,
-                },
-              }),
-            }}
+          <Tooltip
+            title={hasTrace ? 'Click to view trace details' : ''}
+            placement="top"
+            disableHoverListener={!hasTrace}
           >
-            <Box
+            <Paper
+              elevation={0}
+              onClick={
+                hasTrace && onViewTrace
+                  ? () => onViewTrace(message.traceId!)
+                  : undefined
+              }
               sx={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 1,
+                p: 2,
+                borderRadius: theme => theme.shape.borderRadius * 0.5,
+                bgcolor: isUser
+                  ? 'primary.main'
+                  : message.isError
+                    ? 'error.light'
+                    : 'action.hover',
+                color: isUser
+                  ? 'primary.contrastText'
+                  : message.isError
+                    ? 'error.contrastText'
+                    : 'text.primary',
+                borderTopRightRadius: isUser ? 0 : 2,
+                borderTopLeftRadius: isUser ? 2 : 0,
+                ...(hasTrace && {
+                  cursor: 'pointer',
+                  transition: theme =>
+                    theme.transitions.create(['background-color', 'box-shadow'], {
+                      duration: theme.transitions.duration.short,
+                    }),
+                  '&:hover': {
+                    bgcolor: 'action.selected',
+                    boxShadow: 1,
+                  },
+                }),
               }}
             >
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                {isUser ? (
-                  // User messages: plain text with pre-wrap
-                  <Typography
-                    variant="body2"
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 1,
+                }}
+              >
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  {isUser ? (
+                    // User messages: plain text with pre-wrap
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {message.content}
+                    </Typography>
+                  ) : (
+                    // Assistant messages: render markdown with same variant as user text
+                    <MarkdownContent content={message.content} variant="body2" />
+                  )}
+                </Box>
+                {/* Trace Icon indicator (for assistant messages with traces) */}
+                {hasTrace && (
+                  <TimelineIcon
+                    fontSize="small"
                     sx={{
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
+                      color: 'action.active',
+                      flexShrink: 0,
+                      mt: 0.25,
                     }}
-                  >
-                    {message.content}
-                  </Typography>
-                ) : (
-                  // Assistant messages: render markdown with same variant as user text
-                  <MarkdownContent content={message.content} variant="body2" />
+                  />
                 )}
               </Box>
-              {/* Trace Icon indicator (for assistant messages with traces) */}
-              {hasTrace && (
-                <TimelineIcon
-                  fontSize="small"
-                  sx={{
-                    color: 'action.active',
-                    flexShrink: 0,
-                    mt: 0.25,
-                  }}
-                />
+            </Paper>
+          </Tooltip>
+
+          {/* Copy button - appears on hover */}
+          <Tooltip title={copied ? 'Copied!' : 'Copy message'}>
+            <IconButton
+              size="small"
+              onClick={handleCopy}
+              sx={{
+                position: 'absolute',
+                top: theme => theme.spacing(-1),
+                right: isUser ? 'auto' : theme => theme.spacing(-1),
+                left: isUser ? theme => theme.spacing(-1) : 'auto',
+                opacity: isHovered || copied ? 1 : 0,
+                transition: theme =>
+                  theme.transitions.create('opacity', {
+                    duration: theme.transitions.duration.short,
+                  }),
+                bgcolor: 'background.paper',
+                boxShadow: 1,
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
+              }}
+            >
+              {copied ? (
+                <CheckIcon fontSize="small" color="success" />
+              ) : (
+                <ContentCopyIcon fontSize="small" />
               )}
-            </Box>
-          </Paper>
-        </Tooltip>
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
       {/* Timestamp */}
