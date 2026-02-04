@@ -64,7 +64,7 @@ class State(TypedDict):
 
 # Initialize the LLM
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.0-flash",
     google_api_key=os.getenv("GOOGLE_API_KEY"),
     temperature=0.7,
 )
@@ -159,7 +159,7 @@ def main():
     print(f"Query: {query}\n")
 
     # LangGraph operations are automatically traced via the auto_instrument() call above
-    # (uses tracing_v2_callback_var context variable for transparent instrumentation)
+    # The SDK patches CompiledGraph.invoke() to inject callbacks automatically
     result = app.invoke({"messages": [HumanMessage(content=query)]})
 
     print("\n" + "=" * 70)

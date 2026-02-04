@@ -41,6 +41,35 @@ interface SpanTreeNodeProps {
   level: number;
 }
 
+/**
+ * Get the display name for a span, including additional context from attributes
+ * when available (e.g., tool name for ai.tool.invoke spans, agent name for ai.agent.invoke)
+ */
+function getSpanDisplayName(span: SpanNode): string {
+  const attrs = span.attributes;
+
+  // Tool invocations: show tool name
+  if (span.span_name === 'ai.tool.invoke' && attrs?.['ai.tool.name']) {
+    return `${span.span_name} (${attrs['ai.tool.name']})`;
+  }
+
+  // Agent invocations: show agent name
+  if (span.span_name === 'ai.agent.invoke' && attrs?.['ai.agent.name']) {
+    return `${span.span_name} (${attrs['ai.agent.name']})`;
+  }
+
+  // Agent handoffs: show from -> to
+  if (span.span_name === 'ai.agent.handoff') {
+    const from = attrs?.['ai.agent.handoff.from'];
+    const to = attrs?.['ai.agent.handoff.to'];
+    if (from && to) {
+      return `${span.span_name} (${from} → ${to})`;
+    }
+  }
+
+  return span.span_name;
+}
+
 function SpanTreeNode({
   span,
   selectedSpan,
@@ -125,7 +154,7 @@ function SpanTreeNode({
               whiteSpace: 'nowrap',
             }}
           >
-            {span.span_name}
+            {getSpanDisplayName(span)}
           </Typography>
         </Box>
 

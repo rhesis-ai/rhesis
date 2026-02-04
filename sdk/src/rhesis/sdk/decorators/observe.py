@@ -154,6 +154,9 @@ class ObserveDecorator:
         - ai.model.provider: provider
         - ai.model.name: model
 
+        Also sets a context variable to signal that an LLM observation is active,
+        preventing duplicate spans from auto-instrumentation callbacks.
+
         Args:
             provider: LLM provider (e.g., "openai", "anthropic", "google")
             model: Model name (e.g., "gpt-4", "claude-3-opus")
@@ -166,6 +169,7 @@ class ObserveDecorator:
         """
         # Import here to avoid circular imports
         from rhesis.sdk.telemetry.attributes import AIAttributes
+        from rhesis.sdk.telemetry.context import set_llm_observation_active
         from rhesis.sdk.telemetry.schemas import AIOperationType
 
         attributes = {
@@ -174,7 +178,39 @@ class ObserveDecorator:
             AIAttributes.MODEL_NAME: model,
             **extra_attributes,
         }
-        return self(span_name=AIOperationType.LLM_INVOKE, **attributes)
+
+        # Get the base decorator
+        base_decorator = self(span_name=AIOperationType.LLM_INVOKE, **attributes)
+
+        def llm_decorator(func: Callable) -> Callable:
+            # Apply the base decorator
+            wrapped = base_decorator(func)
+
+            # Wrap again to set/unset the LLM observation context
+            if inspect.iscoroutinefunction(func):
+
+                @wraps(func)
+                async def async_llm_wrapper(*args, **kwargs):
+                    set_llm_observation_active(True)
+                    try:
+                        return await wrapped(*args, **kwargs)
+                    finally:
+                        set_llm_observation_active(False)
+
+                return async_llm_wrapper
+            else:
+
+                @wraps(func)
+                def sync_llm_wrapper(*args, **kwargs):
+                    set_llm_observation_active(True)
+                    try:
+                        return wrapped(*args, **kwargs)
+                    finally:
+                        set_llm_observation_active(False)
+
+                return sync_llm_wrapper
+
+        return llm_decorator
 
     def tool(
         self,

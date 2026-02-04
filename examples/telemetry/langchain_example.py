@@ -45,7 +45,7 @@ print(f"✅ Auto-instrumented frameworks: {instrumented_frameworks}\n")
 
 # Initialize Gemini via LangChain
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.0-flash",
     temperature=0.7,
     google_api_key=os.getenv("GOOGLE_API_KEY"),
 )

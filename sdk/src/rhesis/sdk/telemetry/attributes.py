@@ -30,6 +30,8 @@ class AIAttributes:
     OPERATION_EVALUATION = "evaluation"
     OPERATION_GUARDRAIL = "guardrail"
     OPERATION_TRANSFORM = "transform"
+    OPERATION_AGENT_INVOKE = "agent.invoke"
+    OPERATION_AGENT_HANDOFF = "agent.handoff"
 
     # Model
     MODEL_PROVIDER = "ai.model.provider"
@@ -78,6 +80,13 @@ class AIAttributes:
     TRANSFORM_INPUT_SIZE = "ai.transform.input.size"
     TRANSFORM_OUTPUT_SIZE = "ai.transform.output.size"
 
+    # Agent (for multi-agent systems)
+    AGENT_NAME = "ai.agent.name"
+    AGENT_HANDOFF_FROM = "ai.agent.handoff.from"
+    AGENT_HANDOFF_TO = "ai.agent.handoff.to"
+    AGENT_INPUT_CONTENT = "ai.agent.input"
+    AGENT_OUTPUT_CONTENT = "ai.agent.output"
+
     # Error
     ERROR_TYPE = "ai.error.type"
     ERROR_RETRYABLE = "ai.error.retryable"
@@ -111,6 +120,8 @@ class AIEvents:
     TOOL_OUTPUT = "ai.tool.output"
     RETRIEVAL_QUERY = "ai.retrieval.query"
     RETRIEVAL_RESULTS = "ai.retrieval.results"
+    AGENT_INPUT = "ai.agent.input"
+    AGENT_OUTPUT = "ai.agent.output"
 
 
 def create_llm_attributes(
