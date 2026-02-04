@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
+import React, { useState, useCallback, DragEvent } from 'react';
+import { GridColDef, GridPaginationModel, GridRenderCellParams } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Box, Chip, Tooltip, Typography } from '@mui/material';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
 interface AdaptiveTest {
   id: string;
@@ -18,6 +19,7 @@ interface AdaptiveTestsGridProps {
   tests: AdaptiveTest[];
   loading: boolean;
   sessionToken?: string;
+  enableDragDrop?: boolean;
 }
 
 const getScoreColor = (
@@ -70,9 +72,50 @@ const TruncatedCell = ({
   );
 };
 
+// Draggable cell component
+const DraggableCell = ({
+  params,
+  children,
+  enableDragDrop,
+}: {
+  params: GridRenderCellParams;
+  children: React.ReactNode;
+  enableDragDrop?: boolean;
+}) => {
+  const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
+    e.dataTransfer.setData('text/plain', params.row.id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  if (!enableDragDrop) {
+    return <>{children}</>;
+  }
+
+  return (
+    <Box
+      draggable
+      onDragStart={handleDragStart}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        width: '100%',
+        cursor: 'grab',
+        '&:active': { cursor: 'grabbing' },
+      }}
+    >
+      <DragIndicatorIcon
+        fontSize="small"
+        sx={{ color: 'action.disabled', mr: 1, flexShrink: 0 }}
+      />
+      {children}
+    </Box>
+  );
+};
+
 export default function AdaptiveTestsGrid({
   tests,
   loading,
+  enableDragDrop = false,
 }: AdaptiveTestsGridProps) {
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
@@ -92,7 +135,11 @@ export default function AdaptiveTestsGrid({
       headerName: 'Input',
       flex: 2,
       minWidth: 200,
-      renderCell: params => <TruncatedCell value={params.value || ''} />,
+      renderCell: params => (
+        <DraggableCell params={params} enableDragDrop={enableDragDrop}>
+          <TruncatedCell value={params.value || ''} />
+        </DraggableCell>
+      ),
     },
     {
       field: 'output',

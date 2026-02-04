@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, DragEvent } from 'react';
 import { Box, Typography, Collapse, IconButton, Chip } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -28,6 +28,7 @@ interface TopicTreeViewProps {
   tests: AdaptiveTest[];
   selectedTopic: string | null;
   onTopicSelect: (topicPath: string | null) => void;
+  onTestDrop?: (testId: string, newTopicPath: string) => void;
 }
 
 // Build tree structure from flat test list
@@ -144,6 +145,9 @@ interface TopicTreeNodeProps {
   level: number;
   expandedPaths: Set<string>;
   onToggleExpand: (path: string) => void;
+  onTestDrop?: (testId: string, newTopicPath: string) => void;
+  dragOverPath: string | null;
+  onDragOverChange: (path: string | null) => void;
 }
 
 function TopicTreeNode({
@@ -153,10 +157,14 @@ function TopicTreeNode({
   level,
   expandedPaths,
   onToggleExpand,
+  onTestDrop,
+  dragOverPath,
+  onDragOverChange,
 }: TopicTreeNodeProps) {
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedPaths.has(node.path);
   const isSelected = selectedTopic === node.path;
+  const isDragOver = dragOverPath === node.path;
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -167,10 +175,39 @@ function TopicTreeNode({
     onTopicSelect(node.path);
   };
 
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDragOverChange(node.path);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only clear if we're leaving this specific node
+    if (dragOverPath === node.path) {
+      onDragOverChange(null);
+    }
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDragOverChange(null);
+
+    const testId = e.dataTransfer.getData('text/plain');
+    if (testId && onTestDrop) {
+      onTestDrop(testId, node.path);
+    }
+  };
+
   return (
     <Box>
       <Box
         onClick={handleClick}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -179,9 +216,20 @@ function TopicTreeNode({
           ml: level * 2,
           cursor: 'pointer',
           borderRadius: 1,
-          backgroundColor: isSelected ? 'action.selected' : 'transparent',
+          backgroundColor: isDragOver
+            ? 'primary.light'
+            : isSelected
+              ? 'action.selected'
+              : 'transparent',
+          border: isDragOver ? '2px dashed' : '2px solid transparent',
+          borderColor: isDragOver ? 'primary.main' : 'transparent',
+          transition: 'all 0.15s ease-in-out',
           '&:hover': {
-            backgroundColor: isSelected ? 'action.selected' : 'action.hover',
+            backgroundColor: isDragOver
+              ? 'primary.light'
+              : isSelected
+                ? 'action.selected'
+                : 'action.hover',
           },
         }}
       >
@@ -267,6 +315,9 @@ function TopicTreeNode({
                 level={level + 1}
                 expandedPaths={expandedPaths}
                 onToggleExpand={onToggleExpand}
+                onTestDrop={onTestDrop}
+                dragOverPath={dragOverPath}
+                onDragOverChange={onDragOverChange}
               />
             ))}
           </Box>
@@ -280,8 +331,10 @@ export default function TopicTreeView({
   tests,
   selectedTopic,
   onTopicSelect,
+  onTestDrop,
 }: TopicTreeViewProps) {
   const topicTree = useMemo(() => buildTopicTree(tests), [tests]);
+  const [dragOverPath, setDragOverPath] = useState<string | null>(null);
 
   // Start with all paths expanded
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
@@ -363,6 +416,9 @@ export default function TopicTreeView({
           level={0}
           expandedPaths={expandedPaths}
           onToggleExpand={handleToggleExpand}
+          onTestDrop={onTestDrop}
+          dragOverPath={dragOverPath}
+          onDragOverChange={setDragOverPath}
         />
       ))}
     </Box>
