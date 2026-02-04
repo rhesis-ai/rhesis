@@ -344,7 +344,7 @@ class TestTreeBrowser:
                     # It's a topic path - delete the topic and all its contents
                     topic = self.topic_tree.get(test_id)
                     if topic:
-                        self.topic_tree.delete(topic, recursive=True)
+                        self.topic_tree.delete(topic, move_tests_to_parent=False)
             self._compute_embeddings_and_scores()
             self._refresh_interface()
 
@@ -609,11 +609,13 @@ class TestTreeBrowser:
         # Put new items first
         sorted_children = sorted(
             sorted_children,
-            key=lambda id: 0
-            if id.endswith("/New%20topic")
-            or id == "New%20topic"
-            or data[id].get("value1", "") == "New test"
-            else 1,
+            key=lambda id: (
+                0
+                if id.endswith("/New%20topic")
+                or id == "New%20topic"
+                or data[id].get("value1", "") == "New test"
+                else 1
+            ),
         )
 
         return sorted_children

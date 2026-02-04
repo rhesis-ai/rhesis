@@ -1,7 +1,7 @@
 import urllib.parse
 import uuid
 from functools import cached_property
-from typing import Iterator, List, Optional
+from typing import Iterator, List, Literal, Optional
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
@@ -11,7 +11,7 @@ class TestTreeNode(BaseModel):
     topic: str = ""
     input: str = ""
     output: str = ""
-    label: str = ""
+    label: Literal["", "topic_marker", "pass", "fail"] = ""
     labeler: str = ""
     to_eval: bool = True
     model_score: float = 0.0
@@ -95,15 +95,143 @@ class TestTreeData:
             for node in self
         )
 
-    def append(self, nodes: List["TestTreeNode"]) -> None:
-        """Add nodes to the collection."""
-        for node in nodes:
-            self._nodes[node.id] = node
+    def _ensure_topic_markers(self, topic_path: str, labeler: str = "system") -> None:
+        """Ensure topic markers exist for a topic path and all its ancestors."""
+        if not topic_path:
+            return
 
-    def remove(self, node_id: str) -> None:
-        """Remove a node by ID."""
-        if node_id in self._nodes:
-            del self._nodes[node_id]
+        # Get all existing topic marker paths
+        existing_markers = {node.topic for node in self if node.label == "topic_marker"}
+
+        # Build list of all paths that need markers (from root to leaf)
+        paths_to_create = []
+        current = topic_path
+        while current:
+            if current not in existing_markers:
+                paths_to_create.append(current)
+            if "/" in current:
+                current = current.rsplit("/", 1)[0]
+            else:
+                break
+
+        # Create markers from root to leaf (reverse order)
+        for path in reversed(paths_to_create):
+            marker = TestTreeNode(
+                topic=path,
+                label="topic_marker",
+                input="",
+                output="",
+                labeler=labeler,
+                to_eval=False,
+            )
+            self._nodes[marker.id] = marker
+
+        # Invalidate topic tree cache if it exists
+        if hasattr(self, "_topic_tree"):
+            self._topic_tree.invalidate_cache()
+
+    def add_test(self, test: "TestTreeNode") -> "TestTreeNode":
+        """Add a test to the collection.
+
+        Automatically creates topic markers for the test's topic and all
+        ancestor topics if they don't exist.
+
+        Args:
+            test: The test node to add (must not be a topic_marker)
+
+        Returns:
+            The added test node.
+
+        Raises:
+            ValueError: If the node is a topic_marker.
+        """
+        if test.label == "topic_marker":
+            raise ValueError("Use topics.create() to add topic markers")
+
+        # Ensure topic markers exist
+        if test.topic:
+            self._ensure_topic_markers(test.topic)
+
+        self._nodes[test.id] = test
+        return test
+
+    def update_test(
+        self,
+        test_id: str,
+        *,
+        topic: str | None = None,
+        input: str | None = None,
+        output: str | None = None,
+        label: Literal["", "pass", "fail"] | None = None,
+        to_eval: bool | None = None,
+        model_score: float | None = None,
+    ) -> "TestTreeNode":
+        """Update a test in the collection.
+
+        If the topic is changed, automatically creates topic markers for the
+        new topic and all ancestor topics if they don't exist.
+
+        Args:
+            test_id: The ID of the test to update.
+            topic: New topic path (optional).
+            input: New input value (optional).
+            output: New output value (optional).
+            label: New label (optional).
+            to_eval: New to_eval value (optional).
+            model_score: New model_score value (optional).
+
+        Returns:
+            The updated test node.
+
+        Raises:
+            KeyError: If the test_id doesn't exist.
+            ValueError: If trying to update a topic_marker.
+        """
+        if test_id not in self._nodes:
+            raise KeyError(f"Test with id '{test_id}' not found")
+
+        test = self._nodes[test_id]
+        if test.label == "topic_marker":
+            raise ValueError("Cannot update topic_marker with update_test()")
+
+        # Update fields if provided
+        if topic is not None:
+            test.topic = topic
+            self._ensure_topic_markers(topic)
+        if input is not None:
+            test.input = input
+        if output is not None:
+            test.output = output
+        if label is not None:
+            test.label = label
+        if to_eval is not None:
+            test.to_eval = to_eval
+        if model_score is not None:
+            test.model_score = model_score
+
+        return test
+
+    def delete_test(self, test_id: str) -> bool:
+        """Delete a test from the collection.
+
+        Args:
+            test_id: The ID of the test to delete.
+
+        Returns:
+            True if the test was deleted, False if it didn't exist.
+
+        Raises:
+            ValueError: If trying to delete a topic_marker.
+        """
+        if test_id not in self._nodes:
+            return False
+
+        test = self._nodes[test_id]
+        if test.label == "topic_marker":
+            raise ValueError("Use topics.delete() to remove topic markers")
+
+        del self._nodes[test_id]
+        return True
 
     def validate(self) -> dict:
         """Validate the test tree structure.
@@ -399,26 +527,48 @@ class TopicTree:
 
         return self._get_or_create_topic(path)
 
-    def delete(self, topic: Topic, recursive: bool = False) -> list[str]:
-        """Delete a topic and optionally its contents.
+    def delete(self, topic: Topic, move_tests_to_parent: bool = True) -> list[str]:
+        """Delete a topic.
 
-        Returns list of deleted node IDs.
+        Args:
+            topic: The topic to delete
+            move_tests_to_parent: If True (default), move direct tests to parent
+                topic and lift subtopics up one level. If False, delete the
+                topic and all its contents.
+
+        Returns:
+            List of deleted node IDs.
         """
         deleted_ids = []
+        parent_path = topic.parent_path or ""
 
-        for node in list(self._data):  # list() to allow mutation during iteration
-            should_delete = False
+        if move_tests_to_parent:
+            # Move tests to parent and lift subtopics up one level
+            for node in self._data:
+                if node.topic == topic.path:
+                    if node.label == "topic_marker":
+                        continue  # Will delete this after the loop
+                    else:
+                        # Move test to parent
+                        node.topic = parent_path
+                elif node.topic.startswith(topic.path + "/"):
+                    # Lift subtopic/test up one level
+                    # e.g., Safety/Violence/Weapons -> Safety/Weapons
+                    remainder = node.topic[len(topic.path) + 1 :]
+                    node.topic = f"{parent_path}/{remainder}" if parent_path else remainder
 
-            if node.topic == topic.path:
-                # Direct match - always delete
-                should_delete = True
-            elif recursive and node.topic.startswith(topic.path + "/"):
-                # Descendant - delete if recursive
-                should_delete = True
-
-            if should_delete:
-                deleted_ids.append(node.id)
-                del self._data._nodes[node.id]
+            # Delete the topic_marker
+            for node in list(self._data):
+                if node.topic == topic.path and node.label == "topic_marker":
+                    deleted_ids.append(node.id)
+                    del self._data._nodes[node.id]
+                    break
+        else:
+            # Delete everything under this topic
+            for node in list(self._data):
+                if node.topic == topic.path or node.topic.startswith(topic.path + "/"):
+                    deleted_ids.append(node.id)
+                    del self._data._nodes[node.id]
 
         self.invalidate_cache()
         return deleted_ids

@@ -416,10 +416,13 @@ class TestTree:
             embed_with_cache(embedder, all_strings)
 
     def drop_topic(self, topic_path: str):
-        """Remove a topic from the test tree."""
+        """Remove a topic and all its direct contents from the test tree."""
         ids_to_remove = [node.id for node in self._tests if node.topic == topic_path]
         for node_id in ids_to_remove:
-            self._tests.remove(node_id)
+            del self._tests._nodes[node_id]
+        # Invalidate topic tree cache
+        if hasattr(self._tests, "_topic_tree"):
+            self._tests._topic_tree.invalidate_cache()
 
     def validate(self) -> dict:
         """Validate the test tree structure.
