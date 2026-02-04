@@ -19,12 +19,10 @@ import ApiIcon from '@mui/icons-material/Api';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import HubIcon from '@mui/icons-material/Hub';
 import Link from 'next/link';
 import SpanTreeView from './SpanTreeView';
-import SpanGraphView from './SpanGraphView';
 import SpanSequenceView from './SpanSequenceView';
 import SpanMarkovView from './SpanMarkovView';
 import SpanDetailsPanel from './SpanDetailsPanel';
@@ -122,7 +120,8 @@ export default function TraceDrawer({
       if (!isDragging || !containerRef.current) return;
 
       const containerRect = containerRef.current.getBoundingClientRect();
-      const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+      const newWidth =
+        ((e.clientX - containerRect.left) / containerRect.width) * 100;
 
       // Clamp between 20% and 80%
       const clampedWidth = Math.min(Math.max(newWidth, 20), 80);
@@ -324,7 +323,10 @@ export default function TraceDrawer({
         </Box>
 
         {/* Content - Split Layout */}
-        <Box ref={containerRef} sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <Box
+          ref={containerRef}
+          sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}
+        >
           {/* Left: Span Tree */}
           <Box
             sx={{
@@ -395,25 +397,18 @@ export default function TraceDrawer({
                   aria-controls="span-hierarchy-tabpanel-0"
                 />
                 <Tab
-                  icon={<BubbleChartIcon fontSize="small" />}
+                  icon={<TimelineIcon fontSize="small" />}
                   iconPosition="start"
-                  label="Graph View"
+                  label="Sequence View"
                   id="span-hierarchy-tab-1"
                   aria-controls="span-hierarchy-tabpanel-1"
                 />
                 <Tab
-                  icon={<TimelineIcon fontSize="small" />}
-                  iconPosition="start"
-                  label="Sequence View"
-                  id="span-hierarchy-tab-2"
-                  aria-controls="span-hierarchy-tabpanel-2"
-                />
-                <Tab
                   icon={<HubIcon fontSize="small" />}
                   iconPosition="start"
-                  label="Markov View"
-                  id="span-hierarchy-tab-3"
-                  aria-controls="span-hierarchy-tabpanel-3"
+                  label="Graph View"
+                  id="span-hierarchy-tab-2"
+                  aria-controls="span-hierarchy-tabpanel-2"
                 />
               </Tabs>
             </Box>
@@ -434,20 +429,13 @@ export default function TraceDrawer({
                 />
               )}
               {viewTab === 1 && (
-                <SpanGraphView
-                  spans={trace.root_spans}
-                  selectedSpan={selectedSpan}
-                  onSpanSelect={handleSpanSelect}
-                />
-              )}
-              {viewTab === 2 && (
                 <SpanSequenceView
                   spans={trace.root_spans}
                   selectedSpan={selectedSpan}
                   onSpanSelect={handleSpanSelect}
                 />
               )}
-              {viewTab === 3 && (
+              {viewTab === 2 && (
                 <SpanMarkovView
                   spans={trace.root_spans}
                   selectedSpan={selectedSpan}
@@ -467,7 +455,9 @@ export default function TraceDrawer({
                 isDragging ? theme.palette.primary.main : theme.palette.divider,
               cursor: 'col-resize',
               transition: theme =>
-                isDragging ? 'none' : theme.transitions.create('background-color'),
+                isDragging
+                  ? 'none'
+                  : theme.transitions.create('background-color'),
               position: 'relative',
               '&::before': {
                 content: '""',

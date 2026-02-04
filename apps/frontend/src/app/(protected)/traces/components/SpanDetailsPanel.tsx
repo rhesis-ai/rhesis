@@ -152,7 +152,8 @@ export default function SpanDetailsPanel({
           content: e.attributes?.['ai.prompt.content'],
         }))
       : null;
-  const llmOutput = llmCompletionEvent?.attributes?.['ai.completion.content'] || null;
+  const llmOutput =
+    llmCompletionEvent?.attributes?.['ai.completion.content'] || null;
 
   const parsedLlmInput = llmInput;
   const parsedLlmOutput = llmOutput ? parseIfJSON(llmOutput) : null;
@@ -185,9 +186,7 @@ export default function SpanDetailsPanel({
 
   // Get agent input/output values (prefer attributes, fallback to events)
   const agentInput =
-    agentInputAttr ||
-    agentInputEvent?.attributes?.['ai.agent.input'] ||
-    null;
+    agentInputAttr || agentInputEvent?.attributes?.['ai.agent.input'] || null;
   const agentOutput =
     agentOutputAttr ||
     agentOutputEvent?.attributes?.['ai.agent.output'] ||

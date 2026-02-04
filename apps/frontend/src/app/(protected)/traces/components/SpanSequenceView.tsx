@@ -109,7 +109,9 @@ function flattenSpans(spans: SpanNode[]): FlattenedSpan[] {
 
   // Sort by start time
   flattened.sort(
-    (a, b) => new Date(a.span.start_time).getTime() - new Date(b.span.start_time).getTime()
+    (a, b) =>
+      new Date(a.span.start_time).getTime() -
+      new Date(b.span.start_time).getTime()
   );
 
   return flattened;
@@ -138,7 +140,9 @@ function extractParticipants(flattenedSpans: FlattenedSpan[]): Participant[] {
 /**
  * Generate sequence events (calls and returns) from flattened spans
  */
-function generateSequenceEvents(flattenedSpans: FlattenedSpan[]): SequenceEvent[] {
+function generateSequenceEvents(
+  flattenedSpans: FlattenedSpan[]
+): SequenceEvent[] {
   const events: SequenceEvent[] = [];
 
   flattenedSpans.forEach(({ span, parentId }) => {
@@ -210,32 +214,34 @@ export default function SpanSequenceView({
   }, []);
 
   // Flatten and process spans
-  const { flattenedSpans, participants, sequenceEvents, timelineStart } = useMemo(() => {
-    const flattened = flattenSpans(spans);
-    const parts = extractParticipants(flattened);
-    const events = generateSequenceEvents(flattened);
+  const { flattenedSpans, participants, sequenceEvents, timelineStart } =
+    useMemo(() => {
+      const flattened = flattenSpans(spans);
+      const parts = extractParticipants(flattened);
+      const events = generateSequenceEvents(flattened);
 
-    // Calculate timeline bounds
-    let start = Infinity;
-    let end = -Infinity;
-    flattened.forEach(({ span }) => {
-      const spanStart = new Date(span.start_time).getTime();
-      const spanEnd = new Date(span.end_time).getTime();
-      if (spanStart < start) start = spanStart;
-      if (spanEnd > end) end = spanEnd;
-    });
+      // Calculate timeline bounds
+      let start = Infinity;
+      let end = -Infinity;
+      flattened.forEach(({ span }) => {
+        const spanStart = new Date(span.start_time).getTime();
+        const spanEnd = new Date(span.end_time).getTime();
+        if (spanStart < start) start = spanStart;
+        if (spanEnd > end) end = spanEnd;
+      });
 
-    return {
-      flattenedSpans: flattened,
-      participants: parts,
-      sequenceEvents: events,
-      timelineStart: start,
-    };
-  }, [spans]);
+      return {
+        flattenedSpans: flattened,
+        participants: parts,
+        sequenceEvents: events,
+        timelineStart: start,
+      };
+    }, [spans]);
 
   // Calculate total width needed
   const totalWidth = Math.max(
-    TIMELINE_WIDTH + participants.length * (PARTICIPANT_WIDTH + PARTICIPANT_GAP),
+    TIMELINE_WIDTH +
+      participants.length * (PARTICIPANT_WIDTH + PARTICIPANT_GAP),
     containerWidth
   );
 
@@ -243,7 +249,12 @@ export default function SpanSequenceView({
   const participantPositions = useMemo(() => {
     const positions = new Map<string, number>();
     participants.forEach((p, index) => {
-      positions.set(p.id, TIMELINE_WIDTH + index * (PARTICIPANT_WIDTH + PARTICIPANT_GAP) + PARTICIPANT_WIDTH / 2);
+      positions.set(
+        p.id,
+        TIMELINE_WIDTH +
+          index * (PARTICIPANT_WIDTH + PARTICIPANT_GAP) +
+          PARTICIPANT_WIDTH / 2
+      );
     });
     return positions;
   }, [participants]);
@@ -276,7 +287,10 @@ export default function SpanSequenceView({
       <Box
         sx={{
           minWidth: totalWidth,
-          minHeight: HEADER_HEIGHT + sequenceEvents.length * ROW_HEIGHT + theme.spacing(4),
+          minHeight:
+            HEADER_HEIGHT +
+            sequenceEvents.length * ROW_HEIGHT +
+            theme.spacing(4),
           position: 'relative',
         }}
       >
@@ -307,7 +321,10 @@ export default function SpanSequenceView({
           >
             <Typography
               variant="caption"
-              sx={{ fontWeight: theme.typography.fontWeightMedium, color: theme.palette.text.secondary }}
+              sx={{
+                fontWeight: theme.typography.fontWeightMedium,
+                color: theme.palette.text.secondary,
+              }}
             >
               Time
             </Typography>
@@ -315,9 +332,13 @@ export default function SpanSequenceView({
 
           {/* Participant headers - positioned absolutely to match content */}
           {participants.map(participant => {
-            const span = flattenedSpans.find(f => f.span.span_id === participant.id)?.span;
+            const span = flattenedSpans.find(
+              f => f.span.span_id === participant.id
+            )?.span;
             const SpanIcon = span ? getSpanIcon(span.span_name) : null;
-            const colorPath = span ? getSpanColor(span.span_name, span.status_code) : 'text.secondary';
+            const colorPath = span
+              ? getSpanColor(span.span_name, span.status_code)
+              : 'text.secondary';
             const headerX = participantPositions.get(participant.id) || 0;
 
             return (
@@ -396,7 +417,9 @@ export default function SpanSequenceView({
           const { type, span, parentId, timeString } = event;
           const isSelected = selectedSpan?.span_id === span.span_id;
           const spanX = participantPositions.get(span.span_id) || 0;
-          const parentX = parentId ? participantPositions.get(parentId) : undefined;
+          const parentX = parentId
+            ? participantPositions.get(parentId)
+            : undefined;
           const SpanIcon = getSpanIcon(span.span_name);
           const colorPath = getSpanColor(span.span_name, span.status_code);
 
@@ -460,73 +483,80 @@ export default function SpanSequenceView({
               </Box>
 
               {/* Arrow rendering */}
-              {parentX !== undefined && (() => {
-                const boxHalfWidth = PARTICIPANT_WIDTH / 4;
-                const arrowVerticalCenter = ARROW_HEIGHT / 2;
-                const markerSize = Number(theme.spacing(1).replace('px', ''));
-                const strokeWidth = Number(theme.spacing(0.25).replace('px', ''));
+              {parentX !== undefined &&
+                (() => {
+                  const boxHalfWidth = PARTICIPANT_WIDTH / 4;
+                  const arrowVerticalCenter = ARROW_HEIGHT / 2;
+                  const markerSize = Number(theme.spacing(1).replace('px', ''));
+                  const strokeWidth = Number(
+                    theme.spacing(0.25).replace('px', '')
+                  );
 
-                // For calls: arrow from parent to child
-                // For returns: arrow from child back to parent
-                const fromX = isCall ? parentX : spanX;
-                const toX = isCall ? spanX : parentX;
-                const isLeftToRight = fromX < toX;
+                  // For calls: arrow from parent to child
+                  // For returns: arrow from child back to parent
+                  const fromX = isCall ? parentX : spanX;
+                  const toX = isCall ? spanX : parentX;
+                  const isLeftToRight = fromX < toX;
 
-                // Arrow starts after source box, ends before target box
-                const arrowStartX = isLeftToRight
-                  ? fromX + boxHalfWidth + ARROW_GAP
-                  : fromX - boxHalfWidth - ARROW_GAP;
-                const arrowEndX = isLeftToRight
-                  ? toX - boxHalfWidth - ARROW_GAP
-                  : toX + boxHalfWidth + ARROW_GAP;
+                  // Arrow starts after source box, ends before target box
+                  const arrowStartX = isLeftToRight
+                    ? fromX + boxHalfWidth + ARROW_GAP
+                    : fromX - boxHalfWidth - ARROW_GAP;
+                  const arrowEndX = isLeftToRight
+                    ? toX - boxHalfWidth - ARROW_GAP
+                    : toX + boxHalfWidth + ARROW_GAP;
 
-                const minX = Math.min(arrowStartX, arrowEndX);
-                const arrowWidth = Math.abs(arrowEndX - arrowStartX);
+                  const minX = Math.min(arrowStartX, arrowEndX);
+                  const arrowWidth = Math.abs(arrowEndX - arrowStartX);
 
-                // Skip drawing if arrow would be too short
-                if (arrowWidth < ARROW_HEIGHT) return null;
+                  // Skip drawing if arrow would be too short
+                  if (arrowWidth < ARROW_HEIGHT) return null;
 
-                const arrowId = `arrowhead-${span.span_id}-${type}`;
+                  const arrowId = `arrowhead-${span.span_id}-${type}`;
 
-                return (
-                  <svg
-                    style={{
-                      position: 'absolute',
-                      left: minX,
-                      top: ROW_HEIGHT / 2 - arrowVerticalCenter,
-                      width: arrowWidth,
-                      height: ARROW_HEIGHT,
-                      overflow: 'visible',
-                    }}
-                  >
-                    <defs>
-                      <marker
-                        id={arrowId}
-                        markerWidth={markerSize}
-                        markerHeight={markerSize * 0.75}
-                        refX={markerSize - 1}
-                        refY={markerSize * 0.375}
-                        orient="auto"
-                      >
-                        <polygon
-                          points={`0 0, ${markerSize} ${markerSize * 0.375}, 0 ${markerSize * 0.75}`}
-                          fill={isReturn ? theme.palette.grey[500] : spanColor}
-                        />
-                      </marker>
-                    </defs>
-                    <line
-                      x1={isLeftToRight ? 0 : arrowWidth}
-                      y1={arrowVerticalCenter}
-                      x2={isLeftToRight ? arrowWidth : 0}
-                      y2={arrowVerticalCenter}
-                      stroke={isReturn ? theme.palette.grey[500] : spanColor}
-                      strokeWidth={strokeWidth}
-                      strokeDasharray={isReturn ? `${DASH_SIZE} ${DASH_GAP}` : 'none'}
-                      markerEnd={`url(#${arrowId})`}
-                    />
-                  </svg>
-                );
-              })()}
+                  return (
+                    <svg
+                      style={{
+                        position: 'absolute',
+                        left: minX,
+                        top: ROW_HEIGHT / 2 - arrowVerticalCenter,
+                        width: arrowWidth,
+                        height: ARROW_HEIGHT,
+                        overflow: 'visible',
+                      }}
+                    >
+                      <defs>
+                        <marker
+                          id={arrowId}
+                          markerWidth={markerSize}
+                          markerHeight={markerSize * 0.75}
+                          refX={markerSize - 1}
+                          refY={markerSize * 0.375}
+                          orient="auto"
+                        >
+                          <polygon
+                            points={`0 0, ${markerSize} ${markerSize * 0.375}, 0 ${markerSize * 0.75}`}
+                            fill={
+                              isReturn ? theme.palette.grey[500] : spanColor
+                            }
+                          />
+                        </marker>
+                      </defs>
+                      <line
+                        x1={isLeftToRight ? 0 : arrowWidth}
+                        y1={arrowVerticalCenter}
+                        x2={isLeftToRight ? arrowWidth : 0}
+                        y2={arrowVerticalCenter}
+                        stroke={isReturn ? theme.palette.grey[500] : spanColor}
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={
+                          isReturn ? `${DASH_SIZE} ${DASH_GAP}` : 'none'
+                        }
+                        markerEnd={`url(#${arrowId})`}
+                      />
+                    </svg>
+                  );
+                })()}
 
               {/* Activation box - only for call events */}
               {isCall && (
@@ -545,7 +575,12 @@ export default function SpanSequenceView({
                       {span.attributes?.['ai.input'] && (
                         <>
                           <br />
-                          Input: {String(span.attributes['ai.input']).substring(0, 100)}...
+                          Input:{' '}
+                          {String(span.attributes['ai.input']).substring(
+                            0,
+                            100
+                          )}
+                          ...
                         </>
                       )}
                     </>
@@ -559,7 +594,9 @@ export default function SpanSequenceView({
                       width: PARTICIPANT_WIDTH / 2,
                       height: ROW_HEIGHT - BOX_VERTICAL_PADDING * 2,
                       top: BOX_VERTICAL_PADDING,
-                      backgroundColor: isSelected ? theme.palette.primary.main : spanColor,
+                      backgroundColor: isSelected
+                        ? theme.palette.primary.main
+                        : spanColor,
                       opacity: isSelected ? 1 : 0.8,
                       borderRadius: theme.shape.borderRadius,
                       cursor: 'pointer',
@@ -571,7 +608,10 @@ export default function SpanSequenceView({
                       border: isSelected
                         ? `${BORDER_WIDTH_MEDIUM}px solid ${theme.palette.primary.dark}`
                         : 'none',
-                      transition: theme.transitions.create(['opacity', 'background-color']),
+                      transition: theme.transitions.create([
+                        'opacity',
+                        'background-color',
+                      ]),
                       '&:hover': {
                         opacity: 1,
                       },
@@ -601,34 +641,40 @@ export default function SpanSequenceView({
               )}
 
               {/* Return marker - small circle at return point for return events */}
-              {isReturn && parentX !== undefined && (() => {
-                const markerRadius = Number(theme.spacing(1).replace('px', ''));
-                return (
-                  <Tooltip title={`${getSpanDisplayName(span)} returned`}>
-                    <Box
-                      onClick={() => handleSpanClick(span)}
-                      sx={{
-                        position: 'absolute',
-                        left: parentX - markerRadius,
-                        top: ROW_HEIGHT / 2 - markerRadius,
-                        width: theme.spacing(2),
-                        height: theme.spacing(2),
-                        borderRadius: '50%',
-                        backgroundColor: theme.palette.grey[400],
-                        border: `${BORDER_WIDTH_MEDIUM}px solid ${theme.palette.grey[500]}`,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: theme.transitions.create(['background-color']),
-                        '&:hover': {
-                          backgroundColor: theme.palette.grey[500],
-                        },
-                      }}
-                    />
-                  </Tooltip>
-                );
-              })()}
+              {isReturn &&
+                parentX !== undefined &&
+                (() => {
+                  const markerRadius = Number(
+                    theme.spacing(1).replace('px', '')
+                  );
+                  return (
+                    <Tooltip title={`${getSpanDisplayName(span)} returned`}>
+                      <Box
+                        onClick={() => handleSpanClick(span)}
+                        sx={{
+                          position: 'absolute',
+                          left: parentX - markerRadius,
+                          top: ROW_HEIGHT / 2 - markerRadius,
+                          width: theme.spacing(2),
+                          height: theme.spacing(2),
+                          borderRadius: '50%',
+                          backgroundColor: theme.palette.grey[400],
+                          border: `${BORDER_WIDTH_MEDIUM}px solid ${theme.palette.grey[500]}`,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: theme.transitions.create([
+                            'background-color',
+                          ]),
+                          '&:hover': {
+                            backgroundColor: theme.palette.grey[500],
+                          },
+                        }}
+                      />
+                    </Tooltip>
+                  );
+                })()}
 
               {/* Error indicator - only for call events */}
               {isCall && span.status_code === 'ERROR' && (
@@ -636,7 +682,9 @@ export default function SpanSequenceView({
                   sx={{
                     position: 'absolute',
                     left: spanX + PARTICIPANT_WIDTH / 4 + BOX_VERTICAL_PADDING,
-                    top: ROW_HEIGHT / 2 - Number(theme.spacing(1).replace('px', '')),
+                    top:
+                      ROW_HEIGHT / 2 -
+                      Number(theme.spacing(1).replace('px', '')),
                     width: theme.spacing(2),
                     height: theme.spacing(2),
                     borderRadius: '50%',

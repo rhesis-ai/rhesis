@@ -29,7 +29,6 @@ import ReactFlow, {
   NodeProps,
   EdgeProps,
   getBezierPath,
-  EdgeLabelRenderer,
   MarkerType,
   Viewport,
 } from 'reactflow';
@@ -395,29 +394,6 @@ function extractMarkovChain(spans: SpanNode[]): {
   };
 }
 
-/**
- * Calculate transition probabilities
- */
-function calculateProbabilities(
-  transitions: StateTransition[]
-): Map<string, number> {
-  const probabilities = new Map<string, number>();
-  const outgoingCounts = new Map<string, number>();
-
-  // Sum up outgoing transitions for each state
-  transitions.forEach(t => {
-    outgoingCounts.set(t.from, (outgoingCounts.get(t.from) || 0) + t.count);
-  });
-
-  // Calculate probabilities
-  transitions.forEach(t => {
-    const total = outgoingCounts.get(t.from) || 1;
-    const prob = t.count / total;
-    probabilities.set(`${t.from}->${t.to}`, prob);
-  });
-
-  return probabilities;
-}
 
 /**
  * Custom node component for Markov states (agents and tools)
@@ -531,7 +507,7 @@ function MarkovStateNode({ data }: NodeProps) {
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-          maxWidth: isAgent ? 'none' : 120,
+          maxWidth: isAgent ? 'none' : theme.spacing(15),
           lineHeight: 1.2,
         }}
       >
@@ -595,9 +571,9 @@ function MarkovStateNode({ data }: NodeProps) {
 }
 
 /**
- * Custom edge component with probability label
+ * Custom edge component for transitions
  */
-function ProbabilityEdge({
+function TransitionEdge({
   id,
   sourceX,
   sourceY,
@@ -609,15 +585,10 @@ function ProbabilityEdge({
   markerEnd,
   style,
 }: EdgeProps) {
-  const theme = useTheme();
-  const { probability, count, isSelfLoop, selfLoopIndex, selfLoopTotal } =
-    data as {
-      probability: number;
-      count: number;
-      isSelfLoop: boolean;
-      selfLoopIndex?: number;
-      selfLoopTotal?: number;
-    };
+  const { isSelfLoop, selfLoopIndex } = data as {
+    isSelfLoop: boolean;
+    selfLoopIndex?: number;
+  };
 
   // For self-loops, create a custom path with offset based on index
   // All loops start and end at the same points, but curve outward at different radii
@@ -633,10 +604,6 @@ function ProbabilityEdge({
                   C ${sourceX + loopRadius * 2} ${sourceY - loopRadius} 
                     ${sourceX + loopRadius * 2} ${sourceY + loopRadius} 
                     ${targetX} ${targetY}`;
-
-    // Only show label on the last (outermost) self-loop
-    const showLabel =
-      selfLoopTotal === undefined || index === selfLoopTotal - 1;
 
     return (
       <>
@@ -661,26 +628,6 @@ function ProbabilityEdge({
           }}
           markerEnd={markerEnd}
         />
-        {showLabel && (
-          <EdgeLabelRenderer>
-            <Box
-              sx={{
-                position: 'absolute',
-                transform: `translate(-50%, -50%) translate(${sourceX + loopRadius * 1.5}px, ${sourceY}px)`,
-                backgroundColor: theme.palette.background.paper,
-                padding: theme.spacing(0.25, 0.75),
-                borderRadius: theme.spacing(0.5),
-                fontSize: theme.typography.caption.fontSize,
-                fontWeight: theme.typography.fontWeightMedium,
-                border: `1px solid ${theme.palette.divider}`,
-                pointerEvents: 'all',
-                cursor: 'pointer',
-              }}
-            >
-              {(probability * 100).toFixed(0)}% ({count})
-            </Box>
-          </EdgeLabelRenderer>
-        )}
       </>
     );
   }
@@ -718,24 +665,6 @@ function ProbabilityEdge({
         }}
         markerEnd={markerEnd}
       />
-      <EdgeLabelRenderer>
-        <Box
-          sx={{
-            position: 'absolute',
-            transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-            backgroundColor: theme.palette.background.paper,
-            padding: theme.spacing(0.25, 0.75),
-            borderRadius: theme.spacing(0.5),
-            fontSize: theme.typography.caption.fontSize,
-            fontWeight: theme.typography.fontWeightMedium,
-            border: `1px solid ${theme.palette.divider}`,
-            pointerEvents: 'all',
-            cursor: 'pointer',
-          }}
-        >
-          {(probability * 100).toFixed(0)}% ({count})
-        </Box>
-      </EdgeLabelRenderer>
     </>
   );
 }
@@ -746,16 +675,15 @@ const nodeTypes = {
 };
 
 const edgeTypes = {
-  probability: ProbabilityEdge,
+  transition: TransitionEdge,
 };
 
 /**
- * Convert Markov chain to ReactFlow elements
+ * Convert agent/tool graph to ReactFlow elements
  */
 function convertToFlowElements(
   states: Map<string, MarkovState>,
   transitions: StateTransition[],
-  probabilities: Map<string, number>,
   agentEdgeColor: string,
   toolEdgeColor: string
 ): { nodes: Node[]; edges: Edge[] } {
@@ -778,7 +706,6 @@ function convertToFlowElements(
   // Create edges for transitions
   transitions.forEach(t => {
     const isSelfLoop = t.from === t.to;
-    const prob = probabilities.get(`${t.from}->${t.to}`) || 0;
 
     // Determine if this transition involves a tool
     const involvesTool = t.from.startsWith('tool:') || t.to.startsWith('tool:');
@@ -791,12 +718,10 @@ function convertToFlowElements(
           id: `${t.from}->${t.to}-${i}`,
           source: t.from,
           target: t.to,
-          type: 'probability',
+          type: 'transition',
           sourceHandle: 'right',
           targetHandle: 'left',
           data: {
-            probability: prob,
-            count: t.count,
             isSelfLoop: true,
             selfLoopIndex: i,
             selfLoopTotal: t.count,
@@ -818,12 +743,10 @@ function convertToFlowElements(
         id: `${t.from}->${t.to}`,
         source: t.from,
         target: t.to,
-        type: 'probability',
+        type: 'transition',
         sourceHandle: isSelfLoop ? 'right' : undefined,
         targetHandle: isSelfLoop ? 'left' : undefined,
         data: {
-          probability: prob,
-          count: t.count,
           isSelfLoop,
           selfLoopIndex: 0,
           selfLoopTotal: 1,
@@ -905,11 +828,10 @@ export default function SpanMarkovView({
 }: SpanMarkovViewProps) {
   const theme = useTheme();
 
-  // Extract Markov chain from spans with time data
+  // Extract graph data from spans with time data
   const {
     states,
     transitions,
-    probabilities,
     initialNodes,
     initialEdges,
     timedTransitions,
@@ -924,13 +846,11 @@ export default function SpanMarkovView({
       timedAgentEvents,
       timeRange,
     } = extractMarkovChain(spans);
-    const probabilities = calculateProbabilities(transitions);
     const agentEdgeColor = theme.palette.info.main;
     const toolEdgeColor = theme.palette.warning.main;
     const { nodes, edges } = convertToFlowElements(
       states,
       transitions,
-      probabilities,
       agentEdgeColor,
       toolEdgeColor
     );
@@ -983,7 +903,6 @@ export default function SpanMarkovView({
     return {
       states,
       transitions,
-      probabilities,
       initialNodes: layoutedNodes,
       initialEdges: edges,
       timedTransitions,
@@ -1315,7 +1234,7 @@ export default function SpanMarkovView({
           No agent data found in this trace
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          Markov view requires ai.agent.invoke spans
+          Graph view requires ai.agent.invoke or ai.tool.invoke spans
         </Typography>
       </Box>
     );
@@ -1326,7 +1245,7 @@ export default function SpanMarkovView({
       sx={{
         width: '100%',
         height: '100%',
-        minHeight: 400,
+        minHeight: theme.spacing(50),
         display: 'flex',
         flexDirection: 'column',
         '& .react-flow__attribution': {
@@ -1342,7 +1261,7 @@ export default function SpanMarkovView({
           py: theme.spacing(1),
           borderBottom: `1px solid ${theme.palette.divider}`,
           backgroundColor: theme.palette.background.paper,
-          zIndex: 10,
+          zIndex: theme.zIndex.appBar,
         }}
       >
         <Stack direction="row" spacing={1} alignItems="center">
@@ -1409,12 +1328,15 @@ export default function SpanMarkovView({
             sx={{
               flex: 1,
               mx: theme.spacing(1),
+              // Disable transitions to prevent visual "running backwards" when resetting
               '& .MuiSlider-thumb': {
                 width: theme.spacing(1.5),
                 height: theme.spacing(1.5),
+                transition: 'none',
               },
               '& .MuiSlider-track': {
                 height: theme.spacing(0.5),
+                transition: 'none',
               },
               '& .MuiSlider-rail': {
                 height: theme.spacing(0.5),
@@ -1472,8 +1394,8 @@ export default function SpanMarkovView({
             }}
             maskColor={
               theme.palette.mode === 'dark'
-                ? 'rgba(0,0,0,0.8)'
-                : 'rgba(255,255,255,0.8)'
+                ? theme.palette.grey[900] + 'CC' // 80% opacity
+                : theme.palette.grey[50] + 'CC' // 80% opacity
             }
             style={{
               backgroundColor: theme.palette.background.paper,
@@ -1494,19 +1416,9 @@ export default function SpanMarkovView({
             boxShadow: theme.shadows[2],
           }}
         >
-          <Typography
-            variant="caption"
-            sx={{
-              fontWeight: theme.typography.fontWeightBold,
-              display: 'block',
-              mb: 0.5,
-            }}
-          >
-            Markov Chain
-          </Typography>
           <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
             <Chip
-              icon={<SupportAgentIcon sx={{ fontSize: '14px !important' }} />}
+              icon={<SupportAgentIcon sx={{ fontSize: `${theme.spacing(1.75)} !important` }} />}
               label={`${Array.from(states.values()).filter(s => s.type === 'agent').length} agents`}
               size="small"
               sx={{
@@ -1516,7 +1428,7 @@ export default function SpanMarkovView({
               }}
             />
             <Chip
-              icon={<BuildIcon sx={{ fontSize: '14px !important' }} />}
+              icon={<BuildIcon sx={{ fontSize: `${theme.spacing(1.75)} !important` }} />}
               label={`${Array.from(states.values()).filter(s => s.type === 'tool').length} tools`}
               size="small"
               sx={{
@@ -1531,14 +1443,7 @@ export default function SpanMarkovView({
             color="text.secondary"
             sx={{ display: 'block' }}
           >
-            Transitions: {transitions.length}
-          </Typography>
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ display: 'block', mt: 0.5, fontStyle: 'italic' }}
-          >
-            Edge labels show probability (count)
+            {transitions.length} transitions
           </Typography>
         </Box>
       </Box>

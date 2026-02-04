@@ -87,7 +87,9 @@ function SpanNodeComponent({ data, selected }: NodeProps) {
         borderRadius: theme.shape.borderRadius,
         backgroundColor: theme.palette.background.paper,
         border: `2px solid ${isSelected ? theme.palette.primary.main : theme.palette.divider}`,
-        boxShadow: isSelected ? `0 0 0 2px ${theme.palette.primary.light}` : theme.shadows[1],
+        boxShadow: isSelected
+          ? `0 0 0 2px ${theme.palette.primary.light}`
+          : theme.shadows[1],
         minWidth: NODE_WIDTH,
         cursor: 'pointer',
         transition: theme.transitions.create(['border-color', 'box-shadow']),
@@ -108,7 +110,9 @@ function SpanNodeComponent({ data, selected }: NodeProps) {
         }}
       />
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1) }}>
+      <Box
+        sx={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1) }}
+      >
         {/* Icon */}
         <Box
           component={SpanIcon}
@@ -284,7 +288,11 @@ export default function SpanGraphView({
   // Convert spans to flow elements
   const { initialNodes, initialEdges } = useMemo(() => {
     const edgeColor = theme.palette.grey[400];
-    const { nodes, edges } = convertToFlowElements(spans, selectedSpan, edgeColor);
+    const { nodes, edges } = convertToFlowElements(
+      spans,
+      selectedSpan,
+      edgeColor
+    );
     const layoutedNodes = applyDagreLayout(nodes, edges);
     return { initialNodes: layoutedNodes, initialEdges: edges };
   }, [spans, selectedSpan, theme.palette.grey]);
@@ -341,7 +349,10 @@ export default function SpanGraphView({
           type: 'smoothstep',
         }}
       >
-        <Background color={theme.palette.divider} gap={Number(theme.spacing(2).replace('px', ''))} />
+        <Background
+          color={theme.palette.divider}
+          gap={Number(theme.spacing(2).replace('px', ''))}
+        />
         <Controls
           style={{
             display: 'flex',
@@ -358,7 +369,11 @@ export default function SpanGraphView({
             }
             return theme.palette.grey[400];
           }}
-          maskColor={theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)'}
+          maskColor={
+            theme.palette.mode === 'dark'
+              ? 'rgba(0,0,0,0.8)'
+              : 'rgba(255,255,255,0.8)'
+          }
           style={{
             backgroundColor: theme.palette.background.paper,
           }}
