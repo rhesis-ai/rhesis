@@ -64,6 +64,7 @@ import { updateEndpoint, invokeEndpoint } from '@/actions/endpoints';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { getStatusColor } from '@/utils/status-colors';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import Tooltip from '@mui/material/Tooltip';
 
@@ -175,6 +176,7 @@ export default function EndpointDetail({
   endpoint: initialEndpoint,
 }: EndpointDetailProps) {
   const theme = useTheme();
+  const router = useRouter();
   const [endpoint, setEndpoint] = useState<Endpoint>(initialEndpoint);
   const [currentTab, setCurrentTab] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
@@ -410,13 +412,24 @@ export default function EndpointDetail({
               </Button>
             </Box>
           ) : (
-            <Button
-              startIcon={<EditIcon />}
-              variant="outlined"
-              onClick={handleEdit}
-            >
-              Edit
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                startIcon={<ChatIcon />}
+                variant="outlined"
+                onClick={() =>
+                  router.push(`/playground?endpointId=${endpoint.id}`)
+                }
+              >
+                Playground
+              </Button>
+              <Button
+                startIcon={<EditIcon />}
+                variant="outlined"
+                onClick={handleEdit}
+              >
+                Edit
+              </Button>
+            </Box>
           )}
         </Box>
 

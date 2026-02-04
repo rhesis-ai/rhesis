@@ -18,6 +18,7 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
@@ -41,6 +42,7 @@ interface EndpointOption {
 export default function PlaygroundClient() {
   const { data: session } = useSession();
   const { isConnected } = useWebSocket();
+  const searchParams = useSearchParams();
 
   const [endpointOptions, setEndpointOptions] = useState<EndpointOption[]>([]);
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(
@@ -51,11 +53,29 @@ export default function PlaygroundClient() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [initialEndpointApplied, setInitialEndpointApplied] = useState(false);
 
   // Load endpoints on mount
   useEffect(() => {
     loadEndpoints();
   }, [session]);
+
+  // Apply initial endpoint from URL params after endpoints are loaded
+  useEffect(() => {
+    if (!initialEndpointApplied && endpointOptions.length > 0) {
+      const endpointIdParam = searchParams.get('endpointId');
+      if (endpointIdParam) {
+        const matchingOption = endpointOptions.find(
+          opt => opt.endpointId === endpointIdParam
+        );
+        if (matchingOption) {
+          setSelectedEndpointId(endpointIdParam);
+          setSelectedProjectId(matchingOption.projectId);
+        }
+      }
+      setInitialEndpointApplied(true);
+    }
+  }, [endpointOptions, searchParams, initialEndpointApplied]);
 
   const loadEndpoints = async () => {
     if (!session?.session_token) {
