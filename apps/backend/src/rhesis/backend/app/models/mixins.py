@@ -1,5 +1,3 @@
-from abc import ABC, abstractmethod
-
 from sqlalchemy import Column, ForeignKey, and_
 from sqlalchemy.orm import declared_attr, relationship
 
@@ -157,7 +155,8 @@ class OrganizationAndUserMixin(OrganizationMixin, UserOwnedMixin):
 
     pass
 
-class EmbeddableMixin(ABC):
+
+class EmbeddableMixin:
     """
     Mixin for entities that support vector embeddings and full-text search.
 
@@ -172,10 +171,12 @@ class EmbeddableMixin(ABC):
     - Converted to tsvector in Embedding.tsv (for PostgreSQL full-text search)
     - Vectorized and stored in Embedding.embedding_{dimension} columns
     """
-    @abstractmethod
+
     def to_searchable_text(self) -> str:
         """
         Generate searchable text representation for this entity.
+
+        Must be implemented by subclasses.
 
         Returns:
             str: Searchable text representation
@@ -184,4 +185,6 @@ class EmbeddableMixin(ABC):
             >>> source.to_searchable_text()
             "Title: AI Safety Research. Description: Study on... Content: In this paper..."
         """
-        pass
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement to_searchable_text() method"
+        )
