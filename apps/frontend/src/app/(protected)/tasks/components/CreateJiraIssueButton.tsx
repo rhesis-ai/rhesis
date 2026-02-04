@@ -8,6 +8,7 @@ import {
   Menu,
   MenuItem,
   Typography,
+  Tooltip,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Tool } from '@/utils/api-client/interfaces/tool';
@@ -141,11 +142,6 @@ export default function CreateJiraIssueButton({
     setAnchorEl(null);
   };
 
-  // Don't render if loading or no tools available
-  if (loading || jiraTools.length === 0) {
-    return null;
-  }
-
   // If task already has a Jira issue, show "View in Jira" button
   if (hasJiraIssue && jiraIssue) {
     return (
@@ -163,22 +159,54 @@ export default function CreateJiraIssueButton({
     );
   }
 
+  // If no Jira tools available, show disabled button with tooltip
+  const hasNoJiraTools = !loading && jiraTools.length === 0;
+
   // Show "Create Jira Issue" button
   return (
     <>
-      <Button
-        variant="outlined"
-        size="small"
-        onClick={handleClick}
-        disabled={isCreating}
-        startIcon={isCreating ? <CircularProgress size={16} /> : <JiraIcon />}
-        endIcon={jiraTools.length > 1 ? <ArrowDropDownIcon /> : undefined}
-        sx={{
-          textTransform: 'none',
-        }}
+      <Tooltip
+        title={
+          hasNoJiraTools ? 'Go to MCP -> Add Jira tool to create issues' : ''
+        }
+        arrow
       >
-        {isCreating ? 'Creating...' : 'Create Jira Issue'}
-      </Button>
+        <span>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={handleClick}
+            disabled={isCreating || loading || hasNoJiraTools}
+            startIcon={
+              loading ? (
+                <CircularProgress size={16} />
+              ) : isCreating ? (
+                <CircularProgress size={16} />
+              ) : (
+                <JiraIcon />
+              )
+            }
+            endIcon={
+              !hasNoJiraTools && jiraTools.length > 1 ? (
+                <ArrowDropDownIcon />
+              ) : undefined
+            }
+            sx={{
+              textTransform: 'none',
+              '&.Mui-disabled': {
+                color: 'text.secondary',
+                borderColor: 'divider',
+              },
+            }}
+          >
+            {loading
+              ? 'Loading...'
+              : isCreating
+                ? 'Creating...'
+                : 'Create Jira Issue'}
+          </Button>
+        </span>
+      </Tooltip>
 
       {/* Dropdown menu for multiple tools */}
       {jiraTools.length > 1 && (
