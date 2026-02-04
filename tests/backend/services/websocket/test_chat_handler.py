@@ -12,8 +12,8 @@ from rhesis.backend.app.schemas.websocket import (
 )
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
 from rhesis.backend.app.services.websocket.handlers.chat import (
-    handle_chat_message,
     _send_chat_error,
+    handle_chat_message,
 )
 
 
@@ -133,9 +133,7 @@ class TestChatMessageHandler:
             mock_service = MockEndpointService.return_value
             mock_service.invoke_endpoint = AsyncMock(return_value=mock_result)
 
-            with patch(
-                "rhesis.backend.app.services.websocket.handlers.chat.get_db"
-            ) as mock_get_db:
+            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
                 # Mock the context manager
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
@@ -174,13 +172,9 @@ class TestChatMessageHandler:
             "rhesis.backend.app.services.websocket.handlers.chat.EndpointService"
         ) as MockEndpointService:
             mock_service = MockEndpointService.return_value
-            mock_service.invoke_endpoint = AsyncMock(
-                side_effect=Exception("Endpoint not found")
-            )
+            mock_service.invoke_endpoint = AsyncMock(side_effect=Exception("Endpoint not found"))
 
-            with patch(
-                "rhesis.backend.app.services.websocket.handlers.chat.get_db"
-            ) as mock_get_db:
+            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
                 mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
@@ -225,9 +219,7 @@ class TestChatMessageHandler:
             mock_service = MockEndpointService.return_value
             mock_service.invoke_endpoint = AsyncMock(return_value=error_response)
 
-            with patch(
-                "rhesis.backend.app.services.websocket.handlers.chat.get_db"
-            ) as mock_get_db:
+            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
                 mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
@@ -245,10 +237,10 @@ class TestChatMessageHandler:
         assert msg.payload["error_type"] == "http_error"
 
     @pytest.mark.asyncio
-    async def test_conversation_id_from_response(self, mock_manager, mock_user):
-        """Test that conversation_id from endpoint response is returned."""
+    async def test_session_id_from_response(self, mock_manager, mock_user):
+        """Test that session_id from endpoint response is returned."""
         endpoint_id = str(uuid4())
-        response_conversation_id = str(uuid4())
+        response_session_id = str(uuid4())
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
@@ -258,11 +250,11 @@ class TestChatMessageHandler:
             },
         )
 
-        # Mock the endpoint service to return a conversation_id
+        # Mock the endpoint service to return a session_id
         mock_result = {
             "output": "Hello! How can I help you?",
             "trace_id": str(uuid4()),
-            "conversation_id": response_conversation_id,
+            "session_id": response_session_id,
         }
 
         with patch(
@@ -271,39 +263,37 @@ class TestChatMessageHandler:
             mock_service = MockEndpointService.return_value
             mock_service.invoke_endpoint = AsyncMock(return_value=mock_result)
 
-            with patch(
-                "rhesis.backend.app.services.websocket.handlers.chat.get_db"
-            ) as mock_get_db:
+            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
                 mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
 
                 await handle_chat_message(mock_manager, "conn-1", mock_user, message)
 
-        # Should include conversation_id in response
+        # Should include session_id in response
         mock_manager.broadcast.assert_called_once()
         call_args = mock_manager.broadcast.call_args
         msg = call_args[0][0]
 
         assert msg.type == EventType.CHAT_RESPONSE
-        assert msg.payload["conversation_id"] == response_conversation_id
+        assert msg.payload["session_id"] == response_session_id
 
     @pytest.mark.asyncio
-    async def test_conversation_id_echoed_back(self, mock_manager, mock_user):
-        """Test that input conversation_id is echoed back if no new one from response."""
+    async def test_session_id_echoed_back(self, mock_manager, mock_user):
+        """Test that input session_id is echoed back if no new one from response."""
         endpoint_id = str(uuid4())
-        input_conversation_id = str(uuid4())
+        input_session_id = str(uuid4())
         message = WebSocketMessage(
             type=EventType.CHAT_MESSAGE,
             correlation_id="corr-123",
             payload={
                 "endpoint_id": endpoint_id,
                 "message": "Continue our conversation",
-                "conversation_id": input_conversation_id,
+                "session_id": input_session_id,
             },
         )
 
-        # Mock result without conversation_id
+        # Mock result without session_id
         mock_result = {
             "output": "Sure, I remember our chat!",
             "trace_id": str(uuid4()),
@@ -315,22 +305,20 @@ class TestChatMessageHandler:
             mock_service = MockEndpointService.return_value
             mock_service.invoke_endpoint = AsyncMock(return_value=mock_result)
 
-            with patch(
-                "rhesis.backend.app.services.websocket.handlers.chat.get_db"
-            ) as mock_get_db:
+            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
                 mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
 
                 await handle_chat_message(mock_manager, "conn-1", mock_user, message)
 
-        # Should echo back input conversation_id
+        # Should echo back input session_id
         mock_manager.broadcast.assert_called_once()
         call_args = mock_manager.broadcast.call_args
         msg = call_args[0][0]
 
         assert msg.type == EventType.CHAT_RESPONSE
-        assert msg.payload["conversation_id"] == input_conversation_id
+        assert msg.payload["session_id"] == input_session_id
 
     @pytest.mark.asyncio
     async def test_correlation_id_preserved(self, mock_manager, mock_user):
@@ -353,9 +341,7 @@ class TestChatMessageHandler:
             mock_service = MockEndpointService.return_value
             mock_service.invoke_endpoint = AsyncMock(return_value=mock_result)
 
-            with patch(
-                "rhesis.backend.app.services.websocket.handlers.chat.get_db"
-            ) as mock_get_db:
+            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
                 mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
