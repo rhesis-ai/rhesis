@@ -38,6 +38,12 @@ class TestEventType:
         assert EventType.NOTIFICATION == "notification"
         assert EventType.MESSAGE == "message"
 
+    def test_chat_events(self):
+        """Test that chat events for playground are defined."""
+        assert EventType.CHAT_MESSAGE == "chat.message"
+        assert EventType.CHAT_RESPONSE == "chat.response"
+        assert EventType.CHAT_ERROR == "chat.error"
+
     def test_event_type_is_string_enum(self):
         """Test that EventType values are strings."""
         for event_type in EventType:

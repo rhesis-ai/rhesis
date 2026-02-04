@@ -16,6 +16,10 @@ from rhesis.backend.logging import logger
 from .base import BaseEndpointInvoker
 from .common.schemas import ErrorResponse
 
+# SDK function execution timeout in seconds
+# Configurable via environment variable for long-running LLM operations
+SDK_FUNCTION_TIMEOUT = float(os.environ.get("SDK_FUNCTION_TIMEOUT", "120.0"))
+
 
 class SdkEndpointInvoker(BaseEndpointInvoker):
     """Invoker for SDK-connected endpoints via WebSocket."""
@@ -182,7 +186,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 test_run_id=test_run_id,
                 function_name=function_name,
                 inputs=function_kwargs,
-                timeout=30.0,
+                timeout=SDK_FUNCTION_TIMEOUT,
             )
         finally:
             await rpc_client.close()
@@ -216,7 +220,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             test_run_id=test_run_id,
             function_name=function_name,
             inputs=function_kwargs,
-            timeout=30.0,
+            timeout=SDK_FUNCTION_TIMEOUT,
         )
 
     def _check_result_errors(
@@ -255,7 +259,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             return self._create_error_response(
                 error_type="sdk_timeout",
                 output_message="SDK function execution timed out",
-                message="Function did not respond within 30 seconds",
+                message=f"Function did not respond within {SDK_FUNCTION_TIMEOUT} seconds",
                 request_details=self._safe_request_details(locals(), "SDK"),
             )
 
@@ -396,11 +400,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Re-raise HTTPExceptions (configuration errors)
             raise
         except asyncio.TimeoutError:
-            logger.error("Timeout waiting for SDK function")
+            logger.error(f"Timeout waiting for SDK function after {SDK_FUNCTION_TIMEOUT}s")
             return self._create_error_response(
                 error_type="sdk_timeout",
                 output_message="SDK function execution timed out",
-                message="Function did not respond in time",
+                message=f"Function did not respond within {SDK_FUNCTION_TIMEOUT} seconds",
                 request_details=self._safe_request_details(locals(), "SDK"),
             )
         except Exception as e:

@@ -58,7 +58,12 @@ class RedisSubscriber:
             redis_url: Redis connection URL. If not provided, uses REDIS_URL env var.
         """
         self._ws_manager = ws_manager
-        self._redis_url = redis_url or os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        # Check BROKER_URL first for consistency with other Redis consumers, then REDIS_URL
+        self._redis_url = (
+            redis_url
+            or os.environ.get("BROKER_URL")
+            or os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        )
         self._redis: Optional[AsyncRedis] = None
         self._listener_task: Optional[asyncio.Task] = None
         self._running = False
@@ -115,9 +120,11 @@ class RedisSubscriber:
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.error(f"Redis subscriber error: {e}")
+                # Log at debug level to avoid noisy logs when Redis isn't available
+                # (common in local development)
+                logger.debug(f"Redis subscriber error: {e}")
                 if self._running:
-                    logger.info(f"Reconnecting in {retry_delay} seconds...")
+                    logger.debug(f"Reconnecting in {retry_delay} seconds...")
                     await asyncio.sleep(retry_delay)
                     retry_delay = min(retry_delay * 2, max_retry_delay)
 

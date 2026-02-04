@@ -25,6 +25,7 @@ from rhesis.backend.app.schemas.websocket import (
     WebSocketMessage,
 )
 from rhesis.backend.app.services.websocket.authorization import get_channel_authorizer
+from rhesis.backend.app.services.websocket.handlers.chat import handle_chat_message
 from rhesis.backend.app.services.websocket.rate_limiter import get_rate_limiter
 from rhesis.backend.app.services.websocket.registry import ConnectionRegistry
 
@@ -226,6 +227,8 @@ class WebSocketManager:
             await self._handle_unsubscribe(conn_id, message)
         elif message.type == EventType.PING:
             await self._handle_ping(conn_id)
+        elif message.type == EventType.CHAT_MESSAGE:
+            await handle_chat_message(self, conn_id, user, message)
         else:
             # Log unhandled message types - can be extended for specific use cases
             logger.debug(f"Unhandled message type: {message.type}")

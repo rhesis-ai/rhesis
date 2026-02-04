@@ -29,6 +29,11 @@ export enum EventType {
   // Generic events (use-case specific events added as needed)
   NOTIFICATION = 'notification',
   MESSAGE = 'message',
+
+  // Chat events (for playground)
+  CHAT_MESSAGE = 'chat.message',
+  CHAT_RESPONSE = 'chat.response',
+  CHAT_ERROR = 'chat.error',
 }
 
 /**
@@ -105,4 +110,31 @@ export interface ErrorPayload {
  */
 export interface SubscriptionPayload {
   channel: string;
+}
+
+/**
+ * Chat message payload (sent to server).
+ */
+export interface ChatMessagePayload {
+  endpoint_id: string;
+  message: string;
+  conversation_id?: string;
+}
+
+/**
+ * Chat response payload (received from server).
+ */
+export interface ChatResponsePayload {
+  output: string;
+  trace_id?: string;
+  endpoint_id: string;
+  conversation_id?: string;
+}
+
+/**
+ * Chat error payload (received from server).
+ */
+export interface ChatErrorPayload {
+  error: string;
+  error_type: string;
 }

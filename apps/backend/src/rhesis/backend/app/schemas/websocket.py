@@ -41,6 +41,11 @@ class EventType(str, Enum):
     NOTIFICATION = "notification"
     MESSAGE = "message"
 
+    # Chat events (for playground)
+    CHAT_MESSAGE = "chat.message"  # User sends message to endpoint
+    CHAT_RESPONSE = "chat.response"  # Complete response from endpoint
+    CHAT_ERROR = "chat.error"  # Error during endpoint invocation
+
 
 class WebSocketMessage(BaseModel):
     """WebSocket message schema.
