@@ -1,11 +1,26 @@
 'use client';
 
-import { useState, useMemo, DragEvent } from 'react';
-import { Box, Typography, Collapse, IconButton, Chip } from '@mui/material';
+import { useState, useMemo, DragEvent, MouseEvent } from 'react';
+import {
+  Box,
+  Typography,
+  Collapse,
+  IconButton,
+  Chip,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+} from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import AddIcon from '@mui/icons-material/Add';
 
 export interface TopicNode {
   name: string;
@@ -24,15 +39,29 @@ export interface AdaptiveTest {
   label: string;
 }
 
+export interface TopicAction {
+  type: 'create' | 'rename' | 'delete';
+  topicPath: string;
+  topicNode?: TopicNode;
+}
+
+// Topic from API (simplified)
+export interface ApiTopic {
+  id: string;
+  name: string;
+}
+
 interface TopicTreeViewProps {
   tests: AdaptiveTest[];
+  topics?: ApiTopic[]; // Topics from API to show even if empty
   selectedTopic: string | null;
   onTopicSelect: (topicPath: string | null) => void;
   onTestDrop?: (testId: string, newTopicPath: string) => void;
+  onTopicAction?: (action: TopicAction) => void;
 }
 
-// Build tree structure from flat test list
-function buildTopicTree(tests: AdaptiveTest[]): TopicNode[] {
+// Build tree structure from flat test list and API topics
+function buildTopicTree(tests: AdaptiveTest[], apiTopics: ApiTopic[] = []): TopicNode[] {
   const rootNodes: Map<string, TopicNode> = new Map();
 
   // Helper to get or create a node at a path
@@ -81,6 +110,13 @@ function buildTopicTree(tests: AdaptiveTest[]): TopicNode[] {
     }
 
     return node!;
+  }
+
+  // First, add all API topics to ensure they appear even if empty
+  for (const apiTopic of apiTopics) {
+    if (apiTopic.name) {
+      getOrCreateNode(apiTopic.name, rootNodes);
+    }
   }
 
   // Process all tests
@@ -148,6 +184,7 @@ interface TopicTreeNodeProps {
   onTestDrop?: (testId: string, newTopicPath: string) => void;
   dragOverPath: string | null;
   onDragOverChange: (path: string | null) => void;
+  onTopicAction?: (action: TopicAction) => void;
 }
 
 function TopicTreeNode({
@@ -160,7 +197,11 @@ function TopicTreeNode({
   onTestDrop,
   dragOverPath,
   onDragOverChange,
+  onTopicAction,
 }: TopicTreeNodeProps) {
+  const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number } | null>(
+    null
+  );
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedPaths.has(node.path);
   const isSelected = selectedTopic === node.path;
@@ -173,6 +214,21 @@ function TopicTreeNode({
 
   const handleClick = () => {
     onTopicSelect(node.path);
+  };
+
+  const handleContextMenu = (e: MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ mouseX: e.clientX, mouseY: e.clientY });
+  };
+
+  const handleCloseContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  const handleMenuAction = (type: 'create' | 'rename' | 'delete') => {
+    handleCloseContextMenu();
+    onTopicAction?.({ type, topicPath: node.path, topicNode: node });
   };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -205,6 +261,7 @@ function TopicTreeNode({
     <Box>
       <Box
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -238,9 +295,9 @@ function TopicTreeNode({
           {hasChildren && (
             <IconButton size="small" onClick={handleToggle} sx={{ p: 0.5 }}>
               {isExpanded ? (
-                <ExpandMoreIcon fontSize="small" />
+                <ExpandMoreIcon fontSize="small" sx={{ color: 'text.secondary' }} />
               ) : (
-                <ChevronRightIcon fontSize="small" />
+                <ChevronRightIcon fontSize="small" sx={{ color: 'text.secondary' }} />
               )}
             </IconButton>
           )}
@@ -249,9 +306,9 @@ function TopicTreeNode({
         {/* Folder Icon */}
         <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
           {isExpanded ? (
-            <FolderOpenIcon fontSize="small" color="primary" />
+            <FolderOpenIcon fontSize="small" sx={{ color: 'text.secondary' }} />
           ) : (
-            <FolderIcon fontSize="small" color="action" />
+            <FolderIcon fontSize="small" sx={{ color: 'text.secondary' }} />
           )}
         </Box>
 
@@ -318,22 +375,57 @@ function TopicTreeNode({
                 onTestDrop={onTestDrop}
                 dragOverPath={dragOverPath}
                 onDragOverChange={onDragOverChange}
+                onTopicAction={onTopicAction}
               />
             ))}
           </Box>
         </Collapse>
       )}
+
+      {/* Context Menu */}
+      <Menu
+        open={contextMenu !== null}
+        onClose={handleCloseContextMenu}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu !== null
+            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+            : undefined
+        }
+      >
+        <MenuItem onClick={() => handleMenuAction('create')}>
+          <ListItemIcon>
+            <CreateNewFolderIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Create Subtopic</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => handleMenuAction('rename')}>
+          <ListItemIcon>
+            <EditIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Rename</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => handleMenuAction('delete')} sx={{ color: 'error.main' }}>
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          <ListItemText>Delete</ListItemText>
+        </MenuItem>
+      </Menu>
     </Box>
   );
 }
 
 export default function TopicTreeView({
   tests,
+  topics = [],
   selectedTopic,
   onTopicSelect,
   onTestDrop,
+  onTopicAction,
 }: TopicTreeViewProps) {
-  const topicTree = useMemo(() => buildTopicTree(tests), [tests]);
+  const topicTree = useMemo(() => buildTopicTree(tests, topics), [tests, topics]);
   const [dragOverPath, setDragOverPath] = useState<string | null>(null);
 
   // Start with all paths expanded
@@ -391,7 +483,7 @@ export default function TopicTreeView({
         }}
       >
         <Box sx={{ width: 28, flexShrink: 0 }} />
-        <FolderIcon fontSize="small" color="action" sx={{ mr: 1 }} />
+        <FolderIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
         <Typography
           variant="body2"
           sx={{ flex: 1, fontWeight: selectedTopic === null ? 600 : 400 }}
@@ -419,8 +511,38 @@ export default function TopicTreeView({
           onTestDrop={onTestDrop}
           dragOverPath={dragOverPath}
           onDragOverChange={setDragOverPath}
+          onTopicAction={onTopicAction}
         />
       ))}
+
+      {/* Create Topic Button - creates subtopic if topic is selected */}
+      {onTopicAction && (
+        <Box
+          onClick={() => onTopicAction({ type: 'create', topicPath: selectedTopic || '' })}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            py: 0.75,
+            px: 1,
+            mt: 1,
+            cursor: 'pointer',
+            borderRadius: 1,
+            border: '1px dashed',
+            borderColor: 'divider',
+            color: 'text.secondary',
+            '&:hover': {
+              backgroundColor: 'action.hover',
+              borderColor: 'primary.main',
+              color: 'primary.main',
+            },
+          }}
+        >
+          <AddIcon fontSize="small" sx={{ mr: 1, color: 'inherit' }} />
+          <Typography variant="body2">
+            {selectedTopic ? 'Create Subtopic' : 'Create Topic'}
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }
