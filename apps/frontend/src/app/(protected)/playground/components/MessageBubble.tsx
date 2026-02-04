@@ -29,7 +29,6 @@ export default function MessageBubble({
   onViewTrace,
 }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
 
   const isUser = message.role === 'user';
   const hasTrace = !isUser && message.traceId && !message.isError;
@@ -103,120 +102,119 @@ export default function MessageBubble({
         </Box>
 
         {/* Bubble */}
-        <Box
-          sx={{ position: 'relative' }}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
+        <Tooltip
+          title={hasTrace ? 'Click to view trace details' : ''}
+          placement="top"
+          disableHoverListener={!hasTrace}
         >
-          <Tooltip
-            title={hasTrace ? 'Click to view trace details' : ''}
-            placement="top"
-            disableHoverListener={!hasTrace}
+          <Paper
+            elevation={0}
+            onClick={
+              hasTrace && onViewTrace
+                ? () => onViewTrace(message.traceId!)
+                : undefined
+            }
+            sx={{
+              p: 2,
+              borderRadius: theme => theme.shape.borderRadius * 0.5,
+              bgcolor: isUser
+                ? 'primary.main'
+                : message.isError
+                  ? 'error.light'
+                  : 'action.hover',
+              color: isUser
+                ? 'primary.contrastText'
+                : message.isError
+                  ? 'error.contrastText'
+                  : 'text.primary',
+              borderTopRightRadius: isUser ? 0 : 2,
+              borderTopLeftRadius: isUser ? 2 : 0,
+              ...(hasTrace && {
+                cursor: 'pointer',
+                transition: theme =>
+                  theme.transitions.create(['background-color', 'box-shadow'], {
+                    duration: theme.transitions.duration.short,
+                  }),
+                '&:hover': {
+                  bgcolor: 'action.selected',
+                  boxShadow: 1,
+                },
+              }),
+            }}
           >
-            <Paper
-              elevation={0}
-              onClick={
-                hasTrace && onViewTrace
-                  ? () => onViewTrace(message.traceId!)
-                  : undefined
-              }
+            <Box
               sx={{
-                p: 2,
-                borderRadius: theme => theme.shape.borderRadius * 0.5,
-                bgcolor: isUser
-                  ? 'primary.main'
-                  : message.isError
-                    ? 'error.light'
-                    : 'action.hover',
-                color: isUser
-                  ? 'primary.contrastText'
-                  : message.isError
-                    ? 'error.contrastText'
-                    : 'text.primary',
-                borderTopRightRadius: isUser ? 0 : 2,
-                borderTopLeftRadius: isUser ? 2 : 0,
-                ...(hasTrace && {
-                  cursor: 'pointer',
-                  transition: theme =>
-                    theme.transitions.create(['background-color', 'box-shadow'], {
-                      duration: theme.transitions.duration.short,
-                    }),
-                  '&:hover': {
-                    bgcolor: 'action.selected',
-                    boxShadow: 1,
-                  },
-                }),
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 1,
               }}
             >
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                {isUser ? (
+                  // User messages: plain text with pre-wrap
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {message.content}
+                  </Typography>
+                ) : (
+                  // Assistant messages: render markdown with same variant as user text
+                  <MarkdownContent content={message.content} variant="body2" />
+                )}
+              </Box>
+
+              {/* Action icons */}
               <Box
                 sx={{
                   display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 1,
+                  alignItems: 'center',
+                  gap: 0.5,
+                  flexShrink: 0,
+                  ml: 1,
                 }}
               >
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  {isUser ? (
-                    // User messages: plain text with pre-wrap
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {message.content}
-                    </Typography>
-                  ) : (
-                    // Assistant messages: render markdown with same variant as user text
-                    <MarkdownContent content={message.content} variant="body2" />
-                  )}
-                </Box>
+                {/* Copy button */}
+                <Tooltip title={copied ? 'Copied!' : 'Copy message'}>
+                  <IconButton
+                    size="small"
+                    onClick={handleCopy}
+                    sx={{
+                      p: 0.5,
+                      color: isUser ? 'primary.contrastText' : 'action.active',
+                      opacity: 0.7,
+                      '&:hover': {
+                        opacity: 1,
+                        bgcolor: isUser ? 'primary.dark' : 'action.hover',
+                      },
+                    }}
+                  >
+                    {copied ? (
+                      <CheckIcon sx={{ fontSize: 16 }} />
+                    ) : (
+                      <ContentCopyIcon sx={{ fontSize: 16 }} />
+                    )}
+                  </IconButton>
+                </Tooltip>
+
                 {/* Trace Icon indicator (for assistant messages with traces) */}
                 {hasTrace && (
-                  <TimelineIcon
-                    fontSize="small"
-                    sx={{
-                      color: 'action.active',
-                      flexShrink: 0,
-                      mt: 0.25,
-                    }}
-                  />
+                  <Tooltip title="View trace">
+                    <TimelineIcon
+                      sx={{
+                        fontSize: 18,
+                        color: 'action.active',
+                      }}
+                    />
+                  </Tooltip>
                 )}
               </Box>
-            </Paper>
-          </Tooltip>
-
-          {/* Copy button - appears on hover */}
-          <Tooltip title={copied ? 'Copied!' : 'Copy message'}>
-            <IconButton
-              size="small"
-              onClick={handleCopy}
-              sx={{
-                position: 'absolute',
-                top: theme => theme.spacing(-1),
-                right: isUser ? 'auto' : theme => theme.spacing(-1),
-                left: isUser ? theme => theme.spacing(-1) : 'auto',
-                opacity: isHovered || copied ? 1 : 0,
-                transition: theme =>
-                  theme.transitions.create('opacity', {
-                    duration: theme.transitions.duration.short,
-                  }),
-                bgcolor: 'background.paper',
-                boxShadow: 1,
-                '&:hover': {
-                  bgcolor: 'action.hover',
-                },
-              }}
-            >
-              {copied ? (
-                <CheckIcon fontSize="small" color="success" />
-              ) : (
-                <ContentCopyIcon fontSize="small" />
-              )}
-            </IconButton>
-          </Tooltip>
-        </Box>
+            </Box>
+          </Paper>
+        </Tooltip>
       </Box>
 
       {/* Timestamp */}
