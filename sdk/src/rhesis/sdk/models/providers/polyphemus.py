@@ -12,7 +12,7 @@ from rhesis.sdk.models.utils import validate_llm_response
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_POLYPHEMUS_URL = "https://polyphemus.rhesis.ai"
+DEFAULT_POLYPHEMUS_URL = os.getenv("DEFAULT_POLYPHEMUS_URL") or "https://polyphemus.rhesis.ai"
 
 
 class PolyphemusLLM(BaseLLM):
