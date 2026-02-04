@@ -1,10 +1,12 @@
 """Test executor for remote function execution."""
 
 import asyncio
+import contextvars
 import inspect
 import logging
 import time
 from collections.abc import Callable
+from functools import partial
 from typing import Any
 
 from rhesis.sdk.connector.schemas import TestStatus
@@ -143,7 +145,16 @@ class TestExecutor:
                 if asyncio.iscoroutinefunction(func):
                     result = await func(**prepared_inputs)
                 else:
-                    result = func(**prepared_inputs)
+                    # Run sync functions in thread pool to avoid blocking the event loop
+                    # This is critical for long-running functions (e.g., LLM calls) so the
+                    # WebSocket can continue responding to pings during execution
+                    loop = asyncio.get_running_loop()
+                    # Copy context to the thread so contextvars (like test_execution_context)
+                    # are available in the function and its nested calls (e.g., tracer)
+                    ctx = contextvars.copy_context()
+                    result = await loop.run_in_executor(
+                        None, partial(ctx.run, func, **prepared_inputs)
+                    )
 
                 # Handle generators (consume and collect output)
                 result = await self._consume_generator(result)
