@@ -67,8 +67,10 @@ export interface WebSocketClientOptions {
   token: string;
   /** Base interval for reconnection attempts in ms (default: 1000) */
   reconnectInterval?: number;
-  /** Maximum number of reconnection attempts (default: 5) */
+  /** Maximum number of reconnection attempts (default: 10) */
   maxReconnectAttempts?: number;
+  /** Maximum delay between reconnection attempts in ms (default: 30000) */
+  maxReconnectDelay?: number;
   /** Interval between heartbeat pings in ms (default: 30000) */
   heartbeatInterval?: number;
   /** Callback when connection state changes */

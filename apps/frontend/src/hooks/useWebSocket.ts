@@ -37,6 +37,8 @@ interface UseWebSocketResult {
   subscribeToChannel: (channel: string) => void;
   /** Unsubscribe from a backend channel */
   unsubscribeFromChannel: (channel: string) => void;
+  /** Manually trigger a reconnection attempt */
+  reconnect: () => void;
 }
 
 /**
@@ -78,6 +80,7 @@ export function useWebSocket(
     subscribe,
     subscribeToChannel,
     unsubscribeFromChannel,
+    reconnect,
   } = useWebSocketContext();
 
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
@@ -159,5 +162,6 @@ export function useWebSocket(
     subscribe,
     subscribeToChannel,
     unsubscribeFromChannel,
+    reconnect,
   };
 }

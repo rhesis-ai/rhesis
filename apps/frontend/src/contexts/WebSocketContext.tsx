@@ -35,6 +35,8 @@ interface WebSocketContextValue {
   subscribeToChannel: (channel: string) => void;
   /** Unsubscribe from a backend channel */
   unsubscribeFromChannel: (channel: string) => void;
+  /** Manually trigger a reconnection attempt */
+  reconnect: () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
@@ -186,6 +188,37 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     clientRef.current.unsubscribeFromChannel(channel);
   }, []);
 
+  /**
+   * Manually trigger a reconnection attempt.
+   * Resets the reconnection counter and attempts to connect.
+   */
+  const reconnect = useCallback((): void => {
+    if (!clientRef.current) {
+      console.warn('WebSocket client not initialized');
+      return;
+    }
+    clientRef.current.reconnect();
+  }, []);
+
+  // Reconnect when page becomes visible (handles mobile/laptop sleep)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState === 'visible' &&
+        clientRef.current &&
+        !clientRef.current.isConnected
+      ) {
+        console.log('Page became visible, attempting WebSocket reconnection');
+        clientRef.current.reconnect();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   const value: WebSocketContextValue = {
     isConnected,
     connectionId,
@@ -193,6 +226,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
     subscribe,
     subscribeToChannel,
     unsubscribeFromChannel,
+    reconnect,
   };
 
   return (
