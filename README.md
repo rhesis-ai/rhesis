@@ -80,8 +80,8 @@ Use the collaborative platform for team-based testing: product managers define r
 
 Six integrated phases from project setup to team collaboration:
 
-| Phase     | What You Do |
-|-----------|-------------|
+| Phase | What You Do |
+|--------------------------------|-------------|
 | **[1. Projects](https://docs.rhesis.ai/platform/projects)** | Configure your AI application, upload & connect context sources (files, docs), set up SDK connectors |
 | **[2. Requirements](https://docs.rhesis.ai/platform/behaviors)** | Define expected behaviors (what your app should and shouldn't do), cover all relevant aspects from product, marketing, customer support, legal and compliance teams |
 | **[3. Metrics](https://docs.rhesis.ai/platform/metrics)** | Select from 60+ pre-built metrics or create custom LLM-as-Judge evaluations to assess whether your requirements are met |
