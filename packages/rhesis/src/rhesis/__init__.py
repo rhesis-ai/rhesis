@@ -1,11 +1,11 @@
 # Rhesis - Testing and validation platform for LLM applications
 #
-# This is the umbrella package for Rhesis. It automatically includes rhesis-sdk.
+# This package is an alias for rhesis-sdk.
+# Installing 'rhesis' is equivalent to installing 'rhesis-sdk' at the same version.
 #
 # Usage:
-#   pip install rhesis           # Core SDK
-#   pip install rhesis[penelope] # Multi-turn testing agent
-#   pip install rhesis[all]      # Everything
+#   pip install rhesis
+#   from rhesis.sdk import RhesisClient
 #
 # Documentation: https://docs.rhesis.ai
 

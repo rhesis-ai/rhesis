@@ -1,7 +1,7 @@
 [project]
 name = "rhesis"
-dynamic = ["version", "dependencies", "optional-dependencies"]
-description = "Rhesis - Testing and validation platform for LLM applications"
+dynamic = ["version", "dependencies"]
+description = "Rhesis - Testing and validation platform for LLM applications (alias for rhesis-sdk)"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -44,8 +44,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "../../VERSION"
-pattern = "^(?P<version>.+)$"
+path = "../../sdk/pyproject.toml"
+pattern = '''version\s*=\s*["'](?P<version>[^"']+)["']'''
 
 [tool.hatch.metadata.hooks.custom]
 path = "hatch_build.py"
