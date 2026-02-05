@@ -6,22 +6,72 @@ Rhesis helps you build reliable AI applications through comprehensive testing, v
 
 ## Installation
 
+### Basic Installation
+
 ```bash
 pip install rhesis
 ```
 
-This installs the full Rhesis SDK. For additional features:
+This installs the core Rhesis SDK with all essential features for testing and validating LLM applications.
+
+### Optional Dependencies
+
+Rhesis supports optional extras for specific use cases. Install them using the bracket syntax:
 
 ```bash
-# Multi-turn testing agent
-pip install rhesis[penelope]
+pip install rhesis[extra_name]
+```
 
-# Framework integrations
+#### Multi-Turn Testing
+
+For conversational AI testing with Penelope (multi-turn testing agent):
+
+```bash
+pip install rhesis[penelope]
+```
+
+#### Framework Integrations
+
+Install integrations for your preferred LLM framework:
+
+```bash
+# LangChain support
 pip install rhesis[langchain]
+
+# LangGraph support (includes LangChain)
 pip install rhesis[langgraph]
 
-# Everything
+# AutoGen support
+pip install rhesis[autogen]
+```
+
+#### Advanced Features
+
+```bash
+# HuggingFace models for local inference
+pip install rhesis[huggingface]
+
+# Garak vulnerability scanner for security testing
+pip install rhesis[garak]
+```
+
+#### Bundle Options
+
+```bash
+# All framework integrations + Penelope
+pip install rhesis[all-integrations]
+
+# Everything (all integrations + HuggingFace models)
 pip install rhesis[all]
+```
+
+#### Combining Extras
+
+You can combine multiple extras:
+
+```bash
+pip install rhesis[penelope,langchain]
+pip install rhesis[langgraph,garak]
 ```
 
 ## Quick Start
@@ -48,18 +98,18 @@ The Rhesis ecosystem includes:
 | `rhesis-sdk` | Core SDK for testing and validation |
 | `rhesis-penelope` | Multi-turn testing agent |
 
-## Optional Extras
+## Optional Extras Reference
 
-| Extra | Description |
-|-------|-------------|
-| `penelope` | Multi-turn conversational testing agent |
-| `langchain` | LangChain integration |
-| `langgraph` | LangGraph integration |
-| `autogen` | AutoGen integration |
-| `huggingface` | HuggingFace models support |
-| `garak` | Garak vulnerability scanner |
-| `all-integrations` | All framework integrations + Penelope |
-| `all` | Everything including HuggingFace models |
+| Extra | Description | Use Case |
+|-------|-------------|----------|
+| `penelope` | Multi-turn conversational testing agent | Testing chatbots and conversational AI |
+| `langchain` | LangChain integration | Auto-instrumentation for LangChain apps |
+| `langgraph` | LangGraph integration | Auto-instrumentation for LangGraph agents |
+| `autogen` | AutoGen integration | Auto-instrumentation for AutoGen agents |
+| `huggingface` | HuggingFace models support | Local model inference without API calls |
+| `garak` | Garak vulnerability scanner | Security and adversarial testing |
+| `all-integrations` | All framework integrations + Penelope | Full integration support |
+| `all` | Everything | Complete installation with all features |
 
 ## Links
 
