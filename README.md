@@ -55,7 +55,7 @@ Generate tests from requirements, simulate conversation flows, detect adversaria
 
 ## Quick Start
 
-**Option 1: Cloud (fastest)** - [app.rhesis.ai](https://app.rhesis.ai) - Free tier, no setup
+**Option 1: Cloud (fastest)** - [app.rhesis.ai](https://app.rhesis.ai) - Managed service, just connect your app
 
 **Option 2: Self-host with Docker**
 ```bash
@@ -81,13 +81,13 @@ Use the collaborative platform for team-based testing: product managers define r
 Six integrated phases from project setup to team collaboration:
 
 | Phase | What You Do |
-|-------|-------------|
-| **1. Projects** | Configure your AI application, upload & connect context sources (files, docs), set up SDK connectors |
-| **2. Requirements** | Define expected behaviors (what your app should and shouldn't do), cover all relevant aspects from product, marketing, customer support, legal and compliance teams |
-| **3. Metrics** | Select from 60+ pre-built metrics or create custom LLM-as-Judge evaluations to assess whether your requirements are met |
-| **4. Tests** | Generate single-turn and conversation simulation test scenarios. Organize in test sets and understand your test coverage |
-| **5. Execution** | Run tests via UI, SDK, or API; integrate into CI/CD pipelines; collect traces during execution |
-| **6. Collaboration** | Review results with your team through comments, tasks, workflows, and side-by-side comparisons |
+|-----------|-------------|
+| **[1. Projects](https://docs.rhesis.ai/platform/projects)** | Configure your AI application, upload & connect context sources (files, docs), set up SDK connectors |
+| **[2. Requirements](https://docs.rhesis.ai/platform/behaviors)** | Define expected behaviors (what your app should and shouldn't do), cover all relevant aspects from product, marketing, customer support, legal and compliance teams |
+| **[3. Metrics](https://docs.rhesis.ai/platform/metrics)** | Select from 60+ pre-built metrics or create custom LLM-as-Judge evaluations to assess whether your requirements are met |
+| **[4. Tests](https://docs.rhesis.ai/platform/tests)** | Generate single-turn and conversation simulation test scenarios. Organize in test sets and understand your test coverage |
+| **[5. Execution](https://docs.rhesis.ai/platform/test-execution)** | Run tests via UI, SDK, or API; integrate into CI/CD pipelines; collect traces during execution |
+| **[6. Collaboration](https://docs.rhesis.ai/platform/test-runs)** | Review results with your team through comments, tasks, workflows, and side-by-side comparisons |
 
 ### Rhesis vs...
 
