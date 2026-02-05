@@ -104,15 +104,11 @@ export default function AdaptiveTestsExplorer({
 
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
-        const topicClient = clientFactory.getTopicClient();
-        const testsClient = clientFactory.getTestsClient();
+        const adaptiveTestingClient = clientFactory.getAdaptiveTestingClient();
 
-        // First, get or create the topic by name
-        const topic = await topicClient.getOrCreateTopic(newTopicPath, 'Test');
-
-        // Then update the test with the new topic_id
-        await testsClient.updateTest(testId, {
-          topic_id: topic.id,
+        // Update the test's topic using the adaptive testing endpoint
+        await adaptiveTestingClient.updateTest(testSetId, testId, {
+          topic: newTopicPath,
         });
 
         // Update local state
@@ -136,7 +132,7 @@ export default function AdaptiveTestsExplorer({
         setIsUpdating(false);
       }
     },
-    [sessionToken, tests]
+    [sessionToken, tests, testSetId]
   );
 
   const handleCloseSnackbar = () => {
@@ -154,22 +150,19 @@ export default function AdaptiveTestsExplorer({
 
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
-        const testsClient = clientFactory.getTestsClient();
-        const topicClient = clientFactory.getTopicClient();
+        const adaptiveTestingClient = clientFactory.getAdaptiveTestingClient();
 
         if (testData.id && dialogMode === 'edit') {
-          // Update existing test
-          // First get or create the topic
-          const topic = await topicClient.getOrCreateTopic(testData.topic, 'Test');
-
-          // Update the test - we need to update the prompt content separately
-          // For now, update the topic and metadata
-          await testsClient.updateTest(testData.id, {
-            topic_id: topic.id,
-            test_metadata: {
-              output: testData.output || undefined,
-            },
-          });
+          // Update existing test using adaptive testing endpoint
+          const updatedTest = await adaptiveTestingClient.updateTest(
+            testSetId,
+            testData.id,
+            {
+              topic: testData.topic,
+              input: testData.input,
+              output: testData.output || '[no output]',
+            }
+          );
 
           // Update local state
           setTests(prevTests =>
@@ -177,9 +170,9 @@ export default function AdaptiveTestsExplorer({
               t.id === testData.id
                 ? {
                     ...t,
-                    input: testData.input,
-                    output: testData.output || '[no output]',
-                    topic: testData.topic,
+                    input: updatedTest.input,
+                    output: updatedTest.output,
+                    topic: updatedTest.topic,
                   }
                 : t
             )
@@ -191,42 +184,29 @@ export default function AdaptiveTestsExplorer({
             severity: 'success',
           });
         } else {
-          // Create new test using bulk create endpoint
-          const response = await testsClient.createTestsBulk({
-            tests: [
-              {
-                prompt: {
-                  content: testData.input,
-                  expected_response: testData.output || undefined,
-                },
-                topic: testData.topic,
-                behavior: 'General',
-                category: 'General',
-              },
-            ],
-            test_set_id: testSetId as `${string}-${string}-${string}-${string}-${string}`,
+          // Create new test using adaptive testing endpoint
+          const createdTest = await adaptiveTestingClient.createTest(testSetId, {
+            topic: testData.topic,
+            input: testData.input,
+            output: testData.output || '[no output]',
           });
 
-          if (response.success) {
-            const newTest: AdaptiveTest = {
-              id: `temp-${Date.now()}` as `${string}-${string}-${string}-${string}-${string}`,
-              input: testData.input,
-              output: testData.output || '[no output]',
-              score: null,
-              topic: testData.topic,
-              label: '',
-            };
+          const newTest: AdaptiveTest = {
+            id: createdTest.id as `${string}-${string}-${string}-${string}-${string}`,
+            input: createdTest.input,
+            output: createdTest.output,
+            score: createdTest.model_score || null,
+            topic: createdTest.topic,
+            label: createdTest.label,
+          };
 
-            setTests(prevTests => [...prevTests, newTest]);
+          setTests(prevTests => [...prevTests, newTest]);
 
-            setSnackbar({
-              open: true,
-              message: 'Test added successfully',
-              severity: 'success',
-            });
-          } else {
-            throw new Error(response.message || 'Failed to create test');
-          }
+          setSnackbar({
+            open: true,
+            message: 'Test added successfully',
+            severity: 'success',
+          });
         }
       } catch (error) {
         console.error('Failed to save test:', error);
@@ -271,9 +251,9 @@ export default function AdaptiveTestsExplorer({
 
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const testsClient = clientFactory.getTestsClient();
+      const adaptiveTestingClient = clientFactory.getAdaptiveTestingClient();
 
-      await testsClient.deleteTest(testToDelete.id);
+      await adaptiveTestingClient.deleteTest(testSetId, testToDelete.id);
 
       setTests(prevTests => prevTests.filter(t => t.id !== testToDelete.id));
 
@@ -294,7 +274,7 @@ export default function AdaptiveTestsExplorer({
       setDeleteConfirmOpen(false);
       setTestToDelete(null);
     }
-  }, [testToDelete, sessionToken]);
+  }, [testToDelete, sessionToken, testSetId]);
 
   // Handle topic action from context menu
   const handleTopicAction = useCallback((action: TopicAction) => {
@@ -333,20 +313,22 @@ export default function AdaptiveTestsExplorer({
 
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
-        const topicClient = clientFactory.getTopicClient();
+        const adaptiveTestingClient = clientFactory.getAdaptiveTestingClient();
 
         if (topicDialogMode === 'create') {
-          // Create new topic
+          // Create new topic using adaptive testing endpoint
           const newTopicPath = data.parentPath
             ? `${data.parentPath}/${encodeURIComponent(data.name)}`
             : encodeURIComponent(data.name);
 
-          const createdTopic = await topicClient.getOrCreateTopic(newTopicPath, 'Test');
+          const createdTopic = await adaptiveTestingClient.createTopic(testSetId, {
+            path: newTopicPath,
+          });
 
           // Add the new topic to local state so it shows even without tests
           setTopics(prevTopics => [
             ...prevTopics,
-            { id: createdTopic.id, name: newTopicPath },
+            { id: createdTopic.path, name: newTopicPath },
           ]);
 
           setSnackbar({
@@ -355,7 +337,7 @@ export default function AdaptiveTestsExplorer({
             severity: 'success',
           });
         } else if (topicDialogMode === 'rename' && topicToRename) {
-          // Rename topic - update all tests with the old topic path
+          // Rename topic using adaptive testing endpoint
           const oldPath = topicToRename;
           const parentPath = oldPath.includes('/')
             ? oldPath.substring(0, oldPath.lastIndexOf('/'))
@@ -364,56 +346,22 @@ export default function AdaptiveTestsExplorer({
             ? `${parentPath}/${encodeURIComponent(data.name)}`
             : encodeURIComponent(data.name);
 
-          // Update all tests that have this topic or are under this topic
-          const testsToUpdate = tests.filter(t => {
-            const topic = typeof t.topic === 'string' ? t.topic : '';
-            return topic === oldPath || topic.startsWith(oldPath + '/');
+          // Use the backend to rename - it handles all tests under this topic
+          await adaptiveTestingClient.updateTopic(testSetId, oldPath, {
+            new_name: encodeURIComponent(data.name),
           });
 
-          const testsClient = clientFactory.getTestsClient();
-          const deletedTestIds: string[] = [];
-
-          for (const test of testsToUpdate) {
-            const testTopic = typeof test.topic === 'string' ? test.topic : '';
-            const updatedTopic = testTopic === oldPath
-              ? newPath
-              : newPath + testTopic.substring(oldPath.length);
-
-            try {
-              // Get or create the new topic
-              const topic = await topicClient.getOrCreateTopic(updatedTopic, 'Test');
-
-              await testsClient.updateTest(test.id, {
-                topic_id: topic.id,
-              });
-            } catch (updateError) {
-              // Handle 410 Gone (test was deleted) - skip and remove from local state
-              if (
-                updateError instanceof Error &&
-                (updateError.message.includes('410') ||
-                  updateError.message.includes('deleted'))
-              ) {
-                console.warn(`Test ${test.id} was deleted, removing from local state`);
-                deletedTestIds.push(test.id);
-              } else {
-                throw updateError;
-              }
-            }
-          }
-
-          // Update local state - remove deleted tests and update renamed ones
+          // Update local state - the backend already updated all tests
           setTests(prevTests =>
-            prevTests
-              .filter(t => !deletedTestIds.includes(t.id))
-              .map(t => {
-                const topic = typeof t.topic === 'string' ? t.topic : '';
-                if (topic === oldPath) {
-                  return { ...t, topic: newPath };
-                } else if (topic.startsWith(oldPath + '/')) {
-                  return { ...t, topic: newPath + topic.substring(oldPath.length) };
-                }
-                return t;
-              })
+            prevTests.map(t => {
+              const topic = typeof t.topic === 'string' ? t.topic : '';
+              if (topic === oldPath) {
+                return { ...t, topic: newPath };
+              } else if (topic.startsWith(oldPath + '/')) {
+                return { ...t, topic: newPath + topic.substring(oldPath.length) };
+              }
+              return t;
+            })
           );
 
           // Update selected topic if it was the renamed one
@@ -423,13 +371,9 @@ export default function AdaptiveTestsExplorer({
             setSelectedTopic(newPath + selectedTopic.substring(oldPath.length));
           }
 
-          const message = deletedTestIds.length > 0
-            ? `Topic renamed to "${data.name}" (${deletedTestIds.length} deleted test(s) removed)`
-            : `Topic renamed to "${data.name}"`;
-
           setSnackbar({
             open: true,
-            message,
+            message: `Topic renamed to "${data.name}"`,
             severity: 'success',
           });
         }
@@ -447,7 +391,7 @@ export default function AdaptiveTestsExplorer({
         setIsSubmitting(false);
       }
     },
-    [sessionToken, topicDialogMode, topicToRename, tests, selectedTopic]
+    [sessionToken, testSetId, topicDialogMode, topicToRename, selectedTopic]
   );
 
   // Handle topic delete
@@ -458,73 +402,29 @@ export default function AdaptiveTestsExplorer({
 
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
-      const topicClient = clientFactory.getTopicClient();
-      const testsClient = clientFactory.getTestsClient();
+      const adaptiveTestingClient = clientFactory.getAdaptiveTestingClient();
 
       const deletedPath = topicToDelete.path;
       const parentPath = deletedPath.includes('/')
         ? deletedPath.substring(0, deletedPath.lastIndexOf('/'))
         : '';
 
-      // Find all tests that need to be moved
-      const testsToMove = tests.filter(t => {
-        const topic = typeof t.topic === 'string' ? t.topic : '';
-        return topic === deletedPath || topic.startsWith(deletedPath + '/');
-      });
+      // Delete topic using adaptive testing endpoint
+      // The backend handles moving tests to parent topic
+      await adaptiveTestingClient.deleteTopic(testSetId, deletedPath, true);
 
-      const deletedTestIds: string[] = [];
-
-      // Move tests to parent topic (or root if no parent)
-      for (const test of testsToMove) {
-        const testTopic = typeof test.topic === 'string' ? test.topic : '';
-
-        let newTopic: string;
-        if (testTopic === deletedPath) {
-          // Direct children go to parent
-          newTopic = parentPath;
-        } else {
-          // Nested children: replace the deleted segment
-          const suffix = testTopic.substring(deletedPath.length + 1);
-          newTopic = parentPath ? `${parentPath}/${suffix}` : suffix;
-        }
-
-        try {
-          if (newTopic) {
-            const topic = await topicClient.getOrCreateTopic(newTopic, 'Test');
-            await testsClient.updateTest(test.id, { topic_id: topic.id });
-          } else {
-            // Moving to root - set topic_id to null
-            await testsClient.updateTest(test.id, { topic_id: undefined });
-          }
-        } catch (updateError) {
-          // Handle 410 Gone (test was deleted) - skip and remove from local state
-          if (
-            updateError instanceof Error &&
-            (updateError.message.includes('410') ||
-              updateError.message.includes('deleted'))
-          ) {
-            console.warn(`Test ${test.id} was deleted, removing from local state`);
-            deletedTestIds.push(test.id);
-          } else {
-            throw updateError;
-          }
-        }
-      }
-
-      // Update local state - remove deleted tests and update moved ones
+      // Update local state - the backend already moved all tests
       setTests(prevTests =>
-        prevTests
-          .filter(t => !deletedTestIds.includes(t.id))
-          .map(t => {
-            const topic = typeof t.topic === 'string' ? t.topic : '';
-            if (topic === deletedPath) {
-              return { ...t, topic: parentPath };
-            } else if (topic.startsWith(deletedPath + '/')) {
-              const suffix = topic.substring(deletedPath.length + 1);
-              return { ...t, topic: parentPath ? `${parentPath}/${suffix}` : suffix };
-            }
-            return t;
-          })
+        prevTests.map(t => {
+          const topic = typeof t.topic === 'string' ? t.topic : '';
+          if (topic === deletedPath) {
+            return { ...t, topic: parentPath };
+          } else if (topic.startsWith(deletedPath + '/')) {
+            const suffix = topic.substring(deletedPath.length + 1);
+            return { ...t, topic: parentPath ? `${parentPath}/${suffix}` : suffix };
+          }
+          return t;
+        })
       );
 
       // Update selected topic if it was deleted
@@ -551,7 +451,7 @@ export default function AdaptiveTestsExplorer({
       setDeleteTopicDialogOpen(false);
       setTopicToDelete(null);
     }
-  }, [topicToDelete, sessionToken, tests, selectedTopic]);
+  }, [topicToDelete, sessionToken, testSetId, selectedTopic]);
 
   // Calculate stats for delete dialog
   const getTopicStats = useCallback(
