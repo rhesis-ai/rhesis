@@ -1,6 +1,6 @@
 [project]
 name = "rhesis"
-version = "0.1.0"
+dynamic = ["version", "dependencies", "optional-dependencies"]
 description = "Rhesis - Testing and validation platform for LLM applications"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,7 +27,8 @@ classifiers = [
     "Topic :: Software Development :: Testing",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = []
+# Dependencies are set dynamically by hatch_build.py
+# See VERSION_SOURCES in hatch_build.py for version mappings
 
 [project.license]
 text = "MIT"
@@ -41,6 +42,13 @@ Documentation = "https://docs.rhesis.ai"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "../../VERSION"
+pattern = "^(?P<version>.+)$"
+
+[tool.hatch.metadata.hooks.custom]
+path = "hatch_build.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rhesis"]

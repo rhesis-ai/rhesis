@@ -10,16 +10,23 @@ Rhesis helps you build reliable AI applications through comprehensive testing, v
 pip install rhesis
 ```
 
-For the full SDK with all testing and validation features:
+This installs the full Rhesis SDK. For additional features:
 
 ```bash
-pip install rhesis-sdk
+# Multi-turn testing agent
+pip install rhesis[penelope]
+
+# Framework integrations
+pip install rhesis[langchain]
+pip install rhesis[langgraph]
+
+# Everything
+pip install rhesis[all]
 ```
 
 ## Quick Start
 
 ```python
-# After installing rhesis-sdk
 from rhesis.sdk import RhesisClient
 
 client = RhesisClient()
@@ -37,8 +44,22 @@ The Rhesis ecosystem includes:
 
 | Package | Description |
 |---------|-------------|
-| `rhesis` | Base package (this package) |
-| `rhesis-sdk` | Full SDK for testing and validation |
+| `rhesis` | Umbrella package (this package) - installs rhesis-sdk |
+| `rhesis-sdk` | Core SDK for testing and validation |
+| `rhesis-penelope` | Multi-turn testing agent |
+
+## Optional Extras
+
+| Extra | Description |
+|-------|-------------|
+| `penelope` | Multi-turn conversational testing agent |
+| `langchain` | LangChain integration |
+| `langgraph` | LangGraph integration |
+| `autogen` | AutoGen integration |
+| `huggingface` | HuggingFace models support |
+| `garak` | Garak vulnerability scanner |
+| `all-integrations` | All framework integrations + Penelope |
+| `all` | Everything including HuggingFace models |
 
 ## Links
 
