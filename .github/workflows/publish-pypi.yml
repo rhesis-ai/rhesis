@@ -1,9 +1,15 @@
 name: Publish to PyPI
 
+# Trigger logic:
+# - sdk-v* tags: publish SDK only
+# - v* tags (platform): publish SDK first, then rhesis umbrella package
+# - workflow_dispatch: manual control over what to publish
+
 on:
   push:
     tags:
-      - 'v*'  # Trigger on version tags (e.g., v0.6.4)
+      - 'v*'      # Platform version tags (e.g., v0.6.4)
+      - 'sdk-v*'  # SDK-only version tags (e.g., sdk-v0.6.4)
   workflow_dispatch:
     inputs:
       publish_sdk:
@@ -18,7 +24,11 @@ on:
 
 jobs:
   publish-sdk:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_sdk }}
+    # Publish SDK on: sdk-v* tags, v* tags, workflow_dispatch (if selected), workflow_call
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_call' ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_sdk)
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -47,7 +57,12 @@ jobs:
         packages-dir: ./sdk/dist/
 
   publish-rhesis:
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_rhesis }}
+    # Publish rhesis umbrella on: v* tags only (NOT sdk-v*), workflow_dispatch (if selected), workflow_call
+    # Skip for sdk-v* tags since those are SDK-only releases
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      github.event_name == 'workflow_call' ||
+      (github.event_name == 'workflow_dispatch' && inputs.publish_rhesis)
     needs: publish-sdk
     runs-on: ubuntu-latest
     environment:
