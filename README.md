@@ -76,7 +76,7 @@ pip install rhesis-sdk
 
 Use the collaborative platform for team-based testing: product managers define requirements, domain experts review results, engineers integrate via CI/CD. Or integrate directly with the Python SDK for code-first workflows.
 
-### The Testing Lifecycle
+### The testing lifecycle
 
 Six integrated phases from project setup to team collaboration:
 
@@ -100,21 +100,21 @@ Six integrated phases from project setup to team collaboration:
 
 ---
 
-## Core Features
+## Core features
 
-### Test Generation
+### Test generation
 
 **AI-Powered Synthesis** - Describe requirements in plain language. Rhesis generates hundreds of test scenarios including edge cases and adversarial prompts.
 
 **Knowledge-Aware** - Connect context sources via file upload or MCP (Notion, GitHub, Jira, Confluence) for better test generation.
 
-### Single-Turn & Conversation Simulation
+### Single-turn & conversation simulation
 
 **Single-turn** for Q&A validation. **Conversation simulation** for dialogue flows.
 
 **Penelope Agent** simulates realistic conversations to test context retention, role adherence, and dialogue coherence across extended interactions.
 
-### Adversarial Testing (Red-Teaming)
+### Adversarial testing (red-teaming)
 
 **Polyphemus Agent** proactively finds vulnerabilities:
 
@@ -125,7 +125,7 @@ Six integrated phases from project setup to team collaboration:
 
 **Garak Integration** - Built-in support for [garak](https://github.com/leondz/garak), the LLM vulnerability scanner, for comprehensive security testing.
 
-### 60+ Pre-Built Metrics
+### 60+ pre-built metrics
 
 | Framework | Example Metrics |
 |-----------|-----------------|
@@ -136,7 +136,7 @@ Six integrated phases from project setup to team collaboration:
 
 All metrics include LLM-as-Judge reasoning explanations.
 
-### Traces & Observability
+### Traces & observability
 
 Monitor your LLM applications with OpenTelemetry-based tracing:
 
@@ -151,7 +151,7 @@ def generate_response(prompt: str) -> str:
 
 Track LLM calls, latency, token usage, and link traces to test results for debugging.
 
-### Bring Your Own Model
+### Bring your own model
 
 Use any LLM provider for test generation and evaluation:
 
@@ -163,7 +163,7 @@ See [Model Configuration Docs](https://docs.rhesis.ai/sdk/models) for setup inst
 
 ---
 
-## What You Can Test
+## What you can test
 
 | Use Case | What Rhesis Tests |
 |----------|-------------------|
@@ -174,7 +174,7 @@ See [Model Configuration Docs](https://docs.rhesis.ai/sdk/models) for setup inst
 
 ---
 
-## SDK: Code-First Testing
+## SDK: Code-first testing
 
 Test your Python functions directly with the `@endpoint` decorator:
 
@@ -202,7 +202,7 @@ test_set = synthesizer.generate(num_tests=10)
 
 ---
 
-## Deployment Options
+## Deployment options
 
 | Option | Best For | Setup Time |
 |--------|----------|------------|
@@ -210,7 +210,7 @@ test_set = synthesizer.generate(num_tests=10)
 | **Docker** | Local development and testing | 5 minutes |
 | **Kubernetes** | Production self-hosting | [See docs](https://docs.rhesis.ai/getting-started/self-hosting) |
 
-### Docker Quick Start
+### Docker quick start
 
 ```bash
 git clone https://github.com/rhesis-ai/rhesis.git
@@ -226,7 +226,7 @@ cd rhesis
 
 ---
 
-## Open Source
+## Open source
 
 [MIT licensed](LICENSE). No plans to relicense core features. Enterprise version will live in `ee/` folders and remain separate.
 
@@ -250,7 +250,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
-## Security & Privacy
+## Security & privacy
 
 We take data security seriously. See our [Privacy Policy](https://rhesis.ai/privacy-policy) for details.
 
