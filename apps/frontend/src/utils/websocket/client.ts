@@ -22,7 +22,8 @@ import {
  */
 const DEFAULTS = {
   reconnectInterval: 1000,
-  maxReconnectAttempts: 5,
+  maxReconnectAttempts: 10,
+  maxReconnectDelay: 30000, // Cap backoff at 30 seconds
   heartbeatInterval: 30000,
 } as const;
 
@@ -87,6 +88,8 @@ export class WebSocketClient {
         options.reconnectInterval ?? DEFAULTS.reconnectInterval,
       maxReconnectAttempts:
         options.maxReconnectAttempts ?? DEFAULTS.maxReconnectAttempts,
+      maxReconnectDelay:
+        options.maxReconnectDelay ?? DEFAULTS.maxReconnectDelay,
       heartbeatInterval:
         options.heartbeatInterval ?? DEFAULTS.heartbeatInterval,
       onConnectionChange: options.onConnectionChange ?? (() => {}),
@@ -338,10 +341,11 @@ export class WebSocketClient {
       return;
     }
 
-    // Calculate delay with exponential backoff
-    const delay =
+    // Calculate delay with exponential backoff, capped at maxReconnectDelay
+    const calculatedDelay =
       this.options.reconnectInterval *
       Math.pow(2, this.state.reconnectAttempts);
+    const delay = Math.min(calculatedDelay, this.options.maxReconnectDelay);
     this.state.reconnectAttempts++;
 
     console.log(
@@ -351,6 +355,26 @@ export class WebSocketClient {
     this.reconnectTimer = setTimeout(() => {
       this.connect();
     }, delay);
+  }
+
+  /**
+   * Manually trigger a reconnection attempt.
+   *
+   * This resets the reconnection counter and attempts to connect.
+   * Useful after max reconnect attempts have been exhausted.
+   */
+  reconnect(): void {
+    this.clearReconnectTimer();
+    this.state.reconnectAttempts = 0;
+    this.intentionalDisconnect = false;
+
+    // Close existing connection if any
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+
+    this.connect();
   }
 
   /**

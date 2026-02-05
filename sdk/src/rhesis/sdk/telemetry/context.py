@@ -15,6 +15,10 @@ _test_execution_context: ContextVar[Optional[TestExecutionContext]] = ContextVar
 # This prevents duplicate spans when using both @observe.llm() and auto-instrumentation
 _llm_observation_active: ContextVar[bool] = ContextVar("llm_observation_active", default=False)
 
+# Context variable to store the root trace_id for the current execution
+# This allows the executor to include trace_id in results for frontend linking
+_root_trace_id: ContextVar[Optional[str]] = ContextVar("root_trace_id", default=None)
+
 
 def set_test_execution_context(context: Optional[TestExecutionContext]) -> None:
     """
@@ -59,3 +63,25 @@ def is_llm_observation_active() -> bool:
     allowing auto-instrumentation callbacks to skip duplicate span creation.
     """
     return _llm_observation_active.get()
+
+
+def set_root_trace_id(trace_id: Optional[str]) -> None:
+    """
+    Set the root trace_id for the current execution.
+
+    This is called by the tracer when starting the root span for @endpoint functions.
+    The executor reads this to include trace_id in results.
+
+    Args:
+        trace_id: The 32-char hex trace ID, or None to clear
+    """
+    _root_trace_id.set(trace_id)
+
+
+def get_root_trace_id() -> Optional[str]:
+    """
+    Get the root trace_id for the current execution.
+
+    Returns None if not in a traced execution context.
+    """
+    return _root_trace_id.get()

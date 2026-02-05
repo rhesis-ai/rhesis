@@ -30,6 +30,7 @@ import {
   CodeIcon,
   FeedbackIcon,
   TimelineIcon,
+  ChatIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -155,6 +156,12 @@ async function getNavigationItems(
       segment: 'generation',
       title: 'Generation',
       icon: <BoltIcon />,
+    },
+    {
+      kind: 'page',
+      segment: 'playground',
+      title: 'Playground',
+      icon: <ChatIcon />,
     },
     {
       kind: 'page',

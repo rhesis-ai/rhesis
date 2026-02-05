@@ -176,6 +176,7 @@ def mock_client(monkeypatch):
     """Create a mock RhesisClient for testing."""
     client = MagicMock(spec=RhesisClient)
     client._connector_manager = None
+    client.is_disabled = False  # Ensure client is not disabled
     client._tracer = MagicMock()
     client._tracer.trace_execution = lambda name, func, args, kwargs, span: func(*args, **kwargs)
     client._tracer.trace_execution_async = lambda name, func, args, kwargs, span: func(
@@ -405,37 +406,33 @@ def test_bind_with_permission_denied(mock_client):
 
 
 def test_bind_with_resource_cleanup_on_exception(mock_client):
-    """Test that resources are properly cleaned up even on exceptions."""
+    """Test that resources are properly cleaned up even on exceptions.
+
+    Uses a generator pattern for bind, which the decorator handles automatically.
+    The generator's finally block runs on cleanup, tracking that cleanup occurred.
+    """
     cleanup_called = []
 
     def get_db_with_cleanup():
-        """Get DB session and track cleanup."""
+        """Generator that yields DB session and tracks cleanup via finally block."""
         session = get_db_session()
-
-        class SessionWithCleanup:
-            def __getattr__(self, name):
-                return getattr(session, name)
-
-            def close(self):
-                cleanup_called.append(True)
-                return session.close()
-
-        return SessionWithCleanup()
+        try:
+            yield session
+        finally:
+            cleanup_called.append(True)
+            session.close()
 
     @endpoint(bind={"db": get_db_with_cleanup})
     def failing_operation(db, input: str) -> dict:
         """Operation that fails after using resources."""
-        try:
-            # Use the database
-            _ = db.query("Data").all()
+        # Use the database
+        _ = db.query("Data").all()
 
-            # Then fail
-            if input == "fail":
-                raise RuntimeError("Operation failed")
+        # Then fail
+        if input == "fail":
+            raise RuntimeError("Operation failed")
 
-            return {"output": "success"}
-        finally:
-            db.close()
+        return {"output": "success"}
 
     # Successful case
     result = failing_operation(input="success")

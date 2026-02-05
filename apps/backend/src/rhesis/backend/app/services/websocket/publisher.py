@@ -172,7 +172,10 @@ def get_publisher() -> EventPublisher:
     """
     global _publisher
     if _publisher is None:
-        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        # Check BROKER_URL first for consistency with other Redis consumers, then REDIS_URL
+        redis_url = os.environ.get("BROKER_URL") or os.environ.get(
+            "REDIS_URL", "redis://localhost:6379/0"
+        )
         _publisher = EventPublisher(redis_url)
     return _publisher
 

@@ -1,5 +1,5 @@
 """Conversation tracking utilities for multi-turn conversations."""
 
-from .tracker import ConversationTracker
+from .tracker import CONVERSATION_FIELD_NAMES, ConversationTracker
 
-__all__ = ["ConversationTracker"]
+__all__ = ["ConversationTracker", "CONVERSATION_FIELD_NAMES"]

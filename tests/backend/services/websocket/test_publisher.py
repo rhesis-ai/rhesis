@@ -209,32 +209,65 @@ class TestConvenienceFunctions:
 class TestGetPublisher:
     """Tests for get_publisher function."""
 
-    @patch("rhesis.backend.app.services.websocket.publisher._publisher", None)
-    @patch.dict("os.environ", {"REDIS_URL": "redis://test:6379/1"})
     def test_get_publisher_creates_instance(self):
-        """Test that get_publisher creates a new instance."""
-        publisher = get_publisher()
-
-        assert publisher is not None
-        assert isinstance(publisher, EventPublisher)
-        assert publisher._redis_url == "redis://test:6379/1"
-
-    @patch("rhesis.backend.app.services.websocket.publisher._publisher", None)
-    @patch.dict("os.environ", {}, clear=True)
-    def test_get_publisher_default_url(self):
-        """Test that get_publisher uses default URL when env var not set."""
-        # Remove REDIS_URL if present
+        """Test that get_publisher creates a new instance using BROKER_URL."""
         import os
 
-        redis_url = os.environ.pop("REDIS_URL", None)
+        from rhesis.backend.app.services.websocket import publisher as publisher_module
+
+        # Save original state
+        original_publisher = publisher_module._publisher
+        original_broker = os.environ.get("BROKER_URL")
+        original_redis = os.environ.get("REDIS_URL")
 
         try:
+            # Reset singleton and set test env vars
+            publisher_module._publisher = None
+            os.environ.pop("BROKER_URL", None)
+            os.environ.pop("REDIS_URL", None)
+            os.environ["BROKER_URL"] = "redis://test:6379/1"
+
+            publisher = get_publisher()
+
+            assert publisher is not None
+            assert isinstance(publisher, EventPublisher)
+            assert publisher._redis_url == "redis://test:6379/1"
+        finally:
+            # Restore original state
+            publisher_module._publisher = original_publisher
+            os.environ.pop("BROKER_URL", None)
+            os.environ.pop("REDIS_URL", None)
+            if original_broker:
+                os.environ["BROKER_URL"] = original_broker
+            if original_redis:
+                os.environ["REDIS_URL"] = original_redis
+
+    def test_get_publisher_default_url(self):
+        """Test that get_publisher uses default URL when env vars not set."""
+        import os
+
+        from rhesis.backend.app.services.websocket import publisher as publisher_module
+
+        # Save original state
+        original_publisher = publisher_module._publisher
+        original_broker = os.environ.get("BROKER_URL")
+        original_redis = os.environ.get("REDIS_URL")
+
+        try:
+            # Reset singleton and clear env vars
+            publisher_module._publisher = None
+            os.environ.pop("BROKER_URL", None)
+            os.environ.pop("REDIS_URL", None)
+
             publisher = get_publisher()
             assert publisher._redis_url == "redis://localhost:6379/0"
         finally:
-            # Restore REDIS_URL if it was set
-            if redis_url:
-                os.environ["REDIS_URL"] = redis_url
+            # Restore original state
+            publisher_module._publisher = original_publisher
+            if original_broker:
+                os.environ["BROKER_URL"] = original_broker
+            if original_redis:
+                os.environ["REDIS_URL"] = original_redis
 
     @patch("rhesis.backend.app.services.websocket.publisher._publisher")
     def test_get_publisher_returns_singleton(self, mock_publisher):

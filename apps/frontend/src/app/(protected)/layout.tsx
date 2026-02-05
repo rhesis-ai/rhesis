@@ -11,6 +11,7 @@ import { SxProps, Theme } from '@mui/system';
 import { alpha } from '@mui/material/styles';
 import SidebarFooter from '@/components/navigation/SidebarFooter';
 import ToolbarActions from '@/components/layout/ToolbarActions';
+import { WebSocketProvider } from '@/contexts/WebSocketContext';
 
 // Define extended user interface that includes organization_id
 interface ExtendedUser {
@@ -162,17 +163,19 @@ export default function ProtectedLayout({
 
   return (
     <AuthErrorBoundary>
-      <DashboardLayout
-        sx={layoutStyles}
-        sidebarExpandedWidth={240}
-        slots={{
-          sidebarFooter: SidebarFooter,
-          toolbarActions: ToolbarActions,
-        }}
-        renderPageItem={renderPageItem}
-      >
-        {children}
-      </DashboardLayout>
+      <WebSocketProvider>
+        <DashboardLayout
+          sx={layoutStyles}
+          sidebarExpandedWidth={240}
+          slots={{
+            sidebarFooter: SidebarFooter,
+            toolbarActions: ToolbarActions,
+          }}
+          renderPageItem={renderPageItem}
+        >
+          {children}
+        </DashboardLayout>
+      </WebSocketProvider>
     </AuthErrorBoundary>
   );
 }

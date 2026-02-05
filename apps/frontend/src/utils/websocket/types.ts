@@ -29,6 +29,11 @@ export enum EventType {
   // Generic events (use-case specific events added as needed)
   NOTIFICATION = 'notification',
   MESSAGE = 'message',
+
+  // Chat events (for playground)
+  CHAT_MESSAGE = 'chat.message',
+  CHAT_RESPONSE = 'chat.response',
+  CHAT_ERROR = 'chat.error',
 }
 
 /**
@@ -62,8 +67,10 @@ export interface WebSocketClientOptions {
   token: string;
   /** Base interval for reconnection attempts in ms (default: 1000) */
   reconnectInterval?: number;
-  /** Maximum number of reconnection attempts (default: 5) */
+  /** Maximum number of reconnection attempts (default: 10) */
   maxReconnectAttempts?: number;
+  /** Maximum delay between reconnection attempts in ms (default: 30000) */
+  maxReconnectDelay?: number;
   /** Interval between heartbeat pings in ms (default: 30000) */
   heartbeatInterval?: number;
   /** Callback when connection state changes */
@@ -105,4 +112,33 @@ export interface ErrorPayload {
  */
 export interface SubscriptionPayload {
   channel: string;
+}
+
+/**
+ * Chat message payload (sent to server).
+ */
+export interface ChatMessagePayload {
+  endpoint_id: string;
+  message: string;
+  /** Session ID for multi-turn conversations (canonical name) */
+  session_id?: string;
+}
+
+/**
+ * Chat response payload (received from server).
+ */
+export interface ChatResponsePayload {
+  output: string;
+  trace_id?: string;
+  endpoint_id: string;
+  /** Session ID for multi-turn conversations (canonical name) */
+  session_id?: string;
+}
+
+/**
+ * Chat error payload (received from server).
+ */
+export interface ChatErrorPayload {
+  error: string;
+  error_type: string;
 }

@@ -16,4 +16,7 @@ export {
   type ConnectedPayload,
   type ErrorPayload,
   type SubscriptionPayload,
+  type ChatMessagePayload,
+  type ChatResponsePayload,
+  type ChatErrorPayload,
 } from './types';

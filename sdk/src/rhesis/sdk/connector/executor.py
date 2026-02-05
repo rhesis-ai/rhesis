@@ -1,16 +1,23 @@
 """Test executor for remote function execution."""
 
 import asyncio
+import contextvars
 import inspect
 import logging
 import time
 from collections.abc import Callable
+from functools import partial
 from typing import Any
 
 from rhesis.sdk.connector.schemas import TestStatus
 from rhesis.sdk.connector.serializer import TypeSerializer
 from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
-from rhesis.sdk.telemetry.context import set_test_execution_context
+from rhesis.sdk.telemetry.context import (
+    get_root_trace_id,
+    set_root_trace_id,
+    set_test_execution_context,
+)
+from rhesis.sdk.telemetry.tracer import pop_result_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -69,14 +76,34 @@ class TestExecutor:
         """
         sig = inspect.signature(func)
         prepared = {}
+        has_var_keyword = False
+        named_params = set()
 
+        # First pass: identify named parameters and check for **kwargs
         for name, param in sig.parameters.items():
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                has_var_keyword = True
+            else:
+                named_params.add(name)
+
+        # Second pass: process named parameters
+        for name, param in sig.parameters.items():
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                continue  # Handle **kwargs separately below
+
             if name not in inputs:
                 continue
 
             value = inputs[name]
             # Let the serializer handle everything uniformly
             prepared[name] = serializer.load(value, param.annotation)
+
+        # If function accepts **kwargs, pass through all extra inputs
+        if has_var_keyword:
+            for name, value in inputs.items():
+                if name not in named_params and name not in prepared:
+                    # Pass through extra parameters (serializer with no type hint)
+                    prepared[name] = serializer.load(value, inspect.Parameter.empty)
 
         return prepared
 
@@ -143,10 +170,26 @@ class TestExecutor:
                 if asyncio.iscoroutinefunction(func):
                     result = await func(**prepared_inputs)
                 else:
-                    result = func(**prepared_inputs)
+                    # Run sync functions in thread pool to avoid blocking the event loop
+                    # This is critical for long-running functions (e.g., LLM calls) so the
+                    # WebSocket can continue responding to pings during execution
+                    loop = asyncio.get_running_loop()
+                    # Copy context to the thread so contextvars (like test_execution_context)
+                    # are available in the function and its nested calls (e.g., tracer)
+                    ctx = contextvars.copy_context()
+                    result = await loop.run_in_executor(
+                        None, partial(ctx.run, func, **prepared_inputs)
+                    )
 
                 # Handle generators (consume and collect output)
                 result = await self._consume_generator(result)
+
+                # Get trace_id BEFORE serialization (which creates a new object)
+                # For sync functions in thread pools, context vars don't propagate back,
+                # so check for trace_id stored in thread-safe dict by tracer
+                trace_id = get_root_trace_id()
+                if trace_id is None and result is not None:
+                    trace_id = pop_result_trace_id(result)
 
                 # Serialize result to JSON-compatible format
                 result = self._serialize_result(result, serializer)
@@ -158,23 +201,27 @@ class TestExecutor:
                     "output": result,
                     "error": None,
                     "duration_ms": duration_ms,
+                    "trace_id": trace_id,
                 }
 
             finally:
                 # Clear context after execution
                 set_test_execution_context(None)
+                set_root_trace_id(None)
 
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(f"Error executing function {function_name}: {e}")
             # Clear context on error too
             set_test_execution_context(None)
+            set_root_trace_id(None)
 
             return {
                 "status": TestStatus.ERROR,
                 "output": None,
                 "error": str(e),
                 "duration_ms": duration_ms,
+                "trace_id": None,
             }
 
     async def _consume_generator(self, result: Any) -> Any:

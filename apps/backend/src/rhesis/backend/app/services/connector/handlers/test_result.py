@@ -105,19 +105,19 @@ class TestResultHandler:
             # and were recently updated (within last 30 seconds to catch recent validations)
             from rhesis.backend.app.models.endpoint import Endpoint
             from rhesis.backend.app.models.status import Status
+            from rhesis.backend.app.utils.model_utils import QueryBuilder
 
             recent_cutoff = datetime.utcnow() - timedelta(seconds=30)
 
             # First, get a sample endpoint to determine the organization
             # We'll use this to filter statuses by organization for tenant isolation
-            sample_endpoint = (
-                db.query(Endpoint)
-                .filter(
-                    Endpoint.project_id == project_id,
-                    Endpoint.environment == environment,
-                )
-                .first()
+            # Use QueryBuilder which properly handles soft delete filtering
+            query_builder = QueryBuilder(db, Endpoint)
+            query_builder.query = query_builder.query.filter(
+                Endpoint.project_id == project_id,
+                Endpoint.environment == environment,
             )
+            sample_endpoint = query_builder.first()
 
             if not sample_endpoint:
                 logger.debug(f"No endpoints found for {project_id}:{environment}")
@@ -138,16 +138,17 @@ class TestResultHandler:
                 return
 
             # Find recently created/updated endpoints in Error status for this project
-            recent_error_endpoints = (
-                db.query(Endpoint)
-                .filter(
-                    Endpoint.project_id == project_id,
-                    Endpoint.environment == environment,
-                    Endpoint.status_id == error_status.id,
-                    Endpoint.updated_at >= recent_cutoff,
-                )
-                .all()
+            # Use QueryBuilder which properly handles soft delete filtering
+            query_builder = QueryBuilder(db, Endpoint).with_organization_filter(
+                str(organization_id)
             )
+            query_builder.query = query_builder.query.filter(
+                Endpoint.project_id == project_id,
+                Endpoint.environment == environment,
+                Endpoint.status_id == error_status.id,
+                Endpoint.updated_at >= recent_cutoff,
+            )
+            recent_error_endpoints = query_builder.all()
 
             if not recent_error_endpoints:
                 logger.debug(f"No recent error endpoints found for {project_id}:{environment}")
