@@ -93,7 +93,7 @@ Always follow the Conventional Commits specification for all commit messages.
 
 ### Commit Message Format
 ```
-<type>[optional scope]: <description>
+<type>[scope]: <description>
 
 [optional body]
 
@@ -113,20 +113,28 @@ Always follow the Conventional Commits specification for all commit messages.
 - **chore**: Other changes that don't modify src or test files
 - **revert**: Reverts a previous commit
 
+
+### Scope
+- **backend**: Changes to the backend code (apps/backend/)
+- **frontend**: Changes to the frontend code (apps/frontend/)
+- **sdk**: Changes to the SDK code (sdk/)
+- **tests**: Changes to the test code (tests/)
+- **dev**: Changes to the development tools and configuration e.g. Makefile, .env files, etc.
+
 ### Rules
 1. Use lowercase for type and description
 2. No period at the end of the description
 3. Use imperative mood in the description (e.g., "add" not "adds" or "added")
 4. Limit the description to 50 characters or less
-5. Use optional scope to specify the component/module affected (e.g., `feat(auth): add login validation`)
+5. Use scope to specify the component/module affected (e.g., `feat(backend): add login validation`)
 6. Add body and footer if needed for breaking changes or additional context
 7. Use `BREAKING CHANGE:` in footer for breaking changes
 
 ### Examples
-- `feat: add user authentication`
-- `fix(api): resolve timeout issue in user endpoint`
+- `feat(backend): add user authentication`
+- `fix(frontend): resolve timeout issue in user endpoint`
 - `docs: update installation guide`
-- `refactor(utils): simplify date formatting function`
+- `refactor(backend): simplify date formatting function`
 - `feat!: remove deprecated API endpoints` (! indicates breaking change)
 
 ## Advanced Git Commands for Commit Management
@@ -158,21 +166,6 @@ git commit --amend -m "new commit message"
 git rebase -i HEAD~3  # Edit last 3 commits
 ```
 
-### Commit Message Templates
-
-For complex commits, use the full format:
-
-```
-feat(auth): add two-factor authentication support
-
-- Implement TOTP-based 2FA using Google Authenticator
-- Add backup codes for account recovery
-- Update user settings page with 2FA controls
-- Add email notifications for 2FA events
-
-Closes #123
-BREAKING CHANGE: Users must now verify email before enabling 2FA
-```
 
 ## Best Practices
 
