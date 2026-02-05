@@ -41,6 +41,7 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
         metric_type: Optional[Union[str, MetricType]] = None,
         metric_scope: Optional[List[Union[str, MetricScope]]] = None,
         model: Optional[Union[str, BaseLLM]] = None,
+        id: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -92,6 +93,7 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
             metric_scope=metric_scope,
             score_type=SCORE_TYPE,
             class_name=self.__class__.__name__,
+            id=id,
         )
         super().__init__(config=self.config, model=model)
 

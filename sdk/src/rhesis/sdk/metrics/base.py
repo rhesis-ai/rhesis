@@ -86,6 +86,7 @@ class MetricConfig:
     metric_scope: Optional[List[Union[str, MetricScope]]] = None  # list of scopes
     requires_ground_truth: Optional[bool] = False
     requires_context: Optional[bool] = False
+    id: Optional[str] = None  # ID from backend when pulled
 
     def __post_init__(self):
         if isinstance(self.backend, str):
@@ -148,6 +149,7 @@ class BaseMetric(ABC):
         self.requires_context = config.requires_context
         self.class_name = config.class_name
         self.backend = config.backend
+        self.id = config.id  # ID from backend when pulled
 
         self.model = self.set_model(model)
 
