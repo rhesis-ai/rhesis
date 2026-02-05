@@ -325,8 +325,10 @@ class LazyModelLoader(BaseLLM):
                 schema=schema,
                 **kwargs,
             )
-        except NotImplementedError:
-            # Fallback to sequential generation for providers that don't support batch
+        except (NotImplementedError, AttributeError):
+            # Fallback to sequential generation for providers that don't support batch.
+            # Catches NotImplementedError (method exists but raises) and AttributeError
+            # (method doesn't exist, e.g., if provider doesn't inherit from BaseLLM properly).
             logger.info(
                 f"Batch processing not supported by {self._model_name}, "
                 f"falling back to sequential generation"
