@@ -9,9 +9,7 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
-import { Tag } from '@/utils/api-client/interfaces/tag';
-import { Box, Chip, Tooltip, Typography, Avatar } from '@mui/material';
-import { ChatIcon, DescriptionIcon } from '@/components/icons';
+import { Box, Typography, Avatar } from '@mui/material';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
@@ -28,35 +26,6 @@ interface TestExplorerGridProps {
   sessionToken?: string;
   initialTotalCount?: number;
 }
-
-const ChipContainer = ({ items }: { items: string[] }) => {
-  if (items.length === 0) return '-';
-
-  const maxVisible = 3;
-  const visibleItems = items.slice(0, maxVisible);
-  const remainingCount = items.length - maxVisible;
-
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        gap: 0.5,
-        alignItems: 'center',
-        width: '100%',
-        overflow: 'hidden',
-      }}
-    >
-      {visibleItems.map((item: string) => (
-        <Chip key={item} label={item} size="small" variant="outlined" />
-      ))}
-      {remainingCount > 0 && (
-        <Tooltip title={items.slice(maxVisible).join(', ')} arrow>
-          <Chip label={`+${remainingCount}`} size="small" variant="outlined" />
-        </Tooltip>
-      )}
-    </Box>
-  );
-};
 
 export default function TestExplorerGrid({
   testSets: initialTestSets,
@@ -133,14 +102,10 @@ export default function TestExplorerGrid({
     return {
       id: testSet.id,
       name: testSet.name,
-      testSetType: testSet.test_set_type?.type_value || 'Unknown',
       behaviors: testSet.attributes?.metadata?.behaviors || [],
-      categories: testSet.attributes?.metadata?.categories || [],
       totalTests: testSet.attributes?.metadata?.total_tests || 0,
       creator: testSet.user,
-      counts: testSet.counts,
       sources: testSet.attributes?.metadata?.sources || [],
-      tags: testSet.tags || [],
     };
   });
 
@@ -149,22 +114,6 @@ export default function TestExplorerGrid({
       field: 'name',
       headerName: 'Name',
       flex: 1.5,
-    },
-    {
-      field: 'categories',
-      headerName: 'Categories',
-      flex: 1.0,
-      renderCell: params => (
-        <ChipContainer items={params.row.categories || []} />
-      ),
-    },
-    {
-      field: 'testSetType',
-      headerName: 'Type',
-      flex: 0.75,
-      renderCell: params => (
-        <Chip label={params.value} size="small" variant="outlined" />
-      ),
     },
     {
       field: 'totalTests',
@@ -202,40 +151,6 @@ export default function TestExplorerGrid({
       },
     },
     {
-      field: 'counts.comments',
-      headerName: 'Comments',
-      width: 100,
-      sortable: false,
-      filterable: false,
-      renderCell: params => {
-        const count = params.row.counts?.comments || 0;
-        if (count === 0) return null;
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-            <Typography variant="body2">{count}</Typography>
-          </Box>
-        );
-      },
-    },
-    {
-      field: 'counts.tasks',
-      headerName: 'Tasks',
-      width: 100,
-      sortable: false,
-      filterable: false,
-      renderCell: params => {
-        const count = params.row.counts?.tasks || 0;
-        if (count === 0) return null;
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-            <Typography variant="body2">{count}</Typography>
-          </Box>
-        );
-      },
-    },
-    {
       field: 'sources',
       headerName: 'Sources',
       width: 80,
@@ -260,50 +175,6 @@ export default function TestExplorerGrid({
               sx={{ fontSize: 16, color: 'text.secondary' }}
             />
             <Typography variant="body2">{count}</Typography>
-          </Box>
-        );
-      },
-    },
-    {
-      field: 'tags',
-      headerName: 'Tags',
-      flex: 1.5,
-      minWidth: 140,
-      sortable: false,
-      renderCell: params => {
-        const testSet = params.row;
-        if (!testSet.tags || testSet.tags.length === 0) {
-          return null;
-        }
-
-        return (
-          <Box
-            sx={{
-              display: 'flex',
-              gap: 0.5,
-              flexWrap: 'nowrap',
-              overflow: 'hidden',
-            }}
-          >
-            {testSet.tags
-              .filter((tag: Tag) => tag && tag.id && tag.name)
-              .slice(0, 2)
-              .map((tag: Tag) => (
-                <Chip
-                  key={tag.id}
-                  label={tag.name}
-                  size="small"
-                  variant="outlined"
-                />
-              ))}
-            {testSet.tags.filter((tag: Tag) => tag && tag.id && tag.name)
-              .length > 2 && (
-              <Chip
-                label={`+${testSet.tags.filter((tag: Tag) => tag && tag.id && tag.name).length - 2}`}
-                size="small"
-                variant="outlined"
-              />
-            )}
           </Box>
         );
       },
