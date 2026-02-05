@@ -1,0 +1,77 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (e.g., v0.6.4)
+  workflow_dispatch:
+    inputs:
+      publish_sdk:
+        description: 'Publish rhesis-sdk'
+        type: boolean
+        default: true
+      publish_rhesis:
+        description: 'Publish rhesis umbrella package'
+        type: boolean
+        default: true
+  workflow_call:
+
+jobs:
+  publish-sdk:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_sdk }}
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/rhesis-sdk
+    permissions:
+      id-token: write  # Required for trusted publishing
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install build tools
+      run: pip install build
+    
+    - name: Build SDK
+      working-directory: ./sdk
+      run: python -m build
+    
+    - name: Publish rhesis-sdk to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: ./sdk/dist/
+
+  publish-rhesis:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish_rhesis }}
+    needs: publish-sdk
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/rhesis
+    permissions:
+      id-token: write  # Required for trusted publishing
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install build tools
+      run: pip install build
+    
+    - name: Build rhesis
+      working-directory: ./packages/rhesis
+      run: python -m build
+    
+    - name: Publish rhesis to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: ./packages/rhesis/dist/
