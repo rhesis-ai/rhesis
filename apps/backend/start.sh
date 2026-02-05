@@ -29,6 +29,11 @@ is_production() {
 is_local() {
     [ "${ENVIRONMENT}" = "local" ] || [ "${BACKEND_ENV}" = "local" ]
 }
+
+is_development() {
+    [ "${ENVIRONMENT}" = "development" ] || [ "${BACKEND_ENV}" = "development" ]
+}
+
 # Function to display banner
 show_banner() {
     echo -e "${CYAN}"
@@ -167,10 +172,9 @@ start_server() {
         exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
-            --port "$port" \
-
-    else
-        log "${BLUE}🛠️  Starting development server with Uvicorn...${NC}"
+            --port "$port"
+    elif is_development; then
+        log "${BLUE}🛠️  Starting development server with Uvicorn (hot reload)...${NC}"
         exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
