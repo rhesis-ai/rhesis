@@ -100,7 +100,7 @@ Six integrated phases from project setup to team collaboration:
 
 ---
 
-## Features
+## Core Features
 
 ### Test Generation
 
