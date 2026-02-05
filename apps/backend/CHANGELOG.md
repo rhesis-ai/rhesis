@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-02-05
+
+### Added
+- Added a Playground for interactive endpoint chat via WebSocket, accessible under the Testing section. This includes:
+    - Real-time WebSocket communication for conversational endpoint testing.
+    - Chat message handling (CHAT_MESSAGE, CHAT_RESPONSE, CHAT_ERROR).
+    - `usePlaygroundChat` hook for managing chat state and conversation IDs.
+    - TraceDrawer integration for viewing endpoint response traces.
+    - Trace linking from assistant message bubbles to trace details.
+    - A "Playground" button on the endpoint detail page to pre-select the endpoint in the Playground.
+    - Markdown rendering in playground chat bubbles.
+    - Copy button to playground message bubbles.
+- Added Jira ticket creation from tasks via MCP integration.
+- Added display of creation dates for tests and test sets in the UI.
+- Added `./rh dev` command for local development setup, including commands for starting and managing backend, frontend, chatbot, docs, worker, and polyphemus services.
+- Added `lm-format-enforcer` as a new provider.
+
+### Changed
+- Increased SDK function timeout from 30s to 120s (configurable via `SDK_FUNCTION_TIMEOUT` env var).
+- Increased SDK connector ping interval/timeout defaults (60s/30s) with `RHESIS_PING_INTERVAL` and `RHESIS_PING_TIMEOUT` env vars.
+- Standardized `session_id` as the canonical name for conversation tracking in the chat handler.
+- Enhanced WebSocket retry mechanism for robustness, including increased reconnect attempts, a max reconnect delay cap, a manual reconnect method, and page visibility detection for reconnecting.
+- Made Jira space selection optional at tool creation.
+- Enforced required metadata for GitHub and Jira tool connections.
+- Improved local development commands and help output for `./rh dev`.
+
+### Fixed
+- Fixed Redis URL configuration to check `BROKER_URL` first for consistency.
+- Reduced Redis reconnection log noise by using DEBUG level.
+- Fixed WebSocket ping timeouts by running synchronous endpoint functions in a thread pool.
+- Fixed context variable propagation to worker threads for trace linking.
+- Fixed connector test isolation issues.
+- Fixed soft delete filtering in connector services by using QueryBuilder.
+- Fixed issue where only sessionId was reset when switching endpoints in the Playground; now all state is cleared.
+- Fixed client method to create-ticket-from-task service.
+- Fixed issue where users could not execute test configs from other users within the same organization.
+- Updated chat handler tests to use `session_id`.
+
+### Removed
+- Removed unused `mcp_connect` file.
+
+### Security
+- Upgraded protobuf to >=6.33.5 (fixes CVE-2026-0994: JSON recursion depth bypass).
+- Upgraded python-multipart to >=0.0.22 (fixes CVE-2026-24486: arbitrary file write).
+
+
 ## [0.6.1] - 2026-01-29
 
 ### Added
