@@ -27,8 +27,8 @@ classifiers = [
     "Topic :: Software Development :: Testing",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-# Dependencies are set dynamically by hatch_build.py
-# See VERSION_SOURCES in hatch_build.py for version mappings
+# Version and dependencies are set dynamically from sdk/pyproject.toml
+# Installing 'rhesis' is equivalent to installing 'rhesis-sdk' at the same version
 
 [project.license]
 text = "MIT"
