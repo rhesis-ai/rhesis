@@ -1,8 +1,12 @@
-# Rhesis: Open-Source LLM & Agentic Testing ![Rhesis AI_Logo_RGB_Favicon](https://github.com/user-attachments/assets/ff43ca6a-ffde-4aff-9ff9-eec3897d0d02)
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ff43ca6a-ffde-4aff-9ff9-eec3897d0d02" alt="Rhesis AI Logo" height="80">
+</p>
+
+# Rhesis: Collaborative Testing for LLM & Agentic Applications
 
 <p align="center">
   <a href="https://github.com/rhesis-ai/rhesis/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/license-MIT%20%2B%20Commercial-blue" alt="License">
+    <img src="https://img.shields.io/badge/license-MIT%20%2B%20Enterprise-blue" alt="License">
   </a>
   <a href="https://pypi.org/project/rhesis-sdk/">
     <img src="https://img.shields.io/pypi/v/rhesis-sdk" alt="PyPI Version">
@@ -34,12 +38,12 @@
   <a href="https://github.com/rhesis-ai/rhesis/blob/main/CHANGELOG.md"><strong>Changelog</strong></a>
 </p>
 
-**Generate test inputs for LLM & agentic applications using AI, then evaluate outputs to catch issues before production.**
+<h3 align="center">More than just evals.<br><strong>Collaborative agent testing for teams.</strong></h3>
 
-<!-- VISUAL: hero-image.png
-     Platform overview showing the Rhesis dashboard or visual workflow diagram.
-     Show the end-to-end flow: requirements -> test generation -> execution -> results.
-     Dimensions: 1200x600px -->
+<p align="center">
+Generate tests from requirements, simulate conversation flows, detect adversarial behaviors, evaluate with 60+ metrics, and trace failures with OpenTelemetry. Engineers and domain experts, working together.
+</p>
+
 <p align="center">
   <img src="https://cdn.prod.website-files.com/68c3e3b148a4fd9bcf76eb6a/69039cdfccde6a7b02eac36f_Release%200.4.1.gif"
        loading="lazy"
@@ -49,159 +53,124 @@
 
 ---
 
-## What is Rhesis?
+## Quick Start
 
-Rhesis is an open-source platform for testing and evaluating LLM & agentic applications:
+**Option 1: Cloud (fastest)** - [app.rhesis.ai](https://app.rhesis.ai) - Free tier, no setup
 
-- **AI Test Generation**: Describe requirements in plain language, get hundreds of test scenarios
-- **Single & Multi-Turn Testing**: Test both Q&A and complex conversations (Penelope agent)
-- **LLM-as-Judge Evaluation**: Automated scoring with 50+ pre-built metrics and reasoning explanations
-- **Traces & Observability**: Monitor your LLM applications with OpenTelemetry-based tracing
-- **Team Collaboration**: UI for non-technical users, SDK for engineers, CI/CD integration
+**Option 2: Self-host with Docker**
+```bash
+git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
+```
+Access at `http://localhost:3000` (auto-login enabled)
+
+**Option 3: Python SDK**
+```bash
+pip install rhesis-sdk
+```
 
 ---
 
 ## Why Rhesis?
 
-**Built for teams, not just engineers**: UI for non-technical stakeholders to define requirements and review results. SDK for engineers to work from their IDE and integrate into CI/CD. Comments, tasks, and review workflows so legal, compliance, and domain experts can collaborate without writing code.
+**Platform for teams. SDK for developers.**
+
+Use the collaborative platform for team-based testing: product managers define requirements, domain experts review results, engineers integrate via CI/CD. Or integrate directly with the Python SDK for code-first workflows.
+
+### The Testing Lifecycle
+
+Six integrated phases from project setup to team collaboration:
+
+| Phase | What You Do |
+|-------|-------------|
+| **1. Projects** | Configure your AI application, upload & connect context sources (files, docs), set up SDK connectors |
+| **2. Requirements** | Define expected behaviors (what your app should and shouldn't do), cover all relevant aspects from product, marketing, customer support, legal and compliance teams |
+| **3. Metrics** | Select from 60+ pre-built metrics or create custom LLM-as-Judge evaluations to assess whether your requirements are met |
+| **4. Tests** | Generate single-turn and conversation simulation test scenarios. Organize in test sets and understand your test coverage |
+| **5. Execution** | Run tests via UI, SDK, or API; integrate into CI/CD pipelines; collect traces during execution |
+| **6. Collaboration** | Review results with your team through comments, tasks, workflows, and side-by-side comparisons |
 
 ### Rhesis vs...
 
-| Alternative | Rhesis Difference |
-|-------------|-------------------|
-| **Manual testing** | Generates hundreds of test cases automatically instead of writing them by hand |
-| **Traditional test frameworks** | Built for non-deterministic LLM behavior, not deterministic code |
-| **LLM observability tools** | Focuses on **pre-production** validation, not just production monitoring |
-| **Red-teaming services** | Continuous and self-service, not a one-time audit |
+| Instead of... | Rhesis gives you... |
+|---------------|---------------------|
+| **Manual testing** | AI-generated test cases based on your context, hundreds in minutes |
+| **Traditional test frameworks** | Non-deterministic output handling built-in |
+| **LLM observability tools** | Pre-production validation, not post-production monitoring |
+| **Red-teaming services** | Continuous, self-service adversarial testing, not one-time audits |
 
 ---
 
-## Reliability Testing & Adversarial Testing
+## Features
 
-<!-- VISUAL: testing-types.png
-     Split diagram showing two testing approaches side by side:
-     Left = Reliability Testing (checkmarks, validation icons, "works correctly")
-     Right = Adversarial Testing (shield icon, red-team, "find vulnerabilities")
-     Dimensions: 1000x400px -->
+### Test Generation
 
-### Reliability Testing
+**AI-Powered Synthesis** - Describe requirements in plain language. Rhesis generates hundreds of test scenarios including edge cases and adversarial prompts.
 
-Ensure your LLM application works correctly under normal conditions:
+**Knowledge-Aware** - Connect context sources via file upload or MCP (Notion, GitHub, Jira, Confluence) for better test generation.
 
-- Validates expected behavior against requirements
-- Tests edge cases and boundary conditions
-- Measures consistency and accuracy across runs
+### Single-Turn & Conversation Simulation
+
+**Single-turn** for Q&A validation. **Conversation simulation** for dialogue flows.
+
+**Penelope Agent** simulates realistic conversations to test context retention, role adherence, and dialogue coherence across extended interactions.
 
 ### Adversarial Testing (Red-Teaming)
 
-Proactively find vulnerabilities before bad actors do:
+**Polyphemus Agent** proactively finds vulnerabilities:
 
 - Jailbreak attempts and prompt injection
 - PII leakage and data extraction
 - Harmful content generation
 - Role violation and instruction bypassing
 
----
+**Garak Integration** - Built-in support for [garak](https://github.com/leondz/garak), the LLM vulnerability scanner, for comprehensive security testing.
 
-## Define & Generate
+### 60+ Pre-Built Metrics
 
-<!-- VISUAL: define-generate-flow.png
-     Flow diagram showing the test generation workflow:
-     Requirements (text icon) -> Context Sources (MCP + file upload icons) -> AI Generation (sparkle) -> Test Cases (list)
-     Show both single-turn and multi-turn test outputs
-     Dimensions: 1000x300px -->
-
-### Define What Your App Should (and Shouldn't) Do
-
-- Write requirements in plain language
-- Connect knowledge sources via **file upload** and **MCP** (Notion, GitHub, Jira, Confluence) for best context
-- Define positive behaviors (what it should do) and restrictions (what it must not do)
-
-### AI-Powered Test Generation
-
-- Generate hundreds of test scenarios from requirements
-- **Single-turn tests** for Q&A validation
-- **Multi-turn tests** for conversation flows (Penelope agent simulates realistic user interactions)
-- **Adversarial test cases** for red-teaming
-
----
-
-## Evaluate & Collaborate
-
-<!-- VISUAL: evaluate-collaborate.png
-     Dashboard mockup showing:
-     - Test results grid with pass/fail indicators
-     - Metric scores with reasoning
-     - Comments and task assignment UI
-     - Team collaboration features
-     Dimensions: 1000x500px -->
-
-### Manage Tests at Scale
-
-- Organize hundreds of test cases into test sets
-- Track test runs with detailed results and trends
-- Compare performance across versions
-
-### 50+ Pre-Built Metrics
-
-| Framework | Metrics |
-|-----------|---------|
+| Framework | Example Metrics |
+|-----------|-----------------|
 | **RAGAS** | Context relevance, faithfulness, answer accuracy |
 | **DeepEval** | Bias, toxicity, PII leakage, role violation, turn relevancy, knowledge retention |
 | **Garak** | Jailbreak detection, prompt injection, XSS, malware generation, data leakage |
-| **Custom** | NumericJudge and CategoricalJudge for domain-specific evaluation |
+| **Custom** | NumericJudge, CategoricalJudge for domain-specific evaluation |
 
-### LLM-as-Judge Evaluation
+All metrics include LLM-as-Judge reasoning explanations.
 
-- Automated scoring with reasoning explanations
-- **Bring Your Own Model** (BYOM): Use any LLM provider for evaluation
+### Traces & Observability
 
-### Built for Teams
+Monitor your LLM applications with OpenTelemetry-based tracing:
 
-- UI for non-technical stakeholders (legal, compliance, domain experts)
-- SDK/API for engineers and CI/CD integration
-- Comments, tasks, and review workflows
+```python
+from rhesis.sdk.decorators import observe
+
+@observe.llm(model="gpt-4")
+def generate_response(prompt: str) -> str:
+    # Your LLM call here
+    return response
+```
+
+Track LLM calls, latency, token usage, and link traces to test results for debugging.
+
+### Bring Your Own Model
+
+Use any LLM provider for test generation and evaluation:
+
+**Cloud:** OpenAI, Anthropic, Google Gemini, Mistral, Cohere, Groq, Together AI
+
+**Local/Self-hosted:** Ollama, vLLM, LiteLLM
+
+See [Model Configuration Docs](https://docs.rhesis.ai/sdk/models) for setup instructions.
 
 ---
 
-## What Can You Test?
+## What You Can Test
 
-<!-- VISUAL: use-cases-grid.png
-     2x2 grid with icons and brief descriptions:
-     - Conversational AI (chat bubble icon)
-     - RAG Applications (document + search icon)
-     - NL-to-SQL / NL-to-Code (database + code icon)
-     - Agentic Systems (robot/workflow icon)
-     Dimensions: 800x400px -->
-
-### Conversational AI
-
-Chatbots, virtual assistants, customer support bots
-
-- Multi-turn conversation testing with Penelope
-- Role adherence and knowledge retention
-
-### RAG Applications
-
-Retrieval-augmented generation systems
-
-- Context relevance and faithfulness
-- Hallucination detection
-
-### NL-to-SQL / NL-to-Code
-
-Natural language to structured query systems
-
-- Query accuracy and syntax validation
-- Edge case handling
-
-### Agentic Systems
-
-Multi-step reasoning and tool-using agents
-
-- Tool selection accuracy
-- Goal achievement tracking
-- Multi-agent coordination
+| Use Case | What Rhesis Tests |
+|----------|-------------------|
+| **Conversational AI** | Conversation simulation, role adherence, knowledge retention |
+| **RAG Systems** | Context relevance, faithfulness, hallucination detection |
+| **NL-to-SQL / NL-to-Code** | Query accuracy, syntax validation, edge case handling |
+| **Agentic Systems** | Tool selection, goal achievement, multi-agent coordination |
 
 ---
 
@@ -218,164 +187,84 @@ def chat(message: str) -> str:
     return response
 ```
 
-- **Zero configuration**: Decorate your function, run tests from the platform
-- **Parameter binding**: Inject dependencies (DB, config, auth) automatically
-- **Auto-reconnection**: Reliable connection to Rhesis platform
-- **Environment management**: Switch between dev/staging/production
+**Features:** Zero configuration, automatic parameter binding, auto-reconnection, environment management (dev/staging/production).
 
----
-
-## Traces & Observability
-
-<!-- VISUAL: traces-observability.png
-     Trace waterfall/span view showing:
-     - LLM calls with latency and token counts
-     - Nested spans (retrieval, embedding, generation)
-     - Link to test results
-     Dimensions: 1000x400px -->
-
-Monitor your LLM applications in development and production:
-
-- OpenTelemetry-based tracing integration
-- Track LLM calls, latency, and token usage
-- Link traces to test results for debugging
-- SDK decorators: `@observe` for automatic instrumentation
+**Generate tests programmatically:**
 
 ```python
-from rhesis.sdk.decorators import observe
+from rhesis.sdk.synthesizers import PromptSynthesizer
 
-@observe.llm(model="gpt-4")
-def generate_response(prompt: str) -> str:
-    # Your LLM call here
-    return response
+synthesizer = PromptSynthesizer(
+    prompt="Generate tests for a medical chatbot that must never provide diagnosis"
+)
+test_set = synthesizer.generate(num_tests=10)
 ```
 
 ---
 
-## Deploy Rhesis
+## Deployment Options
 
-<!-- VISUAL: deployment-options.png
-     Three icons representing deployment options:
-     - Cloud (cloud icon) - "Fastest"
-     - Docker (container icon) - "Local"
-     - Kubernetes (helm icon) - "Production"
-     Dimensions: 600x150px -->
+| Option | Best For | Setup Time |
+|--------|----------|------------|
+| **[Rhesis Cloud](https://app.rhesis.ai)** | Teams wanting managed deployment | Instant |
+| **Docker** | Local development and testing | 5 minutes |
+| **Kubernetes** | Production self-hosting | [See docs](https://docs.rhesis.ai/getting-started/self-hosting) |
 
-### Option 1: Rhesis Cloud (Fastest)
-
-Managed deployment, free tier available, no setup required.
-
-👉 **[app.rhesis.ai](https://app.rhesis.ai)**
-
-### Option 2: Self-Host with Docker
-
-Get the full platform running locally in under 5 minutes:
+### Docker Quick Start
 
 ```bash
-# Clone the repository
 git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
-
-# Start all services with one command
 ./rh start
 ```
 
-**Access the platform:**
-- Frontend: `http://localhost:3000` (auto-login enabled)
-- Backend API: `http://localhost:8080/docs`
+**Access:** Frontend at `localhost:3000`, API at `localhost:8080/docs`
 
-**Managing services:**
-```bash
-./rh logs          # View logs from all services
-./rh stop          # Stop all services
-./rh restart       # Restart all services
-./rh delete        # Delete everything (fresh start)
-```
+**Commands:** `./rh logs` · `./rh stop` · `./rh restart` · `./rh delete`
 
-### Option 3: Production Self-Hosting
-
-For Kubernetes and production deployments, see the [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
-
----
-
-## Bring Your Own Model
-
-Use any LLM provider for test generation and evaluation:
-
-| Provider | Type | Documentation |
-|----------|------|---------------|
-| OpenAI | Cloud | [Docs](https://docs.rhesis.ai/sdk/models) |
-| Anthropic | Cloud | [Docs](https://docs.rhesis.ai/sdk/models) |
-| Google Gemini | Cloud | [Docs](https://docs.rhesis.ai/sdk/models) |
-| Mistral | Cloud | [Docs](https://docs.rhesis.ai/sdk/models) |
-| Cohere | Cloud | [Docs](https://docs.rhesis.ai/sdk/models) |
-| Groq | Cloud | [Docs](https://docs.rhesis.ai/sdk/models) |
-| Together AI | Cloud | [Docs](https://docs.rhesis.ai/sdk/models) |
-| Ollama | Local | [Docs](https://docs.rhesis.ai/sdk/models) |
-| LiteLLM | Unified | [Docs](https://docs.rhesis.ai/sdk/models) |
-| vLLM (Custom) | Self-hosted | [Docs](https://docs.rhesis.ai/sdk/models) |
+> **Note:** This setup enables auto-login for local testing. For production, see [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
 
 ---
 
 ## Open Source
 
-MIT licensed with no plans to relicense core features. Commercial features (if we build them) will live in `ee/` folders.
+[MIT licensed](LICENSE). No plans to relicense core features. Enterprise version will live in `ee/` folders and remain separate.
 
-We built this because existing LLM testing tools didn't meet our needs. If you have the same problem, contributions are welcome.
+We built Rhesis because existing LLM testing tools didn't meet our needs. If you face the same challenges, contributions are welcome.
 
 ---
 
 ## Contributing
 
-Contributions welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-**Ways to contribute:**
-- Fix bugs or add features
-- Contribute test sets for common failure modes
-- Improve documentation
-- Help others in Discord or GitHub discussions
-
----
-
-## License
-
-**Community Edition**: MIT License - see [LICENSE](LICENSE) file for details. Free forever.
-
-**Enterprise Edition**: Enterprise features in `ee/` folders are planned for 2026 and not yet available. Contact hello@rhesis.ai for early access information.
+**Ways to contribute:** Fix bugs or add features · Contribute test sets for common failure modes · Improve documentation · Help others in Discord or GitHub discussions
 
 ---
 
 ## Support
 
-- [Documentation](https://docs.rhesis.ai)
-- [Discord](https://discord.rhesis.ai)
-- [GitHub Issues](https://github.com/rhesis-ai/rhesis/issues)
+- **[Documentation](https://docs.rhesis.ai)** - Guides and API reference
+- **[Discord](https://discord.rhesis.ai)** - Community support
+- **[GitHub Issues](https://github.com/rhesis-ai/rhesis/issues)** - Bug reports and feature requests
 
 ---
 
 ## Security & Privacy
 
-We take data security and privacy seriously. For further details, please refer to our [Privacy Policy](https://rhesis.ai/privacy-policy).
+We take data security seriously. See our [Privacy Policy](https://rhesis.ai/privacy-policy) for details.
 
-### Telemetry
+**Telemetry:** Rhesis collects basic, anonymized usage statistics to improve the product. No sensitive data is collected or shared with third parties.
 
-Rhesis automatically collects basic usage statistics from both cloud platform users and self-hosted instances.
-
-This information enables us to:
-
-1. Understand how Rhesis is used and enhance the most relevant features.
-2. Monitor overall usage for internal purposes and external reporting.
-
-No collected data is shared with third parties, nor does it include any sensitive information. For a detailed description of the data collected and the associated privacy safeguards, please see the [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
-
-**Opt-out:**
-
-For self-hosted deployments, telemetry can be disabled by setting the environment variable `OTEL_RHESIS_TELEMETRY_ENABLED=false`.
-
-For cloud deployments, telemetry is always enabled as part of the Terms & Conditions agreement.
+- **Self-hosted:** Opt out by setting `OTEL_RHESIS_TELEMETRY_ENABLED=false`
+- **Cloud:** Telemetry enabled as part of Terms & Conditions
 
 ---
 
-**Made with ![Rhesis AI_Logo_RGB_Favicon](https://github.com/user-attachments/assets/598c2d81-572c-46bd-b718-dee32cdc749c) in Potsdam, Germany 🇩🇪**
+<p align="center">
+  <strong>Made with <img src="https://github.com/user-attachments/assets/598c2d81-572c-46bd-b718-dee32cdc749c" height="16" alt="Rhesis logo"> in Potsdam, Germany 🇩🇪</strong>
+</p>
 
-Learn more at [rhesis.ai](https://rhesis.ai)
+<p align="center">
+  <a href="https://rhesis.ai">Learn more at rhesis.ai</a>
+</p>
