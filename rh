@@ -104,7 +104,7 @@ check_node() {
 
 # Function to generate encryption key using Docker
 generate_encryption_key() {
-    docker run --rm python:3.10.17-slim sh -c \
+    docker run --rm mirror.gcr.io/library/python:3.10.17-slim sh -c \
         "pip install --quiet --no-cache-dir cryptography > /dev/null 2>&1 && \
          python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'" 2>/dev/null
 }
@@ -331,13 +331,13 @@ dev_up() {
         -e POSTGRES_USER=rhesis-user \
         -e POSTGRES_PASSWORD=rhesis-password \
         -p ${DEV_POSTGRES_PORT}:5432 \
-        postgres:16-alpine
+        mirror.gcr.io/library/postgres:16-alpine
 
     docker start rhesis-dev-redis 2>/dev/null || \
     docker run -d \
         --name rhesis-dev-redis \
         -p ${DEV_REDIS_PORT}:6379 \
-        redis:7-alpine \
+        mirror.gcr.io/library/redis:7-alpine \
         redis-server --requirepass rhesis-redis-pass
 
     # Wait for postgres to be ready

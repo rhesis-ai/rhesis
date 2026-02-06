@@ -23,7 +23,7 @@ x-backend-config: &backend-config
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:16-alpine
+    image: mirror.gcr.io/library/postgres:16-alpine
     container_name: rhesis-postgres-test
     environment:
       POSTGRES_DB: rhesis-db
@@ -42,7 +42,7 @@ services:
 
   # Redis for Celery
   redis:
-    image: redis:7-alpine
+    image: mirror.gcr.io/library/redis:7-alpine
     container_name: rhesis-redis-test
     command: redis-server --requirepass rhesis-redis-pass
     ports:

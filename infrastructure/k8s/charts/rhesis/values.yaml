@@ -37,7 +37,7 @@ database:
   postgresql:
     disableSecurityContext: true  # Temporarily disable for PostgreSQL due to permission issues
     image:
-      repository: postgres
+      repository: mirror.gcr.io/library/postgres
       tag: "16-alpine"
     persistence:
       enabled: true
@@ -62,7 +62,7 @@ redis:
   enabled: true
   type: "redis"  # redis, external
   image:
-    repository: redis
+    repository: mirror.gcr.io/library/redis
     tag: "7-alpine"
   persistence:
     enabled: true

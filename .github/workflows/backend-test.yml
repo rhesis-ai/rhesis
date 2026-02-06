@@ -117,7 +117,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        image: mirror.gcr.io/library/postgres:15
         env:
           POSTGRES_DB: postgres
           POSTGRES_USER: postgres
@@ -132,7 +132,7 @@ jobs:
           --health-retries 5
 
       redis:
-        image: redis:7
+        image: mirror.gcr.io/library/redis:7
         ports:
           - 6379:6379
         options: >-
