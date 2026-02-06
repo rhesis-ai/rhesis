@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.llm_utils import (
@@ -63,8 +64,8 @@ def validate_workers_available() -> None:
 
 
 def validate_execution_model(
-    current_user: User,
     db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
 ) -> None:
     """
     Validate that user's evaluation model is properly configured.
@@ -73,8 +74,8 @@ def validate_execution_model(
     the user has a valid evaluation model before running tests.
 
     Args:
-        current_user: Current authenticated user
-        db: Database session
+        db: Database session (injected by FastAPI)
+        current_user: Current authenticated user (injected by FastAPI)
 
     Raises:
         HTTPException: 400 if model configuration is invalid
@@ -91,8 +92,8 @@ def validate_execution_model(
 
 
 def validate_generation_model(
-    current_user: User,
     db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
 ) -> None:
     """
     Validate that user's generation model is properly configured.
@@ -101,8 +102,8 @@ def validate_generation_model(
     the user has a valid generation model before creating tests.
 
     Args:
-        current_user: Current authenticated user
-        db: Database session
+        db: Database session (injected by FastAPI)
+        current_user: Current authenticated user (injected by FastAPI)
 
     Raises:
         HTTPException: 400 if model configuration is invalid
