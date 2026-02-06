@@ -123,9 +123,9 @@ export default function ModelsPage() {
         const apiFactory = new ApiClientFactory(session.session_token);
         const modelsClient = apiFactory.getModelsClient();
         const result = await modelsClient.testModelConnection(modelId);
-        
+
         console.log('[MODEL_VALIDATION] Result:', result);
-        
+
         setModelValidationStatus(prev =>
           new Map(prev).set(modelId, {
             isValid: result.status === 'success',
@@ -136,7 +136,7 @@ export default function ModelsPage() {
         );
       } catch (error) {
         console.error('[MODEL_VALIDATION] Error:', error);
-        
+
         // Extract the actual error message from the API response
         const errorMessage =
           error instanceof Error
