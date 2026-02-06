@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+  DragEvent,
+} from 'react';
 import {
   Box,
   Paper,
@@ -237,6 +244,10 @@ interface TreeNodeViewProps {
   onTopicSelect: (path: string | null) => void;
   expandedPaths: Set<string>;
   onToggleExpand: (path: string) => void;
+  onDropTest?: (
+    testId: string,
+    topicPath: string
+  ) => void;
 }
 
 function TreeNodeView({
@@ -246,15 +257,43 @@ function TreeNodeView({
   onTopicSelect,
   expandedPaths,
   onToggleExpand,
+  onDropTest,
 }: TreeNodeViewProps) {
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedPaths.has(node.path);
   const isSelected = selectedTopic === node.path;
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e: DragEvent) => {
+    e.stopPropagation();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const testId = e.dataTransfer.getData(
+      'application/test-id'
+    );
+    if (testId && onDropTest) {
+      onDropTest(testId, node.path);
+    }
+  };
 
   return (
     <Box>
       <Box
         onClick={() => onTopicSelect(node.path)}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         sx={{
           display: 'flex',
           alignItems: 'center',
@@ -263,13 +302,22 @@ function TreeNodeView({
           ml: level * 2,
           cursor: 'pointer',
           borderRadius: 1,
-          backgroundColor: isSelected
-            ? 'action.selected'
-            : 'transparent',
-          '&:hover': {
-            backgroundColor: isSelected
+          backgroundColor: dragOver
+            ? 'primary.main'
+            : isSelected
               ? 'action.selected'
-              : 'action.hover',
+              : 'transparent',
+          color: dragOver
+            ? 'primary.contrastText'
+            : 'inherit',
+          opacity: dragOver ? 0.9 : 1,
+          transition: 'background-color 0.15s ease',
+          '&:hover': {
+            backgroundColor: dragOver
+              ? 'primary.main'
+              : isSelected
+                ? 'action.selected'
+                : 'action.hover',
           },
         }}
       >
@@ -404,6 +452,7 @@ function TreeNodeView({
                 onTopicSelect={onTopicSelect}
                 expandedPaths={expandedPaths}
                 onToggleExpand={onToggleExpand}
+                onDropTest={onDropTest}
               />
             ))}
           </Box>
@@ -884,6 +933,10 @@ interface TopicTreePanelProps {
   selectedTopic: string | null;
   onTopicSelect: (path: string | null) => void;
   onAddTopic: (parentTopic: string | null) => void;
+  onDropTest?: (
+    testId: string,
+    topicPath: string
+  ) => void;
 }
 
 function TopicTreePanel({
@@ -892,6 +945,7 @@ function TopicTreePanel({
   selectedTopic,
   onTopicSelect,
   onAddTopic,
+  onDropTest,
 }: TopicTreePanelProps) {
   // Start with all paths expanded
   const [expandedPaths, setExpandedPaths] = useState<
@@ -988,6 +1042,7 @@ function TopicTreePanel({
           onTopicSelect={onTopicSelect}
           expandedPaths={expandedPaths}
           onToggleExpand={handleToggleExpand}
+          onDropTest={onDropTest}
         />
       ))}
 
@@ -1029,10 +1084,39 @@ function TestsList({
   loading,
   onEditTest,
 }: TestsListProps) {
+  const gridWrapperRef = useRef<HTMLDivElement>(null);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
   });
+
+  // Keep DataGrid rows draggable via MutationObserver
+  useEffect(() => {
+    const container = gridWrapperRef.current;
+    if (!container) return;
+
+    const makeRowsDraggable = () => {
+      container
+        .querySelectorAll(
+          '.MuiDataGrid-row:not([draggable])'
+        )
+        .forEach(row => {
+          row.setAttribute('draggable', 'true');
+        });
+    };
+
+    makeRowsDraggable();
+
+    const observer = new MutationObserver(
+      makeRowsDraggable
+    );
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+    });
+
+    return () => observer.disconnect();
+  }, [tests]);
 
   const handlePaginationModelChange = useCallback(
     (newModel: GridPaginationModel) => {
@@ -1173,22 +1257,48 @@ function TestsList({
           </Typography>
         </Box>
       ) : (
-        <BaseDataGrid
-          columns={columns}
-          rows={tests}
-          loading={loading}
-          getRowId={row => row.id}
-          showToolbar={false}
-          paginationModel={paginationModel}
-          onPaginationModelChange={
-            handlePaginationModelChange
-          }
-          serverSidePagination={false}
-          totalRows={tests.length}
-          pageSizeOptions={[10, 25, 50, 100]}
-          disablePaperWrapper={true}
-          persistState
-        />
+        <Box
+          ref={gridWrapperRef}
+          onDragStart={(e: DragEvent<HTMLDivElement>) => {
+            const row = (
+              e.target as HTMLElement
+            ).closest('[data-id]');
+            if (row) {
+              const testId =
+                row.getAttribute('data-id') || '';
+              e.dataTransfer.setData(
+                'application/test-id',
+                testId
+              );
+              e.dataTransfer.effectAllowed = 'move';
+            }
+          }}
+        >
+          <BaseDataGrid
+            columns={columns}
+            rows={tests}
+            loading={loading}
+            getRowId={row => row.id}
+            showToolbar={false}
+            paginationModel={paginationModel}
+            onPaginationModelChange={
+              handlePaginationModelChange
+            }
+            serverSidePagination={false}
+            totalRows={tests.length}
+            pageSizeOptions={[10, 25, 50, 100]}
+            disablePaperWrapper={true}
+            persistState
+            sx={{
+              '& .MuiDataGrid-row': {
+                cursor: 'grab',
+              },
+              '& .MuiDataGrid-row:active': {
+                cursor: 'grabbing',
+              },
+            }}
+          />
+        </Box>
       )}
     </Box>
   );
@@ -1296,6 +1406,39 @@ export default function AdaptiveTestingDetail({
     );
     setTopics(updatedTopics);
   };
+
+  const handleDropTestOnTopic = useCallback(
+    async (testId: string, topicPath: string) => {
+      // Find the test to check if topic actually changed
+      const test = tests.find(t => t.id === testId);
+      if (!test || test.topic === topicPath) return;
+
+      const clientFactory = new ApiClientFactory(
+        sessionToken
+      );
+      const client =
+        clientFactory.getAdaptiveTestingClient();
+
+      await client.updateTest(testSetId, testId, {
+        topic: topicPath,
+      });
+
+      // Refresh tree and topics data
+      const [treeNodes, updatedTopics] =
+        await Promise.all([
+          client.getTree(testSetId),
+          client.getTopics(testSetId),
+        ]);
+
+      setTests(
+        treeNodes.filter(
+          node => node.label !== 'topic_marker'
+        )
+      );
+      setTopics(updatedTopics);
+    },
+    [tests, sessionToken, testSetId]
+  );
 
   // Filter tests by selected topic
   const filteredTests = useMemo(() => {
@@ -1458,6 +1601,7 @@ export default function AdaptiveTestingDetail({
                 selectedTopic={selectedTopic}
                 onTopicSelect={setSelectedTopic}
                 onAddTopic={handleAddTopicOpen}
+                onDropTest={handleDropTestOnTopic}
               />
             </Box>
           </Paper>
