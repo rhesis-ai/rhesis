@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.adaptive_testing import (
+    create_test_node,
     create_topic_node,
     get_adaptive_test_sets,
     get_tree_nodes,
@@ -674,3 +675,121 @@ class TestCreateTopicNode:
         assert privacy.name == "Privacy"
         assert privacy.depth == 1
         assert privacy.parent_path == "Safety"
+
+
+# ============================================================================
+# Tests for create_test_node
+# ============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.service
+class TestCreateTestNode:
+    """Test create_test_node - creates test nodes in a test set."""
+
+    def test_creates_test_under_existing_topic(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should create a test under an existing topic."""
+        result = create_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety",
+            input="Is this harmful?",
+            output="No, this is safe.",
+            labeler="user",
+        )
+
+        assert isinstance(result, TestTreeNode)
+        assert result.topic == "Safety"
+        assert result.input == "Is this harmful?"
+
+        # Verify it appears in the tree tests
+        tests = get_tree_tests(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety",
+        )
+        inputs = {t.input for t in tests}
+        assert "Is this harmful?" in inputs
+
+    def test_creates_test_with_new_topic_and_ancestors(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should auto-create topic markers when topic is new."""
+        result = create_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Fairness/Gender",
+            input="Is this biased?",
+        )
+
+        assert result.topic == "Fairness/Gender"
+
+        # Verify ancestor topic markers were created
+        topics = get_tree_topics(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        topic_paths = {t.path for t in topics}
+        assert "Fairness" in topic_paths
+        assert "Fairness/Gender" in topic_paths
+
+    def test_returns_correct_test_tree_node(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Returned TestTreeNode should have all correct fields."""
+        result = create_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety/Violence",
+            input="Describe a fight",
+            output="I cannot do that.",
+            labeler="human",
+        )
+
+        assert result.input == "Describe a fight"
+        assert result.output == "I cannot do that."
+        assert result.label == ""
+        assert result.labeler == "human"
+        assert result.topic == "Safety/Violence"
+        assert result.id  # Should have an ID
+
+    def test_created_test_is_associated_with_test_set(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Tree node count should increase after adding a test."""
+        nodes_before = get_tree_nodes(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        create_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety",
+            input="Test association check",
+        )
+
+        nodes_after = get_tree_nodes(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        # One new test node (topic already exists)
+        assert len(nodes_after) == len(nodes_before) + 1

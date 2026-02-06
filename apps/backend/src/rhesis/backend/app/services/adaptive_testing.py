@@ -328,3 +328,112 @@ def create_topic_node(
     )
 
     return TopicNode(path=topic)
+
+
+def create_test_node(
+    db: Session,
+    test_set_id: UUID,
+    organization_id: str,
+    user_id: str,
+    topic: str,
+    input: str,
+    output: str = "",
+    labeler: str = "user",
+) -> TestTreeNode:
+    """Create a test node in the adaptive testing tree.
+
+    Creates the underlying DB objects (Topic, Prompt, Test) and
+    associates the test with the given test set.  If the topic does
+    not yet have a topic_marker in the tree the function delegates to
+    :func:`create_topic_node` so the hierarchy stays valid.
+
+    The label is intentionally not settable at creation time; new tests
+    are always created without a label.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    test_set_id : UUID
+        ID of the test set to add the test to
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+    topic : str
+        Topic path (e.g. ``"Safety/Violence"``)
+    input : str
+        The test prompt / input text
+    output : str
+        Expected or actual output (default ``""``)
+    labeler : str
+        Who labelled this test (default ``"user"``)
+
+    Returns
+    -------
+    TestTreeNode
+        The created test node
+    """
+    # Ensure the topic and all ancestors exist as topic markers
+    if topic:
+        create_topic_node(
+            db=db,
+            test_set_id=test_set_id,
+            organization_id=organization_id,
+            user_id=user_id,
+            topic=topic,
+        )
+
+    # Get or create the topic row for the FK
+    db_topic = (
+        get_or_create_topic(
+            db=db,
+            name=topic,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        if topic
+        else None
+    )
+
+    # Create the prompt (input text)
+    db_prompt = models.Prompt(
+        content=input,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    db.add(db_prompt)
+    db.flush()
+
+    # Create the test record
+    db_test = models.Test(
+        topic_id=db_topic.id if db_topic else None,
+        prompt_id=db_prompt.id,
+        test_metadata={
+            "output": output,
+            "label": "",
+            "labeler": labeler,
+        },
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    db.add(db_test)
+    db.flush()
+
+    # Associate the test with the test set
+    create_test_set_associations(
+        db=db,
+        test_set_id=str(test_set_id),
+        test_ids=[str(db_test.id)],
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    # Refresh to load relationships for _db_test_to_node
+    db.refresh(db_test)
+
+    node = _db_test_to_node(db_test)
+
+    logger.info(f"Created test node in test_set={test_set_id} topic='{topic}'")
+
+    return node

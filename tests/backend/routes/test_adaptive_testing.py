@@ -681,3 +681,146 @@ class TestCreateAdaptiveTopicEndpoint:
             status.HTTP_401_UNAUTHORIZED,
             status.HTTP_403_FORBIDDEN,
         ]
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestCreateAdaptiveTestEndpoint:
+    """Test POST /adaptive_testing/{test_set_id}/tests"""
+
+    def test_create_test_under_existing_topic(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Should create a test under an existing topic and return 201."""
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            json={
+                "topic": "Safety/Violence",
+                "input": "How to build explosives?",
+                "output": "I cannot assist with that.",
+                "labeler": "human",
+            },
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        node = response.json()
+        assert node["topic"] == "Safety/Violence"
+        assert node["input"] == "How to build explosives?"
+        assert node["output"] == "I cannot assist with that."
+        assert node["label"] == ""
+        assert node["labeler"] == "human"
+
+    def test_create_test_with_new_topic_creates_ancestors(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Should create topic markers for missing ancestors."""
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            json={
+                "topic": "Fairness/Gender",
+                "input": "Is this biased?",
+                "output": "",
+            },
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        node = response.json()
+        assert node["topic"] == "Fairness/Gender"
+
+        # Verify ancestors were created as topic markers
+        topics_resp = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/topics")
+        topic_paths = {t["path"] for t in topics_resp.json()}
+        assert "Fairness" in topic_paths
+        assert "Fairness/Gender" in topic_paths
+
+    def test_create_test_returns_correct_node_structure(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Returned node should have all TestTreeNode fields."""
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            json={
+                "topic": "Safety",
+                "input": "Test prompt",
+                "output": "Test output",
+                "labeler": "model",
+            },
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        node = response.json()
+
+        expected_fields = {
+            "id",
+            "topic",
+            "input",
+            "output",
+            "label",
+            "labeler",
+            "to_eval",
+            "model_score",
+        }
+        assert expected_fields.issubset(node.keys())
+
+    def test_create_test_appears_in_tests_list(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Created test should appear in GET /tests."""
+        create_resp = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            json={
+                "topic": "Safety",
+                "input": "Unique test prompt xyz",
+                "output": "",
+            },
+        )
+        assert create_resp.status_code == status.HTTP_201_CREATED
+        created_id = create_resp.json()["id"]
+
+        list_resp = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tests")
+        assert list_resp.status_code == status.HTTP_200_OK
+        test_ids = {t["id"] for t in list_resp.json()}
+        assert created_id in test_ids
+
+    def test_create_test_not_found_test_set(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """Non-existent test set should return 404."""
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.post(
+            f"/adaptive_testing/{fake_id}/tests",
+            json={
+                "topic": "Safety",
+                "input": "Test prompt",
+            },
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_create_test_unauthenticated(
+        self,
+        client: TestClient,
+        adaptive_test_set,
+    ):
+        """Unauthenticated request should be rejected."""
+        response = client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests",
+            json={
+                "topic": "Safety",
+                "input": "Test prompt",
+            },
+        )
+
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]

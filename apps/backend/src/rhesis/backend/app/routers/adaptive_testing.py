@@ -20,6 +20,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.adaptive_testing import (
+    create_test_node,
     create_topic_node,
     get_adaptive_test_sets,
     get_tree_nodes,
@@ -180,4 +181,39 @@ def create_adaptive_topic(
         organization_id=str(organization_id),
         user_id=str(user_id),
         topic=path,
+    )
+
+
+@router.post(
+    "/{test_set_identifier}/tests",
+    response_model=TestTreeNode,
+    status_code=201,
+)
+def create_adaptive_test(
+    test_set_identifier: str,
+    topic: str = Body(..., description="Topic path for the test"),
+    input: str = Body(..., description="Test input / prompt text"),
+    output: str = Body("", description="Expected or actual output"),
+    labeler: str = Body("user", description="Who labelled this test"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Create a new test node in the adaptive testing tree.
+
+    Automatically ensures the topic and all its ancestor topic markers
+    exist before creating the test.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    return create_test_node(
+        db=db,
+        test_set_id=db_test_set.id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        topic=topic,
+        input=input,
+        output=output,
+        labeler=labeler,
     )
