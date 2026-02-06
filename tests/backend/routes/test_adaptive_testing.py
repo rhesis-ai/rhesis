@@ -964,3 +964,94 @@ class TestUpdateAdaptiveTestEndpoint:
             status.HTTP_401_UNAUTHORIZED,
             status.HTTP_403_FORBIDDEN,
         ]
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestDeleteAdaptiveTestEndpoint:
+    """Test DELETE /adaptive_testing/{test_set_id}/tests/{test_id}"""
+
+    def _create_test(self, authenticated_client, test_set_id):
+        """Helper: create a test via POST and return the response JSON."""
+        resp = authenticated_client.post(
+            f"/adaptive_testing/{test_set_id}/tests",
+            json={
+                "topic": "Safety",
+                "input": "Test to delete",
+                "output": "Some output",
+            },
+        )
+        assert resp.status_code == status.HTTP_201_CREATED
+        return resp.json()
+
+    def test_delete_existing_test(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Should delete the test and return success response."""
+        node = self._create_test(authenticated_client, adaptive_test_set.id)
+
+        response = authenticated_client.delete(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["deleted"] is True
+        assert body["test_id"] == node["id"]
+
+    def test_deleted_test_not_in_list(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Deleted test should not appear in GET /tests."""
+        node = self._create_test(authenticated_client, adaptive_test_set.id)
+
+        authenticated_client.delete(f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}")
+
+        list_resp = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tests")
+        assert list_resp.status_code == status.HTTP_200_OK
+        test_ids = {t["id"] for t in list_resp.json()}
+        assert node["id"] not in test_ids
+
+    def test_delete_nonexistent_test(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Non-existent test ID should return 404."""
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.delete(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests/{fake_id}"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_nonexistent_test_set(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """Non-existent test set should return 404."""
+        fake_set_id = str(uuid.uuid4())
+        fake_test_id = str(uuid.uuid4())
+        response = authenticated_client.delete(
+            f"/adaptive_testing/{fake_set_id}/tests/{fake_test_id}"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_unauthenticated(
+        self,
+        client: TestClient,
+        adaptive_test_set,
+    ):
+        """Unauthenticated request should be rejected."""
+        fake_test_id = str(uuid.uuid4())
+        response = client.delete(f"/adaptive_testing/{adaptive_test_set.id}/tests/{fake_test_id}")
+
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]

@@ -38,6 +38,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import ListIcon from '@mui/icons-material/List';
 import AddIcon from '@mui/icons-material/AddOutlined';
 import EditIcon from '@mui/icons-material/EditOutlined';
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import {
   TestNode,
   TestNodeCreate,
@@ -1077,12 +1078,14 @@ interface TestsListProps {
   tests: TestNode[];
   loading: boolean;
   onEditTest?: (test: TestNode) => void;
+  onDeleteTest?: (test: TestNode) => void;
 }
 
 function TestsList({
   tests,
   loading,
   onEditTest,
+  onDeleteTest,
 }: TestsListProps) {
   const gridWrapperRef = useRef<HTMLDivElement>(null);
   const [paginationModel, setPaginationModel] = useState({
@@ -1222,23 +1225,50 @@ function TestsList({
         );
       },
     },
-    ...(onEditTest
+    ...(onEditTest || onDeleteTest
       ? [
           {
             field: 'actions',
             headerName: '',
-            width: 50,
+            width: 90,
             sortable: false,
             filterable: false,
             disableColumnMenu: true,
             renderCell: (params: any) => (
-              <IconButton
-                size="small"
-                onClick={() => onEditTest(params.row)}
-                sx={{ color: 'text.secondary' }}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
               >
-                <EditIcon fontSize="small" />
-              </IconButton>
+                {onEditTest && (
+                  <IconButton
+                    size="small"
+                    onClick={() =>
+                      onEditTest(params.row)
+                    }
+                    sx={{ color: 'text.secondary' }}
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                )}
+                {onDeleteTest && (
+                  <IconButton
+                    size="small"
+                    onClick={() =>
+                      onDeleteTest(params.row)
+                    }
+                    sx={{
+                      color: 'text.secondary',
+                      '&:hover': {
+                        color: 'error.main',
+                      },
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Box>
             ),
           } as GridColDef,
         ]
@@ -1332,6 +1362,10 @@ export default function AdaptiveTestingDetail({
   const [editTestDialogOpen, setEditTestDialogOpen] =
     useState(false);
   const [editingTest, setEditingTest] =
+    useState<TestNode | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] =
+    useState(false);
+  const [deletingTest, setDeletingTest] =
     useState<TestNode | null>(null);
 
   // Build the topic tree
@@ -1439,6 +1473,39 @@ export default function AdaptiveTestingDetail({
     },
     [tests, sessionToken, testSetId]
   );
+
+  const handleDeleteTestOpen = (test: TestNode) => {
+    setDeletingTest(test);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteTestConfirm = async () => {
+    if (!deletingTest) return;
+
+    const clientFactory = new ApiClientFactory(
+      sessionToken
+    );
+    const client =
+      clientFactory.getAdaptiveTestingClient();
+
+    await client.deleteTest(testSetId, deletingTest.id);
+
+    // Refresh tree and topics data
+    const [treeNodes, updatedTopics] = await Promise.all([
+      client.getTree(testSetId),
+      client.getTopics(testSetId),
+    ]);
+
+    setTests(
+      treeNodes.filter(
+        node => node.label !== 'topic_marker'
+      )
+    );
+    setTopics(updatedTopics);
+
+    setDeleteConfirmOpen(false);
+    setDeletingTest(null);
+  };
 
   // Filter tests by selected topic
   const filteredTests = useMemo(() => {
@@ -1649,6 +1716,7 @@ export default function AdaptiveTestingDetail({
                 tests={filteredTests}
                 loading={false}
                 onEditTest={handleEditTestOpen}
+                onDeleteTest={handleDeleteTestOpen}
               />
             </Paper>
           </Box>
@@ -1679,6 +1747,7 @@ export default function AdaptiveTestingDetail({
               tests={tests}
               loading={false}
               onEditTest={handleEditTestOpen}
+              onDeleteTest={handleDeleteTestOpen}
             />
           </Paper>
         </Box>
@@ -1712,6 +1781,55 @@ export default function AdaptiveTestingDetail({
         test={editingTest}
         topics={topics}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => {
+          setDeleteConfirmOpen(false);
+          setDeletingTest(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Test</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete this test?
+          </Typography>
+          {deletingTest && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                mt: 1,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {deletingTest.input}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setDeleteConfirmOpen(false);
+              setDeletingTest(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteTestConfirm}
+            color="error"
+            variant="contained"
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

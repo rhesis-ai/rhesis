@@ -551,3 +551,75 @@ def update_test_node(
     logger.info(f"Updated test node {test_id} in test_set={test_set_id}")
 
     return node
+
+
+def delete_test_node(
+    db: Session,
+    test_set_id: UUID,
+    test_id: UUID,
+    organization_id: str,
+    user_id: str,
+) -> bool:
+    """Delete a test node from the adaptive testing tree.
+
+    Removes the test-to-test-set association and soft-deletes the
+    underlying Test (and its Prompt) so the node no longer appears
+    in the tree.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    test_set_id : UUID
+        ID of the test set the test belongs to
+    test_id : UUID
+        ID of the test to delete
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+
+    Returns
+    -------
+    bool
+        True if the test was found and deleted, False otherwise.
+    """
+    # Look up the test and verify it belongs to the test set
+    db_test = (
+        db.query(models.Test)
+        .join(
+            test_test_set_association,
+            models.Test.id == test_test_set_association.c.test_id,
+        )
+        .filter(
+            models.Test.id == test_id,
+            test_test_set_association.c.test_set_id == test_set_id,
+            models.Test.organization_id == organization_id,
+        )
+        .first()
+    )
+
+    if db_test is None:
+        return False
+
+    # Remove the test-test_set association
+    db.execute(
+        test_test_set_association.delete().where(
+            test_test_set_association.c.test_id == test_id,
+            test_test_set_association.c.test_set_id == test_set_id,
+        )
+    )
+
+    # Soft-delete the test via the existing CRUD helper
+    crud.delete_test(
+        db=db,
+        test_id=test_id,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+
+    db.flush()
+
+    logger.info(f"Deleted test node {test_id} from test_set={test_set_id}")
+
+    return True

@@ -16,6 +16,7 @@ from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.adaptive_testing import (
     create_test_node,
     create_topic_node,
+    delete_test_node,
     get_adaptive_test_sets,
     get_tree_nodes,
     get_tree_tests,
@@ -931,3 +932,126 @@ class TestUpdateTestNode:
         )
 
         assert result is None
+
+
+# ============================================================================
+# Tests for delete_test_node
+# ============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.service
+class TestDeleteTestNode:
+    """Test delete_test_node - deletes test nodes from a test set."""
+
+    def _create_test(self, test_db, adaptive_test_set, test_org_id, user_id):
+        """Helper to create a test node for deletion tests."""
+        return create_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=user_id,
+            topic="Safety",
+            input="Test to delete",
+            output="Some output",
+            labeler="user",
+        )
+
+    def test_deletes_existing_test(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should return True when test exists and is deleted."""
+        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+
+        result = delete_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            test_id=uuid.UUID(node.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result is True
+
+    def test_deleted_test_no_longer_in_tree(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Deleted test should not appear in get_tree_tests."""
+        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+
+        delete_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            test_id=uuid.UUID(node.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        tests = get_tree_tests(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_ids = {t.id for t in tests}
+        assert node.id not in test_ids
+
+    def test_node_count_decreases_after_delete(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Tree node count should decrease after deleting a test."""
+        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+
+        nodes_before = get_tree_nodes(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        delete_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            test_id=uuid.UUID(node.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        nodes_after = get_tree_nodes(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert len(nodes_after) < len(nodes_before)
+
+    def test_returns_false_for_nonexistent_test(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should return False when test ID does not exist."""
+        result = delete_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            test_id=uuid.uuid4(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result is False
+
+    def test_returns_false_for_wrong_test_set(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should return False when test exists but in a different test set."""
+        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+
+        result = delete_test_node(
+            db=test_db,
+            test_set_id=uuid.uuid4(),
+            test_id=uuid.UUID(node.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert result is False

@@ -23,6 +23,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.adaptive_testing import (
     create_test_node,
     create_topic_node,
+    delete_test_node,
     get_adaptive_test_sets,
     get_tree_nodes,
     get_tree_tests,
@@ -266,3 +267,38 @@ def update_adaptive_test(
         )
 
     return result
+
+
+@router.delete(
+    "/{test_set_identifier}/tests/{test_id}",
+)
+def delete_adaptive_test(
+    test_set_identifier: str,
+    test_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Delete a test node from the adaptive testing tree.
+
+    Removes the test-test_set association and soft-deletes
+    the underlying test record.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    deleted = delete_test_node(
+        db=db,
+        test_set_id=db_test_set.id,
+        test_id=test_id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail="Test not found in this test set",
+        )
+
+    return {"deleted": True, "test_id": str(test_id)}
