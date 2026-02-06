@@ -19,8 +19,13 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install build dependencies with retry logic for better error handling
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     build-essential \
     git \
     curl \
@@ -75,7 +80,12 @@ FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
 WORKDIR /app
 
 # Install only runtime dependencies (no build tools)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

@@ -18,13 +18,21 @@ WORKDIR /app
 
 # Install build dependencies
 # Note: Rust/cargo is required for garak's base2048 dependency
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Add retry logic and split into separate steps for better error handling
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     build-essential \
     libpq-dev \
     git \
     curl \
-    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Rust separately (needed for garak's base2048 dependency)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 ENV PATH="/root/.cargo/bin:$PATH"
 
@@ -102,7 +110,12 @@ exec bunx --silent $args\n' > /usr/local/bin/npx && chmod +x /usr/local/bin/npx
 WORKDIR /app
 
 # Install only runtime dependencies (no build tools)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     libpq5 \
     postgresql-client \
     curl \

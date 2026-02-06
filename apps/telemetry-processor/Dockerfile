@@ -2,8 +2,13 @@ FROM mirror.gcr.io/library/python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies with retry logic
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     gcc \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
