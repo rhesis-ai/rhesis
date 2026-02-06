@@ -16,7 +16,6 @@ import {
   AutoGraphIcon,
   IntegrationInstructionsIcon,
   SmartToyIcon,
-  GridViewIcon,
   ApiIcon,
   TerminalIcon,
   AssignmentIcon,
@@ -175,12 +174,6 @@ async function getNavigationItems(
       segment: 'test-sets',
       title: 'Test Sets',
       icon: <CategoryIcon />,
-    },
-    {
-      kind: 'page',
-      segment: 'test-explorer',
-      title: 'Test Explorer',
-      icon: <GridViewIcon />,
     },
     {
       kind: 'page',
