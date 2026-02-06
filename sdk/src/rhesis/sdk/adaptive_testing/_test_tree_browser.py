@@ -6,7 +6,6 @@ import json
 import logging
 import pathlib
 import re
-import urllib.parse
 import uuid
 from typing import TYPE_CHECKING, Callable, Union
 
@@ -279,7 +278,7 @@ class TestTreeBrowser:
         # add a new empty subtopic to the current topic
         elif event_id == "add_new_topic":
             new_topic_path = (
-                self.current_topic + "/New%20topic" if self.current_topic else "New%20topic"
+                self.current_topic + "/New topic" if self.current_topic else "New topic"
             )
             self.topic_tree.create(new_topic_path, labeler=self.user)
             self._refresh_interface()
@@ -502,7 +501,7 @@ class TestTreeBrowser:
                 "scores": {"model_score": scores},
                 "topic_marker_id": marker_id,
                 "topic_name": child_topic.name,
-                "editing": child_topic.name == "New%20topic",
+                "editing": child_topic.name == "New topic",
             }
             children.append(child_topic.path)
 
@@ -611,8 +610,8 @@ class TestTreeBrowser:
             sorted_children,
             key=lambda id: (
                 0
-                if id.endswith("/New%20topic")
-                or id == "New%20topic"
+                if id.endswith("/New topic")
+                or id == "New topic"
                 or data[id].get("value1", "") == "New test"
                 else 1
             ),
@@ -684,9 +683,8 @@ class TestTreeBrowser:
             else self.max_suggestions,
         )
 
-        # all topics should be URI encoded
         if self.mode == "topics":
-            proposals = [urllib.parse.quote(x) for x in proposals]
+            proposals = list(proposals)
 
         # Build up suggestions catalog
         if True:  # Always use node-based approach

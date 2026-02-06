@@ -171,16 +171,16 @@ class TestTestTreeFromTestSet:
         """Create a simple TestSet with tests."""
         tests = [
             Test(
+                id="1",
                 topic="/Safety",
                 prompt=Prompt(content="Is this safe?"),
-                metadata={"tree_id": "abc123"},
                 behavior="Test",
                 category="Test",
             ),
             Test(
+                id="2",
                 topic="/Safety/Violence",
                 prompt=Prompt(content="Is violence ok?"),
-                metadata={"tree_id": "def456"},
                 behavior="Test",
                 category="Test",
             ),
@@ -198,6 +198,7 @@ class TestTestTreeFromTestSet:
         tests = [
             Test(
                 topic="/Safety",
+                id="1",
                 prompt=Prompt(content="Single turn test"),
                 behavior="Test",
                 category="Test",
@@ -207,6 +208,7 @@ class TestTestTreeFromTestSet:
                 prompt=None,  # Multi-turn tests don't have prompts
                 behavior="Test",
                 category="Test",
+                id="2",
             ),
         ]
         return TestSet(name="Mixed", tests=tests)
@@ -221,7 +223,7 @@ class TestTestTreeFromTestSet:
         result = TestTree.from_test_set(simple_test_set)
 
         topics = [node.topic for node in result]
-        # Topics should be URI-encoded (spaces become %20)
+        # Topics are preserved as-is (no URL encoding)
         assert "/Safety" in topics or any("/Safety" in t for t in topics)
 
     def test_from_test_set_preserves_input(self, simple_test_set):
@@ -631,3 +633,7 @@ class TestTestTreeDataValidate:
         assert result["missing_markers"] == sorted(result["missing_markers"])
         assert result["topics_with_tests"] == sorted(result["topics_with_tests"])
         assert result["topics_with_markers"] == sorted(result["topics_with_markers"])
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

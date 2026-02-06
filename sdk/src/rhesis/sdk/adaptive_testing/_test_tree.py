@@ -1,4 +1,3 @@
-import urllib.parse
 import uuid
 from typing import TYPE_CHECKING, Any, Callable, List, Optional
 
@@ -158,14 +157,12 @@ class TestTree:
             if not include_suggestions and "/__suggestions__" in node.topic:
                 continue
 
-            # Decode URI-encoded topic (spaces are encoded as %20)
-            topic = urllib.parse.unquote(node.topic) if node.topic else ""
+            topic = node.topic if node.topic else ""
 
             prompt = Prompt(content=node.input)
 
             # Store all node fields in metadata for complete round-trip
             metadata = {
-                "tree_id": str(node.id),
                 "output": node.output,
                 "label": node.label,
                 "labeler": node.labeler,
@@ -173,6 +170,7 @@ class TestTree:
             }
 
             test = Test(
+                id=node.id,
                 topic=topic,
                 prompt=prompt,
                 metadata=metadata,
@@ -240,13 +238,12 @@ class TestTree:
             if not is_topic_marker and (not test.prompt or not test.prompt.content):
                 continue
 
-            # Get topic and URI encode for internal consistency
             topic = test.topic or ""
-            topic = urllib.parse.quote(topic, safe="/")
 
             # Build node kwargs - use test.id (database ID) if available,
             # otherwise fall back to tree_id from metadata
             node_kwargs = {
+                "id": test.id,
                 "topic": topic,
                 "input": test.prompt.content if test.prompt else "",
                 "output": meta.get("output", "[no output]"),
@@ -254,10 +251,6 @@ class TestTree:
                 "labeler": meta.get("labeler", "imported"),
                 "model_score": meta.get("model_score", 0.0),
             }
-            if test.id:
-                node_kwargs["id"] = test.id
-            elif meta.get("tree_id"):
-                node_kwargs["id"] = meta["tree_id"]
 
             nodes.append(TestTreeNode(**node_kwargs))
 

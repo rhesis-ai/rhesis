@@ -1,9 +1,8 @@
-import urllib.parse
 import uuid
 from functools import cached_property
 from typing import Iterator, List, Literal, Optional
 
-from pydantic import BaseModel, Field, computed_field, field_validator
+from pydantic import BaseModel, Field, computed_field
 
 
 class TestTreeNode(BaseModel):
@@ -15,14 +14,6 @@ class TestTreeNode(BaseModel):
     labeler: str = ""
     to_eval: bool = True
     model_score: float = 0.0
-
-    @field_validator("topic", mode="before")
-    @classmethod
-    def encode_topic_spaces(cls, v: str) -> str:
-        """Replace spaces with %20 in topic paths."""
-        if isinstance(v, str):
-            return v.replace(" ", "%20")
-        return v
 
 
 class TestTreeData:
@@ -320,13 +311,13 @@ class TopicNode(BaseModel):
 
     @property
     def display_name(self) -> str:
-        """Human-readable name with URL encoding decoded"""
-        return urllib.parse.unquote(self.name)
+        """Human-readable name (last segment of path)."""
+        return self.name
 
     @property
     def display_path(self) -> str:
-        """Human-readable full path with URL encoding decoded"""
-        return urllib.parse.unquote(self.path)
+        """Human-readable full path."""
+        return self.path
 
     def is_ancestor_of(self, other: "TopicNode") -> bool:
         """Returns True if self is an ancestor of other"""
@@ -353,9 +344,8 @@ class TopicNode(BaseModel):
 
     @classmethod
     def from_display_name(cls, display_path: str) -> "TopicNode":
-        """Create a Topic from a human-readable path (encodes spaces etc.)"""
-        encoded = urllib.parse.quote(display_path, safe="/")
-        return cls(path=encoded)
+        """Create a Topic from a human-readable path."""
+        return cls(path=display_path)
 
     @classmethod
     def root(cls) -> "TopicNode":

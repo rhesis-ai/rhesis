@@ -61,13 +61,13 @@ class TestTestTreeNode:
         node = TestTreeNode()
         assert node.input == ""
 
-    def test_topic_spaces_are_encoded(self):
-        """Should encode spaces as %20 in topic field."""
+    def test_topic_spaces_preserved(self):
+        """Topic field preserves spaces (no URL encoding)."""
         node = TestTreeNode(input="test", topic="/Safety Topic/Sub Topic")
-        assert node.topic == "/Safety%20Topic/Sub%20Topic"
+        assert node.topic == "/Safety Topic/Sub Topic"
 
-    def test_topic_already_encoded_remains_unchanged(self):
-        """Should not double-encode already encoded topics."""
+    def test_topic_preserved_as_given(self):
+        """Topic is stored exactly as provided."""
         node = TestTreeNode(input="test", topic="/Safety%20Topic")
         assert node.topic == "/Safety%20Topic"
 
@@ -433,14 +433,14 @@ class TestTopicNode:
         topic = TopicNode(path="")
         assert topic.depth == -1
 
-    def test_display_name_decodes_url_encoding(self):
-        """Should decode URL-encoded characters."""
-        topic = TopicNode(path="Safety%20Topic/Sub%20Topic")
+    def test_display_name_returns_last_segment(self):
+        """display_name is the last segment of the path."""
+        topic = TopicNode(path="Safety Topic/Sub Topic")
         assert topic.display_name == "Sub Topic"
 
-    def test_display_path_decodes_url_encoding(self):
-        """Should decode full path with URL-encoded characters."""
-        topic = TopicNode(path="Safety%20Topic/Sub%20Topic")
+    def test_display_path_returns_path(self):
+        """display_path returns the full path as stored."""
+        topic = TopicNode(path="Safety Topic/Sub Topic")
         assert topic.display_path == "Safety Topic/Sub Topic"
 
     def test_is_ancestor_of_true(self):
@@ -506,9 +506,9 @@ class TestTopicNode:
         assert root.child_path("Safety") == "Safety"
 
     def test_from_display_name(self):
-        """Should create topic from display name with encoding."""
+        """Should create topic from display path as-is."""
         topic = TopicNode.from_display_name("Safety Topic/Sub Topic")
-        assert topic.path == "Safety%20Topic/Sub%20Topic"
+        assert topic.path == "Safety Topic/Sub Topic"
 
     def test_root_classmethod(self):
         """Should create root topic with empty path."""

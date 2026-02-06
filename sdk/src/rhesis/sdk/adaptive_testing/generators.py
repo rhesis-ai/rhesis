@@ -1,6 +1,5 @@
 """A set of generators for Adaptive Testing."""
 
-import urllib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -259,7 +258,7 @@ class TestTreeSource(Generator):
                     and topic == node.topic[0 : node.topic.rfind("/")]
                     and node.topic != ""
                 ):
-                    proposals.append(urllib.parse.unquote(node.topic.rsplit("/", 2)[1]))
+                    proposals.append(node.topic.rsplit("/", 2)[1])
             return proposals
 
         # Find tests closest to the proposals in the embedding space

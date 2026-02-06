@@ -1,5 +1,4 @@
 import logging
-import urllib.parse
 
 import numpy as np
 
@@ -189,9 +188,7 @@ class PromptBuilder:
                 sim_avoidance = np.zeros(len(ids))
                 if suggest_topics:
                     embeddings_arr = np.vstack(
-                        embed_fn(
-                            [urllib.parse.unquote(test_tree[id].topic.split("/")[-1]) for id in ids]
-                        )
+                        embed_fn([test_tree[id].topic.split("/")[-1] for id in ids])
                     )
                 else:
                     embeddings_arr = np.hstack(
@@ -287,7 +284,7 @@ class PromptBuilder:
                         parents, child = node.topic.rsplit("/", 1)
                     else:
                         parents, child = "", node.topic  # root-level topic
-                    prompt.append((k, parents, urllib.parse.unquote(child)))
+                    prompt.append((k, parents, child))
                 else:
                     prompt.append((k, node.topic, node.input))
             prompts.append(prompt)
