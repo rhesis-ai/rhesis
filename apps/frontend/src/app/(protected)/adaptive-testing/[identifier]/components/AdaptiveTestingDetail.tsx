@@ -1061,13 +1061,7 @@ export default function AdaptiveTestingDetail({
     if (selectedTopic === null) {
       return tests;
     }
-    return tests.filter(test => {
-      // Exact match or descendant
-      return (
-        test.topic === selectedTopic ||
-        test.topic?.startsWith(selectedTopic + '/')
-      );
-    });
+    return tests.filter(test => test.topic === selectedTopic);
   }, [tests, selectedTopic]);
 
   // Stats
