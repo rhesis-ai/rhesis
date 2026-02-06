@@ -1,4 +1,5 @@
 # Import existing routers
+from .adaptive_testing import router as adaptive_testing_router
 from .auth import router as auth_router
 from .behavior import router as behavior_router
 from .category import router as category_router
@@ -80,6 +81,7 @@ __all__ = [
     "task_management",
     "garak",
     "file_import",
+    "adaptive_testing",
 ]
 
 # Export all routers for use in main.py
@@ -125,6 +127,7 @@ routers = sorted(
         garak_router,
         file_import_router,
         websocket_router,
+        adaptive_testing_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )
