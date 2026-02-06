@@ -1,4 +1,4 @@
-FROM nocodb/nocodb:latest
+FROM mirror.gcr.io/nocodb/nocodb:latest
 
 # Install gettext to get envsubst
 RUN apk add --no-cache gettext

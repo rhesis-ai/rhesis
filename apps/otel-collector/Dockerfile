@@ -1,4 +1,4 @@
-FROM otel/opentelemetry-collector-contrib:0.97.0
+FROM mirror.gcr.io/otel/opentelemetry-collector-contrib:0.97.0
 
 # Copy custom configuration
 COPY otel-collector-config.yaml /etc/otelcol-contrib/config.yaml

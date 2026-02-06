@@ -5,7 +5,7 @@ Contains different model classes that can be used based on configuration.
 
 import logging
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from rhesis.sdk.models import BaseLLM
 from rhesis.sdk.models.factory import get_model
@@ -306,3 +306,55 @@ class LazyModelLoader(BaseLLM):
             schema=schema,
             **kwargs,
         )
+
+    def generate_batch(
+        self,
+        prompts: List[str],
+        system_prompt: Optional[str] = None,
+        schema: Optional[Any] = None,
+        **kwargs,
+    ) -> List[Union[str, Dict[str, Any]]]:
+        """
+        Generate responses for multiple prompts using the loaded model.
+
+        Falls back to sequential generation if batch processing is not supported
+        by the underlying provider (e.g., lmformatenforcer, huggingface).
+
+        Args:
+            prompts: List of user prompts
+            system_prompt: Optional system prompt (applied to all prompts)
+            schema: Optional schema for structured output
+            **kwargs: Additional generation parameters
+
+        Returns:
+            List of str or dict: Generated responses
+        """
+        if self._internal_model is None:
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        try:
+            # Try batch processing first (works for API-based providers)
+            return self._internal_model.generate_batch(
+                prompts=prompts,
+                system_prompt=system_prompt,
+                schema=schema,
+                **kwargs,
+            )
+        except (NotImplementedError, AttributeError):
+            # Fallback to sequential generation for providers that don't support batch.
+            # Catches NotImplementedError (method exists but raises) and AttributeError
+            # (method doesn't exist, e.g., if provider doesn't inherit from BaseLLM properly).
+            logger.info(
+                f"Batch processing not supported by {self._model_name}, "
+                f"falling back to sequential generation"
+            )
+            results = []
+            for prompt in prompts:
+                result = self._internal_model.generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    schema=schema,
+                    **kwargs,
+                )
+                results.append(result)
+            return results

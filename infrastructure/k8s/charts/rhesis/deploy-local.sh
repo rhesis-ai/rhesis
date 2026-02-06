@@ -42,14 +42,14 @@ load_images() {
     fi
     
     # List of required images
-    local images=("rhesis-frontend:latest" "rhesis-backend:latest" "rhesis-worker:latest" "postgres:16-alpine" "redis:7-alpine")
+    local images=("rhesis-frontend:latest" "rhesis-backend:latest" "rhesis-worker:latest" "mirror.gcr.io/library/postgres:16-alpine" "mirror.gcr.io/library/redis:7-alpine")
     
     for image in "${images[@]}"; do
         echo "  - Checking image: $image"
         
         # Check if image exists locally
         if ! docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "^$image$"; then
-            echo "    📥 Image $image not found locally, pulling from Docker Hub..."
+            echo "    📥 Image $image not found locally, pulling..."
             if docker pull "$image"; then
                 echo "    ✅ Image $image pulled successfully"
             else

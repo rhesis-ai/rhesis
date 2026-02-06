@@ -34,9 +34,9 @@ database:
   enabled: true
   type: "postgresql"
   postgresql:
-    # Image configuration - pull from cloud registry
+    # Image configuration - pull from mirror.gcr.io (avoids Docker Hub for restricted networks)
     image:
-      repository: postgres  # or use cloud registry like gcr.io/google-containers/postgres
+      repository: mirror.gcr.io/library/postgres
       tag: "16-alpine"
       pullPolicy: "IfNotPresent"  # Changed from "Never" to pull from cloud
     persistence:

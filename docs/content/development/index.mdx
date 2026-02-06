@@ -127,7 +127,7 @@ print(f"Expected: {test.expected_behavior}")`}
 
 services:
 postgres:
-image: postgres:15
+image: mirror.gcr.io/library/postgres:15
 environment:
 POSTGRES_DB: your_database
 POSTGRES_USER: your_username
@@ -135,7 +135,7 @@ POSTGRES_PASSWORD: your_password
 ports: - "5432:5432"
 
 redis:
-image: redis:7-alpine
+image: mirror.gcr.io/library/redis:7-alpine
 ports: - "6379:6379"
 
 backend:
