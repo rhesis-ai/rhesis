@@ -95,6 +95,7 @@ token_enabled_routes = [
     "/sources/",
     "/models/",
     "/connector/",
+    "/adaptive_testing/",
 ]
 
 
