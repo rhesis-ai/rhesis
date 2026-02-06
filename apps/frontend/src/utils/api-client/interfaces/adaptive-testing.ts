@@ -4,6 +4,24 @@
  */
 
 // =============================================================================
+// Adaptive Test Set Interface
+// =============================================================================
+
+export interface AdaptiveTestSet {
+  id: string;
+  name: string;
+  description?: string;
+  slug?: string;
+  nano_id?: string;
+  status_id?: string;
+  status?: string;
+  test_set_type_id?: string;
+  attributes?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// =============================================================================
 // Test Node Interfaces
 // =============================================================================
 
@@ -12,7 +30,7 @@ export interface TestNode {
   topic: string;
   input: string;
   output: string;
-  label: '' | 'pass' | 'fail';
+  label: '' | 'topic_marker' | 'pass' | 'fail';
   labeler: string;
   to_eval: boolean;
   model_score: number;

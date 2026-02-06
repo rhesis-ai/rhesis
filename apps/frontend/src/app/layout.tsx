@@ -31,6 +31,7 @@ import {
   FeedbackIcon,
   TimelineIcon,
   ChatIcon,
+  AccountTreeIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -180,6 +181,12 @@ async function getNavigationItems(
       segment: 'test-explorer',
       title: 'Test Explorer',
       icon: <GridViewIcon />,
+    },
+    {
+      kind: 'page',
+      segment: 'adaptive-testing',
+      title: 'Adaptive Testing',
+      icon: <AccountTreeIcon />,
     },
     // Results Section
     {

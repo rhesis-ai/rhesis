@@ -15,7 +15,7 @@ export const API_CONFIG = {
 
 // Type for endpoints to ensure type safety
 export const API_ENDPOINTS = {
-  adaptiveTesting: '/adaptive-testing',
+  adaptiveTesting: '/adaptive_testing',
   tests: '/tests',
   testSets: '/test_sets',
   tokens: '/tokens',

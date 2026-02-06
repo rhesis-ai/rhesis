@@ -1,5 +1,7 @@
 import { BaseApiClient } from './base-client';
+import { API_ENDPOINTS } from './config';
 import {
+  AdaptiveTestSet,
   TestNode,
   TestNodeCreate,
   TestNodeUpdate,
@@ -20,7 +22,48 @@ import {
  */
 export class AdaptiveTestingClient extends BaseApiClient {
   private getBasePath(testSetId: string): string {
-    return `/adaptive-testing/${testSetId}`;
+    return `${API_ENDPOINTS.adaptiveTesting}/${testSetId}`;
+  }
+
+  // ===========================================================================
+  // Adaptive Test Set Operations
+  // ===========================================================================
+
+  /**
+   * List all test sets configured for adaptive testing.
+   * @param skip Pagination offset
+   * @param limit Maximum number of records
+   * @param sortBy Field to sort by
+   * @param sortOrder Sort direction
+   */
+  async getAdaptiveTestSets(
+    skip: number = 0,
+    limit: number = 100,
+    sortBy: string = 'created_at',
+    sortOrder: string = 'desc'
+  ): Promise<AdaptiveTestSet[]> {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+      sort_by: sortBy,
+      sort_order: sortOrder,
+    });
+    return this.fetch<AdaptiveTestSet[]>(
+      `${API_ENDPOINTS.adaptiveTesting}?${params.toString()}`,
+      { cache: 'no-store' }
+    );
+  }
+
+  /**
+   * Get the full adaptive testing tree for a test set.
+   * Returns all nodes including both test nodes and topic markers.
+   * @param testSetId The test set identifier (UUID, nano_id, or slug)
+   */
+  async getTree(testSetId: string): Promise<TestNode[]> {
+    const basePath = this.getBasePath(testSetId);
+    return this.fetch<TestNode[]>(`${basePath}/tree`, {
+      cache: 'no-store',
+    });
   }
 
   // ===========================================================================
