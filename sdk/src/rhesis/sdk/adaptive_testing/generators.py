@@ -7,7 +7,6 @@ if TYPE_CHECKING:
     from rhesis.sdk.models.base import BaseLLM
 
 import numpy as np
-from profanity import profanity
 
 from rhesis.sdk import adaptive_testing
 
@@ -152,7 +151,7 @@ class LLMGenerator(TextCompletionGenerator):
         quote: str = '"',
         temperature: float = 2.0,
         top_p: float = 0.95,
-        filter=profanity.censor,
+        filter=None,
     ):
         """Create a new LLMGenerator with a BaseLLM instance.
 
@@ -163,7 +162,7 @@ class LLMGenerator(TextCompletionGenerator):
             quote: Quote character for prompt formatting (default: double quote).
             temperature: Sampling temperature for generation (default: 2.0).
             top_p: Top-p sampling parameter (default: 0.95).
-            filter: Filter function to apply to generated texts (default: profanity.censor).
+            filter: Optional filter function to apply to generated texts (default: None).
         """
         # Import here to avoid circular imports
         from rhesis.sdk.models.base import BaseLLM
