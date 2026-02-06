@@ -156,15 +156,33 @@ export default function ModelsPage() {
 
   // Validate any models set as defaults (generation or evaluation)
   // This ensures users are warned if their default models are misconfigured
+  // and clears warnings for models that are no longer defaults
   useEffect(() => {
     if (!session?.session_token || connectedModels.length === 0) {
       return;
     }
 
+    const defaultGenerationId = userSettings?.models?.generation?.model_id;
+    const defaultEvaluationId = userSettings?.models?.evaluation?.model_id;
+
+    // Clear validation status for models that are NOT currently defaults
+    setModelValidationStatus(prev => {
+      const newStatus = new Map(prev);
+      connectedModels.forEach(model => {
+        const isDefault =
+          model.id === defaultGenerationId || model.id === defaultEvaluationId;
+        if (!isDefault && newStatus.has(model.id)) {
+          // Remove validation status for non-default models
+          newStatus.delete(model.id);
+        }
+      });
+      return newStatus;
+    });
+
     // Validate default generation model
-    if (userSettings?.models?.generation?.model_id) {
+    if (defaultGenerationId) {
       const defaultGenerationModel = connectedModels.find(
-        m => m.id === userSettings.models?.generation?.model_id
+        m => m.id === defaultGenerationId
       );
       if (defaultGenerationModel) {
         validateModel(defaultGenerationModel.id);
@@ -172,14 +190,14 @@ export default function ModelsPage() {
     }
 
     // Validate default evaluation model
-    if (userSettings?.models?.evaluation?.model_id) {
+    if (defaultEvaluationId) {
       const defaultEvaluationModel = connectedModels.find(
-        m => m.id === userSettings.models?.evaluation?.model_id
+        m => m.id === defaultEvaluationId
       );
       // Only validate if it's different from generation model
       if (
         defaultEvaluationModel &&
-        defaultEvaluationModel.id !== userSettings.models?.generation?.model_id
+        defaultEvaluationModel.id !== defaultGenerationId
       ) {
         validateModel(defaultEvaluationModel.id);
       }
