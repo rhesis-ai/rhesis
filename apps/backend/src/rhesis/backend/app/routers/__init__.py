@@ -1,5 +1,4 @@
 # Import existing routers
-from .adaptive_testing import router as adaptive_testing_router
 from .auth import router as auth_router
 from .behavior import router as behavior_router
 from .category import router as category_router
@@ -46,7 +45,6 @@ from .websocket import router as websocket_router
 
 # Export all modules for explicit imports
 __all__ = [
-    "adaptive_testing",
     "endpoint",
     "use_case",
     "prompt",
@@ -87,7 +85,6 @@ __all__ = [
 # Export all routers for use in main.py
 routers = sorted(
     [
-        adaptive_testing_router,
         endpoint_router,
         use_case_router,
         prompt_router,
