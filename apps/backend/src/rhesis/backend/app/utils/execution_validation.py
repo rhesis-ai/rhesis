@@ -193,9 +193,10 @@ def handle_execution_error(error: Exception, operation: str = "execute tests") -
         logger.warning(f"Permission denied for {operation}: {str(error)}")
         return HTTPException(status_code=403, detail=str(error))
 
-    # Unexpected error
-    logger.error(f"Failed to {operation}: {str(error)}", exc_info=True)
+    # Unexpected error - include error details for better debugging
+    error_msg = str(error) if str(error) else "An unexpected error occurred"
+    logger.error(f"Failed to {operation}: {error_msg}", exc_info=True)
     return HTTPException(
         status_code=500,
-        detail=f"Failed to {operation}. Please try again or contact support if the issue persists.",
+        detail=f"Failed to {operation}: {error_msg}",
     )

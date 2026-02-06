@@ -96,8 +96,11 @@ async def get_github_contents(repo_url: str):
         contents = read_repo_contents(repo_url)
         return contents
     except Exception as e:
-        logger.error(f"Failed to get GitHub contents for {repo_url}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to retrieve repository contents")
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to get GitHub contents for {repo_url}: {error_msg}", exc_info=True)
+        raise HTTPException(
+            status_code=400, detail=f"Failed to retrieve repository contents: {error_msg}"
+        )
 
 
 @router.post("/openai/json")
@@ -122,8 +125,9 @@ async def get_ai_json_response(prompt_request: PromptRequest):
 
         return get_json_response(prompt_request.prompt)
     except Exception as e:
-        logger.error(f"Failed to get JSON response: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to get AI response. Please try again.")
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to get JSON response: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to get AI response: {error_msg}")
 
 
 @router.post("/openai/chat")
@@ -153,10 +157,9 @@ async def get_ai_chat_response(chat_request: ChatRequest):
             response_format=chat_request.response_format,
         )
     except Exception as e:
-        logger.error(f"Failed to get chat response: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=400, detail="Failed to get chat response. Please try again."
-        )
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to get chat response: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to get chat response: {error_msg}")
 
 
 @router.post("/chat/completions")
@@ -179,9 +182,10 @@ async def create_chat_completion_endpoint(request: dict):
 
         return response
     except Exception as e:
-        logger.error(f"Failed to create chat completion: {str(e)}", exc_info=True)
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to create chat completion: {error_msg}", exc_info=True)
         raise HTTPException(
-            status_code=400, detail="Failed to create chat completion. Please try again."
+            status_code=400, detail=f"Failed to create chat completion: {error_msg}"
         )
 
 
@@ -243,8 +247,9 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 
         return response
     except Exception as e:
-        logger.error(f"Failed to generate content: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to generate content. Please try again.")
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to generate content: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to generate content: {error_msg}")
 
 
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
@@ -381,8 +386,9 @@ async def generate_text(prompt_request: PromptRequest):
 
         return TextResponse(text=response)
     except Exception as e:
-        logger.error(f"Failed to generate text: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to generate text. Please try again.")
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to generate text: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to generate text: {error_msg}")
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)
@@ -449,7 +455,12 @@ async def generate_test_config(
             f"Unexpected error in test config generation: {str(e)}",
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail="Internal server error")
+        error_detail = (
+            str(e)
+            if str(e)
+            else "An unexpected error occurred during test configuration generation"
+        )
+        raise HTTPException(status_code=500, detail=error_detail)
 
 
 @router.post("/mcp/search", response_model=List[ItemResult])
