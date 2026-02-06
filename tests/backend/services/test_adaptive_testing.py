@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.adaptive_testing import (
+    create_topic_node,
     get_adaptive_test_sets,
     get_tree_nodes,
     get_tree_tests,
@@ -526,3 +527,150 @@ class TestGetAdaptiveTestSets:
         )
 
         assert result == []
+
+
+# ============================================================================
+# Tests for create_topic_node
+# ============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.service
+class TestCreateTopicNode:
+    """Test create_topic_node - creates topic markers in a test set."""
+
+    def test_creates_root_level_topic(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should create a new root-level topic marker."""
+        result = create_topic_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Performance",
+        )
+
+        assert isinstance(result, TopicNode)
+        assert result.path == "Performance"
+
+        # Verify the topic marker appears in the tree
+        topics = get_tree_topics(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        topic_paths = {t.path for t in topics}
+        assert "Performance" in topic_paths
+
+    def test_creates_nested_topic_with_ancestors(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should create the topic and any missing ancestor markers."""
+        result = create_topic_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Fairness/Gender/Bias",
+        )
+
+        assert result.path == "Fairness/Gender/Bias"
+
+        # All three levels should now exist in the tree
+        topics = get_tree_topics(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        topic_paths = {t.path for t in topics}
+        assert "Fairness" in topic_paths
+        assert "Fairness/Gender" in topic_paths
+        assert "Fairness/Gender/Bias" in topic_paths
+
+    def test_returns_existing_topic_without_duplicates(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should return existing topic and not create duplicate markers."""
+        nodes_before = get_tree_nodes(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        result = create_topic_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety",
+        )
+
+        assert result.path == "Safety"
+
+        nodes_after = get_tree_nodes(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        assert len(nodes_after) == len(nodes_before)
+
+    def test_creates_only_missing_ancestors(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """When parent topics exist, should only create the missing child."""
+        nodes_before = get_tree_nodes(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        # "Safety" and "Safety/Violence" already exist in the fixture;
+        # only "Safety/Violence/Weapons" should be created.
+        result = create_topic_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety/Violence/Weapons",
+        )
+
+        assert result.path == "Safety/Violence/Weapons"
+
+        nodes_after = get_tree_nodes(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        # Exactly one new node (the Weapons topic marker)
+        assert len(nodes_after) == len(nodes_before) + 1
+
+    def test_created_topic_has_correct_hierarchy(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Newly created topic should have correct name, depth, and parent."""
+        create_topic_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety/Privacy",
+        )
+
+        topics = get_tree_topics(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        privacy = next(t for t in topics if t.path == "Safety/Privacy")
+        assert privacy.name == "Privacy"
+        assert privacy.depth == 1
+        assert privacy.parent_path == "Safety"

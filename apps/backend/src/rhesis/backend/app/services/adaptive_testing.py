@@ -12,6 +12,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.services.test import create_test_set_associations
+from rhesis.backend.app.utils.crud_utils import get_or_create_topic
 from rhesis.backend.logging import logger
 from rhesis.sdk.adaptive_testing.schemas import (
     TestTreeData,
@@ -238,3 +240,91 @@ def get_adaptive_test_sets(
     )
 
     return test_sets
+
+
+def create_topic_node(
+    db: Session,
+    test_set_id: UUID,
+    organization_id: str,
+    user_id: str,
+    topic: str,
+) -> TopicNode:
+    """Create a topic node (and any missing ancestor topics) in the test set.
+
+    Ensures the full topic hierarchy is valid by creating topic markers
+    for the requested topic and all its ancestor paths that don't yet
+    exist in the test set.
+
+    For each missing path level the function:
+    1. Gets or creates a Topic row in the ``topic`` table.
+    2. Creates a Test with ``test_metadata.label = "topic_marker"``.
+    3. Associates that Test with the given test set.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    test_set_id : UUID
+        ID of the test set to create the topic node in
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+    topic : str
+        Topic path to create (e.g. ``"Safety"`` or ``"Safety/Violence"``)
+
+    Returns
+    -------
+    TopicNode
+        The created (or already existing) topic node
+    """
+    # Build the current tree to check which markers already exist
+    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+
+    # Collect paths that still need a topic_marker
+    topic_node = TopicNode(path=topic)
+    all_paths = [topic_node] + topic_node.get_all_parents()
+    paths_to_create = [t.path for t in all_paths if tree_data.topics.get(t.path) is None]
+
+    if not paths_to_create:
+        logger.info(f"Topic '{topic}' already exists in test_set={test_set_id}")
+        return TopicNode(path=topic)
+
+    # Create from root to leaf so parent topics exist first
+    for path in reversed(paths_to_create):
+        # 1. Get or create the topic row
+        db_topic = get_or_create_topic(
+            db=db,
+            name=path,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
+        # 2. Create a test record flagged as a topic marker
+        db_test = models.Test(
+            topic_id=db_topic.id,
+            test_metadata={
+                "label": "topic_marker",
+                "labeler": "user",
+                "output": "",
+            },
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        db.add(db_test)
+        db.flush()
+
+        # 3. Associate the test with the test set
+        create_test_set_associations(
+            db=db,
+            test_set_id=str(test_set_id),
+            test_ids=[str(db_test.id)],
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
+    logger.info(
+        f"Created topic node '{topic}' ({len(paths_to_create)} marker(s)) in test_set={test_set_id}"
+    )
+
+    return TopicNode(path=topic)
