@@ -391,6 +391,7 @@ async def generate_test_config(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Generate test configuration JSON based on user description.
@@ -432,13 +433,24 @@ async def generate_test_config(
         logger.info("Test config generation successful")
         return result
     except ValueError as e:
+        from rhesis.backend.app.utils.execution_validation import (
+            handle_execution_error,
+        )
+
         logger.warning(f"Invalid request for test config generation: {str(e)}")
-        raise HTTPException(status_code=400, detail="Invalid request parameters")
+        http_exception = handle_execution_error(e, operation="generate test configuration")
+        raise http_exception
     except RuntimeError as e:
         logger.error(f"Test config generation failed: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to generate test configuration")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate test configuration",
+        )
     except Exception as e:
-        logger.error(f"Unexpected error in test config generation: {str(e)}", exc_info=True)
+        logger.error(
+            f"Unexpected error in test config generation: {str(e)}",
+            exc_info=True,
+        )
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -448,6 +460,7 @@ async def search_mcp_server(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Search MCP server for items matching a natural language query.
@@ -488,6 +501,7 @@ async def extract_mcp_item(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Extract full content from an MCP item as markdown.
@@ -538,6 +552,7 @@ async def query_mcp_server(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Execute arbitrary tasks on an MCP server with full flexibility.
@@ -589,6 +604,7 @@ async def test_mcp_connection(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Test MCP connection authentication by calling a tool that requires authentication.
@@ -666,6 +682,7 @@ async def create_jira_ticket_from_task_endpoint(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Create a Jira ticket from a task.
