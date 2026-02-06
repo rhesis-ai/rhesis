@@ -358,6 +358,21 @@ class TopicNode(BaseModel):
     def __repr__(self) -> str:
         return f"TopicNode(path={self.path!r})"
 
+    def get_all_parents(self) -> list["TopicNode"]:
+        """Get all parent TopicNodes from immediate parent up to the root.
+
+        Returns a list ordered from the direct parent to the top-most
+        ancestor.  For example, ``TopicNode(path="A/B/C").get_all_parents()``
+        returns ``[TopicNode(path="A/B"), TopicNode(path="A")]``.
+        """
+        parents: list["TopicNode"] = []
+        current = self
+        while current.parent_path is not None:
+            parent = TopicNode(path=current.parent_path)
+            parents.append(parent)
+            current = parent
+        return parents
+
 
 class TopicTree:
     """A view over TestTreeData that provides topic-oriented operations.

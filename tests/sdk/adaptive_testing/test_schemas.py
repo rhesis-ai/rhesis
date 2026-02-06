@@ -531,6 +531,14 @@ class TestTopicNode:
         topic_set = {topic}
         assert topic in topic_set
 
+    def test_get_all_parents(self):
+        """Should return parent nodes from direct parent up to the root."""
+        topic = TopicNode(path="Security/Europe/Germany")
+        parents = topic.get_all_parents()
+        assert len(parents) == 2
+        assert parents[0].path == "Security/Europe"
+        assert parents[1].path == "Security"
+
 
 class TestTopicTree:
     """Tests for TopicTree class."""
