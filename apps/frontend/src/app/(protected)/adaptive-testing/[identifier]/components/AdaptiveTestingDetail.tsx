@@ -30,9 +30,11 @@ import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import ListIcon from '@mui/icons-material/List';
 import AddIcon from '@mui/icons-material/AddOutlined';
+import EditIcon from '@mui/icons-material/EditOutlined';
 import {
   TestNode,
   TestNodeCreate,
+  TestNodeUpdate,
   Topic,
 } from '@/utils/api-client/interfaces/adaptive-testing';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -690,6 +692,189 @@ function AddTestDialog({
 }
 
 // ============================================================================
+// Edit Test Dialog
+// ============================================================================
+
+interface EditTestDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (
+    testId: string,
+    data: TestNodeUpdate
+  ) => Promise<void>;
+  test: TestNode | null;
+  topics: Topic[];
+}
+
+function EditTestDialog({
+  open,
+  onClose,
+  onSubmit,
+  test,
+  topics,
+}: EditTestDialogProps) {
+  const [input, setInput] = useState('');
+  const [output, setOutput] = useState('');
+  const [label, setLabel] = useState<'' | 'pass' | 'fail'>(
+    ''
+  );
+  const [selectedTopic, setSelectedTopic] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  // Populate form when dialog opens with a test
+  const handleOpen = () => {
+    if (test) {
+      setInput(test.input || '');
+      setOutput(test.output || '');
+      setLabel(
+        (test.label as '' | 'pass' | 'fail') || ''
+      );
+      setSelectedTopic(test.topic || '');
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!test) return;
+    const trimmedInput = input.trim();
+    if (!trimmedInput) {
+      setError('Test input is required');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+    try {
+      const updates: TestNodeUpdate = {};
+      if (trimmedInput !== (test.input || ''))
+        updates.input = trimmedInput;
+      if (output.trim() !== (test.output || ''))
+        updates.output = output.trim();
+      if (label !== ((test.label as '' | 'pass' | 'fail') || ''))
+        updates.label = label;
+      if (
+        selectedTopic.trim() &&
+        selectedTopic.trim() !== (test.topic || '')
+      )
+        updates.topic = selectedTopic.trim();
+
+      await onSubmit(test.id, updates);
+      onClose();
+    } catch (err) {
+      setError(
+        (err as Error).message || 'Failed to update test'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    setError('');
+    onClose();
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+      TransitionProps={{ onEnter: handleOpen }}
+    >
+      <DialogTitle>Edit Test</DialogTitle>
+      <DialogContent
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          pt: 1,
+        }}
+      >
+        {error && (
+          <Typography variant="body2" color="error">
+            {error}
+          </Typography>
+        )}
+        <TextField
+          select
+          label="Topic"
+          fullWidth
+          value={selectedTopic}
+          onChange={e => {
+            setSelectedTopic(e.target.value);
+            setError('');
+          }}
+          disabled={submitting}
+          sx={{ mt: 1 }}
+          SelectProps={{ native: true }}
+        >
+          <option value="">Select a topic...</option>
+          {topics.map(t => (
+            <option key={t.path} value={t.path}>
+              {t.path}
+            </option>
+          ))}
+        </TextField>
+        <TextField
+          autoFocus
+          label="Input"
+          fullWidth
+          multiline
+          minRows={2}
+          maxRows={6}
+          value={input}
+          onChange={e => {
+            setInput(e.target.value);
+            setError('');
+          }}
+          disabled={submitting}
+        />
+        <TextField
+          label="Expected Output"
+          fullWidth
+          multiline
+          minRows={2}
+          maxRows={6}
+          value={output}
+          onChange={e => setOutput(e.target.value)}
+          disabled={submitting}
+        />
+        <TextField
+          select
+          label="Label"
+          fullWidth
+          value={label}
+          onChange={e =>
+            setLabel(
+              e.target.value as '' | 'pass' | 'fail'
+            )
+          }
+          disabled={submitting}
+          SelectProps={{ native: true }}
+        >
+          <option value="">No label</option>
+          <option value="pass">Pass</option>
+          <option value="fail">Fail</option>
+        </TextField>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={submitting || !input.trim()}
+        >
+          {submitting ? 'Saving...' : 'Save'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ============================================================================
 // Topic Tree Panel
 // ============================================================================
 
@@ -836,9 +1021,14 @@ function TopicTreePanel({
 interface TestsListProps {
   tests: TestNode[];
   loading: boolean;
+  onEditTest?: (test: TestNode) => void;
 }
 
-function TestsList({ tests, loading }: TestsListProps) {
+function TestsList({
+  tests,
+  loading,
+  onEditTest,
+}: TestsListProps) {
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 25,
@@ -948,6 +1138,27 @@ function TestsList({ tests, loading }: TestsListProps) {
         );
       },
     },
+    ...(onEditTest
+      ? [
+          {
+            field: 'actions',
+            headerName: '',
+            width: 50,
+            sortable: false,
+            filterable: false,
+            disableColumnMenu: true,
+            renderCell: (params: any) => (
+              <IconButton
+                size="small"
+                onClick={() => onEditTest(params.row)}
+                sx={{ color: 'text.secondary' }}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            ),
+          } as GridColDef,
+        ]
+      : []),
   ];
 
   return (
@@ -1008,6 +1219,10 @@ export default function AdaptiveTestingDetail({
     useState<Topic[]>(initialTopics);
   const [addTestDialogOpen, setAddTestDialogOpen] =
     useState(false);
+  const [editTestDialogOpen, setEditTestDialogOpen] =
+    useState(false);
+  const [editingTest, setEditingTest] =
+    useState<TestNode | null>(null);
 
   // Build the topic tree
   const topicTree = useMemo(
@@ -1043,6 +1258,32 @@ export default function AdaptiveTestingDetail({
     const client = clientFactory.getAdaptiveTestingClient();
 
     await client.createTest(testSetId, data);
+
+    // Refresh tree and topics data
+    const [treeNodes, updatedTopics] = await Promise.all([
+      client.getTree(testSetId),
+      client.getTopics(testSetId),
+    ]);
+
+    setTests(
+      treeNodes.filter(node => node.label !== 'topic_marker')
+    );
+    setTopics(updatedTopics);
+  };
+
+  const handleEditTestOpen = (test: TestNode) => {
+    setEditingTest(test);
+    setEditTestDialogOpen(true);
+  };
+
+  const handleEditTestSubmit = async (
+    testId: string,
+    data: TestNodeUpdate
+  ) => {
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+
+    await client.updateTest(testSetId, testId, data);
 
     // Refresh tree and topics data
     const [treeNodes, updatedTopics] = await Promise.all([
@@ -1263,6 +1504,7 @@ export default function AdaptiveTestingDetail({
               <TestsList
                 tests={filteredTests}
                 loading={false}
+                onEditTest={handleEditTestOpen}
               />
             </Paper>
           </Box>
@@ -1289,7 +1531,11 @@ export default function AdaptiveTestingDetail({
             </Button>
           </Box>
           <Paper variant="outlined" sx={{ p: 2 }}>
-            <TestsList tests={tests} loading={false} />
+            <TestsList
+              tests={tests}
+              loading={false}
+              onEditTest={handleEditTestOpen}
+            />
           </Paper>
         </Box>
       )}
@@ -1308,6 +1554,18 @@ export default function AdaptiveTestingDetail({
         onClose={() => setAddTestDialogOpen(false)}
         onSubmit={handleAddTestSubmit}
         topic={selectedTopic}
+        topics={topics}
+      />
+
+      {/* Edit Test Dialog */}
+      <EditTestDialog
+        open={editTestDialogOpen}
+        onClose={() => {
+          setEditTestDialogOpen(false);
+          setEditingTest(null);
+        }}
+        onSubmit={handleEditTestSubmit}
+        test={editingTest}
         topics={topics}
       />
     </Box>

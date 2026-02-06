@@ -20,6 +20,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
+    update_test_node,
 )
 from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
@@ -756,12 +757,14 @@ class TestCreateTestNode:
             input="Describe a fight",
             output="I cannot do that.",
             labeler="human",
+            model_score=0.75,
         )
 
         assert result.input == "Describe a fight"
         assert result.output == "I cannot do that."
         assert result.label == ""
         assert result.labeler == "human"
+        assert result.model_score == 0.75
         assert result.topic == "Safety/Violence"
         assert result.id  # Should have an ID
 
@@ -793,3 +796,138 @@ class TestCreateTestNode:
         )
         # One new test node (topic already exists)
         assert len(nodes_after) == len(nodes_before) + 1
+
+
+# ============================================================================
+# Tests for update_test_node
+# ============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.service
+class TestUpdateTestNode:
+    """Test update_test_node - updates test nodes in a test set."""
+
+    def _create_test(self, test_db, adaptive_test_set, test_org_id, user_id):
+        """Helper to create a test node for update tests."""
+        return create_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=user_id,
+            topic="Safety",
+            input="Original input",
+            output="Original output",
+            labeler="user",
+        )
+
+    def test_update_input(self, test_db, adaptive_test_set, test_org_id, authenticated_user_id):
+        """Should update the test input text."""
+        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+
+        result = update_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            test_id=uuid.UUID(node.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            input="Updated input",
+        )
+
+        assert result is not None
+        assert result.input == "Updated input"
+        assert result.output == "Original output"
+        assert result.topic == "Safety"
+
+    def test_update_output(self, test_db, adaptive_test_set, test_org_id, authenticated_user_id):
+        """Should update the test output."""
+        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+
+        result = update_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            test_id=uuid.UUID(node.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            output="Updated output",
+        )
+
+        assert result is not None
+        assert result.output == "Updated output"
+        assert result.input == "Original input"
+
+    def test_update_label(self, test_db, adaptive_test_set, test_org_id, authenticated_user_id):
+        """Should update the label."""
+        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+
+        result = update_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            test_id=uuid.UUID(node.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            label="pass",
+        )
+
+        assert result is not None
+        assert result.label == "pass"
+
+    def test_update_model_score(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should update the model score."""
+        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+
+        result = update_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            test_id=uuid.UUID(node.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            model_score=0.85,
+        )
+
+        assert result is not None
+        assert result.model_score == 0.85
+
+    def test_update_topic(self, test_db, adaptive_test_set, test_org_id, authenticated_user_id):
+        """Should change the topic and create ancestors if needed."""
+        node = self._create_test(test_db, adaptive_test_set, test_org_id, authenticated_user_id)
+
+        result = update_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            test_id=uuid.UUID(node.id),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Fairness/Gender",
+        )
+
+        assert result is not None
+        assert result.topic == "Fairness/Gender"
+
+        # Verify ancestors were created
+        topics = get_tree_topics(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        topic_paths = {t.path for t in topics}
+        assert "Fairness" in topic_paths
+        assert "Fairness/Gender" in topic_paths
+
+    def test_returns_none_for_nonexistent_test(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should return None when test ID does not exist."""
+        result = update_test_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            test_id=uuid.uuid4(),
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            input="Anything",
+        )
+
+        assert result is None

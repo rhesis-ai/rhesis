@@ -4,7 +4,7 @@ Converts backend Test models into SDK TestTreeData structures,
 providing tree, tests-only, and topics-only views.
 """
 
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import cast
@@ -12,6 +12,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import get_or_create_topic
 from rhesis.backend.logging import logger
@@ -339,6 +340,7 @@ def create_test_node(
     input: str,
     output: str = "",
     labeler: str = "user",
+    model_score: float = 0.0,
 ) -> TestTreeNode:
     """Create a test node in the adaptive testing tree.
 
@@ -368,6 +370,8 @@ def create_test_node(
         Expected or actual output (default ``""``)
     labeler : str
         Who labelled this test (default ``"user"``)
+    model_score : float
+        Model score for the test (default ``0.0``)
 
     Returns
     -------
@@ -413,6 +417,7 @@ def create_test_node(
             "output": output,
             "label": "",
             "labeler": labeler,
+            "model_score": model_score,
         },
         organization_id=organization_id,
         user_id=user_id,
@@ -435,5 +440,114 @@ def create_test_node(
     node = _db_test_to_node(db_test)
 
     logger.info(f"Created test node in test_set={test_set_id} topic='{topic}'")
+
+    return node
+
+
+def update_test_node(
+    db: Session,
+    test_set_id: UUID,
+    test_id: UUID,
+    organization_id: str,
+    user_id: str,
+    input: Optional[str] = None,
+    output: Optional[str] = None,
+    label: Optional[str] = None,
+    topic: Optional[str] = None,
+    model_score: Optional[float] = None,
+) -> Optional[TestTreeNode]:
+    """Update a test node in the adaptive testing tree.
+
+    Only the provided (non-None) fields are updated; the rest are
+    left unchanged.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    test_set_id : UUID
+        ID of the test set the test belongs to
+    test_id : UUID
+        ID of the test to update
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+    input : str, optional
+        New test prompt / input text
+    output : str, optional
+        New expected or actual output
+    label : str, optional
+        New label (``"pass"``, ``"fail"``, or ``""``)
+    topic : str, optional
+        New topic path (e.g. ``"Safety/Violence"``)
+    model_score : float, optional
+        New model score
+
+    Returns
+    -------
+    TestTreeNode or None
+        The updated test node, or None if test not found in the
+        given test set.
+    """
+    # Look up the test and verify it belongs to the test set
+    db_test = (
+        db.query(models.Test)
+        .join(
+            test_test_set_association,
+            models.Test.id == test_test_set_association.c.test_id,
+        )
+        .filter(
+            models.Test.id == test_id,
+            test_test_set_association.c.test_set_id == test_set_id,
+            models.Test.organization_id == organization_id,
+        )
+        .first()
+    )
+
+    if db_test is None:
+        return None
+
+    # Update input -> Prompt.content
+    if input is not None and db_test.prompt:
+        db_test.prompt.content = input
+        db.add(db_test.prompt)
+
+    # Update metadata fields (output, label, model_score)
+    meta = dict(db_test.test_metadata or {})
+    if output is not None:
+        meta["output"] = output
+    if label is not None:
+        meta["label"] = label
+    if model_score is not None:
+        meta["model_score"] = model_score
+    if meta != (db_test.test_metadata or {}):
+        db_test.test_metadata = meta
+
+    # Update topic
+    if topic is not None:
+        # Ensure topic markers exist
+        create_topic_node(
+            db=db,
+            test_set_id=test_set_id,
+            organization_id=organization_id,
+            user_id=user_id,
+            topic=topic,
+        )
+        db_topic = get_or_create_topic(
+            db=db,
+            name=topic,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        db_test.topic_id = db_topic.id
+
+    db.add(db_test)
+    db.flush()
+    db.refresh(db_test)
+
+    node = _db_test_to_node(db_test)
+
+    logger.info(f"Updated test node {test_id} in test_set={test_set_id}")
 
     return node

@@ -824,3 +824,143 @@ class TestCreateAdaptiveTestEndpoint:
             status.HTTP_401_UNAUTHORIZED,
             status.HTTP_403_FORBIDDEN,
         ]
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestUpdateAdaptiveTestEndpoint:
+    """Test PUT /adaptive_testing/{test_set_id}/tests/{test_id}"""
+
+    def _create_test(self, authenticated_client, test_set_id):
+        """Helper: create a test via POST and return the response JSON."""
+        resp = authenticated_client.post(
+            f"/adaptive_testing/{test_set_id}/tests",
+            json={
+                "topic": "Safety",
+                "input": "Original input",
+                "output": "Original output",
+            },
+        )
+        assert resp.status_code == status.HTTP_201_CREATED
+        return resp.json()
+
+    def test_update_input(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Should update the input text."""
+        node = self._create_test(authenticated_client, adaptive_test_set.id)
+
+        response = authenticated_client.put(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}",
+            json={"input": "Updated input"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        updated = response.json()
+        assert updated["input"] == "Updated input"
+        assert updated["output"] == "Original output"
+
+    def test_update_output_and_label(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Should update output and label together."""
+        node = self._create_test(authenticated_client, adaptive_test_set.id)
+
+        response = authenticated_client.put(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}",
+            json={"output": "New output", "label": "pass"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        updated = response.json()
+        assert updated["output"] == "New output"
+        assert updated["label"] == "pass"
+        assert updated["input"] == "Original input"
+
+    def test_update_model_score(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Should update the model score."""
+        node = self._create_test(authenticated_client, adaptive_test_set.id)
+
+        response = authenticated_client.put(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}",
+            json={"model_score": 0.92},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        updated = response.json()
+        assert updated["model_score"] == 0.92
+
+    def test_update_topic(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Should change topic and create missing ancestors."""
+        node = self._create_test(authenticated_client, adaptive_test_set.id)
+
+        response = authenticated_client.put(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests/{node['id']}",
+            json={"topic": "Fairness/Bias"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["topic"] == "Fairness/Bias"
+
+        # Verify ancestors exist
+        topics_resp = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/topics")
+        topic_paths = {t["path"] for t in topics_resp.json()}
+        assert "Fairness" in topic_paths
+        assert "Fairness/Bias" in topic_paths
+
+    def test_update_nonexistent_test(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Non-existent test ID should return 404."""
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.put(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests/{fake_id}",
+            json={"input": "Anything"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_update_nonexistent_test_set(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """Non-existent test set should return 404."""
+        fake_set_id = str(uuid.uuid4())
+        fake_test_id = str(uuid.uuid4())
+        response = authenticated_client.put(
+            f"/adaptive_testing/{fake_set_id}/tests/{fake_test_id}",
+            json={"input": "Anything"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_update_unauthenticated(
+        self,
+        client: TestClient,
+        adaptive_test_set,
+    ):
+        """Unauthenticated request should be rejected."""
+        fake_test_id = str(uuid.uuid4())
+        response = client.put(
+            f"/adaptive_testing/{adaptive_test_set.id}/tests/{fake_test_id}",
+            json={"input": "Anything"},
+        )
+
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]

@@ -8,6 +8,7 @@ Provides views over test set data as adaptive testing trees:
 """
 
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -26,6 +27,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
+    update_test_node,
 )
 from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
@@ -195,6 +197,7 @@ def create_adaptive_test(
     input: str = Body(..., description="Test input / prompt text"),
     output: str = Body("", description="Expected or actual output"),
     labeler: str = Body("user", description="Who labelled this test"),
+    model_score: float = Body(0.0, description="Model score"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -216,4 +219,50 @@ def create_adaptive_test(
         input=input,
         output=output,
         labeler=labeler,
+        model_score=model_score,
     )
+
+
+@router.put(
+    "/{test_set_identifier}/tests/{test_id}",
+    response_model=TestTreeNode,
+)
+def update_adaptive_test(
+    test_set_identifier: str,
+    test_id: UUID,
+    input: Optional[str] = Body(None, description="New input text"),
+    output: Optional[str] = Body(None, description="New output"),
+    label: Optional[str] = Body(None, description="New label: 'pass', 'fail', or ''"),
+    topic: Optional[str] = Body(None, description="New topic path"),
+    model_score: Optional[float] = Body(None, description="New model score"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Update a test node in the adaptive testing tree.
+
+    Only provided fields are updated; omitted fields remain unchanged.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    result = update_test_node(
+        db=db,
+        test_set_id=db_test_set.id,
+        test_id=test_id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        input=input,
+        output=output,
+        label=label,
+        topic=topic,
+        model_score=model_score,
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Test not found in this test set",
+        )
+
+    return result
