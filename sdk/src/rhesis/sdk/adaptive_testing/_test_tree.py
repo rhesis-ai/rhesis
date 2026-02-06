@@ -258,7 +258,8 @@ class TestTree:
             topic = test.topic or ""
             topic = urllib.parse.quote(topic, safe="/")
 
-            # Build node kwargs - only include id if present in metadata
+            # Build node kwargs - use test.id (database ID) if available,
+            # otherwise fall back to tree_id from metadata
             node_kwargs = {
                 "topic": topic,
                 "input": test.prompt.content if test.prompt else "",
@@ -267,7 +268,9 @@ class TestTree:
                 "labeler": meta.get("labeler", "imported"),
                 "model_score": meta.get("model_score", 0.0),
             }
-            if meta.get("tree_id"):
+            if test.id:
+                node_kwargs["id"] = test.id
+            elif meta.get("tree_id"):
                 node_kwargs["id"] = meta["tree_id"]
 
             nodes.append(TestTreeNode(**node_kwargs))
