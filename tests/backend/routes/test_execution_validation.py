@@ -237,7 +237,7 @@ class TestHandleExecutionError:
 
         assert result.status_code == 500
         assert "execute test configuration" in str(result.detail).lower()
-        assert "try again" in str(result.detail).lower()
+        assert "something unexpected happened" in str(result.detail).lower()
 
     def test_handle_worker_unavailable_error(self):
         """Test WorkerUnavailableError falls through to generic 500 handler."""
