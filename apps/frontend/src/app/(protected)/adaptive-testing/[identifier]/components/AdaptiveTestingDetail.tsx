@@ -11,6 +11,12 @@ import {
   Collapse,
   IconButton,
   Tooltip,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import {
   GridColDef,
@@ -23,7 +29,9 @@ import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import ListIcon from '@mui/icons-material/List';
+import AddIcon from '@mui/icons-material/AddOutlined';
 import { TestNode, Topic } from '@/utils/api-client/interfaces/adaptive-testing';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 // ============================================================================
 // Types
@@ -400,6 +408,122 @@ function TreeNodeView({
 }
 
 // ============================================================================
+// Add Topic Dialog
+// ============================================================================
+
+interface AddTopicDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (topicPath: string) => Promise<void>;
+  parentTopic: string | null;
+}
+
+function AddTopicDialog({
+  open,
+  onClose,
+  onSubmit,
+  parentTopic,
+}: AddTopicDialogProps) {
+  const [topicName, setTopicName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const fullPath = parentTopic
+    ? `${parentTopic}/${topicName}`
+    : topicName;
+
+  const handleSubmit = async () => {
+    const trimmed = topicName.trim();
+    if (!trimmed) {
+      setError('Topic name is required');
+      return;
+    }
+    if (trimmed.includes('/')) {
+      setError('Use parent selection for nested topics');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+    try {
+      await onSubmit(fullPath);
+      setTopicName('');
+      onClose();
+    } catch (err) {
+      setError(
+        (err as Error).message || 'Failed to create topic'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    setTopicName('');
+    setError('');
+    onClose();
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+    >
+      <DialogTitle>Add Topic</DialogTitle>
+      <DialogContent>
+        {parentTopic && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 2 }}
+          >
+            Parent: {decodeURIComponent(parentTopic)}
+          </Typography>
+        )}
+        <TextField
+          autoFocus
+          label="Topic Name"
+          fullWidth
+          value={topicName}
+          onChange={e => {
+            setTopicName(e.target.value);
+            setError('');
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !submitting) {
+              handleSubmit();
+            }
+          }}
+          error={!!error}
+          helperText={
+            error ||
+            (topicName.trim()
+              ? `Will create: ${fullPath}`
+              : ' ')
+          }
+          disabled={submitting}
+          sx={{ mt: 1 }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={submitting || !topicName.trim()}
+        >
+          {submitting ? 'Creating...' : 'Create'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ============================================================================
 // Topic Tree Panel
 // ============================================================================
 
@@ -408,6 +532,7 @@ interface TopicTreePanelProps {
   tests: TestNode[];
   selectedTopic: string | null;
   onTopicSelect: (path: string | null) => void;
+  onAddTopic: (parentTopic: string | null) => void;
 }
 
 function TopicTreePanel({
@@ -415,6 +540,7 @@ function TopicTreePanel({
   tests,
   selectedTopic,
   onTopicSelect,
+  onAddTopic,
 }: TopicTreePanelProps) {
   // Start with all paths expanded
   const [expandedPaths, setExpandedPaths] = useState<
@@ -513,6 +639,26 @@ function TopicTreePanel({
           onToggleExpand={handleToggleExpand}
         />
       ))}
+
+      {/* Add Topic Button */}
+      <Box sx={{ mt: 1, px: 1 }}>
+        <Button
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => onAddTopic(selectedTopic)}
+          sx={{
+            textTransform: 'none',
+            color: 'text.secondary',
+            justifyContent: 'flex-start',
+          }}
+          fullWidth
+        >
+          Add topic
+          {selectedTopic
+            ? ` under ${decodeURIComponent(selectedTopic.split('/').pop() || selectedTopic)}`
+            : ''}
+        </Button>
+      </Box>
     </Box>
   );
 }
@@ -706,8 +852,8 @@ function TestsList({ tests, loading }: TestsListProps) {
 // ============================================================================
 
 export default function AdaptiveTestingDetail({
-  tests,
-  topics,
+  tests: initialTests,
+  topics: initialTopics,
   testSetName,
   testSetId,
   sessionToken,
@@ -716,12 +862,43 @@ export default function AdaptiveTestingDetail({
     string | null
   >(null);
   const [activeTab, setActiveTab] = useState(0);
+  const [addTopicDialogOpen, setAddTopicDialogOpen] =
+    useState(false);
+  const [addTopicParent, setAddTopicParent] = useState<
+    string | null
+  >(null);
+  const [tests, setTests] = useState<TestNode[]>(initialTests);
+  const [topics, setTopics] =
+    useState<Topic[]>(initialTopics);
 
   // Build the topic tree
   const topicTree = useMemo(
     () => buildTopicTree(topics, tests),
     [topics, tests]
   );
+
+  const handleAddTopicOpen = (parentTopic: string | null) => {
+    setAddTopicParent(parentTopic);
+    setAddTopicDialogOpen(true);
+  };
+
+  const handleAddTopicSubmit = async (topicPath: string) => {
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+
+    await client.createTopic(testSetId, { path: topicPath });
+
+    // Refresh tree and topics data
+    const [treeNodes, updatedTopics] = await Promise.all([
+      client.getTree(testSetId),
+      client.getTopics(testSetId),
+    ]);
+
+    setTests(
+      treeNodes.filter(node => node.label !== 'topic_marker')
+    );
+    setTopics(updatedTopics);
+  };
 
   // Filter tests by selected topic
   const filteredTests = useMemo(() => {
@@ -889,6 +1066,7 @@ export default function AdaptiveTestingDetail({
                 tests={tests}
                 selectedTopic={selectedTopic}
                 onTopicSelect={setSelectedTopic}
+                onAddTopic={handleAddTopicOpen}
               />
             </Box>
           </Paper>
@@ -938,6 +1116,14 @@ export default function AdaptiveTestingDetail({
           <TestsList tests={tests} loading={false} />
         </Paper>
       )}
+
+      {/* Add Topic Dialog */}
+      <AddTopicDialog
+        open={addTopicDialogOpen}
+        onClose={() => setAddTopicDialogOpen(false)}
+        onSubmit={handleAddTopicSubmit}
+        parentTopic={addTopicParent}
+      />
     </Box>
   );
 }

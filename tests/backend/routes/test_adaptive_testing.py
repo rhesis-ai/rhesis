@@ -563,3 +563,121 @@ class TestAdaptiveTestingTopicsEndpoint:
         response = authenticated_client.get(f"/adaptive_testing/{fake_id}/topics")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestCreateAdaptiveTopicEndpoint:
+    """Test POST /adaptive_testing/{test_set_id}/topics"""
+
+    def test_create_root_level_topic(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Should create a new root-level topic and return 201."""
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/topics",
+            json={"path": "Performance"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        topic = response.json()
+        assert topic["path"] == "Performance"
+        assert topic["name"] == "Performance"
+        assert topic["depth"] == 0
+        assert topic["parent_path"] is None
+
+    def test_create_nested_topic_creates_ancestors(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Should create topic and all missing ancestors."""
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/topics",
+            json={"path": "Fairness/Gender/Bias"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        topic = response.json()
+        assert topic["path"] == "Fairness/Gender/Bias"
+
+        # Verify ancestors exist via GET topics
+        topics_response = authenticated_client.get(
+            f"/adaptive_testing/{adaptive_test_set.id}/topics"
+        )
+        topic_paths = {t["path"] for t in topics_response.json()}
+        assert "Fairness" in topic_paths
+        assert "Fairness/Gender" in topic_paths
+        assert "Fairness/Gender/Bias" in topic_paths
+
+    def test_create_existing_topic_is_idempotent(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Creating an existing topic should return it without duplicates."""
+        # "Safety" already exists in the fixture
+        tree_before = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tree")
+        count_before = len(tree_before.json())
+
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/topics",
+            json={"path": "Safety"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["path"] == "Safety"
+
+        tree_after = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tree")
+        assert len(tree_after.json()) == count_before
+
+    def test_create_child_of_existing_topic(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Adding a child under existing topics should only add one node."""
+        tree_before = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tree")
+        count_before = len(tree_before.json())
+
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/topics",
+            json={"path": "Safety/Violence/Weapons"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
+        tree_after = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/tree")
+        # Only one new node (the Weapons topic marker)
+        assert len(tree_after.json()) == count_before + 1
+
+    def test_create_topic_not_found_test_set(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """Non-existent test set should return 404."""
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.post(
+            f"/adaptive_testing/{fake_id}/topics",
+            json={"path": "NewTopic"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_create_topic_unauthenticated(
+        self,
+        client: TestClient,
+        adaptive_test_set,
+    ):
+        """Unauthenticated request should be rejected."""
+        response = client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/topics",
+            json={"path": "NewTopic"},
+        )
+
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]

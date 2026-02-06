@@ -9,7 +9,7 @@ Provides views over test set data as adaptive testing trees:
 
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, schemas
@@ -20,6 +20,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.adaptive_testing import (
+    create_topic_node,
     get_adaptive_test_sets,
     get_tree_nodes,
     get_tree_tests,
@@ -150,4 +151,33 @@ def get_adaptive_topics(
         test_set_id=db_test_set.id,
         organization_id=str(organization_id),
         user_id=str(user_id),
+    )
+
+
+@router.post(
+    "/{test_set_identifier}/topics",
+    response_model=TopicNode,
+    status_code=201,
+)
+def create_adaptive_topic(
+    test_set_identifier: str,
+    path: str = Body(..., embed=True, description="Topic path to create"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Create a new topic in the adaptive testing tree.
+
+    Accepts a topic path (e.g. ``"Safety"`` or ``"Safety/Violence"``).
+    Automatically creates any missing ancestor topic markers.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    return create_topic_node(
+        db=db,
+        test_set_id=db_test_set.id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        topic=path,
     )
