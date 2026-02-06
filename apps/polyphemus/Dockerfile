@@ -14,16 +14,21 @@
 # ============================================================================
 # STAGE 1: Builder - Install dependencies
 # ============================================================================
-FROM mirror.gcr.io/library/python:3.10.17-slim AS builder
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS builder
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-# Install build dependencies
+# Install Python 3.10 and build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.10 \
+    python3.10-venv \
+    python3.10-dev \
+    python3-pip \
     build-essential \
     git \
     curl \
+    && ln -s /usr/bin/python3.10 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only the dependency files for polyphemus
@@ -70,13 +75,16 @@ RUN mkdir -p /app/models
 # ============================================================================
 # STAGE 2: Runtime - Create minimal runtime image
 # ============================================================================
-FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS runtime
 
 WORKDIR /app
 
-# Install only runtime dependencies (no build tools)
+# Install Python 3.10 and runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.10 \
+    python3.10-venv \
     curl \
+    && ln -s /usr/bin/python3.10 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user first
@@ -113,6 +121,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Expose the port the app will run on
 EXPOSE 8080
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
 
 # Start the FastAPI app using Gunicorn with optimized settings
 # Module path is rhesis.polyphemus.main:app (package structure is rhesis.polyphemus)
