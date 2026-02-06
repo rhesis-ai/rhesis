@@ -1055,3 +1055,258 @@ class TestDeleteAdaptiveTestEndpoint:
             status.HTTP_401_UNAUTHORIZED,
             status.HTTP_403_FORBIDDEN,
         ]
+
+
+# ============================================================================
+# Fixtures for update topic endpoint
+# ============================================================================
+
+
+@pytest.fixture
+def deep_topic_test_set(test_db: Session, test_org_id, authenticated_user_id):
+    """Create a test set with a deeper topic hierarchy for rename tests.
+
+    Creates:
+    - Topics: Europe, Europe/Germany, Europe/Germany/Berlin
+    - 1 test under Europe
+    - 1 test under Europe/Germany
+    - 1 test under Europe/Germany/Berlin
+    """
+    test_set = models.TestSet(
+        name=f"Deep Route Set {uuid.uuid4().hex[:8]}",
+        description="Test set for update topic route tests",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+    test_db.add(test_set)
+    test_db.flush()
+
+    all_tests = []
+
+    # Topic markers
+    for topic_name in ["Europe", "Europe/Germany", "Europe/Germany/Berlin"]:
+        all_tests.append(
+            _create_test_with_metadata(
+                db=test_db,
+                topic_name=topic_name,
+                prompt_content=None,
+                metadata={
+                    "label": "topic_marker",
+                    "output": "",
+                    "labeler": "system",
+                },
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+
+    # Tests
+    all_tests.append(
+        _create_test_with_metadata(
+            db=test_db,
+            topic_name="Europe",
+            prompt_content="Question about Europe",
+            metadata={
+                "label": "pass",
+                "output": "European answer",
+                "labeler": "user",
+                "model_score": 0.5,
+            },
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+    )
+    all_tests.append(
+        _create_test_with_metadata(
+            db=test_db,
+            topic_name="Europe/Germany",
+            prompt_content="Question about Germany",
+            metadata={
+                "label": "",
+                "output": "German answer",
+                "labeler": "user",
+                "model_score": 0.0,
+            },
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+    )
+    all_tests.append(
+        _create_test_with_metadata(
+            db=test_db,
+            topic_name="Europe/Germany/Berlin",
+            prompt_content="Question about Berlin",
+            metadata={
+                "label": "fail",
+                "output": "Berlin answer",
+                "labeler": "user",
+                "model_score": 0.2,
+            },
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+    )
+
+    for test in all_tests:
+        test_db.execute(
+            test_test_set_association.insert().values(
+                test_id=test.id,
+                test_set_id=test_set.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+        )
+
+    test_db.commit()
+    test_db.refresh(test_set)
+    return test_set
+
+
+# ============================================================================
+# Tests for update topic endpoint
+# ============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestUpdateAdaptiveTopicEndpoint:
+    """Test PUT /adaptive_testing/{test_set_id}/topics/{topic_path}"""
+
+    def test_rename_leaf_topic(
+        self,
+        authenticated_client: TestClient,
+        deep_topic_test_set,
+    ):
+        """Should rename a leaf topic and return the updated TopicNode."""
+        response = authenticated_client.put(
+            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe/Germany/Berlin",
+            json={"new_name": "Munich"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        topic = response.json()
+        assert topic["path"] == "Europe/Germany/Munich"
+        assert topic["name"] == "Munich"
+        assert topic["parent_path"] == "Europe/Germany"
+
+    def test_rename_middle_topic_cascades(
+        self,
+        authenticated_client: TestClient,
+        deep_topic_test_set,
+    ):
+        """Renaming a middle topic should cascade to children."""
+        response = authenticated_client.put(
+            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe/Germany",
+            json={"new_name": "Deutschland"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["path"] == "Europe/Deutschland"
+
+        # Verify topics were updated
+        topics_resp = authenticated_client.get(f"/adaptive_testing/{deep_topic_test_set.id}/topics")
+        topic_paths = {t["path"] for t in topics_resp.json()}
+        assert "Europe/Germany" not in topic_paths
+        assert "Europe/Germany/Berlin" not in topic_paths
+        assert "Europe/Deutschland" in topic_paths
+        assert "Europe/Deutschland/Berlin" in topic_paths
+        assert "Europe" in topic_paths
+
+    def test_rename_root_level_topic(
+        self,
+        authenticated_client: TestClient,
+        deep_topic_test_set,
+    ):
+        """Renaming a root topic should cascade to all descendants."""
+        response = authenticated_client.put(
+            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe",
+            json={"new_name": "EU"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["path"] == "EU"
+
+        topics_resp = authenticated_client.get(f"/adaptive_testing/{deep_topic_test_set.id}/topics")
+        topic_paths = {t["path"] for t in topics_resp.json()}
+        assert "EU" in topic_paths
+        assert "EU/Germany" in topic_paths
+        assert "EU/Germany/Berlin" in topic_paths
+        assert "Europe" not in topic_paths
+
+    def test_rename_updates_tests(
+        self,
+        authenticated_client: TestClient,
+        deep_topic_test_set,
+    ):
+        """Tests under the renamed topic should reference the new path."""
+        authenticated_client.put(
+            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe/Germany",
+            json={"new_name": "Deutschland"},
+        )
+
+        tests_resp = authenticated_client.get(f"/adaptive_testing/{deep_topic_test_set.id}/tests")
+        tests = tests_resp.json()
+
+        germany_test = next(t for t in tests if t["input"] == "Question about Germany")
+        assert germany_test["topic"] == "Europe/Deutschland"
+
+        berlin_test = next(t for t in tests if t["input"] == "Question about Berlin")
+        assert berlin_test["topic"] == "Europe/Deutschland/Berlin"
+
+        europe_test = next(t for t in tests if t["input"] == "Question about Europe")
+        assert europe_test["topic"] == "Europe"
+
+    def test_rename_nonexistent_topic(
+        self,
+        authenticated_client: TestClient,
+        deep_topic_test_set,
+    ):
+        """Non-existent topic should return 404."""
+        response = authenticated_client.put(
+            f"/adaptive_testing/{deep_topic_test_set.id}/topics/NonExistent",
+            json={"new_name": "Something"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_rename_nonexistent_test_set(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """Non-existent test set should return 404."""
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.put(
+            f"/adaptive_testing/{fake_id}/topics/SomeTopic",
+            json={"new_name": "NewName"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_rename_with_slash_returns_422(
+        self,
+        authenticated_client: TestClient,
+        deep_topic_test_set,
+    ):
+        """new_name with a slash should return 422."""
+        response = authenticated_client.put(
+            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe/Germany",
+            json={"new_name": "Deutsch/land"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_rename_unauthenticated(
+        self,
+        client: TestClient,
+        deep_topic_test_set,
+    ):
+        """Unauthenticated request should be rejected."""
+        response = client.put(
+            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe",
+            json={"new_name": "EU"},
+        )
+
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]

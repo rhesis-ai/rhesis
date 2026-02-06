@@ -553,6 +553,117 @@ def update_test_node(
     return node
 
 
+def update_topic_node(
+    db: Session,
+    test_set_id: UUID,
+    organization_id: str,
+    user_id: str,
+    topic_path: str,
+    new_name: str,
+) -> Optional[TopicNode]:
+    """Rename a topic in the adaptive testing tree.
+
+    Only the last segment (current level name) of the topic path is changed.
+    For example, renaming ``"Europe/Germany"`` with ``new_name="Deutschland"``
+    produces ``"Europe/Deutschland"``.
+
+    The rename cascades to:
+    1. The topic marker test itself.
+    2. All descendant topic markers (e.g. ``Europe/Germany/Berlin`` becomes
+       ``Europe/Deutschland/Berlin``).
+    3. All regular tests whose topic starts with the old path.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    test_set_id : UUID
+        ID of the test set containing the topic
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+    topic_path : str
+        Current full path of the topic to rename
+        (e.g. ``"Europe/Germany"``)
+    new_name : str
+        New name for the current level only
+        (e.g. ``"Deutschland"``; must not contain ``/``)
+
+    Returns
+    -------
+    TopicNode or None
+        The renamed topic node with its new path, or None if the topic
+        was not found in the test set.
+
+    Raises
+    ------
+    ValueError
+        If ``new_name`` contains a ``/`` character.
+    """
+    if "/" in new_name:
+        raise ValueError("new_name must not contain '/'")
+
+    # Build the SDK tree to validate the topic exists
+    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    existing_topic = tree_data.topics.get(topic_path)
+    if existing_topic is None:
+        return None
+
+    # Compute the new path using the SDK helper
+    old_topic = TopicNode(path=topic_path)
+    new_topic = tree_data.topics.rename(old_topic, new_name)
+    new_path = new_topic.path
+
+    # If the name didn't change, return early
+    if new_path == topic_path:
+        return TopicNode(path=topic_path)
+
+    # Find all tests in this test set and update their topic FKs.
+    # We need tests whose topic.name == old_path or starts with
+    # old_path + "/" (descendants).
+    db_tests = (
+        db.query(models.Test)
+        .join(
+            test_test_set_association,
+            models.Test.id == test_test_set_association.c.test_id,
+        )
+        .join(models.Topic, models.Test.topic_id == models.Topic.id)
+        .filter(
+            test_test_set_association.c.test_set_id == test_set_id,
+            models.Test.organization_id == organization_id,
+        )
+        .filter((models.Topic.name == topic_path) | (models.Topic.name.like(topic_path + "/%")))
+        .all()
+    )
+
+    for db_test in db_tests:
+        old_name = db_test.topic.name
+        if old_name == topic_path:
+            updated_name = new_path
+        else:
+            # Replace the prefix for descendants
+            updated_name = new_path + old_name[len(topic_path) :]
+
+        new_db_topic = get_or_create_topic(
+            db=db,
+            name=updated_name,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        db_test.topic_id = new_db_topic.id
+        db.add(db_test)
+
+    db.flush()
+
+    logger.info(
+        f"Renamed topic '{topic_path}' to '{new_path}' "
+        f"({len(db_tests)} test(s) updated) in test_set={test_set_id}"
+    )
+
+    return TopicNode(path=new_path)
+
+
 def delete_test_node(
     db: Session,
     test_set_id: UUID,

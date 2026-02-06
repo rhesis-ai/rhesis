@@ -22,6 +22,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     get_tree_tests,
     get_tree_topics,
     update_test_node,
+    update_topic_node,
 )
 from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
@@ -1055,3 +1056,319 @@ class TestDeleteTestNode:
         )
 
         assert result is False
+
+
+# ============================================================================
+# Fixtures for update_topic_node
+# ============================================================================
+
+
+@pytest.fixture
+def deep_topic_test_set(test_db: Session, test_org_id, authenticated_user_id):
+    """Create a test set with a deeper topic hierarchy for rename tests.
+
+    Creates:
+    - Topics: Europe, Europe/Germany, Europe/Germany/Berlin
+    - 1 test under Europe/Germany
+    - 1 test under Europe/Germany/Berlin
+    - 1 test under Europe (direct)
+    """
+    test_set = models.TestSet(
+        name=f"Deep Topic Set {uuid.uuid4().hex[:8]}",
+        description="Test set for update_topic_node tests",
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+    test_db.add(test_set)
+    test_db.flush()
+
+    # Create topic markers
+    europe_marker = _create_test_with_metadata(
+        db=test_db,
+        topic_name="Europe",
+        prompt_content=None,
+        metadata={"label": "topic_marker", "output": "", "labeler": "system"},
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+    germany_marker = _create_test_with_metadata(
+        db=test_db,
+        topic_name="Europe/Germany",
+        prompt_content=None,
+        metadata={"label": "topic_marker", "output": "", "labeler": "system"},
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+    berlin_marker = _create_test_with_metadata(
+        db=test_db,
+        topic_name="Europe/Germany/Berlin",
+        prompt_content=None,
+        metadata={"label": "topic_marker", "output": "", "labeler": "system"},
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+
+    # Create tests
+    test_europe = _create_test_with_metadata(
+        db=test_db,
+        topic_name="Europe",
+        prompt_content="Question about Europe",
+        metadata={"label": "pass", "output": "European answer", "labeler": "user"},
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+    test_germany = _create_test_with_metadata(
+        db=test_db,
+        topic_name="Europe/Germany",
+        prompt_content="Question about Germany",
+        metadata={"label": "", "output": "German answer", "labeler": "user"},
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+    test_berlin = _create_test_with_metadata(
+        db=test_db,
+        topic_name="Europe/Germany/Berlin",
+        prompt_content="Question about Berlin",
+        metadata={"label": "fail", "output": "Berlin answer", "labeler": "user"},
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+    )
+
+    all_tests = [
+        europe_marker,
+        germany_marker,
+        berlin_marker,
+        test_europe,
+        test_germany,
+        test_berlin,
+    ]
+
+    _associate_tests_with_test_set(test_db, test_set, all_tests, test_org_id, authenticated_user_id)
+
+    test_db.commit()
+    test_db.refresh(test_set)
+    return test_set
+
+
+# ============================================================================
+# Tests for update_topic_node
+# ============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.service
+class TestUpdateTopicNode:
+    """Test update_topic_node - renames topics in a test set."""
+
+    def test_rename_leaf_topic(
+        self, test_db, deep_topic_test_set, test_org_id, authenticated_user_id
+    ):
+        """Renaming a leaf topic should update its path."""
+        result = update_topic_node(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="Europe/Germany/Berlin",
+            new_name="Munich",
+        )
+
+        assert result is not None
+        assert result.path == "Europe/Germany/Munich"
+
+        # Verify the old topic is gone and new one exists in the tree
+        topics = get_tree_topics(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        topic_paths = {t.path for t in topics}
+        assert "Europe/Germany/Berlin" not in topic_paths
+        assert "Europe/Germany/Munich" in topic_paths
+
+    def test_rename_middle_topic_cascades_to_children(
+        self, test_db, deep_topic_test_set, test_org_id, authenticated_user_id
+    ):
+        """Renaming a middle topic should cascade to all children."""
+        result = update_topic_node(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="Europe/Germany",
+            new_name="Deutschland",
+        )
+
+        assert result is not None
+        assert result.path == "Europe/Deutschland"
+
+        topics = get_tree_topics(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        topic_paths = {t.path for t in topics}
+
+        # Old paths should be gone
+        assert "Europe/Germany" not in topic_paths
+        assert "Europe/Germany/Berlin" not in topic_paths
+
+        # New paths should exist
+        assert "Europe/Deutschland" in topic_paths
+        assert "Europe/Deutschland/Berlin" in topic_paths
+
+        # Europe (parent) should be unchanged
+        assert "Europe" in topic_paths
+
+    def test_rename_root_level_topic(
+        self, test_db, deep_topic_test_set, test_org_id, authenticated_user_id
+    ):
+        """Renaming a root-level topic should cascade to all descendants."""
+        result = update_topic_node(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="Europe",
+            new_name="EU",
+        )
+
+        assert result is not None
+        assert result.path == "EU"
+
+        topics = get_tree_topics(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        topic_paths = {t.path for t in topics}
+
+        assert "Europe" not in topic_paths
+        assert "Europe/Germany" not in topic_paths
+        assert "Europe/Germany/Berlin" not in topic_paths
+
+        assert "EU" in topic_paths
+        assert "EU/Germany" in topic_paths
+        assert "EU/Germany/Berlin" in topic_paths
+
+    def test_rename_updates_tests_topic(
+        self, test_db, deep_topic_test_set, test_org_id, authenticated_user_id
+    ):
+        """Tests under the renamed topic should reference the new path."""
+        update_topic_node(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="Europe/Germany",
+            new_name="Deutschland",
+        )
+
+        tests = get_tree_tests(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        # The test that was under Europe/Germany should now be under
+        # Europe/Deutschland
+        germany_test = next(t for t in tests if t.input == "Question about Germany")
+        assert germany_test.topic == "Europe/Deutschland"
+
+        # The test that was under Europe/Germany/Berlin should now be
+        # under Europe/Deutschland/Berlin
+        berlin_test = next(t for t in tests if t.input == "Question about Berlin")
+        assert berlin_test.topic == "Europe/Deutschland/Berlin"
+
+        # The Europe test should remain unchanged
+        europe_test = next(t for t in tests if t.input == "Question about Europe")
+        assert europe_test.topic == "Europe"
+
+    def test_rename_nonexistent_topic_returns_none(
+        self, test_db, deep_topic_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should return None when the topic does not exist."""
+        result = update_topic_node(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="NonExistent/Topic",
+            new_name="NewName",
+        )
+
+        assert result is None
+
+    def test_rename_with_slash_raises_value_error(
+        self, test_db, deep_topic_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should raise ValueError if new_name contains a slash."""
+        with pytest.raises(ValueError, match="must not contain"):
+            update_topic_node(
+                db=test_db,
+                test_set_id=deep_topic_test_set.id,
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                topic_path="Europe/Germany",
+                new_name="Deutsch/land",
+            )
+
+    def test_rename_to_same_name_is_noop(
+        self, test_db, deep_topic_test_set, test_org_id, authenticated_user_id
+    ):
+        """Renaming to the same name should return the topic unchanged."""
+        result = update_topic_node(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="Europe/Germany",
+            new_name="Germany",
+        )
+
+        assert result is not None
+        assert result.path == "Europe/Germany"
+
+        # Verify tree is unchanged
+        topics = get_tree_topics(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        topic_paths = {t.path for t in topics}
+        assert "Europe/Germany" in topic_paths
+        assert "Europe/Germany/Berlin" in topic_paths
+
+    def test_rename_preserves_node_count(
+        self, test_db, deep_topic_test_set, test_org_id, authenticated_user_id
+    ):
+        """Renaming should not change the total number of nodes."""
+        nodes_before = get_tree_nodes(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        update_topic_node(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="Europe/Germany",
+            new_name="Deutschland",
+        )
+
+        nodes_after = get_tree_nodes(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+
+        assert len(nodes_after) == len(nodes_before)

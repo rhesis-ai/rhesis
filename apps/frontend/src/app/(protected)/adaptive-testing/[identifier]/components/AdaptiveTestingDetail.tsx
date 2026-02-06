@@ -249,6 +249,7 @@ interface TreeNodeViewProps {
     testId: string,
     topicPath: string
   ) => void;
+  onEditTopic?: (topicPath: string) => void;
 }
 
 function TreeNodeView({
@@ -259,6 +260,7 @@ function TreeNodeView({
   expandedPaths,
   onToggleExpand,
   onDropTest,
+  onEditTopic,
 }: TreeNodeViewProps) {
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedPaths.has(node.path);
@@ -319,6 +321,9 @@ function TreeNodeView({
               : isSelected
                 ? 'action.selected'
                 : 'action.hover',
+          },
+          '&:hover .topic-edit-btn': {
+            opacity: 1,
           },
         }}
       >
@@ -382,6 +387,29 @@ function TreeNodeView({
         >
           {decodeURIComponent(node.name)}
         </Typography>
+
+        {/* Edit Topic Button */}
+        {onEditTopic && (
+          <IconButton
+            size="small"
+            onClick={e => {
+              e.stopPropagation();
+              onEditTopic(node.path);
+            }}
+            sx={{
+              p: 0.25,
+              color: 'text.secondary',
+              opacity: 0,
+              transition: 'opacity 0.15s ease',
+              '.MuiBox-root:hover > &': {
+                opacity: 1,
+              },
+            }}
+            className="topic-edit-btn"
+          >
+            <EditIcon sx={{ fontSize: '0.9rem' }} />
+          </IconButton>
+        )}
 
         {/* Direct Test Count */}
         <Chip
@@ -454,6 +482,7 @@ function TreeNodeView({
                 expandedPaths={expandedPaths}
                 onToggleExpand={onToggleExpand}
                 onDropTest={onDropTest}
+                onEditTopic={onEditTopic}
               />
             ))}
           </Box>
@@ -573,6 +602,141 @@ function AddTopicDialog({
           disabled={submitting || !topicName.trim()}
         >
           {submitting ? 'Creating...' : 'Create'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// ============================================================================
+// Rename Topic Dialog
+// ============================================================================
+
+interface RenameTopicDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (topicPath: string, newName: string) => Promise<void>;
+  topicPath: string | null;
+}
+
+function RenameTopicDialog({
+  open,
+  onClose,
+  onSubmit,
+  topicPath,
+}: RenameTopicDialogProps) {
+  const currentName = topicPath
+    ? topicPath.split('/').pop() || ''
+    : '';
+  const [newName, setNewName] = useState(currentName);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleOpen = () => {
+    const name = topicPath
+      ? topicPath.split('/').pop() || ''
+      : '';
+    setNewName(name);
+    setError('');
+  };
+
+  const handleSubmit = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      setError('Topic name is required');
+      return;
+    }
+    if (trimmed.includes('/')) {
+      setError('Topic name cannot contain slashes');
+      return;
+    }
+    if (!topicPath) return;
+
+    setSubmitting(true);
+    setError('');
+    try {
+      await onSubmit(topicPath, trimmed);
+      onClose();
+    } catch (err) {
+      setError(
+        (err as Error).message || 'Failed to rename topic'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    setError('');
+    onClose();
+  };
+
+  // Compute preview path
+  const parentPath = topicPath?.includes('/')
+    ? topicPath.substring(0, topicPath.lastIndexOf('/'))
+    : null;
+  const previewPath = parentPath
+    ? `${parentPath}/${newName.trim()}`
+    : newName.trim();
+
+  return (
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+      TransitionProps={{ onEnter: handleOpen }}
+    >
+      <DialogTitle>Rename Topic</DialogTitle>
+      <DialogContent>
+        {topicPath && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 2 }}
+          >
+            Current path: {decodeURIComponent(topicPath)}
+          </Typography>
+        )}
+        <TextField
+          autoFocus
+          label="New Name"
+          fullWidth
+          value={newName}
+          onChange={e => {
+            setNewName(e.target.value);
+            setError('');
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !submitting) {
+              handleSubmit();
+            }
+          }}
+          error={!!error}
+          helperText={
+            error ||
+            (newName.trim()
+              ? `New path: ${previewPath}`
+              : ' ')
+          }
+          disabled={submitting}
+          sx={{ mt: 1 }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={
+            submitting ||
+            !newName.trim() ||
+            newName.trim() === currentName
+          }
+        >
+          {submitting ? 'Renaming...' : 'Rename'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -938,6 +1102,7 @@ interface TopicTreePanelProps {
     testId: string,
     topicPath: string
   ) => void;
+  onEditTopic?: (topicPath: string) => void;
 }
 
 function TopicTreePanel({
@@ -947,6 +1112,7 @@ function TopicTreePanel({
   onTopicSelect,
   onAddTopic,
   onDropTest,
+  onEditTopic,
 }: TopicTreePanelProps) {
   // Start with all paths expanded
   const [expandedPaths, setExpandedPaths] = useState<
@@ -1044,6 +1210,7 @@ function TopicTreePanel({
           expandedPaths={expandedPaths}
           onToggleExpand={handleToggleExpand}
           onDropTest={onDropTest}
+          onEditTopic={onEditTopic}
         />
       ))}
 
@@ -1367,6 +1534,10 @@ export default function AdaptiveTestingDetail({
     useState(false);
   const [deletingTest, setDeletingTest] =
     useState<TestNode | null>(null);
+  const [renameTopicDialogOpen, setRenameTopicDialogOpen] =
+    useState(false);
+  const [renamingTopicPath, setRenamingTopicPath] =
+    useState<string | null>(null);
 
   // Build the topic tree
   const topicTree = useMemo(
@@ -1473,6 +1644,52 @@ export default function AdaptiveTestingDetail({
     },
     [tests, sessionToken, testSetId]
   );
+
+  const handleEditTopicOpen = (topicPath: string) => {
+    setRenamingTopicPath(topicPath);
+    setRenameTopicDialogOpen(true);
+  };
+
+  const handleRenameTopicSubmit = async (
+    topicPath: string,
+    newName: string
+  ) => {
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+
+    await client.updateTopic(testSetId, topicPath, {
+      new_name: newName,
+    });
+
+    // Refresh tree and topics data
+    const [treeNodes, updatedTopics] = await Promise.all([
+      client.getTree(testSetId),
+      client.getTopics(testSetId),
+    ]);
+
+    setTests(
+      treeNodes.filter(node => node.label !== 'topic_marker')
+    );
+    setTopics(updatedTopics);
+
+    // Update selected topic if it was under the renamed path
+    if (selectedTopic) {
+      const parentPath = topicPath.includes('/')
+        ? topicPath.substring(0, topicPath.lastIndexOf('/'))
+        : null;
+      const newPath = parentPath
+        ? `${parentPath}/${newName}`
+        : newName;
+
+      if (selectedTopic === topicPath) {
+        setSelectedTopic(newPath);
+      } else if (selectedTopic.startsWith(topicPath + '/')) {
+        setSelectedTopic(
+          newPath + selectedTopic.substring(topicPath.length)
+        );
+      }
+    }
+  };
 
   const handleDeleteTestOpen = (test: TestNode) => {
     setDeletingTest(test);
@@ -1669,6 +1886,7 @@ export default function AdaptiveTestingDetail({
                 onTopicSelect={setSelectedTopic}
                 onAddTopic={handleAddTopicOpen}
                 onDropTest={handleDropTestOnTopic}
+                onEditTopic={handleEditTopicOpen}
               />
             </Box>
           </Paper>
@@ -1780,6 +1998,17 @@ export default function AdaptiveTestingDetail({
         onSubmit={handleEditTestSubmit}
         test={editingTest}
         topics={topics}
+      />
+
+      {/* Rename Topic Dialog */}
+      <RenameTopicDialog
+        open={renameTopicDialogOpen}
+        onClose={() => {
+          setRenameTopicDialogOpen(false);
+          setRenamingTopicPath(null);
+        }}
+        onSubmit={handleRenameTopicSubmit}
+        topicPath={renamingTopicPath}
       />
 
       {/* Delete Confirmation Dialog */}

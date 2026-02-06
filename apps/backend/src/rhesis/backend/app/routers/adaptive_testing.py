@@ -29,6 +29,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     get_tree_tests,
     get_tree_topics,
     update_test_node,
+    update_topic_node,
 )
 from rhesis.sdk.adaptive_testing.schemas import TestTreeNode, TopicNode
 
@@ -185,6 +186,56 @@ def create_adaptive_topic(
         user_id=str(user_id),
         topic=path,
     )
+
+
+@router.put(
+    "/{test_set_identifier}/topics/{topic_path:path}",
+    response_model=TopicNode,
+)
+def update_adaptive_topic(
+    test_set_identifier: str,
+    topic_path: str,
+    new_name: str = Body(
+        ...,
+        embed=True,
+        description="New name for the topic (current level only, no slashes)",
+    ),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Rename a topic in the adaptive testing tree.
+
+    Only the current level name can be changed. For example, given
+    ``Europe/Germany/Berlin``, renaming ``Germany`` to ``Deutschland``
+    yields ``Europe/Deutschland`` and cascades to all children and
+    tests under the old path.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    try:
+        result = update_topic_node(
+            db=db,
+            test_set_id=db_test_set.id,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            topic_path=topic_path,
+            new_name=new_name,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Topic not found in this test set",
+        )
+
+    return result
 
 
 @router.post(
