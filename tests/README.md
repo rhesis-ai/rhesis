@@ -808,7 +808,7 @@ Consistent, isolated test environments are crucial for reliable testing.
 version: '3.8'
 services:
   test-db:
-    image: postgres:15
+    image: mirror.gcr.io/library/postgres:15
     environment:
       POSTGRES_DB: rhesis_test
       POSTGRES_USER: test
@@ -817,7 +817,7 @@ services:
       - "5433:5432"
   
   redis-test:
-    image: redis:7
+    image: mirror.gcr.io/library/redis:7
     ports:
       - "6380:6379"
 ```

@@ -1,4 +1,4 @@
-FROM nocodb/nocodb:latest
+FROM mirror.gcr.io/nocodb/nocodb:latest
 
 COPY knex.json /knex.json
 
