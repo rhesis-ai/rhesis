@@ -181,6 +181,14 @@ start_server() {
             --port "$port" \
             --log-level debug \
             --reload
+    else
+        # Default: no ENVIRONMENT/BACKEND_ENV (e.g. docker-compose for integration tests)
+        log "${BLUE}🛠️  Starting server with Uvicorn (default)...${NC}"
+        exec ${CMD_PREFIX}uvicorn \
+            rhesis.backend.app.main:app \
+            --host "$host" \
+            --port "$port" \
+            --log-level debug
     fi
 }
 
