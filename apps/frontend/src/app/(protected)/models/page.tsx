@@ -123,6 +123,9 @@ export default function ModelsPage() {
         const apiFactory = new ApiClientFactory(session.session_token);
         const modelsClient = apiFactory.getModelsClient();
         const result = await modelsClient.testModelConnection(modelId);
+        
+        console.log('[MODEL_VALIDATION] Result:', result);
+        
         setModelValidationStatus(prev =>
           new Map(prev).set(modelId, {
             isValid: result.status === 'success',
@@ -131,12 +134,19 @@ export default function ModelsPage() {
               result.status === 'success' ? undefined : result.message,
           })
         );
-      } catch {
+      } catch (error) {
+        console.error('[MODEL_VALIDATION] Error:', error);
+        
+        // Extract the actual error message from the API response
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : 'Failed to validate model configuration';
         setModelValidationStatus(prev =>
           new Map(prev).set(modelId, {
             isValid: false,
             isValidating: false,
-            errorMessage: 'Failed to validate model configuration',
+            errorMessage,
           })
         );
       }
@@ -144,26 +154,40 @@ export default function ModelsPage() {
     [session?.session_token]
   );
 
-  // Validate Rhesis model when it is the default generation model
+  // Validate any models set as defaults (generation or evaluation)
+  // This ensures users are warned if their default models are misconfigured
   useEffect(() => {
-    if (
-      !session?.session_token ||
-      !userSettings?.models?.generation?.model_id ||
-      connectedModels.length === 0
-    ) {
+    if (!session?.session_token || connectedModels.length === 0) {
       return;
     }
 
-    const defaultModel = connectedModels.find(
-      m => m.id === userSettings.models?.generation?.model_id
-    );
+    // Validate default generation model
+    if (userSettings?.models?.generation?.model_id) {
+      const defaultGenerationModel = connectedModels.find(
+        m => m.id === userSettings.models?.generation?.model_id
+      );
+      if (defaultGenerationModel) {
+        validateModel(defaultGenerationModel.id);
+      }
+    }
 
-    if (defaultModel?.provider_type?.type_value === 'rhesis') {
-      validateModel(defaultModel.id);
+    // Validate default evaluation model
+    if (userSettings?.models?.evaluation?.model_id) {
+      const defaultEvaluationModel = connectedModels.find(
+        m => m.id === userSettings.models?.evaluation?.model_id
+      );
+      // Only validate if it's different from generation model
+      if (
+        defaultEvaluationModel &&
+        defaultEvaluationModel.id !== userSettings.models?.generation?.model_id
+      ) {
+        validateModel(defaultEvaluationModel.id);
+      }
     }
   }, [
     connectedModels,
     userSettings?.models?.generation?.model_id,
+    userSettings?.models?.evaluation?.model_id,
     session?.session_token,
     validateModel,
   ]);
@@ -207,10 +231,10 @@ export default function ModelsPage() {
         prev.map(model => (model.id === modelId ? updatedModel : model))
       );
 
-      // Re-validate if this is the default Rhesis generation model
+      // Re-validate if this is a default model (generation or evaluation)
       if (
-        updatedModel?.provider_type?.type_value === 'rhesis' &&
-        userSettings?.models?.generation?.model_id === modelId
+        userSettings?.models?.generation?.model_id === modelId ||
+        userSettings?.models?.evaluation?.model_id === modelId
       ) {
         validateModel(modelId);
       }

@@ -54,8 +54,8 @@ export function ConnectedModelCard({
         flexDirection: 'column',
         position: 'relative',
         ...(showValidationError && {
-          borderColor: 'error.main',
-          borderWidth: 2,
+          borderColor: 'warning.main',
+          borderWidth: 1,
           borderStyle: 'solid',
         }),
       }}
@@ -142,7 +142,7 @@ export function ConnectedModelCard({
                 sx={{
                   ml: 1,
                   fontSize: theme => theme.iconSizes.small,
-                  color: 'error.main',
+                  color: 'warning.main',
                 }}
               />
             )}
