@@ -25,6 +25,148 @@ from rhesis.backend.app.utils.uuid_utils import (
 from rhesis.backend.logging import logger
 
 
+class _BulkEntityCache:
+    """
+    In-memory cache for entity lookups during bulk operations.
+
+    Dramatically reduces database round-trips when creating many tests
+    with the same topic/behavior/category (common in Garak imports).
+
+    Usage:
+        cache = _BulkEntityCache()
+        topic = cache.get_or_create_topic(db, name, defaults, org_id, user_id)
+    """
+
+    def __init__(self):
+        self.topics: Dict[str, models.Topic] = {}
+        self.behaviors: Dict[str, models.Behavior] = {}
+        self.categories: Dict[str, models.Category] = {}
+        self.statuses: Dict[tuple, models.Status] = {}
+        self.type_lookups: Dict[tuple, models.TypeLookup] = {}
+
+    def get_or_create_topic(
+        self,
+        db: Session,
+        name: str,
+        defaults: Dict,
+        organization_id: str,
+        user_id: str,
+    ) -> models.Topic:
+        """Get or create a topic, using cache if available."""
+        cache_key = name
+        if cache_key in self.topics:
+            return self.topics[cache_key]
+
+        # Cache miss - use existing get_or_create_entity logic
+        topic = _create_entity_with_status_uncached(
+            db=db,
+            model=models.Topic,
+            name=name,
+            defaults=defaults,
+            entity_type=EntityType.TOPIC,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        self.topics[cache_key] = topic
+        return topic
+
+    def get_or_create_behavior(
+        self,
+        db: Session,
+        name: str,
+        defaults: Dict,
+        organization_id: str,
+        user_id: str,
+    ) -> models.Behavior:
+        """Get or create a behavior, using cache if available."""
+        cache_key = name
+        if cache_key in self.behaviors:
+            return self.behaviors[cache_key]
+
+        behavior = _create_entity_with_status_uncached(
+            db=db,
+            model=models.Behavior,
+            name=name,
+            defaults=defaults,
+            entity_type=EntityType.BEHAVIOR,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        self.behaviors[cache_key] = behavior
+        return behavior
+
+    def get_or_create_category(
+        self,
+        db: Session,
+        name: str,
+        defaults: Dict,
+        organization_id: str,
+        user_id: str,
+    ) -> models.Category:
+        """Get or create a category, using cache if available."""
+        cache_key = name
+        if cache_key in self.categories:
+            return self.categories[cache_key]
+
+        category = _create_entity_with_status_uncached(
+            db=db,
+            model=models.Category,
+            name=name,
+            defaults=defaults,
+            entity_type=EntityType.CATEGORY,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        self.categories[cache_key] = category
+        return category
+
+    def get_or_create_status(
+        self,
+        db: Session,
+        name: str,
+        entity_type: EntityType,
+        organization_id: str,
+        user_id: str,
+    ) -> models.Status:
+        """Get or create a status, using cache if available."""
+        cache_key = (name, entity_type.value if hasattr(entity_type, "value") else entity_type)
+        if cache_key in self.statuses:
+            return self.statuses[cache_key]
+
+        status = get_or_create_status(
+            db=db,
+            name=name,
+            entity_type=entity_type,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        self.statuses[cache_key] = status
+        return status
+
+    def get_or_create_type_lookup(
+        self,
+        db: Session,
+        type_name: str,
+        type_value: str,
+        organization_id: str,
+        user_id: str,
+    ) -> models.TypeLookup:
+        """Get or create a type lookup, using cache if available."""
+        cache_key = (type_name, type_value)
+        if cache_key in self.type_lookups:
+            return self.type_lookups[cache_key]
+
+        type_lookup = get_or_create_type_lookup(
+            db=db,
+            type_name=type_name,
+            type_value=type_value,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        self.type_lookups[cache_key] = type_lookup
+        return type_lookup
+
+
 def load_defaults():
     """Load default values from bulk_defaults.json"""
     defaults_path = Path(__file__).parent / "bulk_defaults.json"
@@ -212,7 +354,7 @@ def bulk_create_test_set_associations(
     }
 
 
-def create_entity_with_status(
+def _create_entity_with_status_uncached(
     db: Session,
     model: Any,
     name: str,
@@ -222,7 +364,7 @@ def create_entity_with_status(
     user_id: str,
     **extra_fields,
 ) -> Any:
-    """Helper to create an entity with a status"""
+    """Helper to create an entity with a status (no caching)."""
     # Get the string value from EntityType enum and convert to lowercase
     entity_type_str = entity_type.value.lower()
 
@@ -251,6 +393,46 @@ def create_entity_with_status(
         entity_data=entity_data,
         organization_id=organization_id,
         user_id=user_id,
+    )
+
+
+def create_entity_with_status(
+    db: Session,
+    model: Any,
+    name: str,
+    defaults: Dict,
+    entity_type: EntityType,
+    organization_id: str,
+    user_id: str,
+    cache: _BulkEntityCache = None,
+    **extra_fields,
+) -> Any:
+    """
+    Helper to create an entity with a status.
+
+    Args:
+        cache: Optional _BulkEntityCache for caching lookups in bulk operations.
+               When provided, dramatically reduces DB round-trips for repeated values.
+    """
+    # Use cache if provided and entity type is cacheable
+    if cache is not None:
+        if model == models.Topic:
+            return cache.get_or_create_topic(db, name, defaults, organization_id, user_id)
+        elif model == models.Behavior:
+            return cache.get_or_create_behavior(db, name, defaults, organization_id, user_id)
+        elif model == models.Category:
+            return cache.get_or_create_category(db, name, defaults, organization_id, user_id)
+
+    # Fall back to uncached version
+    return _create_entity_with_status_uncached(
+        db=db,
+        model=model,
+        name=name,
+        defaults=defaults,
+        entity_type=entity_type,
+        organization_id=organization_id,
+        user_id=user_id,
+        **extra_fields,
     )
 
 
@@ -369,8 +551,13 @@ def bulk_create_tests(
     created_tests = []
     defaults = load_defaults()
 
+    # Create cache for entity lookups - dramatically reduces DB round-trips
+    # when many tests share the same topic/behavior/category (common in Garak imports)
+    cache = _BulkEntityCache()
+
     try:
-        test_status = get_or_create_status(
+        # Cache the test status (used for all tests)
+        test_status = cache.get_or_create_status(
             db=db,
             name=defaults["test"]["status"],
             entity_type=EntityType.TEST,
@@ -407,8 +594,8 @@ def bulk_create_tests(
                 or defaults["test"]["test_type"]
             )
 
-            # Get or create test type for this specific test
-            test_type = get_or_create_type_lookup(
+            # Get or create test type for this specific test (cached)
+            test_type = cache.get_or_create_type_lookup(
                 db=db,
                 type_name="TestType",
                 type_value=type_value_to_use,
@@ -430,7 +617,7 @@ def bulk_create_tests(
                     user_id=user_id,
                 )
 
-            # Create topic, behavior, and category
+            # Create topic, behavior, and category (with caching for bulk operations)
             topic = create_entity_with_status(
                 db=db,
                 model=models.Topic,
@@ -439,6 +626,7 @@ def bulk_create_tests(
                 entity_type=EntityType.TOPIC,
                 organization_id=organization_id,
                 user_id=user_id,
+                cache=cache,
             )
 
             behavior = create_entity_with_status(
@@ -449,6 +637,7 @@ def bulk_create_tests(
                 entity_type=EntityType.BEHAVIOR,
                 organization_id=organization_id,
                 user_id=user_id,
+                cache=cache,
             )
 
             category = create_entity_with_status(
@@ -459,6 +648,7 @@ def bulk_create_tests(
                 entity_type=EntityType.CATEGORY,
                 organization_id=organization_id,
                 user_id=user_id,
+                cache=cache,
             )
 
             # Create test with improved owner_id handling
@@ -574,15 +764,17 @@ def bulk_create_tests(
 
             db.flush()
 
-            if test_set_id:
-                test_ids = [str(test.id) for test in created_tests]
-                bulk_create_test_set_associations(
-                    db=db,
-                    test_ids=test_ids,
-                    test_set_id=test_set_id,
-                    organization_id=organization_id,
-                    user_id=user_id,
-                )
+        # Create test set associations AFTER all tests are created (moved outside loop)
+        # This fixes O(n²) behavior - previously called N times with growing list
+        if test_set_id and created_tests:
+            test_ids = [str(test.id) for test in created_tests]
+            bulk_create_test_set_associations(
+                db=db,
+                test_ids=test_ids,
+                test_set_id=test_set_id,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
 
         # Transaction commit/rollback is handled by the session context manager
         return created_tests
