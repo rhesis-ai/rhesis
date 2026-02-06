@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, Alert, CircularProgress } from '@mui/material';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
@@ -16,6 +16,9 @@ import {
   ConnectedModelCard,
   AddModelCard,
 } from './components';
+import type { ValidationStatus } from './types';
+
+export type { ValidationStatus } from './types';
 
 export default function ModelsPage() {
   const { data: session } = useSession();
@@ -24,6 +27,9 @@ export default function ModelsPage() {
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modelValidationStatus, setModelValidationStatus] = useState<
+    Map<string, ValidationStatus>
+  >(new Map());
   const [selectedProvider, setSelectedProvider] = useState<TypeLookup | null>(
     null
   );
@@ -102,6 +108,66 @@ export default function ModelsPage() {
     } catch (err) {}
   };
 
+  const validateModel = useCallback(
+    async (modelId: UUID) => {
+      if (!session?.session_token) return;
+
+      setModelValidationStatus(prev =>
+        new Map(prev).set(modelId, {
+          isValid: false,
+          isValidating: true,
+        })
+      );
+
+      try {
+        const apiFactory = new ApiClientFactory(session.session_token);
+        const modelsClient = apiFactory.getModelsClient();
+        const result = await modelsClient.testModelConnection(modelId);
+        setModelValidationStatus(prev =>
+          new Map(prev).set(modelId, {
+            isValid: result.status === 'success',
+            isValidating: false,
+            errorMessage:
+              result.status === 'success' ? undefined : result.message,
+          })
+        );
+      } catch {
+        setModelValidationStatus(prev =>
+          new Map(prev).set(modelId, {
+            isValid: false,
+            isValidating: false,
+            errorMessage: 'Failed to validate model configuration',
+          })
+        );
+      }
+    },
+    [session?.session_token]
+  );
+
+  // Validate Rhesis model when it is the default generation model
+  useEffect(() => {
+    if (
+      !session?.session_token ||
+      !userSettings?.models?.generation?.model_id ||
+      connectedModels.length === 0
+    ) {
+      return;
+    }
+
+    const defaultModel = connectedModels.find(
+      m => m.id === userSettings.models?.generation?.model_id
+    );
+
+    if (defaultModel?.provider_type?.type_value === 'rhesis') {
+      validateModel(defaultModel.id);
+    }
+  }, [
+    connectedModels,
+    userSettings?.models?.generation?.model_id,
+    session?.session_token,
+    validateModel,
+  ]);
+
   const handleConnect = async (
     providerId: string,
     modelData: ModelCreate
@@ -140,6 +206,14 @@ export default function ModelsPage() {
       setConnectedModels(prev =>
         prev.map(model => (model.id === modelId ? updatedModel : model))
       );
+
+      // Re-validate if this is the default Rhesis generation model
+      if (
+        updatedModel?.provider_type?.type_value === 'rhesis' &&
+        userSettings?.models?.generation?.model_id === modelId
+      ) {
+        validateModel(modelId);
+      }
     } catch (err) {
       throw err;
     }
@@ -207,6 +281,7 @@ export default function ModelsPage() {
               key={model.id}
               model={model}
               userSettings={userSettings}
+              validationStatus={modelValidationStatus.get(model.id)}
               onEdit={handleEditClick}
               onDelete={handleDeleteClick}
             />

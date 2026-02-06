@@ -6,20 +6,23 @@ import {
   Typography,
   IconButton,
   Chip,
-  Stack,
+  Tooltip,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import EditIcon from '@mui/icons-material/Edit';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import WarningIcon from '@mui/icons-material/Warning';
 import { DeleteIcon, AddIcon } from '@/components/icons';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { PROVIDER_ICONS } from '@/config/model-providers';
+import type { ValidationStatus } from '../types';
 
 interface ConnectedModelCardProps {
   model: Model;
   userSettings?: UserSettings | null;
+  validationStatus?: ValidationStatus;
   onEdit: (model: Model, e: React.MouseEvent) => void;
   onDelete: (model: Model, e: React.MouseEvent) => void;
 }
@@ -27,6 +30,7 @@ interface ConnectedModelCardProps {
 export function ConnectedModelCard({
   model,
   userSettings,
+  validationStatus,
   onEdit,
   onDelete,
 }: ConnectedModelCardProps) {
@@ -37,13 +41,23 @@ export function ConnectedModelCard({
     userSettings?.models?.evaluation?.model_id === model.id;
   const isAnyDefault = isGenerationDefault || isEvaluationDefault;
 
-  return (
+  const showValidationError =
+    validationStatus &&
+    !validationStatus.isValid &&
+    !validationStatus.isValidating;
+
+  const card = (
     <Card
       sx={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
+        ...(showValidationError && {
+          borderColor: 'error.main',
+          borderWidth: 2,
+          borderStyle: 'solid',
+        }),
       }}
     >
       <CardContent
@@ -123,6 +137,15 @@ export function ConnectedModelCard({
             >
               {model.name}
             </Typography>
+            {showValidationError && (
+              <WarningIcon
+                sx={{
+                  ml: 1,
+                  fontSize: theme => theme.iconSizes.small,
+                  color: 'error.main',
+                }}
+              />
+            )}
           </Box>
 
           {/* Model description and details */}
@@ -198,6 +221,23 @@ export function ConnectedModelCard({
       </CardContent>
     </Card>
   );
+
+  if (showValidationError) {
+    return (
+      <Tooltip
+        title={
+          validationStatus?.errorMessage ||
+          'Configuration required: Please configure a valid Rhesis API key'
+        }
+        placement="top"
+        arrow
+      >
+        {card}
+      </Tooltip>
+    );
+  }
+
+  return card;
 }
 
 interface AddModelCardProps {
