@@ -442,10 +442,8 @@ async def generate_test_config(
         raise http_exception
     except RuntimeError as e:
         logger.error(f"Test config generation failed: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to generate test configuration",
-        )
+        detail = str(e) if e.args else "Failed to generate test configuration"
+        raise HTTPException(status_code=500, detail=detail)
     except Exception as e:
         logger.error(
             f"Unexpected error in test config generation: {str(e)}",
