@@ -153,7 +153,7 @@ class TestTree:
         """
         tests = []
 
-        for order_index, node in enumerate(self._tests):
+        for node in self._tests:
             # Skip suggestions unless explicitly included
             if not include_suggestions and "/__suggestions__" in node.topic:
                 continue
@@ -166,7 +166,6 @@ class TestTree:
             # Store all node fields in metadata for complete round-trip
             metadata = {
                 "tree_id": str(node.id),
-                "tree_order": order_index,
                 "output": node.output,
                 "label": node.label,
                 "labeler": node.labeler,
@@ -224,23 +223,10 @@ class TestTree:
         - All fields (output, label, labeler, model_score) are restored from metadata
           with sensible defaults for backward compatibility
         - Tests without prompts are skipped (e.g., multi-turn tests)
-        - Order is preserved via metadata tree_order when present (round-trip).
         """
         nodes = []
-        tests = test_set.tests or []
 
-        # Preserve round-trip order: sort by tree_order when present
-        # (backend may return tests in created_at order, not insertion order)
-        def _tree_order(t):
-            if isinstance(t, dict):
-                meta = t.get("metadata", None)
-            else:
-                meta = getattr(t, "metadata", None)
-            return (meta or {}).get("tree_order", 999999)
-
-        tests_sorted = sorted(tests, key=_tree_order)
-
-        for test in tests_sorted:
+        for test in test_set.tests or []:
             # Handle both dict and Test objects
             if isinstance(test, dict):
                 test = Test(**test)
