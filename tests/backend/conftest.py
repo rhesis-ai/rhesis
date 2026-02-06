@@ -8,6 +8,9 @@ import os
 # Test mode
 os.environ["SQLALCHEMY_DB_MODE"] = "test"
 
+# Reduce log noise during tests (default is INFO)
+os.environ["LOG_LEVEL"] = "WARNING"
+
 # Disable the Rhesis connector/SDK integration for tests
 os.environ["RHESIS_CONNECTOR_DISABLED"] = "true"
 os.environ["RHESIS_PROJECT_ID"] = "12340000-0000-4000-8000-000000001234"

@@ -74,9 +74,9 @@ def setup_soft_delete_listener():
                                     list(query._where_criteria) if query._where_criteria else []
                                 )
                                 query._where_criteria = tuple(existing + [filter_condition])
-                                logger.debug(
-                                    "Applied soft delete filter via _where_criteria (query has LIMIT/OFFSET)"
-                                )
+                                # logger.debug(
+                                #     "Applied soft delete filter via _where_criteria (query has LIMIT/OFFSET)"
+                                # )
                         except Exception as inner_e:
                             logger.warning(
                                 f"Could not apply soft delete filter to query with LIMIT/OFFSET: {inner_e}"
