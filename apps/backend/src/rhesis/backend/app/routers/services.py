@@ -50,6 +50,7 @@ from rhesis.backend.app.services.mcp_service import (
     search_mcp,
 )
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
+from rhesis.backend.app.utils.execution_validation import validate_generation_model
 from rhesis.backend.logging import logger
 
 router = APIRouter(
@@ -58,6 +59,25 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
 )
+
+
+def _handle_generation_error(error: Exception) -> None:
+    """
+    Handle errors during test generation with appropriate HTTP responses.
+
+    Centralizes error handling for generation endpoints.
+
+    Args:
+        error: The exception that occurred
+
+    Raises:
+        HTTPException: With appropriate status code and message
+    """
+    from rhesis.backend.app.utils.execution_validation import handle_execution_error
+
+    # Convert the error to HTTPException and raise it
+    http_exception = handle_execution_error(error, operation="generate tests")
+    raise http_exception
 
 
 @router.get("/github/contents")
@@ -233,6 +253,7 @@ async def generate_tests_endpoint(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Generate test cases using the prompt synthesizer.
@@ -267,8 +288,7 @@ async def generate_tests_endpoint(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to generate tests: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to generate tests. Please try again.")
+        _handle_generation_error(e)
 
 
 @router.post("/generate/multiturn-tests", response_model=GenerateMultiTurnTestsResponse)
@@ -277,6 +297,7 @@ async def generate_multiturn_tests_endpoint(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Generate multi-turn test cases using the MultiTurnSynthesizer.
@@ -315,11 +336,10 @@ async def generate_multiturn_tests_endpoint(
         )
         # test_cases is a TestSet dict with a "tests" key containing the array
         return {"tests": test_cases.get("tests", [])}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to generate multi-turn tests: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=400, detail="Failed to generate multi-turn tests. Please try again."
-        )
+        _handle_generation_error(e)
 
 
 @router.post("/generate/text", response_model=TextResponse)

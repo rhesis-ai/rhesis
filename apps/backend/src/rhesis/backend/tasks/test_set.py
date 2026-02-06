@@ -359,6 +359,34 @@ def generate_and_save_test_set(
 
         return result
 
+    except ValueError as e:
+        error_msg = str(e)
+        error_msg_lower = error_msg.lower()
+
+        # Check for various model configuration issues
+        if any(
+            keyword in error_msg_lower
+            for keyword in [
+                "api_key",
+                "not set",
+                "not configured",
+                "api key",
+                "authentication",
+                "provider",
+                "not supported",
+                "model",
+                "not found",
+                "invalid",
+            ]
+        ):
+            self.log_with_context("error", "User model configuration error", error=error_msg)
+            raise ValueError(
+                f"Cannot generate tests due to a problem with your configured model: {error_msg}. "
+                "Please check your model settings in the Models page."
+            )
+        # Other configuration errors
+        self.log_with_context("error", "Configuration error", error=error_msg)
+        raise ValueError(f"Test set generation failed: {error_msg}")
     except Exception as e:
         self.log_with_context("error", "Task failed", error=str(e))
         # The task will be automatically retried due to BaseTask settings

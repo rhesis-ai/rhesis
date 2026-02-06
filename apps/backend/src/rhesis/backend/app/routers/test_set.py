@@ -32,6 +32,12 @@ from rhesis.backend.app.services.test_set import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.execution_validation import (
+    handle_execution_error,
+    validate_execution_model,
+    validate_generation_model,
+    validate_workers_available,
+)
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
@@ -86,6 +92,8 @@ async def generate_test_set(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_workers=Depends(validate_workers_available),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Generate test set using ConfigSynthesizer.
@@ -140,10 +148,8 @@ async def generate_test_set(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to start test set generation: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to start test set generation: {str(e)}"
-        )
+        http_exception = handle_execution_error(e, operation="generate test set")
+        raise http_exception
 
 
 @router.post("/bulk", response_model=schemas.TestSetBulkResponse)
@@ -481,6 +487,8 @@ async def execute_test_set(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_workers=Depends(validate_workers_available),
+    _validate_model=Depends(validate_execution_model),
 ):
     """Submit a test set for execution against an endpoint.
 
@@ -518,15 +526,11 @@ async def execute_test_set(
         )
         return result
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Unexpected error in test set execution: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to submit test set execution: {str(e)}"
-        )
+        http_exception = handle_execution_error(e, operation="execute test set")
+        raise http_exception
 
 
 @router.get("/{test_set_identifier}/stats", response_model=schemas.EntityStats)

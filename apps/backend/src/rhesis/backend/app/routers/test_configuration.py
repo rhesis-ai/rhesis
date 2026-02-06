@@ -13,6 +13,11 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.execution_validation import (
+    handle_execution_error,
+    validate_execution_model,
+    validate_workers_available,
+)
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_configuration import execute_test_configuration
@@ -184,33 +189,41 @@ def execute_test_configuration_endpoint(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_workers=Depends(validate_workers_available),
+    _validate_model=Depends(validate_execution_model),
 ):
     """
     Execute a test configuration by running its test set.
     """
-    organization_id, user_id = tenant_context
-    # Verify the test configuration exists
-    db_test_configuration = crud.get_test_configuration(
-        db,
-        test_configuration_id=test_configuration_id,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
-    if db_test_configuration is None:
-        raise HTTPException(status_code=404, detail="Test configuration not found")
+    try:
+        organization_id, user_id = tenant_context
+        # Verify the test configuration exists
+        db_test_configuration = crud.get_test_configuration(
+            db,
+            test_configuration_id=test_configuration_id,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        if db_test_configuration is None:
+            raise HTTPException(status_code=404, detail="Test configuration not found")
 
-    # Submit the celery task with the task_launcher which automatically adds context
-    task = task_launcher(
-        execute_test_configuration, str(test_configuration_id), current_user=current_user
-    )
+        # Submit the celery task with the task_launcher which automatically adds context
+        task = task_launcher(
+            execute_test_configuration, str(test_configuration_id), current_user=current_user
+        )
 
-    return {
-        "test_configuration_id": str(test_configuration_id),
-        "task_id": task.id,
-        "status": "submitted",
-        "endpoint_id": str(db_test_configuration.endpoint_id),
-        "test_set_id": str(db_test_configuration.test_set_id)
-        if db_test_configuration.test_set_id
-        else None,
-        "user_id": str(db_test_configuration.user_id),
-    }
+        return {
+            "test_configuration_id": str(test_configuration_id),
+            "task_id": task.id,
+            "status": "submitted",
+            "endpoint_id": str(db_test_configuration.endpoint_id),
+            "test_set_id": str(db_test_configuration.test_set_id)
+            if db_test_configuration.test_set_id
+            else None,
+            "user_id": str(db_test_configuration.user_id),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        http_exception = handle_execution_error(e, operation="execute test configuration")
+        raise http_exception
