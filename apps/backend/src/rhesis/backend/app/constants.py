@@ -73,10 +73,10 @@ DEFAULT_PRIORITY = 1
 # Model-related defaults
 # Can be overridden via environment variables for flexible deployment
 DEFAULT_GENERATION_MODEL = os.getenv(
-    "DEFAULT_GENERATION_MODEL", "vertex_ai"
+    "DEFAULT_GENERATION_MODEL", "rhesis"
 )  # Default provider for test generation
 DEFAULT_MODEL_NAME = os.getenv(
-    "DEFAULT_MODEL_NAME", "gemini-2.0-flash"
+    "DEFAULT_MODEL_NAME", "default"
 )  # Default model name (gemini-2.0-flash recommended, avoid 2.5-flash)
 
 # Test Result Status Mappings
