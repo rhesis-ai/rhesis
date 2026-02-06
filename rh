@@ -615,7 +615,7 @@ stop_all() {
     fi
 }
 
-# Function to restart all services
+# Function to restart all services (recreates containers so .env.docker.local changes apply)
 restart_all() {
     echo -e "${YELLOW}Restarting all Rhesis services...${NC}"
 
@@ -624,10 +624,13 @@ restart_all() {
         exit 1
     }
 
-    docker compose -p "$PROJECT_NAME" --env-file .env.docker.local restart
+    check_docker
+
+    # Recreate containers so updated .env.docker.local variables are applied
+    docker compose -p "$PROJECT_NAME" --env-file .env.docker.local up -d --force-recreate postgres redis backend worker frontend
 
     if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✅ All services restarted${NC}"
+        echo -e "${GREEN}✅ All services restarted with current .env.docker.local${NC}"
     else
         echo -e "${RED}❌ Error: Failed to restart services${NC}"
         exit 1

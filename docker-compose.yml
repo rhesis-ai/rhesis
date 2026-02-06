@@ -70,7 +70,7 @@ x-nextjs-frontend: &nextjs-frontend
 services:
   # PostgreSQL Database
   postgres:
-    image: mirror.gcr.io/library/postgres:16-alpine
+    image: mirror.gcr.io/postgres:16-alpine
     environment:
       POSTGRES_DB: ${SQLALCHEMY_DB_NAME:-rhesis-db}
       POSTGRES_USER: ${SQLALCHEMY_DB_USER:-rhesis-user}
@@ -90,7 +90,7 @@ services:
 
    # Redis for Celery
   redis:
-    image: mirror.gcr.io/library/redis:7-alpine
+    image: mirror.gcr.io/redis:7-alpine
     command: redis-server --requirepass ${REDIS_PASSWORD:-rhesis-redis-pass}
     ports:
       - "6379:6379"

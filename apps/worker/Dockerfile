@@ -16,14 +16,22 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 # Install build dependencies including Rust (needed for base2048 via garak)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Add retry logic and split into separate steps for better error handling
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     build-essential \
     libpq-dev \
     python3-dev \
     git \
     curl \
-    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Rust separately (needed for base2048 via garak)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 # Add Rust to PATH for the build
 ENV PATH="/root/.cargo/bin:$PATH"
@@ -67,7 +75,12 @@ WORKDIR /app
 
 # Install only runtime dependencies (no build tools)
 # Keep git as it's needed by ragas package at runtime
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     libpq5 \
     curl \
     jq \

@@ -19,8 +19,13 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-# Install Python 3.10 and build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install Python 3.10 and build dependencies with retry logic
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     python3.10 \
     python3.10-venv \
     python3.10-dev \
@@ -80,7 +85,12 @@ FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS runtime
 WORKDIR /app
 
 # Install Python 3.10 and runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     python3.10 \
     python3.10-venv \
     curl \
