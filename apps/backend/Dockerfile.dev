@@ -42,7 +42,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     cd penelope && uv remove rhesis-sdk --frozen && cd .. && \
     uv add ./sdk --frozen --editable --no-workspace && \
     uv add ./penelope --frozen --editable --no-workspace && \
-    uv sync --no-install-project --no-install-local
+    uv sync --no-install-project --no-install-local --extra cpu
 
 # Install the project
 COPY sdk /app/sdk/
