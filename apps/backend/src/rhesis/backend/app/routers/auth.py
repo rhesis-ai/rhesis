@@ -681,7 +681,10 @@ async def reset_password(
         )
 
     user.password_hash = hash_password(body.new_password)
-    user.provider_type = "email"
+    # Preserve original provider_type — setting a password is additive,
+    # not a provider migration. Users can log in via either method.
+    if not user.provider_type:
+        user.provider_type = "email"
     db.commit()
 
     logger.info("Password reset for user: %s", redact_email(user.email))
