@@ -105,16 +105,10 @@ def upgrade() -> None:
         ),
     )
 
-
     # Ensure RLS is NOT enabled on this table.
     # If a blanket RLS migration ran after table creation, undo it.
-    op.execute(
-        "ALTER TABLE public.refresh_token DISABLE ROW LEVEL SECURITY"
-    )
-    op.execute(
-        "DROP POLICY IF EXISTS tenant_isolation"
-        " ON public.refresh_token"
-    )
+    op.execute("ALTER TABLE public.refresh_token DISABLE ROW LEVEL SECURITY")
+    op.execute("DROP POLICY IF EXISTS tenant_isolation ON public.refresh_token")
 
 
 def downgrade() -> None:
