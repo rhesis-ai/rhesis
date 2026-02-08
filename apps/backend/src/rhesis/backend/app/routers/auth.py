@@ -705,35 +705,59 @@ async def request_magic_link(
     db: Session = Depends(get_db_session),
 ):
     """
-    Send a magic link login email. Always returns 200 to prevent
-    email enumeration.
+    Send a magic link email. Creates a new account if the email
+    doesn't exist yet (unified sign-in / sign-up flow).
+    Always returns 200 to prevent email enumeration.
     """
     from rhesis.backend.app import crud
+    from rhesis.backend.app.schemas.user import UserCreate
 
     user = crud.get_user_by_email(db, body.email)
 
-    if user:
+    if not user:
+        # Auto-create account for new users (unified flow)
         try:
-            token = create_magic_link_token(str(user.id), user.email)
-            frontend_url = _get_frontend_url()
-            magic_link_url = f"{frontend_url}/auth/magic-link?token={token}"
-            email_service = _get_email_service()
-            email_service.send_magic_link_email(
-                recipient_email=user.email,
-                recipient_name=user.name,
-                magic_link_url=magic_link_url,
+            user_data = UserCreate(
+                email=body.email,
+                provider_type="email",
+                is_email_verified=False,
+                is_active=True,
             )
+            user = crud.create_user(db, user_data)
             logger.info(
-                "Magic link email sent to: %s",
-                redact_email(user.email),
+                "New user created via magic link: %s",
+                redact_email(body.email),
             )
         except Exception as e:
-            logger.warning(f"Failed to send magic link email: {e}")
+            logger.warning(f"Failed to create user for magic link: {e}")
+            # Return success to prevent email enumeration
+            return {
+                "success": True,
+                "message": (
+                    "A sign-in link has been sent to your email."
+                ),
+            }
 
-    # Always return success to prevent email enumeration
+    try:
+        token = create_magic_link_token(str(user.id), user.email)
+        frontend_url = _get_frontend_url()
+        magic_link_url = f"{frontend_url}/auth/magic-link?token={token}"
+        email_service = _get_email_service()
+        email_service.send_magic_link_email(
+            recipient_email=user.email,
+            recipient_name=user.name,
+            magic_link_url=magic_link_url,
+        )
+        logger.info(
+            "Magic link email sent to: %s",
+            redact_email(user.email),
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send magic link email: {e}")
+
     return {
         "success": True,
-        "message": ("If an account exists with that email, a sign-in link has been sent."),
+        "message": "A sign-in link has been sent to your email.",
     }
 
 

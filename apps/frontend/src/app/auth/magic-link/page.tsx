@@ -55,8 +55,11 @@ export default function MagicLinkPage() {
             throw new Error(result.error);
           }
 
-          // Redirect to dashboard
-          window.location.href = '/dashboard';
+          // New users (no organization) go to onboarding, existing users to dashboard
+          const redirectTo = data.user?.organization_id
+            ? '/dashboard'
+            : '/onboarding';
+          window.location.href = redirectTo;
           return;
         }
 
