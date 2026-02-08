@@ -1,9 +1,11 @@
 """
-One-time script to send password reset emails to Auth0 users who were
-migrated without a local password.
+One-time script to send password-setup emails to users who were migrated
+from Auth0 without a local password.
 
-These users have auth0_id set and password_hash = NULL, meaning they
-authenticated via Auth0 email/password but have no local bcrypt hash.
+These users have provider_type='email' and password_hash=NULL, meaning
+they authenticated via Auth0 email/password but have no local bcrypt
+hash. Social login users (Google, GitHub, Microsoft) are excluded since
+they can continue authenticating via their provider.
 
 Usage:
     cd apps/backend
@@ -99,7 +101,7 @@ def apply_config(config: dict[str, str], environment: str) -> None:
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            "Send password-reset emails to Auth0-migrated users who have no local password."
+            "Send password-setup emails to email/password users who have no local password."
         ),
     )
     parser.add_argument(
@@ -173,8 +175,8 @@ def main():
     try:
         result = session.execute(
             text(
-                "SELECT id, email, name FROM users "
-                "WHERE auth0_id IS NOT NULL "
+                'SELECT id, email, name FROM "user" '
+                "WHERE provider_type = 'email' "
                 "AND password_hash IS NULL "
                 "AND is_active = true"
             )
