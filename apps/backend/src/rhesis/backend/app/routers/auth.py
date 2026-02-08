@@ -542,14 +542,19 @@ async def verify_email(
             detail="User not found",
         )
 
-    if user.is_email_verified:
-        return {"success": True, "message": "Email already verified"}
+    if not user.is_email_verified:
+        user.is_email_verified = True
+        db.commit()
+        logger.info("Email verified for user: %s", redact_email(user.email))
 
-    user.is_email_verified = True
-    db.commit()
-    logger.info("Email verified for user: %s", redact_email(user.email))
+    # Return a fresh session token so the frontend can update the session
+    session_token = create_session_token(user)
 
-    return {"success": True, "message": "Email verified successfully"}
+    return {
+        "success": True,
+        "message": "Email verified successfully",
+        "session_token": session_token,
+    }
 
 
 @router.post("/resend-verification")

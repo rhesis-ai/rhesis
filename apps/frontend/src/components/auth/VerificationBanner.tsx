@@ -60,7 +60,7 @@ export default function VerificationBanner() {
         background: bgGradient,
         py: 0.5,
         px: 2,
-        minHeight: 32,
+        minHeight: theme => theme.spacing(4),
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -74,13 +74,17 @@ export default function VerificationBanner() {
           gap: 1,
         }}
       >
-        <EmailIcon sx={{ fontSize: 16, color: textColor }} />
+        <EmailIcon
+          sx={{
+            fontSize: theme => theme.typography.body2.fontSize,
+            color: textColor,
+          }}
+        />
         <Typography
-          variant="body2"
+          variant="caption"
           sx={{
             color: textColor,
-            fontWeight: 500,
-            fontSize: '13px',
+            fontWeight: theme => theme.typography.fontWeightMedium,
           }}
         >
           {resent
@@ -90,20 +94,18 @@ export default function VerificationBanner() {
         {!resent && (
           <Button
             size="small"
+            color="inherit"
             onClick={handleResend}
             disabled={resending}
             startIcon={
               resending ? (
-                <CircularProgress
-                  size={12}
-                  sx={{ color: textColor }}
-                />
+                <CircularProgress size="1em" sx={{ color: textColor }} />
               ) : undefined
             }
             sx={{
               color: textColor,
-              fontWeight: 600,
-              fontSize: '12px',
+              fontWeight: theme => theme.typography.fontWeightBold,
+              fontSize: theme => theme.typography.caption.fontSize,
               textTransform: 'none',
               minWidth: 'auto',
               py: 0,
@@ -127,7 +129,7 @@ export default function VerificationBanner() {
         aria-label="Dismiss banner"
         sx={{
           position: 'absolute',
-          right: 8,
+          right: theme => theme.spacing(1),
           color: textColor,
           opacity: 0.8,
           p: 0.25,
@@ -137,7 +139,11 @@ export default function VerificationBanner() {
           },
         }}
       >
-        <CloseIcon sx={{ fontSize: 16 }} />
+        <CloseIcon
+          sx={{
+            fontSize: theme => theme.typography.body2.fontSize,
+          }}
+        />
       </IconButton>
     </Box>
   );

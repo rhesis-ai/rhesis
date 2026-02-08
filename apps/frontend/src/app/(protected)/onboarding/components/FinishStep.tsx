@@ -57,7 +57,7 @@ export default function FinishStep({
       case 'loading_initial_data':
         return 'Loading initial data...';
       case 'completed':
-        return 'Setup completed';
+        return 'Setup complete. Redirecting...';
       default:
         return 'Complete Setup';
     }
@@ -167,7 +167,7 @@ export default function FinishStep({
           variant="contained"
           color="primary"
           onClick={onComplete}
-          disabled={isSubmitting}
+          disabled={isSubmitting || onboardingStatus === 'completed'}
           startIcon={
             isSubmitting ? <CircularProgress size={20} color="inherit" /> : null
           }

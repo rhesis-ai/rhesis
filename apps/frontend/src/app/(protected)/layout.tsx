@@ -183,7 +183,7 @@ export default function ProtectedLayout({
 
   return (
     <AuthErrorBoundary>
-      <VerificationBanner />
+      {!isOnboarding && <VerificationBanner />}
       {isOnboarding ? (
         content
       ) : (

@@ -11,6 +11,7 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 
 export default function VerifyEmailPage() {
@@ -44,6 +45,15 @@ export default function VerifyEmailPage() {
 
         if (!response.ok) {
           throw new Error(data.detail || 'Verification failed');
+        }
+
+        // Refresh the session with the new token so is_email_verified
+        // is reflected immediately (hides the verification banner).
+        if (data.session_token) {
+          await signIn('credentials', {
+            session_token: data.session_token,
+            redirect: false,
+          });
         }
 
         setStatus('success');
