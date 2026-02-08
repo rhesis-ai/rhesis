@@ -170,7 +170,7 @@ export default function ProjectDetailsStep({
         const usersClient = new UsersClient(sessionToken);
         const fetchedUsers = await usersClient.getUsers();
         setUsers(fetchedUsers.data);
-      } catch (error) {
+      } catch (_error) {
       } finally {
         setLoadingUsers(false);
       }
@@ -199,7 +199,7 @@ export default function ProjectDetailsStep({
         setLoading(true);
         // Proceed to next step
         onNext();
-      } catch (error) {
+      } catch (_error) {
       } finally {
         setLoading(false);
       }

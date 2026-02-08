@@ -104,7 +104,7 @@ export default function TestRunCharts({
           setExecutorChart(executorStats as TestRunStatsExecutors);
           setIsLoading(false);
         }
-      } catch (err) {
+      } catch (_err) {
         if (isMounted.current) {
           setIsLoading(false);
           setHasError(true);

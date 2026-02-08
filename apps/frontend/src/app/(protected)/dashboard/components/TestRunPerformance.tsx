@@ -128,7 +128,7 @@ export default function TestRunPerformance({
 
       setTestRuns(testRunsWithStats);
       setError(null);
-    } catch (err) {
+    } catch (_err) {
       setError('Unable to load test run data');
       setTestRuns([]);
     } finally {
@@ -258,7 +258,7 @@ export default function TestRunPerformance({
                   return formatDistanceToNow(parsedDate, {
                     addSuffix: true,
                   }).replace('about ', '~');
-                } catch (error) {
+                } catch (_error) {
                   return null;
                 }
               };

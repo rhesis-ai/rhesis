@@ -48,7 +48,7 @@ export function useComments({
         entityId
       );
       setComments(fetchedComments);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to fetch comments');
       notifications.show('Failed to fetch comments', {
         severity: 'error',

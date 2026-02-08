@@ -206,7 +206,7 @@ export function ConnectionDialog({
           currentProvider.type_value
         );
         setAvailableModels(models);
-      } catch (err) {
+      } catch (_err) {
         // Silently fail - user can still manually enter model name
         setAvailableModels([]);
       } finally {
@@ -254,7 +254,7 @@ export function ConnectionDialog({
           await onUserSettingsUpdate();
         }
       }
-    } catch (err) {
+    } catch (_err) {
       // Don't throw - we don't want to block model creation/update if settings fail
     }
   };

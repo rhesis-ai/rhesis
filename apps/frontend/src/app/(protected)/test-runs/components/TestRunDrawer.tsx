@@ -71,7 +71,7 @@ export default function TestRunDrawer({
         Buffer.from(paddedBase64, 'base64').toString('utf-8')
       );
       return payload.user?.id;
-    } catch (err) {
+    } catch (_err) {
       return undefined;
     }
   }, [sessionToken]);
@@ -170,7 +170,7 @@ export default function TestRunDrawer({
           setEndpoints([]);
           setFilteredEndpoints([]);
         }
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to load required data');
       } finally {
         setLoading(false);
@@ -278,7 +278,7 @@ export default function TestRunDrawer({
 
       onSuccess?.();
       onClose();
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to execute test run');
     } finally {
       setLoading(false);

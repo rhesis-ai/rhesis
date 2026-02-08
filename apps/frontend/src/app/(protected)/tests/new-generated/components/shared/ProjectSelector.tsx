@@ -117,7 +117,7 @@ export default function ProjectSelector({
       );
 
       setProjects(validProjects);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to load projects. Please try again.');
     } finally {
       setIsLoading(false);

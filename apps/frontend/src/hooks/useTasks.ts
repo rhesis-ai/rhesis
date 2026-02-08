@@ -202,7 +202,7 @@ export function useTasks(options: UseTasksOptions = {}) {
           params
         );
         return fetchedTasks;
-      } catch (err) {
+      } catch (_err) {
         return [];
       }
     },

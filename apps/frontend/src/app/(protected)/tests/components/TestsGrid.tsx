@@ -101,7 +101,7 @@ export default function TestsTable({
       setTotalCount(response.pagination.totalCount);
 
       setError(null);
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to load tests');
       setTests([]);
     } finally {
@@ -366,7 +366,7 @@ export default function TestsTable({
 
           setTestSetDialogOpen(false);
         }
-      } catch (error) {
+      } catch (_error) {
         notifications.show('Failed to associate tests with test set', {
           severity: 'error',
           autoHideDuration: 6000,
@@ -405,7 +405,7 @@ export default function TestsTable({
       setSelectedRows([]);
       fetchTests();
       onRefresh?.();
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to delete tests', {
         severity: 'error',
         autoHideDuration: 6000,
@@ -478,7 +478,7 @@ export default function TestsTable({
         }
 
         onRefresh?.();
-      } catch (error) {
+      } catch (_error) {
         // Fallback to full refresh
         fetchTests();
         onRefresh?.();

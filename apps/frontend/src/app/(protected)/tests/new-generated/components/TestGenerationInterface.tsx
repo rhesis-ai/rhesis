@@ -223,7 +223,7 @@ export default function TestGenerationInterface({
             );
             projectName = project.name;
             projectIcon = project.icon;
-          } catch (err) {}
+          } catch (_err) {}
         }
 
         setEndpointInfo({
@@ -232,7 +232,7 @@ export default function TestGenerationInterface({
           environment: endpoint.environment,
           projectIcon,
         });
-      } catch (error) {
+      } catch (_error) {
         setEndpointInfo(null);
       }
     };

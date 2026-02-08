@@ -120,7 +120,7 @@ export default async function TestRunPage({
             ...behavior,
             metrics: behaviorMetrics,
           };
-        } catch (error) {
+        } catch (_error) {
           return {
             ...behavior,
             metrics: [],
@@ -132,7 +132,7 @@ export default async function TestRunPage({
     behaviors = behaviorsWithMetrics.filter(
       behavior => behavior.metrics.length > 0
     );
-  } catch (error) {
+  } catch (_error) {
     behaviors = [];
   }
 

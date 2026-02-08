@@ -132,14 +132,14 @@ export function TasksSection({
     if (onDeleteTask) {
       try {
         await onDeleteTask(taskId);
-      } catch (error) {}
+      } catch (_error) {}
     }
   };
 
   const handleRowClick = (params: any) => {
     try {
       router.push(`/tasks/${params.id}`);
-    } catch (error) {}
+    } catch (_error) {}
   };
 
   const handleCreateTask = () => {

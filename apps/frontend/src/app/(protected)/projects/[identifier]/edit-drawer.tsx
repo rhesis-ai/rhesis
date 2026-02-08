@@ -172,7 +172,7 @@ export default function EditDrawer({
         if (isMounted) {
           setUsers(fetchedUsers.data);
         }
-      } catch (error) {}
+      } catch (_error) {}
     };
 
     if (open) {

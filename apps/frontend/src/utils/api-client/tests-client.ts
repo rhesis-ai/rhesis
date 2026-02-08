@@ -68,7 +68,6 @@ export class TestsClient extends BaseApiClient {
   private convertTestPriority(test: TestDetail): TestDetail {
     const result = { ...test };
     if (result.priority !== undefined) {
-      // @ts-ignore - We're adding a string priority property
       result.priorityLevel = this.numericToPriorityString(result.priority);
     }
     return result;
@@ -109,11 +108,11 @@ export class TestsClient extends BaseApiClient {
     // Handle priority conversion if a string priority is provided
     const apiTest = { ...test };
 
-    // @ts-ignore - Check if priorityLevel exists and convert it
+    // @ts-expect-error - Check if priorityLevel exists and convert it
     if (apiTest.priorityLevel) {
-      // @ts-ignore - Convert priorityLevel to numeric priority
+      // @ts-expect-error - Convert priorityLevel to numeric priority
       apiTest.priority = this.priorityStringToNumeric(apiTest.priorityLevel);
-      // @ts-ignore - Remove priorityLevel as it's not expected by the API
+      // @ts-expect-error - Remove priorityLevel as it's not expected by the API
       delete apiTest.priorityLevel;
     }
 
@@ -127,11 +126,11 @@ export class TestsClient extends BaseApiClient {
     // Handle priority conversion if a string priority is provided
     const apiTest = { ...test };
 
-    // @ts-ignore - Check if priorityLevel exists and convert it
+    // @ts-expect-error - Check if priorityLevel exists and convert it
     if (apiTest.priorityLevel) {
-      // @ts-ignore - Convert priorityLevel to numeric priority
+      // @ts-expect-error - Convert priorityLevel to numeric priority
       apiTest.priority = this.priorityStringToNumeric(apiTest.priorityLevel);
-      // @ts-ignore - Remove priorityLevel as it's not expected by the API
+      // @ts-expect-error - Remove priorityLevel as it's not expected by the API
       delete apiTest.priorityLevel;
     }
 

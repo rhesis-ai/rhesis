@@ -71,7 +71,7 @@ export async function getStatuses(sessionToken?: string): Promise<Status[]> {
 
     taskDataCache.set(cacheKey, statuses);
     return statuses;
-  } catch (error) {
+  } catch (_error) {
     // Return default statuses if API fails - using proper UUIDs
     const defaultStatuses = [
       {
@@ -142,7 +142,7 @@ export async function getPriorities(
 
     taskDataCache.set(cacheKey, priorities);
     return priorities;
-  } catch (error) {
+  } catch (_error) {
     // Return default priorities if API fails - using proper UUIDs
     const defaultPriorities = [
       {
@@ -214,7 +214,7 @@ export async function getStatusesForTask(
           return [...allStatuses, additionalStatus];
         }
       }
-    } catch (error) {}
+    } catch (_error) {}
   }
 
   return allStatuses;
@@ -250,7 +250,7 @@ export async function getPrioritiesForTask(
           return [...allPriorities, additionalPriority];
         }
       }
-    } catch (error) {}
+    } catch (_error) {}
   }
 
   return allPriorities;

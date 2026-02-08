@@ -28,7 +28,7 @@ export default async function CreateProjectPage() {
       const usersClient = apiFactory.getUsersClient();
       const userData = await usersClient.getUser(session.user.id);
       organizationId = userData.organization_id;
-    } catch (error) {}
+    } catch (_error) {}
   }
 
   return (

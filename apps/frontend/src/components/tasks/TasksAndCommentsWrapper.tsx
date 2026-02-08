@@ -53,7 +53,7 @@ export function TasksAndCommentsWrapper({
         await createTask(enrichedTaskData);
         // Notify parent that counts have changed
         await onCountsChange?.();
-      } catch (error) {}
+      } catch (_error) {}
     },
     [createTask, onCountsChange, additionalMetadata]
   );
@@ -69,7 +69,7 @@ export function TasksAndCommentsWrapper({
         await deleteTask(taskId);
         // Notify parent that counts have changed
         await onCountsChange?.();
-      } catch (error) {}
+      } catch (_error) {}
     },
     [deleteTask, onCountsChange]
   );

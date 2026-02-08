@@ -79,7 +79,7 @@ export default function ReviewJudgementDrawer({
           entity_type: 'TestResult',
         });
         setStatuses(fetchedStatuses);
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to load status options');
       } finally {
         setLoadingStatuses(false);
@@ -171,7 +171,7 @@ export default function ReviewJudgementDrawer({
 
       await onSave(test.id, reviewData);
       onClose();
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to save review. Please try again.');
     } finally {
       setSubmitting(false);

@@ -133,7 +133,7 @@ function TestRunsTable({
                       const project =
                         await projectsClient.getProject(projectId);
                       return { projectId, name: project.name };
-                    } catch (err) {
+                    } catch (_err) {
                       return null;
                     }
                   })
@@ -169,7 +169,7 @@ function TestRunsTable({
             });
           }
         }
-      } catch (error) {
+      } catch (_error) {
         if (isMounted.current) {
           setError('Failed to load test runs');
           setTestRuns([]);
@@ -498,7 +498,7 @@ function TestRunsTable({
 
       // Clear selection
       setSelectedRows([]);
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to delete test runs', { severity: 'error' });
     } finally {
       setIsDeleting(false);

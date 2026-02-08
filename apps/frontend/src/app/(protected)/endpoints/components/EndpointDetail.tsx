@@ -1334,7 +1334,7 @@ export default function EndpointDetail({
                     let inputData;
                     try {
                       inputData = JSON.parse(testInput);
-                    } catch (error) {
+                    } catch (_error) {
                       throw new Error('Invalid JSON input data');
                     }
 

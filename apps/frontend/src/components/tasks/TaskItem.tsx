@@ -76,7 +76,7 @@ export function TaskItem({
 
     try {
       router.push(`/tasks/${task.id}`);
-    } catch (error) {
+    } catch (_error) {
       // Could show notification or handle gracefully
     }
   };

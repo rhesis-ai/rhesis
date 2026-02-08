@@ -102,7 +102,7 @@ export default function EndpointSelector({
         });
 
       setEndpointOptions(options);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to load endpoints. Please try again.');
     } finally {
       setIsLoading(false);

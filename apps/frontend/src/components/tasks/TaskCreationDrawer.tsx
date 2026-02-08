@@ -72,7 +72,7 @@ export function TaskCreationDrawer({
 
         setPriorities(fetchedPriorities);
         setUsers(fetchedUsers);
-      } catch (error) {
+      } catch (_error) {
       } finally {
         setIsLoadingData(false);
       }

@@ -284,7 +284,7 @@ export default function TestRunMainView({
       notifications.show('Test run results downloaded successfully', {
         severity: 'success',
       });
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to download test run results', {
         severity: 'error',
       });
@@ -364,7 +364,7 @@ export default function TestRunMainView({
 
       setAvailableTestRuns(runs);
       return runs;
-    } catch (error) {
+    } catch (_error) {
       setAvailableTestRuns([]);
       return [];
     }
@@ -417,7 +417,7 @@ export default function TestRunMainView({
         }
 
         return testResults;
-      } catch (error) {
+      } catch (_error) {
         notifications.show('Failed to load baseline test results', {
           severity: 'error',
         });

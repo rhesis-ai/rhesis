@@ -171,7 +171,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
           sort_order: 'asc',
         });
         setCategories(categoriesData);
-      } catch (error) {
+      } catch (_error) {
         notifications.show('Failed to load test dimensions', {
           severity: 'error',
         });
@@ -443,7 +443,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             } else {
               notifications.show('Invalid file format', { severity: 'error' });
             }
-          } catch (error) {
+          } catch (_error) {
             notifications.show('Failed to parse file', { severity: 'error' });
           }
         };

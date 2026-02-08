@@ -124,7 +124,7 @@ export default function FinishStep({
           const ownerData = await usersClient.getUser(formData.owner_id);
           setOwner(ownerData);
         }
-      } catch (error) {
+      } catch (_error) {
         // Fall back to a placeholder if the API call fails
         if (formData.owner_id) {
           setOwner({

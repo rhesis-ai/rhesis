@@ -80,7 +80,7 @@ export default function TestsPage() {
         const testsClient = apiFactory.getTestsClient();
         const response = await testsClient.getTests({ skip: 0, limit: 1 });
         setTestCount(response.pagination?.totalCount || 0);
-      } catch (error) {
+      } catch (_error) {
         // Silently fail
       }
     };

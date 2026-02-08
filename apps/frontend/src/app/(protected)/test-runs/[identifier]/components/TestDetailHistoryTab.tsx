@@ -144,7 +144,7 @@ export default function TestDetailHistoryTab({
 
         setHistory(dedupedHistory);
         setError(null);
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to load test history');
       } finally {
         setLoading(false);

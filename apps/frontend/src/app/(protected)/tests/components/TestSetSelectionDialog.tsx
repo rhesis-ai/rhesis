@@ -79,7 +79,7 @@ export default function TestSetSelectionDialog({
 
         const sets = await testSetsClient.getTestSets(queryParams);
         setTestSets(sets.data);
-      } catch (error) {
+      } catch (_error) {
         // Error fetching test sets
 
         notifications.show('Failed to load test sets', {

@@ -79,7 +79,7 @@ export default function TestDetailData({
             name: t.type_value,
           }))
         );
-      } catch (error) {
+      } catch (_error) {
         setTypes([]);
       }
 
@@ -136,7 +136,7 @@ export default function TestDetailData({
 
       // Refresh the server components to update the page title
       router.refresh();
-    } catch (error) {}
+    } catch (_error) {}
   }, [sessionToken, test.id, isUpdating, router]);
 
   const handleUpdate = async (
@@ -193,7 +193,7 @@ export default function TestDetailData({
         // Refresh the test data
         await refreshTest();
       }
-    } catch (error) {
+    } catch (_error) {
       notifications.show(`Failed to update test ${field}`, {
         severity: 'error',
         autoHideDuration: 6000,

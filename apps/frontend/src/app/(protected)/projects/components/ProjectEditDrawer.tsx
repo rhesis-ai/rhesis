@@ -156,7 +156,7 @@ export default function ProjectEditDrawer({
         const usersClient = new UsersClient(sessionToken);
         const fetchedUsers = await usersClient.getUsers();
         setUsers(fetchedUsers.data);
-      } catch (error) {}
+      } catch (_error) {}
     };
 
     if (open) {
@@ -225,7 +225,7 @@ export default function ProjectEditDrawer({
 
       await onSave(projectUpdate);
       onClose();
-    } catch (error) {
+    } catch (_error) {
     } finally {
       setLoading(false);
     }

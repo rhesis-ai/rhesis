@@ -72,7 +72,7 @@ export const authConfig: NextAuthConfig = {
             organization_id: data.user.organization_id,
             session_token: sessionToken,
           };
-        } catch (error) {
+        } catch (_error) {
           return null;
         }
       },
@@ -98,7 +98,7 @@ export const authConfig: NextAuthConfig = {
         }
         const stringified = JSON.stringify(token);
         return stringified;
-      } catch (error) {
+      } catch (_error) {
         return '';
       }
     },
@@ -133,7 +133,7 @@ export const authConfig: NextAuthConfig = {
         }
 
         return token;
-      } catch (error) {
+      } catch (_error) {
         return null;
       }
     },

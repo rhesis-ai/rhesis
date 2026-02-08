@@ -138,7 +138,7 @@ export default function TestDetailReviewsTab({
       // Reset form
       setReason('');
       setShowReviewForm(false);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to save review. Please try again.');
     } finally {
       setSubmitting(false);
@@ -176,7 +176,7 @@ export default function TestDetailReviewsTab({
       // Close dialog
       setDeleteDialogOpen(false);
       setReviewToDelete(null);
-    } catch (err) {
+    } catch (_err) {
       // Could add error handling here
     } finally {
       setDeleting(false);

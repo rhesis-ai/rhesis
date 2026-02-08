@@ -88,7 +88,7 @@ export function CommentsSection({
       try {
         await onCreateComment(newComment.trim());
         setNewComment('');
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to post comment. Please try again.');
       } finally {
         setIsSubmitting(false);

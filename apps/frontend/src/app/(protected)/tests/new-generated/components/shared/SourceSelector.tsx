@@ -69,7 +69,7 @@ export default function SourceSelector({
         : sourcesResponse?.data || [];
 
       setSources(sourcesData);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to load sources. Please try again.');
     } finally {
       setIsLoading(false);

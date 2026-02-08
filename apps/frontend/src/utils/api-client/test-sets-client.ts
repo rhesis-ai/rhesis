@@ -97,7 +97,7 @@ export class TestSetsClient extends BaseApiClient {
   private convertTestSetPriority(testSet: TestSet): TestSet {
     const result = { ...testSet };
     if (result.priority !== undefined) {
-      // @ts-ignore - We're adding a string priority property
+      // @ts-expect-error - We're adding a string priority property
       result.priorityLevel = this.numericToPriorityString(result.priority);
     }
     return result;

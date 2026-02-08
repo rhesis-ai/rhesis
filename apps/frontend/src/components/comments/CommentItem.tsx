@@ -73,7 +73,7 @@ export function CommentItem({
       try {
         const tasks = await fetchTasksByCommentId(comment.id);
         setAssociatedTasks(tasks);
-      } catch (error) {
+      } catch (_error) {
       } finally {
         setIsLoadingTasks(false);
       }
@@ -89,7 +89,7 @@ export function CommentItem({
     try {
       await onEdit(comment.id, editText.trim());
       setIsEditing(false);
-    } catch (error) {
+    } catch (_error) {
     } finally {
       setIsSubmitting(false);
     }
@@ -109,7 +109,7 @@ export function CommentItem({
     try {
       await onDelete(comment.id);
       setShowDeleteModal(false);
-    } catch (error) {
+    } catch (_error) {
     } finally {
       setIsDeleting(false);
     }

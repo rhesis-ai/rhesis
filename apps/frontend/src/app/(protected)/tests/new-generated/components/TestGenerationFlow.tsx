@@ -344,7 +344,7 @@ export default function TestGenerationFlow({
       try {
         apiFactory = new ApiClientFactory(sessionToken);
         servicesClient = apiFactory.getServicesClient();
-      } catch (error) {
+      } catch (_error) {
         setIsLoadingConfig(false);
         setIsLoadingSamples(false);
         show('Failed to initialize services', { severity: 'error' });
@@ -368,7 +368,7 @@ export default function TestGenerationFlow({
           const fetchedProject = await projectsClient.getProject(projectId);
           setProject(fetchedProject);
           latestProject = fetchedProject;
-        } catch (error) {
+        } catch (_error) {
           show(`Failed to load project`, { severity: 'warning' });
         }
       } else {
@@ -496,7 +496,7 @@ export default function TestGenerationFlow({
 
       setTestSamples(newSamples);
       show('Samples regenerated successfully', { severity: 'success' });
-    } catch (error) {
+    } catch (_error) {
       show('Failed to regenerate samples', { severity: 'error' });
     } finally {
       setIsLoadingSamples(false);
@@ -610,7 +610,7 @@ export default function TestGenerationFlow({
         }
 
         show('Sample regenerated successfully', { severity: 'success' });
-      } catch (error) {
+      } catch (_error) {
         show('Failed to regenerate sample', { severity: 'error' });
       } finally {
         setRegeneratingSampleId(null);
@@ -881,7 +881,7 @@ export default function TestGenerationFlow({
       );
 
       setTestSamples(prev => [...prev, ...newSamples]);
-    } catch (error) {
+    } catch (_error) {
       show('Failed to load more samples', { severity: 'error' });
     } finally {
       setIsLoadingMore(false);
@@ -970,7 +970,7 @@ export default function TestGenerationFlow({
       }
 
       setTimeout(() => router.push('/tests'), 2000);
-    } catch (error) {
+    } catch (_error) {
       show('Failed to start test generation. Please try again.', {
         severity: 'error',
       });

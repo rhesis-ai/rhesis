@@ -103,7 +103,7 @@ export function useTestRunData({
               ...behavior,
               metrics: behaviorMetrics,
             };
-          } catch (error) {
+          } catch (_error) {
             return {
               ...behavior,
               metrics: [],
@@ -120,7 +120,7 @@ export function useTestRunData({
       setBehaviors(behaviorsWithMetricsFiltered);
       setPrompts(promptsMap);
       setTestResults(results);
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to load test run data');
       setTestResults([]);
       setPrompts({});

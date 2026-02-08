@@ -33,7 +33,7 @@ export function TasksWrapper({
     async (taskData: any) => {
       try {
         await createTask(taskData);
-      } catch (error) {}
+      } catch (_error) {}
     },
     [createTask]
   );
@@ -47,7 +47,7 @@ export function TasksWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
-      } catch (error) {}
+      } catch (_error) {}
     },
     [deleteTask]
   );

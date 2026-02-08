@@ -121,7 +121,7 @@ export default function NewMetricPage() {
           limit: 100,
         });
         setModels(response.data || []); // Use .data instead of .items
-      } catch (error) {
+      } catch (_error) {
         notifications.show('Failed to load evaluation models', {
           severity: 'error',
         });

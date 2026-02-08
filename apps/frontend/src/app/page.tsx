@@ -167,7 +167,7 @@ export default function LandingPage() {
           setBackendSessionValid(false);
           setSessionExpired(true);
           signOut({ redirect: false, callbackUrl: '/' });
-        } catch (error) {
+        } catch (_error) {
           setBackendSessionValid(false);
           setSessionExpired(true);
           signOut({ redirect: false, callbackUrl: '/' });

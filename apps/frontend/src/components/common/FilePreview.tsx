@@ -59,7 +59,7 @@ export default function FilePreview({
       notifications.show('Content copied to clipboard', {
         severity: 'success',
       });
-    } catch (err) {
+    } catch (_err) {
       notifications.show('Failed to copy content', { severity: 'error' });
     }
   };

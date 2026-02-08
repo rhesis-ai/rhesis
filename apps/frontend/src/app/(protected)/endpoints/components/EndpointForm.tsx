@@ -283,7 +283,7 @@ export default function EndpointForm() {
         [field]: value,
       }));
       setError(null);
-    } catch (err) {
+    } catch (_err) {
       setError(`Invalid JSON in ${field}`);
     }
   };
@@ -905,7 +905,7 @@ export default function EndpointForm() {
                     let inputData;
                     try {
                       inputData = JSON.parse(testInput);
-                    } catch (error) {
+                    } catch (_error) {
                       throw new Error('Invalid JSON in test input data');
                     }
 

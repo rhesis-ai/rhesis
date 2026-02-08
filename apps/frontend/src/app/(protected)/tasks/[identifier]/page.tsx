@@ -546,7 +546,7 @@ export default function TaskDetailPage({ params }: PageProps) {
 
                   const finalUrl = `${baseUrl}${queryString}${commentHash}`;
                   router.push(finalUrl);
-                } catch (error) {}
+                } catch (_error) {}
               }
             }}
             sx={{

@@ -56,7 +56,7 @@ export default function TasksCharts({ sessionToken }: TasksChartsProps) {
         };
 
         setStats(stats);
-      } catch (error) {
+      } catch (_error) {
       } finally {
         setLoading(false);
       }

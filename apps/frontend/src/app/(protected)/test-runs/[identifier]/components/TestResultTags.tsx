@@ -49,7 +49,7 @@ export default function TestResultTags({
 
         // Notify parent of the update
         onUpdate(updatedTestResult);
-      } catch (error) {}
+      } catch (_error) {}
     }, 500);
   };
 

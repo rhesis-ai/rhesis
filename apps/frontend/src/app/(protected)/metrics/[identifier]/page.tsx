@@ -126,7 +126,7 @@ export default function MetricDetailPage() {
           router.push('/metrics');
           return;
         }
-      } catch (error) {
+      } catch (_error) {
         // Use notifications without depending on it
         const notificationsContext = notifications;
         notificationsContext.show('Failed to load metric details', {
@@ -253,7 +253,7 @@ export default function MetricDetailPage() {
                   skip: 0,
                 });
                 setModels(modelsData.data || []);
-              } catch (error) {
+              } catch (_error) {
                 notifications.show('Failed to load models for editing', {
                   severity: 'error',
                 });

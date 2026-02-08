@@ -39,7 +39,7 @@ export default function TokenDisplay({
           severity: 'success',
         });
       }
-    } catch (err) {
+    } catch (_err) {
       notifications.show('Failed to copy token to clipboard', {
         severity: 'error',
       });
