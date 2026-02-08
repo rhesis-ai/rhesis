@@ -88,10 +88,7 @@ export default function TracesClientWrapper({
   // Show error state if no session token
   if (!sessionToken) {
     return (
-      <PageContainer
-        title="Traces"
-        breadcrumbs={[{ title: 'Traces', path: '/traces' }]}
-      >
+      <PageContainer title="Traces" breadcrumbs={[]}>
         <Alert severity="error" sx={{ mb: 3 }}>
           Session expired. Please refresh the page or log in again.
         </Alert>
@@ -104,10 +101,7 @@ export default function TracesClientWrapper({
   }
 
   return (
-    <PageContainer
-      title="Traces"
-      breadcrumbs={[{ title: 'Traces', path: '/traces' }]}
-    >
+    <PageContainer title="Traces" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           View and analyze OpenTelemetry traces from test executions and

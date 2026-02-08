@@ -21,6 +21,14 @@ images:
     repository: rhesis-worker
     tag: "latest"
     pullPolicy: "Never"
+  chatbot:
+    repository: rhesis-chatbot
+    tag: "latest"
+    pullPolicy: "Never"
+  docs:
+    repository: rhesis-docs
+    tag: "latest"
+    pullPolicy: "Never"
 
 # Database configuration
 database:
@@ -29,7 +37,7 @@ database:
   postgresql:
     disableSecurityContext: true  # Temporarily disable for PostgreSQL due to permission issues
     image:
-      repository: postgres
+      repository: mirror.gcr.io/library/postgres
       tag: "16-alpine"
     persistence:
       enabled: true
@@ -54,7 +62,7 @@ redis:
   enabled: true
   type: "redis"  # redis, external
   image:
-    repository: redis
+    repository: mirror.gcr.io/library/redis
     tag: "7-alpine"
   persistence:
     enabled: true
@@ -97,21 +105,15 @@ backend:
         paths:
           - path: /
             pathType: Prefix
-  env:
-    - name: ENVIRONMENT
-      value: "development"
-    - name: LOG_LEVEL
-      value: "DEBUG"
-    - name: RHESIS_BASE_URL
-      value: "http://backend:8080"
-    - name: FRONTEND_URL
-      value: "http://localhost:3000"
+  # All env vars are loaded from rhesis-config ConfigMap by default
+  # Add environment-specific overrides in values-<env>.yaml files
+  # env: []
 
 # Frontend configuration
 frontend:
   enabled: true
   replicas: 1
-  disableSecurityContext: true  # Temporarily disable for frontend due to permission issues
+  #disableSecurityContext: true  # Temporarily disable for frontend due to permission issues
   resources:
     requests:
       memory: "256Mi"
@@ -132,15 +134,9 @@ frontend:
         paths:
           - path: /
             pathType: Prefix
-  env:
-    - name: FRONTEND_ENV
-      value: "local"
-    - name: NEXT_TELEMETRY_DISABLED
-      value: "1"
-    - name: NEXT_PUBLIC_API_BASE_URL
-      value: "http://localhost:8080"
-    - name: NEXT_PUBLIC_APP_URL
-      value: "http://localhost:3000"
+  # All env vars are loaded from rhesis-config ConfigMap by default
+  # Add environment-specific overrides in values-<env>.yaml files
+  # env: []
 
 # Worker configuration
 worker:
@@ -157,13 +153,66 @@ worker:
     type: ClusterIP
     port: 8080
     targetPort: 8080
-  env:
-    - name: CELERY_WORKER_CONCURRENCY
-      value: "8"
-    - name: CELERY_WORKER_PREFETCH_MULTIPLIER
-      value: "4"
-    - name: CELERY_WORKER_MAX_TASKS_PER_CHILD
-      value: "1000"
+  # All env vars are loaded from rhesis-config ConfigMap by default
+  # Add environment-specific overrides in values-<env>.yaml files
+  # env: []
+
+# Chatbot configuration
+chatbot:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  service:
+    type: ClusterIP
+    port: 8083
+    targetPort: 8080
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chatbot.local
+        paths:
+          - path: /
+            pathType: Prefix
+  # All env vars are loaded from rhesis-config ConfigMap by default
+  # Add environment-specific overrides in values-<env>.yaml files
+  # env: []
+
+# Docs configuration
+docs:
+  enabled: true
+  replicas: 1
+  disableSecurityContext: true  # Temporarily disable for docs due to permission issues
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+  service:
+    type: ClusterIP
+    port: 3001
+    targetPort: 3001
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: docs.local
+        paths:
+          - path: /
+            pathType: Prefix
+  # All env vars are loaded from rhesis-config ConfigMap by default
+  # Add environment-specific overrides in values-<env>.yaml files
+  # env: []
 
 # Monitoring configuration
 monitoring:

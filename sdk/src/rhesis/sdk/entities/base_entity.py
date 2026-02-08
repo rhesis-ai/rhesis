@@ -54,6 +54,8 @@ class BaseEntity(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     endpoint: ClassVar[Endpoints]
+    _push_required_fields: ClassVar[tuple[str, ...]] = ()
+    _write_only_fields: ClassVar[tuple[str, ...]] = ()
 
     def __str__(self) -> str:
         """Return a string representation of the entity."""
@@ -113,9 +115,30 @@ class BaseEntity(BaseModel):
         validated_instance = cls.model_validate(response)
         return validated_instance.model_dump(mode="json")
 
+    def _validate_push_requirements(self) -> None:
+        """Validate that required fields for push are set.
+
+        Raises:
+            ValueError: If any required field is None or empty.
+        """
+        if not self._push_required_fields:
+            return
+
+        missing = [
+            field for field in self._push_required_fields if getattr(self, field, None) is None
+        ]
+        if missing:
+            raise ValueError(f"Required fields for push: {', '.join(missing)}")
+
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the entity to the database."""
+        self._validate_push_requirements()
         data = self.model_dump(mode="json")
+
+        # Exclude write-only fields that are None to avoid clearing backend values
+        for field in self._write_only_fields:
+            if field in data and data[field] is None:
+                del data[field]
 
         if "id" in data and data["id"] is not None:
             response = self._update(data["id"], data)
@@ -138,7 +161,10 @@ class BaseEntity(BaseModel):
 
         pulled_data = self._pull(data["id"])
         # Update self with validated data (already filtered by _pull)
+        # Skip write-only fields to preserve local values not returned by API
         for field, value in pulled_data.items():
+            if field in self._write_only_fields:
+                continue
             setattr(self, field, value)
 
         return self

@@ -54,8 +54,12 @@ def test_manager_uses_telemetry_tracer(manager):
 
 @patch("rhesis.sdk.connector.manager.WebSocketConnection")
 @patch("asyncio.create_task")
-def test_initialize(mock_create_task, mock_ws_class, manager):
+@patch("asyncio.get_running_loop")
+def test_initialize(mock_get_loop, mock_create_task, mock_ws_class, manager):
     """Test manager initialization."""
+    # Mock get_running_loop to return a mock loop (instead of raising RuntimeError)
+    mock_get_loop.return_value = Mock()
+
     mock_ws_instance = Mock()
     # Make connect() return an AsyncMock to avoid coroutine warnings
     mock_ws_instance.connect = AsyncMock()
@@ -74,8 +78,11 @@ def test_initialize(mock_create_task, mock_ws_class, manager):
 
 
 @patch("asyncio.create_task")
-def test_initialize_idempotent(mock_create_task, manager):
+@patch("asyncio.get_running_loop")
+def test_initialize_idempotent(mock_get_loop, mock_create_task, manager):
     """Test that calling initialize multiple times is safe."""
+    # Mock get_running_loop to return a mock loop (instead of raising RuntimeError)
+    mock_get_loop.return_value = Mock()
 
     # Mock create_task to return a mock task
     mock_task = Mock(spec=["cancel"])

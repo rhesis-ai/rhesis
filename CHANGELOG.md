@@ -13,6 +13,82 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-02-05
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.2**
+- **Frontend 0.6.3**
+- **SDK 0.6.3**
+
+### Summary of Changes
+
+**Backend v0.6.2:**
+- Added interactive "Playground" for testing endpoints with real-time WebSocket communication, including trace linking and message copy functionality.
+- Implemented Jira ticket creation directly from tasks via MCP, with optional Jira space selection during tool connection setup.
+- Enhanced WebSocket retry mechanism for improved robustness, including increased reconnect attempts and visibility detection.
+- Added creation dates to tests and test sets in the frontend.
+
+
+**Frontend v0.6.3:**
+- feat: Added interactive playground for testing conversational endpoints with real-time WebSocket communication and trace linking.
+- feat: Added Jira ticket creation from tasks via MCP integration.
+- feat: Enhanced trace visualization with a new Graph View and improved agent tracing, including I/O capture and handoffs.
+- feat: Added a `./rh dev` command for simplified local development setup.
+- fix: Improved UI/UX with various fixes, including validation improvements and dark mode adjustments.
+
+
+**SDK v0.6.3:**
+- Adds a new interactive playground for testing conversational endpoints with real-time WebSocket communication, including trace viewing and endpoint pre-selection.
+- Enhances trace visualization with a new Graph View, agent tracing support, and improved token extraction.
+- Introduces JSON and JSONL import/export methods for TestSets.
+- Improves WebSocket robustness with enhanced retry mechanism and fixes several SDK test issues.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
+## [0.6.0] - 2026-01-29
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.1**
+- **Frontend 0.6.2**
+- **SDK 0.6.2**
+
+### Summary of Changes
+
+**Backend v0.6.1:**
+- Added Garak LLM vulnerability scanner integration with Redis caching for probe enumeration.
+- Implemented 3-level metrics hierarchy for test execution allowing execution-time metric overrides.
+- Added MCP Jira/Confluence (Atlassian Stdio), GitHub repository retrieval, and observability integrations.
+- Upgraded FastAPI/Starlette, security dependencies, and optimized Docker image with CPU-only PyTorch.
+
+**Frontend v0.6.2:**
+- Added 3-level metrics hierarchy UI for test execution with metric source selection.
+- Integrated Garak LLM vulnerability scanner import UI for test sets.
+- Added MCP Atlassian, GitHub, and observability support in the UI.
+- Added context and expected response fields to test run detail view.
+
+**SDK v0.6.2:**
+- Added Model entity with provider auto-resolution and Project entity with integration tests.
+- Implemented batch processing, embedders framework, and Vertex AI support.
+- Added Garak detector metric integration and MCP observability with OpenTelemetry tracing.
+- Implemented continuous slow retry mode for connector resilience.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.5.5] - 2026-01-15
 
 ### Platform Release

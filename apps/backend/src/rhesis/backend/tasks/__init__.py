@@ -57,6 +57,7 @@ __all__ = [
     "email_notification",
     # Helper functions
     "task_launcher",
+    "check_workers_available",
     "increment_test_run_progress",
     # Services
     "email_service",
@@ -77,6 +78,49 @@ __all__ = [
     "DEFAULT_RUN_STATUS_COMPLETED",
     "DEFAULT_RUN_STATUS_FAILED",
 ]
+
+
+def check_workers_available(timeout: float = 2.0) -> bool:
+    """
+    Check if any Celery workers are available and responding.
+
+    This function pings active workers to ensure tasks can be processed.
+    Useful for providing early feedback before submitting tasks.
+
+    Args:
+        timeout: Maximum time to wait for worker response in seconds (default: 2.0)
+
+    Returns:
+        True if at least one worker is available, False otherwise
+
+    Example:
+        >>> if not check_workers_available():
+        ...     raise HTTPException(status_code=503, detail="No workers available")
+        >>> task = task_launcher(my_task, current_user=user)
+    """
+    try:
+        # Use inspect to check for active workers
+        inspect = app.control.inspect(timeout=timeout)
+        active_workers = inspect.active()
+
+        # active_workers is None if no workers respond within timeout
+        # or a dict of worker_name -> active_tasks if workers respond
+        if active_workers is None:
+            logger.warning("[WORKER_CHECK] No Celery workers responded within timeout")
+            return False
+
+        # Check if we have at least one worker
+        worker_count = len(active_workers)
+        if worker_count == 0:
+            logger.warning("[WORKER_CHECK] No active Celery workers found")
+            return False
+
+        logger.info(f"[WORKER_CHECK] Found {worker_count} active Celery worker(s)")
+        return True
+
+    except Exception as e:
+        logger.error(f"[WORKER_CHECK] Failed to check worker availability: {str(e)}", exc_info=True)
+        return False
 
 
 def task_launcher(task: T, *args: Any, current_user=None, **kwargs: Any):

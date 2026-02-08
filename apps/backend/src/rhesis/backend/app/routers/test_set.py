@@ -32,6 +32,12 @@ from rhesis.backend.app.services.test_set import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.execution_validation import (
+    handle_execution_error,
+    validate_execution_model,
+    validate_generation_model,
+    validate_workers_available,
+)
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
@@ -86,6 +92,8 @@ async def generate_test_set(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_workers=Depends(validate_workers_available),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Generate test set using ConfigSynthesizer.
@@ -140,10 +148,8 @@ async def generate_test_set(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to start test set generation: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to start test set generation: {str(e)}"
-        )
+        http_exception = handle_execution_error(e, operation="generate test set")
+        raise http_exception
 
 
 @router.post("/bulk", response_model=schemas.TestSetBulkResponse)
@@ -481,13 +487,31 @@ async def execute_test_set(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_workers=Depends(validate_workers_available),
+    _validate_model=Depends(validate_execution_model),
 ):
-    """Submit a test set for execution against an endpoint."""
+    """Submit a test set for execution against an endpoint.
+
+    The request body can include:
+    - execution_options: Execution mode (Parallel/Sequential)
+    - metrics: Optional list of execution-time metrics that override test set
+               and behavior metrics. Each metric should have id, name, and scope.
+    """
     try:
         # Extract test configuration attributes from request body, default to Parallel mode
         attributes = None
         if test_configuration_attributes and test_configuration_attributes.execution_options:
             attributes = test_configuration_attributes.execution_options
+
+        # Extract execution-time metrics from request body
+        # These override test set metrics and behavior metrics
+        metrics = None
+        if test_configuration_attributes and test_configuration_attributes.metrics:
+            # Convert ExecutionMetric objects to dictionaries for storage
+            metrics = [
+                {"id": str(m.id), "name": m.name, "scope": m.scope}
+                for m in test_configuration_attributes.metrics
+            ]
 
         organization_id, user_id = tenant_context
         result = execute_test_set_on_endpoint(
@@ -498,18 +522,15 @@ async def execute_test_set(
             test_configuration_attributes=attributes,
             organization_id=organization_id,
             user_id=user_id,
+            metrics=metrics,
         )
         return result
 
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Unexpected error in test set execution: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to submit test set execution: {str(e)}"
-        )
+        http_exception = handle_execution_error(e, operation="execute test set")
+        raise http_exception
 
 
 @router.get("/{test_set_identifier}/stats", response_model=schemas.EntityStats)
@@ -652,3 +673,118 @@ async def disassociate_tests_from_test_set(
         removed_associations=result["removed_associations"],
         message=result["message"],
     )
+
+
+@router.get("/{test_set_identifier}/metrics", response_model=list[schemas.Metric])
+def get_test_set_metrics(
+    test_set_identifier: str,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Get metrics associated with a test set.
+
+    When a test set has associated metrics, those metrics override the default
+    behavior-level metrics during test execution.
+
+    If no metrics are associated, the test set will use the metrics defined
+    on each test's behavior during execution.
+
+    Args:
+        test_set_identifier: The test set identifier (UUID, nano_id, or slug)
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        List of metrics associated with the test set (empty list if none)
+    """
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
+    return db_test_set.metrics or []
+
+
+@router.post("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric])
+def add_metric_to_test_set(
+    test_set_identifier: str,
+    metric_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Add a metric to a test set.
+
+    When a test set has associated metrics, those metrics override the default
+    behavior-level metrics during test execution.
+
+    Args:
+        test_set_identifier: The test set identifier (UUID, nano_id, or slug)
+        metric_id: The metric ID to add
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Updated list of metrics associated with the test set
+    """
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
+
+    try:
+        added = crud.add_metric_to_test_set(
+            db=db,
+            test_set_id=db_test_set.id,
+            metric_id=metric_id,
+            user_id=current_user.id,
+            organization_id=current_user.organization_id,
+        )
+        if not added:
+            raise HTTPException(
+                status_code=400, detail="Metric is already associated with this test set"
+            )
+        db.commit()
+        db.refresh(db_test_set)
+        return db_test_set.metrics or []
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/{test_set_identifier}/metrics/{metric_id}", response_model=list[schemas.Metric])
+def remove_metric_from_test_set(
+    test_set_identifier: str,
+    metric_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Remove a metric from a test set.
+
+    Args:
+        test_set_identifier: The test set identifier (UUID, nano_id, or slug)
+        metric_id: The metric ID to remove
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Updated list of metrics associated with the test set
+    """
+    db_test_set = resolve_test_set_or_raise(
+        test_set_identifier, db, str(current_user.organization_id)
+    )
+
+    try:
+        removed = crud.remove_metric_from_test_set(
+            db=db,
+            test_set_id=db_test_set.id,
+            metric_id=metric_id,
+            organization_id=current_user.organization_id,
+        )
+        if not removed:
+            raise HTTPException(
+                status_code=400, detail="Metric is not associated with this test set"
+            )
+        db.commit()
+        db.refresh(db_test_set)
+        return db_test_set.metrics or []
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

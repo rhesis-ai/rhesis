@@ -7,6 +7,7 @@ from .connector import router as connector_router
 from .demographic import router as demographic_router
 from .dimension import router as dimension_router
 from .endpoint import router as endpoint_router
+from .garak import router as garak_router
 from .home import router as home_router
 
 # ... other imports
@@ -39,6 +40,7 @@ from .topic import router as topic_router
 from .type_lookup import router as type_lookup_router
 from .use_case import router as use_case_router
 from .user import router as user_router
+from .websocket import router as websocket_router
 
 # Export all modules for explicit imports
 __all__ = [
@@ -75,6 +77,7 @@ __all__ = [
     "model",
     "task",
     "task_management",
+    "garak",
 ]
 
 # Export all routers for use in main.py
@@ -117,6 +120,8 @@ routers = sorted(
         task_management_router,
         tools_router,
         recycle_router,
+        garak_router,
+        websocket_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )

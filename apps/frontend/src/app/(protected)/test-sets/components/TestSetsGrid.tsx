@@ -30,10 +30,13 @@ import AddIcon from '@mui/icons-material/Add';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonIcon from '@mui/icons-material/Person';
+import SecurityIcon from '@mui/icons-material/Security';
 import TestSetDrawer from './TestSetDrawer';
 import TestRunDrawer from './TestRunDrawer';
+import GarakImportDialog from './GarakImportDialog';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { formatDate } from '@/utils/date';
 
 interface TestSetsGridProps {
   testSets: TestSet[];
@@ -96,6 +99,7 @@ export default function TestSetsGrid({
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [garakImportDialogOpen, setGarakImportDialogOpen] = useState(false);
   const notifications = useNotifications();
 
   // Set initial data from props
@@ -161,6 +165,7 @@ export default function TestSetsGrid({
       counts: testSet.counts,
       sources: testSet.attributes?.metadata?.sources || [],
       tags: testSet.tags || [],
+      created_at: testSet.created_at,
     };
   });
 
@@ -193,6 +198,20 @@ export default function TestSetsGrid({
       renderCell: params => (
         <Chip label={params.value} size="small" variant="outlined" />
       ),
+    },
+    {
+      field: 'created_at',
+      headerName: 'Created',
+      flex: 0.8,
+      minWidth: 120,
+      filterable: false,
+      renderCell: params => {
+        return (
+          <Typography variant="body2" color="text.secondary">
+            {formatDate(params.row.created_at)}
+          </Typography>
+        );
+      },
     },
     {
       field: 'totalTests',
@@ -409,6 +428,22 @@ export default function TestSetsGrid({
     setDeleteModalOpen(false);
   };
 
+  const handleGarakImportSuccess = (testSetIds: string[]) => {
+    fetchTestSets();
+    const count = testSetIds.length;
+    notifications.show(
+      `${count} Garak ${count === 1 ? 'probe' : 'probes'} imported successfully`,
+      {
+        severity: 'success',
+        autoHideDuration: 6000,
+      }
+    );
+    // Navigate to the first test set if only one, otherwise stay on list
+    if (testSetIds.length === 1) {
+      router.push(`/test-sets/${testSetIds[0]}`);
+    }
+  };
+
   const getActionButtons = () => {
     const buttons: {
       label: string;
@@ -429,6 +464,12 @@ export default function TestSetsGrid({
         icon: <AddIcon />,
         variant: 'contained' as const,
         onClick: handleNewTestSet,
+      },
+      {
+        label: 'Import from Garak',
+        icon: <SecurityIcon />,
+        variant: 'outlined' as const,
+        onClick: () => setGarakImportDialogOpen(true),
       },
     ];
 
@@ -511,6 +552,12 @@ export default function TestSetsGrid({
             sessionToken={sessionToken || session?.session_token || ''}
             selectedTestSetIds={selectedRows as string[]}
             onSuccess={handleTestRunSuccess}
+          />
+          <GarakImportDialog
+            open={garakImportDialogOpen}
+            onClose={() => setGarakImportDialogOpen(false)}
+            sessionToken={sessionToken || session?.session_token || ''}
+            onSuccess={handleGarakImportSuccess}
           />
           <DeleteModal
             open={deleteModalOpen}

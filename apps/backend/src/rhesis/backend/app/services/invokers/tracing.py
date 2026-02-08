@@ -153,6 +153,10 @@ async def create_invocation_trace(
         result = trace_context.get("result")
         error = trace_context.get("error")
 
+        # Add trace_id to result so callers can link to the trace
+        if result is not None and isinstance(result, dict):
+            result["trace_id"] = trace_id
+
         # Normalize result to dict if it's a Pydantic model
         if result and hasattr(result, "model_dump"):
             result = result.model_dump(exclude_none=True)

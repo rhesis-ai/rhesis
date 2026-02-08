@@ -136,6 +136,72 @@ export default function SpanDetailsPanel({
     ...otherFunctionAttributes
   } = functionAttributes;
 
+  // Extract LLM input/output from events (ai.prompt and ai.completion)
+  const llmPromptEvents = span.events?.filter(
+    (e: any) => e.name === 'ai.prompt'
+  );
+  const llmCompletionEvent = span.events?.find(
+    (e: any) => e.name === 'ai.completion'
+  );
+
+  // Build LLM input from prompt events (can have multiple messages)
+  const llmInput =
+    llmPromptEvents && llmPromptEvents.length > 0
+      ? llmPromptEvents.map((e: any) => ({
+          role: e.attributes?.['ai.prompt.role'],
+          content: e.attributes?.['ai.prompt.content'],
+        }))
+      : null;
+  const llmOutput =
+    llmCompletionEvent?.attributes?.['ai.completion.content'] || null;
+
+  const parsedLlmInput = llmInput;
+  const parsedLlmOutput = llmOutput ? parseIfJSON(llmOutput) : null;
+
+  // Extract tool input/output from events (ai.tool.input and ai.tool.output)
+  const toolInputEvent = span.events?.find(
+    (e: any) => e.name === 'ai.tool.input'
+  );
+  const toolOutputEvent = span.events?.find(
+    (e: any) => e.name === 'ai.tool.output'
+  );
+
+  const toolInput = toolInputEvent?.attributes?.['ai.tool.input'] || null;
+  const toolOutput = toolOutputEvent?.attributes?.['ai.tool.output'] || null;
+
+  const parsedToolInput = toolInput ? parseIfJSON(toolInput) : null;
+  const parsedToolOutput = toolOutput ? parseIfJSON(toolOutput) : null;
+
+  // Extract agent input/output from attributes
+  const agentInputAttr = llmAttributes['ai.agent.input'];
+  const agentOutputAttr = llmAttributes['ai.agent.output'];
+
+  // Extract agent input/output from events
+  const agentInputEvent = span.events?.find(
+    (e: any) => e.name === 'ai.agent.input'
+  );
+  const agentOutputEvent = span.events?.find(
+    (e: any) => e.name === 'ai.agent.output'
+  );
+
+  // Get agent input/output values (prefer attributes, fallback to events)
+  const agentInput =
+    agentInputAttr || agentInputEvent?.attributes?.['ai.agent.input'] || null;
+  const agentOutput =
+    agentOutputAttr ||
+    agentOutputEvent?.attributes?.['ai.agent.output'] ||
+    null;
+
+  const parsedAgentInput = agentInput ? parseIfJSON(agentInput) : null;
+  const parsedAgentOutput = agentOutput ? parseIfJSON(agentOutput) : null;
+
+  // Filter out agent I/O from LLM attributes (displayed separately)
+  const {
+    'ai.agent.input': _____,
+    'ai.agent.output': ______,
+    ...otherLlmAttributes
+  } = llmAttributes;
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Tabs Header */}
@@ -305,7 +371,7 @@ export default function SpanDetailsPanel({
               </CardContent>
             </Card>
 
-            {/* Input/Output Card - Featured prominently */}
+            {/* Function Input/Output Card - Featured prominently */}
             {(parsedArgs || parsedKwargs || parsedOutput) && (
               <Card
                 variant="outlined"
@@ -434,8 +500,330 @@ export default function SpanDetailsPanel({
               </Card>
             )}
 
+            {/* LLM Input/Output Card - For ai.llm.invoke spans */}
+            {(parsedLlmInput || parsedLlmOutput) && (
+              <Card
+                variant="outlined"
+                sx={{
+                  mb: 2,
+                  backgroundColor: theme => theme.palette.primary.main + '08',
+                  borderColor: theme => theme.palette.primary.main + '30',
+                  borderWidth: 2,
+                }}
+              >
+                <CardContent>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ mb: 2, fontWeight: 'medium' }}
+                  >
+                    LLM
+                  </Typography>
+
+                  {/* LLM Input (Prompt Messages) */}
+                  {parsedLlmInput && parsedLlmInput.length > 0 && (
+                    <Box sx={{ mb: parsedLlmOutput ? 2 : 0 }}>
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Input
+                      </Typography>
+                      <Stack spacing={1}>
+                        {parsedLlmInput.map((msg: any, idx: number) => (
+                          <Box
+                            key={idx}
+                            sx={{
+                              p: 1.5,
+                              backgroundColor: theme =>
+                                theme.palette.mode === 'dark'
+                                  ? theme.palette.grey[800]
+                                  : theme.palette.grey[100],
+                              borderRadius: theme =>
+                                `${theme.shape.borderRadius}px`,
+                              borderLeft: theme =>
+                                `3px solid ${
+                                  msg.role === 'system'
+                                    ? theme.palette.warning.main
+                                    : msg.role === 'user'
+                                      ? theme.palette.primary.main
+                                      : theme.palette.success.main
+                                }`,
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontWeight: 'bold',
+                                textTransform: 'uppercase',
+                                color: theme =>
+                                  msg.role === 'system'
+                                    ? theme.palette.warning.main
+                                    : msg.role === 'user'
+                                      ? theme.palette.primary.main
+                                      : theme.palette.success.main,
+                              }}
+                            >
+                              {msg.role || 'unknown'}
+                            </Typography>
+                            <Box
+                              component="pre"
+                              sx={{
+                                mt: 0.5,
+                                fontSize: theme =>
+                                  theme.typography.body2.fontSize,
+                                fontFamily: 'monospace',
+                                margin: 0,
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                              }}
+                            >
+                              {typeof msg.content === 'string'
+                                ? msg.content
+                                : JSON.stringify(msg.content, null, 2)}
+                            </Box>
+                          </Box>
+                        ))}
+                      </Stack>
+                    </Box>
+                  )}
+
+                  {parsedLlmInput && parsedLlmOutput && (
+                    <Divider sx={{ my: 2 }} />
+                  )}
+
+                  {/* LLM Output (Completion) */}
+                  {parsedLlmOutput && (
+                    <Box>
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Output
+                      </Typography>
+                      <Box
+                        component="pre"
+                        sx={{
+                          p: 1.5,
+                          backgroundColor: theme =>
+                            theme.palette.mode === 'dark'
+                              ? theme.palette.grey[800]
+                              : theme.palette.grey[100],
+                          borderRadius: theme => theme.shape.borderRadius,
+                          overflow: 'auto',
+                          fontSize: theme => theme.typography.body2.fontSize,
+                          fontFamily: 'monospace',
+                          margin: 0,
+                          maxHeight: 300,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {typeof parsedLlmOutput === 'string'
+                          ? parsedLlmOutput
+                          : JSON.stringify(parsedLlmOutput, null, 2)}
+                      </Box>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tool Input/Output Card - For ai.tool.invoke spans */}
+            {(parsedToolInput || parsedToolOutput) && (
+              <Card
+                variant="outlined"
+                sx={{
+                  mb: 2,
+                  backgroundColor: theme => theme.palette.warning.main + '08',
+                  borderColor: theme => theme.palette.warning.main + '30',
+                  borderWidth: 2,
+                }}
+              >
+                <CardContent>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ mb: 2, fontWeight: 'medium' }}
+                  >
+                    Tool
+                  </Typography>
+
+                  {/* Tool Input */}
+                  {parsedToolInput && (
+                    <Box sx={{ mb: parsedToolOutput ? 2 : 0 }}>
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Input
+                      </Typography>
+                      <Box
+                        component="pre"
+                        sx={{
+                          p: 1.5,
+                          backgroundColor: theme =>
+                            theme.palette.mode === 'dark'
+                              ? theme.palette.grey[800]
+                              : theme.palette.grey[100],
+                          borderRadius: theme => theme.shape.borderRadius,
+                          overflow: 'auto',
+                          fontSize: theme => theme.typography.body2.fontSize,
+                          fontFamily: 'monospace',
+                          margin: 0,
+                          maxHeight: 200,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {typeof parsedToolInput === 'string'
+                          ? parsedToolInput
+                          : JSON.stringify(parsedToolInput, null, 2)}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {parsedToolInput && parsedToolOutput && (
+                    <Divider sx={{ my: 2 }} />
+                  )}
+
+                  {/* Tool Output */}
+                  {parsedToolOutput && (
+                    <Box>
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Output
+                      </Typography>
+                      <Box
+                        component="pre"
+                        sx={{
+                          p: 1.5,
+                          backgroundColor: theme =>
+                            theme.palette.mode === 'dark'
+                              ? theme.palette.grey[800]
+                              : theme.palette.grey[100],
+                          borderRadius: theme => theme.shape.borderRadius,
+                          overflow: 'auto',
+                          fontSize: theme => theme.typography.body2.fontSize,
+                          fontFamily: 'monospace',
+                          margin: 0,
+                          maxHeight: 300,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {typeof parsedToolOutput === 'string'
+                          ? parsedToolOutput
+                          : JSON.stringify(parsedToolOutput, null, 2)}
+                      </Box>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Agent Input/Output Card - For agent spans */}
+            {(parsedAgentInput || parsedAgentOutput) && (
+              <Card
+                variant="outlined"
+                sx={{
+                  mb: 2,
+                  backgroundColor: theme => theme.palette.info.main + '08',
+                  borderColor: theme => theme.palette.info.main + '30',
+                  borderWidth: 2,
+                }}
+              >
+                <CardContent>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ mb: 2, fontWeight: 'medium' }}
+                  >
+                    Agent
+                  </Typography>
+
+                  {/* Agent Input */}
+                  {parsedAgentInput && (
+                    <Box sx={{ mb: parsedAgentOutput ? 2 : 0 }}>
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Input
+                      </Typography>
+                      <Box
+                        component="pre"
+                        sx={{
+                          p: 1.5,
+                          backgroundColor: theme =>
+                            theme.palette.mode === 'dark'
+                              ? theme.palette.grey[800]
+                              : theme.palette.grey[100],
+                          borderRadius: theme => theme.shape.borderRadius,
+                          overflow: 'auto',
+                          fontSize: theme => theme.typography.body2.fontSize,
+                          fontFamily: 'monospace',
+                          margin: 0,
+                          maxHeight: 200,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {typeof parsedAgentInput === 'string'
+                          ? parsedAgentInput
+                          : JSON.stringify(parsedAgentInput, null, 2)}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {parsedAgentInput && parsedAgentOutput && (
+                    <Divider sx={{ my: 2 }} />
+                  )}
+
+                  {/* Agent Output */}
+                  {parsedAgentOutput && (
+                    <Box>
+                      <Typography
+                        variant="subtitle2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        Output
+                      </Typography>
+                      <Box
+                        component="pre"
+                        sx={{
+                          p: 1.5,
+                          backgroundColor: theme =>
+                            theme.palette.mode === 'dark'
+                              ? theme.palette.grey[800]
+                              : theme.palette.grey[100],
+                          borderRadius: theme => theme.shape.borderRadius,
+                          overflow: 'auto',
+                          fontSize: theme => theme.typography.body2.fontSize,
+                          fontFamily: 'monospace',
+                          margin: 0,
+                          maxHeight: 300,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {typeof parsedAgentOutput === 'string'
+                          ? parsedAgentOutput
+                          : JSON.stringify(parsedAgentOutput, null, 2)}
+                      </Box>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* LLM Attributes */}
-            {Object.keys(llmAttributes).length > 0 && (
+            {Object.keys(otherLlmAttributes).length > 0 && (
               <Accordion
                 defaultExpanded
                 sx={{
@@ -446,11 +834,11 @@ export default function SpanDetailsPanel({
               >
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Typography variant="subtitle2">
-                    LLM Attributes ({Object.keys(llmAttributes).length})
+                    LLM Attributes ({Object.keys(otherLlmAttributes).length})
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <AttributesTable attributes={llmAttributes} />
+                  <AttributesTable attributes={otherLlmAttributes} />
                 </AccordionDetails>
               </Accordion>
             )}

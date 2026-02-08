@@ -17,11 +17,24 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 # Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Note: Rust/cargo is required for garak's base2048 dependency
+# Add retry logic and split into separate steps for better error handling
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     build-essential \
     libpq-dev \
     git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Rust separately (needed for garak's base2048 dependency)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+ENV PATH="/root/.cargo/bin:$PATH"
 
 # Copy only the dependency files for backend
 COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/README.md ./
@@ -52,10 +65,17 @@ COPY penelope /app/penelope/
 RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml
 
-# Install dependencies
-
+# Install dependencies (torch is in optional dependencies, not installed by default)
+# To install with CPU torch, use: uv sync --extra cpu
+# To install with GPU torch, use: uv sync --extra gpu
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync
+    uv sync --extra cpu
+
+# Remove PyTorch to reduce image size (~780MB savings)
+# Garak declares torch as a dependency, but our usage (probe enumeration and
+# API-based detectors like perspective.Toxicity) doesn't require it at runtime.
+# See: apps/backend/src/rhesis/backend/app/services/garak/taxonomy.py
+RUN uv pip uninstall torch
 
 # Now copy ALL source code including migrations - this layer will invalidate when any source changes
 # This ensures migration files are always up-to-date in the final image
@@ -65,6 +85,8 @@ COPY apps/backend/src /app/src
 # STAGE 2: Runtime - Create minimal runtime image
 # ============================================================================
 FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
+# Copy uv and uvx (required for MCP servers that use uvx)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Copy Bun from official image (lighter than Node.js, required for bunx to run MCP servers)
 COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=oven/bun:latest /usr/local/bin/bunx /usr/local/bin/bunx
@@ -88,7 +110,12 @@ exec bunx --silent $args\n' > /usr/local/bin/npx && chmod +x /usr/local/bin/npx
 WORKDIR /app
 
 # Install only runtime dependencies (no build tools)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     libpq5 \
     postgresql-client \
     curl \

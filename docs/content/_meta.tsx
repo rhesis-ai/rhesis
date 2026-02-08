@@ -11,6 +11,8 @@ export default {
   },
   guides: "Guides",
   glossary: "Glossary",
+  contributing: "Contributing",
+  acknowledgments: "Acknowledgments",
   sdk_reference: {
     title: "SDK Reference",
     href: "https://rhesis-sdk.readthedocs.io/en/latest/",

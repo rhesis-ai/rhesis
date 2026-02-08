@@ -210,9 +210,15 @@ class ConnectorManager:
                 )
                 return
 
-            # Execute function via executor
+            # Get function and its metadata (including serializers)
             func = self._registry.get(function_name)
-            result = await self._executor.execute(func, function_name, inputs)
+            metadata = self._registry.get_metadata(function_name) or {}
+            serializers = metadata.get("serializers")
+
+            # Execute function via executor with serializers
+            result = await self._executor.execute(
+                func, function_name, inputs, serializers=serializers
+            )
 
             # Send result
             await self._send_test_result(
@@ -221,6 +227,7 @@ class ConnectorManager:
                 output=result["output"],
                 error=result["error"],
                 duration_ms=result["duration_ms"],
+                trace_id=result.get("trace_id"),
             )
 
         except Exception as e:
@@ -233,6 +240,7 @@ class ConnectorManager:
         output: Any = None,
         error: str | None = None,
         duration_ms: float = 0,
+        trace_id: str | None = None,
     ) -> None:
         """
         Send test result back to backend.
@@ -243,6 +251,7 @@ class ConnectorManager:
             output: Function output (if successful)
             error: Error message (if failed)
             duration_ms: Execution duration in milliseconds
+            trace_id: Optional trace ID for linking to traces
         """
         if not self._connection:
             return
@@ -253,6 +262,7 @@ class ConnectorManager:
             output=output,
             error=error,
             duration_ms=duration_ms,
+            trace_id=trace_id,
         )
 
         try:

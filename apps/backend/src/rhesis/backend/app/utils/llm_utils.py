@@ -61,6 +61,96 @@ def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     return _get_user_model(db, user, "evaluation", DEFAULT_GENERATION_MODEL)
 
 
+def validate_user_evaluation_model(db: Session, user: User) -> None:
+    """
+    Validate that the user's configured evaluation model can be initialized.
+
+    This function checks if the user has a configured evaluation model and
+    validates that it can be properly initialized before test execution begins.
+    Raises ValueError with a user-friendly message if validation fails.
+
+    Args:
+        db: Database session
+        user: Current user
+
+    Raises:
+        ValueError: If the user's configured model cannot be initialized,
+                   with a specific error message about the configuration issue
+    """
+    logger.info(
+        f"[LLM_UTILS] Validating evaluation model for user_id={user.id}, "
+        f"email={user.email}, org_id={user.organization_id}"
+    )
+
+    # Get the evaluation model settings
+    model_settings = getattr(user.settings.models, "evaluation")
+    model_id = model_settings.model_id
+
+    # If no model configured, default model will be used (always valid)
+    if not model_id:
+        logger.info("[LLM_UTILS] No custom evaluation model configured, default will be used")
+        return
+
+    # Try to fetch and configure the model to validate it
+    logger.info("[LLM_UTILS] Validating user's configured evaluation model...")
+    try:
+        _fetch_and_configure_model(
+            db=db,
+            model_id=str(model_id),
+            organization_id=str(user.organization_id),
+            default_model=DEFAULT_GENERATION_MODEL,
+        )
+        logger.info("[LLM_UTILS] ✓ Evaluation model validation successful")
+    except ValueError:
+        # Re-raise ValueError as-is (it already has a user-friendly message)
+        raise
+
+
+def validate_user_generation_model(db: Session, user: User) -> None:
+    """
+    Validate that the user's configured generation model can be initialized.
+
+    This function checks if the user has a configured generation model and
+    validates that it can be properly initialized before test generation begins.
+    Raises ValueError with a user-friendly message if validation fails.
+
+    Args:
+        db: Database session
+        user: Current user
+
+    Raises:
+        ValueError: If the user's configured model cannot be initialized,
+                   with a specific error message about the configuration issue
+    """
+    logger.info(
+        f"[LLM_UTILS] Validating generation model for user_id={user.id}, "
+        f"email={user.email}, org_id={user.organization_id}"
+    )
+
+    # Get the generation model settings
+    model_settings = getattr(user.settings.models, "generation")
+    model_id = model_settings.model_id
+
+    # If no model configured, default model will be used (always valid)
+    if not model_id:
+        logger.info("[LLM_UTILS] No custom generation model configured, default will be used")
+        return
+
+    # Try to fetch and configure the model to validate it
+    logger.info("[LLM_UTILS] Validating user's configured generation model...")
+    try:
+        _fetch_and_configure_model(
+            db=db,
+            model_id=str(model_id),
+            organization_id=str(user.organization_id),
+            default_model=DEFAULT_GENERATION_MODEL,
+        )
+        logger.info("[LLM_UTILS] ✓ Generation model validation successful")
+    except ValueError:
+        # Re-raise ValueError as-is (it already has a user-friendly message)
+        raise
+
+
 def _is_rhesis_system_model(provider: str, api_key: str) -> bool:
     """
     Check if a model is a Rhesis system model.
@@ -120,12 +210,46 @@ def _fetch_and_configure_model(
         logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
         return default_model
 
-    # Use SDK's get_model to create configured instance
-    configured_model = get_model(provider=provider, model_name=model_name, api_key=api_key)
-    logger.info(
-        f"[LLM_UTILS] ✓ Returning configured BaseLLM instance: {type(configured_model).__name__}"
-    )
-    return configured_model
+    # Use SDK's get_model to create configured instance with error handling
+    try:
+        configured_model = get_model(provider=provider, model_name=model_name, api_key=api_key)
+        logger.info(
+            f"[LLM_UTILS] ✓ Returning configured BaseLLM instance: "
+            f"{type(configured_model).__name__}"
+        )
+        return configured_model
+    except ValueError as e:
+        error_msg = str(e)
+        error_msg_lower = error_msg.lower()
+
+        # Provide specific error messages based on the type of configuration issue
+        if "api_key" in error_msg_lower or "not set" in error_msg_lower:
+            logger.error(f"[LLM_UTILS] User model API key not configured: {error_msg}")
+            raise ValueError(
+                f"Your configured model '{model.name}' ({provider}/{model_name}) requires "
+                f"an API key that is missing or invalid. "
+                f"Please update your API key in the Models settings."
+            )
+        elif "provider" in error_msg_lower or "not supported" in error_msg_lower:
+            logger.error(f"[LLM_UTILS] Invalid provider for user model: {error_msg}")
+            raise ValueError(
+                f"Your configured model '{model.name}' uses an unsupported provider ({provider}). "
+                f"Please select a different model in the Models settings."
+            )
+        elif "model" in error_msg_lower and (
+            "not found" in error_msg_lower or "invalid" in error_msg_lower
+        ):
+            logger.error(f"[LLM_UTILS] Invalid model name for user model: {error_msg}")
+            raise ValueError(
+                f"Your configured model '{model.name}' has an invalid model name ({model_name}). "
+                f"Please select a valid model in the Models settings."
+            )
+        else:
+            # Generic configuration error
+            logger.error(f"[LLM_UTILS] Failed to configure user model: {error_msg}")
+            raise ValueError(
+                f"Failed to initialize your configured model '{model.name}': {error_msg}"
+            )
 
 
 def _get_user_model(

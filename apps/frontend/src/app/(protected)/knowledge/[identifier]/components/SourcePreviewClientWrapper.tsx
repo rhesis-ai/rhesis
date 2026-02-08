@@ -167,6 +167,17 @@ export default function SourcePreviewClientWrapper({
     }
   };
 
+  // fetch updated source after tag update and refresh local state
+  const handleTagsUpdate = async () => {
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const sourcesClient = clientFactory.getSourcesClient();
+    const updatedSource = await sourcesClient.getSourceWithContent(
+      localSource.id
+    );
+
+    setLocalSource(updatedSource);
+  };
+
   const handleUpdateFromMCP = async () => {
     if (!sessionToken || isUpdating) return;
 
@@ -828,6 +839,7 @@ export default function SourcePreviewClientWrapper({
           {/* Tags - always visible at bottom */}
           <InfoRow label="Tags">
             <SourceTags
+              onUpdate={handleTagsUpdate}
               sessionToken={sessionToken}
               source={localSource}
               disableEdition={isEditing === 'general'}

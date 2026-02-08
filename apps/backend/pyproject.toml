@@ -1,6 +1,6 @@
 [project]
 name = "rhesis-backend"
-version = "0.6.0"
+version = "0.6.2"
 description = "Rhesis backend package"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,7 +19,7 @@ dependencies = [
     "nanoid",
     "huggingface_hub",
     "python-jose[cryptography]",
-    "python-multipart",
+    "python-multipart>=0.0.22",
     "authlib",
     "httpx",
     "itsdangerous",
@@ -40,7 +40,7 @@ dependencies = [
     "tomli>=2.0.0",
     "google-genai==1.13.0",
     "mirascope==1.24.0",
-    "protobuf>=5.29.4",
+    "protobuf>=6.33.5",
     "proto-plus>=1.26.1",
     "email-validator>=2.0.0",
     "slowapi>=0.1.9",
@@ -54,7 +54,14 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.45b0",
     "passlib[bcrypt]>=1.7.4",
     "bcrypt>=4.0.0,<5.0.0",
+    "garak>=0.9.0",
+    "mcp-atlassian>=0.13.0",
 ]
+
+[project.optional-dependencies]
+# PyTorch accelerator options - use ONE of these extras
+cpu = ["torch>=2.0"]
+gpu = ["torch>=2.0"]
 
 [dependency-groups]
 dev = [
@@ -72,13 +79,31 @@ dev = [
     "factory-boy>=3.3.0",
 ]
 
-[tool.uv.sources.rhesis-sdk]
-path = "../../sdk"
-editable = true
+# PyTorch index configuration for CPU and GPU variants
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
-[tool.uv.sources.rhesis-penelope]
-path = "../../penelope"
-editable = true
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv]
+# CPU and GPU extras are mutually exclusive
+conflicts = [
+    [{ extra = "cpu" }, { extra = "gpu" }],
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    # GPU extra: use CUDA on Linux/Windows, fall back to PyPI (CPU) on macOS
+    { index = "pytorch-cu128", extra = "gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+rhesis-sdk = { path = "../../sdk", editable = true }
+rhesis-penelope = { path = "../../penelope", editable = true }
 
 [tool.hatch.build.targets.wheel]
 packages = [

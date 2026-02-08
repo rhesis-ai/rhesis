@@ -1,0 +1,55 @@
+name: Publish to PyPI
+
+# Publishes both rhesis-sdk and rhesis packages to PyPI
+# rhesis is an alias for rhesis-sdk with the same version
+
+on:
+  push:
+    tags:
+      - 'sdk-v*'  # Trigger on SDK version tags (e.g., sdk-v0.6.4)
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  publish-sdk:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/rhesis-sdk
+    permissions:
+      id-token: write  # Required for trusted publishing
+    
+    steps:
+    - name: Setup Python build environment
+      uses: ./.github/actions/setup-python-build
+    
+    - name: Build SDK
+      working-directory: ./sdk
+      run: python -m build
+    
+    - name: Publish rhesis-sdk to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: ./sdk/dist/
+
+  publish-rhesis:
+    needs: publish-sdk
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/rhesis
+    permissions:
+      id-token: write  # Required for trusted publishing
+    
+    steps:
+    - name: Setup Python build environment
+      uses: ./.github/actions/setup-python-build
+    
+    - name: Build rhesis
+      working-directory: ./packages/rhesis
+      run: python -m build
+    
+    - name: Publish rhesis to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: ./packages/rhesis/dist/

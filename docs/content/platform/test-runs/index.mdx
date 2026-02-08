@@ -44,6 +44,43 @@ Use filters to focus on specific changes:
 - **Regressed**: Tests that now fail but passed in baseline
 - **Unchanged**: Tests with the same pass/fail status
 
+## Test Run Metrics
+
+When a test run executes, Rhesis evaluates each test against a set of metrics. The metrics used follow a priority hierarchy that allows flexibility at different levels.
+
+### Metrics Resolution Hierarchy
+
+Rhesis resolves which metrics to use based on the following priority order:
+
+| Priority | Source | Description |
+|----------|--------|-------------|
+| 1 (Highest) | **Execution-time metrics** | Metrics specified when triggering the test run. These completely override all other metric configurations. |
+| 2 | **Test set metrics** | Metrics configured on the test set entity. Override behavior-level defaults. |
+| 3 (Lowest) | **Behavior metrics** | Default metrics defined at the behavior level for each test. |
+
+<Callout type="info">
+  Execution-time metrics completely override other levels. There is no merging of metrics between levels.
+</Callout>
+
+### Specifying Execution-time Metrics
+
+When executing a test set from the UI:
+
+1. Open the **Execute Test Set** drawer from a test set detail page
+2. In the **Test Run Metrics** section, select "Define metrics for this execution"
+3. Click **Add Metric** to select which metrics to use
+4. Only metrics applicable to your test set type (Single-Turn or Multi-Turn) will be shown
+
+<Callout type="warning">
+  Execution-time metrics only apply to that specific test run. They are not saved to the test set configuration.
+</Callout>
+
+### When to Use Each Level
+
+- **Behavior metrics**: Set default evaluation criteria for all tests with a specific behavior. This is the most common configuration.
+- **Test set metrics**: Override defaults for specialized test sets, such as Garak security tests that use detector metrics.
+- **Execution-time metrics**: Quick validation with specific metrics without modifying test set configuration. Useful for one-off experiments or A/B testing different evaluation criteria.
+
 ---
 
 <Callout type="default">

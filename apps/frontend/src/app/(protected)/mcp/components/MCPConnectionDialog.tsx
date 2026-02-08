@@ -13,6 +13,10 @@ import {
   Alert,
   Stack,
   Collapse,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -35,6 +39,7 @@ import { UUID } from 'crypto';
 import { MCP_PROVIDER_ICONS } from '@/config/mcp-providers';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { getErrorMessage } from '@/utils/entity-error-handler';
+import Link from '@mui/material/Link';
 
 // Lazy load Monaco Editor
 const Editor = dynamic(() => import('@monaco-editor/react'), {
@@ -71,14 +76,30 @@ function getCredentialKey(providerType: string | undefined): string {
       return 'NOTION_TOKEN';
     case 'github':
       return 'GITHUB_PERSONAL_ACCESS_TOKEN';
-    case 'atlassian':
-      // Atlassian doesn't require credentials in the template, but we'll use a generic key
-      return 'ATLASSIAN_TOKEN';
+    case 'jira':
+      return 'JIRA_API_TOKEN';
+    case 'confluence':
+      return 'CONFLUENCE_API_TOKEN';
     case 'custom':
       return 'TOKEN';
     default:
       return 'TOKEN';
   }
+}
+
+/**
+ * Normalize URL to ensure it has https:// scheme
+ */
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return '';
+  }
+  // If URL doesn't start with http:// or https://, add https://
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
 }
 
 interface MCPConnectionDialogProps {
@@ -118,18 +139,33 @@ export function MCPConnectionDialog({
   const [testResult, setTestResult] = useState<{
     is_authenticated: string;
     message: string;
+    additional_metadata?: {
+      spaces?: Array<{ key: string; name: string }>;
+      [key: string]: any;
+    };
   } | null>(null);
   const [connectionTested, setConnectionTested] = useState(false);
 
   // GitHub repository fields
   const [repositoryUrl, setRepositoryUrl] = useState('');
 
+  // Jira and Confluence fields
+  const [instanceUrl, setInstanceUrl] = useState('');
+  const [username, setUsername] = useState('');
+
+  // Jira space selection
+  const [availableSpaces, setAvailableSpaces] = useState<
+    Array<{ key: string; name: string }>
+  >([]);
+  const [selectedSpaceKey, setSelectedSpaceKey] = useState<string>('');
+  const [showSpaceSelector, setShowSpaceSelector] = useState(false);
+
   const isEditMode = mode === 'edit';
 
   // Check if provider requires authentication token
   const providerType =
     provider?.type_value || tool?.tool_provider_type?.type_value;
-  const requiresToken = providerType !== 'atlassian';
+  const requiresToken = true; // All providers now require tokens
   const isCustomProvider = providerType === 'custom';
 
   // Determine editor theme based on MUI theme
@@ -155,14 +191,12 @@ export function MCPConnectionDialog({
     if (open) {
       const currentProviderType =
         provider?.type_value || tool?.tool_provider_type?.type_value;
-      const currentRequiresToken = currentProviderType !== 'atlassian';
 
       if (isEditMode && tool) {
         // Edit mode: populate with existing tool data
         setName(tool.name || '');
         setDescription(tool.description || '');
-        // Only show placeholder if provider requires token
-        setAuthToken(currentRequiresToken ? '************' : '');
+        setAuthToken('************');
         setToolMetadata(
           tool.tool_metadata ? JSON.stringify(tool.tool_metadata, null, 2) : ''
         );
@@ -180,6 +214,21 @@ export function MCPConnectionDialog({
           setRepositoryUrl('');
         }
 
+        // Note: Jira/Confluence URL and username are stored in encrypted credentials
+        // We cannot display them in edit mode as they're encrypted
+        // Show placeholder to indicate existing values
+        setInstanceUrl('************');
+        setUsername('************');
+
+        // Extract space_key from tool_metadata if it exists (for Jira)
+        if (currentProviderType === 'jira' && tool.tool_metadata?.space_key) {
+          setSelectedSpaceKey(tool.tool_metadata.space_key);
+        } else {
+          setSelectedSpaceKey('');
+        }
+        setAvailableSpaces([]);
+        setShowSpaceSelector(false);
+
         setError(null);
         setJsonError(null);
         setShowAuthToken(false);
@@ -194,6 +243,17 @@ export function MCPConnectionDialog({
         setAuthToken('');
         setToolMetadata('');
         setRepositoryUrl('');
+        setInstanceUrl('');
+        // Pre-fill email with logged-in user's email for Jira/Confluence
+        const isAtlassian =
+          currentProviderType === 'jira' ||
+          currentProviderType === 'confluence';
+        setUsername(
+          isAtlassian && session?.user?.email ? session.user.email : ''
+        );
+        setSelectedSpaceKey('');
+        setAvailableSpaces([]);
+        setShowSpaceSelector(false);
         setError(null);
         setJsonError(null);
         setShowAuthToken(false);
@@ -203,7 +263,14 @@ export function MCPConnectionDialog({
         setConnectionTested(false);
       }
     }
-  }, [open, provider, tool, isEditMode, isCustomProvider]);
+  }, [
+    open,
+    provider,
+    tool,
+    isEditMode,
+    isCustomProvider,
+    session?.user?.email,
+  ]);
 
   // Reset connection test status when critical credential fields change
   // Note: name and description changes don't affect connection validity
@@ -213,12 +280,26 @@ export function MCPConnectionDialog({
       // (not when name/description change, as they don't affect connection)
       setConnectionTested(false);
       setTestResult(null);
-    } else if (authToken && authToken !== '************') {
-      // In edit mode, reset only if auth token was actually changed
-      setConnectionTested(false);
-      setTestResult(null);
+    } else {
+      // In edit mode, reset if any credential field was changed
+      const tokenChanged = authToken && authToken !== '************';
+      const urlChanged = instanceUrl && instanceUrl !== '************';
+      const usernameChanged = username && username !== '************';
+
+      if (tokenChanged || urlChanged || usernameChanged) {
+        setConnectionTested(false);
+        setTestResult(null);
+      }
     }
-  }, [authToken, toolMetadata, provider, isEditMode, repositoryUrl]);
+  }, [
+    authToken,
+    toolMetadata,
+    provider,
+    isEditMode,
+    repositoryUrl,
+    instanceUrl,
+    username,
+  ]);
 
   const validateToolMetadata = (
     jsonString: string
@@ -337,13 +418,33 @@ export function MCPConnectionDialog({
         }
 
         const credentialKey = getCredentialKey(provider.type_value);
-        const credentials = requiresToken
-          ? {
-              [credentialKey]: authToken.trim(),
-            }
-          : {};
-
+        let credentials: Record<string, string> = {};
         let parsedMetadata: Record<string, any> | undefined = undefined;
+
+        // Handle Jira credentials
+        if (provider.type_value === 'jira') {
+          const normalizedUrl = normalizeUrl(instanceUrl);
+          credentials = {
+            JIRA_URL: normalizedUrl,
+            JIRA_USERNAME: username.trim(),
+            JIRA_API_TOKEN: authToken.trim(),
+          };
+        }
+        // Handle Confluence credentials
+        else if (provider.type_value === 'confluence') {
+          const normalizedUrl = normalizeUrl(instanceUrl);
+          credentials = {
+            CONFLUENCE_URL: normalizedUrl,
+            CONFLUENCE_USERNAME: username.trim(),
+            CONFLUENCE_API_TOKEN: authToken.trim(),
+          };
+        }
+        // Handle other providers
+        else {
+          credentials = {
+            [credentialKey]: authToken.trim(),
+          };
+        }
         if (isCustomProvider && toolMetadata.trim()) {
           const validatedMetadata = validateToolMetadata(toolMetadata);
           if (validatedMetadata === null) {
@@ -386,8 +487,23 @@ export function MCPConnectionDialog({
       // Mark as tested if successful
       if (result.is_authenticated === 'Yes') {
         setConnectionTested(true);
+
+        // Check if we have spaces in additional_metadata (for Jira)
+        if (
+          providerType === 'jira' &&
+          result.additional_metadata?.spaces &&
+          result.additional_metadata.spaces.length > 0
+        ) {
+          setAvailableSpaces(result.additional_metadata.spaces);
+          setShowSpaceSelector(true);
+        } else {
+          setAvailableSpaces([]);
+          setShowSpaceSelector(false);
+        }
       } else {
         setConnectionTested(false);
+        setAvailableSpaces([]);
+        setShowSpaceSelector(false);
       }
     } catch (err) {
       // Display error in testResult (under the button) instead of error state (at top)
@@ -426,17 +542,62 @@ export function MCPConnectionDialog({
           description: description || undefined,
         };
 
-        // Only include credentials if token was changed (not the placeholder) and provider requires token
+        // Get provider type from provider or fall back to tool's provider type
+        const currentProviderType =
+          provider?.type_value || tool.tool_provider_type?.type_value;
+
+        // Handle Jira/Confluence credentials
+        // For Jira/Confluence, we must update credentials if ANY field changed (URL, email, or token)
+        // because all three are stored together in the encrypted credentials field
         if (
-          requiresToken &&
+          currentProviderType === 'jira' ||
+          currentProviderType === 'confluence'
+        ) {
+          const hasUrl = instanceUrl && instanceUrl !== '************';
+          const hasUsername = username && username !== '************';
+          const hasToken =
+            authToken && authToken.trim() && authToken !== '************';
+
+          if (hasUrl || hasUsername || hasToken) {
+            if (!hasUrl || !hasUsername) {
+              setError(
+                'Both URL and email are required for Jira/Confluence connections.'
+              );
+              setLoading(false);
+              return;
+            }
+
+            if (!hasToken) {
+              setError(
+                'API token is required when updating URL or email. Please re-enter your API token.'
+              );
+              setLoading(false);
+              return;
+            }
+
+            const normalizedUrl = normalizeUrl(instanceUrl);
+            if (currentProviderType === 'jira') {
+              updates.credentials = {
+                JIRA_URL: normalizedUrl,
+                JIRA_USERNAME: username.trim(),
+                JIRA_API_TOKEN: authToken.trim(),
+              };
+            } else {
+              updates.credentials = {
+                CONFLUENCE_URL: normalizedUrl,
+                CONFLUENCE_USERNAME: username.trim(),
+                CONFLUENCE_API_TOKEN: authToken.trim(),
+              };
+            }
+          }
+        }
+        // Handle other providers - only update if token was changed
+        else if (
           authToken &&
           authToken.trim() &&
           authToken !== '************'
         ) {
-          // Get provider type from provider or fall back to tool's provider type
-          const providerType =
-            provider?.type_value || tool.tool_provider_type?.type_value;
-          const credentialKey = getCredentialKey(providerType);
+          const credentialKey = getCredentialKey(currentProviderType);
           updates.credentials = {
             [credentialKey]: authToken.trim(),
           };
@@ -445,6 +606,7 @@ export function MCPConnectionDialog({
         // Include tool_metadata if it was provided
         let metadataToUpdate: Record<string, any> | undefined = undefined;
 
+        // For non-Jira/Confluence providers, handle metadata
         if (toolMetadata.trim()) {
           const validatedMetadata = validateToolMetadata(toolMetadata);
           if (validatedMetadata !== null) {
@@ -457,28 +619,38 @@ export function MCPConnectionDialog({
           return;
         }
 
-        // Add or update repository metadata for GitHub
+        // GitHub requires repository metadata
         if (providerType === 'github') {
-          if (repositoryUrl.trim()) {
-            const repoData = parseRepositoryUrl(repositoryUrl);
-            if (!repoData) {
-              setError(
-                'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
-              );
-              setLoading(false);
-              return;
-            }
-            metadataToUpdate = {
-              ...(metadataToUpdate || tool.tool_metadata || {}),
-              repository: repoData,
-            };
-          } else {
-            // Remove repository metadata if URL is empty
-            metadataToUpdate = {
-              ...(metadataToUpdate || tool.tool_metadata || {}),
-            };
-            delete metadataToUpdate.repository;
+          if (!repositoryUrl.trim()) {
+            setError('Repository URL is required for GitHub integrations');
+            setLoading(false);
+            return;
           }
+          const repoData = parseRepositoryUrl(repositoryUrl);
+          if (!repoData) {
+            setError(
+              'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
+            );
+            setLoading(false);
+            return;
+          }
+          metadataToUpdate = {
+            ...(metadataToUpdate || tool.tool_metadata || {}),
+            repository: repoData,
+          };
+        }
+
+        // Jira requires space_key metadata
+        if (providerType === 'jira') {
+          if (!selectedSpaceKey) {
+            setError('Jira space selection is required');
+            setLoading(false);
+            return;
+          }
+          metadataToUpdate = {
+            ...(metadataToUpdate || tool.tool_metadata || {}),
+            space_key: selectedSpaceKey,
+          };
         }
 
         if (metadataToUpdate) {
@@ -508,8 +680,18 @@ export function MCPConnectionDialog({
       }
 
       // Validate required fields
-      if (!provider || !name || (requiresToken && !authToken)) {
+      if (!provider || !name || !authToken) {
         setError('Please fill in all required fields.');
+        return;
+      }
+
+      // Validate Jira/Confluence specific fields
+      if (
+        (provider.type_value === 'jira' ||
+          provider.type_value === 'confluence') &&
+        (!instanceUrl || !username)
+      ) {
+        setError('Please fill in all required fields (URL and email).');
         return;
       }
 
@@ -529,15 +711,36 @@ export function MCPConnectionDialog({
             return;
           }
 
-          // For Atlassian, credentials can be empty since it doesn't require a token
-          const credentials = requiresToken
-            ? {
-                [getCredentialKey(provider.type_value)]: authToken.trim(),
-              }
-            : {};
+          // Build credentials based on provider type
+          let credentials: Record<string, string> = {};
+          let parsedMetadata: Record<string, any> | undefined = undefined;
+
+          // Handle Jira credentials
+          if (provider.type_value === 'jira') {
+            const normalizedUrl = normalizeUrl(instanceUrl);
+            credentials = {
+              JIRA_URL: normalizedUrl,
+              JIRA_USERNAME: username.trim(),
+              JIRA_API_TOKEN: authToken.trim(),
+            };
+          }
+          // Handle Confluence credentials
+          else if (provider.type_value === 'confluence') {
+            const normalizedUrl = normalizeUrl(instanceUrl);
+            credentials = {
+              CONFLUENCE_URL: normalizedUrl,
+              CONFLUENCE_USERNAME: username.trim(),
+              CONFLUENCE_API_TOKEN: authToken.trim(),
+            };
+          }
+          // Handle other providers
+          else {
+            credentials = {
+              [getCredentialKey(provider.type_value)]: authToken.trim(),
+            };
+          }
 
           // Parse and validate tool_metadata for custom providers
-          let parsedMetadata: Record<string, any> | undefined = undefined;
           if (isCustomProvider && toolMetadata.trim()) {
             const validatedMetadata = validateToolMetadata(toolMetadata);
             if (validatedMetadata === null) {
@@ -550,8 +753,13 @@ export function MCPConnectionDialog({
             parsedMetadata = validatedMetadata;
           }
 
-          // Add repository metadata for GitHub if provided
-          if (providerType === 'github' && repositoryUrl.trim()) {
+          // GitHub requires repository metadata
+          if (providerType === 'github') {
+            if (!repositoryUrl.trim()) {
+              setError('Repository URL is required for GitHub integrations');
+              setLoading(false);
+              return;
+            }
             const repoData = parseRepositoryUrl(repositoryUrl);
             if (!repoData) {
               setError(
@@ -563,6 +771,19 @@ export function MCPConnectionDialog({
             parsedMetadata = {
               ...(parsedMetadata || {}),
               repository: repoData,
+            };
+          }
+
+          // Jira requires space_key metadata
+          if (providerType === 'jira') {
+            if (!selectedSpaceKey) {
+              setError('Jira space selection is required');
+              setLoading(false);
+              return;
+            }
+            parsedMetadata = {
+              ...(parsedMetadata || {}),
+              space_key: selectedSpaceKey,
             };
           }
 
@@ -594,8 +815,9 @@ export function MCPConnectionDialog({
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.medium }} />
   );
 
-  const displayName =
-    provider?.description || provider?.type_value || 'MCP Provider';
+  const displayName = provider?.type_value
+    ? provider.type_value.charAt(0).toUpperCase() + provider.type_value.slice(1)
+    : 'MCP Provider';
 
   return (
     <Dialog
@@ -612,12 +834,20 @@ export function MCPConnectionDialog({
           {providerIcon}
           <Box>
             <Typography variant="h6" component="div">
-              {isEditMode ? `Edit ${displayName}` : `Connect to ${displayName}`}
+              {displayName}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {isEditMode
                 ? 'Update your MCP connection settings'
-                : 'Configure your MCP connection settings below'}
+                : 'Configure your MCP connection settings below'}{' '}
+              <Link
+                href="https://docs.rhesis.ai/platform/mcp#provider-setup-instructions"
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ textDecoration: 'none' }}
+              >
+                (setup guide)
+              </Link>
             </Typography>
           </Box>
         </Box>
@@ -646,7 +876,6 @@ export function MCPConnectionDialog({
               required
               value={name}
               onChange={e => setName(e.target.value)}
-              helperText="A unique name to identify this MCP connection"
             />
 
             <TextField
@@ -656,7 +885,6 @@ export function MCPConnectionDialog({
               rows={2}
               value={description}
               onChange={e => setDescription(e.target.value)}
-              helperText="Optional description for this MCP connection"
             />
 
             {requiresToken && (
@@ -668,8 +896,63 @@ export function MCPConnectionDialog({
                   Authentication
                 </Typography>
 
+                {/* Jira/Confluence specific fields */}
+                {(providerType === 'jira' || providerType === 'confluence') && (
+                  <>
+                    <TextField
+                      label="Atlassian Organization URL"
+                      fullWidth
+                      required={!isEditMode}
+                      value={instanceUrl}
+                      onChange={e => setInstanceUrl(e.target.value)}
+                      onFocus={e => {
+                        // Clear placeholder when user clicks on field in edit mode
+                        if (isEditMode && instanceUrl === '************') {
+                          setInstanceUrl('');
+                        }
+                      }}
+                      onBlur={e => {
+                        // Restore placeholder if field is empty in edit mode
+                        if (isEditMode && !e.target.value) {
+                          setInstanceUrl('************');
+                        }
+                      }}
+                      placeholder={
+                        providerType === 'jira'
+                          ? 'https://your-domain.atlassian.net'
+                          : 'https://your-domain.atlassian.net/wiki'
+                      }
+                    />
+
+                    <TextField
+                      label="Email"
+                      fullWidth
+                      required={!isEditMode}
+                      value={username}
+                      onChange={e => setUsername(e.target.value)}
+                      onFocus={e => {
+                        // Clear placeholder when user clicks on field in edit mode
+                        if (isEditMode && username === '************') {
+                          setUsername('');
+                        }
+                      }}
+                      onBlur={e => {
+                        // Restore placeholder if field is empty in edit mode
+                        if (isEditMode && !e.target.value) {
+                          setUsername('************');
+                        }
+                      }}
+                      placeholder="your-email@example.com"
+                    />
+                  </>
+                )}
+
                 <TextField
-                  label="Authentication token"
+                  label={
+                    providerType === 'jira' || providerType === 'confluence'
+                      ? 'API Token'
+                      : 'Authentication token'
+                  }
                   fullWidth
                   required={!isEditMode}
                   type={showAuthToken ? 'text' : 'password'}
@@ -690,9 +973,9 @@ export function MCPConnectionDialog({
                   helperText={
                     isEditMode
                       ? authToken !== '************' && authToken !== ''
-                        ? 'New auth token will replace the current one'
-                        : 'Click to update the auth token'
-                      : 'Your authentication token for this MCP provider'
+                        ? 'New API token will replace the current one'
+                        : 'Click to update the API token'
+                      : undefined
                   }
                   InputProps={{
                     endAdornment:
@@ -724,7 +1007,20 @@ export function MCPConnectionDialog({
                     disabled={
                       testingConnection ||
                       loading ||
-                      (requiresToken && !authToken) ||
+                      !authToken ||
+                      // For Jira/Confluence: in create mode, always require URL and username
+                      // In edit mode, only require them if any credential field was touched
+                      (!isEditMode &&
+                        (providerType === 'jira' ||
+                          providerType === 'confluence') &&
+                        (!instanceUrl || !username)) ||
+                      (isEditMode &&
+                        (providerType === 'jira' ||
+                          providerType === 'confluence') &&
+                        (instanceUrl ||
+                          username ||
+                          (authToken && authToken !== '************')) &&
+                        (!instanceUrl || !username)) ||
                       (isCustomProvider && !toolMetadata.trim())
                     }
                     sx={{ minWidth: 150 }}
@@ -758,6 +1054,46 @@ export function MCPConnectionDialog({
                     </Alert>
                   )}
                 </Box>
+
+                {/* Jira Space Selection */}
+                {showSpaceSelector &&
+                  availableSpaces.length > 0 &&
+                  providerType === 'jira' && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography
+                        variant="subtitle1"
+                        sx={{
+                          fontWeight: 600,
+                          mb: 1,
+                          color: 'primary.main',
+                        }}
+                      >
+                        Space Selection
+                      </Typography>
+                      <FormControl fullWidth required>
+                        <InputLabel>Jira Space</InputLabel>
+                        <Select
+                          value={selectedSpaceKey}
+                          onChange={e => setSelectedSpaceKey(e.target.value)}
+                          label="Jira Space"
+                          required
+                        >
+                          {availableSpaces.map(space => (
+                            <MenuItem key={space.key} value={space.key}>
+                              {space.name} ({space.key})
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ mt: 0.5, display: 'block' }}
+                      >
+                        Select the Jira space for issue creation
+                      </Typography>
+                    </Box>
+                  )}
               </>
             )}
 
@@ -768,16 +1104,17 @@ export function MCPConnectionDialog({
                   variant="subtitle1"
                   sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 2 }}
                 >
-                  Repository Scope (Optional)
+                  Repository Scope
                 </Typography>
 
                 <TextField
                   label="Repository URL"
                   fullWidth
+                  required
                   value={repositoryUrl}
                   onChange={e => setRepositoryUrl(e.target.value)}
                   placeholder="https://github.com/owner/repo"
-                  helperText="Optional: Restrict this connection to a specific repository. Leave empty for user-level access to all repositories."
+                  helperText="Specify the GitHub repository for this connection"
                 />
               </>
             )}
@@ -903,18 +1240,14 @@ export function MCPConnectionDialog({
             </Alert>
           </Box>
         )}
-        {isEditMode &&
-          requiresToken &&
-          authToken !== '************' &&
-          !connectionTested &&
-          !testResult && (
-            <Box sx={{ px: 3, pb: 1 }}>
-              <Alert severity="info">
-                Please test the connection with the new credentials before
-                updating.
-              </Alert>
-            </Box>
-          )}
+        {isEditMode && !connectionTested && !testResult && (
+          <Box sx={{ px: 3, pb: 1 }}>
+            <Alert severity="info">
+              Please test the connection with the updated credentials before
+              saving.
+            </Alert>
+          </Box>
+        )}
 
         <DialogActions
           sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}
@@ -927,13 +1260,21 @@ export function MCPConnectionDialog({
             variant="contained"
             disabled={
               !name ||
-              (!isEditMode && requiresToken && !authToken) ||
+              (!isEditMode && !authToken) ||
+              // For Jira/Confluence: in create mode, always require URL and username
+              // In edit mode, only require them if any credential field was touched
+              (!isEditMode &&
+                (providerType === 'jira' || providerType === 'confluence') &&
+                (!instanceUrl || !username)) ||
+              (isEditMode &&
+                (providerType === 'jira' || providerType === 'confluence') &&
+                (instanceUrl ||
+                  username ||
+                  (authToken && authToken !== '************')) &&
+                (!instanceUrl || !username)) ||
               (!isEditMode && isCustomProvider && !toolMetadata.trim()) ||
               (!isEditMode && !connectionTested) ||
-              (isEditMode &&
-                requiresToken &&
-                authToken !== '************' &&
-                !connectionTested) || // Require test if token changed in edit mode
+              (isEditMode && !connectionTested) || // Require test if any credential changed in edit mode
               loading ||
               !!jsonError
             }

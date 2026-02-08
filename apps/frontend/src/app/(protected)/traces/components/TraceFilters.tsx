@@ -130,7 +130,7 @@ export default function TraceFilters({
   };
 
   const handleDurationFilterChange = (duration: string) => {
-    let newFilters = { ...filters, offset: 0 };
+    const newFilters = { ...filters, offset: 0 };
 
     switch (duration) {
       case 'normal':

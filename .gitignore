@@ -73,6 +73,8 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/src/public/_pagefind/
+docs/sphinx/source/changelog/
 
 # PyBuilder
 .pybuilder/
@@ -310,8 +312,14 @@ deepeval_telemetry.jsonl.gz.part
 # Exclude Pycharm settings
 .idea/
 
+# Cursor IDE
+.cursor/plans/
+
 # Playground
 playground/*
+
+# Simulations
+simulations/
 
 # K8s files
 infrastructure/k8s/manifests/secrets/*
@@ -322,3 +330,6 @@ infrastructure/k8s/manifests/configmaps/*
 *test_results*.json
 *TEST_ANALYSIS*.md
 sdk_test_analysis.md
+
+# Claude Code
+.claude/settings.local.json

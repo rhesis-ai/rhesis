@@ -26,28 +26,28 @@ export default function ThemeContextProvider({
   disableTransitionOnChange = false,
 }: ThemeContextProviderProps) {
   const [mode, setMode] = React.useState<'light' | 'dark'>('light');
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useLayoutEffect(() => {
+    const attr = document.documentElement.getAttribute('data-theme-mode');
+    if (attr === 'light' || attr === 'dark') {
+      setMode(attr);
+    }
+    setMounted(true);
+  }, []);
 
   React.useEffect(() => {
-    // First check localStorage
-    const storedMode = localStorage.getItem(THEME_MODE_KEY) as
-      | 'light'
-      | 'dark'
-      | null;
-    if (storedMode) {
-      setMode(storedMode);
-      return;
+    const storedMode = localStorage.getItem(THEME_MODE_KEY);
+    if (!storedMode) {
+      const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = (e: MediaQueryListEvent) => {
+        const newMode = e.matches ? 'dark' : 'light';
+        setMode(newMode);
+        document.documentElement.setAttribute('data-theme-mode', newMode);
+      };
+      darkModeQuery.addEventListener('change', handler);
+      return () => darkModeQuery.removeEventListener('change', handler);
     }
-
-    // If no stored preference, check system preference
-    const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    setMode(darkModeQuery.matches ? 'dark' : 'light');
-
-    // Listen for changes in system preference
-    const handler = (e: MediaQueryListEvent) => {
-      setMode(e.matches ? 'dark' : 'light');
-    };
-    darkModeQuery.addEventListener('change', handler);
-    return () => darkModeQuery.removeEventListener('change', handler);
   }, []);
 
   const colorMode = React.useMemo(
@@ -62,6 +62,7 @@ export default function ThemeContextProvider({
         setMode(prevMode => {
           const newMode = prevMode === 'light' ? 'dark' : 'light';
           localStorage.setItem(THEME_MODE_KEY, newMode);
+          document.documentElement.setAttribute('data-theme-mode', newMode);
           return newMode;
         });
 
@@ -86,8 +87,14 @@ export default function ThemeContextProvider({
         theme={theme}
         disableTransitionOnChange={disableTransitionOnChange}
       >
-        {/* <CssBaseline /> */}
-        {children}
+        <div
+          style={{
+            visibility: mounted ? 'visible' : 'hidden',
+          }}
+          suppressHydrationWarning
+        >
+          {children}
+        </div>
       </MuiThemeProvider>
     </ColorModeContext.Provider>
   );

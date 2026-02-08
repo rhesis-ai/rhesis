@@ -53,6 +53,8 @@ interface TestsTableViewProps {
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
+  /** Source of metrics used in this test run */
+  metricsSource?: string;
 }
 
 export default function TestsTableView({
@@ -70,6 +72,7 @@ export default function TestsTableView({
   testSetType,
   project,
   projectName,
+  metricsSource,
 }: TestsTableViewProps) {
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
@@ -1022,6 +1025,7 @@ export default function TestsTableView({
         testSetType={testSetType}
         project={project}
         projectName={projectName}
+        metricsSource={metricsSource}
       />
 
       {/* Review Judgement Drawer */}

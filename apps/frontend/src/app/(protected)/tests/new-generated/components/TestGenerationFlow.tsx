@@ -33,6 +33,19 @@ interface TestGenerationFlowProps {
   sessionToken: string;
 }
 
+/** Extract user-facing message from API or other errors. */
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) {
+    const msg = error.message;
+    if (msg.startsWith('API error: ')) {
+      const detail = msg.replace(/^API error: \d+ - /, '');
+      return detail || fallback;
+    }
+    return msg;
+  }
+  return fallback;
+}
+
 // Initial empty chip configurations
 const createEmptyChips = (): ConfigChips => {
   return {
@@ -296,13 +309,15 @@ export default function TestGenerationFlow({
             setIsGenerating(false);
           } catch (e) {
             setIsGenerating(false);
-            show('Failed to load template', {
+            show(getApiErrorMessage(e, 'Failed to load template'), {
               severity: 'error',
             });
           }
         }
       } catch (error) {
-        show('Failed to load template', { severity: 'error' });
+        show(getApiErrorMessage(error, 'Failed to load template'), {
+          severity: 'error',
+        });
       }
     };
 
@@ -432,12 +447,16 @@ export default function TestGenerationFlow({
 
           setTestSamples(newSamples);
         } catch (error) {
-          show('Failed to generate test samples', { severity: 'error' });
+          show(getApiErrorMessage(error, 'Failed to generate test samples'), {
+            severity: 'error',
+          });
         } finally {
           setIsLoadingSamples(false);
         }
       } catch (error) {
-        show('Failed to generate configuration', { severity: 'error' });
+        show(getApiErrorMessage(error, 'Failed to generate configuration'), {
+          severity: 'error',
+        });
         setIsLoadingConfig(false);
         setIsLoadingSamples(false);
       }
@@ -795,7 +814,9 @@ export default function TestGenerationFlow({
           show('Test generation refined successfully', { severity: 'success' });
         }
       } catch (error) {
-        show('Failed to refine test generation', { severity: 'error' });
+        show(getApiErrorMessage(error, 'Failed to refine test generation'), {
+          severity: 'error',
+        });
       } finally {
         setIsGenerating(false);
       }

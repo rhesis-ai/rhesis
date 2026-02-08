@@ -52,12 +52,13 @@ export function MCPProviderSelectionDialog({
     );
   }
 
-  // Custom order: Notion first, then custom, then GitHub, then Atlassian
+  // Custom order: Notion first, then GitHub, then Jira, then Confluence, then custom
   const providerOrder: Record<string, number> = {
     notion: 1,
     github: 2,
-    custom: 3,
-    atlassian: 4,
+    jira: 3,
+    confluence: 4,
+    custom: 5,
   };
 
   const sortedProviders = [...providers].sort((a, b) => {
@@ -76,43 +77,42 @@ export function MCPProviderSelectionDialog({
               provider.type_value
             );
             const isCustom = provider.type_value === 'custom';
-            // Enable Notion, custom, and GitHub providers
+            // Enable Notion, GitHub, Jira, Confluence, and custom providers
             const isEnabled =
               provider.type_value === 'notion' ||
               provider.type_value === 'github' ||
+              provider.type_value === 'jira' ||
+              provider.type_value === 'confluence' ||
               provider.type_value === 'custom';
 
-            // Customize provider names and descriptions
-            let providerName = provider.description || provider.type_value;
-            let providerDescription = provider.description || '';
-
-            // Clean up provider names
-            if (provider.type_value === 'notion') {
-              providerName = providerName
-                .replace(/\s*integration$/i, '')
-                .trim();
-            } else if (provider.type_value === 'custom') {
-              providerName = providerName
-                .replace(/\s*with manual configuration$/i, '')
-                .trim();
-            } else if (provider.type_value === 'atlassian') {
-              providerName = providerName
-                .replace(/\s*for jira and confluence$/i, '')
-                .trim();
-              providerDescription = providerDescription
-                .replace(/\s*for jira and confluence$/i, '')
-                .trim();
-            } else if (provider.type_value === 'github') {
-              providerName = providerName.replace(/\s*repository$/i, '').trim();
-              providerDescription = providerDescription
-                .replace(/\s*repository$/i, '')
-                .trim();
+            // Use clean provider names based on type_value
+            let providerName: string;
+            switch (provider.type_value) {
+              case 'notion':
+                providerName = 'Notion';
+                break;
+              case 'github':
+                providerName = 'GitHub';
+                break;
+              case 'jira':
+                providerName = 'Jira';
+                break;
+              case 'confluence':
+                providerName = 'Confluence';
+                break;
+              case 'atlassian':
+                providerName = 'Atlassian';
+                break;
+              case 'custom':
+                providerName = 'Custom provider';
+                break;
+              default:
+                providerName = provider.type_value;
             }
 
-            const providerInfo: MCPProviderInfo = {
+            const providerInfo = {
               id: provider.type_value,
               name: providerName,
-              description: providerDescription,
               icon: MCP_PROVIDER_ICONS[provider.type_value] || (
                 <SmartToyIcon
                   sx={{ fontSize: theme => theme.iconSizes.large }}
@@ -173,10 +173,6 @@ export function MCPProviderSelectionDialog({
                       )}
                     </Box>
                   }
-                  secondary={providerInfo.description}
-                  secondaryTypographyProps={{
-                    sx: { opacity: isEnabled ? 1 : 0.6 },
-                  }}
                 />
               </ListItemButton>
             );

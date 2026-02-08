@@ -20,8 +20,8 @@ class MappingValidator:
         project_id: str,
         environment: str,
         function_name: str,
-        request_mapping: Dict[str, str],
-        response_mapping: Dict[str, str],
+        request_mapping: Dict[str, Any],
+        response_mapping: Dict[str, Any],
         timeout: float = 30.0,
     ) -> Dict[str, Any]:
         """

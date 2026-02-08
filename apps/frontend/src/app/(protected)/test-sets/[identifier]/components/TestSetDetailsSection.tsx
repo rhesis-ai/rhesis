@@ -13,6 +13,8 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
 import DocumentIcon from '@mui/icons-material/InsertDriveFileOutlined';
+import SecurityIcon from '@mui/icons-material/Security';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
@@ -22,6 +24,9 @@ import CancelIcon from '@mui/icons-material/CancelOutlined';
 import CheckIcon from '@mui/icons-material/CheckOutlined';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import TestSetTags from './TestSetTags';
+import TestSetMetrics from './TestSetMetrics';
+import type { GarakSyncPreviewResponse } from '@/utils/api-client/garak-client';
+import { formatDate } from '@/utils/date';
 
 interface TestSetDetailsSectionProps {
   testSet: TestSet;
@@ -89,11 +94,53 @@ export default function TestSetDetailsSection({
   const [editedTitle, setEditedTitle] = useState(testSet.name || '');
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncPreview, setSyncPreview] =
+    useState<GarakSyncPreviewResponse | null>(null);
+  const [syncError, setSyncError] = useState<string>();
   const { data: session } = useSession();
+
+  // Check if this is a Garak-imported test set
+  const isGarakTestSet = testSet.attributes?.source === 'garak';
+  const garakVersion = testSet.attributes?.garak_version;
+  const garakModules = testSet.attributes?.garak_modules || [];
+  const lastSyncedAt = testSet.attributes?.last_synced_at;
 
   if (!session) {
     return null;
   }
+
+  const handleSyncPreview = async () => {
+    if (!sessionToken) return;
+
+    try {
+      setSyncError(undefined);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const garakClient = clientFactory.getGarakClient();
+      const preview = await garakClient.previewSync(testSet.id);
+      setSyncPreview(preview);
+    } catch (error: any) {
+      setSyncError(error.message || 'Failed to get sync preview');
+    }
+  };
+
+  const handleSync = async () => {
+    if (!sessionToken) return;
+
+    try {
+      setIsSyncing(true);
+      setSyncError(undefined);
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const garakClient = clientFactory.getGarakClient();
+      await garakClient.syncTestSet(testSet.id);
+      // Refresh the page to show updated data
+      window.location.reload();
+    } catch (error: any) {
+      setSyncError(error.message || 'Failed to sync test set');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleEditDescription = () => {
     setIsEditingDescription(true);
@@ -141,6 +188,11 @@ export default function TestSetDetailsSection({
   const handleConfirmTitleEdit = async () => {
     if (!sessionToken) return;
 
+    const trimmedTitle = editedTitle.trim();
+
+    // Button is disabled if validation fails, but check anyway
+    if (!trimmedTitle || trimmedTitle.length < 2) return;
+
     setIsUpdating(true);
     try {
       const clientFactory: ApiClientFactory = new ApiClientFactory(
@@ -149,11 +201,12 @@ export default function TestSetDetailsSection({
       const testSetsClient = clientFactory.getTestSetsClient();
 
       await testSetsClient.updateTestSet(testSet.id, {
-        name: editedTitle,
+        name: trimmedTitle,
       });
 
       // Update the testSet object to reflect the new title
-      testSet.name = editedTitle;
+      testSet.name = trimmedTitle;
+      setEditedTitle(trimmedTitle);
       setIsEditingTitle(false);
 
       // Refresh the page to update breadcrumbs and title
@@ -232,7 +285,109 @@ export default function TestSetDetailsSection({
         >
           {isDownloading ? 'Downloading...' : 'Download Test Set'}
         </Button>
+        {isGarakTestSet && (
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={syncPreview ? handleSync : handleSyncPreview}
+            disabled={isSyncing}
+          >
+            {isSyncing
+              ? 'Syncing...'
+              : syncPreview
+                ? 'Confirm Sync'
+                : 'Sync from Garak'}
+          </Button>
+        )}
       </Box>
+
+      {/* Garak Import Information */}
+      {isGarakTestSet && (
+        <Box
+          sx={{
+            mb: 3,
+            p: 2,
+            borderRadius: theme => theme.shape.borderRadius * 0.25,
+            bgcolor: 'action.hover',
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <SecurityIcon color="primary" fontSize="small" />
+            <Typography variant="subtitle1" fontWeight="medium">
+              Garak Security Probes
+            </Typography>
+            {garakVersion && (
+              <Chip
+                label={`v${garakVersion}`}
+                size="small"
+                variant="outlined"
+              />
+            )}
+          </Box>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            This test set was imported from Garak probe modules.
+          </Typography>
+          {garakModules.length > 0 && (
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Modules:{' '}
+              </Typography>
+              {garakModules.map((mod: string) => (
+                <Chip
+                  key={mod}
+                  label={mod}
+                  size="small"
+                  variant="outlined"
+                  sx={{ mr: 0.5, mb: 0.5 }}
+                />
+              ))}
+            </Box>
+          )}
+          {lastSyncedAt && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mt: 1 }}
+            >
+              Last synced: {new Date(lastSyncedAt).toLocaleString()}
+            </Typography>
+          )}
+          {syncPreview && (
+            <Box
+              sx={{
+                mt: 2,
+                p: 1.5,
+                bgcolor: 'background.paper',
+                borderRadius: theme => theme.shape.borderRadius * 0.25,
+              }}
+            >
+              <Typography variant="subtitle2" gutterBottom>
+                Sync Preview
+              </Typography>
+              <Typography variant="body2">
+                New version: <strong>{syncPreview.new_version}</strong> (from{' '}
+                {syncPreview.old_version})
+              </Typography>
+              <Typography variant="body2">
+                To add: <strong>{syncPreview.to_add}</strong> tests
+              </Typography>
+              <Typography variant="body2">
+                To remove: <strong>{syncPreview.to_remove}</strong> tests
+              </Typography>
+              <Typography variant="body2">
+                Unchanged: <strong>{syncPreview.unchanged}</strong> tests
+              </Typography>
+            </Box>
+          )}
+          {syncError && (
+            <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+              {syncError}
+            </Typography>
+          )}
+        </Box>
+      )}
 
       {/* Test Set Details */}
       <Box sx={{ mb: 3, position: 'relative' }}>
@@ -257,6 +412,7 @@ export default function TestSetDetailsSection({
             }}
             sx={{ mb: 2 }}
             autoFocus
+            disabled={isUpdating}
           />
         ) : (
           <Box sx={{ position: 'relative', mb: 3 }}>
@@ -323,7 +479,11 @@ export default function TestSetDetailsSection({
               color="primary"
               startIcon={<CheckIcon />}
               onClick={handleConfirmTitleEdit}
-              disabled={isUpdating}
+              disabled={
+                isUpdating ||
+                !editedTitle.trim() ||
+                editedTitle.trim().length < 2
+              }
             >
               Confirm
             </Button>
@@ -429,6 +589,25 @@ export default function TestSetDetailsSection({
         </Typography>
       </Box>
 
+      {/* Creation Date */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
+          Created
+        </Typography>
+        <Typography
+          variant="body2"
+          sx={{
+            bgcolor: 'action.hover',
+            borderRadius: theme => theme.shape.borderRadius * 0.25,
+            padding: 1,
+          }}
+        >
+          {testSet.created_at
+            ? formatDate(testSet.created_at)
+            : 'Not available'}
+        </Typography>
+      </Box>
+
       {/* Test Set Type */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
@@ -448,6 +627,12 @@ export default function TestSetDetailsSection({
         <MetadataField label="Categories" items={categories} />
         <MetadataField label="Topics" items={topics} />
       </Box>
+
+      {/* Applicable Metrics Section */}
+      <TestSetMetrics
+        testSetId={testSet.id as string}
+        sessionToken={sessionToken}
+      />
 
       {/* Sources Section */}
       {sources.length > 0 && (

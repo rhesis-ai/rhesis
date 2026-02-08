@@ -109,7 +109,9 @@ class TestMCPClient:
             with patch(
                 "rhesis.sdk.services.mcp.client.streamablehttp_client", return_value=mock_context
             ):
-                with patch("rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session):
+                with patch(
+                    "rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session
+                ):
                     await client.connect()
 
         assert client.session == mock_session
@@ -143,7 +145,9 @@ class TestMCPClient:
 
         with patch("rhesis.sdk.services.mcp.client.httpx.AsyncClient", return_value=mock_client):
             with patch("rhesis.sdk.services.mcp.client.sse_client", return_value=mock_context):
-                with patch("rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session):
+                with patch(
+                    "rhesis.sdk.services.mcp.client.ClientSession", return_value=mock_session
+                ):
                     await client.connect()
 
         assert client.session == mock_session
@@ -354,48 +358,12 @@ class TestMCPClientFactory:
         with pytest.raises(FileNotFoundError):
             factory._load_config()
 
-    def test_detect_transport_type_stdio(self):
-        """Test detecting stdio transport type"""
-        factory = MCPClientFactory(config_dict={})
-        config = {"command": "npx", "args": []}
-
-        transport = factory._detect_transport_type(config)
-
-        assert transport == "stdio"
-
-    def test_detect_transport_type_http(self):
-        """Test detecting HTTP transport type"""
-        factory = MCPClientFactory(config_dict={})
-        config = {"url": "https://api.example.com", "headers": {"Authorization": "Bearer token"}}
-
-        transport = factory._detect_transport_type(config)
-
-        assert transport == "http"
-
-    def test_detect_transport_type_sse(self):
-        """Test detecting SSE transport type"""
-        factory = MCPClientFactory(config_dict={})
-        config = {"url": "https://api.example.com/sse"}
-
-        transport = factory._detect_transport_type(config)
-
-        assert transport == "sse"
-
-    def test_detect_transport_type_invalid(self):
-        """Test detecting invalid transport type raises ValueError"""
-        factory = MCPClientFactory(config_dict={})
-        config = {}
-
-        with pytest.raises(ValueError) as exc_info:
-            factory._detect_transport_type(config)
-
-        assert "Cannot detect transport type" in str(exc_info.value)
-
     def test_create_client(self):
         """Test creating client from factory"""
         config = {
             "mcpServers": {
                 "test_server": {
+                    "transport": "stdio",
                     "command": "npx",
                     "args": ["@test/mcp-server"],
                     "env": {},
@@ -437,7 +405,11 @@ class TestMCPClientFactory:
         """Test creating factory from provider name"""
         mock_template_file = Mock()
         mock_template_file.exists.return_value = True
-        mock_template_file.read_text.return_value = '{"mcpServers": {"notionApi": {"command": "npx", "args": ["-y", "@notionhq/notion-mcp-server"], "env": {"NOTION_TOKEN": "{{ NOTION_TOKEN }}"}}}}'
+        mock_template_file.read_text.return_value = (
+            '{"mcpServers": {"notion": {"command": "npx", '
+            '"args": ["-y", "@notionhq/notion-mcp-server"], '
+            '"env": {"NOTION_TOKEN": "{{ NOTION_TOKEN }}"}}}}'
+        )
 
         mock_templates_dir = Mock()
         mock_templates_dir.__truediv__ = Mock(return_value=mock_template_file)
@@ -483,7 +455,7 @@ class TestMCPClientFactory:
         }
         credentials = {"TOKEN": "test_token_123"}
 
-        factory = MCPClientFactory.from_tool_config("customApi", tool_config, credentials)
+        factory = MCPClientFactory.from_tool_config(tool_config, credentials)
 
         assert isinstance(factory, MCPClientFactory)
         assert factory.config_dict is not None
@@ -496,7 +468,7 @@ class TestMCPClientFactory:
         credentials = {}
 
         with pytest.raises(ValueError) as exc_info:
-            MCPClientFactory.from_tool_config("test", tool_config, credentials)
+            MCPClientFactory.from_tool_config(tool_config, credentials)
 
         assert "mcpServers" in str(exc_info.value)
 
@@ -516,7 +488,7 @@ class TestMCPClientFactory:
         }
         credentials = {"API_KEY": "key123", "API_SECRET": "secret456"}
 
-        factory = MCPClientFactory.from_tool_config("testApi", tool_config, credentials)
+        factory = MCPClientFactory.from_tool_config(tool_config, credentials)
 
         env = factory.config_dict["mcpServers"]["testApi"]["env"]
         assert env["API_KEY"] == "key123"

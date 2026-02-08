@@ -24,8 +24,8 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "psycopg2-binary>=2.9.0",
     "python-dotenv>=1.0.0",
-    # Backend dependency for authentication utilities (brings SDK and Penelope)
-    "rhesis-backend",
+    # Backend dependency with GPU PyTorch (brings SDK, Penelope, and GPU torch)
+    "rhesis-backend[gpu]",
     # GCS support for model loading from cloud buckets
     "google-cloud-storage>=2.10.0",
     # Optimization: BetterTransformer for 1.5-2x inference speedup

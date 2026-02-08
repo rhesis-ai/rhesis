@@ -1,5 +1,6 @@
 """Type definitions for the connector module."""
 
+import os
 from enum import Enum
 
 
@@ -35,8 +36,10 @@ class RetryConfig:
     """Configuration constants for connection retry behavior."""
 
     DEFAULT_MAX_RETRIES = 10
-    DEFAULT_PING_INTERVAL = 30  # seconds
-    DEFAULT_PING_TIMEOUT = 10  # seconds
+    # Ping interval and timeout are configurable for long-running LLM operations
+    # Defaults increased to accommodate typical LLM response times
+    DEFAULT_PING_INTERVAL = int(os.environ.get("RHESIS_PING_INTERVAL", "60"))  # seconds
+    DEFAULT_PING_TIMEOUT = int(os.environ.get("RHESIS_PING_TIMEOUT", "30"))  # seconds
     SLOW_RETRY_INTERVAL = 60  # seconds - wait between retry cycles
     REGISTRATION_DELAY = 0.5  # seconds - stabilization delay after connect
 

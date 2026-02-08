@@ -282,6 +282,12 @@ export default function LatestTestRunsChart({
                 borderRadius: '4px',
                 color: theme.palette.text.primary,
               }}
+              itemStyle={{
+                color: theme.palette.text.primary,
+              }}
+              labelStyle={{
+                color: theme.palette.text.primary,
+              }}
               formatter={(value: any, name: string, props: any) => {
                 // The value here is the pass_rate from the data
                 return [`${value}%`, 'Pass Rate'];

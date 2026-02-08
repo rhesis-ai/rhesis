@@ -146,6 +146,7 @@ extensions = [
     'myst_parser', # TODO: implement link from README.md to index.rst
     'resolve_types',  # Our custom extension to fix ambiguous type references
     'fix_entity_docs',  # Custom extension to fix Client references in BaseEntity
+    'sphinx_copybutton',  # Add copy button to code blocks
 ]
 
 # Mock imports for modules that might not be available at build time are no longer needed

@@ -7,8 +7,13 @@ FROM mirror.gcr.io/library/python:3.10.17-slim
 
 WORKDIR /app
 
-# Install OS-level dependencies and uv
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install OS-level dependencies and uv with retry logic
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    --allow-unauthenticated \
+    -o Acquire::Retries=3 \
+    -o Acquire::http::Timeout=10 \
+    -o Acquire::https::Timeout=10 \
     build-essential \
     curl \
     git \

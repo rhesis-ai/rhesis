@@ -1,0 +1,54 @@
+[project]
+name = "rhesis"
+dynamic = ["version", "dependencies"]
+description = "Rhesis - Testing and validation platform for LLM applications (alias for rhesis-sdk)"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Engineering Team", email = "engineering@rhesis.ai" },
+    { name = "Harry Cruz", email = "harry@rhesis.ai" },
+    { name = "Nicolai Bohn", email = "nicolai@rhesis.ai" },
+]
+keywords = [
+    "llm",
+    "testing",
+    "ai",
+    "machine-learning",
+    "validation",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+# Version and dependencies are set dynamically from sdk/pyproject.toml
+# Installing 'rhesis' is equivalent to installing 'rhesis-sdk' at the same version
+
+[project.license]
+text = "MIT"
+
+[project.urls]
+Homepage = "https://rhesis.ai"
+Repository = "https://github.com/rhesis-ai/rhesis"
+Documentation = "https://docs.rhesis.ai"
+"Bug Tracker" = "https://github.com/rhesis-ai/rhesis/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "../../sdk/pyproject.toml"
+pattern = '''version\s*=\s*["'](?P<version>[^"']+)["']'''
+
+[tool.hatch.metadata.hooks.custom]
+path = "hatch_build.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rhesis"]

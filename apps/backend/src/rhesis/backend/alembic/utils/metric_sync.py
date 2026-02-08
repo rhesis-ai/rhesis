@@ -49,16 +49,20 @@ def load_metrics_from_initial_data() -> List[Dict[str, Any]]:
 
 
 def sync_metrics_to_organizations(
-    session: Session, verbose: bool = True, commit: bool = False
+    session: Session,
+    metric_names: List[str] | None = None,
+    verbose: bool = True,
+    commit: bool = False,
 ) -> Dict[str, int]:
     """
-    Sync all metrics from initial_data.json to all existing organizations.
+    Sync metrics from initial_data.json to all existing organizations.
 
     This function is fully idempotent - it will only create metrics that don't
     already exist in each organization. It's safe to run multiple times.
 
     Args:
         session: SQLAlchemy database session
+        metric_names: Optional list of metric names to sync. If None, syncs all metrics.
         verbose: If True, print progress messages
         commit: If True, commit the session after syncing. If False, caller is responsible.
 
@@ -83,6 +87,13 @@ def sync_metrics_to_organizations(
             print("\n📖 Loading metrics from initial_data.json...")
 
         all_metrics = load_metrics_from_initial_data()
+
+        # Filter to specific metrics if requested
+        if metric_names is not None:
+            metric_names_set = set(metric_names)
+            all_metrics = [m for m in all_metrics if m["name"] in metric_names_set]
+            if verbose:
+                print(f"   Filtered to {len(all_metrics)} metrics by name")
 
         if verbose:
             print(f"   Found {len(all_metrics)} metric definitions")

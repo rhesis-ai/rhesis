@@ -81,7 +81,7 @@ export default function TestSetSelectionDialog({
         setTestSets(sets.data);
       } catch (error) {
         // Error fetching test sets
-        // eslint-disable-next-line no-console
+
         notifications.show('Failed to load test sets', {
           severity: 'error',
           autoHideDuration: 6000,

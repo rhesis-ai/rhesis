@@ -33,24 +33,33 @@ def test_prompt_metric_base__init__(metric):
 
 
 def test_validate_evaluate_inputs(metric):
-    metric._validate_evaluate_inputs("input", "output", "expected_output")
+    # Valid call with all required inputs (metric has requires_context=True)
     metric._validate_evaluate_inputs("input", "output", "expected_output", ["context"])
 
     assert hasattr(metric, "requires_ground_truth")
+    assert hasattr(metric, "requires_context")
 
+    # Invalid input type
     with pytest.raises(ValueError):
-        metric._validate_evaluate_inputs(1, "output", "expected_output")
+        metric._validate_evaluate_inputs(1, "output", "expected_output", ["context"])
 
+    # Invalid output type
     with pytest.raises(ValueError):
-        metric._validate_evaluate_inputs("input", 1, "expected_output")
+        metric._validate_evaluate_inputs("input", 1, "expected_output", ["context"])
 
+    # Missing ground truth when required
     with pytest.raises(ValueError):
-        metric._validate_evaluate_inputs("input", "output", expected_output=None)
+        metric._validate_evaluate_inputs(
+            "input", "output", expected_output=None, context=["context"]
+        )
 
-    # with pytest.raises(ValueError):
-    #     metric._validate_evaluate_inputs(
-    #         "input", "output", expected_output=None, context=1
-    #     )
+    # Missing context when required
+    with pytest.raises(ValueError):
+        metric._validate_evaluate_inputs("input", "output", "expected_output", context=None)
+
+    # Empty context when required
+    with pytest.raises(ValueError):
+        metric._validate_evaluate_inputs("input", "output", "expected_output", context=[])
 
 
 def test_get_base_details(metric):

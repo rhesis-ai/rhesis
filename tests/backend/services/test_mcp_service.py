@@ -20,6 +20,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.mcp_service import (
     _get_mcp_client_from_params,
     _get_mcp_tool_config,
+    create_jira_ticket_from_task,
     extract_mcp,
     handle_mcp_exception,
     query_mcp,
@@ -194,7 +195,7 @@ class TestGetMCPClientByToolId:
         mock_factory.from_provider.assert_called_once_with(
             provider="notion", credentials={"NOTION_TOKEN": "test_token"}
         )
-        mock_factory_instance.create_client.assert_called_once_with("notionApi")
+        mock_factory_instance.create_client.assert_called_once_with("notion")
 
     @patch("rhesis.backend.app.services.mcp_service.MCPClientFactory")
     @patch("rhesis.backend.app.services.mcp_service.crud")
@@ -224,7 +225,6 @@ class TestGetMCPClientByToolId:
         assert provider_name == "custom"
         assert repository_context is None
         mock_factory.from_tool_config.assert_called_once_with(
-            tool_name="customApi",
             tool_config={"command": "npx", "args": ["@example/mcp-server"]},
             credentials={"TOKEN": "test_token"},
         )
@@ -363,7 +363,7 @@ class TestGetMCPClientFromParams:
         # Assert
         assert result == mock_client
         mock_factory.from_tool_config.assert_called_once_with(
-            tool_name="customApi", tool_config=tool_metadata, credentials=credentials
+            tool_config=tool_metadata, credentials=credentials
         )
 
     @patch("rhesis.backend.app.services.mcp_service.crud")
@@ -876,10 +876,16 @@ class TestTestMCPAuthentication:
 
     @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
     @patch("rhesis.backend.app.services.mcp_service._get_mcp_client_from_params")
+    @patch("rhesis.backend.app.services.mcp_service.crud")
     @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
     @patch("rhesis.backend.app.services.mcp_service.jinja_env")
     async def test_authentication_with_params(
-        self, mock_jinja_env, mock_get_model, mock_get_client_from_params, mock_agent_class
+        self,
+        mock_jinja_env,
+        mock_get_model,
+        mock_crud,
+        mock_get_client_from_params,
+        mock_agent_class,
     ):
         """Test successfully test authentication using provider_type_id and credentials"""
         provider_type_id = uuid.uuid4()
@@ -889,6 +895,11 @@ class TestTestMCPAuthentication:
         user = Mock(spec=User)
 
         mock_get_model.return_value = Mock(spec=BaseLLM)
+
+        # Mock the provider type lookup
+        mock_provider_type = Mock()
+        mock_provider_type.type_value = "notion"
+        mock_crud.get_type_lookup.return_value = mock_provider_type
 
         mock_client = Mock()
         mock_client.connect = AsyncMock()
@@ -916,6 +927,7 @@ class TestTestMCPAuthentication:
         # Assert
         assert isinstance(result, dict)
         assert result["is_authenticated"] == "No"
+        mock_crud.get_type_lookup.assert_called_once_with(db, provider_type_id, org_id, None)
         mock_get_client_from_params.assert_called_once_with(
             provider_type_id=provider_type_id,
             credentials=credentials,
@@ -956,3 +968,248 @@ class TestTestMCPAuthentication:
             await run_mcp_authentication_test(db, user, org_id, tool_id=tool_id)
 
         assert "Authentication test failed" in str(exc_info.value)
+
+    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
+    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    async def test_authentication_with_additional_metadata(
+        self, mock_jinja_env, mock_get_model, mock_get_client, mock_agent_class
+    ):
+        """Test authentication returns additional_metadata for Jira"""
+        tool_id = "test-tool-id"
+        org_id = "test-org-id"
+        db = Mock(spec=Session)
+        user = Mock(spec=User)
+
+        mock_get_model.return_value = Mock(spec=BaseLLM)
+        mock_client = Mock()
+        mock_get_client.return_value = (mock_client, "jira", None)
+
+        mock_template = Mock()
+        mock_template.render.return_value = "Auth test prompt"
+        mock_jinja_env.get_template.return_value = mock_template
+
+        mock_agent = Mock()
+        mock_result = Mock()
+        mock_result.final_answer = (
+            '{"is_authenticated": "Yes", "message": "Auth successful", '
+            '"spaces": [{"key": "PROJ", "name": "Project"}]}'
+        )
+        mock_result.success = True
+        mock_agent.run_async = AsyncMock(return_value=mock_result)
+        mock_agent_class.return_value = mock_agent
+
+        # Execute
+        result = await run_mcp_authentication_test(db, user, org_id, tool_id=tool_id)
+
+        # Assert
+        assert result["is_authenticated"] == "Yes"
+        assert "additional_metadata" in result
+        assert "spaces" in result["additional_metadata"]
+        assert result["additional_metadata"]["spaces"][0]["key"] == "PROJ"
+
+
+@pytest.mark.unit
+@pytest.mark.services
+@pytest.mark.asyncio
+class TestCreateJiraTicketFromTask:
+    """Test create_jira_ticket_from_task function"""
+
+    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
+    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    async def test_create_jira_ticket_success(
+        self, mock_jinja_env, mock_get_model, mock_get_client, mock_crud, mock_agent_class
+    ):
+        """Test successfully create Jira ticket from task"""
+        task_id = uuid.uuid4()
+        tool_id = str(uuid.uuid4())
+        org_id = "test-org-id"
+        user_id = "test-user-id"
+        db = Mock(spec=Session)
+
+        # Mock task
+        mock_task = Mock()
+        mock_task.title = "Test Task"
+        mock_task.description = "Task description"
+        mock_task.task_metadata = {}
+        mock_crud.get_task.return_value = mock_task
+
+        # Mock tool with space_key
+        mock_tool = Mock()
+        mock_tool.tool_metadata = {"space_key": "PROJ"}
+        mock_crud.get_tool.return_value = mock_tool
+
+        # Mock user
+        mock_user = Mock(spec=User)
+        mock_crud.get_user_by_id.return_value = mock_user
+
+        mock_get_model.return_value = Mock(spec=BaseLLM)
+        mock_client = Mock()
+        mock_get_client.return_value = (mock_client, "jira", None)
+
+        mock_template = Mock()
+        mock_template.render.return_value = "Create issue prompt"
+        mock_jinja_env.get_template.return_value = mock_template
+
+        # Mock agent
+        mock_agent = Mock()
+        mock_result = Mock()
+        mock_result.final_answer = (
+            '{"issue_key": "PROJ-123", "issue_url": "https://jira.com/browse/PROJ-123"}'
+        )
+        mock_result.success = True
+        mock_agent.run_async = AsyncMock(return_value=mock_result)
+        mock_agent_class.return_value = mock_agent
+
+        # Execute
+        result = await create_jira_ticket_from_task(task_id, tool_id, db, org_id, user_id)
+
+        # Assert
+        assert result["issue_key"] == "PROJ-123"
+        assert result["issue_url"] == "https://jira.com/browse/PROJ-123"
+        mock_crud.get_task.assert_called_once_with(db, task_id, org_id, user_id)
+        mock_crud.update_task.assert_called_once()
+        # Verify task metadata was updated
+        assert "jira_issue" in mock_task.task_metadata
+        assert mock_task.task_metadata["jira_issue"]["issue_key"] == "PROJ-123"
+        assert mock_task.task_metadata["jira_issue"]["tool_id"] == tool_id
+
+    @patch("rhesis.backend.app.services.mcp_service.crud")
+    async def test_create_jira_ticket_task_not_found(self, mock_crud):
+        """Test raises ValueError when task not found"""
+        task_id = uuid.uuid4()
+        tool_id = str(uuid.uuid4())
+        org_id = "test-org-id"
+        user_id = "test-user-id"
+        db = Mock(spec=Session)
+
+        mock_crud.get_task.return_value = None
+
+        with pytest.raises(ValueError) as exc_info:
+            await create_jira_ticket_from_task(task_id, tool_id, db, org_id, user_id)
+
+        assert "not found" in str(exc_info.value).lower()
+
+    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp_service.crud")
+    async def test_create_jira_ticket_wrong_provider(self, mock_crud, mock_get_client):
+        """Test raises ValueError when tool is not Jira"""
+        task_id = uuid.uuid4()
+        tool_id = str(uuid.uuid4())
+        org_id = "test-org-id"
+        user_id = "test-user-id"
+        db = Mock(spec=Session)
+
+        mock_task = Mock()
+        mock_crud.get_task.return_value = mock_task
+
+        mock_client = Mock()
+        mock_get_client.return_value = (mock_client, "github", None)
+
+        with pytest.raises(ValueError) as exc_info:
+            await create_jira_ticket_from_task(task_id, tool_id, db, org_id, user_id)
+
+        assert "must be a Jira integration" in str(exc_info.value)
+        assert "github" in str(exc_info.value)
+
+    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp_service.crud")
+    async def test_create_jira_ticket_missing_space_key(self, mock_crud, mock_get_client):
+        """Test raises ValueError when tool metadata lacks space_key"""
+        task_id = uuid.uuid4()
+        tool_id = str(uuid.uuid4())
+        org_id = "test-org-id"
+        user_id = "test-user-id"
+        db = Mock(spec=Session)
+
+        mock_task = Mock()
+        mock_crud.get_task.return_value = mock_task
+
+        mock_client = Mock()
+        mock_get_client.return_value = (mock_client, "jira", None)
+
+        # Tool without space_key
+        mock_tool = Mock()
+        mock_tool.tool_metadata = {}
+        mock_crud.get_tool.return_value = mock_tool
+
+        with pytest.raises(ValueError) as exc_info:
+            await create_jira_ticket_from_task(task_id, tool_id, db, org_id, user_id)
+
+        assert "not configured with a space_key" in str(exc_info.value)
+
+    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp_service.crud")
+    async def test_create_jira_ticket_null_metadata(self, mock_crud, mock_get_client):
+        """Test raises ValueError when tool metadata is None"""
+        task_id = uuid.uuid4()
+        tool_id = str(uuid.uuid4())
+        org_id = "test-org-id"
+        user_id = "test-user-id"
+        db = Mock(spec=Session)
+
+        mock_task = Mock()
+        mock_crud.get_task.return_value = mock_task
+
+        mock_client = Mock()
+        mock_get_client.return_value = (mock_client, "jira", None)
+
+        # Tool with None metadata
+        mock_tool = Mock()
+        mock_tool.tool_metadata = None
+        mock_crud.get_tool.return_value = mock_tool
+
+        with pytest.raises(ValueError) as exc_info:
+            await create_jira_ticket_from_task(task_id, tool_id, db, org_id, user_id)
+
+        assert "not configured with a space_key" in str(exc_info.value)
+
+    @patch("rhesis.backend.app.services.mcp_service.MCPAgent")
+    @patch("rhesis.backend.app.services.mcp_service.crud")
+    @patch("rhesis.backend.app.services.mcp_service._get_mcp_tool_config")
+    @patch("rhesis.backend.app.services.mcp_service.get_user_generation_model")
+    @patch("rhesis.backend.app.services.mcp_service.jinja_env")
+    async def test_create_jira_ticket_agent_failure(
+        self, mock_jinja_env, mock_get_model, mock_get_client, mock_crud, mock_agent_class
+    ):
+        """Test raises ValueError when agent fails to create ticket"""
+        task_id = uuid.uuid4()
+        tool_id = str(uuid.uuid4())
+        org_id = "test-org-id"
+        user_id = "test-user-id"
+        db = Mock(spec=Session)
+
+        mock_task = Mock()
+        mock_task.title = "Test Task"
+        mock_task.description = "Description"
+        mock_task.task_metadata = {}
+        mock_crud.get_task.return_value = mock_task
+
+        mock_tool = Mock()
+        mock_tool.tool_metadata = {"space_key": "PROJ"}
+        mock_crud.get_tool.return_value = mock_tool
+
+        mock_crud.get_user_by_id.return_value = Mock(spec=User)
+        mock_get_model.return_value = Mock(spec=BaseLLM)
+        mock_get_client.return_value = (Mock(), "jira", None)
+
+        mock_template = Mock()
+        mock_template.render.return_value = "Create issue prompt"
+        mock_jinja_env.get_template.return_value = mock_template
+
+        # Agent fails
+        mock_agent = Mock()
+        mock_result = Mock()
+        mock_result.success = False
+        mock_result.error = "Failed to create issue"
+        mock_agent.run_async = AsyncMock(return_value=mock_result)
+        mock_agent_class.return_value = mock_agent
+
+        with pytest.raises(ValueError) as exc_info:
+            await create_jira_ticket_from_task(task_id, tool_id, db, org_id, user_id)
+
+        assert "Failed to create Jira ticket" in str(exc_info.value)

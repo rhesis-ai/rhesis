@@ -18,6 +18,7 @@ const meta: MetaRecord = {
   "tests-generation": "Generation",
   tests: "Tests",
   "test-sets": "Test Sets",
+  "test-execution": "Test Execution",
   "---results": {
     type: "separator",
     title: "Results",

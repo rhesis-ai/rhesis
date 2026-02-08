@@ -120,6 +120,21 @@ export interface TestMCPConnectionRequest {
 export interface TestMCPConnectionResponse {
   is_authenticated: string; // "Yes" or "No"
   message: string;
+  additional_metadata?: {
+    projects?: Array<{ key: string; name: string }>;
+    [key: string]: any;
+  };
+}
+
+export interface CreateJiraTicketFromTaskRequest {
+  task_id: string;
+  tool_id: string;
+}
+
+export interface CreateJiraTicketFromTaskResponse {
+  issue_key: string;
+  issue_url: string;
+  message: string;
 }
 
 export class ServicesClient extends BaseApiClient {
@@ -294,6 +309,31 @@ export class ServicesClient extends BaseApiClient {
         headers: {
           'Content-Type': 'application/json',
         },
+      }
+    );
+  }
+
+  /**
+   * Create a Jira ticket from a task
+   * @param taskId - ID of the task to create a ticket from
+   * @param toolId - ID of the Jira MCP tool integration
+   * @returns Promise with issue key, URL, and message
+   */
+  async createJiraTicketFromTask(
+    taskId: string,
+    toolId: string
+  ): Promise<CreateJiraTicketFromTaskResponse> {
+    return this.fetch<CreateJiraTicketFromTaskResponse>(
+      `${API_ENDPOINTS.services}/mcp/jira/create-ticket-from-task`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          task_id: taskId,
+          tool_id: toolId,
+        }),
       }
     );
   }

@@ -1,0 +1,86 @@
+{{- if .Values.chatbot.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatbot
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: chatbot
+    tier: chatbot
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.chatbot.replicas }}
+  selector:
+    matchLabels:
+      app: chatbot
+      tier: chatbot
+  template:
+    metadata:
+      labels:
+        app: chatbot
+        tier: chatbot
+    spec:
+      {{- if .Values.podSecurityContext.enabled }}
+      securityContext:
+        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+        runAsGroup: {{ .Values.podSecurityContext.runAsGroup }}
+        {{- if .Values.podSecurityContext.fsGroupChangePolicy }}
+        fsGroupChangePolicy: {{ .Values.podSecurityContext.fsGroupChangePolicy }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: chatbot
+          image: "{{ .Values.images.chatbot.repository }}:{{ .Values.images.chatbot.tag }}"
+          imagePullPolicy: {{ .Values.images.chatbot.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- if .Values.containerSecurityContext.enabled }}
+          securityContext:
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+            runAsNonRoot: {{ .Values.containerSecurityContext.runAsNonRoot }}
+            runAsUser: {{ .Values.containerSecurityContext.runAsUser }}
+            runAsGroup: {{ .Values.containerSecurityContext.runAsGroup }}
+            {{- if .Values.containerSecurityContext.capabilities }}
+            capabilities:
+              {{- toYaml .Values.containerSecurityContext.capabilities | nindent 14 }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - containerPort: {{ .Values.chatbot.service.targetPort }}
+              name: http
+          envFrom:
+            - configMapRef:
+                name: {{ .Values.secrets.configMaps.existingConfigMap }}
+            - secretRef:
+                name: {{ .Values.secrets.existingSecret }}
+          env:
+            # Construct Redis URLs from individual components + secrets
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+            {{- if .Values.chatbot.env }}
+            {{- range .Values.chatbot.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.chatbot.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.chatbot.service.targetPort }}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.chatbot.service.targetPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 5
+{{- end }}
+

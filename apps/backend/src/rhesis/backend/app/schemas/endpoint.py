@@ -87,10 +87,10 @@ class EndpointBase(Base):
 
     # Response Handling
     response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
-    response_mapping: Optional[Dict[str, str]] = None
+    response_mapping: Optional[Dict[str, Any]] = None
     validation_rules: Optional[Dict[str, Any]] = None
 
-    project_id: Optional[UUID4] = None
+    project_id: UUID4  # Required field
     status_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
@@ -115,6 +115,7 @@ class EndpointUpdate(EndpointBase):
     name: Optional[str] = None
     connection_type: Optional[EndpointConnectionType] = None
     url: Optional[str] = None
+    project_id: Optional[UUID4] = None  # Optional for updates
 
 
 class EndpointTestRequest(Base):
@@ -197,7 +198,7 @@ class Endpoint(Base):
 
     # Response Handling
     response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
-    response_mapping: Optional[Dict[str, str]] = None
+    response_mapping: Optional[Dict[str, Any]] = None
     validation_rules: Optional[Dict[str, Any]] = None
 
     project_id: Optional[UUID4] = None

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Typography, Alert, CircularProgress } from '@mui/material';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
@@ -16,6 +16,9 @@ import {
   ConnectedModelCard,
   AddModelCard,
 } from './components';
+import type { ValidationStatus } from './types';
+
+export type { ValidationStatus } from './types';
 
 export default function ModelsPage() {
   const { data: session } = useSession();
@@ -24,6 +27,9 @@ export default function ModelsPage() {
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modelValidationStatus, setModelValidationStatus] = useState<
+    Map<string, ValidationStatus>
+  >(new Map());
   const [selectedProvider, setSelectedProvider] = useState<TypeLookup | null>(
     null
   );
@@ -102,6 +108,108 @@ export default function ModelsPage() {
     } catch (err) {}
   };
 
+  const validateModel = useCallback(
+    async (modelId: UUID) => {
+      if (!session?.session_token) return;
+
+      setModelValidationStatus(prev =>
+        new Map(prev).set(modelId, {
+          isValid: false,
+          isValidating: true,
+        })
+      );
+
+      try {
+        const apiFactory = new ApiClientFactory(session.session_token);
+        const modelsClient = apiFactory.getModelsClient();
+        const result = await modelsClient.testModelConnection(modelId);
+
+        console.log('[MODEL_VALIDATION] Result:', result);
+
+        setModelValidationStatus(prev =>
+          new Map(prev).set(modelId, {
+            isValid: result.status === 'success',
+            isValidating: false,
+            errorMessage:
+              result.status === 'success' ? undefined : result.message,
+          })
+        );
+      } catch (error) {
+        console.error('[MODEL_VALIDATION] Error:', error);
+
+        // Extract the actual error message from the API response
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : 'Failed to validate model configuration';
+        setModelValidationStatus(prev =>
+          new Map(prev).set(modelId, {
+            isValid: false,
+            isValidating: false,
+            errorMessage,
+          })
+        );
+      }
+    },
+    [session?.session_token]
+  );
+
+  // Validate any models set as defaults (generation or evaluation)
+  // This ensures users are warned if their default models are misconfigured
+  // and clears warnings for models that are no longer defaults
+  useEffect(() => {
+    if (!session?.session_token || connectedModels.length === 0) {
+      return;
+    }
+
+    const defaultGenerationId = userSettings?.models?.generation?.model_id;
+    const defaultEvaluationId = userSettings?.models?.evaluation?.model_id;
+
+    // Clear validation status for models that are NOT currently defaults
+    setModelValidationStatus(prev => {
+      const newStatus = new Map(prev);
+      connectedModels.forEach(model => {
+        const isDefault =
+          model.id === defaultGenerationId || model.id === defaultEvaluationId;
+        if (!isDefault && newStatus.has(model.id)) {
+          // Remove validation status for non-default models
+          newStatus.delete(model.id);
+        }
+      });
+      return newStatus;
+    });
+
+    // Validate default generation model
+    if (defaultGenerationId) {
+      const defaultGenerationModel = connectedModels.find(
+        m => m.id === defaultGenerationId
+      );
+      if (defaultGenerationModel) {
+        validateModel(defaultGenerationModel.id);
+      }
+    }
+
+    // Validate default evaluation model
+    if (defaultEvaluationId) {
+      const defaultEvaluationModel = connectedModels.find(
+        m => m.id === defaultEvaluationId
+      );
+      // Only validate if it's different from generation model
+      if (
+        defaultEvaluationModel &&
+        defaultEvaluationModel.id !== defaultGenerationId
+      ) {
+        validateModel(defaultEvaluationModel.id);
+      }
+    }
+  }, [
+    connectedModels,
+    userSettings?.models?.generation?.model_id,
+    userSettings?.models?.evaluation?.model_id,
+    session?.session_token,
+    validateModel,
+  ]);
+
   const handleConnect = async (
     providerId: string,
     modelData: ModelCreate
@@ -140,6 +248,14 @@ export default function ModelsPage() {
       setConnectedModels(prev =>
         prev.map(model => (model.id === modelId ? updatedModel : model))
       );
+
+      // Re-validate if this is a default model (generation or evaluation)
+      if (
+        userSettings?.models?.generation?.model_id === modelId ||
+        userSettings?.models?.evaluation?.model_id === modelId
+      ) {
+        validateModel(modelId);
+      }
     } catch (err) {
       throw err;
     }
@@ -170,10 +286,7 @@ export default function ModelsPage() {
   };
 
   return (
-    <PageContainer
-      title="Models"
-      breadcrumbs={[{ title: 'Models', path: '/models' }]}
-    >
+    <PageContainer title="Models" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Connect to leading AI model providers to power your evaluation and
@@ -210,6 +323,7 @@ export default function ModelsPage() {
               key={model.id}
               model={model}
               userSettings={userSettings}
+              validationStatus={modelValidationStatus.get(model.id)}
               onEdit={handleEditClick}
               onDelete={handleDeleteClick}
             />

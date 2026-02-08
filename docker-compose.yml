@@ -84,8 +84,7 @@ x-nextjs-frontend: &nextjs-frontend
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:16-alpine
-    container_name: rhesis-postgres
+    image: mirror.gcr.io/postgres:16-alpine
     environment:
       POSTGRES_DB: ${SQLALCHEMY_DB_NAME:-rhesis-db}
       POSTGRES_USER: ${SQLALCHEMY_DB_USER:-rhesis-user}
@@ -105,8 +104,7 @@ services:
 
    # Redis for Celery
   redis:
-    image: redis:7-alpine
-    container_name: rhesis-redis
+    image: mirror.gcr.io/redis:7-alpine
     command: redis-server --requirepass ${REDIS_PASSWORD:-rhesis-redis-pass}
     ports:
       - "6379:6379"
@@ -127,7 +125,6 @@ services:
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
-    container_name: rhesis-backend
     environment:
       <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config]
       LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
@@ -157,7 +154,6 @@ services:
     build:
       context: .
       dockerfile: apps/worker/Dockerfile
-    container_name: rhesis-worker
     environment:
       <<: [*common-database, *common-redis, *common-auth, *common-auth0, *common-smtp, *common-jwt, *common-environment, *rhesis-config]
       LOG_LEVEL: ${CELERY_WORKER_LOGLEVEL:-INFO}
@@ -196,7 +192,6 @@ services:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
         NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
         NEXT_PUBLIC_QUICK_START: ${NEXT_PUBLIC_QUICK_START:-false}
-    container_name: rhesis-frontend
     environment:
       <<: [*nextjs-frontend, *common-environment, *rhesis-config]
       PORT: ${FRONTEND_PORT:-3000}
@@ -220,7 +215,6 @@ services:
     build:
       context: ./docs
       dockerfile: src/Dockerfile
-    container_name: rhesis-docs
     environment:
       <<: [*common-environment]
       PORT: 3001

@@ -60,7 +60,8 @@ class TestForbiddenSpanDomains:
 
     def test_forbidden_domains_contains_expected_values(self):
         """Test FORBIDDEN_SPAN_DOMAINS contains framework concepts."""
-        expected_forbidden = ["agent", "chain", "workflow", "pipeline"]
+        # Note: "agent" is now allowed for multi-agent tracing
+        expected_forbidden = ["chain", "workflow", "pipeline"]
         for domain in expected_forbidden:
             assert domain in FORBIDDEN_SPAN_DOMAINS, (
                 f"'{domain}' should be in FORBIDDEN_SPAN_DOMAINS"

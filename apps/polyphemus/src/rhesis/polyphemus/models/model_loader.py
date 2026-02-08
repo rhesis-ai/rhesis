@@ -5,7 +5,7 @@ Contains different model classes that can be used based on configuration.
 
 import logging
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from rhesis.sdk.models import BaseLLM
 from rhesis.sdk.models.factory import get_model
@@ -209,18 +209,20 @@ class LazyModelLoader(BaseLLM):
             # Try to optimize with BetterTransformer (PyTorch 2.0+ optimization)
             # This can provide 1.5-2x speedup for inference
             # Requires: pip install optimum
-            if hasattr(self._internal_model, "model") and hasattr(
-                self._internal_model.model, "to_bettertransformer"
-            ):
+            if hasattr(self._internal_model, "model"):
                 try:
+                    from optimum.bettertransformer import BetterTransformer
+
                     logger.info("Applying BetterTransformer optimization...")
-                    self._internal_model.model = self._internal_model.model.to_bettertransformer()
+                    self._internal_model.model = BetterTransformer.transform(
+                        self._internal_model.model, keep_original_model=False
+                    )
                     self.model = self._internal_model.model
                     logger.info("✅ BetterTransformer applied successfully (1.5-2x speedup)")
-                except ImportError as import_error:
+                except ImportError:
                     logger.info(
-                        f"⚠️ BetterTransformer not available (optional): {import_error}. "
-                        f"Install 'optimum' package for 1.5-2x inference speedup."
+                        "⚠️ BetterTransformer not available (optional). "
+                        "Install 'optimum' package for 1.5-2x inference speedup."
                     )
                 except Exception as bt_error:
                     logger.warning(
@@ -251,6 +253,19 @@ class LazyModelLoader(BaseLLM):
                             # Log GPU name
                             gpu_name = torch.cuda.get_device_name(0)
                             logger.info(f"✅ GPU: {gpu_name}")
+
+                            # VERIFY: Test GPU computation
+                            try:
+                                test_tensor = torch.randn(1000, 1000, device=device)
+                                result = torch.matmul(test_tensor, test_tensor)
+                                logger.info(
+                                    f"✅ GPU Computation Test: PASSED "
+                                    f"(result device: {result.device})"
+                                )
+                                del test_tensor, result
+                                torch.cuda.empty_cache()
+                            except Exception as compute_error:
+                                logger.error(f"❌ GPU Computation Test: FAILED - {compute_error}")
                         else:
                             logger.warning("⚠️ Model has no parameters to check device")
                     else:
@@ -291,3 +306,55 @@ class LazyModelLoader(BaseLLM):
             schema=schema,
             **kwargs,
         )
+
+    def generate_batch(
+        self,
+        prompts: List[str],
+        system_prompt: Optional[str] = None,
+        schema: Optional[Any] = None,
+        **kwargs,
+    ) -> List[Union[str, Dict[str, Any]]]:
+        """
+        Generate responses for multiple prompts using the loaded model.
+
+        Falls back to sequential generation if batch processing is not supported
+        by the underlying provider (e.g., lmformatenforcer, huggingface).
+
+        Args:
+            prompts: List of user prompts
+            system_prompt: Optional system prompt (applied to all prompts)
+            schema: Optional schema for structured output
+            **kwargs: Additional generation parameters
+
+        Returns:
+            List of str or dict: Generated responses
+        """
+        if self._internal_model is None:
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        try:
+            # Try batch processing first (works for API-based providers)
+            return self._internal_model.generate_batch(
+                prompts=prompts,
+                system_prompt=system_prompt,
+                schema=schema,
+                **kwargs,
+            )
+        except (NotImplementedError, AttributeError):
+            # Fallback to sequential generation for providers that don't support batch.
+            # Catches NotImplementedError (method exists but raises) and AttributeError
+            # (method doesn't exist, e.g., if provider doesn't inherit from BaseLLM properly).
+            logger.info(
+                f"Batch processing not supported by {self._model_name}, "
+                f"falling back to sequential generation"
+            )
+            results = []
+            for prompt in prompts:
+                result = self._internal_model.generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    schema=schema,
+                    **kwargs,
+                )
+                results.append(result)
+            return results

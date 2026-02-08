@@ -1,6 +1,6 @@
 """Data retrieval utilities for test execution."""
 
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -8,6 +8,10 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.logging.rhesis_logger import logger
+
+if TYPE_CHECKING:
+    from rhesis.backend.app.models.test_configuration import TestConfiguration
+    from rhesis.backend.app.models.test_set import TestSet
 
 
 def get_test_and_prompt(
@@ -76,21 +80,37 @@ def get_test_metrics(
     db: Session,
     organization_id: Optional[str] = None,
     user_id: Optional[str] = None,
+    test_set: Optional["TestSet"] = None,
+    test_configuration: Optional["TestConfiguration"] = None,
 ) -> List:
     """
-    Retrieve and validate metrics for a test from its associated behavior.
+    Retrieve and validate metrics for a test.
+
+    Metric resolution follows a 3-level override precedence:
+    1. Execution-time metrics from test_configuration.attributes["metrics"]
+       (highest priority - completely overrides other levels)
+    2. Test set metrics - if test_set has associated metrics
+    3. Behavior metrics - fallback to metrics defined on the test's behavior
+
+    This hierarchy allows:
+    - Execution-time metrics for quick validation with specific metrics
+    - Garak-imported test sets to use their detector metrics
+    - Default behavior-level metrics as fallback
 
     Args:
         test: Test model instance
-        db: Database session (needed for RLS context)
+        db: Database session (needed for RLS context and metric queries)
         organization_id: Organization ID for RLS policies
         user_id: User ID for RLS policies
+        test_set: Optional TestSet model instance for metric override
+        test_configuration: Optional TestConfiguration for execution-time metric override
 
     Returns:
         List of valid Metric models
     """
+    from rhesis.backend.app.models.metric import Metric
+
     metrics = []
-    behavior = test.behavior
 
     # CRITICAL: Set RLS session variables before accessing relationships
     # Without this, the behavior.metrics query will fail or return empty due to RLS policies
@@ -102,6 +122,49 @@ def get_test_metrics(
         except Exception as e:
             logger.error(f"Failed to set RLS session variables: {e}")
 
+    # Priority 1: Execution-time metrics from test_configuration.attributes["metrics"]
+    # These completely override all other metric configurations
+    if test_configuration and test_configuration.attributes:
+        config_metrics = test_configuration.attributes.get("metrics")
+        if config_metrics:
+            # Extract metric IDs from the stored configuration
+            metric_ids = [m.get("id") for m in config_metrics if m.get("id")]
+            if metric_ids:
+                # Load metrics from database by IDs
+                try:
+                    loaded_metrics = (
+                        db.query(Metric)
+                        .filter(Metric.id.in_([UUID(mid) for mid in metric_ids]))
+                        .all()
+                    )
+                    metrics = [m for m in loaded_metrics if m.class_name]
+                    if metrics:
+                        logger.debug(
+                            f"Using {len(metrics)} execution-time metrics for test {test.id} "
+                            f"(overriding test set and behavior metrics)"
+                        )
+                        return metrics
+                except Exception as e:
+                    logger.warning(f"Failed to load execution-time metrics for test {test.id}: {e}")
+
+    # Priority 2: Test set metrics override behavior metrics
+    if test_set and hasattr(test_set, "metrics") and test_set.metrics:
+        metrics = [metric for metric in test_set.metrics if metric.class_name]
+        if metrics:
+            logger.debug(
+                f"Using {len(metrics)} test set metrics for test {test.id} "
+                f"(overriding behavior metrics)"
+            )
+            invalid_count = len(test_set.metrics) - len(metrics)
+            if invalid_count > 0:
+                logger.warning(
+                    f"Filtered out {invalid_count} test set metrics without class_name "
+                    f"for test {test.id}"
+                )
+            return metrics
+
+    # Priority 3: Fall back to behavior metrics
+    behavior = test.behavior
     if behavior and behavior.metrics:
         # Return Metric models directly - evaluator accepts them
         metrics = [metric for metric in behavior.metrics if metric.class_name]

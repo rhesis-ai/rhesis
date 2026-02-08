@@ -158,3 +158,98 @@ async def test_duration_tracking(executor, sync_function):
     assert "duration_ms" in result
     assert isinstance(result["duration_ms"], float)
     assert result["duration_ms"] >= 0
+
+
+class TestTraceIdPropagation:
+    """Tests for trace_id propagation through the executor."""
+
+    @pytest.mark.asyncio
+    async def test_trace_id_from_context_var_async(self, executor):
+        """Test trace_id retrieval from context var for async functions."""
+        from rhesis.sdk.telemetry.context import get_root_trace_id, set_root_trace_id
+
+        test_trace_id = "abc123def456789012345678901234ab"
+
+        async def async_func_with_trace():
+            # Simulate tracer setting trace_id in context
+            set_root_trace_id(test_trace_id)
+            return {"result": "success"}
+
+        result = await executor.execute(async_func_with_trace, "async_trace", {})
+
+        assert result["status"] == "success"
+        assert result["trace_id"] == test_trace_id
+        # Context should be cleared after execution
+        assert get_root_trace_id() is None
+
+    @pytest.mark.asyncio
+    async def test_trace_id_from_result_dict_sync(self, executor):
+        """Test trace_id retrieval from thread-safe dict for sync functions.
+
+        For sync functions running in thread pool, context vars don't propagate back.
+        The tracer stores trace_id in a thread-safe dict keyed by result id.
+        """
+        from rhesis.sdk.telemetry.tracer import store_result_trace_id
+
+        test_trace_id = "sync123456789012345678901234abcd"
+
+        def sync_func_with_trace():
+            result = {"result": "from sync"}
+            # Simulate what the tracer does: store trace_id for this result
+            store_result_trace_id(result, test_trace_id)
+            return result
+
+        result = await executor.execute(sync_func_with_trace, "sync_trace", {})
+
+        assert result["status"] == "success"
+        assert result["trace_id"] == test_trace_id
+
+    @pytest.mark.asyncio
+    async def test_trace_id_none_when_not_set(self, executor):
+        """Test that trace_id is None when not set by tracer."""
+
+        def func_without_trace():
+            return {"result": "no trace"}
+
+        result = await executor.execute(func_without_trace, "no_trace", {})
+
+        assert result["status"] == "success"
+        assert result["trace_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_trace_id_on_error(self, executor):
+        """Test that trace_id is None when function errors."""
+
+        def failing_func():
+            raise ValueError("Test error")
+
+        result = await executor.execute(failing_func, "failing", {})
+
+        assert result["status"] == "error"
+        assert result["trace_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_trace_id_with_pydantic_model_sync(self, executor):
+        """Test trace_id retrieval works with Pydantic model results."""
+        from pydantic import BaseModel
+
+        from rhesis.sdk.telemetry.tracer import store_result_trace_id
+
+        class TestResponse(BaseModel):
+            message: str
+
+        test_trace_id = "pydantic12345678901234567890abcd"
+
+        def func_returning_pydantic():
+            result = TestResponse(message="hello")
+            # Tracer stores trace_id for the Pydantic model
+            store_result_trace_id(result, test_trace_id)
+            return result
+
+        result = await executor.execute(func_returning_pydantic, "pydantic_func", {})
+
+        assert result["status"] == "success"
+        # Result should be serialized to dict
+        assert result["output"] == {"message": "hello"}
+        # trace_id should be retrieved before serialization
+        assert result["trace_id"] == test_trace_id

@@ -157,6 +157,270 @@ class TestTaskExecution:
         assert isinstance(metrics, list)
         assert len(metrics) == 0  # No default metrics anymore
 
+    def test_get_test_metrics_execution_time_override(
+        self, test_db, test_org_id, authenticated_user_id, test_prompt, test_with_prompt
+    ):
+        """Test execution-time metrics override behavior metrics."""
+
+        from rhesis.backend.app import models
+        from rhesis.backend.app.models.test_configuration import TestConfiguration
+        from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
+
+        # Create a project for the endpoint (required FK)
+        project = models.Project(
+            name="Test Project 1",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(project)
+        test_db.flush()
+
+        # Create an endpoint for the test configuration
+        endpoint = models.Endpoint(
+            name="Test Endpoint",
+            url="https://test.example.com",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            connection_type="REST",
+            project_id=project.id,
+        )
+        test_db.add(endpoint)
+        test_db.flush()
+
+        # Create backend type for the metric
+        backend_type = get_or_create_type_lookup(
+            test_db, "BackendType", "rhesis", test_org_id, authenticated_user_id
+        )
+        metric_type = get_or_create_type_lookup(
+            test_db, "MetricType", "custom-prompt", test_org_id, authenticated_user_id
+        )
+
+        # Create an execution-time metric
+        execution_metric = models.Metric(
+            name="Execution Metric",
+            class_name="NumericJudge",
+            score_type="numeric",
+            backend_type_id=backend_type.id,
+            metric_type_id=metric_type.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            evaluation_prompt="Rate the response quality from 0 to 1",
+        )
+        test_db.add(execution_metric)
+        test_db.flush()
+
+        # Create test_configuration with metrics in attributes
+        test_config = TestConfiguration(
+            endpoint_id=endpoint.id,
+            test_set_id=None,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={
+                "metrics": [
+                    {
+                        "id": str(execution_metric.id),
+                        "name": "Execution Metric",
+                        "scope": ["Single-Turn"],
+                    }
+                ]
+            },
+        )
+        test_db.add(test_config)
+        test_db.commit()
+        test_db.refresh(test_config)
+
+        # Get metrics with test_configuration
+        metrics = get_test_metrics(
+            test_with_prompt,
+            test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            test_configuration=test_config,
+        )
+
+        # Should return only execution-time metric, overriding behavior metrics
+        assert isinstance(metrics, list)
+        assert len(metrics) == 1
+        assert metrics[0].name == "Execution Metric"
+
+    def test_get_test_metrics_execution_time_overrides_test_set(
+        self, test_db, test_org_id, authenticated_user_id, test_prompt, test_with_prompt
+    ):
+        """Test execution-time metrics override test set metrics."""
+        from rhesis.backend.app import crud, models
+        from rhesis.backend.app.models.test_configuration import TestConfiguration
+        from rhesis.backend.app.models.test_set import TestSet
+        from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
+
+        # Create a project for the endpoint (required FK)
+        project = models.Project(
+            name="Test Project 2",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(project)
+        test_db.flush()
+
+        # Create an endpoint for the test configuration
+        endpoint = models.Endpoint(
+            name="Test Endpoint 2",
+            url="https://test2.example.com",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            connection_type="REST",
+            project_id=project.id,
+        )
+        test_db.add(endpoint)
+        test_db.flush()
+
+        # Create backend type for metrics
+        backend_type = get_or_create_type_lookup(
+            test_db, "BackendType", "rhesis", test_org_id, authenticated_user_id
+        )
+        metric_type = get_or_create_type_lookup(
+            test_db, "MetricType", "custom-prompt", test_org_id, authenticated_user_id
+        )
+
+        # Create a test set metric
+        test_set_metric = models.Metric(
+            name="Test Set Metric",
+            class_name="CategoricalJudge",
+            score_type="categorical",
+            backend_type_id=backend_type.id,
+            metric_type_id=metric_type.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            evaluation_prompt="Is the response appropriate? Answer yes or no",
+        )
+        test_db.add(test_set_metric)
+        test_db.flush()
+
+        # Create an execution-time metric
+        execution_metric = models.Metric(
+            name="Execution Override Metric",
+            class_name="NumericJudge",
+            score_type="numeric",
+            backend_type_id=backend_type.id,
+            metric_type_id=metric_type.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            evaluation_prompt="Rate the response quality from 0 to 1",
+        )
+        test_db.add(execution_metric)
+        test_db.flush()
+
+        # Create a test set with the test set metric
+        test_set = TestSet(
+            name="Test Set with Metrics",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(test_set)
+        test_db.flush()
+
+        # Associate metric with test set
+        crud.add_metric_to_test_set(
+            test_db, test_set.id, test_set_metric.id, authenticated_user_id, test_org_id
+        )
+        test_db.refresh(test_set)
+
+        # Create test_configuration with execution-time metrics
+        test_config = TestConfiguration(
+            endpoint_id=endpoint.id,
+            test_set_id=test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            attributes={
+                "metrics": [
+                    {
+                        "id": str(execution_metric.id),
+                        "name": "Execution Override Metric",
+                        "scope": ["Single-Turn"],
+                    }
+                ]
+            },
+        )
+        test_db.add(test_config)
+        test_db.commit()
+        test_db.refresh(test_config)
+
+        # Get metrics with both test_set and test_configuration
+        # Execution-time should override test set
+        metrics = get_test_metrics(
+            test_with_prompt,
+            test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            test_set=test_set,
+            test_configuration=test_config,
+        )
+
+        # Should return only execution-time metric, overriding test set metrics
+        assert isinstance(metrics, list)
+        assert len(metrics) == 1
+        assert metrics[0].name == "Execution Override Metric"
+
+    def test_get_test_metrics_test_set_overrides_behavior(
+        self, test_db, test_org_id, authenticated_user_id, test_prompt, test_with_prompt
+    ):
+        """Test that test set metrics override behavior metrics (existing behavior)."""
+        from rhesis.backend.app import crud, models
+        from rhesis.backend.app.models.test_set import TestSet
+        from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
+
+        # Create backend type for metrics
+        backend_type = get_or_create_type_lookup(
+            test_db, "BackendType", "rhesis", test_org_id, authenticated_user_id
+        )
+        metric_type = get_or_create_type_lookup(
+            test_db, "MetricType", "custom-prompt", test_org_id, authenticated_user_id
+        )
+
+        # Create a test set metric
+        test_set_metric = models.Metric(
+            name="Test Set Override Metric",
+            class_name="CategoricalJudge",
+            score_type="categorical",
+            backend_type_id=backend_type.id,
+            metric_type_id=metric_type.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            evaluation_prompt="Is the response appropriate? Answer yes or no",
+        )
+        test_db.add(test_set_metric)
+        test_db.flush()
+
+        # Create a test set with the test set metric
+        test_set = TestSet(
+            name="Test Set Override",
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.add(test_set)
+        test_db.flush()
+
+        # Associate metric with test set
+        crud.add_metric_to_test_set(
+            test_db, test_set.id, test_set_metric.id, authenticated_user_id, test_org_id
+        )
+        test_db.commit()
+        test_db.refresh(test_set)
+
+        # Get metrics with test_set (no test_configuration)
+        # Test set should override behavior metrics
+        metrics = get_test_metrics(
+            test_with_prompt,
+            test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            test_set=test_set,
+        )
+
+        # Should return only test set metric, overriding behavior metrics
+        assert isinstance(metrics, list)
+        assert len(metrics) == 1
+        assert metrics[0].name == "Test Set Override Metric"
+
     def test_prepare_metric_configs_with_valid_models(
         self, test_db, test_org_id, authenticated_user_id
     ):

@@ -150,7 +150,7 @@ def upgrade() -> None:
                 default_model_data = {
                     "name": "Rhesis Default",
                     "model_name": DEFAULT_MODEL_NAME,
-                    "description": "Default Rhesis-hosted model. No API key required.",
+                    "description": "Default Rhesis-hosted model.",
                     "icon": "rhesis",
                     "provider_type_id": rhesis_provider_type.id,
                     "status_id": available_status.id,

@@ -31,7 +31,8 @@ class TestExecutionContext(TypedDict, total=False):
 
 # Forbidden framework concepts (not primitive operations)
 # These should NOT appear as domains in span names (ai.<domain>.<action>)
-FORBIDDEN_SPAN_DOMAINS: List[str] = ["agent", "chain", "workflow", "pipeline"]
+# Note: "agent" is now allowed for multi-agent system tracing
+FORBIDDEN_SPAN_DOMAINS: List[str] = ["chain", "workflow", "pipeline"]
 
 
 class SpanKind(str, Enum):
@@ -54,16 +55,14 @@ class StatusCode(str, Enum):
 
 class AIOperationType(str, Enum):
     """
-    AI operation types (primitive operations only).
+    AI operation types following semantic convention: ai.<domain>.<action>
 
-    These represent atomic operations, NOT framework concepts.
-    Following semantic convention: ai.<domain>.<action>
-
-    Valid: llm, tool, retrieval, embedding, rerank, evaluation, guardrail, transform
-    (primitive operations)
-    Invalid: agent, chain, workflow, pipeline (framework concepts)
+    Includes:
+    - Primitive: llm, tool, retrieval, embedding, rerank, evaluation, guardrail, transform
+    - Agent: agent.invoke, agent.handoff for multi-agent systems
     """
 
+    # Primitive operations
     LLM_INVOKE = "ai.llm.invoke"
     TOOL_INVOKE = "ai.tool.invoke"
     RETRIEVAL = "ai.retrieval"
@@ -72,6 +71,10 @@ class AIOperationType(str, Enum):
     EVALUATION = "ai.evaluation"
     GUARDRAIL = "ai.guardrail"
     TRANSFORM = "ai.transform"
+
+    # Agent operations (for multi-agent systems)
+    AGENT_INVOKE = "ai.agent.invoke"
+    AGENT_HANDOFF = "ai.agent.handoff"
 
 
 class SpanEvent(BaseModel):

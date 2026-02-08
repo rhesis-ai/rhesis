@@ -15,6 +15,7 @@ import {
   TestSetBulkDisassociateResponse,
   GenerateTestsRequest,
   GenerateTestSetResponse,
+  TestSetMetric,
   // Legacy imports for backwards compatibility
   TestSetGenerationRequest,
   TestSetGenerationResponse,
@@ -321,21 +322,36 @@ export class TestSetsClient extends BaseApiClient {
     endpointId: string,
     testConfigurationAttributes?: {
       execution_mode?: string;
+      metrics?: Array<{ id: string; name: string; scope?: string[] }>;
       [key: string]: any;
     }
   ): Promise<TestSet> {
-    const requestBody = testConfigurationAttributes
-      ? { execution_options: testConfigurationAttributes }
-      : undefined;
+    // Build request body with execution_options and metrics
+    const requestBody: Record<string, any> = {};
+
+    if (testConfigurationAttributes) {
+      // Extract metrics if present (goes at top level)
+      const { metrics, ...executionOptions } = testConfigurationAttributes;
+
+      // Add execution_options if there are any
+      if (Object.keys(executionOptions).length > 0) {
+        requestBody.execution_options = executionOptions;
+      }
+
+      // Add metrics at top level if present
+      if (metrics && metrics.length > 0) {
+        requestBody.metrics = metrics;
+      }
+    }
+
+    const hasBody = Object.keys(requestBody).length > 0;
 
     return this.fetch<TestSet>(
       `${API_ENDPOINTS.testSets}/${testSetId}/execute/${endpointId}`,
       {
         method: 'POST',
-        body: requestBody ? JSON.stringify(requestBody) : undefined,
-        headers: requestBody
-          ? { 'Content-Type': 'application/json' }
-          : undefined,
+        body: hasBody ? JSON.stringify(requestBody) : undefined,
+        headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
       }
     );
   }
@@ -400,6 +416,63 @@ export class TestSetsClient extends BaseApiClient {
 
   async downloadTestSet(testSetId: string): Promise<Blob> {
     return this.fetchBlob(`${API_ENDPOINTS.testSets}/${testSetId}/download`);
+  }
+
+  /**
+   * Get metrics associated with a test set.
+   * When a test set has associated metrics, those metrics override the default
+   * behavior-level metrics during test execution.
+   *
+   * @param testSetId - The test set identifier
+   * @returns List of metrics associated with the test set (empty array if none)
+   */
+  async getTestSetMetrics(testSetId: string): Promise<TestSetMetric[]> {
+    return this.fetch<TestSetMetric[]>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/metrics`,
+      {
+        cache: 'no-store',
+      }
+    );
+  }
+
+  /**
+   * Add a metric to a test set.
+   * When a test set has associated metrics, those metrics override the default
+   * behavior-level metrics during test execution.
+   *
+   * @param testSetId - The test set identifier
+   * @param metricId - The metric ID to add
+   * @returns Updated list of metrics associated with the test set
+   */
+  async addMetricToTestSet(
+    testSetId: string,
+    metricId: string
+  ): Promise<TestSetMetric[]> {
+    return this.fetch<TestSetMetric[]>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/metrics/${metricId}`,
+      {
+        method: 'POST',
+      }
+    );
+  }
+
+  /**
+   * Remove a metric from a test set.
+   *
+   * @param testSetId - The test set identifier
+   * @param metricId - The metric ID to remove
+   * @returns Updated list of metrics associated with the test set
+   */
+  async removeMetricFromTestSet(
+    testSetId: string,
+    metricId: string
+  ): Promise<TestSetMetric[]> {
+    return this.fetch<TestSetMetric[]>(
+      `${API_ENDPOINTS.testSets}/${testSetId}/metrics/${metricId}`,
+      {
+        method: 'DELETE',
+      }
+    );
   }
 
   protected async fetchBlob(

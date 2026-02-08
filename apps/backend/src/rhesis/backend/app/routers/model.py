@@ -196,19 +196,56 @@ async def test_model_connection(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """Test the connection to the model's endpoint"""
+    """
+    Test a model's connection by making an actual test call.
+
+    Uses ModelConnectionService which validates the model configuration
+    and makes a test generation call to verify it works properly.
+    """
+    from rhesis.backend.app.services.model_connection import ModelConnectionService
+    from rhesis.backend.logging import logger
+
+    logger.info(f"[MODEL_TEST] Testing connection for model_id={model_id}")
+
     organization_id, user_id = tenant_context
     db_model = crud.get_model(db, model_id=model_id, organization_id=organization_id)
     if db_model is None:
+        logger.warning(f"[MODEL_TEST] Model not found: model_id={model_id}")
         raise HTTPException(status_code=404, detail="Model not found")
 
+    provider = db_model.provider_type.type_value if db_model.provider_type else None
+    model_name = db_model.model_name
+    api_key = db_model.key
+
+    logger.info(
+        f"[MODEL_TEST] Testing model: name={db_model.name}, "
+        f"provider={provider}, model_name={model_name}"
+    )
+
     try:
-        # Here you would implement the actual connection test logic
-        # This could include making a test request to the model's endpoint
-        # For now, we'll just return a success message
-        return {"status": "success", "message": "Connection test successful"}
+        # Use ModelConnectionService which makes an actual test call
+        result = ModelConnectionService.test_connection(
+            provider=provider,
+            model_name=model_name,
+            api_key=api_key,
+        )
+
+        status = "success" if result.success else "error"
+        logger.info(f"[MODEL_TEST] Test result: status={status}, message={result.message}")
+
+        return {
+            "status": status,
+            "message": result.message,
+        }
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Catch any unexpected errors
+        error_msg = str(e) if str(e) else "Failed to test model connection"
+        logger.error(f"[MODEL_TEST] Exception: {error_msg}", exc_info=True)
+        return {
+            "status": "error",
+            "message": error_msg,
+        }
 
 
 @router.get("/provider/{provider_name}", response_model=List[str])

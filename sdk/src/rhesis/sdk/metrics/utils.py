@@ -40,6 +40,7 @@ def sdk_config_to_backend_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
 def backend_config_to_sdk_config(config: Dict[str, Any]) -> Dict[str, Any]:
     config["requires_ground_truth"] = config.pop("ground_truth_required", None)
+    config["requires_context"] = config.pop("context_required", None)
 
     # Convert metric_scope strings back to enum values for SDK
     if config.get("metric_scope"):

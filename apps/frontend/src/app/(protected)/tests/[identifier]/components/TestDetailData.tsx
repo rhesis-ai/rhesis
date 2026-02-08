@@ -18,6 +18,7 @@ import {
 import { UUID } from 'crypto';
 import { isMultiTurnTest } from '@/constants/test-types';
 import { useRouter } from 'next/navigation';
+import { formatDate } from '@/utils/date';
 
 interface TestDetailDataProps {
   sessionToken: string;
@@ -252,11 +253,23 @@ export default function TestDetailData({
             popperWidth="100%"
           />
         </Box>
-        <Box>
+        <Box sx={{ mb: 2 }}>
           <TextField
             fullWidth
             label="Type"
             value={getDisplayValue('test_type')}
+            InputProps={{
+              readOnly: true,
+            }}
+            size="medium"
+            variant="outlined"
+          />
+        </Box>
+        <Box>
+          <TextField
+            fullWidth
+            label="Created"
+            value={formatDate(test.created_at)}
             InputProps={{
               readOnly: true,
             }}

@@ -29,6 +29,11 @@ is_production() {
 is_local() {
     [ "${ENVIRONMENT}" = "local" ] || [ "${BACKEND_ENV}" = "local" ]
 }
+
+is_development() {
+    [ "${ENVIRONMENT}" = "development" ] || [ "${BACKEND_ENV}" = "development" ]
+}
+
 # Function to display banner
 show_banner() {
     echo -e "${CYAN}"
@@ -49,19 +54,53 @@ show_banner() {
 run_migrations() {
     log "${BLUE}🔄 Running database migrations...${NC}"
 
-    # Check for migrate.sh in the same directory as start.sh
-    if [ -f "./migrate.sh" ]; then
-        log "${BLUE}📍 Found migration script at: $(pwd)/migrate.sh${NC}"
+    # Determine command prefix (uv run for local, direct for Docker)
+    local CMD_PREFIX=""
+    if use_uv_run; then
+        CMD_PREFIX="uv run "
+    fi
 
-        # Run migrations
+    # Docker: use migrate.sh, Local: run alembic directly
+    if [ -d "/app/src/rhesis/backend" ]; then
+        # Docker environment - use migrate.sh
+        log "${BLUE}📍 Running migrations via migrate.sh (Docker)${NC}"
         if ./migrate.sh; then
             log "${GREEN}✅ Database migrations completed successfully${NC}"
         else
             handle_error "Database migrations failed"
         fi
     else
-        log "${YELLOW}⚠️  Migration script not found at $(pwd)/migrate.sh, skipping migrations${NC}"
-        log "${YELLOW}   Expected location: $(pwd)/migrate.sh${NC}"
+        # Local environment - run alembic directly
+        log "${BLUE}📍 Running migrations via alembic (local)${NC}"
+        cd src/rhesis/backend || handle_error "Could not navigate to backend directory"
+        
+        if ${CMD_PREFIX}alembic upgrade head; then
+            log "${GREEN}✅ Database migrations completed successfully${NC}"
+        else
+            handle_error "Database migrations failed"
+        fi
+        
+        # Return to original directory
+        cd - > /dev/null
+    fi
+}
+
+# Function to load environment from .env file (local development only)
+load_env_file() {
+    # Skip if already in production (env vars set by Docker/K8s)
+    if [ "${ENVIRONMENT}" = "production" ] || [ "${BACKEND_ENV}" = "production" ]; then
+        log "${BLUE}📦 Production environment detected, using system env vars${NC}"
+        return
+    fi
+
+    # Load .env file for local development
+    if [ -f ".env" ]; then
+        log "${BLUE}📁 Loading environment from .env file (local mode)...${NC}"
+        # Export variables from .env file
+        set -a
+        source .env
+        set +a
+        log "${GREEN}✅ Environment loaded${NC}"
     fi
 }
 
@@ -133,16 +172,23 @@ start_server() {
         exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
-            --port "$port" \
-
-    else
-        log "${BLUE}🛠️  Starting development server with Uvicorn...${NC}"
+            --port "$port"
+    elif is_development; then
+        log "${BLUE}🛠️  Starting development server with Uvicorn (hot reload)...${NC}"
         exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
             --port "$port" \
             --log-level debug \
             --reload
+    else
+        # Default: no ENVIRONMENT/BACKEND_ENV (e.g. docker-compose for integration tests)
+        log "${BLUE}🛠️  Starting server with Uvicorn (default)...${NC}"
+        exec ${CMD_PREFIX}uvicorn \
+            rhesis.backend.app.main:app \
+            --host "$host" \
+            --port "$port" \
+            --log-level debug
     fi
 }
 
@@ -168,6 +214,9 @@ main() {
     log "${BLUE}📅 Startup time: $(date)${NC}"
     log "${BLUE}👤 Running as user: $(whoami)${NC}"
     log "${BLUE}📁 Working directory: $(pwd)${NC}"
+
+    # Load environment from .env file if in local mode
+    load_env_file
 
     # Validate environment
     validate_environment

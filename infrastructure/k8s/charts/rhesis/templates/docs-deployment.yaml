@@ -1,0 +1,78 @@
+{{- if .Values.docs.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: docs
+    tier: docs
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.docs.replicas }}
+  selector:
+    matchLabels:
+      app: docs
+      tier: docs
+  template:
+    metadata:
+      labels:
+        app: docs
+        tier: docs
+    spec:
+      {{- if and .Values.podSecurityContext.enabled (not .Values.docs.disableSecurityContext) }}
+      securityContext:
+        fsGroup: {{ .Values.podSecurityContext.fsGroup }}
+        runAsUser: {{ .Values.podSecurityContext.runAsUser }}
+        runAsGroup: {{ .Values.podSecurityContext.runAsGroup }}
+        {{- if .Values.podSecurityContext.fsGroupChangePolicy }}
+        fsGroupChangePolicy: {{ .Values.podSecurityContext.fsGroupChangePolicy }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: docs
+          image: "{{ .Values.images.docs.repository }}:{{ .Values.images.docs.tag }}"
+          imagePullPolicy: {{ .Values.images.docs.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- if and .Values.containerSecurityContext.enabled (not .Values.docs.disableSecurityContext) }}
+          securityContext:
+            allowPrivilegeEscalation: {{ .Values.containerSecurityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.containerSecurityContext.readOnlyRootFilesystem }}
+            runAsNonRoot: {{ .Values.containerSecurityContext.runAsNonRoot }}
+            runAsUser: {{ .Values.containerSecurityContext.runAsUser }}
+            runAsGroup: {{ .Values.containerSecurityContext.runAsGroup }}
+            {{- if .Values.containerSecurityContext.capabilities }}
+            capabilities:
+              {{- toYaml .Values.containerSecurityContext.capabilities | nindent 14 }}
+            {{- end }}
+          {{- end }}
+          ports:
+            - containerPort: {{ .Values.docs.service.targetPort }}
+              name: http
+          {{- if .Values.docs.env }}
+          env:
+            {{- range .Values.docs.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.docs.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.docs.service.targetPort }}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ .Values.docs.service.targetPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 5
+{{- end }}
+

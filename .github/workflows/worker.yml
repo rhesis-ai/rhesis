@@ -290,6 +290,7 @@ jobs:
             --from-literal=AZURE_OPENAI_API_KEY="${{ secrets.AZURE_OPENAI_API_KEY }}" \
             --from-literal=AZURE_OPENAI_DEPLOYMENT_NAME="${{ secrets.AZURE_OPENAI_DEPLOYMENT_NAME }}" \
             --from-literal=AZURE_OPENAI_API_VERSION="${{ secrets.AZURE_OPENAI_API_VERSION }}" \
+            --from-literal=PERSPECTIVE_API_KEY="${{ secrets.PERSPECTIVE_API_KEY }}" \
             --from-literal=SMTP_HOST="${{ secrets.SMTP_HOST }}" \
             --from-literal=SMTP_PORT="${{ secrets.SMTP_PORT }}" \
             --from-literal=SMTP_USER="${{ secrets.SMTP_USER }}" \

@@ -290,7 +290,6 @@ class MetricEvaluator:
 
         logger.info(f"Preparing {len(valid_metrics)} metrics for evaluation")
         metric_tasks = []
-        context_available = context and len(context) > 0
 
         for metric_config in valid_metrics:
             # Handle both dict and MetricConfig objects
@@ -317,16 +316,6 @@ class MetricEvaluator:
 
                 if not backend:
                     logger.error(f"Metric configuration missing backend: {metric_config}")
-                    continue
-
-                # Check if metric requires context and skip if context is not available
-                context_required = self._get_config_value(metric_config, "context_required", False)
-                if context_required and not context_available:
-                    metric_name = self._get_config_value(metric_config, "name", class_name)
-                    logger.warning(
-                        f"Skipping metric '{metric_name}' ({class_name}): "
-                        f"requires context but no context available in SDK response"
-                    )
                     continue
 
                 # Prepare parameters for the metric

@@ -9,6 +9,8 @@ from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_se
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import (
     ChatRequest,
+    CreateJiraTicketFromTaskRequest,
+    CreateJiraTicketFromTaskResponse,
     ExtractMCPRequest,
     ExtractMCPResponse,
     GenerateContentRequest,
@@ -40,6 +42,7 @@ from rhesis.backend.app.services.generation import (
 )
 from rhesis.backend.app.services.github import read_repo_contents
 from rhesis.backend.app.services.mcp_service import (
+    create_jira_ticket_from_task,
     extract_mcp,
     handle_mcp_exception,
     query_mcp,
@@ -47,6 +50,7 @@ from rhesis.backend.app.services.mcp_service import (
     search_mcp,
 )
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
+from rhesis.backend.app.utils.execution_validation import validate_generation_model
 from rhesis.backend.logging import logger
 
 router = APIRouter(
@@ -55,6 +59,25 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
     dependencies=[Depends(require_current_user_or_token)],
 )
+
+
+def _handle_generation_error(error: Exception) -> None:
+    """
+    Handle errors during test generation with appropriate HTTP responses.
+
+    Centralizes error handling for generation endpoints.
+
+    Args:
+        error: The exception that occurred
+
+    Raises:
+        HTTPException: With appropriate status code and message
+    """
+    from rhesis.backend.app.utils.execution_validation import handle_execution_error
+
+    # Convert the error to HTTPException and raise it
+    http_exception = handle_execution_error(error, operation="generate tests")
+    raise http_exception
 
 
 @router.get("/github/contents")
@@ -73,8 +96,11 @@ async def get_github_contents(repo_url: str):
         contents = read_repo_contents(repo_url)
         return contents
     except Exception as e:
-        logger.error(f"Failed to get GitHub contents for {repo_url}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to retrieve repository contents")
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to get GitHub contents for {repo_url}: {error_msg}", exc_info=True)
+        raise HTTPException(
+            status_code=400, detail=f"Failed to retrieve repository contents: {error_msg}"
+        )
 
 
 @router.post("/openai/json")
@@ -99,8 +125,9 @@ async def get_ai_json_response(prompt_request: PromptRequest):
 
         return get_json_response(prompt_request.prompt)
     except Exception as e:
-        logger.error(f"Failed to get JSON response: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to get AI response. Please try again.")
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to get JSON response: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to get AI response: {error_msg}")
 
 
 @router.post("/openai/chat")
@@ -130,10 +157,9 @@ async def get_ai_chat_response(chat_request: ChatRequest):
             response_format=chat_request.response_format,
         )
     except Exception as e:
-        logger.error(f"Failed to get chat response: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=400, detail="Failed to get chat response. Please try again."
-        )
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to get chat response: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to get chat response: {error_msg}")
 
 
 @router.post("/chat/completions")
@@ -156,9 +182,10 @@ async def create_chat_completion_endpoint(request: dict):
 
         return response
     except Exception as e:
-        logger.error(f"Failed to create chat completion: {str(e)}", exc_info=True)
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to create chat completion: {error_msg}", exc_info=True)
         raise HTTPException(
-            status_code=400, detail="Failed to create chat completion. Please try again."
+            status_code=400, detail=f"Failed to create chat completion: {error_msg}"
         )
 
 
@@ -220,8 +247,9 @@ async def generate_content_endpoint(request: GenerateContentRequest):
 
         return response
     except Exception as e:
-        logger.error(f"Failed to generate content: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to generate content. Please try again.")
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to generate content: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to generate content: {error_msg}")
 
 
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
@@ -230,6 +258,7 @@ async def generate_tests_endpoint(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Generate test cases using the prompt synthesizer.
@@ -264,8 +293,7 @@ async def generate_tests_endpoint(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to generate tests: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to generate tests. Please try again.")
+        _handle_generation_error(e)
 
 
 @router.post("/generate/multiturn-tests", response_model=GenerateMultiTurnTestsResponse)
@@ -274,6 +302,7 @@ async def generate_multiturn_tests_endpoint(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Generate multi-turn test cases using the MultiTurnSynthesizer.
@@ -312,11 +341,10 @@ async def generate_multiturn_tests_endpoint(
         )
         # test_cases is a TestSet dict with a "tests" key containing the array
         return {"tests": test_cases.get("tests", [])}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to generate multi-turn tests: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=400, detail="Failed to generate multi-turn tests. Please try again."
-        )
+        _handle_generation_error(e)
 
 
 @router.post("/generate/text", response_model=TextResponse)
@@ -358,8 +386,9 @@ async def generate_text(prompt_request: PromptRequest):
 
         return TextResponse(text=response)
     except Exception as e:
-        logger.error(f"Failed to generate text: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Failed to generate text. Please try again.")
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to generate text: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to generate text: {error_msg}")
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)
@@ -368,6 +397,7 @@ async def generate_test_config(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Generate test configuration JSON based on user description.
@@ -409,14 +439,28 @@ async def generate_test_config(
         logger.info("Test config generation successful")
         return result
     except ValueError as e:
+        from rhesis.backend.app.utils.execution_validation import (
+            handle_execution_error,
+        )
+
         logger.warning(f"Invalid request for test config generation: {str(e)}")
-        raise HTTPException(status_code=400, detail="Invalid request parameters")
+        http_exception = handle_execution_error(e, operation="generate test configuration")
+        raise http_exception
     except RuntimeError as e:
         logger.error(f"Test config generation failed: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to generate test configuration")
+        detail = str(e) if e.args else "Failed to generate test configuration"
+        raise HTTPException(status_code=500, detail=detail)
     except Exception as e:
-        logger.error(f"Unexpected error in test config generation: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error(
+            f"Unexpected error in test config generation: {str(e)}",
+            exc_info=True,
+        )
+        error_detail = (
+            str(e)
+            if str(e)
+            else "An unexpected error occurred during test configuration generation"
+        )
+        raise HTTPException(status_code=500, detail=error_detail)
 
 
 @router.post("/mcp/search", response_model=List[ItemResult])
@@ -425,6 +469,7 @@ async def search_mcp_server(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Search MCP server for items matching a natural language query.
@@ -449,7 +494,7 @@ async def search_mcp_server(
         POST /mcp/search
         {
             "query": "Find pages about authentication",
-            "server_name": "notionApi"
+            "server_name": "notion"
         }
     """
     try:
@@ -465,6 +510,7 @@ async def extract_mcp_item(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Extract full content from an MCP item as markdown.
@@ -515,6 +561,7 @@ async def query_mcp_server(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Execute arbitrary tasks on an MCP server with full flexibility.
@@ -534,7 +581,7 @@ async def query_mcp_server(
 
     Examples:
         # Create content
-        {"query": "Create a page titled 'Q1 Planning'", "server_name": "notionApi"}
+        {"query": "Create a page titled 'Q1 Planning'", "server_name": "notion"}
 
         # Custom agent behavior
         {
@@ -566,6 +613,7 @@ async def test_mcp_connection(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
 ):
     """
     Test MCP connection authentication by calling a tool that requires authentication.
@@ -635,6 +683,53 @@ async def test_mcp_connection(
         # Use handle_mcp_exception to properly handle MCP errors (401, 403, etc.)
         # This ensures authentication errors are properly mapped and don't log users out
         raise handle_mcp_exception(e, "test-connection")
+
+
+@router.post("/mcp/jira/create-ticket-from-task", response_model=CreateJiraTicketFromTaskResponse)
+async def create_jira_ticket_from_task_endpoint(
+    request: CreateJiraTicketFromTaskRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_generation_model),
+):
+    """
+    Create a Jira ticket from a task.
+
+    This endpoint creates a Jira issue using the MCP Jira integration,
+    mapping task fields to Jira issue fields.
+
+    Args:
+        request: CreateJiraTicketFromTaskRequest with task_id and tool_id
+
+    Returns:
+        CreateJiraTicketFromTaskResponse with issue key, URL, and message
+
+    Raises:
+        HTTPException: 400 if validation fails, 500 if creation fails
+
+    Example:
+        POST /mcp/jira/create-ticket-from-task
+        {
+            "task_id": "task-uuid-123",
+            "tool_id": "tool-uuid-456"
+        }
+    """
+    try:
+        organization_id, user_id = tenant_context
+        result = await create_jira_ticket_from_task(
+            task_id=request.task_id,
+            tool_id=request.tool_id,
+            db=db,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        return result
+    except ValueError as e:
+        logger.warning(f"Invalid request for Jira ticket creation: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise handle_mcp_exception(e, "create-jira-ticket")
 
 
 @router.get("/recent-activities", response_model=RecentActivitiesResponse)

@@ -85,7 +85,8 @@ class HuggingFaceLLM(BaseLLM):
         If the model or tokenizer is loaded, unload them to free up resources.
         Unloading manually is cleaner, but this is a fallback.
         """
-        if self.model is not None or self.tokenizer is not None:
+        # Use getattr to handle partially constructed objects (if __init__ failed early)
+        if getattr(self, "model", None) is not None or getattr(self, "tokenizer", None) is not None:
             self.unload_model()
 
     def load_model(self):
@@ -299,6 +300,12 @@ class HuggingFaceLLM(BaseLLM):
         # Move inputs to the model's device
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
+        # VERIFY: Log input device placement
+        if torch.cuda.is_available():
+            first_input_device = next(iter(inputs.values())).device
+            print(f"🔍 GPU Debug - Input tensors on device: {first_input_device}")
+            print(f"🔍 GPU Debug - Model device: {self.device}")
+
         # Capture essential metrics
         input_tokens = inputs["input_ids"].shape[1]
         model_memory_gb = self._get_model_memory_gb()
@@ -306,6 +313,11 @@ class HuggingFaceLLM(BaseLLM):
 
         # Set default max_new_tokens (HuggingFace defaults to only 20 tokens)
         kwargs.setdefault("max_new_tokens", 2048)
+
+        # VERIFY: Check GPU utilization before generation
+        if torch.cuda.is_available():
+            pre_gen_allocated = torch.cuda.memory_allocated() / 1e9
+            print(f"🔍 GPU Debug - Pre-generation GPU memory: {pre_gen_allocated:.2f}GB")
 
         # generate response
         output_ids = self.model.generate(
@@ -317,6 +329,15 @@ class HuggingFaceLLM(BaseLLM):
 
         end_time = time.time()
         generation_time = end_time - start_time
+
+        # VERIFY: Check GPU utilization after generation
+        if torch.cuda.is_available():
+            post_gen_allocated = torch.cuda.memory_allocated() / 1e9
+            print(
+                f"🔍 GPU Debug - Post-generation GPU memory: {post_gen_allocated:.2f}GB "
+                f"(+{post_gen_allocated - pre_gen_allocated:.2f}GB peak during generation)"
+            )
+            print(f"🔍 GPU Debug - Generation took {generation_time:.2f}s for inference")
 
         completion = self.tokenizer.decode(
             output_ids[0][inputs["input_ids"].shape[1] :],  # only take the newly generated content

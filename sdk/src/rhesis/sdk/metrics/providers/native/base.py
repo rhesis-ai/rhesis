@@ -60,6 +60,11 @@ class JudgeBase(BaseMetric, SerializationMixin, BackendSyncMixin):
         if expected_output is None and self.requires_ground_truth is True:
             raise ValueError(f"{self.name} metric requires ground truth but none was provided")
 
+        if (context is None or len(context) == 0) and self.requires_context is True:
+            raise ValueError(
+                f"{self.name} metric requires context to evaluate. No context was provided."
+            )
+
         if context is not None and not isinstance(context, list):
             raise ValueError("context must be a list of strings or None")
 

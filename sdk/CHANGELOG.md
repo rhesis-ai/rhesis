@@ -13,6 +13,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-02-05
+
+### Added
+- Added a new interactive endpoint playground accessible under the "Testing" section. This allows real-time WebSocket communication for conversational endpoint testing, including chat message handling, TraceDrawer integration, and session management.
+- Added JSON and JSONL import/export functionality for TestSets, enabling users to easily load and save test data.
+- Added a "Playground" button to the endpoint detail page, pre-selecting the endpoint in the playground.
+- Added markdown rendering to playground chat bubbles for improved readability.
+- Added a copy button to playground message bubbles for easy content sharing.
+- Added a graph view for trace visualization, providing an alternative to the tree view.
+- Added framework-agnostic agent tracing support with new span types and attributes for multi-agent systems.
+- Added CompiledGraph patching for LangGraph auto-instrumentation, simplifying callback injection.
+- Added lm-format-enforcer as a new provider.
+
+### Changed
+- Increased the default SDK function timeout from 30s to 120s, configurable via the `SDK_FUNCTION_TIMEOUT` environment variable.
+- Increased SDK connector ping interval/timeout defaults to 60s/30s, configurable via `RHESIS_PING_INTERVAL` and `RHESIS_PING_TIMEOUT` environment variables.
+- Standardized `session_id` as the canonical name for conversation tracking, normalizing various field names.
+- Enhanced the WebSocket retry mechanism with increased reconnect attempts, a maximum reconnect delay, and a manual reconnect method.
+- Improved token extraction from LLM responses with support for various token sources and metadata formats.
+- Refactored the LangChain integration for better modularity and maintainability.
+- Adjusted the trace detail view split to 70:30, giving more space to the trace visualization.
+- Replaced the agent icon with a brain icon for better visual consistency.
+- Updated Gemini model example to `gemini-2.0-flash`.
+
+### Fixed
+- Fixed an issue where synchronous endpoint functions would block the event loop, causing WebSocket ping timeouts. Now, they run in a thread pool.
+- Fixed Redis URL configuration to prioritize `BROKER_URL` for consistency.
+- Fixed connector test isolation issues by addressing mock behavior and executor input handling.
+- Fixed trace_id propagation from the SDK to the frontend for trace linking in synchronous functions.
+- Fixed an issue where only the sessionId was reset when switching endpoints in the playground; now all state is cleared.
+- Fixed AttributeError in HuggingFaceLLM `__del__` method.
+- Fixed overwriting of passed kwargs.
+
+### Security
+- Upgraded `protobuf` to >=3.25.5 to address CVE-2026-0994 (JSON recursion depth bypass).
+- Upgraded `python-multipart` to >=0.0.22 to address CVE-2026-24486 (arbitrary file write).
+
+
+## [0.6.2] - 2026-01-29
+
+### Added
+
+- Added Model entity with provider auto-resolution. Accepts provider name string (e.g., "openai") instead of UUID, auto-resolves via type_lookups API, includes user settings management for default generation/evaluation models, and get_model_instance() for converting to BaseLLM. (#1132)
+- Added Project entity with comprehensive integration tests for CRUD operations. (#1127)
+- Added batch processing with generate_batch method for LiteLLM-based providers supporting system prompts, schemas, and multiple completions per prompt. (#1149)
+- Added embedders framework with BaseEmbedder class, LiteLLMEmbedder, OpenAIEmbedder, GeminiEmbedder, and VertexAIEmbedder for generating single and batch embeddings. (#1149)
+- Added Vertex AI support with VertexAIEmbedder and VertexAILLM classes including credential handling and configuration loading. (#1149)
+- Added GarakDetectorMetric class for evaluating LLM responses using Garak detectors with threshold-based probability scoring. (#1190)
+- Added ObservableMCPAgent with OpenTelemetry tracing for automatic LLM and tool invocation tracing using @observe decorators and semantic spans. (#1102)
+- Added PATCH method to Methods enum in APIClient for partial resource updates. (#1165)
+- Added context and expected response fields display support for test run detail view. (#1201)
+
+### Changed
+
+- Refactored metrics context validation to SDK. Metrics requiring context now return visible failure results with unified error messages ("<metric> metric requires context to evaluate. No context was provided.") instead of being silently skipped. Removed unused 'error' field from SDK metric results. (#1200)
+- Enhanced Endpoint class with request_mapping, request_headers, response_mapping, auth_token, method, endpoint_path, and query_params fields for full programmatic configuration. Added write-only fields support to handle sensitive fields like auth_token in pull-modify-push workflows. (#1189)
+- Separated API client from observability client (APIClient vs RhesisClient). RhesisClient is now optional in production, with from_environment() factory that gracefully falls back to DisabledClient when credentials are missing. (#1155)
+- Added copy button to documentation code blocks and improved navigation spacing. (#1177)
+- Upgraded security-related dependencies to address vulnerabilities. (#1174)
+- Standardized context and ground truth requirements across DeepEval and Ragas metrics with consistent requires_context and requires_ground_truth attributes. (#1201)
+
+### Fixed
+
+- Fixed connector disabled variable handling. Changed RHESIS_CONNECTOR_DISABLE to RHESIS_CONNECTOR_DISABLED and updated workflow environment variables. (#1167)
+- Fixed SDK entity bugs: TestRun.status now properly extracts status from nested dict, TestSet.test_set_type validator extracts type_value correctly. Added Endpoints collection class for name-based retrieval. (#1129)
+- Fixed backend test cleanup transaction errors by combining all database operations into a single transaction. Added proper asyncio.CancelledError handling and RuntimeError prevention during SDK connector initialization. (#1142)
+- Updated langchain-core to 1.2.5 and urllib3 to 2.6.3 to address security vulnerabilities. (#1160)
+- Updated aiohttp to fix compatibility issues. (#1164)
+- Fixed database connection leak with generator-based dependency cleanup in @endpoint decorator, similar to FastAPI's Depends with yield pattern. (#1102)
+- Fixed resource leak on bind param initialization failure by ensuring cleanup handlers are populated in-place for partial failure cleanup. (#1102)
+
+
+
 ## [0.6.1] - 2026-01-15
 
 ### Added

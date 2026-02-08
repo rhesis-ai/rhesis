@@ -55,4 +55,5 @@ class TestGenerateContentEndpoint:
                 await generate_content_endpoint(mock_request)
 
             assert exc_info.value.status_code == 400
-            assert "Failed to generate content. Please try again." in str(exc_info.value.detail)
+            assert "Failed to generate content:" in str(exc_info.value.detail)
+            assert "Model initialization failed" in str(exc_info.value.detail)

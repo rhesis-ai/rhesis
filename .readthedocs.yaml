@@ -7,7 +7,7 @@ build:
   jobs:
     post_install:
       # Install Sphinx and documentation dependencies
-      - pip install sphinx>=8.1.3 sphinx-autodoc-typehints>=3.0.1 sphinx-rtd-theme>=3.0.2 myst-parser>=4.0.0
+      - pip install sphinx>=8.1.3 sphinx-autodoc-typehints>=3.0.1 sphinx-rtd-theme>=3.0.2 myst-parser>=4.0.0 sphinx-copybutton
       # Install the SDK package from the sdk directory
       - pip install -e ./sdk
 

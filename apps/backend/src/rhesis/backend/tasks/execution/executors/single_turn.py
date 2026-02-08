@@ -1,9 +1,11 @@
 """Single-turn test executor."""
 
 from typing import Any, Dict, Optional
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
 from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
@@ -79,6 +81,19 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 db, test_id, organization_id
             )
 
+            # Load test_configuration for metric override support
+            # Metric resolution priority: execution-time > test set > behavior
+            test_config = None
+            test_set = None
+            if test_config_id:
+                test_config = (
+                    db.query(TestConfiguration)
+                    .filter(TestConfiguration.id == UUID(test_config_id))
+                    .first()
+                )
+                if test_config:
+                    test_set = test_config.test_set
+
             # Create test execution context for trace linking
             # Note: test_result_id will be None initially, created after execution
             test_execution_context = {
@@ -100,6 +115,8 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 expected_response=expected_response,
                 evaluate_metrics=True,
                 test_execution_context=test_execution_context,
+                test_set=test_set,
+                test_configuration=test_config,
             )
 
             # Persist to database and link traces

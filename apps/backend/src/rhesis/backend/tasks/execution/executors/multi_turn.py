@@ -1,9 +1,11 @@
 """Multi-turn test executor using Penelope."""
 
 from typing import Any, Dict, Optional
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
 from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
@@ -82,6 +84,19 @@ class MultiTurnTestExecutor(BaseTestExecutor):
             # Retrieve test data - validation ensures goal exists in test_configuration
             test, _, _ = get_test_and_prompt(db, test_id, organization_id)
 
+            # Load test_configuration for metric override support
+            # Metric resolution priority: execution-time > test set > behavior
+            test_config = None
+            test_set = None
+            if test_config_id:
+                test_config = (
+                    db.query(TestConfiguration)
+                    .filter(TestConfiguration.id == UUID(test_config_id))
+                    .first()
+                )
+                if test_config:
+                    test_set = test_config.test_set
+
             # Create test execution context for trace linking
             test_execution_context = {
                 "test_run_id": test_run_id,
@@ -99,6 +114,8 @@ class MultiTurnTestExecutor(BaseTestExecutor):
                 user_id=user_id,
                 model=model,
                 test_execution_context=test_execution_context,
+                test_set=test_set,
+                test_configuration=test_config,
             )
 
             # Store result and link traces

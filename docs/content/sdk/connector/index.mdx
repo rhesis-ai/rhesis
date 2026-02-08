@@ -1,0 +1,180 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Connector
+
+Register Python functions as testable endpoints in Rhesis using the SDK connector. This code-first approach automatically creates and manages endpoints, providing an alternative to [manual endpoint configuration](/platform/endpoints).
+
+<Callout type="info">
+  **How it works**: Decorate functions with `@endpoint` and they automatically become endpoints
+  in Rhesis. The SDK connects via WebSocket, registers function metadata, and keeps endpoints in
+  sync with your code.
+</Callout>
+
+## Quick Start
+
+<Steps>
+### Initialize the Client
+
+<CodeBlock filename="setup.py" language="python">
+{`from rhesis.sdk import RhesisClient
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development"  # Required: "development", "staging", or "production"
+)`}
+
+</CodeBlock>
+
+### Decorate Functions
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import endpoint
+
+@endpoint()
+def chat(input: str, session_id: str = None) -> dict:
+    """Handle chat messages."""
+    return {
+        "output": process_message(input),
+        "session_id": session_id or generate_session_id(),
+    }`}
+
+</CodeBlock>
+
+### Automatic Registration
+
+When your app starts, functions are automatically registered as endpoints. View them in **Projects** → **Your Project** → **Endpoints**.
+
+</Steps>
+
+### See It in Action
+
+Watch this video to see how the Rhesis SDK connector integrates an LLM application in under a minute using a single decorator:
+
+<div style={{ position: "relative", paddingBottom: "56.25%", height: 0, overflow: "hidden", marginBottom: "2rem" }}>
+  <iframe
+    src="https://www.youtube.com/embed/6hteHCpOxpM"
+    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+**What You'll Learn:**
+- Integrating an LLM app with the `@endpoint` decorator
+- Automatic session management in action
+- Single-turn and multi-turn testing made easy
+
+No complex APIs. No orchestration. Just one decorator connecting your Python functions to comprehensive testing.
+
+## Environment
+
+The `environment` parameter is **required** and must be one of:
+
+- **`development`**: Local iteration and testing
+- **`staging`**: Pre-production validation
+- **`production`**: Live systems
+
+<Callout type="warning">
+  **Production**: Changes take effect immediately. Test in development/staging first.
+</Callout>
+
+<CodeBlock filename="config.py" language="python">
+{`import os
+
+client = RhesisClient(
+    api_key=os.getenv("RHESIS_API_KEY"),
+    project_id=os.getenv("RHESIS_PROJECT_ID"),
+    environment=os.getenv("RHESIS_ENVIRONMENT", "development"),
+)`}
+
+</CodeBlock>
+
+## Disabling the Connector
+
+To disable all connector and tracing functionality (useful for CI/CD or testing), set:
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_CONNECTOR_DISABLED=true`}
+</CodeBlock>
+
+Accepted values: `true`, `1`, `yes`, `on` (case-insensitive)
+
+When disabled:
+- `@endpoint` and `@observe` decorators return functions unmodified
+- No WebSocket connection is established
+- No telemetry or tracing occurs
+- All SDK method calls become no-ops
+
+<Callout type="info">
+  Use this in CI pipelines or test environments where you don't want connector overhead.
+</Callout>
+
+## Platform Integration
+
+### Viewing Endpoints
+
+Registered endpoints appear in the Rhesis dashboard:
+
+- **Location**: Projects → Your Project → Endpoints
+- **Connection Type**: `SDK`
+- **Status**: `Active` (connected) or `Inactive` (disconnected)
+- **Naming**: `{Project Name} ({function_name})`
+
+### Connection Management
+
+- **Reconnection**: SDK automatically reconnects with exponential backoff if connection is lost
+- **Re-registration**: Functions are automatically re-registered on reconnect
+- **Function changes**: Adding/modifying functions updates endpoints automatically; removing functions marks endpoints as Inactive
+
+## Best Practices
+
+- **Use connectors when**: Functions are in your codebase, using standard patterns, want code-first definition
+- **Use manual config when**: Testing external APIs, need complex transformations, services outside codebase
+- **Function naming**: Use descriptive names (avoid `function1`, `handler`)
+- **Type hints**: Always include type hints for better auto-detection and [type serialization](./serializers)
+- **Error handling**: Return structured error responses: `{"output": None, "status": "error", "error": str(e)}`
+- **Parameter binding**: Use `bind` for infrastructure dependencies (db, config, auth) that shouldn't appear in remote signatures
+- **Callable bindings**: Use lambdas for dependencies that need fresh values per call (database connections, auth context)
+- **Static bindings**: Use direct values for singletons (configuration objects, shared resources)
+- **Avoid binding business logic**: Only bind infrastructure dependencies, not business logic parameters
+
+## Troubleshooting
+
+**Functions not appearing**:
+
+- Verify `RhesisClient` initialized with `api_key`, `project_id`, and `environment`
+- Check functions use `@endpoint()` decorator
+- Check logs for "Connector initialized" and "Sent registration" messages
+
+**Connection issues**:
+
+- Verify API key and project ID are correct
+- Ensure Rhesis backend is accessible
+- Check firewall/network settings for WebSocket connections
+
+**Mapping problems**:
+
+- **Auto-mapping**: Use standard field names (`input`, `session_id`, `output`)
+- **Manual mapping**: Verify Jinja2/JSONPath syntax
+- **Custom fields**: Ensure custom request fields are included in API requests
+
+**Common errors**:
+
+- `"RhesisClient not initialized"`: Create `RhesisClient` instance before using `@endpoint`
+- `"@endpoint requires project_id"`: Provide `project_id` or set `RHESIS_PROJECT_ID` env var
+- `"Functions not appearing as Active"`: Restart app to trigger re-registration
+
+**Parameter binding issues**:
+
+- **Bound parameter not injected**: Ensure the parameter name in `bind` matches the function parameter name exactly
+- **Callable not evaluated**: Check that you're passing a callable (lambda or function), not calling it (e.g., `lambda: get_db()` not `get_db()`)
+- **Static value stale**: If using a static value that changes, use a callable instead: `bind={"config": lambda: get_config()}`
+- **Exception in bound callable**: Exceptions in bound callables are propagated - ensure your dependency functions handle errors gracefully
+
+---
+
+<Callout type="default">
+  **Next Steps** - Learn about [Mapping](./mapping) for input/output transformations - See [Advanced Mapping](./serializers) for complex objects - Explore [Parameter Binding](./binding) for dependency injection
+</Callout>

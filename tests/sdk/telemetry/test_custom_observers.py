@@ -83,8 +83,9 @@ class TestCreateObserver:
         """Test adding method with forbidden domain raises ValueError."""
         observer = create_observer("test")
 
+        # Note: "agent" is now allowed, use "workflow" which is still forbidden
         with pytest.raises(ValueError, match="Invalid span_name"):
-            observer.add_method("run", "ai.agent.run")
+            observer.add_method("run", "ai.workflow.run")
 
     def test_add_method_returns_self_for_chaining(self):
         """Test add_method returns self for method chaining."""

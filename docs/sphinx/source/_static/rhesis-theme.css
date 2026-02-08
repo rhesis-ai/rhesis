@@ -456,6 +456,8 @@ a:visited, .rst-content a:visited {
 /* Footer */
 .rst-footer-buttons {
   border-top: 1px solid var(--rhesis-bg-light3) !important;
+  margin-top: 48px !important;
+  padding-top: 24px !important;
 }
 
 /* Version selector */

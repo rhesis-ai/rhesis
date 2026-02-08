@@ -137,7 +137,7 @@ class TestValidateSpanName:
     def test_validate_span_name_rejects_framework_concepts(self):
         """Test validation rejects framework concepts."""
         forbidden_names = [
-            "ai.agent.run",
+            # Note: "agent" is now allowed for multi-agent tracing
             "ai.chain.execute",
             "ai.workflow.process",
             "ai.pipeline.run",

@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-02-05
+
+### Added
+
+- **Playground:** Added a new interactive playground for testing endpoints with real-time WebSocket communication. This includes a new `/playground` page under the Testing section, a chat interface with message handling, and integration with TraceDrawer for viewing endpoint response traces.
+- **Jira Ticket Creation:** Implemented Jira ticket creation directly from tasks via MCP integration. Users can select a Jira project and create tickets with automatic field mapping.
+- **WebSocket Infrastructure:** Implemented foundational WebSocket support for real-time communication between backend and frontend with comprehensive security measures.
+- **Trace Visualization:** Added a graph view for trace visualization, allowing users to switch between Tree View, Sequence View, and Graph View tabs to visualize span hierarchies.
+- **Agent Tracing:** Added framework-agnostic agent tracing support with `ai.agent.invoke` and `ai.agent.handoff` span types, including agent input/output capture and handoff detection.
+- **Markdown Rendering:** Added markdown rendering to playground chat bubbles for assistant messages.
+- **Playground Button:** Added a "Playground" button to the endpoint detail page, navigating to the playground with the endpoint pre-selected.
+- **Copy Button:** Added a copy button to playground message bubbles for easy copying of chat messages.
+- **LM Format Enforcer:** Added lm-format-enforcer as a new provider.
+- **Creation Dates:** Display creation dates for tests and test sets in the UI.
+- **./rh dev Command:** Added a `./rh dev` command for local development setup, including starting Postgres and Redis, generating `.env` files, and running database migrations.
+
+### Changed
+
+- **SDK Timeout:** Increased SDK function timeout from 30s to 120s (configurable via `SDK_FUNCTION_TIMEOUT` env var).
+- **SDK Connector Ping:** Increased SDK connector ping interval/timeout defaults (60s/30s) with `RHESIS_PING_INTERVAL` and `RHESIS_PING_TIMEOUT` env vars.
+- **Conversation Tracking:** Standardized `session_id` as the canonical name for conversation tracking.
+- **WebSocket Retry:** Enhanced WebSocket retry mechanism for robustness, including increased max reconnect attempts, a max reconnect delay cap, and a manual reconnect method.
+- **Trace Detail View:** Adjusted trace detail view split to 70:30, giving more space to the trace visualization.
+- **MCP Provider Names:** Simplified MCP provider names in the selection dialog.
+- **Jira Space Nomenclature:** Changed nomenclature from "Jira projects" to "Jira spaces".
+- **Trace Visualization:** Renamed Markov View to Graph View for clarity and removed probability labels from edges.
+- **Agent Icon:** Replaced agent icon with a brain icon for `ai.agent.invoke` spans.
+- **Local Development Commands:** Reorganized commands under the `rh dev` subcommand for better clarity.
+
+### Fixed
+
+- **WebSocket Ping Timeout:** Fixed synchronous functions blocking the event loop, preventing WebSocket ping timeouts.
+- **Trace ID Propagation:** Fixed trace ID propagation from SDK to frontend for trace linking.
+- **Connector Test Isolation:** Resolved connector test isolation issues.
+- **Endpoint Change Reset:** Fixed resetting the entire conversation state when the endpoint changes in the playground.
+- **Redis URL Configuration:** Fixed Redis URL configuration to check `BROKER_URL` first for consistency.
+- **Duplicate Breadcrumb Routes:** Fixed duplicate breadcrumb routes.
+- **Chart Tooltip Visibility:** Fixed chart tooltip text visibility in dark mode.
+- **Header Logo Navigation:** Fixed header logo navigation causing reload and redirect.
+- **Dark Mode Flash:** Prevented dark mode flash on page load.
+- **Test Set Type:** Fixed test set type default selection and validation display.
+- **Client Method:** Added client method to create-ticket-from-task service.
+- **Span Name Validation:** Updated span name validation test for agent domain.
+- **Created Column:** Kept Created column next to Type in test and test-set tables.
+
+### Removed
+
+- **Trace Details Cost Display:** Removed cost display from trace details (will be re-added in a future release).
+
+## [0.6.2] - 2026-01-29
+
+### Added
+
+- Implemented 3-level metrics hierarchy for test execution. Added Test Run Metrics section to ExecuteTestSetDrawer with metric source selection dropdown (behavior, test set, execution-time). Includes RerunTestRunDrawer component for re-running tests with options, scope filtering in SelectMetricsDialog, and MetricsSource display in test detail view. (#1206)
+- Added Garak import UI for test sets with GarakImportDialog component for selecting and importing probes, 'Import from Garak' button in TestSetsGrid, sync button for garak-sourced test sets, and garak backend icon on metric cards. Features progress indicators, visual feedback, and probe-level selection within modules. (#1190)
+- Added context and expected response fields to test run detail view. Context array displays as bullet points with "No context provided" fallback, and expected response shows in the Overview tab. (#1201)
+- Split Atlassian MCP provider into separate Jira and Confluence providers with dedicated credential fields for URL, username/email, and API token. Values now stored in credentials only for proper edit mode persistence. (#1197)
+- Added MCP GitHub repository scope configuration with repository scope display in tool cards and import dialog. Added URL import tab (Direct Link) for importing MCP resources from URLs with provider-agnostic support. (#1148)
+- Added MCP observability support with dynamic agent selection based on RhesisClient availability. (#1102)
+
+### Fixed
+
+- Fixed tags not showing up without refresh on source page. (#1173)
+- Fixed object responses handling in trial drawer. (#1156)
+- Fixed endpoint connection type being changeable during edit mode - now properly prevented. (#1158)
+
+### Removed
+
+- Removed Documents feature from UI in favor of source-based architecture. (#1169)
+
 ## [0.6.1] - 2026-01-20
 
 ### Fixed

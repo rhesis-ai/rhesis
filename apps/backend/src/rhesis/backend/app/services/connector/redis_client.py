@@ -30,10 +30,18 @@ class RedisConnectionManager:
         try:
             redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
             self._client = await redis.from_url(redis_url, decode_responses=True, encoding="utf-8")
+            # Actually test the connection - from_url() doesn't connect until first use
+            await self._client.ping()
             self._initialized = True
             logger.info("Redis connection established for SDK RPC")
         except Exception as e:
             self._initialization_failed = True
+            if self._client:
+                try:
+                    await self._client.close()
+                except Exception:
+                    pass
+                self._client = None
             logger.warning(f"Redis not available: {e}. SDK RPC via worker will not work.")
 
     async def close(self):
