@@ -79,6 +79,18 @@ def upgrade() -> None:
         )
     )
 
+    # Step 3: Set is_email_verified=true for users migrated from Auth0 providers
+    # (Google, GitHub, Auth0 email, etc. have all verified the email)
+    connection.execute(
+        text(
+            """
+            UPDATE "user" SET
+                is_email_verified = true
+            WHERE auth0_id IS NOT NULL
+        """
+        )
+    )
+
     # Log migration results
     result = connection.execute(
         text(

@@ -41,6 +41,7 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
             user.picture = user_profile["picture"]
             user.auth0_id = auth0_id
             user.last_login_at = current_time
+            user.is_email_verified = True  # Auth via provider confirms email
             # Transaction commit is handled by the session context manager
             return user
 
@@ -58,6 +59,7 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
                 user.family_name = user_profile["family_name"]
                 user.picture = user_profile["picture"]
                 user.last_login_at = current_time
+                user.is_email_verified = True  # Auth via provider confirms email
                 # Transaction commit is handled by the session context manager
                 return user
 
@@ -81,6 +83,7 @@ def find_or_create_user(db: Session, auth0_id: str, email: str, user_profile: di
             picture=user_profile["picture"],
             is_active=True,
             is_superuser=False,
+            is_email_verified=True,  # Auth0/IdP has verified the email
             last_login_at=current_time,
         )
         user = crud.create_user(db, user_data)
@@ -137,6 +140,8 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
         user.provider_type = auth_user.provider_type
         user.external_provider_id = auth_user.external_id
         user.last_login_at = current_time
+        # Authenticating via any provider confirms email ownership
+        user.is_email_verified = True
         return user
 
     # Create new user
@@ -151,6 +156,7 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
         external_provider_id=auth_user.external_id,
         is_active=True,
         is_superuser=False,
+        is_email_verified=True,  # OAuth/credentials auth confirms email ownership
         last_login_at=current_time,
     )
     user = crud.create_user(db, user_data)
