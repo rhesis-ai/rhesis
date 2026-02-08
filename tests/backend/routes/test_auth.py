@@ -369,12 +369,14 @@ class TestAuthCallback:
     _EXTRACT = "rhesis.backend.app.auth.oauth.extract_user_data"
 
     @patch("rhesis.backend.app.routers.auth.build_redirect_url")
+    @patch("rhesis.backend.app.routers.auth.create_refresh_token")
     @patch("rhesis.backend.app.routers.auth.create_session_token")
     @patch("rhesis.backend.app.routers.auth.find_or_create_user")
     def test_callback_success(
         self,
         mock_find_user,
         mock_create_token,
+        mock_create_refresh,
         mock_build_redirect,
         client: TestClient,
     ):
@@ -389,6 +391,7 @@ class TestAuthCallback:
 
         mock_session_token = "session_token_123"
         mock_create_token.return_value = mock_session_token
+        mock_create_refresh.return_value = "refresh_token_456"
 
         mock_redirect_url = "http://localhost:3000/dashboard?token=session_token_123"
         mock_build_redirect.return_value = mock_redirect_url
@@ -418,6 +421,7 @@ class TestAuthCallback:
         mock_extract_data.assert_called_once_with(mock_userinfo)
         mock_find_user.assert_called_once()
         mock_create_token.assert_called_once_with(mock_user)
+        mock_create_refresh.assert_called_once()
         mock_build_redirect.assert_called_once()
 
     def test_callback_auth0_error(self, client: TestClient):
@@ -1102,6 +1106,7 @@ class TestAuthMagicLinkRoutes:
         data = response.json()
         assert data["success"] is True
         assert "session_token" in data
+        assert "refresh_token" in data
         assert data["user"]["email"] == user.email
         assert data["user"]["id"] == str(user.id)
 
@@ -1177,12 +1182,15 @@ class TestAuthExchangeCode:
     """Test POST /auth/exchange-code for OAuth auth code exchange."""
 
     def test_exchange_valid_code(self, client: TestClient):
-        """Exchange a valid auth code returns session token."""
+        """Exchange a valid auth code returns session + refresh tokens."""
         with patch(
             "rhesis.backend.app.auth.token_utils.get_secret_key",
             return_value="test-secret",
         ):
-            code = create_auth_code("real-session-token-123")
+            code = create_auth_code(
+                "real-session-token-123",
+                refresh_token="refresh-tok-456",
+            )
             response = client.post(
                 "/auth/exchange-code",
                 json={"code": code},
@@ -1191,6 +1199,7 @@ class TestAuthExchangeCode:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["session_token"] == "real-session-token-123"
+        assert data["refresh_token"] == "refresh-tok-456"
 
     def test_exchange_invalid_code(self, client: TestClient):
         """Exchange an invalid auth code returns 400."""
@@ -1278,3 +1287,132 @@ class TestVerifyEmailEnumerationSafety:
         assert data["success"] is True
         # Should NOT contain session_token (no user to create session for)
         assert "session_token" not in data
+
+
+# =============================================================================
+# Refresh Token Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestAuthRefreshToken:
+    """Test POST /auth/refresh for access/refresh token rotation."""
+
+    def test_refresh_valid_token(self, client: TestClient, test_db, test_org_id):
+        """POST /auth/refresh with valid refresh token returns new tokens."""
+        from rhesis.backend.app.auth.refresh_token_utils import (
+            create_refresh_token as create_rt,
+        )
+
+        email = _unique_email("refresh")
+        org = create_test_organization(test_db, "Refresh Org")
+        user = create_test_user(test_db, org.id, email, "Refresh User")
+        test_db.flush()
+
+        raw_token = create_rt(test_db, str(user.id))
+        test_db.commit()
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            response = client.post(
+                "/auth/refresh",
+                json={"refresh_token": raw_token},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "access_token" in data
+        assert "refresh_token" in data
+        assert data["token_type"] == "bearer"
+        # New refresh token must differ from old one (rotation)
+        assert data["refresh_token"] != raw_token
+
+    def test_refresh_invalid_token(self, client: TestClient):
+        """POST /auth/refresh with invalid refresh token returns 401."""
+        response = client.post(
+            "/auth/refresh",
+            json={"refresh_token": "invalid-token"},
+        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_refresh_reuse_detection(self, client: TestClient, test_db, test_org_id):
+        """POST /auth/refresh with reused token revokes entire family."""
+        from rhesis.backend.app.auth.refresh_token_utils import (
+            create_refresh_token as create_rt,
+        )
+
+        email = _unique_email("reuse")
+        org = create_test_organization(test_db, "Reuse Org")
+        user = create_test_user(test_db, org.id, email, "Reuse User")
+        test_db.flush()
+
+        raw_token = create_rt(test_db, str(user.id))
+        test_db.commit()
+
+        # First use should succeed
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            resp1 = client.post(
+                "/auth/refresh",
+                json={"refresh_token": raw_token},
+            )
+        assert resp1.status_code == status.HTTP_200_OK
+
+        # Second use of the SAME token should fail (reuse detection)
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            resp2 = client.post(
+                "/auth/refresh",
+                json={"refresh_token": raw_token},
+            )
+        assert resp2.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "reuse" in resp2.json()["detail"].lower()
+
+    def test_refresh_missing_body(self, client: TestClient):
+        """POST /auth/refresh without body returns 422."""
+        response = client.post("/auth/refresh", json={})
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_refresh_rotated_token_works(self, client: TestClient, test_db, test_org_id):
+        """After rotation the new refresh token can be used."""
+        from rhesis.backend.app.auth.refresh_token_utils import (
+            create_refresh_token as create_rt,
+        )
+
+        email = _unique_email("rotate")
+        org = create_test_organization(test_db, "Rotate Org")
+        user = create_test_user(test_db, org.id, email, "Rotate User")
+        test_db.flush()
+
+        raw_token = create_rt(test_db, str(user.id))
+        test_db.commit()
+
+        # First rotation
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            resp1 = client.post(
+                "/auth/refresh",
+                json={"refresh_token": raw_token},
+            )
+        assert resp1.status_code == status.HTTP_200_OK
+        new_refresh = resp1.json()["refresh_token"]
+
+        # Use the rotated token
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            resp2 = client.post(
+                "/auth/refresh",
+                json={"refresh_token": new_refresh},
+            )
+        assert resp2.status_code == status.HTTP_200_OK
+        assert resp2.json()["refresh_token"] != new_refresh
