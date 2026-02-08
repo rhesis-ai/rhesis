@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.token_utils import (
+    create_auth_code,
     create_email_verification_token,
     create_magic_link_token,
     create_password_reset_token,
@@ -540,8 +541,12 @@ class TestAuthVerify:
     """Test authentication verification endpoint"""
 
     def test_verify_valid_token(self, client: TestClient):
-        """Test verification of valid JWT token"""
-        user_data = {"id": str(uuid.uuid4()), "email": "test@example.com", "name": "Test User"}
+        """Test verification of valid JWT token via POST"""
+        user_data = {
+            "id": str(uuid.uuid4()),
+            "email": "test@example.com",
+            "name": "Test User",
+        }
         mock_payload = {"user": user_data}
 
         with patch("rhesis.backend.app.routers.auth.verify_jwt_token") as mock_verify:
@@ -549,7 +554,10 @@ class TestAuthVerify:
                 mock_verify.return_value = mock_payload
                 mock_secret.return_value = "test_secret"
 
-                response = client.get("/auth/verify?session_token=valid_token")
+                response = client.post(
+                    "/auth/verify",
+                    json={"session_token": "valid_token"},
+                )
 
                 assert response.status_code == status.HTTP_200_OK
                 data = response.json()
@@ -567,7 +575,13 @@ class TestAuthVerify:
                 mock_verify.return_value = mock_payload
                 mock_secret.return_value = "test_secret"
 
-                response = client.get("/auth/verify?session_token=valid_token&return_to=/dashboard")
+                response = client.post(
+                    "/auth/verify",
+                    json={
+                        "session_token": "valid_token",
+                        "return_to": "/dashboard",
+                    },
+                )
 
                 assert response.status_code == status.HTTP_200_OK
                 data = response.json()
@@ -582,7 +596,10 @@ class TestAuthVerify:
                 mock_verify.side_effect = JWTError("Invalid token")
                 mock_secret.return_value = "test_secret"
 
-                response = client.get("/auth/verify?session_token=invalid_token")
+                response = client.post(
+                    "/auth/verify",
+                    json={"session_token": "invalid_token"},
+                )
 
                 assert response.status_code == status.HTTP_401_UNAUTHORIZED
                 assert "Invalid token" in response.json()["detail"]
@@ -596,16 +613,19 @@ class TestAuthVerify:
                 mock_verify.side_effect = JWTError("Expired token")
                 mock_secret.return_value = "test_secret"
 
-                response = client.get("/auth/verify?session_token=expired_token")
+                response = client.post(
+                    "/auth/verify",
+                    json={"session_token": "expired_token"},
+                )
 
                 assert response.status_code == status.HTTP_401_UNAUTHORIZED
                 assert "Token has expired" in response.json()["detail"]
 
     def test_verify_missing_session_token(self, client: TestClient):
-        """Test verification without session token parameter"""
-        response = client.get("/auth/verify")
+        """Test verification without session token in body"""
+        response = client.post("/auth/verify", json={})
 
-        # Should return validation error for missing required parameter
+        # Should return validation error for missing required field
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     def test_verify_general_exception(self, client: TestClient):
@@ -615,7 +635,10 @@ class TestAuthVerify:
                 mock_verify.side_effect = Exception("Unexpected error")
                 mock_secret.return_value = "test_secret"
 
-                response = client.get("/auth/verify?session_token=test_token")
+                response = client.post(
+                    "/auth/verify",
+                    json={"session_token": "test_token"},
+                )
 
                 assert response.status_code == status.HTTP_401_UNAUTHORIZED
                 assert "Authentication failed" in response.json()["detail"]
@@ -701,7 +724,7 @@ class TestAuthEdgeCases:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_verify_with_malformed_token(self, client: TestClient):
-        """🏃‍♂️ Test verify with malformed JWT token"""
+        """Test verify with malformed JWT token via POST"""
         malformed_tokens = [
             "not.a.jwt",
             "invalid_token_format",
@@ -711,7 +734,10 @@ class TestAuthEdgeCases:
         ]
 
         for token in malformed_tokens:
-            response = client.get(f"/auth/verify?session_token={token}")
+            response = client.post(
+                "/auth/verify",
+                json={"session_token": token},
+            )
             assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_logout_with_extremely_long_token(self, client: TestClient):
@@ -775,7 +801,10 @@ class TestAuthPerformance:
 
                 # Make 20 verify requests
                 for i in range(20):
-                    response = client.get("/auth/verify?session_token=test_token")
+                    response = client.post(
+                        "/auth/verify",
+                        json={"session_token": "test_token"},
+                    )
                     assert response.status_code == status.HTTP_200_OK
 
                 duration = time.time() - start_time
@@ -804,8 +833,8 @@ class TestAuthHealthChecks:
             )
 
     def test_verify_endpoint_requires_token(self, client: TestClient):
-        """✅ Verify endpoint correctly requires session token"""
-        response = client.get("/auth/verify")
+        """Verify endpoint correctly requires session token in POST body"""
+        response = client.post("/auth/verify", json={})
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
@@ -881,7 +910,7 @@ class TestAuthEmailVerificationRoutes:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["success"] is True
-        assert "already" in data["message"].lower()
+        assert "verified" in data["message"].lower()
 
     def test_resend_verification_returns_200_enumeration_safe(self, client: TestClient):
         """POST /auth/resend-verification always 200 (enumeration-safe)."""
@@ -1136,3 +1165,116 @@ class TestAuthMagicLinkRoutes:
             )
 
         assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+# =============================================================================
+# Auth Code Exchange Tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestAuthExchangeCode:
+    """Test POST /auth/exchange-code for OAuth auth code exchange."""
+
+    def test_exchange_valid_code(self, client: TestClient):
+        """Exchange a valid auth code returns session token."""
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            code = create_auth_code("real-session-token-123")
+            response = client.post(
+                "/auth/exchange-code",
+                json={"code": code},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["session_token"] == "real-session-token-123"
+
+    def test_exchange_invalid_code(self, client: TestClient):
+        """Exchange an invalid auth code returns 400."""
+        response = client.post(
+            "/auth/exchange-code",
+            json={"code": "invalid.jwt.code"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_exchange_expired_code(self, client: TestClient):
+        """Exchange an expired auth code returns 400."""
+        from datetime import datetime, timedelta, timezone
+
+        from jose import jwt
+
+        payload = {
+            "type": "auth_code",
+            "session_token": "session-token-123",
+            "exp": datetime.now(timezone.utc) - timedelta(minutes=5),
+            "iat": datetime.now(timezone.utc) - timedelta(minutes=10),
+        }
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            expired_code = jwt.encode(payload, "test-secret", algorithm="HS256")
+            response = client.post(
+                "/auth/exchange-code",
+                json={"code": expired_code},
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_exchange_code_missing_body(self, client: TestClient):
+        """Exchange without code in body returns 422."""
+        response = client.post(
+            "/auth/exchange-code",
+            json={},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+# =============================================================================
+# Verify-email enumeration safety tests
+# =============================================================================
+
+
+@pytest.mark.unit
+class TestVerifyEmailEnumerationSafety:
+    """Verify that /auth/verify-email does not leak email existence."""
+
+    def test_verify_email_user_not_found_returns_200(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """POST /auth/verify-email returns success even when user deleted."""
+        # Create a verification token for a user, then delete the user
+        email = _unique_email("deleted")
+        org = create_test_organization(test_db, "Deleted Org")
+        user = create_test_user(test_db, org.id, email, "Deleted User")
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            token = create_email_verification_token(str(user.id), user.email)
+
+        # Delete the user
+        test_db.delete(user)
+        test_db.commit()
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            response = client.post(
+                "/auth/verify-email",
+                json={"token": token},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["success"] is True
+        # Should NOT contain session_token (no user to create session for)
+        assert "session_token" not in data
