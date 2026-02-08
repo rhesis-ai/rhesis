@@ -115,6 +115,7 @@ class TemplateService:
             EmailTemplate.MAGIC_LINK: {
                 "recipient_name",
                 "magic_link_url",
+                "is_new_user",
             },
         }
 

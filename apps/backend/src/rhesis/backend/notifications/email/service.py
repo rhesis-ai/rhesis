@@ -289,21 +289,33 @@ class EmailService:
         recipient_email: str,
         recipient_name: Optional[str],
         magic_link_url: str,
+        is_new_user: bool = False,
     ) -> bool:
-        """Send a magic link login email to a user."""
+        """Send a magic link email to a user.
+
+        Args:
+            recipient_email: The recipient's email address.
+            recipient_name: The recipient's display name.
+            magic_link_url: The magic link URL.
+            is_new_user: Whether this is a newly created account.
+        """
         if not self.is_configured:
             logger.warning(
-                f"Cannot send magic link email to {recipient_email}: SMTP not configured"
+                "Cannot send magic link email to %s: SMTP not configured",
+                recipient_email,
             )
             return False
+
+        subject = "Welcome to Rhesis AI" if is_new_user else "Sign in to Rhesis AI"
 
         return self.send_email(
             template=EmailTemplate.MAGIC_LINK,
             recipient_email=recipient_email,
-            subject="Sign in to Rhesis AI",
+            subject=subject,
             template_variables={
                 "recipient_name": recipient_name or "",
                 "magic_link_url": magic_link_url,
+                "is_new_user": is_new_user,
             },
             task_id="magic_link",
         )

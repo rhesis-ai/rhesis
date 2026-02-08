@@ -717,6 +717,7 @@ async def request_magic_link(
     from rhesis.backend.app.schemas.user import UserCreate
 
     user = crud.get_user_by_email(db, body.email)
+    is_new_user = False
 
     if not user:
         # Auto-create account for new users (unified flow)
@@ -728,6 +729,7 @@ async def request_magic_link(
                 is_active=True,
             )
             user = crud.create_user(db, user_data)
+            is_new_user = True
             logger.info(
                 "New user created via magic link: %s",
                 redact_email(body.email),
@@ -749,6 +751,7 @@ async def request_magic_link(
             recipient_email=user.email,
             recipient_name=user.name,
             magic_link_url=magic_link_url,
+            is_new_user=is_new_user,
         )
         logger.info(
             "Magic link email sent to: %s",

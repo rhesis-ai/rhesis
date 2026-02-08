@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sign in to Rhesis AI</title>
+    <title>{% if is_new_user %}Welcome to Rhesis AI{% else %}Sign in to Rhesis AI{% endif %}</title>
 </head>
 <body style="font-family: 'Be Vietnam Pro', Arial, sans-serif; line-height: 1.6; color: #3D3D3D; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #FFFFFF;">
 
@@ -15,10 +15,14 @@
     <!-- Hero Section -->
     <div style="background: linear-gradient(135deg, #F2F9FD 0%, #E4F2FA 100%); border-radius: 12px; padding: 30px 20px; margin-bottom: 25px; text-align: center;">
         <h1 style="color: #2AA1CE; margin: 0 0 15px 0; font-size: 28px; font-weight: 600;">
-            Your sign-in link
+            {% if is_new_user %}Welcome to Rhesis AI{% else %}Your sign-in link{% endif %}
         </h1>
         <p style="margin: 0; font-size: 16px; color: #3D3D3D;">
-            Click the link below to sign in -- no password needed.
+            {% if is_new_user %}
+                Your account has been created. Click the link below to get started.
+            {% else %}
+                Click the link below to sign in &mdash; no password needed.
+            {% endif %}
         </p>
     </div>
 
@@ -27,9 +31,15 @@
         <p style="margin: 0 0 15px 0; font-size: 15px; line-height: 1.8;">
             Hi{{ ' ' + recipient_name if recipient_name else '' }},
         </p>
+        {% if is_new_user %}
+        <p style="margin: 0 0 15px 0; font-size: 15px; line-height: 1.8;">
+            We've created your Rhesis AI account. Click the button below to sign in and complete your setup.
+        </p>
+        {% else %}
         <p style="margin: 0 0 15px 0; font-size: 15px; line-height: 1.8;">
             We received a request to sign you in to Rhesis AI. Use the button below to log in instantly.
         </p>
+        {% endif %}
         <p style="margin: 0; font-size: 14px; line-height: 1.8; color: #6c757d;">
             This link will expire in 15 minutes.
         </p>
@@ -40,7 +50,7 @@
         <a href="{{ magic_link_url }}"
            style="display: inline-block; background-color: #2AA1CE; color: white; padding: 14px 32px;
                   text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">
-            Sign In to Rhesis AI
+            {% if is_new_user %}Get Started{% else %}Sign In to Rhesis AI{% endif %}
         </a>
     </div>
 
@@ -55,7 +65,11 @@
     <!-- Security note -->
     <div style="margin-bottom: 25px;">
         <p style="margin: 0; font-size: 13px; color: #6c757d;">
-            If you didn't request this link, you can safely ignore this email. No action will be taken on your account.
+            {% if is_new_user %}
+                If you didn't sign up for Rhesis AI, you can safely ignore this email.
+            {% else %}
+                If you didn't request this link, you can safely ignore this email. No action will be taken on your account.
+            {% endif %}
         </p>
     </div>
 
