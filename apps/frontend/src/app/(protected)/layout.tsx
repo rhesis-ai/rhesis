@@ -177,13 +177,13 @@ export default function ProtectedLayout({
       }}
       renderPageItem={renderPageItem}
     >
-      <VerificationBanner />
       {children}
     </DashboardLayout>
   );
 
   return (
     <AuthErrorBoundary>
+      <VerificationBanner />
       {isOnboarding ? (
         content
       ) : (
