@@ -111,7 +111,7 @@ export default function VerificationBanner() {
               py: 0,
               px: 1,
               ml: 0.5,
-              borderRadius: 1,
+              borderRadius: (theme) => `${theme.shape.borderRadius}px`,
               border: `1px solid ${alpha(textColor, 0.5)}`,
               '&:hover': {
                 backgroundColor: alpha(textColor, 0.15),
