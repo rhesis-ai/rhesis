@@ -356,31 +356,40 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
               {/* Migration guidance for Auth0 users without a password */}
               {needsPasswordReset && (
-                <Alert severity="info" sx={{ py: 1 }}>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
+                <Alert severity="warning" sx={{ py: 1 }}>
+                  <Typography variant="body2">
                     Your account has been migrated and needs a new password.
-                    You can sign in with a magic link or set a new password.
+                    You can{' '}
+                    <Tooltip
+                      title="We'll send you a link to sign in without a password"
+                      arrow
+                    >
+                      <a
+                        href="#"
+                        onClick={e => {
+                          e.preventDefault();
+                          setNeedsPasswordReset(false);
+                          setShowMagicLink(true);
+                        }}
+                        style={{ color: 'inherit' }}
+                      >
+                        sign in with a link
+                      </a>
+                    </Tooltip>{' '}
+                    or{' '}
+                    <Tooltip
+                      title="Set a new password via email to use password login"
+                      arrow
+                    >
+                      <a
+                        href="/auth/forgot-password"
+                        style={{ color: 'inherit' }}
+                      >
+                        reset your password
+                      </a>
+                    </Tooltip>
+                    .
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      startIcon={<AutoFixHighIcon />}
-                      onClick={() => {
-                        setNeedsPasswordReset(false);
-                        setShowMagicLink(true);
-                      }}
-                    >
-                      Send me a magic link
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      href="/auth/forgot-password"
-                    >
-                      Reset my password
-                    </Button>
-                  </Box>
                 </Alert>
               )}
 
@@ -488,7 +497,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 )
               }
             >
-              Email Me A Link
+              Email me a link
             </Button>
             <Typography variant="body2" align="center">
               <a
