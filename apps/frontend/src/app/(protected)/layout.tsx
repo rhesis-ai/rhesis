@@ -167,22 +167,28 @@ export default function ProtectedLayout({
         }),
   };
 
+  const content = (
+    <DashboardLayout
+      sx={layoutStyles}
+      sidebarExpandedWidth={240}
+      slots={{
+        sidebarFooter: SidebarFooter,
+        toolbarActions: ToolbarActions,
+      }}
+      renderPageItem={renderPageItem}
+    >
+      <VerificationBanner />
+      {children}
+    </DashboardLayout>
+  );
+
   return (
     <AuthErrorBoundary>
-      <WebSocketProvider>
-        <DashboardLayout
-          sx={layoutStyles}
-          sidebarExpandedWidth={240}
-          slots={{
-            sidebarFooter: SidebarFooter,
-            toolbarActions: ToolbarActions,
-          }}
-          renderPageItem={renderPageItem}
-        >
-          <VerificationBanner />
-          {children}
-        </DashboardLayout>
-      </WebSocketProvider>
+      {isOnboarding ? (
+        content
+      ) : (
+        <WebSocketProvider>{content}</WebSocketProvider>
+      )}
     </AuthErrorBoundary>
   );
 }
