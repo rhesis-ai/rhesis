@@ -13,7 +13,7 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 
 # revision identifiers, used by Alembic.
 revision: str = "c3d4e5f6a7b8"
@@ -41,6 +41,20 @@ def upgrade() -> None:
                 server_default=sa.false(),
             ),
         )
+
+    # Set is_email_verified=true for users migrated from Auth0 providers
+    # (Google, GitHub, Auth0 email, etc. have all verified the email)
+    connection = op.get_bind()
+    connection.execute(
+        text(
+            """
+            UPDATE "user" SET
+                is_email_verified = true
+            WHERE auth0_id IS NOT NULL
+              AND is_email_verified = false
+        """
+        )
+    )
 
 
 def downgrade() -> None:
