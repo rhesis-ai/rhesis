@@ -57,6 +57,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
   // Email form expanded state (login only — registration always shows form)
   const [showEmailForm, setShowEmailForm] = useState(false);
 
+  // Migration state: set when a migrated Auth0 user has no password
+  const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
+
   // Check local storage for previous acceptance on component mount
   useEffect(() => {
     const hasAcceptedTerms = localStorage.getItem('termsAccepted') === 'true';
@@ -151,7 +154,21 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Authentication failed');
+        // Check for migrated Auth0 user without a password
+        const detail = data.detail;
+        if (
+          typeof detail === 'object' &&
+          detail?.error_code === 'password_not_set'
+        ) {
+          setNeedsPasswordReset(true);
+          setFormError(null);
+          setFormLoading(false);
+          return;
+        }
+
+        const message =
+          typeof detail === 'object' ? detail?.message : detail;
+        throw new Error(message || 'Authentication failed');
       }
 
       // Use NextAuth to establish session with the token from backend
@@ -336,6 +353,37 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   {formError}
                 </Alert>
               )}
+
+              {/* Migration guidance for Auth0 users without a password */}
+              {needsPasswordReset && (
+                <Alert severity="info" sx={{ py: 1 }}>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    Your account has been migrated and needs a new password.
+                    You can sign in with a magic link or set a new password.
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      startIcon={<AutoFixHighIcon />}
+                      onClick={() => {
+                        setNeedsPasswordReset(false);
+                        setShowMagicLink(true);
+                      }}
+                    >
+                      Send me a magic link
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      href="/auth/forgot-password"
+                    >
+                      Reset my password
+                    </Button>
+                  </Box>
+                </Alert>
+              )}
+
               <Button
                 type="submit"
                 variant="contained"

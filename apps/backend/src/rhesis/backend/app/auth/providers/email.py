@@ -125,6 +125,24 @@ class EmailProvider(AuthProvider):
 
         # Check if user has a password set
         if not user.password_hash:
+            # Migrated Auth0 users: return a specific error so the frontend
+            # can guide them to magic link or password reset.
+            if user.auth0_id:
+                logger.warning(
+                    "Login attempt for migrated Auth0 user without password: %s",
+                    redact_email(email),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail={
+                        "message": (
+                            "Your account has been migrated. "
+                            "Please use a magic link or reset "
+                            "your password."
+                        ),
+                        "error_code": "password_not_set",
+                    },
+                )
             logger.warning(
                 "Login attempt for user without password: %s. "
                 "User may need to set a password or use OAuth.",
