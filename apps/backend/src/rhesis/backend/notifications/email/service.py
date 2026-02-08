@@ -284,6 +284,31 @@ class EmailService:
             task_id="password_reset",
         )
 
+    def send_migration_reset_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        reset_url: str,
+    ) -> bool:
+        """Send a password setup email to an Auth0-migrated user."""
+        if not self.is_configured:
+            logger.warning(
+                "Cannot send migration email to %s: SMTP not configured",
+                recipient_email,
+            )
+            return False
+
+        return self.send_email(
+            template=EmailTemplate.MIGRATION_PASSWORD_SETUP,
+            recipient_email=recipient_email,
+            subject="Set up your new password - Rhesis AI",
+            template_variables={
+                "recipient_name": recipient_name or "",
+                "reset_url": reset_url,
+            },
+            task_id="migration_password_setup",
+        )
+
     def send_magic_link_email(
         self,
         recipient_email: str,

@@ -200,7 +200,7 @@ def main():
             try:
                 token = create_password_reset_token(str(user_id), email)
                 reset_url = f"{frontend_url}/auth/reset-password?token={token}"
-                ok = email_service.send_password_reset_email(
+                ok = email_service.send_migration_reset_email(
                     recipient_email=email,
                     recipient_name=name,
                     reset_url=reset_url,

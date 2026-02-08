@@ -23,6 +23,7 @@ class EmailTemplate(Enum):
     EMAIL_VERIFICATION = "email_verification.html.jinja2"
     PASSWORD_RESET = "password_reset.html.jinja2"
     MAGIC_LINK = "magic_link.html.jinja2"
+    MIGRATION_PASSWORD_SETUP = "migration_password_setup.html.jinja2"
 
 
 class TemplateService:
@@ -116,6 +117,10 @@ class TemplateService:
                 "recipient_name",
                 "magic_link_url",
                 "is_new_user",
+            },
+            EmailTemplate.MIGRATION_PASSWORD_SETUP: {
+                "recipient_name",
+                "reset_url",
             },
         }
 
