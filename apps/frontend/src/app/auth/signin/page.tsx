@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { CircularProgress, Box, Typography } from '@mui/material';
-import { clearAllSessionData } from '@/utils/session';
 
 export default function SignIn() {
   const searchParams = useSearchParams();
@@ -40,36 +40,21 @@ export default function SignIn() {
         if (incomingToken) {
           setStatus('Verifying session token...');
 
-          // Set cookie with proper domain - handle different environments
-          const hostname = window.location.hostname;
-          const isLocalhost =
-            hostname === 'localhost' || hostname === '127.0.0.1';
+          // Use NextAuth to properly set the httpOnly session cookie server-side.
+          // This ensures the cookie is secure and cannot be read by JavaScript (XSS protection).
+          const result = await signIn('credentials', {
+            session_token: incomingToken,
+            redirect: false,
+          });
 
-          let cookieOptions;
-          if (isLocalhost) {
-            cookieOptions = 'path=/; samesite=lax';
-          } else {
-            // For deployed environments, use no domain (defaults to current hostname for isolation)
-            cookieOptions = `path=/; secure; samesite=lax`;
+          if (result?.error) {
+            setError('Authentication failed. Please try again.');
+            return;
           }
-
-          document.cookie = `next-auth.session-token=${incomingToken}; ${cookieOptions}`;
-
-          // Verify the cookie was set
-          setTimeout(() => {
-            const cookies = document.cookie.split(';').map(c => c.trim());
-            const sessionCookie = cookies.find(c =>
-              c.startsWith('next-auth.session-token=')
-            );
-          }, 50);
 
           setStatus('Authentication successful, redirecting...');
           const returnTo = searchParams.get('return_to') || '/dashboard';
-
-          // Small delay to ensure cookie is set
-          setTimeout(() => {
-            window.location.href = returnTo;
-          }, 100);
+          window.location.href = returnTo;
           return;
         }
 
