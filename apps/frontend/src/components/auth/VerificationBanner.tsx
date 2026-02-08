@@ -117,6 +117,11 @@ export default function VerificationBanner() {
                 backgroundColor: alpha(textColor, 0.15),
                 borderColor: textColor,
               },
+              '&.Mui-disabled': {
+                color: textColor,
+                borderColor: alpha(textColor, 0.5),
+                opacity: theme => theme.palette.action.disabledOpacity,
+              },
             }}
           >
             Resend
