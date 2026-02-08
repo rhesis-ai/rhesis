@@ -12,6 +12,7 @@ from fastapi import HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.constants import AuthProviderType
+from rhesis.backend.app.auth.password_policy import validate_password
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
 from rhesis.backend.app.utils.encryption import hash_password, verify_password
 from rhesis.backend.app.utils.redact import redact_email
@@ -212,11 +213,7 @@ class EmailProvider(AuthProvider):
                 detail="Email and password are required",
             )
 
-        if len(password) < 8:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must be at least 8 characters",
-            )
+        validate_password(password)
 
         if not db:
             raise HTTPException(

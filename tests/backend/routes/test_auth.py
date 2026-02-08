@@ -73,6 +73,21 @@ class TestAuthProviders:
             assert "enabled" in provider
             assert provider["type"] in ["oauth", "credentials"]
 
+    def test_get_providers_includes_password_policy(self, client: TestClient):
+        """Test that /auth/providers includes password policy (min/max length)."""
+        response = client.get("/auth/providers")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "password_policy" in data
+        policy = data["password_policy"]
+        assert "min_length" in policy
+        assert "max_length" in policy
+        assert isinstance(policy["min_length"], int)
+        assert isinstance(policy["max_length"], int)
+        assert policy["min_length"] >= 1
+        assert policy["max_length"] >= policy["min_length"]
+
     def test_get_providers_oauth_disabled_without_credentials(self, client: TestClient):
         """Test OAuth providers are not enabled without credentials."""
         with patch.dict(os.environ, {}, clear=True):
@@ -168,13 +183,15 @@ class TestEmailRegistration:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     def test_register_password_too_short(self, client: TestClient):
-        """Test registration with password too short."""
+        """Test registration with password too short (policy validation)."""
         response = client.post(
             "/auth/register",
             json={"email": "test@example.com", "password": "short"},
         )
 
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "at least" in data.get("detail", "").lower()
 
     def test_register_invalid_email_format(self, client: TestClient):
         """Test registration with invalid email format."""

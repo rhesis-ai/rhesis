@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
 from rhesis.backend.app.auth.constants import AuthProviderType
+from rhesis.backend.app.auth.password_policy import get_password_policy, validate_password
 from rhesis.backend.app.auth.providers import ProviderRegistry
 from rhesis.backend.app.auth.session_invalidation import (
     clear_user_logout,
@@ -73,7 +74,7 @@ class EmailRegisterRequest(BaseModel):
     """Request body for email/password registration."""
 
     email: EmailStr
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=1)
     name: Optional[str] = None
 
 
@@ -87,10 +88,18 @@ class ProviderInfo(BaseModel):
     registration_enabled: Optional[bool] = None
 
 
+class PasswordPolicyResponse(BaseModel):
+    """Password policy exposed to frontend (min/max length)."""
+
+    min_length: int
+    max_length: int
+
+
 class ProvidersResponse(BaseModel):
     """Response for /auth/providers endpoint."""
 
     providers: List[ProviderInfo]
+    password_policy: PasswordPolicyResponse
 
 
 class VerifyEmailRequest(BaseModel):
@@ -115,7 +124,7 @@ class ResetPasswordRequest(BaseModel):
     """Request body for password reset."""
 
     token: str
-    new_password: str = Field(..., min_length=8)
+    new_password: str = Field(..., min_length=1)
 
 
 class MagicLinkRequest(BaseModel):
@@ -194,10 +203,18 @@ async def get_providers():
 
     Returns information about all configured and enabled authentication
     providers. The frontend uses this to dynamically render login options.
+    Includes password policy (min/max length) for client-side validation.
     """
     ProviderRegistry.initialize()
     providers = ProviderRegistry.get_provider_info()
-    return ProvidersResponse(providers=[ProviderInfo(**p) for p in providers])
+    policy = get_password_policy()
+    return ProvidersResponse(
+        providers=[ProviderInfo(**p) for p in providers],
+        password_policy=PasswordPolicyResponse(
+            min_length=policy.min_length,
+            max_length=policy.max_length,
+        ),
+    )
 
 
 # =============================================================================
@@ -681,6 +698,7 @@ async def reset_password(
             detail="Invalid reset token",
         )
 
+    validate_password(body.new_password)
     user.password_hash = hash_password(body.new_password)
     # Preserve original provider_type — setting a password is additive,
     # not a provider migration. Users can log in via either method.

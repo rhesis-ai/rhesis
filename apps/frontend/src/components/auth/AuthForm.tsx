@@ -21,6 +21,10 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { getClientApiBaseUrl } from '../../utils/url-resolver';
+import {
+  DEFAULT_PASSWORD_POLICY,
+  validatePassword,
+} from '../../utils/validation';
 
 interface ProviderInfo {
   name: string;
@@ -28,6 +32,11 @@ interface ProviderInfo {
   type: 'oauth' | 'credentials';
   enabled: boolean;
   registration_enabled?: boolean;
+}
+
+interface PasswordPolicy {
+  min_length: number;
+  max_length: number;
 }
 
 interface AuthFormProps {
@@ -40,6 +49,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
   const [showTermsWarning, setShowTermsWarning] = useState(false);
   const [previouslyAccepted, setPreviouslyAccepted] = useState(false);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +91,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         }
         const data = await response.json();
         setProviders(data.providers || []);
+        setPasswordPolicy(data.password_policy || null);
       } catch (err) {
         console.error('Error fetching providers:', err);
         setError('Failed to load authentication options');
@@ -130,6 +143,15 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     e.preventDefault();
     if (!checkTerms()) return;
 
+    if (isRegistration) {
+      const policy = passwordPolicy ?? DEFAULT_PASSWORD_POLICY;
+      const result = validatePassword(password, policy);
+      if (!result.isValid) {
+        setFormError(result.message ?? 'Invalid password');
+        return;
+      }
+    }
+
     setFormLoading(true);
     setFormError(null);
 
@@ -166,8 +188,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           return;
         }
 
-        const message =
-          typeof detail === 'object' ? detail?.message : detail;
+        const message = typeof detail === 'object' ? detail?.message : detail;
         throw new Error(message || 'Authentication failed');
       }
 
@@ -346,7 +367,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 autoComplete={
                   isRegistration ? 'new-password' : 'current-password'
                 }
-                helperText={isRegistration ? 'Minimum 8 characters' : undefined}
+                helperText={
+                  isRegistration
+                    ? `Minimum ${passwordPolicy?.min_length ?? 8} characters`
+                    : undefined
+                }
               />
               {formError && (
                 <Alert severity="error" sx={{ py: 0 }}>
@@ -358,8 +383,8 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               {needsPasswordReset && (
                 <Alert severity="warning" sx={{ py: 1 }}>
                   <Typography variant="body2">
-                    Your account has been migrated and needs a new password.
-                    You can{' '}
+                    Your account has been migrated and needs a new password. You
+                    can{' '}
                     <Tooltip
                       title="We'll send you a link to sign in without a password"
                       arrow

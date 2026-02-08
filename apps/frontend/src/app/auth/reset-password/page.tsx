@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -18,6 +18,12 @@ import LockResetIcon from '@mui/icons-material/LockResetOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
 import { useSearchParams } from 'next/navigation';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { DEFAULT_PASSWORD_POLICY, validatePassword } from '@/utils/validation';
+
+interface PasswordPolicy {
+  min_length: number;
+  max_length: number;
+}
 
 export default function ResetPasswordPage() {
   const theme = useTheme();
@@ -27,9 +33,27 @@ export default function ResetPasswordPage() {
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(
+    null
+  );
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPolicy = async () => {
+      try {
+        const res = await fetch(`${getClientApiBaseUrl()}/auth/providers`);
+        if (res.ok) {
+          const data = await res.json();
+          setPasswordPolicy(data.password_policy || null);
+        }
+      } catch {
+        // Use default policy on fetch failure
+      }
+    };
+    fetchPolicy();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,8 +64,10 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    const policy = passwordPolicy ?? DEFAULT_PASSWORD_POLICY;
+    const result = validatePassword(password, policy);
+    if (!result.isValid) {
+      setError(result.message ?? 'Invalid password');
       return;
     }
 
@@ -186,7 +212,7 @@ export default function ResetPasswordPage() {
                       fullWidth
                       size="small"
                       autoComplete="new-password"
-                      helperText="Minimum 8 characters"
+                      helperText={`Minimum ${passwordPolicy?.min_length ?? 8} characters`}
                     />
                     <TextField
                       label="Confirm password"
