@@ -17,6 +17,16 @@ from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.auth.token_utils import (
+    create_email_verification_token,
+    create_magic_link_token,
+    create_password_reset_token,
+)
+from tests.backend.fixtures.test_setup import (
+    create_test_organization,
+    create_test_user,
+)
+
 # Initialize Faker
 fake = Faker()
 
@@ -185,26 +195,31 @@ class TestEmailRegistration:
 class TestAuthLogin:
     """Test legacy Auth0 authentication login endpoint (requires AUTH_LEGACY_AUTH0_ENABLED)"""
 
+    # oauth is now imported lazily inside the login() endpoint via
+    # ``from rhesis.backend.app.auth.oauth import oauth``, so we must
+    # patch at the *source* module rather than on the router.
+    _OAUTH_PATCH = "rhesis.backend.app.auth.oauth.oauth"
+
     def test_login_redirect_success(self, client: TestClient):
         """Test successful login redirects to Auth0 when legacy mode enabled"""
         with patch.dict(
             os.environ,
             {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
         ):
-            with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
-                # Mock the Auth0 redirect response with RedirectResponse
+            with patch(self._OAUTH_PATCH) as mock_oauth:
                 from starlette.responses import RedirectResponse
 
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
+                mock_oauth.auth0.authorize_redirect = AsyncMock(
+                    return_value=mock_redirect_response
+                )
 
                 response = client.get("/auth/login", follow_redirects=False)
 
-                # Should call the OAuth redirect
                 mock_oauth.auth0.authorize_redirect.assert_called_once()
-                assert response.status_code == 307  # RedirectResponse status code
+                assert response.status_code == 307
 
     def test_login_with_connection_parameter(self, client: TestClient):
         """Test login with specific connection parameter"""
@@ -212,17 +227,21 @@ class TestAuthLogin:
             os.environ,
             {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
         ):
-            with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
+            with patch(self._OAUTH_PATCH) as mock_oauth:
                 from starlette.responses import RedirectResponse
 
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
+                mock_oauth.auth0.authorize_redirect = AsyncMock(
+                    return_value=mock_redirect_response
+                )
 
-                client.get("/auth/login?connection=google-oauth2", follow_redirects=False)
+                client.get(
+                    "/auth/login?connection=google-oauth2",
+                    follow_redirects=False,
+                )
 
-                # Should call OAuth redirect with connection parameter
                 call_args = mock_oauth.auth0.authorize_redirect.call_args
                 assert "connection" in call_args[1]
                 assert call_args[1]["connection"] == "google-oauth2"
@@ -233,17 +252,18 @@ class TestAuthLogin:
             os.environ,
             {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
         ):
-            with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
+            with patch(self._OAUTH_PATCH) as mock_oauth:
                 from starlette.responses import RedirectResponse
 
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
+                mock_oauth.auth0.authorize_redirect = AsyncMock(
+                    return_value=mock_redirect_response
+                )
 
                 client.get("/auth/login?return_to=/dashboard", follow_redirects=False)
 
-                # Should store return_to in session (mocked behavior)
                 mock_oauth.auth0.authorize_redirect.assert_called_once()
 
     def test_login_disabled_without_legacy_flag(self, client: TestClient):
@@ -268,7 +288,7 @@ class TestAuthLogin:
             os.environ,
             {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
         ):
-            with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
+            with patch(self._OAUTH_PATCH) as mock_oauth:
                 mock_oauth.auth0.authorize_redirect = AsyncMock(
                     side_effect=Exception("OAuth error")
                 )
@@ -284,13 +304,15 @@ class TestAuthLogin:
             os.environ,
             {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
         ):
-            with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
+            with patch(self._OAUTH_PATCH) as mock_oauth:
                 from starlette.responses import RedirectResponse
 
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
+                mock_oauth.auth0.authorize_redirect = AsyncMock(
+                    return_value=mock_redirect_response
+                )
 
                 headers = {"origin": "http://localhost:3000"}
                 client.get("/auth/login", headers=headers, follow_redirects=False)
@@ -303,19 +325,19 @@ class TestAuthLogin:
             os.environ,
             {"AUTH0_DOMAIN": "test-domain.auth0.com", "AUTH_LEGACY_AUTH0_ENABLED": "true"},
         ):
-            with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
+            with patch(self._OAUTH_PATCH) as mock_oauth:
                 from starlette.responses import RedirectResponse
 
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
+                mock_oauth.auth0.authorize_redirect = AsyncMock(
+                    return_value=mock_redirect_response
+                )
 
-                # Mock base URL to simulate production environment
                 with patch.object(client.app, "state", {}):
                     client.get("/auth/login", follow_redirects=False)
 
-                # Should call OAuth redirect with callback URL parameters
                 call_args = mock_oauth.auth0.authorize_redirect.call_args
                 assert "redirect_uri" in call_args[1]
 
@@ -323,94 +345,130 @@ class TestAuthLogin:
 @pytest.mark.unit
 @pytest.mark.critical
 class TestAuthCallback:
-    """Test authentication callback endpoint"""
+    """Test authentication callback endpoint (legacy Auth0 path)
 
-    @patch("rhesis.backend.app.routers.auth.get_auth0_user_info")
-    @patch("rhesis.backend.app.routers.auth.extract_user_data")
-    @patch("rhesis.backend.app.routers.auth.find_or_create_user")
-    @patch("rhesis.backend.app.routers.auth.create_session_token")
+    The callback now falls through to ``_legacy_auth0_callback`` only
+    when ``AUTH_LEGACY_AUTH0_ENABLED=true`` and there is no
+    ``auth_provider`` in session.  The helper imports
+    ``get_auth0_user_info`` and ``extract_user_data`` from
+    ``rhesis.backend.app.auth.oauth`` inside the function body, so
+    patches must target that source module.
+    """
+
+    # Source-module paths for deferred imports
+    _AUTH0_INFO = "rhesis.backend.app.auth.oauth.get_auth0_user_info"
+    _EXTRACT = "rhesis.backend.app.auth.oauth.extract_user_data"
+
     @patch("rhesis.backend.app.routers.auth.build_redirect_url")
+    @patch("rhesis.backend.app.routers.auth.create_session_token")
+    @patch("rhesis.backend.app.routers.auth.find_or_create_user")
     def test_callback_success(
         self,
-        mock_build_redirect,
-        mock_create_token,
         mock_find_user,
-        mock_extract_data,
-        mock_get_user_info,
+        mock_create_token,
+        mock_build_redirect,
         client: TestClient,
     ):
         """Test successful authentication callback flow"""
-        # Mock the Auth0 flow
         mock_token = {"access_token": "test_token"}
         mock_userinfo = {"sub": "auth0|123", "email": "test@example.com"}
-        mock_get_user_info.return_value = (mock_token, mock_userinfo)
 
-        # Mock user data extraction
-        mock_extract_data.return_value = ("auth0|123", "test@example.com", {"name": "Test User"})
-
-        # Mock user creation/finding
         mock_user = Mock()
         mock_user.id = str(uuid.uuid4())
+        mock_user.organization_id = None
         mock_find_user.return_value = mock_user
 
-        # Mock token creation
         mock_session_token = "session_token_123"
         mock_create_token.return_value = mock_session_token
 
-        # Mock redirect URL building
-        mock_redirect_url = "http://localhost:3000/dashboard?token=session_token_123"
+        mock_redirect_url = (
+            "http://localhost:3000/dashboard?token=session_token_123"
+        )
         mock_build_redirect.return_value = mock_redirect_url
 
-        response = client.get(
-            "/auth/callback?code=test_code&state=test_state", follow_redirects=False
-        )
+        with (
+            patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "true"}),
+            patch(self._AUTH0_INFO) as mock_get_user_info,
+            patch(self._EXTRACT) as mock_extract_data,
+        ):
+            mock_get_user_info.return_value = (mock_token, mock_userinfo)
+            mock_extract_data.return_value = (
+                "auth0|123",
+                "test@example.com",
+                {"name": "Test User"},
+            )
 
-        # Callback returns a redirect to frontend with token
-        assert response.status_code in [status.HTTP_307_TEMPORARY_REDIRECT, status.HTTP_302_FOUND]
+            response = client.get(
+                "/auth/callback?code=test_code&state=test_state",
+                follow_redirects=False,
+            )
 
-        # Verify all functions were called in the correct order
+        assert response.status_code in [
+            status.HTTP_307_TEMPORARY_REDIRECT,
+            status.HTTP_302_FOUND,
+        ]
         mock_get_user_info.assert_called_once()
         mock_extract_data.assert_called_once_with(mock_userinfo)
         mock_find_user.assert_called_once()
         mock_create_token.assert_called_once_with(mock_user)
         mock_build_redirect.assert_called_once()
 
-    @patch("rhesis.backend.app.routers.auth.get_auth0_user_info")
-    def test_callback_auth0_error(self, mock_get_user_info, client: TestClient):
+    def test_callback_auth0_error(self, client: TestClient):
         """Test callback handles Auth0 errors gracefully"""
-        mock_get_user_info.side_effect = Exception("Auth0 communication error")
+        with (
+            patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "true"}),
+            patch(self._AUTH0_INFO) as mock_get_user_info,
+        ):
+            mock_get_user_info.side_effect = Exception(
+                "Auth0 communication error"
+            )
 
-        response = client.get("/auth/callback?code=test_code&state=test_state")
+            response = client.get(
+                "/auth/callback?code=test_code&state=test_state"
+            )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Auth0 communication error" in response.json()["detail"]
 
-    @patch("rhesis.backend.app.routers.auth.get_auth0_user_info")
-    @patch("rhesis.backend.app.routers.auth.extract_user_data")
-    def test_callback_user_data_extraction_error(
-        self, mock_extract_data, mock_get_user_info, client: TestClient
-    ):
+    def test_callback_user_data_extraction_error(self, client: TestClient):
         """Test callback handles user data extraction errors"""
-        mock_get_user_info.return_value = ({}, {"sub": "auth0|123"})
-        mock_extract_data.side_effect = Exception("Invalid user data")
+        with (
+            patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "true"}),
+            patch(self._AUTH0_INFO) as mock_get_user_info,
+            patch(self._EXTRACT) as mock_extract_data,
+        ):
+            mock_get_user_info.return_value = ({}, {"sub": "auth0|123"})
+            mock_extract_data.side_effect = Exception("Invalid user data")
 
-        response = client.get("/auth/callback?code=test_code&state=test_state")
+            response = client.get(
+                "/auth/callback?code=test_code&state=test_state"
+            )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid user data" in response.json()["detail"]
 
-    @patch("rhesis.backend.app.routers.auth.get_auth0_user_info")
-    @patch("rhesis.backend.app.routers.auth.extract_user_data")
     @patch("rhesis.backend.app.routers.auth.find_or_create_user")
     def test_callback_user_creation_error(
-        self, mock_find_user, mock_extract_data, mock_get_user_info, client: TestClient
+        self, mock_find_user, client: TestClient
     ):
         """Test callback handles user creation/finding errors"""
-        mock_get_user_info.return_value = ({}, {"sub": "auth0|123"})
-        mock_extract_data.return_value = ("auth0|123", "test@example.com", {})
         mock_find_user.side_effect = Exception("Database error")
 
-        response = client.get("/auth/callback?code=test_code&state=test_state")
+        with (
+            patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "true"}),
+            patch(self._AUTH0_INFO) as mock_get_user_info,
+            patch(self._EXTRACT) as mock_extract_data,
+        ):
+            mock_get_user_info.return_value = ({}, {"sub": "auth0|123"})
+            mock_extract_data.return_value = (
+                "auth0|123",
+                "test@example.com",
+                {},
+            )
+
+            response = client.get(
+                "/auth/callback?code=test_code&state=test_state"
+            )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Database error" in response.json()["detail"]
@@ -604,27 +662,36 @@ class TestAuthEdgeCases:
     """Test edge cases for authentication"""
 
     def test_login_with_malformed_parameters(self, client: TestClient):
-        """🏃‍♂️ Test login with malformed query parameters"""
-        with patch.dict(os.environ, {"AUTH0_DOMAIN": "test-domain.auth0.com"}):
-            with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
+        """Test login with malformed query parameters"""
+        with patch.dict(
+            os.environ,
+            {
+                "AUTH0_DOMAIN": "test-domain.auth0.com",
+                "AUTH_LEGACY_AUTH0_ENABLED": "true",
+            },
+        ):
+            with patch("rhesis.backend.app.auth.oauth.oauth") as mock_oauth:
                 from starlette.responses import RedirectResponse
 
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
+                mock_oauth.auth0.authorize_redirect = AsyncMock(
+                    return_value=mock_redirect_response
+                )
 
-                # Test with various malformed parameters
                 malformed_params = [
-                    "?connection=",  # empty connection
-                    "?return_to=",  # empty return_to
-                    "?connection=invalid space",  # invalid characters
-                    "?return_to=" + "x" * 1000,  # very long return_to
+                    "?connection=",
+                    "?return_to=",
+                    "?connection=invalid space",
+                    "?return_to=" + "x" * 1000,
                 ]
 
                 for params in malformed_params:
-                    response = client.get(f"/auth/login{params}", follow_redirects=False)
-                    # Should handle gracefully (might succeed or fail depending on validation)
+                    response = client.get(
+                        f"/auth/login{params}",
+                        follow_redirects=False,
+                    )
                     assert response.status_code in [
                         status.HTTP_307_TEMPORARY_REDIRECT,
                         status.HTTP_302_FOUND,
@@ -670,23 +737,32 @@ class TestAuthPerformance:
     """Test authentication performance"""
 
     def test_multiple_login_requests_performance(self, client: TestClient):
-        """🐌 Test performance of multiple login requests"""
+        """Test performance of multiple login requests"""
         import time
 
-        with patch.dict(os.environ, {"AUTH0_DOMAIN": "test-domain.auth0.com"}):
-            with patch("rhesis.backend.app.routers.auth.oauth") as mock_oauth:
+        with patch.dict(
+            os.environ,
+            {
+                "AUTH0_DOMAIN": "test-domain.auth0.com",
+                "AUTH_LEGACY_AUTH0_ENABLED": "true",
+            },
+        ):
+            with patch("rhesis.backend.app.auth.oauth.oauth") as mock_oauth:
                 from starlette.responses import RedirectResponse
 
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
+                mock_oauth.auth0.authorize_redirect = AsyncMock(
+                    return_value=mock_redirect_response
+                )
 
                 start_time = time.time()
 
-                # Make 10 login requests
                 for i in range(10):
-                    response = client.get("/auth/login", follow_redirects=False)
+                    response = client.get(
+                        "/auth/login", follow_redirects=False
+                    )
                     assert response.status_code in [
                         status.HTTP_307_TEMPORARY_REDIRECT,
                         status.HTTP_302_FOUND,
@@ -694,7 +770,6 @@ class TestAuthPerformance:
 
                 duration = time.time() - start_time
 
-                # Should complete within reasonable time (5 seconds for 10 requests)
                 assert duration < 5.0
 
     def test_multiple_verify_requests_performance(self, client: TestClient):
@@ -742,3 +817,332 @@ class TestAuthHealthChecks:
         """✅ Verify endpoint correctly requires session token"""
         response = client.get("/auth/verify")
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+# =============================================================================
+# Email verification, password reset, magic link (native auth flows)
+# =============================================================================
+
+
+def _unique_email(prefix: str) -> str:
+    """Generate a unique email address for test isolation."""
+    return f"{prefix}-{uuid.uuid4().hex[:8]}@test.rhesis.ai"
+
+
+@pytest.mark.unit
+class TestAuthEmailVerificationRoutes:
+    """Route tests for verify-email and resend-verification."""
+
+    def test_verify_email_valid_token(self, client: TestClient, test_db, test_org_id):
+        """POST /auth/verify-email with valid token sets is_email_verified."""
+        email = _unique_email("verify-me")
+        org = create_test_organization(test_db, "Verify Org")
+        user = create_test_user(test_db, org.id, email, "Verify User")
+        assert user.is_email_verified is False
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            token = create_email_verification_token(str(user.id), user.email)
+            response = client.post(
+                "/auth/verify-email",
+                json={"token": token},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["success"] is True
+        assert "verified" in data["message"].lower()
+
+        test_db.refresh(user)
+        assert user.is_email_verified is True
+
+    def test_verify_email_invalid_token(self, client: TestClient):
+        """POST /auth/verify-email with invalid token returns 400."""
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            response = client.post(
+                "/auth/verify-email",
+                json={"token": "invalid.jwt.token"},
+            )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_verify_email_already_verified(self, client: TestClient, test_db, test_org_id):
+        """POST /auth/verify-email when already verified returns success."""
+        email = _unique_email("already")
+        org = create_test_organization(test_db, "Already Verified Org")
+        user = create_test_user(test_db, org.id, email, "Already User")
+        user.is_email_verified = True
+        test_db.flush()
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.get_secret_key",
+            return_value="test-secret",
+        ):
+            token = create_email_verification_token(str(user.id), user.email)
+            response = client.post(
+                "/auth/verify-email",
+                json={"token": token},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["success"] is True
+        assert "already" in data["message"].lower()
+
+    def test_resend_verification_returns_200_enumeration_safe(self, client: TestClient):
+        """POST /auth/resend-verification always 200 (enumeration-safe)."""
+        response = client.post(
+            "/auth/resend-verification",
+            json={"email": "unknown@example.com"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["success"] is True
+        assert "message" in data
+
+    def test_resend_verification_existing_user_sends_email(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """POST /auth/resend-verification for existing user triggers send."""
+        email = _unique_email("resend")
+        org = create_test_organization(test_db, "Resend Org")
+        user = create_test_user(test_db, org.id, email, "Resend User")
+        user.is_email_verified = False
+        test_db.flush()
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.token_utils.get_secret_key",
+                return_value="test-secret",
+            ),
+            patch("rhesis.backend.app.routers.auth._get_email_service") as mock_get_email,
+        ):
+            mock_send = Mock()
+            mock_get_email.return_value = Mock(send_verification_email=mock_send)
+            response = client.post(
+                "/auth/resend-verification",
+                json={"email": user.email},
+            )
+        assert response.status_code == status.HTTP_200_OK
+        mock_send.assert_called_once()
+
+
+@pytest.mark.unit
+class TestAuthPasswordResetRoutes:
+    """Route tests for forgot-password and reset-password (single-use)."""
+
+    def test_forgot_password_returns_200_enumeration_safe(self, client: TestClient):
+        """POST /auth/forgot-password always 200 (enumeration-safe)."""
+        response = client.post(
+            "/auth/forgot-password",
+            json={"email": "unknown@example.com"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["success"] is True
+        assert "message" in data
+
+    def test_reset_password_valid_token_single_use(self, client: TestClient, test_db, test_org_id):
+        """POST /auth/reset-password with valid token and claim succeeds."""
+        email = _unique_email("reset")
+        org = create_test_organization(test_db, "Reset Org")
+        user = create_test_user(test_db, org.id, email, "Reset User")
+        user.provider_type = "email"
+        test_db.flush()
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.token_utils.get_secret_key",
+                return_value="test-secret",
+            ),
+            patch(
+                "rhesis.backend.app.routers.auth.claim_token_jti",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            token = create_password_reset_token(str(user.id), user.email)
+            response = client.post(
+                "/auth/reset-password",
+                json={"token": token, "new_password": "newSecurePass123"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["success"] is True
+        assert "reset" in data["message"].lower()
+
+    def test_reset_password_token_already_used_returns_400(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """POST /auth/reset-password when token already used returns 400."""
+        email = _unique_email("reset-used")
+        org = create_test_organization(test_db, "Reset Used Org")
+        user = create_test_user(test_db, org.id, email, "Reset Used User")
+        test_db.flush()
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.token_utils.get_secret_key",
+                return_value="test-secret",
+            ),
+            patch(
+                "rhesis.backend.app.routers.auth.claim_token_jti",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+        ):
+            token = create_password_reset_token(str(user.id), user.email)
+            response = client.post(
+                "/auth/reset-password",
+                json={"token": token, "new_password": "newSecurePass123"},
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "already used" in response.json().get("detail", "").lower()
+
+    def test_reset_password_store_unavailable_returns_503(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """POST /auth/reset-password when store unavailable returns 503."""
+        from rhesis.backend.app.auth.used_token_store import (
+            TokenStoreUnavailableError,
+        )
+
+        email = _unique_email("reset503")
+        org = create_test_organization(test_db, "Reset 503 Org")
+        user = create_test_user(test_db, org.id, email, "Reset 503 User")
+        test_db.flush()
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.token_utils.get_secret_key",
+                return_value="test-secret",
+            ),
+            patch(
+                "rhesis.backend.app.routers.auth.claim_token_jti",
+                new_callable=AsyncMock,
+                side_effect=TokenStoreUnavailableError("redis down"),
+            ),
+        ):
+            token = create_password_reset_token(str(user.id), user.email)
+            response = client.post(
+                "/auth/reset-password",
+                json={"token": token, "new_password": "newSecurePass123"},
+            )
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+
+
+@pytest.mark.unit
+class TestAuthMagicLinkRoutes:
+    """Route tests for magic-link and magic-link/verify (single-use)."""
+
+    def test_magic_link_returns_200_enumeration_safe(self, client: TestClient):
+        """POST /auth/magic-link always 200 (enumeration-safe)."""
+        response = client.post(
+            "/auth/magic-link",
+            json={"email": "unknown@example.com"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["success"] is True
+        assert "message" in data
+
+    def test_magic_link_verify_valid_token_single_use(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """POST /auth/magic-link/verify with valid token returns session."""
+        email = _unique_email("magic")
+        org = create_test_organization(test_db, "Magic Org")
+        user = create_test_user(test_db, org.id, email, "Magic User")
+        test_db.flush()
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.token_utils.get_secret_key",
+                return_value="test-secret",
+            ),
+            patch(
+                "rhesis.backend.app.routers.auth.claim_token_jti",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            token = create_magic_link_token(str(user.id), user.email)
+            response = client.post(
+                "/auth/magic-link/verify",
+                json={"token": token},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["success"] is True
+        assert "session_token" in data
+        assert data["user"]["email"] == user.email
+        assert data["user"]["id"] == str(user.id)
+
+    def test_magic_link_verify_already_used_returns_400(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """POST /auth/magic-link/verify when link already used returns 400."""
+        email = _unique_email("magic-used")
+        org = create_test_organization(test_db, "Magic Used Org")
+        user = create_test_user(test_db, org.id, email, "Magic Used User")
+        test_db.flush()
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.token_utils.get_secret_key",
+                return_value="test-secret",
+            ),
+            patch(
+                "rhesis.backend.app.routers.auth.claim_token_jti",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+        ):
+            token = create_magic_link_token(str(user.id), user.email)
+            response = client.post(
+                "/auth/magic-link/verify",
+                json={"token": token},
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "already used" in response.json().get("detail", "").lower()
+
+    def test_magic_link_verify_store_unavailable_returns_503(
+        self, client: TestClient, test_db, test_org_id
+    ):
+        """POST /auth/magic-link/verify when store unavailable returns 503."""
+        from rhesis.backend.app.auth.used_token_store import (
+            TokenStoreUnavailableError,
+        )
+
+        email = _unique_email("magic503")
+        org = create_test_organization(test_db, "Magic 503 Org")
+        user = create_test_user(test_db, org.id, email, "Magic 503 User")
+        test_db.flush()
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.token_utils.get_secret_key",
+                return_value="test-secret",
+            ),
+            patch(
+                "rhesis.backend.app.routers.auth.claim_token_jti",
+                new_callable=AsyncMock,
+                side_effect=TokenStoreUnavailableError("redis down"),
+            ),
+        ):
+            token = create_magic_link_token(str(user.id), user.email)
+            response = client.post(
+                "/auth/magic-link/verify",
+                json={"token": token},
+            )
+
+        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
