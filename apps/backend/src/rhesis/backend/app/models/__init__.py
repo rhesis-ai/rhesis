@@ -18,6 +18,7 @@ from .organization import Organization
 from .project import Project
 from .prompt import Prompt
 from .prompt_template import PromptTemplate
+from .refresh_token import RefreshToken
 from .response_pattern import ResponsePattern
 from .risk import Risk
 from .source import Source
@@ -74,6 +75,7 @@ __all__ = [
     "TaggedItem",
     "TagsMixin",
     "Token",
+    "RefreshToken",
     "Organization",
     "Project",
     "Task",

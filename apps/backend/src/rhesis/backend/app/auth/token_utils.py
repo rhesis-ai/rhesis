@@ -224,24 +224,32 @@ def verify_email_flow_token(token: str, expected_type: str) -> Dict[str, Any]:
     return payload
 
 
-def create_auth_code(session_token: str) -> str:
-    """Create a short-lived JWT auth code wrapping a session token.
+def create_auth_code(
+    session_token: str,
+    refresh_token: str | None = None,
+) -> str:
+    """Create a short-lived JWT auth code wrapping tokens.
 
-    Used during OAuth callback redirects so the long-lived session token
-    is never exposed in the URL.  The auth code expires in 60 seconds.
+    Used during OAuth callback redirects so the long-lived tokens
+    are never exposed in the URL.  The auth code expires in 60 seconds.
     """
     now = datetime.now(timezone.utc)
-    payload = {
+    payload: Dict[str, Any] = {
         "type": "auth_code",
         "session_token": session_token,
         "exp": now + timedelta(minutes=AUTH_CODE_EXPIRE_MINUTES),
         "iat": now,
     }
+    if refresh_token:
+        payload["refresh_token"] = refresh_token
     return jwt.encode(payload, get_secret_key(), algorithm=ALGORITHM)
 
 
-def verify_auth_code(code: str) -> str:
-    """Verify a short-lived auth code and return the wrapped session token.
+def verify_auth_code(code: str) -> Dict[str, str]:
+    """Verify a short-lived auth code and return the wrapped tokens.
+
+    Returns a dict with ``session_token`` (always present) and
+    ``refresh_token`` (present when the code was created with one).
 
     Raises HTTPException(400) if the code is invalid or expired.
     """
@@ -267,7 +275,11 @@ def verify_auth_code(code: str) -> str:
             detail="Auth code missing session token",
         )
 
-    return session_token
+    result: Dict[str, str] = {"session_token": session_token}
+    if payload.get("refresh_token"):
+        result["refresh_token"] = payload["refresh_token"]
+
+    return result
 
 
 def generate_api_token() -> str:

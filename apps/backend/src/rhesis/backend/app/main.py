@@ -59,6 +59,7 @@ public_routes = [
     "/auth/magic-link",
     "/auth/magic-link/verify",
     "/auth/exchange-code",
+    "/auth/refresh",
     "/auth/verify",
     "/auth/demo",
     "/auth/local-login",

@@ -11,6 +11,11 @@ from starlette.responses import RedirectResponse
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.password_policy import get_password_policy, validate_password
 from rhesis.backend.app.auth.providers import ProviderRegistry
+from rhesis.backend.app.auth.refresh_token_utils import (
+    create_refresh_token,
+    revoke_all_for_user,
+    verify_and_rotate_refresh_token,
+)
 from rhesis.backend.app.auth.session_invalidation import (
     clear_user_logout,
     invalidate_user_sessions,
@@ -151,6 +156,12 @@ class VerifyTokenRequest(BaseModel):
 
     session_token: str
     return_to: str = "/home"
+
+
+class RefreshTokenRequest(BaseModel):
+    """Request body for refreshing an access token."""
+
+    refresh_token: str
 
 
 # =============================================================================
@@ -330,10 +341,12 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
         # Find or create user
         user = find_or_create_user_from_auth(db, auth_user)
 
-        # Set up session and create token
+        # Set up session and create tokens
         request.session["user_id"] = str(user.id)
-        clear_user_logout(str(user.id))  # Clear any previous logout invalidation
+        clear_user_logout(str(user.id))
         session_token = create_session_token(user)
+        refresh_tok = create_refresh_token(db, str(user.id))
+        db.commit()
 
         # Clear provider from session
         request.session.pop("auth_provider", None)
@@ -343,7 +356,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
-                org_id=str(user.organization_id) if user.organization_id else None,
+                org_id=(str(user.organization_id) if user.organization_id else None),
             )
             track_user_activity(
                 event_type="login",
@@ -353,7 +366,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
             )
 
         # Determine redirect URL
-        redirect_url = build_redirect_url(request, session_token)
+        redirect_url = build_redirect_url(request, session_token, refresh_tok)
         return RedirectResponse(url=redirect_url)
 
     except HTTPException:
@@ -404,17 +417,19 @@ async def login_with_email(
         # Find or create user (will update last_login_at)
         user = find_or_create_user_from_auth(db, auth_user)
 
-        # Set up session and create token
+        # Set up session and create tokens
         request.session["user_id"] = str(user.id)
-        clear_user_logout(str(user.id))  # Clear any previous logout invalidation
-        session_token = create_session_token(user)
+        clear_user_logout(str(user.id))
+        access_token = create_session_token(user)
+        refresh_tok = create_refresh_token(db, str(user.id))
+        db.commit()
 
         # Track login activity
         if is_telemetry_enabled():
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
-                org_id=str(user.organization_id) if user.organization_id else None,
+                org_id=(str(user.organization_id) if user.organization_id else None),
             )
             track_user_activity(
                 event_type="login",
@@ -425,7 +440,8 @@ async def login_with_email(
 
         return {
             "success": True,
-            "session_token": session_token,
+            "session_token": access_token,
+            "refresh_token": refresh_tok,
             "user": {
                 "id": str(user.id),
                 "email": user.email,
@@ -495,12 +511,14 @@ async def register_with_email(
                 detail="User creation failed",
             )
 
-        # Set up session and create token
+        # Set up session and create tokens
         request.session["user_id"] = str(user.id)
         clear_user_logout(str(user.id))
-        session_token = create_session_token(user)
+        access_token = create_session_token(user)
+        refresh_tok = create_refresh_token(db, str(user.id))
+        db.commit()
 
-        # Send verification email (best-effort, don't block registration)
+        # Send verification email (best-effort)
         try:
             token = create_email_verification_token(str(user.id), user.email)
             frontend_url = _get_frontend_url()
@@ -530,7 +548,8 @@ async def register_with_email(
 
         return {
             "success": True,
-            "session_token": session_token,
+            "session_token": access_token,
+            "refresh_token": refresh_tok,
             "user": {
                 "id": str(user.id),
                 "email": user.email,
@@ -577,16 +596,18 @@ async def verify_email(
 
     if not user.is_email_verified:
         user.is_email_verified = True
-        db.commit()
         logger.info("Email verified for user: %s", redact_email(user.email))
 
-    # Return a fresh session token so the frontend can update the session
-    session_token = create_session_token(user)
+    # Return fresh tokens so the frontend can update the session
+    access_token = create_session_token(user)
+    refresh_tok = create_refresh_token(db, str(user.id))
+    db.commit()
 
     return {
         "success": True,
         "message": "Email verified successfully",
-        "session_token": session_token,
+        "session_token": access_token,
+        "refresh_token": refresh_tok,
     }
 
 
@@ -851,10 +872,12 @@ async def verify_magic_link(
     user.last_login_at = datetime.now(timezone.utc)
     db.commit()
 
-    # Set up session and create token
+    # Set up session and create tokens
     request.session["user_id"] = str(user.id)
     clear_user_logout(str(user.id))
-    session_token = create_session_token(user)
+    access_token = create_session_token(user)
+    refresh_tok = create_refresh_token(db, str(user.id))
+    db.commit()
 
     # Track login activity
     if is_telemetry_enabled():
@@ -872,7 +895,8 @@ async def verify_magic_link(
 
     return {
         "success": True,
-        "session_token": session_token,
+        "session_token": access_token,
+        "refresh_token": refresh_tok,
         "user": {
             "id": str(user.id),
             "email": user.email,
@@ -909,17 +933,19 @@ async def _legacy_auth0_callback(request: Request, db: Session):
         # Step 3: Find or create user (legacy method)
         user = find_or_create_user(db, auth0_id, email, user_profile)
 
-        # Step 4: Set up session and create token
+        # Step 4: Set up session and create tokens
         request.session["user_id"] = str(user.id)
-        clear_user_logout(str(user.id))  # Clear any previous logout invalidation
+        clear_user_logout(str(user.id))
         session_token = create_session_token(user)
+        refresh_tok = create_refresh_token(db, str(user.id))
+        db.commit()
 
         # Step 5: Track login activity
         if is_telemetry_enabled():
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
-                org_id=str(user.organization_id) if user.organization_id else None,
+                org_id=(str(user.organization_id) if user.organization_id else None),
             )
             track_user_activity(
                 event_type="login",
@@ -929,7 +955,7 @@ async def _legacy_auth0_callback(request: Request, db: Session):
             )
 
         # Step 6: Determine redirect URL
-        redirect_url = build_redirect_url(request, session_token)
+        redirect_url = build_redirect_url(request, session_token, refresh_tok)
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
@@ -998,15 +1024,51 @@ async def login(request: Request, connection: str = None, return_to: str = "/hom
 @router.post("/exchange-code")
 async def exchange_code(body: ExchangeCodeRequest):
     """
-    Exchange a short-lived auth code for a session token.
+    Exchange a short-lived auth code for access + refresh tokens.
 
     Used by the frontend after OAuth callback redirect.
     The redirect URL contains a 60-second auth code (JWT)
-    instead of the long-lived session token, limiting exposure
+    instead of the long-lived tokens, limiting exposure
     in browser history and server logs.
     """
-    session_token = verify_auth_code(body.code)
-    return {"session_token": session_token}
+    tokens = verify_auth_code(body.code)
+    return tokens
+
+
+# =============================================================================
+# Token Refresh Endpoint
+# =============================================================================
+
+
+@router.post("/refresh")
+async def refresh_tokens(
+    body: RefreshTokenRequest,
+    db: Session = Depends(get_db_session),
+):
+    """Exchange a valid refresh token for a new access + refresh token pair.
+
+    The old refresh token is revoked (rotation).  If a revoked token
+    is presented, the entire token family is revoked (reuse detection).
+    """
+    from rhesis.backend.app import crud
+
+    old_token, new_raw_refresh = verify_and_rotate_refresh_token(db, body.refresh_token)
+
+    user = crud.get_user(db, str(old_token.user_id))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    access_token = create_session_token(user)
+    db.commit()
+
+    return {
+        "access_token": access_token,
+        "refresh_token": new_raw_refresh,
+        "token_type": "bearer",
+    }
 
 
 # =============================================================================
@@ -1015,12 +1077,17 @@ async def exchange_code(body: ExchangeCodeRequest):
 
 
 @router.get("/logout")
-async def logout(request: Request, post_logout: bool = False, session_token: str = None):
+async def logout(
+    request: Request,
+    post_logout: bool = False,
+    session_token: str = None,
+    db: Session = Depends(get_db_session),
+):
     """Log out the user and clear their session"""
     # Clear session data
     request.session.clear()
 
-    # If session token is provided, validate it and invalidate all user sessions
+    # If session token is provided, invalidate sessions + refresh tokens
     if session_token:
         try:
             secret_key = get_secret_key()
@@ -1031,11 +1098,12 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
             if user_id:
                 logger.info(f"Logout called for user {user_id} via JWT token")
 
-                # Invalidate all sessions for this user
-                # This ensures the JWT token can no longer be used
+                # Invalidate all sessions and refresh tokens
                 invalidate_user_sessions(user_id)
+                revoke_all_for_user(db, user_id)
+                db.commit()
 
-                # Track logout activity if telemetry is enabled
+                # Track logout activity
                 if is_telemetry_enabled():
                     org_id = user_info.get("organization_id")
                     set_telemetry_enabled(
@@ -1043,12 +1111,15 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
                         user_id=str(user_id),
                         org_id=str(org_id) if org_id else None,
                     )
-                    track_user_activity(event_type="logout", session_id=request.session.get("_id"))
+                    track_user_activity(
+                        event_type="logout",
+                        session_id=request.session.get("_id"),
+                    )
 
         except JWTError as e:
-            logger.warning(f"Invalid session token provided during logout: {str(e)}")
+            logger.warning(f"Invalid session token during logout: {str(e)}")
         except Exception as e:
-            logger.error(f"Error processing session token during logout: {str(e)}")
+            logger.error(f"Error processing logout: {str(e)}")
 
     # Create response with cookie clearing headers
     accept_header = request.headers.get("accept", "")
@@ -1254,8 +1325,10 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
             )
 
         request.session["user_id"] = str(user.id)
-        clear_user_logout(str(user.id))  # Clear any previous logout invalidation
-        session_token = create_session_token(user)
+        clear_user_logout(str(user.id))
+        access_token = create_session_token(user)
+        refresh_tok = create_refresh_token(db, str(user.id))
+        db.commit()
 
         logger.info(
             "QUICK START MODE login successful for user: %s",
@@ -1266,7 +1339,7 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
-                org_id=str(user.organization_id) if user.organization_id else None,
+                org_id=(str(user.organization_id) if user.organization_id else None),
             )
             track_user_activity(
                 event_type="login",
@@ -1277,14 +1350,15 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
 
         return {
             "success": True,
-            "session_token": session_token,
+            "session_token": access_token,
+            "refresh_token": refresh_tok,
             "user": {
                 "id": str(user.id),
                 "email": user.email,
                 "name": user.name,
                 "organization_id": (str(user.organization_id) if user.organization_id else None),
             },
-            "message": "⚠️  QUICK START MODE login - Not for production use!",
+            "message": ("QUICK START MODE login - Not for production use!"),
         }
 
     except HTTPException:
