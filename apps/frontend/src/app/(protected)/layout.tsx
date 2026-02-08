@@ -7,6 +7,7 @@ import {
 } from '@toolpad/core/DashboardLayout';
 import AuthErrorBoundary from './error-boundary';
 import { useSession } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 import { SxProps, Theme } from '@mui/system';
 import { alpha } from '@mui/material/styles';
 import SidebarFooter from '@/components/navigation/SidebarFooter';
@@ -29,8 +30,12 @@ export default function ProtectedLayout({
   children: React.ReactNode;
 }) {
   const { data: session } = useSession();
+  const pathname = usePathname();
   const user = session?.user as ExtendedUser | undefined;
-  const hasOrganization = !!user?.organization_id;
+  const isOnboarding = pathname?.startsWith('/onboarding');
+  // Hide navigation during onboarding even after the session refreshes
+  // with organization_id, since background tasks may still be running.
+  const hasOrganization = !!user?.organization_id && !isOnboarding;
 
   // Custom renderer for page items to handle external links
   const renderPageItem = React.useCallback(
