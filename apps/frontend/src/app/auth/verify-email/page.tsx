@@ -47,11 +47,12 @@ export default function VerifyEmailPage() {
           throw new Error(data.detail || 'Verification failed');
         }
 
-        // Refresh the session with the new token so is_email_verified
+        // Refresh the session with the new tokens so is_email_verified
         // is reflected immediately (hides the verification banner).
         if (data.session_token) {
           await signIn('credentials', {
             session_token: data.session_token,
+            refresh_token: data.refresh_token || '',
             redirect: false,
           });
         }

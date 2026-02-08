@@ -129,10 +129,10 @@ export default function OnboardingPageClient({
       }
 
       if ('session_token' in response) {
-        // Use NextAuth to properly set the httpOnly session cookie server-side.
-        // This ensures the cookie is secure and cannot be read by JavaScript (XSS protection).
+        // Use NextAuth to set the httpOnly session cookie server-side.
         const signInResult = await signIn('credentials', {
           session_token: response.session_token,
+          refresh_token: (response as any).refresh_token || '',
           redirect: false,
         });
 

@@ -48,6 +48,7 @@ export default function MagicLinkPage() {
           // Use NextAuth to establish session
           const result = await signIn('credentials', {
             session_token: data.session_token,
+            refresh_token: data.refresh_token || '',
             redirect: false,
           });
 

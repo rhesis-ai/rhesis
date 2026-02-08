@@ -36,12 +36,13 @@ export default function SignIn() {
           return;
         }
 
-        // OAuth callback: exchange short-lived auth code for session token
+        // OAuth callback: exchange short-lived auth code for tokens
         const authCode = searchParams.get('code');
-        // Backward compatibility: also accept direct session_token (email/password flows)
+        // Backward compatibility: also accept direct session_token
         const incomingToken = searchParams.get('session_token');
 
         let sessionToken = incomingToken;
+        let refreshToken: string | null = null;
 
         if (authCode && !sessionToken) {
           setStatus('Exchanging auth code...');
@@ -56,21 +57,24 @@ export default function SignIn() {
           );
 
           if (!exchangeResponse.ok) {
-            setError('Authentication code expired or invalid. Please try again.');
+            setError(
+              'Authentication code expired or invalid. Please try again.'
+            );
             return;
           }
 
           const exchangeData = await exchangeResponse.json();
           sessionToken = exchangeData.session_token;
+          refreshToken = exchangeData.refresh_token || null;
         }
 
         if (sessionToken) {
           setStatus('Verifying session...');
 
-          // Use NextAuth to properly set the httpOnly session cookie server-side.
-          // This ensures the cookie is secure and cannot be read by JavaScript (XSS protection).
+          // Use NextAuth to set the httpOnly session cookie server-side.
           const result = await signIn('credentials', {
             session_token: sessionToken,
+            refresh_token: refreshToken || '',
             redirect: false,
           });
 

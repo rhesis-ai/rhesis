@@ -39,17 +39,14 @@ export async function getSession(): Promise<Session | null> {
   }
 
   try {
-    const response = await fetch(
-      `${API_CONFIG.baseUrl}/auth/verify`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify({ session_token: token }),
-      }
-    );
+    const response = await fetch(`${API_CONFIG.baseUrl}/auth/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ session_token: token }),
+    });
 
     if (!response.ok) {
       return null;

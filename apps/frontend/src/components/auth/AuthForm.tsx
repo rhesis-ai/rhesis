@@ -192,10 +192,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         throw new Error(message || 'Authentication failed');
       }
 
-      // Use NextAuth to establish session with the token from backend
+      // Use NextAuth to establish session with tokens from backend
       if (data.session_token) {
         const result = await signIn('credentials', {
           session_token: data.session_token,
+          refresh_token: data.refresh_token || '',
           redirect: false,
         });
 
