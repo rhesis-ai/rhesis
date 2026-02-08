@@ -58,6 +58,8 @@ public_routes = [
     "/auth/reset-password",
     "/auth/magic-link",
     "/auth/magic-link/verify",
+    "/auth/exchange-code",
+    "/auth/verify",
     "/auth/demo",
     "/auth/local-login",
     "/home",

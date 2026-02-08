@@ -37,11 +37,14 @@ export const authConfig: NextAuthConfig = {
           }
 
           const response = await fetch(
-            `${BACKEND_URL}/auth/verify?session_token=${sessionToken}`,
+            `${BACKEND_URL}/auth/verify`,
             {
+              method: 'POST',
               headers: {
+                'Content-Type': 'application/json',
                 Accept: 'application/json',
               },
+              body: JSON.stringify({ session_token: sessionToken }),
             }
           );
 

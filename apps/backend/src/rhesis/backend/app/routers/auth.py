@@ -24,6 +24,7 @@ from rhesis.backend.app.auth.token_utils import (
     create_password_reset_token,
     create_session_token,
     get_secret_key,
+    verify_auth_code,
     verify_email_flow_token,
     verify_jwt_token,
 )
@@ -137,6 +138,19 @@ class MagicLinkVerifyRequest(BaseModel):
     """Request body for magic link verification."""
 
     token: str
+
+
+class ExchangeCodeRequest(BaseModel):
+    """Request body for exchanging an auth code for a session token."""
+
+    code: str
+
+
+class VerifyTokenRequest(BaseModel):
+    """Request body for verifying a session token."""
+
+    session_token: str
+    return_to: str = "/home"
 
 
 # =============================================================================
@@ -531,7 +545,7 @@ async def register_with_email(
         logger.error(f"Registration error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Registration failed: {str(e)}",
+            detail="Registration failed. Please try again.",
         )
 
 
@@ -554,11 +568,12 @@ async def verify_email(
     payload = verify_email_flow_token(body.token, "email_verification")
     user = crud.get_user_by_email(db, payload["email"])
 
+    # Enumeration-safe: return success even if user no longer exists
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User not found",
-        )
+        return {
+            "success": True,
+            "message": "Email verified successfully",
+        }
 
     if not user.is_email_verified:
         user.is_email_verified = True
@@ -976,6 +991,25 @@ async def login(request: Request, connection: str = None, return_to: str = "/hom
 
 
 # =============================================================================
+# Auth Code Exchange Endpoint
+# =============================================================================
+
+
+@router.post("/exchange-code")
+async def exchange_code(body: ExchangeCodeRequest):
+    """
+    Exchange a short-lived auth code for a session token.
+
+    Used by the frontend after OAuth callback redirect.
+    The redirect URL contains a 60-second auth code (JWT)
+    instead of the long-lived session token, limiting exposure
+    in browser history and server logs.
+    """
+    session_token = verify_auth_code(body.code)
+    return {"session_token": session_token}
+
+
+# =============================================================================
 # Session Management Endpoints
 # =============================================================================
 
@@ -1082,14 +1116,15 @@ async def logout(request: Request, post_logout: bool = False, session_token: str
     return response
 
 
-@router.get("/verify")
+@router.post("/verify")
 async def verify_auth(
     request: Request,
-    session_token: str,
-    return_to: str = "/home",
+    body: VerifyTokenRequest,
     secret_key: str = Depends(get_secret_key),
 ):
     """Verify JWT session token and return user info"""
+    session_token = body.session_token
+    return_to = body.return_to
     logger.info(f"Verify request received. Token: {session_token[:8]}...")
 
     try:
@@ -1112,7 +1147,11 @@ async def verify_auth(
                     detail="Session has been invalidated",
                 )
 
-        return {"authenticated": True, "user": payload["user"], "return_to": return_to}
+        return {
+            "authenticated": True,
+            "user": payload["user"],
+            "return_to": return_to,
+        }
 
     except JWTError as e:
         logger.error(f"JWT verification failed: {str(e)}")

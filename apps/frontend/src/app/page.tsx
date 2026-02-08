@@ -143,8 +143,15 @@ export default function LandingPage() {
       const validateBackendSession = async () => {
         try {
           const response = await fetch(
-            `${getClientApiBaseUrl()}/auth/verify?session_token=${session.session_token}`,
-            { headers: { Accept: 'application/json' } }
+            `${getClientApiBaseUrl()}/auth/verify`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+              body: JSON.stringify({ session_token: session.session_token }),
+            }
           );
 
           if (response.ok) {

@@ -20,6 +20,7 @@ from rhesis.backend.logging import logger
 EMAIL_VERIFICATION_EXPIRE_MINUTES = 60 * 24  # 24 hours
 PASSWORD_RESET_EXPIRE_MINUTES = 60  # 1 hour
 MAGIC_LINK_EXPIRE_MINUTES = 15  # 15 minutes
+AUTH_CODE_EXPIRE_MINUTES = 1  # 60 seconds, for OAuth callback redirect
 
 
 def get_secret_key() -> str:
@@ -221,6 +222,52 @@ def verify_email_flow_token(token: str, expected_type: str) -> Dict[str, Any]:
         )
 
     return payload
+
+
+def create_auth_code(session_token: str) -> str:
+    """Create a short-lived JWT auth code wrapping a session token.
+
+    Used during OAuth callback redirects so the long-lived session token
+    is never exposed in the URL.  The auth code expires in 60 seconds.
+    """
+    now = datetime.now(timezone.utc)
+    payload = {
+        "type": "auth_code",
+        "session_token": session_token,
+        "exp": now + timedelta(minutes=AUTH_CODE_EXPIRE_MINUTES),
+        "iat": now,
+    }
+    return jwt.encode(payload, get_secret_key(), algorithm=ALGORITHM)
+
+
+def verify_auth_code(code: str) -> str:
+    """Verify a short-lived auth code and return the wrapped session token.
+
+    Raises HTTPException(400) if the code is invalid or expired.
+    """
+    try:
+        payload = jwt.decode(code, get_secret_key(), algorithms=[ALGORITHM])
+    except JWTError as e:
+        logger.warning(f"Auth code verification failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired auth code",
+        )
+
+    if payload.get("type") != "auth_code":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid auth code type",
+        )
+
+    session_token = payload.get("session_token")
+    if not session_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Auth code missing session token",
+        )
+
+    return session_token
 
 
 def generate_api_token() -> str:

@@ -208,7 +208,7 @@ class GitHubProvider(AuthProvider):
 
             return AuthUser(
                 provider_type=AuthProviderType.GITHUB,
-                external_id=f"github|{userinfo.get('id')}",
+                external_id=str(userinfo.get("id")),
                 email=email,
                 name=name,
                 given_name=given_name,

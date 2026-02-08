@@ -156,7 +156,7 @@ class GoogleProvider(AuthProvider):
 
             return AuthUser(
                 provider_type=AuthProviderType.GOOGLE,
-                external_id=f"google|{userinfo.get('sub')}",
+                external_id=userinfo.get("sub"),
                 email=email,
                 name=userinfo.get("name"),
                 given_name=userinfo.get("given_name"),
