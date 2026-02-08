@@ -16,6 +16,7 @@ declare module 'next-auth' {
     picture?: string | null;
     organization_id?: string;
     session_token?: string;
+    is_email_verified?: boolean;
   }
 }
 

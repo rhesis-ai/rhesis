@@ -70,6 +70,7 @@ export const authConfig: NextAuthConfig = {
             image: imageUrl || null,
             picture: imageUrl || null,
             organization_id: data.user.organization_id,
+            is_email_verified: data.user.is_email_verified ?? true,
             session_token: sessionToken,
           };
         } catch (error) {

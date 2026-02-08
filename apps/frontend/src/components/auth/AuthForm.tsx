@@ -47,6 +47,10 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Magic link state
+  const [showMagicLink, setShowMagicLink] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+
   // Check local storage for previous acceptance on component mount
   useEffect(() => {
     const hasAcceptedTerms = localStorage.getItem('termsAccepted') === 'true';
@@ -169,6 +173,35 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     }
   };
 
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!checkTerms()) return;
+
+    setFormLoading(true);
+    setFormError(null);
+
+    try {
+      const response = await fetch(`${getClientApiBaseUrl()}/auth/magic-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || 'Failed to send magic link');
+      }
+
+      setMagicLinkSent(true);
+    } catch (err) {
+      setFormError(
+        err instanceof Error ? err.message : 'Failed to send magic link'
+      );
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
   const getProviderIcon = (providerName: string) => {
     switch (providerName) {
       case 'google':
@@ -227,7 +260,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         </Typography>
 
         {/* Email/Password Form */}
-        {emailProvider && (
+        {emailProvider && !showMagicLink && !magicLinkSent && (
           <Box
             component="form"
             onSubmit={handleEmailSubmit}
@@ -285,6 +318,38 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               {isRegistration ? 'Create Account' : 'Sign in with Email'}
             </Button>
 
+            {/* Forgot password and magic link (login only) */}
+            {!isRegistration && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography variant="body2">
+                  <a
+                    href="/auth/forgot-password"
+                    style={{ color: 'inherit', textDecoration: 'none' }}
+                  >
+                    Forgot password?
+                  </a>
+                </Typography>
+                <Typography variant="body2">
+                  <a
+                    href="#"
+                    onClick={e => {
+                      e.preventDefault();
+                      setShowMagicLink(true);
+                    }}
+                    style={{ color: 'inherit', textDecoration: 'none' }}
+                  >
+                    Sign in with magic link
+                  </a>
+                </Typography>
+              </Box>
+            )}
+
             {/* Toggle between login and registration */}
             {registrationEnabled && (
               <Typography
@@ -295,7 +360,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 {isRegistration ? (
                   <>
                     Already have an account?{' '}
-                    <a href="/auth/signin" style={{ color: 'inherit' }}>
+                    <a href="/" style={{ color: 'inherit' }}>
                       Sign in
                     </a>
                   </>
@@ -309,6 +374,93 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 )}
               </Typography>
             )}
+          </Box>
+        )}
+
+        {/* Magic Link Form */}
+        {emailProvider && showMagicLink && !magicLinkSent && (
+          <Box
+            component="form"
+            onSubmit={handleMagicLink}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          >
+            <Typography variant="body2" color="text.secondary" align="center">
+              Enter your email and we&apos;ll send you a link to sign in
+              instantly.
+            </Typography>
+            <TextField
+              label="Email"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              fullWidth
+              size="small"
+              autoComplete="email"
+              autoFocus
+            />
+            {formError && (
+              <Alert severity="error" sx={{ py: 0 }}>
+                {formError}
+              </Alert>
+            )}
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              size="medium"
+              disabled={formLoading}
+              startIcon={
+                formLoading ? <CircularProgress size={20} /> : <EmailIcon />
+              }
+            >
+              Send magic link
+            </Button>
+            <Typography variant="body2" align="center">
+              <a
+                href="#"
+                onClick={e => {
+                  e.preventDefault();
+                  setShowMagicLink(false);
+                  setFormError(null);
+                }}
+                style={{ color: 'inherit', textDecoration: 'none' }}
+              >
+                Sign in with password instead
+              </a>
+            </Typography>
+          </Box>
+        )}
+
+        {/* Magic Link Sent Confirmation */}
+        {magicLinkSent && (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              alignItems: 'center',
+            }}
+          >
+            <EmailIcon sx={{ fontSize: 48, color: 'primary.main' }} />
+            <Typography variant="body1" align="center">
+              Check your email!
+            </Typography>
+            <Typography variant="body2" color="text.secondary" align="center">
+              We&apos;ve sent a sign-in link to <strong>{email}</strong>. Click
+              the link in the email to sign in.
+            </Typography>
+            <Button
+              variant="text"
+              size="small"
+              onClick={() => {
+                setMagicLinkSent(false);
+                setShowMagicLink(false);
+                setFormError(null);
+              }}
+            >
+              Back to sign in
+            </Button>
           </Box>
         )}
 

@@ -11,6 +11,7 @@ import { SxProps, Theme } from '@mui/system';
 import { alpha } from '@mui/material/styles';
 import SidebarFooter from '@/components/navigation/SidebarFooter';
 import ToolbarActions from '@/components/layout/ToolbarActions';
+import VerificationBanner from '@/components/auth/VerificationBanner';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
 
 // Define extended user interface that includes organization_id
@@ -173,6 +174,7 @@ export default function ProtectedLayout({
           }}
           renderPageItem={renderPageItem}
         >
+          <VerificationBanner />
           {children}
         </DashboardLayout>
       </WebSocketProvider>
