@@ -11,10 +11,13 @@ import {
   TextField,
   CircularProgress,
   Alert,
+  Tooltip,
 } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import EmailIcon from '@mui/icons-material/Email';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { getClientApiBaseUrl } from '../../utils/url-resolver';
@@ -50,6 +53,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
   // Magic link state
   const [showMagicLink, setShowMagicLink] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+
+  // Email form expanded state (login only — registration always shows form)
+  const [showEmailForm, setShowEmailForm] = useState(false);
 
   // Check local storage for previous acceptance on component mount
   useEffect(() => {
@@ -242,6 +248,10 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     );
   }
 
+  // Whether the email form is currently showing (expanded or magic link)
+  const emailFormActive =
+    !isRegistration && (showEmailForm || showMagicLink || magicLinkSent);
+
   return (
     <Box sx={{ width: '100%' }}>
       <Paper
@@ -259,130 +269,142 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             : 'All paws on deck for testing!'}
         </Typography>
 
-        {/* Email/Password Form */}
-        {emailProvider && !showMagicLink && !magicLinkSent && (
-          <Box
-            component="form"
-            onSubmit={handleEmailSubmit}
-            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+        {/* ── Initial view: "Continue with Email" button ── */}
+        {emailProvider && !isRegistration && !emailFormActive && (
+          <Button
+            variant="contained"
+            fullWidth
+            size="large"
+            startIcon={<EmailIcon />}
+            onClick={() => setShowEmailForm(true)}
           >
-            {isRegistration && (
-              <TextField
-                label="Name"
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                fullWidth
-                size="small"
-                autoComplete="name"
-              />
-            )}
-            <TextField
-              label="Email"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              fullWidth
-              size="small"
-              autoComplete="email"
-            />
-            <TextField
-              label="Password"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              fullWidth
-              size="small"
-              autoComplete={
-                isRegistration ? 'new-password' : 'current-password'
-              }
-              helperText={isRegistration ? 'Minimum 8 characters' : undefined}
-            />
-            {formError && (
-              <Alert severity="error" sx={{ py: 0 }}>
-                {formError}
-              </Alert>
-            )}
-            <Button
-              type="submit"
-              variant="contained"
-              fullWidth
-              size="medium"
-              disabled={formLoading}
-              startIcon={
-                formLoading ? <CircularProgress size={20} /> : <EmailIcon />
-              }
-            >
-              {isRegistration ? 'Create Account' : 'Sign in with Email'}
-            </Button>
-
-            {/* Forgot password and magic link (login only) */}
-            {!isRegistration && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <Typography variant="body2">
-                  <a
-                    href="/auth/forgot-password"
-                    style={{ color: 'inherit', textDecoration: 'none' }}
-                  >
-                    Forgot password?
-                  </a>
-                </Typography>
-                <Typography variant="body2">
-                  <a
-                    href="#"
-                    onClick={e => {
-                      e.preventDefault();
-                      setShowMagicLink(true);
-                    }}
-                    style={{ color: 'inherit', textDecoration: 'none' }}
-                  >
-                    Sign in with magic link
-                  </a>
-                </Typography>
-              </Box>
-            )}
-
-            {/* Toggle between login and registration */}
-            {registrationEnabled && (
-              <Typography
-                variant="body2"
-                align="center"
-                sx={{ color: 'text.secondary' }}
-              >
-                {isRegistration ? (
-                  <>
-                    Already have an account?{' '}
-                    <a href="/" style={{ color: 'inherit' }}>
-                      Sign in
-                    </a>
-                  </>
-                ) : (
-                  <>
-                    Don&apos;t have an account?{' '}
-                    <a href="/auth/register" style={{ color: 'inherit' }}>
-                      Register
-                    </a>
-                  </>
-                )}
-              </Typography>
-            )}
-          </Box>
+            Continue with Email
+          </Button>
         )}
 
-        {/* Magic Link Form */}
+        {/* ── Expanded email/password form ── */}
+        {emailProvider &&
+          (isRegistration || showEmailForm) &&
+          !showMagicLink &&
+          !magicLinkSent && (
+            <Box
+              component="form"
+              onSubmit={handleEmailSubmit}
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+              }}
+            >
+              {isRegistration && (
+                <TextField
+                  label="Name"
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  fullWidth
+                  size="small"
+                  autoComplete="name"
+                />
+              )}
+              <TextField
+                label="Email"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                fullWidth
+                size="small"
+                autoComplete="email"
+                autoFocus
+              />
+              <TextField
+                label="Password"
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                fullWidth
+                size="small"
+                autoComplete={
+                  isRegistration ? 'new-password' : 'current-password'
+                }
+                helperText={isRegistration ? 'Minimum 8 characters' : undefined}
+              />
+              {formError && (
+                <Alert severity="error" sx={{ py: 0 }}>
+                  {formError}
+                </Alert>
+              )}
+              <Button
+                type="submit"
+                variant="contained"
+                fullWidth
+                size="large"
+                disabled={formLoading}
+                startIcon={
+                  formLoading ? <CircularProgress size={20} /> : <EmailIcon />
+                }
+              >
+                {isRegistration ? 'Create Account' : 'Sign in'}
+              </Button>
+
+              {/* Forgot password & magic link (login only) */}
+              {!isRegistration && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Typography variant="body2">
+                    <a
+                      href="/auth/forgot-password"
+                      style={{
+                        color: 'inherit',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      Forgot password?
+                    </a>
+                  </Typography>
+                  <Tooltip
+                    title="We'll send you a link to sign in without typing your password"
+                    arrow
+                  >
+                    <Typography variant="body2">
+                      <a
+                        href="#"
+                        onClick={e => {
+                          e.preventDefault();
+                          setShowMagicLink(true);
+                          setFormError(null);
+                        }}
+                        style={{
+                          color: 'inherit',
+                          textDecoration: 'none',
+                        }}
+                      >
+                        Email me a link
+                      </a>
+                    </Typography>
+                  </Tooltip>
+                </Box>
+              )}
+            </Box>
+          )}
+
+        {/* ── Magic Link Form ── */}
         {emailProvider && showMagicLink && !magicLinkSent && (
           <Box
             component="form"
             onSubmit={handleMagicLink}
-            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+            }}
           >
             <Typography variant="body2" color="text.secondary" align="center">
               Enter your email and we&apos;ll send you a link to sign in
@@ -408,13 +430,17 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               type="submit"
               variant="contained"
               fullWidth
-              size="medium"
+              size="large"
               disabled={formLoading}
               startIcon={
-                formLoading ? <CircularProgress size={20} /> : <EmailIcon />
+                formLoading ? (
+                  <CircularProgress size={20} />
+                ) : (
+                  <AutoFixHighIcon />
+                )
               }
             >
-              Send magic link
+              Email Me A Link
             </Button>
             <Typography variant="body2" align="center">
               <a
@@ -432,7 +458,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           </Box>
         )}
 
-        {/* Magic Link Sent Confirmation */}
+        {/* ── Magic Link Sent Confirmation ── */}
         {magicLinkSent && (
           <Box
             sx={{
@@ -464,24 +490,30 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           </Box>
         )}
 
-        {/* OAuth Providers */}
-        {oauthProviders.length > 0 && (
+        {/* ── OAuth Providers (hidden when email form is active) ── */}
+        {oauthProviders.length > 0 && !emailFormActive && (
           <>
             {emailProvider && (
               <Divider>
                 <Typography color="textSecondary" variant="body2">
-                  Or continue with
+                  Or
                 </Typography>
               </Divider>
             )}
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
+              }}
+            >
               {oauthProviders.map(provider => (
                 <Button
                   key={provider.name}
                   variant="outlined"
                   fullWidth
-                  size="medium"
+                  size="large"
                   startIcon={getProviderIcon(provider.name)}
                   onClick={() => handleOAuthLogin(provider.name)}
                   sx={{
@@ -495,11 +527,62 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           </>
         )}
 
-        {/* Terms Warning */}
-        {showTermsWarning && (
-          <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-            Please accept the Terms and Conditions to continue.
+        {/* ── Create account (expanded email form only, login) ── */}
+        {!isRegistration &&
+          registrationEnabled &&
+          emailFormActive &&
+          !magicLinkSent && (
+            <>
+              <Divider>
+                <Typography color="textSecondary" variant="body2">
+                  or
+                </Typography>
+              </Divider>
+
+              <Button
+                variant="outlined"
+                fullWidth
+                size="large"
+                href="/auth/register"
+                sx={{
+                  color: theme => theme.palette.text.primary,
+                }}
+              >
+                Create an account
+              </Button>
+            </>
+          )}
+
+        {/* ── Already have an account (registration only) ── */}
+        {isRegistration && (
+          <Typography
+            variant="body2"
+            align="center"
+            sx={{ color: 'text.secondary' }}
+          >
+            Already have an account?{' '}
+            <a href="/" style={{ color: 'inherit' }}>
+              Sign in
+            </a>
           </Typography>
+        )}
+
+        {/* ── Back to all sign-in options (when email form active) ── */}
+        {emailFormActive && (
+          <Button
+            variant="text"
+            size="small"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => {
+              setShowEmailForm(false);
+              setShowMagicLink(false);
+              setMagicLinkSent(false);
+              setFormError(null);
+            }}
+            sx={{ alignSelf: 'center', color: 'text.secondary' }}
+          >
+            Back to all sign-in options
+          </Button>
         )}
 
         {/* Terms and Conditions */}
@@ -530,39 +613,44 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             .
           </Typography>
         ) : (
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={termsAccepted}
-                onChange={handleTermsAcceptance}
-                color="primary"
-              />
-            }
-            label={
-              <Typography variant="body2">
-                By signing in you are agreeing to our&nbsp;
-                <a
-                  href="https://www.rhesis.ai/terms-conditions"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: 'inherit' }}
-                >
-                  Terms and Conditions
-                </a>
-                &nbsp;&amp;&nbsp;
-                <a
-                  href="https://www.rhesis.ai/privacy-policy"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: 'inherit' }}
-                >
-                  Privacy Policy
-                </a>
-                .
+          <Box sx={{ mt: 1 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={termsAccepted}
+                  onChange={handleTermsAcceptance}
+                  color="primary"
+                />
+              }
+              label={
+                <Typography variant="body2">
+                  I agree to the{' '}
+                  <a
+                    href="https://www.rhesis.ai/terms-conditions"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'inherit' }}
+                  >
+                    Terms
+                  </a>
+                  {' & '}
+                  <a
+                    href="https://www.rhesis.ai/privacy-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: 'inherit' }}
+                  >
+                    Privacy Policy
+                  </a>
+                </Typography>
+              }
+            />
+            {showTermsWarning && (
+              <Typography variant="body2" color="error" sx={{ ml: 4 }}>
+                Please accept the Terms and Conditions to continue.
               </Typography>
-            }
-            sx={{ mt: 1 }}
-          />
+            )}
+          </Box>
         )}
       </Paper>
     </Box>
