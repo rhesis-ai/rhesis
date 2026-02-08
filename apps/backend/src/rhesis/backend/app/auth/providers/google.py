@@ -10,6 +10,7 @@ from typing import Any, Optional
 from authlib.integrations.starlette_client import OAuth
 from fastapi import HTTPException, Request, status
 
+from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
 from rhesis.backend.logging import logger
 
@@ -154,7 +155,7 @@ class GoogleProvider(AuthProvider):
             logger.info(f"Successful Google OAuth login for: {email}")
 
             return AuthUser(
-                provider_type="google",
+                provider_type=AuthProviderType.GOOGLE,
                 external_id=f"google|{userinfo.get('sub')}",
                 email=email,
                 name=userinfo.get("name"),

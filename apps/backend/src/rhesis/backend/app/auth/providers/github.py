@@ -10,6 +10,7 @@ from typing import Any, Optional
 from authlib.integrations.starlette_client import OAuth
 from fastapi import HTTPException, Request, status
 
+from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
 from rhesis.backend.logging import logger
 
@@ -206,7 +207,7 @@ class GitHubProvider(AuthProvider):
             logger.info(f"Successful GitHub OAuth login for: {email}")
 
             return AuthUser(
-                provider_type="github",
+                provider_type=AuthProviderType.GITHUB,
                 external_id=f"github|{userinfo.get('id')}",
                 email=email,
                 name=name,

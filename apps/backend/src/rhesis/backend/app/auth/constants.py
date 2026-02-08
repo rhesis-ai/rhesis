@@ -1,4 +1,16 @@
 import os
+from enum import Enum
+
+
+class AuthProviderType(str, Enum):
+    """Authentication provider types for user accounts."""
+
+    EMAIL = "email"
+    GOOGLE = "google"
+    GITHUB = "github"
+    MICROSOFT = "microsoft"
+    UNKNOWN = "unknown"
+
 
 # JWT Configuration
 ALGORITHM = "HS256"

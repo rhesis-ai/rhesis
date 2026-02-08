@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
+from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.providers import ProviderRegistry
 from rhesis.backend.app.auth.session_invalidation import (
     clear_user_logout,
@@ -684,7 +685,7 @@ async def reset_password(
     # Preserve original provider_type — setting a password is additive,
     # not a provider migration. Users can log in via either method.
     if not user.provider_type:
-        user.provider_type = "email"
+        user.provider_type = AuthProviderType.EMAIL
     db.commit()
 
     logger.info("Password reset for user: %s", redact_email(user.email))
@@ -722,7 +723,7 @@ async def request_magic_link(
         try:
             user_data = UserCreate(
                 email=body.email,
-                provider_type="email",
+                provider_type=AuthProviderType.EMAIL,
                 is_email_verified=False,
                 is_active=True,
             )
@@ -736,9 +737,7 @@ async def request_magic_link(
             # Return success to prevent email enumeration
             return {
                 "success": True,
-                "message": (
-                    "A sign-in link has been sent to your email."
-                ),
+                "message": ("A sign-in link has been sent to your email."),
             }
 
     try:

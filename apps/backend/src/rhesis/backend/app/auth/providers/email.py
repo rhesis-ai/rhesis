@@ -11,6 +11,7 @@ from typing import Optional
 from fastapi import HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
 from rhesis.backend.app.utils.encryption import hash_password, verify_password
 from rhesis.backend.app.utils.redact import redact_email
@@ -145,7 +146,7 @@ class EmailProvider(AuthProvider):
         logger.info("Successful email/password login for: %s", redact_email(email))
 
         return AuthUser(
-            provider_type="email",
+            provider_type=AuthProviderType.EMAIL,
             external_id=f"email|{user.id}",
             email=user.email,
             name=user.name,
@@ -235,7 +236,7 @@ class EmailProvider(AuthProvider):
             email=normalized_email,
             name=name,
             password_hash=password_hash,
-            provider_type="email",
+            provider_type=AuthProviderType.EMAIL,
             is_active=True,
             is_superuser=False,
         )
@@ -247,7 +248,7 @@ class EmailProvider(AuthProvider):
         )
 
         return AuthUser(
-            provider_type="email",
+            provider_type=AuthProviderType.EMAIL,
             external_id=f"email|{user.id}",
             email=user.email,
             name=user.name,

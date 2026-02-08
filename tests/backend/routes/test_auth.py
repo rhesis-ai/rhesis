@@ -17,6 +17,7 @@ from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.token_utils import (
     create_email_verification_token,
     create_magic_link_token,
@@ -212,9 +213,7 @@ class TestAuthLogin:
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(
-                    return_value=mock_redirect_response
-                )
+                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
 
                 response = client.get("/auth/login", follow_redirects=False)
 
@@ -233,9 +232,7 @@ class TestAuthLogin:
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(
-                    return_value=mock_redirect_response
-                )
+                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
 
                 client.get(
                     "/auth/login?connection=google-oauth2",
@@ -258,9 +255,7 @@ class TestAuthLogin:
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(
-                    return_value=mock_redirect_response
-                )
+                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
 
                 client.get("/auth/login?return_to=/dashboard", follow_redirects=False)
 
@@ -310,9 +305,7 @@ class TestAuthLogin:
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(
-                    return_value=mock_redirect_response
-                )
+                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
 
                 headers = {"origin": "http://localhost:3000"}
                 client.get("/auth/login", headers=headers, follow_redirects=False)
@@ -331,9 +324,7 @@ class TestAuthLogin:
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(
-                    return_value=mock_redirect_response
-                )
+                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
 
                 with patch.object(client.app, "state", {}):
                     client.get("/auth/login", follow_redirects=False)
@@ -381,9 +372,7 @@ class TestAuthCallback:
         mock_session_token = "session_token_123"
         mock_create_token.return_value = mock_session_token
 
-        mock_redirect_url = (
-            "http://localhost:3000/dashboard?token=session_token_123"
-        )
+        mock_redirect_url = "http://localhost:3000/dashboard?token=session_token_123"
         mock_build_redirect.return_value = mock_redirect_url
 
         with (
@@ -419,13 +408,9 @@ class TestAuthCallback:
             patch.dict(os.environ, {"AUTH_LEGACY_AUTH0_ENABLED": "true"}),
             patch(self._AUTH0_INFO) as mock_get_user_info,
         ):
-            mock_get_user_info.side_effect = Exception(
-                "Auth0 communication error"
-            )
+            mock_get_user_info.side_effect = Exception("Auth0 communication error")
 
-            response = client.get(
-                "/auth/callback?code=test_code&state=test_state"
-            )
+            response = client.get("/auth/callback?code=test_code&state=test_state")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Auth0 communication error" in response.json()["detail"]
@@ -440,17 +425,13 @@ class TestAuthCallback:
             mock_get_user_info.return_value = ({}, {"sub": "auth0|123"})
             mock_extract_data.side_effect = Exception("Invalid user data")
 
-            response = client.get(
-                "/auth/callback?code=test_code&state=test_state"
-            )
+            response = client.get("/auth/callback?code=test_code&state=test_state")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid user data" in response.json()["detail"]
 
     @patch("rhesis.backend.app.routers.auth.find_or_create_user")
-    def test_callback_user_creation_error(
-        self, mock_find_user, client: TestClient
-    ):
+    def test_callback_user_creation_error(self, mock_find_user, client: TestClient):
         """Test callback handles user creation/finding errors"""
         mock_find_user.side_effect = Exception("Database error")
 
@@ -466,9 +447,7 @@ class TestAuthCallback:
                 {},
             )
 
-            response = client.get(
-                "/auth/callback?code=test_code&state=test_state"
-            )
+            response = client.get("/auth/callback?code=test_code&state=test_state")
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Database error" in response.json()["detail"]
@@ -676,9 +655,7 @@ class TestAuthEdgeCases:
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(
-                    return_value=mock_redirect_response
-                )
+                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
 
                 malformed_params = [
                     "?connection=",
@@ -753,16 +730,12 @@ class TestAuthPerformance:
                 mock_redirect_response = RedirectResponse(
                     url="https://test-domain.auth0.com/authorize?..."
                 )
-                mock_oauth.auth0.authorize_redirect = AsyncMock(
-                    return_value=mock_redirect_response
-                )
+                mock_oauth.auth0.authorize_redirect = AsyncMock(return_value=mock_redirect_response)
 
                 start_time = time.time()
 
                 for i in range(10):
-                    response = client.get(
-                        "/auth/login", follow_redirects=False
-                    )
+                    response = client.get("/auth/login", follow_redirects=False)
                     assert response.status_code in [
                         status.HTTP_307_TEMPORARY_REDIRECT,
                         status.HTTP_302_FOUND,
@@ -951,7 +924,7 @@ class TestAuthPasswordResetRoutes:
         email = _unique_email("reset")
         org = create_test_organization(test_db, "Reset Org")
         user = create_test_user(test_db, org.id, email, "Reset User")
-        user.provider_type = "email"
+        user.provider_type = AuthProviderType.EMAIL
         test_db.flush()
 
         with (

@@ -11,6 +11,8 @@ from typing import Any, Dict, Optional
 
 from fastapi import Request
 
+from rhesis.backend.app.auth.constants import AuthProviderType
+
 
 @dataclass
 class AuthUser:
@@ -22,7 +24,7 @@ class AuthUser:
     return an AuthUser instance upon successful authentication.
 
     Attributes:
-        provider_type: The authentication provider type (e.g., 'google', 'github', 'email')
+        provider_type: The authentication provider type (see AuthProviderType enum)
         external_id: The unique identifier from the external provider (e.g., Google's sub claim)
         email: The user's email address (primary identifier for user matching)
         name: The user's full display name
@@ -32,7 +34,7 @@ class AuthUser:
         raw_data: Original response data from the provider (for debugging/auditing)
     """
 
-    provider_type: str
+    provider_type: AuthProviderType
     external_id: str
     email: str
     name: Optional[str] = None
@@ -78,7 +80,7 @@ class AuthProvider(ABC):
             async def authenticate(self, request: Request, **kwargs) -> AuthUser:
                 # ... OAuth flow implementation ...
                 return AuthUser(
-                    provider_type="google",
+                    provider_type=AuthProviderType.GOOGLE,
                     external_id=userinfo["sub"],
                     email=userinfo["email"],
                     name=userinfo.get("name"),

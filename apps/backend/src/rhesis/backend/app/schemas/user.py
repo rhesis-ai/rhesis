@@ -3,6 +3,7 @@ from typing import Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
+from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.schemas import Base
 
 
@@ -150,8 +151,8 @@ class UserBase(Base):
         default_factory=lambda: UserSettings(version=1), description="User preferences and settings"
     )
     # Native authentication fields (provider-agnostic)
-    provider_type: Optional[str] = Field(
-        None, description="Authentication provider type (google, github, email, etc.)"
+    provider_type: Optional[AuthProviderType] = Field(
+        None, description="Authentication provider type"
     )
     external_provider_id: Optional[str] = Field(
         None, description="External ID from the authentication provider"

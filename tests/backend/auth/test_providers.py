@@ -11,6 +11,8 @@ from unittest.mock import patch
 import pytest
 from faker import Faker
 
+from rhesis.backend.app.auth.constants import AuthProviderType
+
 fake = Faker()
 
 
@@ -28,12 +30,12 @@ class TestAuthUser:
         from rhesis.backend.app.auth.providers.base import AuthUser
 
         auth_user = AuthUser(
-            provider_type="google",
+            provider_type=AuthProviderType.GOOGLE,
             external_id="google|123456",
             email="test@example.com",
         )
 
-        assert auth_user.provider_type == "google"
+        assert auth_user.provider_type == AuthProviderType.GOOGLE
         assert auth_user.external_id == "google|123456"
         assert auth_user.email == "test@example.com"
         assert auth_user.name is None
@@ -49,7 +51,7 @@ class TestAuthUser:
 
         raw_data = {"sub": "123456", "email_verified": True}
         auth_user = AuthUser(
-            provider_type="google",
+            provider_type=AuthProviderType.GOOGLE,
             external_id="google|123456",
             email="test@example.com",
             name="Test User",
@@ -71,7 +73,7 @@ class TestAuthUser:
         from rhesis.backend.app.auth.providers.base import AuthUser
 
         auth_user = AuthUser(
-            provider_type="email",
+            provider_type=AuthProviderType.EMAIL,
             external_id="email|1",
             email="test@example.com",
             name="Full Name",
@@ -85,7 +87,7 @@ class TestAuthUser:
         from rhesis.backend.app.auth.providers.base import AuthUser
 
         auth_user = AuthUser(
-            provider_type="email",
+            provider_type=AuthProviderType.EMAIL,
             external_id="email|1",
             email="test@example.com",
             given_name="First",
@@ -100,7 +102,7 @@ class TestAuthUser:
         from rhesis.backend.app.auth.providers.base import AuthUser
 
         auth_user = AuthUser(
-            provider_type="email",
+            provider_type=AuthProviderType.EMAIL,
             external_id="email|1",
             email="test@example.com",
         )
@@ -126,7 +128,7 @@ class TestAuthUser:
 
         with pytest.raises(ValueError, match="email is required"):
             AuthUser(
-                provider_type="email",
+                provider_type=AuthProviderType.EMAIL,
                 external_id="123",
                 email="",
             )
