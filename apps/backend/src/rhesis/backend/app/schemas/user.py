@@ -143,6 +143,7 @@ class UserBase(Base):
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
     is_verified: Optional[bool] = None
+    is_email_verified: Optional[bool] = None
     organization_id: Optional[UUID4] = None
     last_login_at: Optional[datetime] = None
     user_settings: Optional[UserSettings] = Field(

@@ -15,11 +15,21 @@ from rhesis.backend.app.auth.session_invalidation import (
     is_session_valid,
 )
 from rhesis.backend.app.auth.token_utils import (
+    MAGIC_LINK_EXPIRE_MINUTES,
+    PASSWORD_RESET_EXPIRE_MINUTES,
+    create_email_verification_token,
+    create_magic_link_token,
+    create_password_reset_token,
     create_session_token,
     get_secret_key,
+    verify_email_flow_token,
     verify_jwt_token,
 )
 from rhesis.backend.app.auth.url_utils import build_redirect_url
+from rhesis.backend.app.auth.used_token_store import (
+    TokenStoreUnavailableError,
+    claim_token_jti,
+)
 from rhesis.backend.app.auth.user_utils import (
     find_or_create_user,
     find_or_create_user_from_auth,
@@ -27,6 +37,15 @@ from rhesis.backend.app.auth.user_utils import (
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
+from rhesis.backend.app.utils.rate_limit import (
+    AUTH_FORGOT_PASSWORD_LIMIT,
+    AUTH_LOGIN_EMAIL_LIMIT,
+    AUTH_MAGIC_LINK_LIMIT,
+    AUTH_REGISTER_LIMIT,
+    AUTH_RESEND_VERIFICATION_LIMIT,
+    limiter,
+)
+from rhesis.backend.app.utils.redact import redact_email
 from rhesis.backend.logging import logger
 from rhesis.backend.telemetry import (
     is_telemetry_enabled,
@@ -73,6 +92,43 @@ class ProvidersResponse(BaseModel):
     providers: List[ProviderInfo]
 
 
+class VerifyEmailRequest(BaseModel):
+    """Request body for email verification."""
+
+    token: str
+
+
+class ResendVerificationRequest(BaseModel):
+    """Request body for resending verification email."""
+
+    email: EmailStr
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Request body for forgot password."""
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request body for password reset."""
+
+    token: str
+    new_password: str = Field(..., min_length=8)
+
+
+class MagicLinkRequest(BaseModel):
+    """Request body for magic link login."""
+
+    email: EmailStr
+
+
+class MagicLinkVerifyRequest(BaseModel):
+    """Request body for magic link verification."""
+
+    token: str
+
+
 # =============================================================================
 # Helper Functions
 # =============================================================================
@@ -111,6 +167,18 @@ def _is_legacy_auth0_enabled() -> bool:
     """Check if legacy Auth0 authentication is enabled for rollback."""
     enabled = os.getenv("AUTH_LEGACY_AUTH0_ENABLED", "false").lower()
     return enabled in ("true", "1", "yes")
+
+
+def _get_frontend_url() -> str:
+    """Get the frontend URL for building email links."""
+    return os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+
+def _get_email_service():
+    """Lazily import and return the email service."""
+    from rhesis.backend.notifications.email.service import EmailService
+
+    return EmailService()
 
 
 # =============================================================================
@@ -272,6 +340,7 @@ async def auth_callback(request: Request, db: Session = Depends(get_db_session))
 
 
 @router.post("/login/email")
+@limiter.limit(AUTH_LOGIN_EMAIL_LIMIT)
 async def login_with_email(
     request: Request,
     body: EmailLoginRequest,
@@ -344,6 +413,7 @@ async def login_with_email(
 
 
 @router.post("/register")
+@limiter.limit(AUTH_REGISTER_LIMIT)
 async def register_with_email(
     request: Request,
     body: EmailRegisterRequest,
@@ -382,7 +452,7 @@ async def register_with_email(
             db=db,
         )
 
-        # The user was already created in register(), so just look them up
+        # The user was already created in register(), so look them up
         from rhesis.backend.app import crud
 
         user = crud.get_user_by_email(db, body.email)
@@ -395,15 +465,29 @@ async def register_with_email(
 
         # Set up session and create token
         request.session["user_id"] = str(user.id)
-        clear_user_logout(str(user.id))  # Clear any previous logout invalidation
+        clear_user_logout(str(user.id))
         session_token = create_session_token(user)
+
+        # Send verification email (best-effort, don't block registration)
+        try:
+            token = create_email_verification_token(str(user.id), user.email)
+            frontend_url = _get_frontend_url()
+            verification_url = f"{frontend_url}/auth/verify-email?token={token}"
+            email_service = _get_email_service()
+            email_service.send_verification_email(
+                recipient_email=user.email,
+                recipient_name=user.name,
+                verification_url=verification_url,
+            )
+        except Exception as email_err:
+            logger.warning(f"Failed to send verification email: {email_err}")
 
         # Track registration activity
         if is_telemetry_enabled():
             set_telemetry_enabled(
                 enabled=True,
                 user_id=str(user.id),
-                org_id=str(user.organization_id) if user.organization_id else None,
+                org_id=(str(user.organization_id) if user.organization_id else None),
             )
             track_user_activity(
                 event_type="registration",
@@ -431,6 +515,304 @@ async def register_with_email(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Registration failed: {str(e)}",
         )
+
+
+# =============================================================================
+# Email Verification Endpoints
+# =============================================================================
+
+
+@router.post("/verify-email")
+async def verify_email(
+    body: VerifyEmailRequest,
+    db: Session = Depends(get_db_session),
+):
+    """
+    Verify a user's email address using the token from the verification
+    email.
+    """
+    from rhesis.backend.app import crud
+
+    payload = verify_email_flow_token(body.token, "email_verification")
+    user = crud.get_user_by_email(db, payload["email"])
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User not found",
+        )
+
+    if user.is_email_verified:
+        return {"success": True, "message": "Email already verified"}
+
+    user.is_email_verified = True
+    db.commit()
+    logger.info("Email verified for user: %s", redact_email(user.email))
+
+    return {"success": True, "message": "Email verified successfully"}
+
+
+@router.post("/resend-verification")
+@limiter.limit(AUTH_RESEND_VERIFICATION_LIMIT)
+async def resend_verification(
+    request: Request,
+    body: ResendVerificationRequest,
+    db: Session = Depends(get_db_session),
+):
+    """
+    Resend the verification email. Always returns 200 to prevent
+    email enumeration.
+    """
+    from rhesis.backend.app import crud
+
+    user = crud.get_user_by_email(db, body.email)
+
+    if user and not user.is_email_verified:
+        try:
+            token = create_email_verification_token(str(user.id), user.email)
+            frontend_url = _get_frontend_url()
+            verification_url = f"{frontend_url}/auth/verify-email?token={token}"
+            email_service = _get_email_service()
+            email_service.send_verification_email(
+                recipient_email=user.email,
+                recipient_name=user.name,
+                verification_url=verification_url,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to resend verification email: {e}")
+
+    # Always return success to prevent email enumeration
+    return {
+        "success": True,
+        "message": ("If an account exists with that email, a verification link has been sent."),
+    }
+
+
+# =============================================================================
+# Password Reset Endpoints
+# =============================================================================
+
+
+@router.post("/forgot-password")
+@limiter.limit(AUTH_FORGOT_PASSWORD_LIMIT)
+async def forgot_password(
+    request: Request,
+    body: ForgotPasswordRequest,
+    db: Session = Depends(get_db_session),
+):
+    """
+    Request a password reset email. Always returns 200 to prevent
+    email enumeration.
+    """
+    from rhesis.backend.app import crud
+
+    user = crud.get_user_by_email(db, body.email)
+
+    if user:
+        try:
+            token = create_password_reset_token(str(user.id), user.email)
+            frontend_url = _get_frontend_url()
+            reset_url = f"{frontend_url}/auth/reset-password?token={token}"
+            email_service = _get_email_service()
+            email_service.send_password_reset_email(
+                recipient_email=user.email,
+                recipient_name=user.name,
+                reset_url=reset_url,
+            )
+            logger.info(
+                "Password reset email sent to: %s",
+                redact_email(user.email),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send password reset email: {e}")
+
+    # Always return success to prevent email enumeration
+    return {
+        "success": True,
+        "message": ("If an account exists with that email, a password reset link has been sent."),
+    }
+
+
+@router.post("/reset-password")
+async def reset_password(
+    body: ResetPasswordRequest,
+    db: Session = Depends(get_db_session),
+):
+    """
+    Reset a user's password using the token from the reset email.
+    Token is single-use: once used, it cannot be used again.
+    """
+    from rhesis.backend.app import crud
+    from rhesis.backend.app.utils.encryption import hash_password
+
+    payload = verify_email_flow_token(body.token, "password_reset")
+    jti = payload.get("jti")
+    if not jti:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid reset token",
+        )
+
+    ttl_seconds = PASSWORD_RESET_EXPIRE_MINUTES * 60
+    try:
+        claimed = await claim_token_jti(jti, ttl_seconds)
+    except TokenStoreUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service temporarily unavailable. Please try again later.",
+        )
+    if not claimed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token already used or expired",
+        )
+
+    user = crud.get_user_by_email(db, payload["email"])
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid reset token",
+        )
+
+    user.password_hash = hash_password(body.new_password)
+    user.provider_type = "email"
+    db.commit()
+
+    logger.info("Password reset for user: %s", redact_email(user.email))
+
+    return {
+        "success": True,
+        "message": "Password has been reset successfully",
+    }
+
+
+# =============================================================================
+# Magic Link Endpoints
+# =============================================================================
+
+
+@router.post("/magic-link")
+@limiter.limit(AUTH_MAGIC_LINK_LIMIT)
+async def request_magic_link(
+    request: Request,
+    body: MagicLinkRequest,
+    db: Session = Depends(get_db_session),
+):
+    """
+    Send a magic link login email. Always returns 200 to prevent
+    email enumeration.
+    """
+    from rhesis.backend.app import crud
+
+    user = crud.get_user_by_email(db, body.email)
+
+    if user:
+        try:
+            token = create_magic_link_token(str(user.id), user.email)
+            frontend_url = _get_frontend_url()
+            magic_link_url = f"{frontend_url}/auth/magic-link?token={token}"
+            email_service = _get_email_service()
+            email_service.send_magic_link_email(
+                recipient_email=user.email,
+                recipient_name=user.name,
+                magic_link_url=magic_link_url,
+            )
+            logger.info(
+                "Magic link email sent to: %s",
+                redact_email(user.email),
+            )
+        except Exception as e:
+            logger.warning(f"Failed to send magic link email: {e}")
+
+    # Always return success to prevent email enumeration
+    return {
+        "success": True,
+        "message": ("If an account exists with that email, a sign-in link has been sent."),
+    }
+
+
+@router.post("/magic-link/verify")
+async def verify_magic_link(
+    request: Request,
+    body: MagicLinkVerifyRequest,
+    db: Session = Depends(get_db_session),
+):
+    """
+    Verify a magic link token and return a session token.
+    Token is single-use: once used, it cannot be used again.
+    """
+    from rhesis.backend.app import crud
+
+    payload = verify_email_flow_token(body.token, "magic_link")
+    jti = payload.get("jti")
+    if not jti:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid magic link",
+        )
+
+    ttl_seconds = MAGIC_LINK_EXPIRE_MINUTES * 60
+    try:
+        claimed = await claim_token_jti(jti, ttl_seconds)
+    except TokenStoreUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service temporarily unavailable. Please try again later.",
+        )
+    if not claimed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Link already used or expired",
+        )
+
+    user = crud.get_user_by_email(db, payload["email"])
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid magic link",
+        )
+
+    # Mark email as verified (user clicked a link in their email)
+    if not user.is_email_verified:
+        user.is_email_verified = True
+
+    # Update last login
+    from datetime import datetime, timezone
+
+    user.last_login_at = datetime.now(timezone.utc)
+    db.commit()
+
+    # Set up session and create token
+    request.session["user_id"] = str(user.id)
+    clear_user_logout(str(user.id))
+    session_token = create_session_token(user)
+
+    # Track login activity
+    if is_telemetry_enabled():
+        set_telemetry_enabled(
+            enabled=True,
+            user_id=str(user.id),
+            org_id=(str(user.organization_id) if user.organization_id else None),
+        )
+        track_user_activity(
+            event_type="login",
+            session_id=request.session.get("_id"),
+            login_method="magic_link",
+            auth_provider="email",
+        )
+
+    return {
+        "success": True,
+        "session_token": session_token,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "name": user.name,
+            "organization_id": (str(user.organization_id) if user.organization_id else None),
+        },
+    }
 
 
 # =============================================================================
@@ -784,7 +1166,10 @@ async def local_login(request: Request, db: Session = Depends(get_db_session)):
         clear_user_logout(str(user.id))  # Clear any previous logout invalidation
         session_token = create_session_token(user)
 
-        logger.info(f"QUICK START MODE login successful for user: {user.email}")
+        logger.info(
+            "QUICK START MODE login successful for user: %s",
+            redact_email(user.email),
+        )
 
         if is_telemetry_enabled():
             set_telemetry_enabled(

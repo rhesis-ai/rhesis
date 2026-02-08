@@ -24,7 +24,8 @@ class User(Base):
     picture = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)  # To track if the user is active or not
     is_superuser = Column(Boolean, default=False)  # Admin flag
-    is_verified = Column(Boolean, default=False)  # To track if the user is verified or not
+    is_verified = Column(Boolean, default=False)  # Admin/Polyphemus access gate
+    is_email_verified = Column(Boolean, default=False)  # Email verification for sign-up
     auth0_id = Column(String, nullable=True)  # Legacy: kept for migration, will be removed
     organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
     last_login_at = Column(DateTime, nullable=True)  # Track when user last logged in

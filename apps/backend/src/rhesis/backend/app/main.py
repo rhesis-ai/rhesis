@@ -263,6 +263,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Register rate limiter for slowapi (used by auth and user routers)
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
+from rhesis.backend.app.utils.rate_limit import limiter
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 # Global exception handler for soft-deleted items
 @app.exception_handler(ItemDeletedException)

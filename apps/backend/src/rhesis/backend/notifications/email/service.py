@@ -235,3 +235,75 @@ class EmailService:
             from_email=welcome_from_email,
             bcc=bcc_email,
         )
+
+    def send_verification_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        verification_url: str,
+    ) -> bool:
+        """Send an email verification link to a user."""
+        if not self.is_configured:
+            logger.warning(
+                f"Cannot send verification email to {recipient_email}: SMTP not configured"
+            )
+            return False
+
+        return self.send_email(
+            template=EmailTemplate.EMAIL_VERIFICATION,
+            recipient_email=recipient_email,
+            subject="Verify your email - Rhesis AI",
+            template_variables={
+                "recipient_name": recipient_name or "",
+                "verification_url": verification_url,
+            },
+            task_id="email_verification",
+        )
+
+    def send_password_reset_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        reset_url: str,
+    ) -> bool:
+        """Send a password reset link to a user."""
+        if not self.is_configured:
+            logger.warning(
+                f"Cannot send password reset email to {recipient_email}: SMTP not configured"
+            )
+            return False
+
+        return self.send_email(
+            template=EmailTemplate.PASSWORD_RESET,
+            recipient_email=recipient_email,
+            subject="Reset your password - Rhesis AI",
+            template_variables={
+                "recipient_name": recipient_name or "",
+                "reset_url": reset_url,
+            },
+            task_id="password_reset",
+        )
+
+    def send_magic_link_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        magic_link_url: str,
+    ) -> bool:
+        """Send a magic link login email to a user."""
+        if not self.is_configured:
+            logger.warning(
+                f"Cannot send magic link email to {recipient_email}: SMTP not configured"
+            )
+            return False
+
+        return self.send_email(
+            template=EmailTemplate.MAGIC_LINK,
+            recipient_email=recipient_email,
+            subject="Sign in to Rhesis AI",
+            template_variables={
+                "recipient_name": recipient_name or "",
+                "magic_link_url": magic_link_url,
+            },
+            task_id="magic_link",
+        )

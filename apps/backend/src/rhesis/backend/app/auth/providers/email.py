@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
 from rhesis.backend.app.utils.encryption import hash_password, verify_password
+from rhesis.backend.app.utils.redact import redact_email
 from rhesis.backend.logging import logger
 
 
@@ -112,7 +113,10 @@ class EmailProvider(AuthProvider):
         user = crud.get_user_by_email(db, email)
 
         if not user:
-            logger.warning(f"Login attempt for non-existent email: {email}")
+            logger.warning(
+                "Login attempt for non-existent email: %s",
+                redact_email(email),
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
@@ -121,8 +125,9 @@ class EmailProvider(AuthProvider):
         # Check if user has a password set
         if not user.password_hash:
             logger.warning(
-                f"Login attempt for user without password: {email}. "
-                "User may need to set a password or use OAuth."
+                "Login attempt for user without password: %s. "
+                "User may need to set a password or use OAuth.",
+                redact_email(email),
             )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -131,13 +136,13 @@ class EmailProvider(AuthProvider):
 
         # Verify password
         if not verify_password(password, user.password_hash):
-            logger.warning(f"Invalid password attempt for: {email}")
+            logger.warning("Invalid password attempt for: %s", redact_email(email))
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
 
-        logger.info(f"Successful email/password login for: {email}")
+        logger.info("Successful email/password login for: %s", redact_email(email))
 
         return AuthUser(
             provider_type="email",
@@ -236,7 +241,10 @@ class EmailProvider(AuthProvider):
         )
 
         user = crud.create_user(db, user_data)
-        logger.info(f"New user registered via email: {normalized_email}")
+        logger.info(
+            "New user registered via email: %s",
+            redact_email(normalized_email),
+        )
 
         return AuthUser(
             provider_type="email",
