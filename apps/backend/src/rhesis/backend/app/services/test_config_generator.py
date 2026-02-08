@@ -126,6 +126,10 @@ class TestConfigGeneratorService:
         # LLM will select behaviors from the list and generate topics and categories
         llm_response = self.llm.generate(rendered_prompt, schema=TestConfigResponse)
 
+        # SDK providers return {"error": "..."} on failure instead of raising
+        if isinstance(llm_response, dict) and "error" in llm_response:
+            raise RuntimeError(str(llm_response["error"]))
+
         # Handle response whether it's a dict or TestConfigResponse object
         if isinstance(llm_response, dict):
             llm_response = TestConfigResponse(**llm_response)

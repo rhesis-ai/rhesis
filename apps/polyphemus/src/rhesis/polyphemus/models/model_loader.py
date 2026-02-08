@@ -209,18 +209,20 @@ class LazyModelLoader(BaseLLM):
             # Try to optimize with BetterTransformer (PyTorch 2.0+ optimization)
             # This can provide 1.5-2x speedup for inference
             # Requires: pip install optimum
-            if hasattr(self._internal_model, "model") and hasattr(
-                self._internal_model.model, "to_bettertransformer"
-            ):
+            if hasattr(self._internal_model, "model"):
                 try:
+                    from optimum.bettertransformer import BetterTransformer
+
                     logger.info("Applying BetterTransformer optimization...")
-                    self._internal_model.model = self._internal_model.model.to_bettertransformer()
+                    self._internal_model.model = BetterTransformer.transform(
+                        self._internal_model.model, keep_original_model=False
+                    )
                     self.model = self._internal_model.model
                     logger.info("✅ BetterTransformer applied successfully (1.5-2x speedup)")
-                except ImportError as import_error:
+                except ImportError:
                     logger.info(
-                        f"⚠️ BetterTransformer not available (optional): {import_error}. "
-                        f"Install 'optimum' package for 1.5-2x inference speedup."
+                        "⚠️ BetterTransformer not available (optional). "
+                        "Install 'optimum' package for 1.5-2x inference speedup."
                     )
                 except Exception as bt_error:
                     logger.warning(
@@ -251,6 +253,19 @@ class LazyModelLoader(BaseLLM):
                             # Log GPU name
                             gpu_name = torch.cuda.get_device_name(0)
                             logger.info(f"✅ GPU: {gpu_name}")
+
+                            # VERIFY: Test GPU computation
+                            try:
+                                test_tensor = torch.randn(1000, 1000, device=device)
+                                result = torch.matmul(test_tensor, test_tensor)
+                                logger.info(
+                                    f"✅ GPU Computation Test: PASSED "
+                                    f"(result device: {result.device})"
+                                )
+                                del test_tensor, result
+                                torch.cuda.empty_cache()
+                            except Exception as compute_error:
+                                logger.error(f"❌ GPU Computation Test: FAILED - {compute_error}")
                         else:
                             logger.warning("⚠️ Model has no parameters to check device")
                     else:

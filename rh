@@ -493,6 +493,12 @@ dev_status() {
     echo ""
 }
 
+# Docker Compose project name for isolation
+# Using a unique project name to distinguish containers created by ./rh start
+# from manually created containers. This prevents ./rh delete from removing
+# containers created outside of the rh script.
+PROJECT_NAME="rhesis-quickstart"
+
 # Function to start all services with Docker Compose
 start_all() {
     echo -e "${GREEN}Starting all Rhesis services with Docker...${NC}"
@@ -569,7 +575,7 @@ start_all() {
     echo ""
     echo -e "${YELLOW}Starting services ...${NC}"
     
-docker compose --env-file .env.docker.local up --build -d postgres redis backend worker frontend
+    docker compose -p "$PROJECT_NAME" --env-file .env.docker.local up --build -d postgres redis backend worker frontend
     if [ $? -eq 0 ]; then
         echo ""
         echo -e "${GREEN}✅ All services started successfully!${NC}"
@@ -599,7 +605,7 @@ stop_all() {
         exit 1
     }
 
-    docker compose down
+    docker compose -p "$PROJECT_NAME" down
 
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ All services stopped${NC}"
@@ -621,7 +627,7 @@ restart_all() {
     check_docker
 
     # Recreate containers so updated .env.docker.local variables are applied
-    docker compose --env-file .env.docker.local up -d --force-recreate postgres redis backend worker frontend
+    docker compose -p "$PROJECT_NAME" --env-file .env.docker.local up -d --force-recreate postgres redis backend worker frontend
 
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}✅ All services restarted with current .env.docker.local${NC}"
@@ -642,22 +648,24 @@ view_logs() {
 
     if [ -z "$1" ]; then
         # No service specified, show all logs
-        docker compose logs -f
+        docker compose -p "$PROJECT_NAME" logs -f
     else
         # Show logs for specific service
-        docker compose logs -f "$1"
+        docker compose -p "$PROJECT_NAME" logs -f "$1"
     fi
 }
 
 # Function to delete all services, images, volumes, and data
 delete_all() {
-    echo -e "${RED}⚠️  WARNING: This will delete ALL Docker resources for Rhesis!${NC}"
+    echo -e "${RED}⚠️  WARNING: This will delete Docker resources created by ./rh start!${NC}"
     echo -e "${YELLOW}This includes:${NC}"
-    echo -e "  - All running containers"
-    echo -e "  - All Docker images"
-    echo -e "  - All volumes (DATABASE DATA WILL BE LOST!)"
-    echo -e "  - All networks"
+    echo -e "  - Containers managed by ./rh (project: ${PROJECT_NAME})"
+    echo -e "  - Docker images built by this project"
+    echo -e "  - Volumes created by this project (DATABASE DATA WILL BE LOST!)"
+    echo -e "  - Networks created by this project"
     echo -e "  - .env.docker.local"
+    echo ""
+    echo -e "${BLUE}Note: Containers created manually will NOT be affected${NC}"
     echo ""
     echo -e "${RED}This action CANNOT be undone!${NC}"
     echo ""
@@ -669,21 +677,28 @@ delete_all() {
         exit 0
     fi
 
-    echo -e "${YELLOW}Deleting all Rhesis Docker resources...${NC}"
+    echo -e "${YELLOW}Deleting Docker resources for this project...${NC}"
 
     cd "$SCRIPT_DIR" || {
         echo -e "${RED}❌ Error: Script directory not found${NC}"
         exit 1
     }
 
-    # Stop and remove all services, volumes, and images
-    docker compose down -v --rmi all
+    # Use docker compose with explicit project name to ensure we only delete resources from THIS project
+    # This prevents accidentally deleting containers with similar names from other projects
+    
+    # Stop and remove containers, networks, and volumes managed by this compose file
+    docker compose -p "$PROJECT_NAME" down -v --rmi all 2>/dev/null || {
+        # Fallback: If project name doesn't match, try without -p flag
+        echo -e "${YELLOW}⚠️  Project-specific deletion failed, trying default method...${NC}"
+        docker compose down -v --rmi all
+    }
 
     rm -f .env.docker.local
 
     if [ $? -eq 0 ]; then
         echo ""
-        echo -e "${GREEN}✅ All Rhesis Docker resources deleted successfully!${NC}"
+        echo -e "${GREEN}✅ Docker resources deleted successfully!${NC}"
         echo ""
         echo -e "${CYAN}To start fresh:${NC}"
         echo -e "   ${GREEN}./rh start${NC}"

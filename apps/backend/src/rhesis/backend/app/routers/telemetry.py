@@ -320,14 +320,15 @@ async def list_traces(
                 ),
             )
 
-        # Log and return generic error for other database issues
+        # Log and return error for other database issues
+        error_msg = str(e) if str(e) else "Unknown database error"
         logger.error(
-            f"Failed to list traces for org {organization_id}: {e}",
+            f"Failed to list traces for org {organization_id}: {error_msg}",
             exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve traces. Please try again later.",
+            detail=f"Failed to retrieve traces: {error_msg}",
         )
 
 
@@ -497,14 +498,15 @@ async def get_trace(
                 ),
             )
 
-        # Log and return generic error for other database issues
+        # Log and return error for other database issues
+        error_msg = str(e) if str(e) else "Unknown database error"
         logger.error(
-            f"Failed to retrieve trace {trace_id}: {e}",
+            f"Failed to retrieve trace {trace_id}: {error_msg}",
             exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve trace details. Please try again later.",
+            detail=f"Failed to retrieve trace details: {error_msg}",
         )
 
 
@@ -651,12 +653,13 @@ async def get_metrics(
                 ),
             )
 
-        # Log and return generic error for other database issues
+        # Log and return error for other database issues
+        error_msg = str(e) if str(e) else "Unknown database error"
         logger.error(
-            f"Failed to calculate metrics for project {project_id}: {e}",
+            f"Failed to calculate metrics for project {project_id}: {error_msg}",
             exc_info=True,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve trace metrics. Please try again later.",
+            detail=f"Failed to retrieve trace metrics: {error_msg}",
         )

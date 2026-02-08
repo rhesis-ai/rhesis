@@ -667,7 +667,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
         default_model_data = {
             "name": "Rhesis Default",
             "model_name": "default",
-            "description": "Default Rhesis-hosted model. No API key required.",
+            "description": "Default Rhesis-hosted model.",
             "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
             "provider_type_id": rhesis_provider_type.id,
             "status_id": available_status.id,

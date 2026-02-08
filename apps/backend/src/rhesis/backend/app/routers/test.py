@@ -16,8 +16,11 @@ from rhesis.backend.app.services.stats import get_individual_test_stats, get_tes
 from rhesis.backend.app.services.test import bulk_create_tests
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.execution_validation import (
+    handle_execution_error,
+    validate_execution_model,
+)
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.backend.logging.rhesis_logger import logger
 
 # Create the detailed schema for Test
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
@@ -287,6 +290,7 @@ async def execute_test_endpoint(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    _validate_model=Depends(validate_execution_model),
 ):
     """
     Execute a test in-place without worker infrastructure or database persistence.
@@ -366,6 +370,11 @@ async def execute_test_endpoint(
     organization_id, user_id = tenant_context
 
     try:
+        # Validate user's evaluation model configuration before execution
+        from rhesis.backend.app.utils.llm_utils import validate_user_evaluation_model
+
+        validate_user_evaluation_model(db, current_user)
+
         # Validate endpoint exists
         db_endpoint = crud.get_endpoint(
             db,
@@ -396,15 +405,8 @@ async def execute_test_endpoint(
 
         return result
 
-    except ValueError as e:
-        # Handle validation and not-found errors
-        error_msg = str(e)
-        if "not found" in error_msg.lower():
-            raise HTTPException(status_code=404, detail=error_msg)
-        else:
-            raise HTTPException(status_code=400, detail=error_msg)
-
+    except HTTPException:
+        raise
     except Exception as e:
-        # Handle unexpected errors
-        logger.error(f"Test execution failed: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Test execution failed: {str(e)}")
+        http_exception = handle_execution_error(e, operation="execute test")
+        raise http_exception
