@@ -26,6 +26,7 @@ import { User } from '@/utils/api-client/interfaces/user';
 import { UsersClient } from '@/utils/api-client/users-client';
 import PersonIcon from '@mui/icons-material/Person';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { useFormChangeDetection } from '@/hooks/useFormChangeDetection';
 
 // Import all the available project icons
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -145,6 +146,17 @@ export default function EditDrawer({
     owner_id: project.owner?.id || project.owner_id, // Fallback to owner_id field
     is_active: project.is_active,
     icon: project.icon || 'SmartToy',
+  });
+
+  const { hasChanges } = useFormChangeDetection({
+    initialData: {
+      name: project.name,
+      description: project.description || '',
+      owner_id: project.owner?.id || project.owner_id,
+      is_active: project.is_active,
+      icon: project.icon || 'SmartToy',
+    },
+    currentData: formData,
   });
 
   // Reset form data when project changes
@@ -275,6 +287,10 @@ export default function EditDrawer({
       return;
     }
 
+    if (!hasChanges) {
+      return;
+    }
+
     setLoading(true);
     try {
       // Create a clean update object with only explicitly set fields
@@ -311,7 +327,7 @@ export default function EditDrawer({
     } finally {
       setLoading(false);
     }
-  }, [formData, validateForm, onSave, onClose]);
+  }, [formData, validateForm, onSave, onClose, hasChanges]);
 
   // Memoize select rendering for performance
   const renderUserSelect = React.useMemo(
@@ -371,6 +387,7 @@ export default function EditDrawer({
       title="Edit Project"
       loading={loading}
       onSave={handleSaveWrapper}
+      saveDisabled={!hasChanges}
       error={errors.form}
     >
       <Stack spacing={3}>

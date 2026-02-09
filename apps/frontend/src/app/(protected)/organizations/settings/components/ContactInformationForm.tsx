@@ -14,6 +14,7 @@ import { Organization } from '@/utils/api-client/interfaces/organization';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { validateEmail, validatePhone } from '@/utils/validation';
+import { useFormChangeDetection } from '@/hooks/useFormChangeDetection';
 
 interface ContactInformationFormProps {
   organization: Organization;
@@ -35,6 +36,15 @@ export default function ContactInformationForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const { hasChanges, resetChanges } = useFormChangeDetection({
+    initialData: {
+      email: organization.email || '',
+      phone: organization.phone || '',
+      address: organization.address || '',
+    },
+    currentData: formData,
+  });
 
   const handleChange =
     (field: keyof typeof formData) =>
@@ -62,6 +72,11 @@ export default function ContactInformationForm({
     e.preventDefault();
     setSaving(true);
     setError(null);
+
+    if (!hasChanges) {
+      setSaving(false);
+      return;
+    }
 
     // Validate email and phone before submitting
     const errors: Record<string, string> = {};
@@ -99,6 +114,7 @@ export default function ContactInformationForm({
       notifications.show('Contact information updated successfully', {
         severity: 'success',
       });
+      resetChanges();
       onUpdate();
     } catch (err: any) {
       setError(err.message || 'Failed to update contact information');
@@ -171,7 +187,13 @@ export default function ContactInformationForm({
             type="submit"
             variant="contained"
             startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
-            disabled={saving}
+            disabled={saving || !hasChanges}
+            sx={{
+              '&.Mui-disabled': {
+                backgroundColor: 'action.disabledBackground',
+                color: 'action.disabled',
+              },
+            }}
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
