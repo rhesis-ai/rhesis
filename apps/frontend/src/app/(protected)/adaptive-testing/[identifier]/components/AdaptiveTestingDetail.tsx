@@ -24,6 +24,9 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Autocomplete,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   GridColDef,
@@ -39,6 +42,7 @@ import ListIcon from '@mui/icons-material/List';
 import AddIcon from '@mui/icons-material/AddOutlined';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import {
   TestNode,
   TestNodeCreate,
@@ -46,6 +50,8 @@ import {
   Topic,
 } from '@/utils/api-client/interfaces/adaptive-testing';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { useNotifications } from '@/components/common/NotificationContext';
+import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 
 // ============================================================================
 // Types
@@ -870,8 +876,8 @@ function AddTestDialog({
           disabled={submitting}
         />
         <TextField
-          label="Expected Output"
-          placeholder="Expected or actual output (optional)"
+          label="Output (optional)"
+          placeholder='Optional. Run "Generate outputs" to fill from the endpoint.'
           fullWidth
           multiline
           minRows={2}
@@ -921,9 +927,6 @@ function EditTestDialog({
 }: EditTestDialogProps) {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
-  const [label, setLabel] = useState<'' | 'pass' | 'fail'>(
-    ''
-  );
   const [selectedTopic, setSelectedTopic] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -933,9 +936,6 @@ function EditTestDialog({
     if (test) {
       setInput(test.input || '');
       setOutput(test.output || '');
-      setLabel(
-        (test.label as '' | 'pass' | 'fail') || ''
-      );
       setSelectedTopic(test.topic || '');
     }
   };
@@ -956,8 +956,6 @@ function EditTestDialog({
         updates.input = trimmedInput;
       if (output.trim() !== (test.output || ''))
         updates.output = output.trim();
-      if (label !== ((test.label as '' | 'pass' | 'fail') || ''))
-        updates.label = label;
       if (
         selectedTopic.trim() &&
         selectedTopic.trim() !== (test.topic || '')
@@ -1037,7 +1035,8 @@ function EditTestDialog({
           disabled={submitting}
         />
         <TextField
-          label="Expected Output"
+          label="Output (optional)"
+          placeholder='Optional. Run "Generate outputs" to fill from the endpoint.'
           fullWidth
           multiline
           minRows={2}
@@ -1046,23 +1045,6 @@ function EditTestDialog({
           onChange={e => setOutput(e.target.value)}
           disabled={submitting}
         />
-        <TextField
-          select
-          label="Label"
-          fullWidth
-          value={label}
-          onChange={e =>
-            setLabel(
-              e.target.value as '' | 'pass' | 'fail'
-            )
-          }
-          disabled={submitting}
-          SelectProps={{ native: true }}
-        >
-          <option value="">No label</option>
-          <option value="pass">Pass</option>
-          <option value="fail">Fail</option>
-        </TextField>
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={submitting}>
@@ -1542,12 +1524,109 @@ export default function AdaptiveTestingDetail({
     useState(false);
   const [renamingTopicPath, setRenamingTopicPath] =
     useState<string | null>(null);
+  const [generateOutputsDialogOpen, setGenerateOutputsDialogOpen] =
+    useState(false);
+  const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
+  const [endpointsLoading, setEndpointsLoading] = useState(false);
+  const [selectedEndpoint, setSelectedEndpoint] =
+    useState<Endpoint | null>(null);
+  const [generateSubmitting, setGenerateSubmitting] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
+  const notifications = useNotifications();
 
   // Build the topic tree
   const topicTree = useMemo(
     () => buildTopicTree(topics, tests),
     [topics, tests]
   );
+
+  // Load endpoints when Generate outputs dialog opens
+  useEffect(() => {
+    if (!generateOutputsDialogOpen || !sessionToken) return;
+    let cancelled = false;
+    setEndpointsLoading(true);
+    setGenerateError(null);
+    setSelectedEndpoint(null);
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const endpointsClient = clientFactory.getEndpointsClient();
+    endpointsClient
+      .getEndpoints({
+        sort_by: 'name',
+        sort_order: 'asc',
+        limit: 100,
+      })
+      .then(res => {
+        if (cancelled) return;
+        const list = res?.data ?? [];
+        setEndpoints(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (!cancelled) setEndpoints([]);
+      })
+      .finally(() => {
+        if (!cancelled) setEndpointsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [generateOutputsDialogOpen, sessionToken]);
+
+  const handleGenerateOutputsOpen = () => {
+    setGenerateOutputsDialogOpen(true);
+  };
+
+  const handleGenerateOutputsClose = () => {
+    if (!generateSubmitting) {
+      setGenerateOutputsDialogOpen(false);
+      setSelectedEndpoint(null);
+      setGenerateError(null);
+    }
+  };
+
+  const handleGenerateOutputsSubmit = async () => {
+    if (!selectedEndpoint?.id) {
+      setGenerateError('Please select an endpoint.');
+      return;
+    }
+    setGenerateSubmitting(true);
+    setGenerateError(null);
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+    try {
+      const result = await client.generateOutputs(testSetId, {
+        endpoint_id: selectedEndpoint.id,
+      });
+      const [treeNodes, updatedTopics] = await Promise.all([
+        client.getTree(testSetId),
+        client.getTopics(testSetId),
+      ]);
+      setTests(
+        treeNodes.filter(node => node.label !== 'topic_marker')
+      );
+      setTopics(updatedTopics);
+      setGenerateOutputsDialogOpen(false);
+      setSelectedEndpoint(null);
+      const failedCount = result.failed?.length ?? 0;
+      if (failedCount > 0) {
+        notifications.show(
+          `Generated ${result.generated} outputs; ${failedCount} failed.`,
+          { severity: 'warning' }
+        );
+      } else {
+        notifications.show(
+          `Generated ${result.generated} output(s) successfully.`,
+          { severity: 'success' }
+        );
+      }
+    } catch (err) {
+      setGenerateError(
+        err instanceof Error ? err.message : 'Failed to generate outputs.'
+      );
+    } finally {
+      setGenerateSubmitting(false);
+    }
+  };
 
   const handleAddTopicOpen = (parentTopic: string | null) => {
     setAddTopicParent(parentTopic);
@@ -1821,6 +1900,14 @@ export default function AdaptiveTestingDetail({
             {failCount}
           </Typography>
         </Paper>
+        <Button
+          variant="contained"
+          startIcon={<PlayArrowIcon />}
+          onClick={handleGenerateOutputsOpen}
+          sx={{ ml: 'auto', alignSelf: 'center', textTransform: 'none' }}
+        >
+          Generate outputs
+        </Button>
       </Box>
 
       {/* View Tabs */}
@@ -2060,6 +2147,71 @@ export default function AdaptiveTestingDetail({
             variant="contained"
           >
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Generate outputs dialog */}
+      <Dialog
+        open={generateOutputsDialogOpen}
+        onClose={handleGenerateOutputsClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Generate outputs</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Invoke the selected endpoint for each test input and store the
+            response as the test output.
+          </Typography>
+          {generateError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setGenerateError(null)}>
+              {generateError}
+            </Alert>
+          )}
+          <Autocomplete
+            options={endpoints}
+            getOptionLabel={option => option.name ?? ''}
+            value={selectedEndpoint}
+            onChange={(_, value) => setSelectedEndpoint(value ?? null)}
+            loading={endpointsLoading}
+            renderInput={params => (
+              <TextField
+                {...params}
+                label="Endpoint"
+                placeholder="Select endpoint"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {endpointsLoading ? (
+                        <CircularProgress color="inherit" size={20} />
+                      ) : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleGenerateOutputsClose} disabled={generateSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleGenerateOutputsSubmit}
+            disabled={!selectedEndpoint || generateSubmitting}
+            startIcon={
+              generateSubmitting ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <PlayArrowIcon />
+              )
+            }
+          >
+            {generateSubmitting ? 'Generating…' : 'Generate'}
           </Button>
         </DialogActions>
       </Dialog>

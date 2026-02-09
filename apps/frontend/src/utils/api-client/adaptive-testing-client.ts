@@ -12,6 +12,8 @@ import {
   TreeStats,
   DeleteTopicResponse,
   DeleteTestResponse,
+  GenerateOutputsRequest,
+  GenerateOutputsResponse,
 } from './interfaces/adaptive-testing';
 
 /**
@@ -264,5 +266,27 @@ export class AdaptiveTestingClient extends BaseApiClient {
     return this.fetch<TreeStats>(`${basePath}/stats`, {
       cache: 'no-store',
     });
+  }
+
+  /**
+   * Generate outputs for tests by invoking the given endpoint.
+   * @param testSetId The test set identifier
+   * @param body Endpoint ID and optional test IDs to limit scope
+   */
+  async generateOutputs(
+    testSetId: string,
+    body: GenerateOutputsRequest
+  ): Promise<GenerateOutputsResponse> {
+    const basePath = this.getBasePath(testSetId);
+    return this.fetch<GenerateOutputsResponse>(
+      `${basePath}/generate_outputs`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
   }
 }

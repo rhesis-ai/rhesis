@@ -110,3 +110,28 @@ export interface DeleteTestResponse {
   deleted: boolean;
   test_id: string;
 }
+
+// =============================================================================
+// Generate Outputs
+// =============================================================================
+
+export interface GenerateOutputsRequest {
+  endpoint_id: string;
+  test_ids?: string[] | null;
+}
+
+export interface GenerateOutputsUpdatedItem {
+  test_id: string;
+  output: string;
+}
+
+export interface GenerateOutputsFailedItem {
+  test_id: string;
+  error: string;
+}
+
+export interface GenerateOutputsResponse {
+  generated: number;
+  failed: GenerateOutputsFailedItem[];
+  updated: GenerateOutputsUpdatedItem[];
+}
