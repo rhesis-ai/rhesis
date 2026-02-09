@@ -3,10 +3,11 @@ Integration tests for adaptive testing service.
 
 Tests the conversion of backend Test models into SDK TestTreeData structures,
 verifying tree, tests-only, topics-only, and list-all views against a real
-database.
+database. Also tests generate_outputs_for_tests with mocked endpoint responses.
 """
 
 import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.orm import Session
@@ -18,6 +19,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     create_test_node,
     create_topic_node,
     delete_test_node,
+    generate_outputs_for_tests,
     get_adaptive_test_sets,
     get_tree_nodes,
     get_tree_tests,
@@ -1434,3 +1436,152 @@ class TestUpdateTopicNode:
         )
 
         assert len(nodes_after) == len(nodes_before)
+
+
+# ============================================================================
+# Tests for generate_outputs_for_tests
+# ============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.service
+@pytest.mark.asyncio
+class TestGenerateOutputsForTests:
+    """Test generate_outputs_for_tests with mocked endpoint response."""
+
+    async def test_updates_test_metadata_output(
+        self,
+        test_db: Session,
+        adaptive_test_set,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """Endpoint response output is stored in each test's test_metadata."""
+        mock_svc = MagicMock()
+        mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "mocked endpoint response"})
+        with patch(
+            "rhesis.backend.app.dependencies.get_endpoint_service",
+            return_value=mock_svc,
+        ):
+            result = await generate_outputs_for_tests(
+                db=test_db,
+                test_set_identifier=str(adaptive_test_set.id),
+                endpoint_id=str(uuid.uuid4()),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+        assert result["generated"] == 3
+        assert len(result["failed"]) == 0
+        assert len(result["updated"]) == 3
+
+        test_db.commit()
+        nodes = get_tree_tests(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        for node in nodes:
+            assert node.output == "mocked endpoint response"
+
+    async def test_test_set_not_found_raises(
+        self,
+        test_db: Session,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """Unknown test set identifier raises ValueError."""
+        mock_svc = MagicMock()
+        with patch(
+            "rhesis.backend.app.dependencies.get_endpoint_service",
+            return_value=mock_svc,
+        ):
+            with pytest.raises(ValueError, match="Test set not found"):
+                await generate_outputs_for_tests(
+                    db=test_db,
+                    test_set_identifier=str(uuid.uuid4()),
+                    endpoint_id=str(uuid.uuid4()),
+                    organization_id=test_org_id,
+                    user_id=authenticated_user_id,
+                )
+        mock_svc.invoke_endpoint.assert_not_called()
+
+    async def test_filter_by_test_ids(
+        self,
+        test_db: Session,
+        adaptive_test_set,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """When test_ids is provided, only those tests are invoked."""
+        tests = get_tree_tests(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        one_test_id = tests[0].id
+
+        mock_svc = MagicMock()
+        mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "single test output"})
+        with patch(
+            "rhesis.backend.app.dependencies.get_endpoint_service",
+            return_value=mock_svc,
+        ):
+            result = await generate_outputs_for_tests(
+                db=test_db,
+                test_set_identifier=str(adaptive_test_set.id),
+                endpoint_id=str(uuid.uuid4()),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                test_ids=[uuid.UUID(one_test_id)],
+            )
+
+        assert result["generated"] == 1
+        assert len(result["updated"]) == 1
+        assert result["updated"][0]["test_id"] == one_test_id
+        assert result["updated"][0]["output"] == "single test output"
+        assert mock_svc.invoke_endpoint.await_count == 1
+
+    async def test_failed_invocation_recorded(
+        self,
+        test_db: Session,
+        adaptive_test_set,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """When invoke_endpoint raises for one test, it is recorded in failed."""
+        _ = get_tree_tests(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        call_count = 0
+
+        async def mock_invoke(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                raise RuntimeError("Endpoint timeout")
+            return {"output": "ok"}
+
+        mock_svc = MagicMock()
+        mock_svc.invoke_endpoint = AsyncMock(side_effect=mock_invoke)
+        with patch(
+            "rhesis.backend.app.dependencies.get_endpoint_service",
+            return_value=mock_svc,
+        ):
+            result = await generate_outputs_for_tests(
+                db=test_db,
+                test_set_identifier=str(adaptive_test_set.id),
+                endpoint_id=str(uuid.uuid4()),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+            )
+
+        assert result["generated"] == 2
+        assert len(result["failed"]) == 1
+        assert len(result["updated"]) == 2
+        assert "timeout" in result["failed"][0]["error"]

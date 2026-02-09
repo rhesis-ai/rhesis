@@ -6,9 +6,11 @@ Tests the HTTP endpoints:
 - GET /adaptive_testing/{test_set_id}/tree
 - GET /adaptive_testing/{test_set_id}/tests
 - GET /adaptive_testing/{test_set_id}/topics
+- POST /adaptive_testing/{test_set_id}/generate_outputs
 """
 
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import status
@@ -1376,6 +1378,119 @@ class TestUpdateAdaptiveTopicEndpoint:
         response = client.put(
             f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe",
             json={"new_name": "EU"},
+        )
+
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestGenerateOutputsEndpoint:
+    """Test POST /adaptive_testing/{test_set_id}/generate_outputs"""
+
+    @patch(
+        "rhesis.backend.app.routers.adaptive_testing.generate_outputs_for_tests",
+        new_callable=AsyncMock,
+    )
+    def test_generate_outputs_returns_200_and_shape(
+        self,
+        mock_generate: AsyncMock,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """POST with endpoint_id returns 200 and GenerateOutputsResponse shape."""
+        mock_generate.return_value = {
+            "generated": 2,
+            "failed": [{"test_id": "tid-1", "error": "timeout"}],
+            "updated": [
+                {"test_id": "tid-2", "output": "out two"},
+                {"test_id": "tid-3", "output": "out three"},
+            ],
+        }
+
+        endpoint_id = str(uuid.uuid4())
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/generate_outputs",
+            json={"endpoint_id": endpoint_id},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["generated"] == 2
+        assert len(data["failed"]) == 1
+        assert data["failed"][0]["test_id"] == "tid-1"
+        assert data["failed"][0]["error"] == "timeout"
+        assert len(data["updated"]) == 2
+        assert data["updated"][0]["test_id"] == "tid-2"
+        assert data["updated"][0]["output"] == "out two"
+
+        mock_generate.assert_awaited_once()
+        call_kw = mock_generate.call_args[1]
+        assert call_kw["endpoint_id"] == endpoint_id
+        assert call_kw["test_set_identifier"] == str(adaptive_test_set.id)
+
+    @patch(
+        "rhesis.backend.app.routers.adaptive_testing.generate_outputs_for_tests",
+        new_callable=AsyncMock,
+    )
+    def test_generate_outputs_with_test_ids(
+        self,
+        mock_generate: AsyncMock,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """POST with test_ids passes them to the service."""
+        mock_generate.return_value = {
+            "generated": 1,
+            "failed": [],
+            "updated": [{"test_id": "tid-1", "output": "single"}],
+        }
+
+        test_id = str(uuid.uuid4())
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/generate_outputs",
+            json={"endpoint_id": str(uuid.uuid4()), "test_ids": [test_id]},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        call_kw = mock_generate.call_args[1]
+        assert call_kw["test_ids"] is not None
+        assert len(call_kw["test_ids"]) == 1
+        assert str(call_kw["test_ids"][0]) == test_id
+
+    @patch(
+        "rhesis.backend.app.routers.adaptive_testing.generate_outputs_for_tests",
+        new_callable=AsyncMock,
+    )
+    def test_generate_outputs_test_set_not_found(
+        self,
+        mock_generate: AsyncMock,
+        authenticated_client: TestClient,
+    ):
+        """When service raises ValueError (test set not found), returns 404."""
+        mock_generate.side_effect = ValueError("Test set not found with identifier")
+
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.post(
+            f"/adaptive_testing/{fake_id}/generate_outputs",
+            json={"endpoint_id": str(uuid.uuid4())},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert "not found" in response.json().get("detail", "").lower()
+
+    def test_generate_outputs_unauthenticated(
+        self,
+        client: TestClient,
+        adaptive_test_set,
+    ):
+        """Unauthenticated POST should be rejected."""
+        response = client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/generate_outputs",
+            json={"endpoint_id": str(uuid.uuid4())},
         )
 
         assert response.status_code in [
