@@ -47,11 +47,15 @@ For production deployments, ensure these environment variables are configured:
 SQLALCHEMY_DATABASE_URL=postgresql://user:password@host:port/database
 
 # Authentication
-AUTH0_DOMAIN=your-domain.auth0.com
-AUTH0_AUDIENCE=your-audience
-AUTH0_CLIENT_ID=your-client-id
-AUTH0_CLIENT_SECRET=your-client-secret
-AUTH0_SECRET_KEY=your-secret-key
+JWT_SECRET_KEY=your-jwt-secret-key
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
+
+# OAuth Providers (optional)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
 
 # Application
 LOG_LEVEL=INFO

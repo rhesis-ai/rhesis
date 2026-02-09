@@ -10,7 +10,7 @@ The Rhesis backend is built with FastAPI, a modern Python web framework designed
 
 - **Framework**: FastAPI
 - **Database**: PostgreSQL with SQLAlchemy ORM
-- **Authentication**: Auth0
+- **Authentication**: Native (email/password, Google OAuth, GitHub OAuth)
 - **Task Queue**: Celery with Redis broker
 - **API Documentation**: Swagger UI (via FastAPI)
 - **Package Management**: UV (Python package installer)
@@ -92,7 +92,7 @@ Long-running operations are handled by Celery tasks defined in the `tasks/` dire
 
 ### Authentication
 
-Authentication is handled through Auth0 integration, with custom middleware to enforce different authentication requirements based on route configuration.
+Authentication is handled through a native provider-based system, with custom middleware to enforce different authentication requirements based on route configuration.
 
 ## Communication Flow
 

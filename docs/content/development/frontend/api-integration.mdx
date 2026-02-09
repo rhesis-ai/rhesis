@@ -9,7 +9,7 @@ This document explains how the Rhesis frontend application integrates with the R
 The Rhesis frontend communicates exclusively with the Rhesis backend API for all data operations and authentication. The frontend uses a centralized API client to handle all requests to the Rhesis backend. This client is built with:
 
 - Type safety for request and response data
-- Automatic authentication handling with Auth0 tokens
+- Automatic authentication handling with JWT tokens
 - Error handling and retries
 - Request caching where appropriate
 - Consistent error formatting
@@ -18,7 +18,7 @@ The Rhesis frontend communicates exclusively with the Rhesis backend API for all
 
 The Rhesis backend API serves as the intermediary between the frontend and various services:
 
-- **Authentication**: The backend handles Auth0 authentication and token management
+- **Authentication**: The backend handles authentication and token management
 - **Data Storage**: The backend manages all data persistence and retrieval
 - **Business Logic**: Complex business logic is implemented in the backend
 - **External Service Integration**: The backend integrates with any third-party services
