@@ -169,16 +169,6 @@
             "name": "Inactive",
             "description": "Tool is disabled",
             "entity_type": "Tool"
-        },
-        {
-            "name": "Active",
-            "description": "Embedding is active and available for similarity search",
-            "entity_type": "Embedding"
-        },
-        {
-            "name": "Stale",
-            "description": "Embedding needs regeneration due to source content changes",
-            "entity_type": "Embedding"
         }
     ],
     "type_lookup": [

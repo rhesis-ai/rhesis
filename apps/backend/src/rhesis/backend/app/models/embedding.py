@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
 
 from .base import Base
+from .enums import EmbeddingOrigin, EmbeddingStatus
 from .guid import GUID
 from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin
 
@@ -79,8 +80,16 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
 
     # Ranking and metadata
     weight = Column(Float, nullable=False, server_default="1.0")
-    origin = Column(String(20), doc="Origin of the content: 'user', 'generated', 'imported'")
-    status = Column(String(20), server_default="active", doc="Lifecycle status of the embedding")
+    origin = Column(
+        String(20),
+        server_default=EmbeddingOrigin.USER.value,
+        doc="Origin of the content: 'user', 'generated', 'imported'",
+    )
+    status = Column(
+        String(20),
+        server_default=EmbeddingStatus.ACTIVE.value,
+        doc="Lifecycle status of the embedding (internal-only, not user-facing)",
+    )
 
     # Multiple embedding columns for different dimensions
     embedding_384 = Column(Vector(384), nullable=True)
@@ -102,7 +111,7 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
             "idx_active_model_config",
             "model_id",
             "config_hash",
-            postgresql_where=Column("status") == "active",
+            postgresql_where=Column("status") == EmbeddingStatus.ACTIVE.value,
         ),
         # Search within entity type: entity_type, model_id, config_hash, and status
         Index(
@@ -110,7 +119,7 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
             "entity_type",
             "model_id",
             "config_hash",
-            postgresql_where=Column("status") == "active",
+            postgresql_where=Column("status") == EmbeddingStatus.ACTIVE.value,
         ),
     )
 

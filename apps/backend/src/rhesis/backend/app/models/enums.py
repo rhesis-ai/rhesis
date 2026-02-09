@@ -33,3 +33,21 @@ class EndpointAuthType(str, Enum):
     CLIENT_CREDENTIALS = "client_credentials"
     API_KEY = "api_key"
     # Add more as needed
+
+
+class EmbeddingStatus(str, Enum):
+    """
+    Internal lifecycle status for embeddings.
+    Not exposed to users - managed automatically by the system.
+    """
+
+    ACTIVE = "active"
+    STALE = "stale"
+
+
+class EmbeddingOrigin(str, Enum):
+    """Origin/source of the embedded content"""
+
+    USER = "user"
+    GENERATED = "generated"
+    IMPORTED = "imported"

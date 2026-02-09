@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models import Embedding, Source
 from rhesis.backend.app.models.embedding import EmbeddingConfig
+from rhesis.backend.app.models.enums import EmbeddingStatus
 
 # Import the test_model fixture
 pytest_plugins = ["tests.backend.metrics.fixtures.metric_fixtures"]
@@ -348,7 +349,7 @@ class TestEmbeddingModel:
             config_hash="test_hash",
             searchable_text="test text",
             text_hash="text_hash",
-            status="active",
+            status=EmbeddingStatus.ACTIVE.value,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
@@ -715,4 +716,4 @@ class TestEmbeddingDefaults:
         test_db.commit()
         test_db.refresh(embedding)
 
-        assert embedding.status == "active"
+        assert embedding.status == EmbeddingStatus.ACTIVE.value
