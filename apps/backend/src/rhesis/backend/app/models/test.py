@@ -82,6 +82,7 @@ class Test(
         ),
         foreign_keys="[Embedding.entity_id]",
         viewonly=True,
+        uselist=True,
     )
 
     # Comment relationship (polymorphic)
