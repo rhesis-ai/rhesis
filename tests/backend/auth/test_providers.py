@@ -322,8 +322,8 @@ class TestGitHubProvider:
         with patch.dict(
             os.environ,
             {
-                "GITHUB_CLIENT_ID": "test-client-id",
-                "GITHUB_CLIENT_SECRET": "test-client-secret",
+                "GH_CLIENT_ID": "test-client-id",
+                "GH_CLIENT_SECRET": "test-client-secret",
             },
         ):
             provider = GitHubProvider()
@@ -337,7 +337,7 @@ class TestGitHubProvider:
         # Only client ID
         with patch.dict(
             os.environ,
-            {"GITHUB_CLIENT_ID": "test-client-id"},
+            {"GH_CLIENT_ID": "test-client-id"},
             clear=True,
         ):
             provider = GitHubProvider()

@@ -24,8 +24,8 @@ x-common-auth: &common-auth
   GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
   GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
   # GitHub OAuth (optional - leave empty to disable)
-  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
-  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+  GH_CLIENT_ID: ${GH_CLIENT_ID:-}
+  GH_CLIENT_SECRET: ${GH_CLIENT_SECRET:-}
   # Session secret key (required)
   SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:-your-session-secret-key-change-in-production}
 
