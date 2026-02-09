@@ -23,7 +23,6 @@ import {
   TableBody,
   TableRow,
   TableCell,
-  Chip,
   Tooltip,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';

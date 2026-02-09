@@ -9,13 +9,9 @@ import FolderIcon from '@mui/icons-material/Folder';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import Link from 'next/link';
 import { PageContainer } from '@toolpad/core/PageContainer';
-import { useNotifications } from '@/components/common/NotificationContext';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import styles from '@/styles/ProjectsClientWrapper.module.css';
-
-/** Type for alert/snackbar severity */
-type AlertSeverity = 'success' | 'error' | 'info' | 'warning';
 
 /** Props for the EmptyStateMessage component */
 interface EmptyStateMessageProps {
@@ -66,10 +62,8 @@ export default function ProjectsClientWrapper({
   initialProjects = [],
   sessionToken,
 }: ProjectsClientWrapperProps) {
-  const [projects, setProjects] = useState<Project[]>(initialProjects || []);
-  const notifications = useNotifications();
-  const { markStepComplete, progress, isComplete, activeTour } =
-    useOnboarding();
+  const [projects] = useState<Project[]>(initialProjects || []);
+  const { markStepComplete, progress, activeTour } = useOnboarding();
 
   // Check if user is currently on the project tour
   const isOnProjectTour = activeTour === 'project';

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import { Typography, Button } from '@mui/material';
 import { useState } from 'react';
 import { signOut } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';

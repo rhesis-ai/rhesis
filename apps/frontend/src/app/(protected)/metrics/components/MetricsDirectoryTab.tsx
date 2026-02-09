@@ -104,14 +104,14 @@ function isValidMetricType(
 
 export default function MetricsDirectoryTab({
   sessionToken,
-  organizationId,
+  organizationId: _organizationId,
   behaviors,
   metrics,
   filters,
   filterOptions,
   isLoading,
   error,
-  onRefresh,
+  onRefresh: _onRefresh,
   setFilters,
   setMetrics,
   setBehaviorMetrics,
@@ -362,7 +362,7 @@ export default function MetricsDirectoryTab({
   };
 
   // Function to remove a metric from a behavior
-  const handleRemoveMetricFromBehavior = async (
+  const _handleRemoveMetricFromBehavior = async (
     behaviorId: string,
     metricId: string
   ) => {

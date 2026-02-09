@@ -20,7 +20,6 @@ import TaskIcon from '@mui/icons-material/Task';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import {
-  getTestResultStatus,
   getTestResultStatusWithReview,
   hasConflictingReview,
   type TestResultStatus,

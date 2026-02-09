@@ -9,7 +9,6 @@ import {
   PolarRadiusAxis,
   Radar,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import { useTheme } from '@mui/material/styles';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -65,7 +64,7 @@ const createCustomTick = (
     return remValue * 16;
   };
 
-  const CustomTick = ({ payload, x, y, textAnchor, cx, cy, ...rest }: any) => {
+  const CustomTick = ({ payload, x, y, textAnchor, cx, cy, ..._rest }: any) => {
     const maxLineLength = 14; // Max characters per line (increased for pass rate)
     const lines = [];
 

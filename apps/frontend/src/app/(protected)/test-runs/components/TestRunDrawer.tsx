@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import {

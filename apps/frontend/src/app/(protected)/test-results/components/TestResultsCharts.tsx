@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BaseChartsGrid } from '@/components/common/BaseCharts';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
-import { Box, Tabs, Tab, Paper, useTheme } from '@mui/material';
+import { Box, Tabs, Tab, useTheme } from '@mui/material';
 import PassRateTimelineChart from './PassRateTimelineChart';
 import LatestResultsPieChart from './LatestResultsPieChart';
 import LatestTestRunsChart from './LatestTestRunsChart';

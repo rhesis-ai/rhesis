@@ -17,7 +17,6 @@ import {
   Button,
   Avatar,
   Divider,
-  Stack,
   CardHeader,
   useTheme,
   Skeleton,
@@ -25,10 +24,7 @@ import {
 } from '@mui/material';
 import { Project } from '@/utils/api-client/interfaces/project';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import EditIcon from '@mui/icons-material/Edit';
-import FolderIcon from '@mui/icons-material/Folder';
 import DevicesIcon from '@mui/icons-material/Devices';
-import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
@@ -159,7 +155,6 @@ const ProjectCard = React.memo(
   ({ project, isLoading = false }: ProjectCardProps) => {
     const router = useRouter();
     const theme = useTheme();
-    const titleRef = useRef<HTMLSpanElement>(null);
     const cardHeaderRef = useRef<HTMLDivElement>(null);
     const [isTruncated, setIsTruncated] = useState(false);
 
@@ -197,10 +192,6 @@ const ProjectCard = React.memo(
     // Memoize handlers to prevent unnecessary rerenders
     const handleViewClick = useCallback(() => {
       router.push(`/projects/${project.id}`);
-    }, [router, project.id]);
-
-    const handleEditClick = useCallback(() => {
-      router.push(`/projects/${project.id}/edit`);
     }, [router, project.id]);
 
     // Memoize theme color getter

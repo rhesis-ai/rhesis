@@ -19,16 +19,10 @@ import {
   Avatar,
   useTheme,
 } from '@mui/material';
-import { ArrowBackIcon } from '@/components/icons';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useTasks } from '@/hooks/useTasks';
 import { TaskCreate, EntityType } from '@/types/tasks';
-import {
-  getStatuses,
-  getPriorities,
-  getStatusByName,
-  getPriorityByName,
-} from '@/utils/task-lookup';
+import { getStatuses, getPriorities } from '@/utils/task-lookup';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';

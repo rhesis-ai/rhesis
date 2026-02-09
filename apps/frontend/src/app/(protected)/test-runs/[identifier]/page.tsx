@@ -6,7 +6,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { UUID } from 'crypto';
 import TestRunMainView from './components/TestRunMainViewClient';
 
-interface PageProps {
+interface _PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }

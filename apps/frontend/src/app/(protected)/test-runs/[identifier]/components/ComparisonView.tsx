@@ -12,9 +12,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Alert,
-  AlertTitle,
-  Divider,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -113,7 +110,7 @@ export default function ComparisonView({
       setLoading(true);
       onLoadBaseline(selectedBaselineId)
         .then(setBaselineTestResults)
-        .catch(error => {
+        .catch(_error => {
           setBaselineTestResults([]);
         })
         .finally(() => setLoading(false));
@@ -140,7 +137,7 @@ export default function ComparisonView({
   }, [baselineTestResults]);
 
   // Helper to get pass rate
-  const getPassRate = (test: TestResultDetail) => {
+  const _getPassRate = (test: TestResultDetail) => {
     const metrics = test.test_metrics?.metrics || {};
     const metricValues = Object.values(metrics);
     const totalMetrics = metricValues.length;
@@ -259,7 +256,7 @@ export default function ComparisonView({
     });
   };
 
-  const getPromptSnippet = (
+  const _getPromptSnippet = (
     test: TestResultDetail,
     maxLength: number = 80
   ): string => {

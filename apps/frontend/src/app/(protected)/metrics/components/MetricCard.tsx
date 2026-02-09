@@ -143,10 +143,10 @@ export default function MetricCard({
   title,
   description,
   backend,
-  metricType,
+  metricType: _metricType,
   scoreType,
   metricScope,
-  type,
+  type: _type,
   usedIn,
   showUsage = false,
 }: MetricCardProps) {

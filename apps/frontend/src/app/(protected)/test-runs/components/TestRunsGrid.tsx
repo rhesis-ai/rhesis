@@ -8,7 +8,6 @@ import React, {
   useMemo,
 } from 'react';
 import AddIcon from '@mui/icons-material/Add';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
   getTestRunStatusColor,
@@ -22,15 +21,7 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
-import {
-  Typography,
-  Box,
-  CircularProgress,
-  Alert,
-  Avatar,
-  Button,
-  Chip,
-} from '@mui/material';
+import { Typography, Box, Alert, Avatar, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';

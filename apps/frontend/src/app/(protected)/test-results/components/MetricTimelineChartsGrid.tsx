@@ -7,7 +7,6 @@ import {
   Alert,
   CircularProgress,
   useTheme,
-  Paper,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';

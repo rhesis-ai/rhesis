@@ -62,7 +62,7 @@ export default function TeamMembersGrid({
 
         setUsers(response.data || []);
         setTotalCount(response.total || 0);
-      } catch (error) {
+      } catch (_error) {
         setError('Failed to load team members. Please try again.');
       } finally {
         setLoading(false);

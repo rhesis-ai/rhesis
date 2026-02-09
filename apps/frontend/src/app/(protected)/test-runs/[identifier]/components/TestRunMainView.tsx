@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Box, Grid, Paper, useTheme, TablePagination } from '@mui/material';
+import { Box, Paper, useTheme, TablePagination } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import TestRunFilterBar, { FilterState } from './TestRunFilterBar';
 import TestsList from './TestsList';

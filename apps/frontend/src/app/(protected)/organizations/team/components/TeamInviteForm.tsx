@@ -76,7 +76,7 @@ export default function TeamInviteForm({
     const seenEmails = new Set<string>();
     const duplicateEmails = new Set<string>();
 
-    emailsToCheck.forEach(({ email, index }) => {
+    emailsToCheck.forEach(({ email, index: _index }) => {
       if (seenEmails.has(email)) {
         duplicateEmails.add(email);
       } else {
@@ -319,7 +319,7 @@ export default function TeamInviteForm({
           onInvitesSent(successfulEmails);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to send invitations. Please try again.', {
         severity: 'error',
       });

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box } from '@mui/material';
 import BaseTag from '@/components/common/BaseTag';
-import { EntityType, Tag } from '@/utils/api-client/interfaces/tag';
+import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 

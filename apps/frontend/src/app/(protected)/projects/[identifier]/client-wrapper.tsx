@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { Box, Button, Typography } from '@mui/material';
-import Link from 'next/link';
 import { EditIcon, DeleteIcon } from '@/components/icons';
 import ProjectContent from '../components/ProjectContent';
 import ProjectEditDrawer from './edit-drawer';

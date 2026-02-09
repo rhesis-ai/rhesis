@@ -11,7 +11,7 @@ import {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Task } from '@/utils/api-client/interfaces/task';
-import { Typography, Box, Alert, Chip, Button, Avatar } from '@mui/material';
+import { Typography, Box, Alert, Chip, Avatar } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';

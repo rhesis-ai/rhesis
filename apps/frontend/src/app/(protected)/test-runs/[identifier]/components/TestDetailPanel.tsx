@@ -7,7 +7,6 @@ import {
   Tabs,
   Tab,
   Typography,
-  Divider,
   Skeleton,
   useTheme,
 } from '@mui/material';
@@ -16,7 +15,6 @@ import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import HistoryIcon from '@mui/icons-material/History';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
-import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestDetailOverviewTab from './TestDetailOverviewTab';

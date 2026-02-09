@@ -22,10 +22,7 @@ import {
 } from '@mui/icons-material';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 import { TestResultsClient } from '@/utils/api-client/test-results-client';
-import {
-  TestResultsStats,
-  TestRunSummaryItem,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';
 
 interface TestResultsSummaryProps {
   sessionToken: string;

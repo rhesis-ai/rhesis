@@ -9,13 +9,10 @@ import {
   Chip,
   Divider,
   useTheme,
-  Button,
   Avatar,
-  IconButton,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Project } from '@/utils/api-client/interfaces/project';
-import EditIcon from '@mui/icons-material/Edit';
 import DevicesIcon from '@mui/icons-material/Devices';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
@@ -146,7 +143,7 @@ export function EditDrawerWrapper({
 }
 
 export function ProjectContent({ project }: { project: Project }) {
-  const theme = useTheme();
+  const _theme = useTheme();
   return (
     <Paper sx={{ p: 3, mb: 4 }}>
       <Grid container spacing={3}>
