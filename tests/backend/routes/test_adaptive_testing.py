@@ -1465,6 +1465,37 @@ class TestGenerateOutputsEndpoint:
         "rhesis.backend.app.routers.adaptive_testing.generate_outputs_for_tests",
         new_callable=AsyncMock,
     )
+    def test_generate_outputs_with_topic_and_include_subtopics(
+        self,
+        mock_generate: AsyncMock,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """POST with topic and include_subtopics passes them to the service."""
+        mock_generate.return_value = {
+            "generated": 1,
+            "failed": [],
+            "updated": [{"test_id": "tid-1", "output": "out"}],
+        }
+
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/generate_outputs",
+            json={
+                "endpoint_id": str(uuid.uuid4()),
+                "topic": "Safety/Violence",
+                "include_subtopics": False,
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        call_kw = mock_generate.call_args[1]
+        assert call_kw["topic"] == "Safety/Violence"
+        assert call_kw["include_subtopics"] is False
+
+    @patch(
+        "rhesis.backend.app.routers.adaptive_testing.generate_outputs_for_tests",
+        new_callable=AsyncMock,
+    )
     def test_generate_outputs_test_set_not_found(
         self,
         mock_generate: AsyncMock,

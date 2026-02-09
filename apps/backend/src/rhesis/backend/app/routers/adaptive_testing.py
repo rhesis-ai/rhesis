@@ -415,6 +415,8 @@ async def generate_outputs(
             organization_id=str(organization_id),
             user_id=str(user_id),
             test_ids=list(body.test_ids) if body.test_ids else None,
+            topic=body.topic,
+            include_subtopics=body.include_subtopics,
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

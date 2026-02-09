@@ -12,6 +12,8 @@ class GenerateOutputsRequest(Base):
 
     endpoint_id: UUID4
     test_ids: Optional[List[UUID4]] = None
+    topic: Optional[str] = None
+    include_subtopics: bool = True
 
 
 class GenerateOutputsUpdatedItem(BaseModel):

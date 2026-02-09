@@ -1585,3 +1585,88 @@ class TestGenerateOutputsForTests:
         assert len(result["failed"]) == 1
         assert len(result["updated"]) == 2
         assert "timeout" in result["failed"][0]["error"]
+
+    async def test_generate_outputs_filter_by_topic_include_subtopics(
+        self,
+        test_db: Session,
+        adaptive_test_set,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """With topic set and include_subtopics=True, generates for topic and all subtopics."""
+        mock_svc = MagicMock()
+        mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "generated"})
+        with patch(
+            "rhesis.backend.app.dependencies.get_endpoint_service",
+            return_value=mock_svc,
+        ):
+            result = await generate_outputs_for_tests(
+                db=test_db,
+                test_set_identifier=str(adaptive_test_set.id),
+                endpoint_id=str(uuid.uuid4()),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                topic="Safety",
+                include_subtopics=True,
+            )
+        # Safety has 1 test; Safety/Violence has 2 tests -> 3 total
+        assert result["generated"] == 3
+        assert len(result["failed"]) == 0
+        assert len(result["updated"]) == 3
+        assert mock_svc.invoke_endpoint.await_count == 3
+
+    async def test_generate_outputs_filter_by_topic_exclude_subtopics(
+        self,
+        test_db: Session,
+        adaptive_test_set,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """include_subtopics=False: only tests directly under the topic are generated."""
+        mock_svc = MagicMock()
+        mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "generated"})
+        with patch(
+            "rhesis.backend.app.dependencies.get_endpoint_service",
+            return_value=mock_svc,
+        ):
+            result = await generate_outputs_for_tests(
+                db=test_db,
+                test_set_identifier=str(adaptive_test_set.id),
+                endpoint_id=str(uuid.uuid4()),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                topic="Safety",
+                include_subtopics=False,
+            )
+        # Only 1 test is directly under Safety (not under Safety/Violence)
+        assert result["generated"] == 1
+        assert len(result["failed"]) == 0
+        assert len(result["updated"]) == 1
+        assert mock_svc.invoke_endpoint.await_count == 1
+
+    async def test_generate_outputs_filter_by_leaf_topic(
+        self,
+        test_db: Session,
+        adaptive_test_set,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """Filtering by leaf topic (Safety/Violence) generates only that topic's tests."""
+        mock_svc = MagicMock()
+        mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "generated"})
+        with patch(
+            "rhesis.backend.app.dependencies.get_endpoint_service",
+            return_value=mock_svc,
+        ):
+            result = await generate_outputs_for_tests(
+                db=test_db,
+                test_set_identifier=str(adaptive_test_set.id),
+                endpoint_id=str(uuid.uuid4()),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                topic="Safety/Violence",
+                include_subtopics=False,
+            )
+        assert result["generated"] == 2
+        assert len(result["updated"]) == 2
+        assert mock_svc.invoke_endpoint.await_count == 2

@@ -791,6 +791,8 @@ async def generate_outputs_for_tests(
     organization_id: str,
     user_id: str,
     test_ids: Optional[List[UUID]] = None,
+    topic: Optional[str] = None,
+    include_subtopics: bool = True,
 ) -> Dict[str, Any]:
     """Generate outputs for adaptive testing tests by invoking an endpoint.
 
@@ -813,6 +815,12 @@ async def generate_outputs_for_tests(
     test_ids : list of UUID, optional
         If provided, only generate outputs for these test IDs. Otherwise all
         tests in the set (that have a prompt) are processed.
+    topic : str, optional
+        If provided, only generate outputs for tests under this topic path.
+        When combined with test_ids, both filters apply (topic + test_ids).
+    include_subtopics : bool, default True
+        When topic is set: if True, include tests in the topic and all
+        subtopics; if False, include only tests directly under the topic.
 
     Returns
     -------
@@ -844,6 +852,15 @@ async def generate_outputs_for_tests(
             continue
         if test_ids is not None and t.id not in test_ids:
             continue
+        # Filter by topic when provided
+        if topic is not None and topic != "":
+            t_topic = (t.topic.name if t.topic and hasattr(t.topic, "name") else "") or ""
+            if include_subtopics:
+                if t_topic != topic and not t_topic.startswith(topic + "/"):
+                    continue
+            else:
+                if t_topic != topic:
+                    continue
         eligible.append(t)
 
     updated: List[Dict[str, str]] = []
@@ -876,6 +893,7 @@ async def generate_outputs_for_tests(
 
     logger.info(
         f"Generate outputs: test_set={test_set_identifier}, endpoint={endpoint_id}, "
+        f"topic={topic!r}, include_subtopics={include_subtopics}, "
         f"generated={len(updated)}, failed={len(failed)}"
     )
 
