@@ -61,7 +61,7 @@ export class SourcesClient extends BaseApiClient {
     title: string,
     content: string,
     description?: string,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
     source_type_id?: UUID
   ): Promise<Source> {
     const sourceData: SourceCreate = {
