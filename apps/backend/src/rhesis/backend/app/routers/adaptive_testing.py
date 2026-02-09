@@ -271,7 +271,7 @@ def update_adaptive_topic(
 )
 def create_adaptive_test(
     test_set_identifier: str,
-    topic: str = Body(..., description="Topic path for the test"),
+    topic: Optional[str] = Body(None, description="Topic path for the test (optional)"),
     input: str = Body(..., description="Test input / prompt text"),
     output: str = Body("", description="Expected or actual output"),
     labeler: str = Body("user", description="Who labelled this test"),
@@ -283,7 +283,8 @@ def create_adaptive_test(
     """Create a new test node in the adaptive testing tree.
 
     Automatically ensures the topic and all its ancestor topic markers
-    exist before creating the test.
+    exist before creating the test. Topic is optional; tests without a
+    topic are allowed.
     """
     organization_id, user_id = tenant_context
     db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
@@ -293,7 +294,7 @@ def create_adaptive_test(
         test_set_id=db_test_set.id,
         organization_id=str(organization_id),
         user_id=str(user_id),
-        topic=topic,
+        topic=topic or "",
         input=input,
         output=output,
         labeler=labeler,

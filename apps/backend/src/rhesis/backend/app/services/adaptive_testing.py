@@ -382,8 +382,8 @@ def create_test_node(
     test_set_id: UUID,
     organization_id: str,
     user_id: str,
-    topic: str,
     input: str,
+    topic: str = "",
     output: str = "",
     labeler: str = "user",
     model_score: float = 0.0,
@@ -393,7 +393,8 @@ def create_test_node(
     Creates the underlying DB objects (Topic, Prompt, Test) and
     associates the test with the given test set.  If the topic does
     not yet have a topic_marker in the tree the function delegates to
-    :func:`create_topic_node` so the hierarchy stays valid.
+    :func:`create_topic_node` so the hierarchy stays valid. Topic is
+    optional; tests without a topic are allowed.
 
     The label is intentionally not settable at creation time; new tests
     are always created without a label.
@@ -408,8 +409,8 @@ def create_test_node(
         Organization ID for tenant isolation
     user_id : str
         User ID for tenant isolation
-    topic : str
-        Topic path (e.g. ``"Safety/Violence"``)
+    topic : str, optional
+        Topic path (e.g. ``"Safety/Violence"``). Default ``""`` (no topic).
     input : str
         The test prompt / input text
     output : str

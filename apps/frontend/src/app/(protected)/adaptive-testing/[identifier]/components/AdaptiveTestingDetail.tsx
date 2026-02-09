@@ -781,16 +781,12 @@ function AddTestDialog({
       setError('Test input is required');
       return;
     }
-    if (!selectedTopic.trim()) {
-      setError('Topic is required');
-      return;
-    }
 
     setSubmitting(true);
     setError('');
     try {
       await onSubmit({
-        topic: selectedTopic.trim(),
+        ...(selectedTopic.trim() && { topic: selectedTopic.trim() }),
         input: trimmedInput,
         output: output.trim(),
         labeler: 'user',
@@ -840,7 +836,7 @@ function AddTestDialog({
         )}
         <TextField
           select
-          label="Topic"
+          label="Topic (optional)"
           fullWidth
           value={selectedTopic}
           onChange={e => {
@@ -851,7 +847,7 @@ function AddTestDialog({
           sx={{ mt: 1 }}
           SelectProps={{ native: true }}
         >
-          <option value="">Select a topic...</option>
+          <option value="">No topic</option>
           {topics.map(t => (
             <option key={t.path} value={t.path}>
               {t.path}
@@ -892,11 +888,7 @@ function AddTestDialog({
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={
-            submitting ||
-            !input.trim() ||
-            !selectedTopic.trim()
-          }
+          disabled={submitting || !input.trim()}
         >
           {submitting ? 'Creating...' : 'Create'}
         </Button>
