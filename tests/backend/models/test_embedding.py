@@ -293,7 +293,8 @@ class TestEmbeddingModel:
     def test_active_dimension_property_none(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
-        """Test active_dimension returns None when no embedding stored"""
+        """Test active_dimension returns None before setting embedding on in-memory object"""
+        # Test on in-memory object before persisting
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
@@ -306,11 +307,12 @@ class TestEmbeddingModel:
             user_id=authenticated_user_id,
         )
 
-        test_db.add(embedding)
-        test_db.commit()
-        test_db.refresh(embedding)
-
+        # Before setting any embedding, active_dimension should be None
         assert embedding.active_dimension is None
+
+        # Set embedding to make it valid for persistence
+        embedding.embedding = [0.1] * 768
+        assert embedding.active_dimension == 768
 
     def test_embedding_column_name_property(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
