@@ -4,10 +4,9 @@ function normalizeFormValue(value: string | undefined | null): string {
   return (value || '').trim();
 }
 
-function compareFormData<T extends Record<string, any>>(
-  current: T,
-  initial: T
-): boolean {
+function compareFormData<
+  T extends Record<string, string | number | boolean | undefined | null>
+>(current: T, initial: T): boolean {
   const keys = Object.keys(current) as Array<keyof T>;
 
   return keys.some(key => {
@@ -34,7 +33,9 @@ interface UseFormChangeDetectionReturn {
   resetChanges: () => void;
 }
 
-export function useFormChangeDetection<T extends Record<string, any>>({
+export function useFormChangeDetection<
+  T extends Record<string, string | number | boolean | undefined | null>
+>({
   initialData,
   currentData,
 }: UseFormChangeDetectionOptions<T>): UseFormChangeDetectionReturn {
