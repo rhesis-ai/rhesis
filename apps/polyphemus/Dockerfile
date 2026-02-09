@@ -5,6 +5,9 @@
 # and optimize layer caching. The builder stage installs dependencies,
 # while the runtime stage creates a minimal image.
 #
+# vLLM is used as the inference engine for 10-20x faster inference
+# compared to standard HuggingFace transformers.
+#
 # Models are loaded at runtime from local disk or GCS bucket (via MODEL_PATH env var)
 # This avoids OOM issues during builds with large models and reduces image size.
 #
@@ -65,11 +68,13 @@ RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
     sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
     sed -i 's|path = "../backend"|path = "/app/apps/backend"|g' /app/pyproject.toml
 
-# Install dependencies using uv sync
-# Use cache mount for faster builds and install only production dependencies
-# Note: SDK, Penelope, and Backend are installed in editable mode from local paths
+# Install dependencies using uv sync (vLLM is not in lockfile to allow local dev without CUDA)
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev
+
+# Install vLLM for GPU inference (10-20x faster). Done separately so lockfile works without CUDA.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install vllm
 
 # Now copy ALL source code - this layer will invalidate when any source changes
 COPY apps/polyphemus/src /app/src
@@ -103,7 +108,7 @@ RUN adduser --disabled-password --gecos '' appuser && \
     chown appuser:appuser /app
 
 # Copy the virtual environment from builder
-# Note: This is a large copy operation (several GB with ML dependencies)
+# Note: This is a large copy operation (several GB with vLLM + ML dependencies)
 # GitHub Actions may appear to hang here, but it's working
 COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 
@@ -129,11 +134,18 @@ ENV PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
     TRANSFORMERS_CACHE="/app/models"
 
+# vLLM configuration defaults (overridable via Cloud Run --set-env-vars)
+ENV INFERENCE_ENGINE="vllm" \
+    GPU_MEMORY_UTILIZATION="0.9" \
+    MAX_MODEL_LEN="8192" \
+    VLLM_DTYPE="half"
+
 # Expose the port the app will run on
 EXPOSE 8080
 
 # Add health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+# Increased start-period to 300s to allow time for vLLM model loading
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # Start the FastAPI app using Gunicorn with optimized settings

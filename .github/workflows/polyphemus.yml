@@ -367,7 +367,10 @@ jobs:
               --set-env-vars="$(cat <<EOF
           MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }},
-          LOAD_KWARGS_B64=$(echo -n '{"torch_dtype":"float16","use_cache":true}' | base64),
+          INFERENCE_ENGINE=vllm,
+          GPU_MEMORY_UTILIZATION=0.9,
+          MAX_MODEL_LEN=8192,
+          VLLM_DTYPE=half,
           TRANSFORMERS_CACHE=/tmp/transformers_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
@@ -410,7 +413,10 @@ jobs:
               --set-env-vars="$(cat <<EOF
           MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
           DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL}},
-          LOAD_KWARGS_B64=$(echo -n '{"torch_dtype":"float16","use_cache":true}' | base64),
+          INFERENCE_ENGINE=vllm,
+          GPU_MEMORY_UTILIZATION=0.9,
+          MAX_MODEL_LEN=8192,
+          VLLM_DTYPE=half,
           TRANSFORMERS_CACHE=/tmp/transformers_cache,
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},

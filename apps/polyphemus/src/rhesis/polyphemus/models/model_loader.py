@@ -1,19 +1,28 @@
 """
 Model implementations for Polyphemus service.
 Contains different model classes that can be used based on configuration.
+
+Supports two inference engines:
+- vLLM (default): High-performance inference with PagedAttention, continuous
+  batching, and optimized CUDA kernels. 10-20x faster than HuggingFace.
+- Transformers (fallback): Standard HuggingFace transformers via SDK.
+
+Set INFERENCE_ENGINE=vllm (default) or INFERENCE_ENGINE=transformers.
 """
 
 import logging
 import os
 from typing import Any, Dict, List, Optional, Union
 
-from rhesis.sdk.models import BaseLLM
-from rhesis.sdk.models.factory import get_model
-
 logger = logging.getLogger("rhesis-polyphemus")
 
-# Default model for LazyModelLoader - can be overridden via environment variable
+# Default model - can be overridden via environment variable
+# For vLLM: use HuggingFace model name (e.g., "Qwen/Qwen2.5-8B-Instruct")
+# For transformers: use provider/model format (e.g., "huggingface/distilgpt2")
 DEFAULT_MODEL = os.environ.get("DEFAULT_MODEL", "huggingface/distilgpt2")
+
+# Inference engine: "vllm" (default, high-performance) or "transformers" (fallback)
+INFERENCE_ENGINE = os.environ.get("INFERENCE_ENGINE", "vllm")
 
 # Model path configuration - supports local path or GCS bucket location
 # For GCS paths, the bucket should be mounted at /gcs-models via Cloud Run volume mount
@@ -21,6 +30,20 @@ MODEL_PATH = os.environ.get("MODEL_PATH", "")
 
 # GCS volume mount path (Cloud Run mounts GCS bucket here)
 GCS_MOUNT_PATH = "/gcs-models"
+
+
+def _strip_provider_prefix(model_name: str) -> str:
+    """
+    Strip provider prefix from model name for vLLM compatibility.
+
+    Converts:
+    - "huggingface/Qwen/Qwen2.5-8B-Instruct" -> "Qwen/Qwen2.5-8B-Instruct"
+    - "huggingface/distilgpt2" -> "distilgpt2"
+    - "Qwen/Qwen2.5-8B-Instruct" -> "Qwen/Qwen2.5-8B-Instruct" (no change)
+    """
+    if model_name.startswith("huggingface/"):
+        return model_name[len("huggingface/") :]
+    return model_name
 
 
 def _map_gcs_to_mounted_path(model_name: str, gcs_path: str) -> str:
@@ -60,13 +83,306 @@ def _map_gcs_to_mounted_path(model_name: str, gcs_path: str) -> str:
     return mounted_path
 
 
-class LazyModelLoader(BaseLLM):
+def _resolve_model_source(model_name: str) -> str:
     """
-    LazyModelLoader model class that can load any LLM model based on user requirements.
+    Resolve model source from model name and MODEL_PATH configuration.
 
-    This is a flexible model wrapper that uses the SDK's get_model factory
-    to load any supported model type (HuggingFace, OpenAI, Anthropic, etc.)
-    based on the model name/type provided.
+    Returns either a local path (from GCS mount or local disk) or
+    a HuggingFace Hub model identifier.
+
+    Args:
+        model_name: Model identifier (already stripped of provider prefix)
+
+    Returns:
+        str: Resolved model path or HuggingFace identifier
+    """
+    if MODEL_PATH:
+        if MODEL_PATH.startswith("gs://"):
+            source = _map_gcs_to_mounted_path(model_name, MODEL_PATH)
+            logger.info(f"Using Cloud Storage mounted volume: {source}")
+            return source
+        else:
+            logger.info(f"Using local path: {MODEL_PATH}")
+            return MODEL_PATH
+    else:
+        logger.info("No MODEL_PATH set, will use HuggingFace Hub")
+        return model_name
+
+
+class VLLMModelLoader:
+    """
+    vLLM-based model loader for high-performance GPU inference.
+
+    Uses vLLM's optimized engine with PagedAttention, continuous batching,
+    and optimized CUDA kernels for 10-20x speedup over HuggingFace transformers.
+
+    Expected performance on NVIDIA L4 GPU:
+    - 2k tokens in 5-15 seconds
+    - Throughput: 100-200 tokens/second
+
+    Configuration via environment variables:
+    - GPU_MEMORY_UTILIZATION: Fraction of GPU memory to use (default: 0.9)
+    - MAX_MODEL_LEN: Maximum sequence length (default: 8192)
+    - VLLM_DTYPE: Data type for model weights (default: "half" for float16)
+    - VLLM_ENFORCE_EAGER: Set to "1" to disable CUDA graphs (default: "0")
+    - VLLM_TENSOR_PARALLEL_SIZE: Number of GPUs for tensor parallelism (default: 1)
+    """
+
+    def __init__(
+        self,
+        model_name: Optional[str] = None,
+        auto_loading: bool = True,
+    ):
+        """
+        Initialize vLLM model loader.
+
+        Args:
+            model_name: Model identifier. Supports formats:
+                - "huggingface/org/model" (prefix stripped automatically)
+                - "org/model" (used directly)
+                - "model" (used directly)
+            auto_loading: Whether to load the model immediately.
+        """
+        self._model_name = model_name or DEFAULT_MODEL
+        self._auto_loading = auto_loading
+        self._llm = None  # vLLM LLM instance
+        self.model_name = self._model_name
+        # Compatibility attributes (not used by vLLM but checked by services)
+        self.model = None
+        self.tokenizer = None
+
+        if auto_loading:
+            self.load_model()
+
+    def load_model(self) -> "VLLMModelLoader":
+        """
+        Load the model using vLLM's optimized engine.
+
+        Handles:
+        - GCS paths (gs://...): maps to mounted volume at /gcs-models
+        - Local paths: loads from local disk
+        - HuggingFace Hub: downloads and caches automatically
+
+        Returns:
+            self: Returns self for method chaining
+        """
+        if self._llm is not None:
+            logger.info("vLLM model already loaded, reusing")
+            return self
+
+        from vllm import LLM
+
+        # Resolve model name (strip huggingface/ prefix for vLLM)
+        hf_model_name = _strip_provider_prefix(self._model_name)
+        model_source = _resolve_model_source(hf_model_name)
+
+        # vLLM configuration from environment variables
+        gpu_memory_utilization = float(os.environ.get("GPU_MEMORY_UTILIZATION", "0.9"))
+        max_model_len = int(os.environ.get("MAX_MODEL_LEN", "8192"))
+        dtype = os.environ.get("VLLM_DTYPE", "half")
+        enforce_eager = os.environ.get("VLLM_ENFORCE_EAGER", "0") == "1"
+        tensor_parallel_size = int(os.environ.get("VLLM_TENSOR_PARALLEL_SIZE", "1"))
+
+        logger.info(f"Loading vLLM model: {model_source}")
+        logger.info(
+            f"vLLM config: gpu_mem={gpu_memory_utilization}, "
+            f"max_model_len={max_model_len}, dtype={dtype}, "
+            f"enforce_eager={enforce_eager}, "
+            f"tensor_parallel_size={tensor_parallel_size}"
+        )
+
+        self._llm = LLM(
+            model=model_source,
+            gpu_memory_utilization=gpu_memory_utilization,
+            dtype=dtype,
+            max_model_len=max_model_len,
+            trust_remote_code=True,
+            enforce_eager=enforce_eager,
+            tensor_parallel_size=tensor_parallel_size,
+        )
+
+        # Set sentinel values for compatibility checks in services.py
+        self.model = "vllm-loaded"
+        self.tokenizer = "vllm-loaded"
+
+        # Log GPU information
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                gpu_name = torch.cuda.get_device_name(0)
+                allocated_gb = torch.cuda.memory_allocated() / 1e9
+                reserved_gb = torch.cuda.memory_reserved() / 1e9
+                logger.info(f"GPU: {gpu_name}")
+                logger.info(
+                    f"GPU Memory - Allocated: {allocated_gb:.2f}GB, Reserved: {reserved_gb:.2f}GB"
+                )
+        except Exception as gpu_error:
+            logger.warning(f"Could not check GPU status: {gpu_error}")
+
+        logger.info(f"vLLM model loaded successfully: {model_source}")
+        return self
+
+    def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        schema: Optional[Any] = None,
+        **kwargs,
+    ) -> Union[str, Dict[str, Any]]:
+        """
+        Generate a response using vLLM's optimized inference.
+
+        Uses vLLM's chat() method for proper chat template handling
+        with instruction-tuned models.
+
+        Args:
+            prompt: The user prompt
+            system_prompt: Optional system prompt
+            schema: Optional schema (not yet supported with vLLM)
+            **kwargs: Generation parameters:
+                - temperature (float): Sampling temperature (default: 0.7)
+                - max_tokens / max_new_tokens (int): Max output tokens
+                - top_p (float): Nucleus sampling (default: 0.9)
+                - top_k (int): Top-k sampling (-1 to disable)
+                - repetition_penalty (float): Repetition penalty
+
+        Returns:
+            str: Generated text response
+        """
+        if self._llm is None:
+            raise RuntimeError("vLLM model not loaded. Call load_model() first.")
+
+        # Build chat messages
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        # Map kwargs to vLLM SamplingParams
+        sampling_params = self._build_sampling_params(**kwargs)
+
+        try:
+            # Use chat() for proper chat template handling
+            outputs = self._llm.chat(
+                messages=[messages],
+                sampling_params=sampling_params,
+            )
+        except Exception as chat_err:
+            # Fallback to plain generate if chat template unavailable
+            logger.warning(f"Chat template failed ({chat_err}), falling back to plain generate")
+            # Build a simple prompt string
+            full_prompt = ""
+            if system_prompt:
+                full_prompt = f"System: {system_prompt}\n\nUser: {prompt}"
+            else:
+                full_prompt = prompt
+            outputs = self._llm.generate([full_prompt], sampling_params)
+
+        if outputs and outputs[0].outputs:
+            return outputs[0].outputs[0].text.strip()
+        return ""
+
+    def generate_batch(
+        self,
+        prompts: List[str],
+        system_prompt: Optional[str] = None,
+        schema: Optional[Any] = None,
+        **kwargs,
+    ) -> List[Union[str, Dict[str, Any]]]:
+        """
+        Generate responses for multiple prompts using vLLM batch inference.
+
+        vLLM excels at batch processing through its continuous batching
+        scheduler, providing near-linear throughput scaling.
+
+        Args:
+            prompts: List of user prompts
+            system_prompt: Optional system prompt (applied to all)
+            schema: Optional schema (not yet supported with vLLM)
+            **kwargs: Generation parameters (same as generate())
+
+        Returns:
+            List of generated text responses
+        """
+        if self._llm is None:
+            raise RuntimeError("vLLM model not loaded. Call load_model() first.")
+
+        # Build messages for each prompt
+        all_messages = []
+        for prompt in prompts:
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+            all_messages.append(messages)
+
+        sampling_params = self._build_sampling_params(**kwargs)
+
+        try:
+            outputs = self._llm.chat(
+                messages=all_messages,
+                sampling_params=sampling_params,
+            )
+        except Exception as chat_err:
+            logger.warning(f"Batch chat failed ({chat_err}), falling back to plain generate")
+            plain_prompts = []
+            for prompt in prompts:
+                if system_prompt:
+                    plain_prompts.append(f"System: {system_prompt}\n\nUser: {prompt}")
+                else:
+                    plain_prompts.append(prompt)
+            outputs = self._llm.generate(plain_prompts, sampling_params)
+
+        results = []
+        for output in outputs:
+            if output.outputs:
+                results.append(output.outputs[0].text.strip())
+            else:
+                results.append("")
+        return results
+
+    def _build_sampling_params(self, **kwargs):
+        """Build vLLM SamplingParams from generation kwargs."""
+        from vllm import SamplingParams
+
+        temperature = kwargs.get("temperature", 0.7)
+        # Support both max_tokens and max_new_tokens (HuggingFace compat)
+        max_tokens = kwargs.get("max_tokens", kwargs.get("max_new_tokens", 2048))
+        top_p = kwargs.get("top_p", 0.9)
+        top_k = kwargs.get("top_k", -1)
+        # vLLM uses -1 to disable top_k (HuggingFace uses 0 or None)
+        if top_k is None or top_k == 0:
+            top_k = -1
+        repetition_penalty = kwargs.get("repetition_penalty", 1.0)
+
+        # vLLM requires temperature > 0 when sampling
+        if temperature <= 0:
+            temperature = 0.01
+
+        return SamplingParams(
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            top_k=top_k,
+            repetition_penalty=repetition_penalty,
+        )
+
+    @property
+    def vllm_engine(self):
+        """Access the underlying vLLM LLM engine."""
+        return self._llm
+
+
+class LazyModelLoader:
+    """
+    HuggingFace transformers-based model loader (fallback engine).
+
+    Uses the SDK's get_model factory to load any supported model type
+    (HuggingFace, OpenAI, Anthropic, etc.) based on the model name/type.
+
+    This is the fallback inference engine. For production GPU deployments,
+    use VLLMModelLoader instead (set INFERENCE_ENGINE=vllm).
 
     The model name can be specified in the format:
     - "provider/model-name" (e.g., "huggingface/distilgpt2", "openai/gpt-4o")
@@ -86,7 +402,7 @@ class LazyModelLoader(BaseLLM):
         # Use default model if not provided
         self._model_name = model_name or DEFAULT_MODEL
         self._auto_loading = auto_loading
-        self._internal_model: Optional[BaseLLM] = None
+        self._internal_model = None
 
         # Set model_name for BaseLLM compatibility (don't call super().__init__
         # as it would trigger load_model immediately)
@@ -97,7 +413,7 @@ class LazyModelLoader(BaseLLM):
         if auto_loading:
             self.load_model()
 
-    def load_model(self) -> BaseLLM:
+    def load_model(self):
         """
         Load the model using the SDK's get_model factory.
 
@@ -113,6 +429,8 @@ class LazyModelLoader(BaseLLM):
             self: Returns self for method chaining
         """
         if self._internal_model is None:
+            from rhesis.sdk.models.factory import get_model
+
             logger.info(f"Loading model: {self._model_name}")
 
             # Determine the model source to use (local path or Hub identifier)
