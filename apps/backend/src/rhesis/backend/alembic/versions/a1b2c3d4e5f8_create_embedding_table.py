@@ -5,7 +5,7 @@ for storing embeddings from different models using HNSW indexes for fast similar
 Includes full-text search support with PostgreSQL TSVECTOR.
 
 Revision ID: a1b2c3d4e5f8
-Revises: c9d8e7f6a5b4
+Revises: 022c2c351b67
 Create Date: 2026-01-30
 
 """
@@ -20,7 +20,7 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 import rhesis.backend.app.models.guid
 
 revision: str = "a1b2c3d4e5f8"
-down_revision: Union[str, None] = "c9d8e7f6a5b4"
+down_revision: Union[str, None] = "022c2c351b67"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
