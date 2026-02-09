@@ -26,9 +26,6 @@ import styles from '@/styles/Knowledge.module.css';
 import { combineSourceFiltersToOData } from '@/utils/odata-filter';
 import { ChatIcon } from '@/components/icons';
 import {
-  FILE_SIZE_CONSTANTS,
-  FILE_TYPE_CONSTANTS,
-  TEXT_CONSTANTS,
   formatFileSize,
   formatDate,
   getFileExtension,
@@ -472,7 +469,7 @@ export default function SourcesGrid({
                 overflow: 'hidden',
               }}
             >
-              {source.tags.slice(0, 2).map((tag, index) => (
+              {source.tags.slice(0, 2).map((tag, _index) => (
                 <Chip
                   key={tag.id}
                   label={tag.name}

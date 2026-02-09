@@ -13,7 +13,6 @@ import {
   Alert,
   LinearProgress,
   IconButton,
-  Chip,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import UploadIcon from '@mui/icons-material/Upload';
@@ -134,7 +133,7 @@ export default function UploadSourceDialog({
     }
   };
 
-  const handleMcpImport = () => {
+  const _handleMcpImport = () => {
     // Close the upload dialog and open MCP dialog
     setMcpDialogOpen(true);
   };

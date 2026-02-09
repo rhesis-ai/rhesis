@@ -56,7 +56,6 @@ import {
   AccountTreeIcon,
   VisibilityIcon,
   VisibilityOffIcon,
-  InfoIcon,
   LockIcon,
 } from '@/components/icons';
 import { useSession } from 'next-auth/react';
@@ -114,7 +113,6 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 });
 
 // Enums based on your backend models
-const CONNECTION_TYPES = ['REST', 'WEBSOCKET', 'GRPC', 'SDK'];
 const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
 const METHODS = ['POST'];
 

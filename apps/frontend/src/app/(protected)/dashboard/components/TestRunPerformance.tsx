@@ -11,7 +11,6 @@ import {
   Alert,
   Chip,
   LinearProgress,
-  Avatar,
   Tooltip,
   Paper,
   Button,
@@ -32,7 +31,6 @@ interface TestRunWithStats extends TestRunDetail {
 }
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ScheduleIcon from '@mui/icons-material/Schedule';
-import PersonIcon from '@mui/icons-material/Person';
 import { CategoryIcon } from '@/components/icons';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import Link from 'next/link';

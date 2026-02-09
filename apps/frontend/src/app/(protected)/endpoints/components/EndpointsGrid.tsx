@@ -112,7 +112,7 @@ export default function EndpointGrid({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const { data: session } = useSession();
-  const { progress, isComplete, activeTour } = useOnboarding();
+  const { progress: _progress, isComplete: _isComplete, activeTour } = useOnboarding();
 
   // Check if user is currently on the endpoint tour
   const isOnEndpointTour =

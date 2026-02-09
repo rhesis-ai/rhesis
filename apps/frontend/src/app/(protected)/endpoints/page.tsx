@@ -7,7 +7,7 @@ import EndpointsGrid from './components/EndpointsGrid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { GridPaginationModel } from '@mui/x-data-grid';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 

@@ -37,10 +37,7 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import CommentIcon from '@mui/icons-material/Comment';
 import StorageIcon from '@mui/icons-material/Storage';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { formatDistanceToNow, parseISO, formatDistance } from 'date-fns';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 

@@ -54,11 +54,11 @@ interface KnowledgeClientWrapperProps {
  * Handles displaying knowledge sources and managing interactive features
  */
 export default function KnowledgeClientWrapper({
-  initialSources = [],
+  initialSources: _initialSources = [],
   sessionToken,
 }: KnowledgeClientWrapperProps) {
   const [refreshKey, setRefreshKey] = useState(0);
-  const notifications = useNotifications();
+  const _notifications = useNotifications();
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);

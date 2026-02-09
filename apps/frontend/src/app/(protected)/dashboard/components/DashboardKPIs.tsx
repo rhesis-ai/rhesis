@@ -12,7 +12,6 @@ import {
   alpha,
   Tooltip,
 } from '@mui/material';
-import { useRouter } from 'next/navigation';
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart';
 import { Gauge } from '@mui/x-charts/Gauge';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -51,7 +50,7 @@ const KPICard: React.FC<KPICardProps> = ({
   icon,
   color,
   sparklineData,
-  sparklineLabels,
+  sparklineLabels: _sparklineLabels,
   trend,
   trendValue,
   subtitle,
@@ -230,7 +229,6 @@ export default function DashboardKPIs({
   onLoadComplete,
 }: DashboardKPIsProps) {
   const theme = useTheme();
-  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [testStats, setTestStats] = useState<TestStats | null>(null);
   const [testResultsStats, setTestResultsStats] =
@@ -380,7 +378,7 @@ export default function DashboardKPIs({
   });
 
   // Calculate coverage percentage (tests per test set)
-  const coveragePercentage =
+  const _coveragePercentage =
     totalTestSets > 0
       ? Math.min(100, Math.round((totalTests / (totalTestSets * 10)) * 100))
       : 0;

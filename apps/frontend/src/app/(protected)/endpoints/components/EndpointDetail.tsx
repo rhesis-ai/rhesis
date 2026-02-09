@@ -19,7 +19,6 @@ import {
   ListItemText,
   Chip,
   Alert,
-  Snackbar,
   IconButton,
   InputAdornment,
 } from '@mui/material';
@@ -218,15 +217,6 @@ export default function EndpointDetail({
 
   // Check if endpoint has an existing token (we assume it does if this is an existing endpoint)
   const hasExistingToken = !!endpoint.id;
-  const [notification, setNotification] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error';
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
   const [testResponse, setTestResponse] = useState<string>('');
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
   const [testInput, setTestInput] = useState<string>(`{

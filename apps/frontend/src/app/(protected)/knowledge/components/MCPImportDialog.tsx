@@ -342,7 +342,7 @@ export default function MCPImportDialog({
       }
 
       return hostname;
-    } catch (e) {
+    } catch (_e) {
       return 'Resource';
     }
   };
@@ -718,7 +718,7 @@ export default function MCPImportDialog({
               <Box>
                 {/* URL Input Fields */}
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {urlItems.map((item, index) => (
+                  {urlItems.map((item, _index) => (
                     <TextField
                       key={item.id}
                       fullWidth

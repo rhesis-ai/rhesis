@@ -21,13 +21,10 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import DownloadIcon from '@mui/icons-material/Download';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
-import InfoIcon from '@mui/icons-material/Info';
-import ArticleIcon from '@mui/icons-material/Article';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
@@ -128,7 +125,7 @@ export default function SourcePreviewClientWrapper({
         severity: 'success',
         autoHideDuration: 2000,
       });
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to copy content', {
         severity: 'error',
         autoHideDuration: 2000,
@@ -159,7 +156,7 @@ export default function SourcePreviewClientWrapper({
         severity: 'success',
         autoHideDuration: 2000,
       });
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to download file', {
         severity: 'error',
         autoHideDuration: 2000,
@@ -349,7 +346,7 @@ export default function SourcePreviewClientWrapper({
   const EditableSection = React.memo(
     ({
       title,
-      icon,
+      icon: _icon,
       section,
       children,
       isEditing,
