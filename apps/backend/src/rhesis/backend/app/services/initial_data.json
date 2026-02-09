@@ -258,6 +258,11 @@
             "description": "Entity type for tools"
         },
         {
+            "type_name": "EntityType",
+            "type_value": "Embedding",
+            "description": "Entity type for vector embeddings"
+        },
+        {
             "type_name": "ResponsePatternType",
             "type_value": "Refusal",
             "description": "Response pattern type for refusals"

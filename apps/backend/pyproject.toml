@@ -9,6 +9,7 @@ dependencies = [
     "uvicorn",
     "sqlalchemy",
     "psycopg2-binary==2.9.9",
+    "pgvector>=0.3.0",
     "pydantic",
     "alembic",
     "faker",
