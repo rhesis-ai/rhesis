@@ -18,6 +18,10 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy.dialects.postgresql import TSVECTOR
 
 import rhesis.backend.app.models.guid
+from rhesis.backend.alembic.utils.template_loader import (
+    load_cleanup_type_lookup_template,
+    load_type_lookup_template,
+)
 
 revision: str = "a1b2c3d4e5f8"
 down_revision: Union[str, None] = "022c2c351b67"
@@ -163,7 +167,24 @@ def upgrade() -> None:
     """
     )
 
+    # Add EntityType entry for Embedding for existing organizations
+    entity_type_values = """
+        ('EntityType', 'Embedding', 'Entity type for vector embeddings')
+    """
+
+    entity_type_sql = load_type_lookup_template(entity_type_values)
+    op.execute(entity_type_sql)
+
 
 def downgrade() -> None:
     """Drop embedding table and indexes."""
+    # Clean up EntityType entry for Embedding
+    entity_type_cleanup_values = """
+        ('Embedding')
+    """
+
+    entity_cleanup_sql = load_cleanup_type_lookup_template("EntityType", entity_type_cleanup_values)
+    op.execute(entity_cleanup_sql)
+
+    # Drop embedding table (also drops all indexes)
     op.drop_table("embedding")
