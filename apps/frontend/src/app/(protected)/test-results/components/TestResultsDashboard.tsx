@@ -13,7 +13,7 @@ interface TestResultsDashboardProps {
 export default function TestResultsDashboard({
   sessionToken,
 }: TestResultsDashboardProps) {
-  const theme = useTheme();
+  const _theme = useTheme();
   const [filters, setFilters] = useState<Partial<TestResultsStatsOptions>>({
     months: 1,
   });

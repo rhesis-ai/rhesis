@@ -89,7 +89,7 @@ export default function LatestResultsPieChart({
     }));
   }, [stats?.overall_pass_rates]);
 
-  const getContextInfo = () => {
+  const _getContextInfo = () => {
     return 'Distribution of passed and failed tests in the selected period';
   };
 

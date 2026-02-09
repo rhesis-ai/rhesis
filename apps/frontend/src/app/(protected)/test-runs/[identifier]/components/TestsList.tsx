@@ -97,7 +97,7 @@ function TestListItem({
 
   // Check if there's a conflicting review
   const conflictingReview = hasConflictingReview(test);
-  const hasHumanReview = !!test.last_review;
+  const _hasHumanReview = !!test.last_review;
 
   // Truncate prompt content for display
   const truncatedPrompt =
