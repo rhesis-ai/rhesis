@@ -7,4 +7,4 @@ terraform {
   }
 }
 
-# placeholder to allow search_replace
+# GKE cluster and node pool are in cluster.tf and node_pool.tf
