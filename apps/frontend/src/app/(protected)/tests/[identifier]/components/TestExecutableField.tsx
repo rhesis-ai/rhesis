@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  Box,
-  Button,
-  TextField,
-  Paper,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, Button, TextField, Typography, useTheme } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
@@ -26,7 +19,7 @@ interface TestExecutableFieldProps {
 
 export default function TestExecutableField({
   sessionToken,
-  testId,
+  testId: _testId,
   promptId,
   initialContent,
   onUpdate,

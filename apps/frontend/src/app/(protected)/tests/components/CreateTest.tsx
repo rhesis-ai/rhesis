@@ -3,14 +3,11 @@ import {
   TextField,
   FormControl,
   Stack,
-  FormHelperText,
   MenuItem,
   Autocomplete,
   Box,
   Avatar,
   Typography,
-  ListItemAvatar,
-  ListItemText,
   Divider,
 } from '@mui/material';
 import BaseFreesoloAutocomplete, {
@@ -438,7 +435,7 @@ export default function CreateTest({
           />
         )}
         renderOption={(props, option) => {
-          const { key, ...otherProps } = props;
+          const { key: _key, ...otherProps } = props;
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -482,7 +479,7 @@ export default function CreateTest({
           />
         )}
         renderOption={(props, option) => {
-          const { key, ...otherProps } = props;
+          const { key: _key, ...otherProps } = props;
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

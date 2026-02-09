@@ -1,9 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Button, Tooltip } from '@mui/material';
+import { Box, Button } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import ScienceIcon from '@mui/icons-material/Science';
 import AddToPhotosIcon from '@mui/icons-material/AddToPhotos';
 import TestSetSelectionDialog from '../../components/TestSetSelectionDialog';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';

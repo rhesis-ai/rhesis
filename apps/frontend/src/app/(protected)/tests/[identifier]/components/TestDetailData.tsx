@@ -6,7 +6,7 @@ import BaseFreesoloAutocomplete, {
   AutocompleteOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestDetail, TypeLookup } from '@/utils/api-client/interfaces/tests';
+import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import TestExecutableField from './TestExecutableField';
 import FilePreview from '@/components/common/FilePreview';

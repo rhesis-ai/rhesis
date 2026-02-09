@@ -24,7 +24,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  Legend,
 } from 'recharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { formatDuration } from '@/utils/format-duration';
