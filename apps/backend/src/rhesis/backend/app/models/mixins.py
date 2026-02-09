@@ -154,3 +154,54 @@ class OrganizationAndUserMixin(OrganizationMixin, UserOwnedMixin):
     """Mixin for both organization and user ownership"""
 
     pass
+
+
+class EmbeddableMixin:
+    """
+    Mixin for entities that support vector embeddings and full-text search.
+
+    Entities with this mixin must implement to_searchable_text() which defines
+    what text should be:
+    1. Indexed for full-text search (via Embedding.searchable_text -> tsv column)
+    2. Used as source for generating vector embeddings
+
+    The searchable text will be:
+    - Stored in Embedding.searchable_text
+    - Hashed to Embedding.text_hash (to detect changes)
+    - Converted to tsvector in Embedding.tsv (for PostgreSQL full-text search)
+    - Vectorized and stored in Embedding.embedding_{dimension} columns
+
+    The mixin also provides a polymorphic `embeddings` relationship that automatically
+    filters by the entity's class name.
+    """
+
+    @declared_attr
+    def embeddings(cls):
+        """Polymorphic embedding relationship"""
+        return relationship(
+            "Embedding",
+            primaryjoin=(
+                f"and_(Embedding.entity_id == foreign({cls.__name__}.id), "
+                f"Embedding.entity_type == '{cls.__name__}')"
+            ),
+            foreign_keys="[Embedding.entity_id]",
+            viewonly=True,
+            uselist=True,
+        )
+
+    def to_searchable_text(self) -> str:
+        """
+        Generate searchable text representation for this entity.
+
+        Must be implemented by subclasses.
+
+        Returns:
+            str: Searchable text representation
+
+        Example:
+            >>> source.to_searchable_text()
+            "Title: AI Safety Research. Description: Study on... Content: In this paper..."
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} must implement to_searchable_text() method"
+        )

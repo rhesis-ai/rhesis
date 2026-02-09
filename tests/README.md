@@ -80,7 +80,7 @@ When you're building tools that help others test non-deterministic AI systems, e
 ```
 tests/
 ├── 📖 README.md                 # This magnificent file!
-├── ⚙️ pytest.ini               # Pytest configuration & markers  
+├── ⚙️ pytest.ini               # Pytest configuration & markers
 ├── ⚙️ conftest.py              # Shared test configuration & fixtures
 ├── 🐍 backend/                 # Python FastAPI backend tests
 │   ├── ⚙️ conftest.py          # Backend-specific configuration
@@ -116,7 +116,7 @@ tests/
 ```
 
 ### 🏷️ Naming Conventions
-- **📄 Test Files**: 
+- **📄 Test Files**:
   - **Backend**: `test_<module_name>.py` (e.g., `test_auth_service.py`)
   - **Frontend**: `<ComponentName>.test.tsx` or `<moduleName>.test.ts` (Jest convention)
   - **E2E**: `<feature>.spec.ts` (Playwright convention)
@@ -135,7 +135,7 @@ def test_prompt_parser_extracts_keywords():
     pass
 
 # 🔗 Integration Tests - Real services, databases
-@pytest.mark.integration  
+@pytest.mark.integration
 def test_openai_api_integration():
     pass
 
@@ -186,10 +186,10 @@ def test_data_processor_filters_active_items():
         {"id": 3, "status": "active", "name": "Item C"}
     ]
     processor = DataProcessor()
-    
+
     # ⚡ Act
     result = processor.filter_active_items(input_data)
-    
+
     # ✅ Assert
     assert len(result) == 2
     assert all(item["status"] == "active" for item in result)
@@ -198,7 +198,7 @@ def test_data_processor_filters_active_items():
 ```
 
 ### 2. 🎯 Single Responsibility
-Each test should verify one specific behavior - like a laser beam, not a flashlight! 
+Each test should verify one specific behavior - like a laser beam, not a flashlight!
 
 ### 3. 🏝️ Test Independence
 Tests should not depend on execution order or state from other tests. Each test is an island! 🏝️
@@ -220,7 +220,7 @@ class BehaviorTestMixin:
     """Entity-specific configuration"""
     entity_name = "behavior"
     endpoints = APIEndpoints.BEHAVIORS
-    
+
     def get_sample_data(self):
         return {"name": "Test Behavior", "description": "Test data"}
 
@@ -236,7 +236,7 @@ class TestBehaviorSpecific(BehaviorTestMixin, BaseEntityTests):
 
 This approach provides:
 - **66% code reduction** (from 1,055 to 434 lines for behavior + topic)
-- **Uniform API behavior** across all entities  
+- **Uniform API behavior** across all entities
 - **Easy expansion**: New entities get full test coverage with ~20 lines
 - **Centralized improvements**: Updates to base tests benefit all entities
 
@@ -253,10 +253,10 @@ def test_service_handles_api_error():
     with patch('external_service.api_call') as mock_api:
         # 💥 Simulate API failure
         mock_api.side_effect = APIError("Service unavailable")
-        
+
         service = MyService()
         result = service.process_request("test input")
-        
+
         # ✅ Should handle gracefully
         assert result.status == "error"
         assert "Service unavailable" in result.message
@@ -266,7 +266,7 @@ def test_service_handles_api_error():
 Don't just test the happy path - chaos is where bugs hide! 🐛
 
 - 📭 Empty inputs
-- 🚫 Null/undefined values  
+- 🚫 Null/undefined values
 - 🌊 Boundary conditions
 - 💥 Error scenarios
 - 🤖 AI model timeouts
@@ -290,7 +290,7 @@ def create_test_user(**overrides):
 def create_test_data_set(**overrides):
     """🧪 Factory for creating test data sets"""
     default_data = {
-        "id": "dataset-456", 
+        "id": "dataset-456",
         "name": "Sample Test Set",
         "status": "active",
         "item_count": 10
@@ -303,7 +303,7 @@ def create_test_data_set(**overrides):
 def test_data_processing():
     user = create_test_user(role="admin")
     dataset = create_test_data_set(item_count=5)
-    
+
     result = process_data(user, dataset)
     assert result.success is True
 ```
@@ -321,9 +321,9 @@ Use actual database connections and HTTP clients, but with test-specific configu
 def test_database():
     """🗄️ Create isolated test database"""
     db = setup_test_database()
-    
+
     yield db
-    
+
     # 🔄 Cleanup after tests
     db.cleanup()
     db.close()
@@ -334,10 +334,10 @@ def test_data_persistence(test_database):
     """🗄️ Test data persistence"""
     # Create test data
     test_record = create_test_user()
-    
+
     # Save to database
     saved_record = test_database.save(test_record)
-    
+
     # Verify persistence
     assert saved_record.id is not None
     retrieved = test_database.find_by_id(saved_record.id)
@@ -355,9 +355,9 @@ def test_api_endpoint_creates_resource():
         "description": "Created via API test",
         "type": "example"
     }
-    
+
     response = api_client.post("/api/v1/resources", json=request_data)
-    
+
     # ✅ Assert successful creation
     assert response.status_code == 201
     data = response.json()
@@ -392,7 +392,7 @@ def sample_test_data():
             "status": "active"
         },
         {
-            "id": "item-2", 
+            "id": "item-2",
             "name": "Test Item Two",
             "category": "sample",
             "status": "inactive"
@@ -525,7 +525,7 @@ testpaths = ["../../tests/backend"]
 pythonpath = ["src"]
 markers = [
     "unit: fast tests with mocked dependencies",
-    "integration: tests with real external services", 
+    "integration: tests with real external services",
     "slow: tests that take >5 seconds",
     "ai: tests involving AI model calls",
     "critical: core functionality tests"
@@ -569,12 +569,12 @@ async def test_api_load():
     async def make_request(session, i):
         async with session.post("/api/v1/generate", json={"prompt": f"test {i}"}) as resp:
             return await resp.json()
-    
+
     start_time = time.time()
     async with aiohttp.ClientSession() as session:
         tasks = [make_request(session, i) for i in range(100)]
         results = await asyncio.gather(*tasks)
-    
+
     duration = time.time() - start_time
     assert duration < 30  # Should handle 100 requests in < 30 seconds
     assert all(r.get("status") == "success" for r in results)
@@ -594,7 +594,7 @@ async def test_api_load():
 def test_with_detailed_assertions():
     """🔍 Example of detailed test assertions"""
     result = process_ai_response(mock_response)
-    
+
     # ❌ Bad: assert result
     # ✅ Good: Detailed assertion with context
     assert result is not None, f"Expected non-None result, got {result}"
@@ -645,13 +645,13 @@ MY_ENTITIES = MyEntityEndpoints()
 class MyEntityTestMixin:
     entity_name = "my_entity"
     endpoints = APIEndpoints.MY_ENTITIES
-    
+
     def get_sample_data(self):
         return {"name": "Test Entity", "description": "Sample data"}
-    
+
     def get_minimal_data(self):
         return {"name": "Minimal Entity"}
-    
+
     def get_update_data(self):
         return {"name": "Updated Entity"}
 
@@ -703,7 +703,7 @@ pytest tests/backend/routes/ -v
 # 🏗️ Run route tests for specific entity
 pytest tests/backend/routes/test_behavior.py -v
 
-# ⚛️ Run frontend tests  
+# ⚛️ Run frontend tests
 cd apps/frontend
 npm test
 
@@ -723,19 +723,19 @@ pytest -m "slow or ai" -v --maxfail=1
 
 ### 🗂️ Component-Specific Testing Guides
 - 🐍 [Backend Testing Guide](./backend/) - Python + FastAPI + SQLAlchemy patterns
-- ⚛️ [Frontend Testing Guide](./frontend/) - React + TypeScript + Jest patterns  
+- ⚛️ [Frontend Testing Guide](./frontend/) - React + TypeScript + Jest patterns
 - 📦 [SDK Testing Guide](./sdk/) - Python SDK testing strategies
 - 👷 [Worker Testing Guide](./worker/) - Celery background job testing
 - 🤖 [AI Component Testing](./chatbot/) - AI model integration testing
 
-### 🛠️ Shared Resources  
+### 🛠️ Shared Resources
 - 🎭 [Shared Test Utilities](./shared/) - Reusable test helpers and fixtures
 - 🤖 [CI/CD Configuration](../.github/workflows/) - Automated testing workflows
 - 📖 [Rhesis Documentation](https://docs.rhesis.ai) - Official platform docs
 
 ### 📖 External References
 - [pytest Documentation](https://docs.pytest.org/) - Python testing framework
-- [Jest Documentation](https://jestjs.io/) - JavaScript testing framework  
+- [Jest Documentation](https://jestjs.io/) - JavaScript testing framework
 - [Testing Best Practices](https://testing.googleblog.com/) - Google Testing Blog
 - [Test-Driven Development](https://martinfowler.com/bliki/TestDrivenDevelopment.html) - Martin Fowler
 
@@ -755,7 +755,7 @@ def test_api_keys_never_logged():
         assert "rh-secret123" not in str(log)
         assert "[REDACTED]" in str(log)
 
-@pytest.mark.security  
+@pytest.mark.security
 def test_sql_injection_protection():
     """🛡️ Test SQL injection protection"""
     malicious_input = "'; DROP TABLE users; --"
@@ -792,7 +792,7 @@ def test_rate_limiting_enforced():
 
 - **🔑 Authentication**: Login, API key validation, token expiry
 - **🛡️ Authorization**: Permission checks, role-based access
-- **💉 Injection**: SQL, NoSQL, prompt injection protection  
+- **💉 Injection**: SQL, NoSQL, prompt injection protection
 - **📊 Data Protection**: PII handling, encryption, redaction
 - **⚡ Rate Limiting**: DoS protection, API abuse prevention
 - **🔒 Secrets Management**: API key storage, rotation, exposure
@@ -808,14 +808,14 @@ Consistent, isolated test environments are crucial for reliable testing.
 version: '3.8'
 services:
   test-db:
-    image: mirror.gcr.io/library/postgres:15
+    image: mirror.gcr.io/pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: rhesis_test
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
     ports:
       - "5433:5432"
-  
+
   redis-test:
     image: mirror.gcr.io/library/redis:7
     ports:
@@ -832,13 +832,13 @@ def test_environment():
     # Start test containers
     compose_file = "docker-compose.test.yml"
     subprocess.run(f"docker-compose -f {compose_file} up -d", shell=True)
-    
+
     # Wait for services to be ready
     wait_for_service("localhost:5433")
     wait_for_service("localhost:6380")
-    
+
     yield
-    
+
     # Cleanup
     subprocess.run(f"docker-compose -f {compose_file} down", shell=True)
 
@@ -847,9 +847,9 @@ def clean_database():
     """🧹 Ensure clean database state"""
     # Run migrations
     alembic.command.upgrade(alembic_cfg, "head")
-    
+
     yield
-    
+
     # Cleanup test data
     alembic.command.downgrade(alembic_cfg, "base")
 ```
@@ -886,13 +886,13 @@ pytest \
 - name: Generate Test Reports
   run: |
     pytest --junitxml=test-results.xml --cov=src --cov-report=xml
-    
+
 - name: Upload Coverage to Codecov
   uses: codecov/codecov-action@v3
   with:
     file: ./coverage.xml
     flags: backend
-    
+
 - name: Comment PR with Coverage
   uses: 5monkeys/cobertura-action@master
   with:
@@ -904,7 +904,7 @@ pytest \
 
 - **📊 Coverage**: Line, branch, function coverage trends
 - **⚡ Performance**: Test execution time trends
-- **🔥 Flakiness**: Tests that fail intermittently  
+- **🔥 Flakiness**: Tests that fail intermittently
 - **📈 Growth**: Test count growth over time
 - **💥 Failure Rate**: Failed test percentages by category
 
@@ -913,7 +913,7 @@ pytest \
 ```python
 # pytest.ini
 [pytest]
-addopts = 
+addopts =
     --strict-markers
     --cov=src
     --cov-fail-under=80
@@ -975,7 +975,7 @@ Each component in the Rhesis monorepo has its own detailed testing guide with te
 
 ## 🎉 Final Words
 
-Remember: **Good tests are an investment in code quality, developer productivity, and user satisfaction.** They should make you more confident in your code, not slow you down! 
+Remember: **Good tests are an investment in code quality, developer productivity, and user satisfaction.** They should make you more confident in your code, not slow you down!
 
 When users depend on Rhesis to test their critical Gen AI applications, we need to be absolutely certain our platform is rock-solid. Every test you write is a step toward that goal! 🎯
 
@@ -995,4 +995,4 @@ For a truly comprehensive testing strategy, consider adding:
 
 **Made with ❤️ in Potsdam, Germany** 🇩🇪
 
-*Happy testing! May your builds be green, your coverage high, and your security tight!* 🌟 
+*Happy testing! May your builds be green, your coverage high, and your security tight!* 🌟

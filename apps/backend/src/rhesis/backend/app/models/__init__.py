@@ -7,6 +7,7 @@ from .category import Category
 from .comment import Comment
 from .demographic import Demographic
 from .dimension import Dimension
+from .embedding import Embedding
 from .endpoint import Endpoint
 from .guid import GUID
 from .metric import Metric, behavior_metric_association
@@ -48,6 +49,7 @@ __all__ = [
     "TestSet",
     "Category",
     "Comment",
+    "Embedding",
     "Endpoint",
     "GUID",
     "Metric",
