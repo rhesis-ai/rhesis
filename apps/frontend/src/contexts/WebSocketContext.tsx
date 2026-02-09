@@ -208,7 +208,6 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
         clientRef.current &&
         !clientRef.current.isConnected
       ) {
-        console.log('Page became visible, attempting WebSocket reconnection');
         clientRef.current.reconnect();
       }
     };

@@ -124,8 +124,6 @@ export default function ModelsPage() {
         const modelsClient = apiFactory.getModelsClient();
         const result = await modelsClient.testModelConnection(modelId);
 
-        console.log('[MODEL_VALIDATION] Result:', result);
-
         setModelValidationStatus(prev =>
           new Map(prev).set(modelId, {
             isValid: result.status === 'success',

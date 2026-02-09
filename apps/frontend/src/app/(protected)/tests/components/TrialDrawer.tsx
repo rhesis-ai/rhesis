@@ -80,43 +80,23 @@ export default function TrialDrawer({
 
   // Fetch projects, endpoints, and test data
   useEffect(() => {
-    console.log('[TrialDrawer] useEffect triggered', {
-      open,
-      sessionToken: sessionToken ? 'present' : 'missing',
-      testIds,
-      hasLoadedRef: hasLoadedRef.current,
-    });
-
     const fetchData = async () => {
       if (!sessionToken || !open) {
-        console.log(
-          '[TrialDrawer] Skipping fetch - sessionToken or open is false'
-        );
         return;
       }
 
       // Check if testIds actually changed (not just reference)
       const testIdsKey = JSON.stringify(testIds);
       const isTestIdsChanged = testIdsRef.current !== testIdsKey;
-      console.log('[TrialDrawer] TestIds check', {
-        current: testIdsRef.current,
-        new: testIdsKey,
-        isTestIdsChanged,
-        hasLoadedRef: hasLoadedRef.current,
-      });
       testIdsRef.current = testIdsKey;
 
       // Only fetch if it's the first load or testIds actually changed
       if (!isTestIdsChanged && hasLoadedRef.current) {
-        console.log(
-          '[TrialDrawer] Skipping fetch - already loaded and testIds unchanged'
-        );
         return;
       }
 
       // Only reset state on initial open, not on subsequent re-renders
       const isInitialOpen = !hasLoadedRef.current;
-      console.log('[TrialDrawer] Starting data fetch', { isInitialOpen });
 
       try {
         setLoading(true);
@@ -130,7 +110,6 @@ export default function TrialDrawer({
         // Fetch test data (we only support single test trial for now)
         if (testIds.length > 0) {
           try {
-            console.log('[TrialDrawer] Fetching test data for:', testIds[0]);
             const testsClient = clientFactory.getTestsClient();
             const testDetail = await testsClient.getTest(testIds[0]);
 
@@ -151,7 +130,6 @@ export default function TrialDrawer({
 
         // Fetch projects with proper response handling
         try {
-          console.log('[TrialDrawer] Fetching projects...');
           const projectsClient = clientFactory.getProjectsClient();
           const projectsData = await projectsClient.getProjects({
             sort_by: 'name',
@@ -185,7 +163,6 @@ export default function TrialDrawer({
 
         // Fetch all endpoints
         try {
-          console.log('[TrialDrawer] Fetching endpoints...');
           const endpointsClient = clientFactory.getEndpointsClient();
           const endpointsResponse = await endpointsClient.getEndpoints({
             sort_by: 'name',
@@ -222,17 +199,12 @@ export default function TrialDrawer({
       } finally {
         setLoading(false);
         hasLoadedRef.current = true;
-        console.log(
-          '[TrialDrawer] Data fetch completed, hasLoadedRef set to true'
-        );
       }
     };
 
     if (open) {
-      console.log('[TrialDrawer] Drawer opened, calling fetchData');
       fetchData();
     } else {
-      console.log('[TrialDrawer] Drawer closed, resetting refs');
       // Reset the refs when drawer closes so next open will be treated as initial
       hasLoadedRef.current = false;
       testIdsRef.current = '';
@@ -269,7 +241,6 @@ export default function TrialDrawer({
   };
 
   const handleSave = async () => {
-    console.log('[TrialDrawer] handleSave called');
     if (!sessionToken || !selectedEndpoint || !testData) return;
 
     // Determine test type
@@ -361,18 +332,14 @@ export default function TrialDrawer({
         });
       }
 
-      console.log('[TrialDrawer] Test execution completed successfully');
       notifications.show('Test executed successfully', { severity: 'success' });
-      console.log('[TrialDrawer] Success notification shown');
     } catch (error) {
-      console.log('[TrialDrawer] Test execution failed', error);
       setError(
         `Failed to execute test: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
       notifications.show('Failed to execute test', { severity: 'error' });
     } finally {
       setTrialInProgress(false);
-      console.log('[TrialDrawer] handleSave completed');
     }
   };
 
@@ -408,7 +375,6 @@ export default function TrialDrawer({
             options={projects}
             value={projects.find(p => p.id === selectedProject) || null}
             onChange={async (_, newValue) => {
-              console.log('[TrialDrawer] Project selected:', newValue);
               if (!newValue) {
                 setSelectedProject(null);
                 setSelectedProjectData(null);
@@ -419,24 +385,13 @@ export default function TrialDrawer({
 
               // Fetch full project data to get icon
               try {
-                console.log(
-                  '[TrialDrawer] Fetching project details for:',
-                  newValue.id
-                );
                 const clientFactory = new ApiClientFactory(sessionToken);
                 const projectsClient = clientFactory.getProjectsClient();
                 const projectData = await projectsClient.getProject(
                   newValue.id
                 );
                 setSelectedProjectData(projectData);
-                console.log(
-                  '[TrialDrawer] Project details fetched successfully'
-                );
-              } catch (error) {
-                console.error(
-                  '[TrialDrawer] Failed to fetch project details:',
-                  error
-                );
+              } catch (_error) {
                 // Fallback to basic data if fetch fails
                 setSelectedProjectData({
                   id: newValue.id,

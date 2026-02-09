@@ -236,7 +236,6 @@ export class WebSocketClient {
     if (!this.ws) return;
 
     this.ws.onopen = () => {
-      console.log('WebSocket connected');
       this.state.reconnectAttempts = 0;
       this.updateConnectionState(true);
       this.startHeartbeat();
@@ -251,10 +250,7 @@ export class WebSocketClient {
       }
     };
 
-    this.ws.onclose = (event: CloseEvent) => {
-      console.log(
-        `WebSocket closed: code=${event.code}, reason=${event.reason}`
-      );
+    this.ws.onclose = () => {
       this.handleClose();
     };
 
@@ -274,7 +270,6 @@ export class WebSocketClient {
         | ConnectedPayload
         | undefined;
       this.state.connectionId = payload?.connection_id;
-      console.log(`WebSocket connection confirmed: ${this.state.connectionId}`);
     }
 
     // Handle pong (heartbeat response)
@@ -347,10 +342,6 @@ export class WebSocketClient {
       Math.pow(2, this.state.reconnectAttempts);
     const delay = Math.min(calculatedDelay, this.options.maxReconnectDelay);
     this.state.reconnectAttempts++;
-
-    console.log(
-      `WebSocket reconnecting in ${delay}ms (attempt ${this.state.reconnectAttempts}/${this.options.maxReconnectAttempts})`
-    );
 
     this.reconnectTimer = setTimeout(() => {
       this.connect();
