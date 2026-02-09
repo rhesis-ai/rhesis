@@ -22,3 +22,25 @@ output "prd_vpc_name" {
 output "prd_vpc_self_link" {
   value = module.prd.vpc_self_link
 }
+
+output "gke_dev_cluster_name" {
+  value = module.gke_dev.cluster_name
+}
+output "gke_dev_cluster_endpoint" {
+  value     = module.gke_dev.cluster_endpoint
+  sensitive = true
+}
+output "gke_stg_cluster_name" {
+  value = module.gke_stg.cluster_name
+}
+output "gke_stg_cluster_endpoint" {
+  value     = module.gke_stg.cluster_endpoint
+  sensitive = true
+}
+output "gke_prd_cluster_name" {
+  value = module.gke_prd.cluster_name
+}
+output "gke_prd_cluster_endpoint" {
+  value     = module.gke_prd.cluster_endpoint
+  sensitive = true
+}

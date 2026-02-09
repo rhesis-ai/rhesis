@@ -19,7 +19,7 @@ output "subnet_ids" {
     nodes  = google_compute_subnetwork.nodes[0].id
     ilb    = google_compute_subnetwork.ilb[0].id
     master = google_compute_subnetwork.master[0].id
-  } : {
+    } : {
     main = google_compute_subnetwork.wireguard[0].id
   }
 }
@@ -30,7 +30,7 @@ output "subnet_self_links" {
     nodes  = google_compute_subnetwork.nodes[0].self_link
     ilb    = google_compute_subnetwork.ilb[0].self_link
     master = google_compute_subnetwork.master[0].self_link
-  } : {
+    } : {
     main = google_compute_subnetwork.wireguard[0].self_link
   }
 }
