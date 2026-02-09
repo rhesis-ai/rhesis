@@ -164,42 +164,36 @@ jobs:
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/share/swift
+          # Clear Docker entirely (images, build cache, volumes) to maximize space
+          sudo docker system prune -a -f --volumes
           echo "Available disk space after cleanup:"
           df -h
 
-      - name: Build Container
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Container
         timeout-minutes: 60
         run: |
-          # Use cache to speed up builds - only rebuild layers that changed
-          # Build context is repo root to access SDK and pyproject.toml (like backend)
-          # Models are loaded at runtime from MODEL_PATH (local or GCS bucket)
-          
-          # Enable BuildKit for better build performance and progress output
+          # Build and push in one step so the image is streamed to GCR and never
+          # stored on the runner - avoids "No space left on device" for large images.
           export DOCKER_BUILDKIT=1
           export BUILDKIT_PROGRESS=plain
-          
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
-            # For preview deployments, tag with commit SHA
-            docker build --progress=plain --pull -t ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }} -f apps/polyphemus/Dockerfile .
-            echo "Built preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
+            TAG="${{ env.COMMIT_SHA }}"
           else
-            # For regular deployments, use latest tag
-            docker build --progress=plain --pull -t ${{ env.IMAGE_NAME }}:latest -f apps/polyphemus/Dockerfile .
-            echo "Built regular image: ${{ env.IMAGE_NAME }}:latest"
+            TAG="latest"
           fi
-
-      - name: Push Container
-        run: |
-          if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
-            # For preview deployments, push commit SHA tagged image
-            docker push ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}
-            echo "Pushed preview image: ${{ env.IMAGE_NAME }}:${{ env.COMMIT_SHA }}"
-          else
-            # For regular deployments, push latest tagged image
-            docker push ${{ env.IMAGE_NAME }}:latest
-            echo "Pushed regular image: ${{ env.IMAGE_NAME }}:latest"
-          fi
+          docker buildx build \
+            --progress=plain \
+            --pull \
+            --push \
+            --platform linux/amd64 \
+            -t ${{ env.IMAGE_NAME }}:$TAG \
+            -f apps/polyphemus/Dockerfile .
+          echo "Built and pushed image: ${{ env.IMAGE_NAME }}:$TAG"
 
   deploy:
     # Note: When deploy_only is true, build job is skipped, but GitHub Actions treats skipped jobs
