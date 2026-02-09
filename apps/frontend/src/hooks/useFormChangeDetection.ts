@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 function normalizeFormValue(value: string | undefined | null): string {
   return (value || '').trim();
 }
 
 function compareFormData<
-  T extends Record<string, string | number | boolean | undefined | null>
+  T extends Record<string, string | number | boolean | undefined | null>,
 >(current: T, initial: T): boolean {
   const keys = Object.keys(current) as Array<keyof T>;
 
@@ -13,7 +13,10 @@ function compareFormData<
     const currentValue = current[key];
     const initialValue = initial[key];
 
-    if (typeof currentValue === 'string' || typeof initialValue === 'string') {
+    const isStringLike = (val: unknown): val is string | null | undefined =>
+      typeof val === 'string' || val === null || val === undefined;
+
+    if (isStringLike(currentValue) && isStringLike(initialValue)) {
       return (
         normalizeFormValue(currentValue) !== normalizeFormValue(initialValue)
       );
@@ -34,16 +37,21 @@ interface UseFormChangeDetectionReturn {
 }
 
 export function useFormChangeDetection<
-  T extends Record<string, string | number | boolean | undefined | null>
+  T extends Record<string, string | number | boolean | undefined | null>,
 >({
   initialData,
   currentData,
 }: UseFormChangeDetectionOptions<T>): UseFormChangeDetectionReturn {
   const [trackedInitialData, setTrackedInitialData] = useState<T>(initialData);
 
+  const initialDataString = useMemo(
+    () => JSON.stringify(initialData),
+    [initialData]
+  );
+
   useEffect(() => {
     setTrackedInitialData(initialData);
-  }, [JSON.stringify(initialData)]);
+  }, [initialDataString, initialData]);
 
   const hasChanges = compareFormData(currentData, trackedInitialData);
 
