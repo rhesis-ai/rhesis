@@ -1135,10 +1135,22 @@ function TopicTreePanel({
 
   if (topicTree.length === 0) {
     return (
-      <Box sx={{ p: 2, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
+      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <Typography variant="body2" color="text.secondary" textAlign="center">
           No topics found
         </Typography>
+        <Button
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => onAddTopic(null)}
+          sx={{
+            textTransform: 'none',
+            color: 'text.secondary',
+            justifyContent: 'center',
+          }}
+        >
+          Add topic
+        </Button>
       </Box>
     );
   }
