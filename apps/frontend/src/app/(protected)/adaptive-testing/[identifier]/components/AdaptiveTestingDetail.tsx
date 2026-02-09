@@ -865,6 +865,7 @@ function AddTestDialog({
           disabled={submitting}
           sx={{ mt: 1 }}
           SelectProps={{ native: true }}
+          InputLabelProps={{ shrink: true }}
         >
           <option value="">No topic</option>
           {topics.map(t => (
@@ -1025,6 +1026,7 @@ function EditTestDialog({
           disabled={submitting}
           sx={{ mt: 1 }}
           SelectProps={{ native: true }}
+          InputLabelProps={{ shrink: true }}
         >
           <option value="">Select a topic...</option>
           {topics.map(t => (
