@@ -20,11 +20,18 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.adaptive_testing import (
+    GenerateOutputsFailedItem,
+    GenerateOutputsRequest,
+    GenerateOutputsResponse,
+    GenerateOutputsUpdatedItem,
+)
 from rhesis.backend.app.services.adaptive_testing import (
     create_adaptive_test_set,
     create_test_node,
     create_topic_node,
     delete_test_node,
+    generate_outputs_for_tests,
     get_adaptive_test_sets,
     get_tree_nodes,
     get_tree_tests,
@@ -380,3 +387,46 @@ def delete_adaptive_test(
         )
 
     return {"deleted": True, "test_id": str(test_id)}
+
+
+@router.post(
+    "/{test_set_identifier}/generate_outputs",
+    response_model=GenerateOutputsResponse,
+)
+async def generate_outputs(
+    test_set_identifier: str,
+    body: GenerateOutputsRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Generate outputs for tests by invoking the given endpoint.
+
+    For each test in the set (with a prompt), invokes the endpoint with the
+    test input and stores the extracted response in the test's metadata
+    (test_metadata.output).
+    """
+    organization_id, user_id = tenant_context
+    try:
+        result = await generate_outputs_for_tests(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            endpoint_id=str(body.endpoint_id),
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            test_ids=list(body.test_ids) if body.test_ids else None,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return GenerateOutputsResponse(
+        generated=result["generated"],
+        failed=[
+            GenerateOutputsFailedItem(test_id=f["test_id"], error=f["error"])
+            for f in result["failed"]
+        ],
+        updated=[
+            GenerateOutputsUpdatedItem(test_id=u["test_id"], output=u["output"])
+            for u in result["updated"]
+        ],
+    )

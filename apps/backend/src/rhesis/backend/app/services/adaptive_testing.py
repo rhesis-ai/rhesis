@@ -2,9 +2,10 @@
 
 Converts backend Test models into SDK TestTreeData structures,
 providing tree, tests-only, and topics-only views.
+Also provides generation of test outputs by invoking an endpoint.
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import cast
@@ -781,3 +782,105 @@ def delete_test_node(
     logger.info(f"Deleted test node {test_id} from test_set={test_set_id}")
 
     return True
+
+
+async def generate_outputs_for_tests(
+    db: Session,
+    test_set_identifier: str,
+    endpoint_id: str,
+    organization_id: str,
+    user_id: str,
+    test_ids: Optional[List[UUID]] = None,
+) -> Dict[str, Any]:
+    """Generate outputs for adaptive testing tests by invoking an endpoint.
+
+    For each test in the test set (with a prompt), invokes the given endpoint
+    with the test input, extracts the response output using the same logic as
+    test execution, and updates the test's output in test_metadata.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    test_set_identifier : str
+        Test set identifier (UUID, nano_id, or slug)
+    endpoint_id : str
+        Endpoint UUID to invoke for each test
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+    test_ids : list of UUID, optional
+        If provided, only generate outputs for these test IDs. Otherwise all
+        tests in the set (that have a prompt) are processed.
+
+    Returns
+    -------
+    dict
+        - generated: number of tests whose output was updated
+        - failed: list of {"test_id": str, "error": str}
+        - updated: list of {"test_id": str, "output": str}
+    """
+    from rhesis.backend.app.dependencies import get_endpoint_service
+    from rhesis.backend.tasks.execution.executors.results import (
+        process_endpoint_result,
+    )
+
+    svc = get_endpoint_service()
+
+    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    if db_test_set is None:
+        raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
+
+    tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
+
+    # Exclude topic markers; only tests with prompt content
+    eligible = []
+    for t in tests:
+        meta = t.test_metadata or {}
+        if meta.get("label") == "topic_marker":
+            continue
+        if not t.prompt or not (t.prompt.content or "").strip():
+            continue
+        if test_ids is not None and t.id not in test_ids:
+            continue
+        eligible.append(t)
+
+    updated: List[Dict[str, str]] = []
+    failed: List[Dict[str, str]] = []
+
+    for db_test in eligible:
+        test_id_str = str(db_test.id)
+        prompt_content = (db_test.prompt.content or "").strip()
+        try:
+            result = await svc.invoke_endpoint(
+                db=db,
+                endpoint_id=endpoint_id,
+                input_data={"input": prompt_content},
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            processed = process_endpoint_result(result)
+            output = (processed.get("output") or "").strip() or "[no output]"
+
+            meta = dict(db_test.test_metadata or {})
+            meta["output"] = output
+            db_test.test_metadata = meta
+            db.add(db_test)
+            updated.append({"test_id": test_id_str, "output": output})
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Failed to generate output for test {test_id_str}: {e}")
+            failed.append({"test_id": test_id_str, "error": str(e)})
+
+    db.flush()
+
+    logger.info(
+        f"Generate outputs: test_set={test_set_identifier}, endpoint={endpoint_id}, "
+        f"generated={len(updated)}, failed={len(failed)}"
+    )
+
+    return {
+        "generated": len(updated),
+        "failed": failed,
+        "updated": updated,
+    }
