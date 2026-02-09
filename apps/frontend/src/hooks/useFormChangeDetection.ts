@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 function normalizeFormValue(value: string | undefined | null): string {
   return (value || '').trim();
@@ -39,6 +39,10 @@ export function useFormChangeDetection<T extends Record<string, any>>({
   currentData,
 }: UseFormChangeDetectionOptions<T>): UseFormChangeDetectionReturn {
   const [trackedInitialData, setTrackedInitialData] = useState<T>(initialData);
+
+  useEffect(() => {
+    setTrackedInitialData(initialData);
+  }, [JSON.stringify(initialData)]);
 
   const hasChanges = compareFormData(currentData, trackedInitialData);
 
