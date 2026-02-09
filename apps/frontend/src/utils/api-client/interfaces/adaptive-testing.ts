@@ -102,8 +102,8 @@ export interface TreeStats {
 // =============================================================================
 
 export interface DeleteTopicResponse {
-  deleted_ids: string[];
-  count: number;
+  deleted: boolean;
+  topic_path: string;
 }
 
 export interface DeleteTestResponse {

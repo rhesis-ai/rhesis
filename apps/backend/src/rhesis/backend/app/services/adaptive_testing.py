@@ -712,6 +712,103 @@ def update_topic_node(
     return TopicNode(path=new_path)
 
 
+def remove_topic_node(
+    db: Session,
+    test_set_id: UUID,
+    organization_id: str,
+    user_id: str,
+    topic_path: str,
+) -> bool:
+    """Remove a topic from the adaptive testing tree.
+
+    If the topic has subtopics, they are removed as well (their topic
+    markers are deleted). All tests that belonged to the topic or any
+    of its subtopics are moved to the parent of the removed topic.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    test_set_id : UUID
+        ID of the test set containing the topic
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+    topic_path : str
+        Full path of the topic to remove (e.g. ``"Safety/Violence"``)
+
+    Returns
+    -------
+    bool
+        True if the topic existed and was removed, False if not found.
+    """
+    tree_data = convert_to_sdk_tree(db, test_set_id, organization_id, user_id)
+    existing = tree_data.topics.get(topic_path)
+    if existing is None:
+        return False
+
+    parent_path = existing.parent_path or ""
+
+    # All tests in this test set under this topic or any subtopic
+    db_tests = (
+        db.query(models.Test)
+        .join(
+            test_test_set_association,
+            models.Test.id == test_test_set_association.c.test_id,
+        )
+        .join(models.Topic, models.Test.topic_id == models.Topic.id)
+        .filter(
+            test_test_set_association.c.test_set_id == test_set_id,
+            models.Test.organization_id == organization_id,
+        )
+        .filter((models.Topic.name == topic_path) | (models.Topic.name.like(topic_path + "/%")))
+        .all()
+    )
+
+    parent_topic = None
+    if parent_path:
+        parent_topic = get_or_create_topic(
+            db=db,
+            name=parent_path,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
+    topic_marker_ids = []
+    for db_test in db_tests:
+        is_marker = (db_test.test_metadata or {}).get("label") == "topic_marker"
+        if is_marker:
+            topic_marker_ids.append(db_test.id)
+        else:
+            db_test.topic_id = parent_topic.id if parent_topic else None
+            db.add(db_test)
+
+    for test_id in topic_marker_ids:
+        db.execute(
+            test_test_set_association.delete().where(
+                test_test_set_association.c.test_id == test_id,
+                test_test_set_association.c.test_set_id == test_set_id,
+            )
+        )
+        crud.delete_test(
+            db=db,
+            test_id=test_id,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+
+    db.flush()
+
+    logger.info(
+        f"Removed topic '{topic_path}' from test_set={test_set_id}: "
+        f"moved tests to parent '{parent_path}', deleted {len(topic_marker_ids)} "
+        "topic marker(s)"
+    )
+
+    return True
+
+
 def delete_test_node(
     db: Session,
     test_set_id: UUID,

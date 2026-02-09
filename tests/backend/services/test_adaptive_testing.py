@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.database import without_soft_delete_filter
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.adaptive_testing import (
     create_adaptive_test_set,
@@ -24,6 +25,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
+    remove_topic_node,
     update_test_node,
     update_topic_node,
 )
@@ -1120,6 +1122,204 @@ class TestDeleteTestNode:
         )
 
         assert result is False
+
+
+# ============================================================================
+# Tests for remove_topic_node
+# ============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.service
+class TestRemoveTopicNode:
+    """Test remove_topic_node - removes topics and ensures topic markers are deleted."""
+
+    def test_returns_false_when_topic_not_found(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Should return False when topic path does not exist in the tree."""
+        result = remove_topic_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="Nonexistent/Topic",
+        )
+        assert result is False
+
+    def test_removes_leaf_topic_and_moves_tests_to_parent(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """Removing a leaf topic should move its tests to parent and remove its marker."""
+        topics_before = get_tree_topics(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        assert any(t.path == "Safety/Violence" for t in topics_before)
+
+        result = remove_topic_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="Safety/Violence",
+        )
+
+        assert result is True
+
+        topics_after = get_tree_topics(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        assert not any(t.path == "Safety/Violence" for t in topics_after)
+        assert any(t.path == "Safety" for t in topics_after)
+
+        tests = get_tree_tests(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        for t in tests:
+            assert t.topic in ("", "Safety")
+            assert not t.topic.startswith("Safety/Violence")
+
+    def test_removes_intermediate_topic_and_subtopic_markers(
+        self, test_db, deep_topic_test_set, test_org_id, authenticated_user_id
+    ):
+        """Removing an intermediate topic should remove it and all subtopic markers."""
+        topics_before = get_tree_topics(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        assert any(t.path == "Europe/Germany" for t in topics_before)
+        assert any(t.path == "Europe/Germany/Berlin" for t in topics_before)
+
+        result = remove_topic_node(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="Europe/Germany",
+        )
+
+        assert result is True
+
+        topics_after = get_tree_topics(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        assert not any(t.path == "Europe/Germany" for t in topics_after)
+        assert not any(t.path == "Europe/Germany/Berlin" for t in topics_after)
+        assert any(t.path == "Europe" for t in topics_after)
+
+        tests = get_tree_tests(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        for t in tests:
+            assert t.topic in ("", "Europe")
+            assert not t.topic.startswith("Europe/Germany")
+
+    def test_topic_markers_do_not_remain_in_database(
+        self, test_db, deep_topic_test_set, test_org_id, authenticated_user_id
+    ):
+        """Topic marker tests must be soft-deleted; none must remain active in DB."""
+        nodes_before = get_tree_nodes(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        marker_ids_before = {
+            n.id for n in nodes_before if n.topic == "Europe/Germany" and n.label == "topic_marker"
+        }
+        marker_ids_before.update(
+            n.id
+            for n in nodes_before
+            if n.topic == "Europe/Germany/Berlin" and n.label == "topic_marker"
+        )
+        assert len(marker_ids_before) == 2, (
+            "Fixture should have 2 topic markers under Europe/Germany"
+        )
+
+        remove_topic_node(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="Europe/Germany",
+        )
+
+        nodes_after = get_tree_nodes(
+            db=test_db,
+            test_set_id=deep_topic_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        for n in nodes_after:
+            assert (n.topic, n.label) != ("Europe/Germany", "topic_marker")
+            assert (n.topic, n.label) != ("Europe/Germany/Berlin", "topic_marker")
+
+        with without_soft_delete_filter():
+            for test_id in marker_ids_before:
+                db_test = test_db.query(models.Test).filter(models.Test.id == test_id).first()
+                assert db_test is not None
+                assert db_test.deleted_at is not None, (
+                    f"Topic marker test {test_id} must be soft-deleted and not remain in DB"
+                )
+
+    def test_topic_markers_removed_from_tree_after_remove(
+        self, test_db, adaptive_test_set, test_org_id, authenticated_user_id
+    ):
+        """After removing a topic, no topic marker for that path may appear in the tree."""
+        nodes_before = get_tree_nodes(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        violence_marker_ids = [
+            n.id for n in nodes_before if n.topic == "Safety/Violence" and n.label == "topic_marker"
+        ]
+        assert len(violence_marker_ids) == 1
+
+        remove_topic_node(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic_path="Safety/Violence",
+        )
+
+        nodes_after = get_tree_nodes(
+            db=test_db,
+            test_set_id=adaptive_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        violence_markers_after = [
+            n for n in nodes_after if n.topic == "Safety/Violence" and n.label == "topic_marker"
+        ]
+        assert len(violence_markers_after) == 0, (
+            "Topic markers for removed topic must not remain in tree"
+        )
+
+        with without_soft_delete_filter():
+            for test_id in violence_marker_ids:
+                db_test = test_db.query(models.Test).filter(models.Test.id == test_id).first()
+                assert db_test is not None
+                assert db_test.deleted_at is not None, "Topic marker must be soft-deleted"
 
 
 # ============================================================================

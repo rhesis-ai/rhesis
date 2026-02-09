@@ -36,6 +36,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
+    remove_topic_node,
     update_test_node,
     update_topic_node,
 )
@@ -269,6 +270,41 @@ def update_adaptive_topic(
         )
 
     return result
+
+
+@router.delete(
+    "/{test_set_identifier}/topics/{topic_path:path}",
+)
+def delete_adaptive_topic(
+    test_set_identifier: str,
+    topic_path: str,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Remove a topic from the adaptive testing tree.
+
+    If the topic has subtopics, they are removed as well. All tests under
+    the topic (and its subtopics) are moved to the parent of the removed topic.
+    """
+    organization_id, user_id = tenant_context
+    db_test_set = _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    removed = remove_topic_node(
+        db=db,
+        test_set_id=db_test_set.id,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        topic_path=topic_path,
+    )
+
+    if not removed:
+        raise HTTPException(
+            status_code=404,
+            detail="Topic not found in this test set",
+        )
+
+    return {"deleted": True, "topic_path": topic_path}
 
 
 @router.post(

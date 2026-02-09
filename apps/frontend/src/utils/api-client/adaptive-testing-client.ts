@@ -147,20 +147,17 @@ export class AdaptiveTestingClient extends BaseApiClient {
   }
 
   /**
-   * Delete a topic.
+   * Delete a topic. Subtopics are removed; tests under the topic are moved to the parent.
    * @param testSetId The test set identifier
-   * @param topicPath The topic path to delete
-   * @param moveTestsToParent Whether to move tests to parent (default: true)
+   * @param topicPath The topic path to delete (e.g. "Safety/Violence")
    */
   async deleteTopic(
     testSetId: string,
-    topicPath: string,
-    moveTestsToParent: boolean = true
+    topicPath: string
   ): Promise<DeleteTopicResponse> {
     const basePath = this.getBasePath(testSetId);
-    const queryParams = `?move_tests_to_parent=${moveTestsToParent}`;
     return this.fetch<DeleteTopicResponse>(
-      `${basePath}/topics/${topicPath}${queryParams}`,
+      `${basePath}/topics/${topicPath}`,
       {
         method: 'DELETE',
       }

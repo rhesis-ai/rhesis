@@ -1386,6 +1386,106 @@ class TestUpdateAdaptiveTopicEndpoint:
         ]
 
 
+# ============================================================================
+# Tests for delete topic endpoint
+# ============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestDeleteAdaptiveTopicEndpoint:
+    """Test DELETE /adaptive_testing/{test_set_id}/topics/{topic_path}"""
+
+    def test_delete_existing_topic(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Should delete the topic and return success response."""
+        response = authenticated_client.delete(
+            f"/adaptive_testing/{adaptive_test_set.id}/topics/Safety/Violence"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["deleted"] is True
+        assert body["topic_path"] == "Safety/Violence"
+
+    def test_deleted_topic_not_in_topics_list(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """After delete, topic should not appear in GET /topics."""
+        authenticated_client.delete(
+            f"/adaptive_testing/{adaptive_test_set.id}/topics/Safety/Violence"
+        )
+
+        topics_resp = authenticated_client.get(f"/adaptive_testing/{adaptive_test_set.id}/topics")
+        assert topics_resp.status_code == status.HTTP_200_OK
+        topics = topics_resp.json()
+        paths = [t["path"] for t in topics]
+        assert "Safety/Violence" not in paths
+        assert "Safety" in paths
+
+    def test_delete_intermediate_topic_removes_subtopics(
+        self,
+        authenticated_client: TestClient,
+        deep_topic_test_set,
+    ):
+        """Deleting Europe/Germany should remove Europe/Germany and Europe/Germany/Berlin."""
+        response = authenticated_client.delete(
+            f"/adaptive_testing/{deep_topic_test_set.id}/topics/Europe/Germany"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["deleted"] is True
+        assert body["topic_path"] == "Europe/Germany"
+
+        topics_resp = authenticated_client.get(f"/adaptive_testing/{deep_topic_test_set.id}/topics")
+        assert topics_resp.status_code == status.HTTP_200_OK
+        paths = [t["path"] for t in topics_resp.json()]
+        assert "Europe/Germany" not in paths
+        assert "Europe/Germany/Berlin" not in paths
+        assert "Europe" in paths
+
+    def test_delete_nonexistent_topic(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """Non-existent topic should return 404."""
+        response = authenticated_client.delete(
+            f"/adaptive_testing/{adaptive_test_set.id}/topics/Nonexistent/Topic"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_nonexistent_test_set(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """Non-existent test set should return 404."""
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.delete(f"/adaptive_testing/{fake_id}/topics/SomeTopic")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_delete_unauthenticated(
+        self,
+        client: TestClient,
+        adaptive_test_set,
+    ):
+        """Unauthenticated request should be rejected."""
+        response = client.delete(f"/adaptive_testing/{adaptive_test_set.id}/topics/Safety/Violence")
+
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]
+
+
 @pytest.mark.integration
 @pytest.mark.routes
 class TestGenerateOutputsEndpoint:

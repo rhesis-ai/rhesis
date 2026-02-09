@@ -269,6 +269,7 @@ interface TreeNodeViewProps {
     topicPath: string
   ) => void;
   onEditTopic?: (topicPath: string) => void;
+  onDeleteTopic?: (topicPath: string) => void;
 }
 
 function TreeNodeView({
@@ -280,6 +281,7 @@ function TreeNodeView({
   onToggleExpand,
   onDropTest,
   onEditTopic,
+  onDeleteTopic,
 }: TreeNodeViewProps) {
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedPaths.has(node.path);
@@ -430,6 +432,31 @@ function TreeNodeView({
           </IconButton>
         )}
 
+        {/* Delete Topic Button */}
+        {onDeleteTopic && (
+          <Tooltip title="Remove topic">
+            <IconButton
+              size="small"
+              onClick={e => {
+                e.stopPropagation();
+                onDeleteTopic(node.path);
+              }}
+              sx={{
+                p: 0.25,
+                color: 'text.secondary',
+                opacity: 0,
+                transition: 'opacity 0.15s ease',
+                '.MuiBox-root:hover > &': {
+                  opacity: 1,
+                },
+              }}
+              className="topic-edit-btn"
+            >
+              <DeleteIcon sx={{ fontSize: '0.9rem' }} />
+            </IconButton>
+          </Tooltip>
+        )}
+
         {/* Direct Test Count */}
         <Chip
           label={node.directTestCount}
@@ -502,6 +529,7 @@ function TreeNodeView({
                 onToggleExpand={onToggleExpand}
                 onDropTest={onDropTest}
                 onEditTopic={onEditTopic}
+                onDeleteTopic={onDeleteTopic}
               />
             ))}
           </Box>
@@ -1092,6 +1120,7 @@ interface TopicTreePanelProps {
     topicPath: string
   ) => void;
   onEditTopic?: (topicPath: string) => void;
+  onDeleteTopic?: (topicPath: string) => void;
 }
 
 function TopicTreePanel({
@@ -1102,6 +1131,7 @@ function TopicTreePanel({
   onAddTopic,
   onDropTest,
   onEditTopic,
+  onDeleteTopic,
 }: TopicTreePanelProps) {
   // Start with all paths expanded
   const [expandedPaths, setExpandedPaths] = useState<
@@ -1212,6 +1242,7 @@ function TopicTreePanel({
           onToggleExpand={handleToggleExpand}
           onDropTest={onDropTest}
           onEditTopic={onEditTopic}
+          onDeleteTopic={onDeleteTopic}
         />
       ))}
 
@@ -1539,6 +1570,10 @@ export default function AdaptiveTestingDetail({
     useState(false);
   const [renamingTopicPath, setRenamingTopicPath] =
     useState<string | null>(null);
+  const [deleteTopicConfirmOpen, setDeleteTopicConfirmOpen] =
+    useState(false);
+  const [deletingTopicPath, setDeletingTopicPath] =
+    useState<string | null>(null);
   const [generateOutputsDialogOpen, setGenerateOutputsDialogOpen] =
     useState(false);
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
@@ -1762,6 +1797,47 @@ export default function AdaptiveTestingDetail({
   const handleEditTopicOpen = (topicPath: string) => {
     setRenamingTopicPath(topicPath);
     setRenameTopicDialogOpen(true);
+  };
+
+  const handleDeleteTopicOpen = (topicPath: string) => {
+    setDeletingTopicPath(topicPath);
+    setDeleteTopicConfirmOpen(true);
+  };
+
+  const handleDeleteTopicConfirm = async () => {
+    if (!deletingTopicPath) return;
+
+    try {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const client = clientFactory.getAdaptiveTestingClient();
+
+      await client.deleteTopic(testSetId, deletingTopicPath);
+
+      const [treeNodes, updatedTopics] = await Promise.all([
+        client.getTree(testSetId),
+        client.getTopics(testSetId),
+      ]);
+
+      setTests(
+        treeNodes.filter(node => node.label !== 'topic_marker')
+      );
+      setTopics(updatedTopics);
+
+      if (
+        selectedTopic === deletingTopicPath ||
+        selectedTopic?.startsWith(deletingTopicPath + '/')
+      ) {
+        setSelectedTopic(null);
+      }
+
+      setDeleteTopicConfirmOpen(false);
+      setDeletingTopicPath(null);
+    } catch (err) {
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to remove topic.',
+        { severity: 'error' }
+      );
+    }
   };
 
   const handleRenameTopicSubmit = async (
@@ -2032,6 +2108,7 @@ export default function AdaptiveTestingDetail({
                 onAddTopic={handleAddTopicOpen}
                 onDropTest={handleDropTestOnTopic}
                 onEditTopic={handleEditTopicOpen}
+                onDeleteTopic={handleDeleteTopicOpen}
               />
             </Box>
           </Paper>
@@ -2173,7 +2250,7 @@ export default function AdaptiveTestingDetail({
         topicPath={renamingTopicPath}
       />
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Test Confirmation Dialog */}
       <Dialog
         open={deleteConfirmOpen}
         onClose={() => {
@@ -2218,6 +2295,51 @@ export default function AdaptiveTestingDetail({
             variant="contained"
           >
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Topic Confirmation Dialog */}
+      <Dialog
+        open={deleteTopicConfirmOpen}
+        onClose={() => {
+          setDeleteTopicConfirmOpen(false);
+          setDeletingTopicPath(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Remove Topic</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Remove this topic? Subtopics will be removed and all tests under
+            this topic will be moved to the parent topic.
+          </Typography>
+          {deletingTopicPath && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mt: 1 }}
+            >
+              {decodeURIComponent(deletingTopicPath)}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setDeleteTopicConfirmOpen(false);
+              setDeletingTopicPath(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteTopicConfirm}
+            color="error"
+            variant="contained"
+          >
+            Remove
           </Button>
         </DialogActions>
       </Dialog>
