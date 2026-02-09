@@ -125,7 +125,7 @@ export function MCPConnectionDialog({
 }: MCPConnectionDialogProps) {
   const theme = useTheme();
   const { data: session } = useSession();
-  const notifications = useNotifications();
+  const _notifications = useNotifications();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [authToken, setAuthToken] = useState('');
@@ -905,7 +905,7 @@ export function MCPConnectionDialog({
                       required={!isEditMode}
                       value={instanceUrl}
                       onChange={e => setInstanceUrl(e.target.value)}
-                      onFocus={e => {
+                      onFocus={_e => {
                         // Clear placeholder when user clicks on field in edit mode
                         if (isEditMode && instanceUrl === '************') {
                           setInstanceUrl('');
@@ -930,7 +930,7 @@ export function MCPConnectionDialog({
                       required={!isEditMode}
                       value={username}
                       onChange={e => setUsername(e.target.value)}
-                      onFocus={e => {
+                      onFocus={_e => {
                         // Clear placeholder when user clicks on field in edit mode
                         if (isEditMode && username === '************') {
                           setUsername('');
@@ -958,7 +958,7 @@ export function MCPConnectionDialog({
                   type={showAuthToken ? 'text' : 'password'}
                   value={authToken}
                   onChange={e => setAuthToken(e.target.value)}
-                  onFocus={e => {
+                  onFocus={_e => {
                     // Clear placeholder when user clicks on field in edit mode
                     if (isEditMode && authToken === '************') {
                       setAuthToken('');
