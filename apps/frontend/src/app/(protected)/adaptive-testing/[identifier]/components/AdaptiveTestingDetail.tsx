@@ -1927,14 +1927,6 @@ export default function AdaptiveTestingDetail({
             {failCount}
           </Typography>
         </Paper>
-        <Button
-          variant="contained"
-          startIcon={<PlayArrowIcon />}
-          onClick={() => handleGenerateOutputsOpen()}
-          sx={{ ml: 'auto', alignSelf: 'center', textTransform: 'none' }}
-        >
-          Generate outputs
-        </Button>
       </Box>
 
       {/* View Tabs */}
