@@ -808,7 +808,7 @@ Consistent, isolated test environments are crucial for reliable testing.
 version: '3.8'
 services:
   test-db:
-    image: pgvector/pgvector:pg16
+    image: mirror.gcr.io/pgvector/pgvector:pg16
     environment:
       POSTGRES_DB: rhesis_test
       POSTGRES_USER: test

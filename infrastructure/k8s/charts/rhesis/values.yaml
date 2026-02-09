@@ -37,7 +37,7 @@ database:
   postgresql:
     disableSecurityContext: true  # Temporarily disable for PostgreSQL due to permission issues
     image:
-      repository: pgvector/pgvector
+      repository: mirror.gcr.io/pgvector/pgvector
       tag: "pg16"
     persistence:
       enabled: true

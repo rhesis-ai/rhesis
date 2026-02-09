@@ -117,7 +117,7 @@ jobs:
 
     services:
       postgres:
-        image: pgvector/pgvector:pg15
+        image: mirror.gcr.io/pgvector/pgvector:pg16
         env:
           POSTGRES_DB: postgres
           POSTGRES_USER: postgres

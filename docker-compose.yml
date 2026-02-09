@@ -70,7 +70,7 @@ x-nextjs-frontend: &nextjs-frontend
 services:
   # PostgreSQL Database
   postgres:
-    image: pgvector/pgvector:pg16
+    image: mirror.gcr.io/pgvector/pgvector:pg16
     container_name: rhesis-postgres
     environment:
       POSTGRES_DB: ${SQLALCHEMY_DB_NAME:-rhesis-db}
