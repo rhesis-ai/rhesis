@@ -21,6 +21,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.models import Embedding, Source, Test
 from rhesis.backend.app.models.embedding import EmbeddingConfig
 
+# Import the test_model fixture
+pytest_plugins = ["tests.backend.metrics.fixtures.metric_fixtures"]
+
 
 @pytest.mark.unit
 class TestEmbeddingConfig:
@@ -78,13 +81,13 @@ class TestEmbeddingModel:
     """🗄️ Test Embedding model properties and methods"""
 
     def test_embedding_property_getter(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test reading embedding from the correct column"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -104,13 +107,13 @@ class TestEmbeddingModel:
         assert len(embedding.embedding) == 768
 
     def test_embedding_property_setter(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test setting embedding sets the correct column"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 1536, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -133,13 +136,13 @@ class TestEmbeddingModel:
         assert embedding.embedding_1024 is None
 
     def test_embedding_property_setter_clears_other_columns(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test that setting embedding clears other dimension columns"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -167,13 +170,13 @@ class TestEmbeddingModel:
         assert embedding.embedding_1536 is None
 
     def test_embedding_property_without_config(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test that accessing embedding without config raises error"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             config_hash="test_hash",
             searchable_text="test text",
             text_hash="text_hash",
@@ -186,13 +189,13 @@ class TestEmbeddingModel:
             _ = embedding.embedding
 
     def test_embedding_property_setter_without_config(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test that setting embedding without config raises error"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             config_hash="test_hash",
             searchable_text="test text",
             text_hash="text_hash",
@@ -204,13 +207,13 @@ class TestEmbeddingModel:
             embedding.embedding = [0.1] * 768
 
     def test_embedding_property_setter_dimension_mismatch(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test that setting wrong dimension raises error"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -224,13 +227,13 @@ class TestEmbeddingModel:
             embedding.embedding = [0.1] * 384
 
     def test_dimension_property(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test dimension property returns config dimension"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 1024, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -242,13 +245,13 @@ class TestEmbeddingModel:
         assert embedding.dimension == 1024
 
     def test_dimension_property_without_config(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test dimension property raises error without config"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             config_hash="test_hash",
             searchable_text="test text",
             text_hash="text_hash",
@@ -260,13 +263,13 @@ class TestEmbeddingModel:
             _ = embedding.dimension
 
     def test_active_dimension_property(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test active_dimension returns the actual stored dimension"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 384, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -283,13 +286,13 @@ class TestEmbeddingModel:
         assert embedding.active_dimension == 384
 
     def test_active_dimension_property_none(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test active_dimension returns None when no embedding stored"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -305,13 +308,13 @@ class TestEmbeddingModel:
         assert embedding.active_dimension is None
 
     def test_embedding_column_name_property(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test embedding_column_name returns correct column name"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 1536, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -328,14 +331,14 @@ class TestEmbeddingModel:
         assert embedding.embedding_column_name == "embedding_1536"
 
     def test_repr(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test string representation"""
         entity_id = uuid.uuid4()
         embedding = Embedding(
             entity_id=entity_id,
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -363,7 +366,7 @@ class TestEmbeddingConstraints:
     """🔒 Test database constraints on Embedding model"""
 
     def test_check_constraint_exactly_one_embedding(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test that CHECK constraint enforces exactly one embedding column"""
         # This would violate the CHECK constraint (two embeddings set)
@@ -374,7 +377,7 @@ class TestEmbeddingConstraints:
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -400,7 +403,7 @@ class TestEmbeddingConstraints:
         test_db.rollback()
 
     def test_check_constraint_no_embedding(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test that CHECK constraint prevents zero embeddings"""
         from sqlalchemy import text
@@ -408,7 +411,7 @@ class TestEmbeddingConstraints:
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -431,14 +434,14 @@ class TestEmbeddingConstraints:
         test_db.rollback()
 
     def test_nano_id_unique_constraint(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test that nano_id has unique constraint"""
         # Create first embedding with nano_id
         embedding1 = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -455,7 +458,7 @@ class TestEmbeddingConstraints:
         embedding2 = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "test-model"},
             config_hash="test_hash2",
             searchable_text="test text 2",
@@ -478,7 +481,7 @@ class TestEmbeddingRelationships:
     """🔗 Test polymorphic relationships with Test and Source models"""
 
     def test_test_embeddings_relationship(
-        self, test_db: Session, db_test_minimal, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, db_test_minimal, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test loading embeddings from Test model"""
         test = db_test_minimal
@@ -487,7 +490,7 @@ class TestEmbeddingRelationships:
         embedding1 = Embedding(
             entity_id=test.id,
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "model-1"},
             config_hash="hash1",
             searchable_text="test content 1",
@@ -500,7 +503,7 @@ class TestEmbeddingRelationships:
         embedding2 = Embedding(
             entity_id=test.id,
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 384, "model": "model-2"},
             config_hash="hash2",
             searchable_text="test content 2",
@@ -522,7 +525,7 @@ class TestEmbeddingRelationships:
         assert all(emb.entity_type == "Test" for emb in embeddings)
 
     def test_source_embeddings_relationship(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test loading embeddings from Source model"""
         # Create a source
@@ -540,7 +543,7 @@ class TestEmbeddingRelationships:
         embedding = Embedding(
             entity_id=source.id,
             entity_type="Source",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 1024, "model": "test-model"},
             config_hash="hash1",
             searchable_text="source content",
@@ -656,13 +659,13 @@ class TestEmbeddingDefaults:
     """🎯 Test default values and server defaults"""
 
     def test_weight_default(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test that weight has default value of 1.0"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
@@ -679,13 +682,13 @@ class TestEmbeddingDefaults:
         assert embedding.weight == 1.0
 
     def test_status_default(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, db_model
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
     ):
         """Test that status has default value of 'active'"""
         embedding = Embedding(
             entity_id=uuid.uuid4(),
             entity_type="Test",
-            model_id=db_model.id,
+            model_id=test_model.id,
             embedding_config={"dimension": 768, "model": "test-model"},
             config_hash="test_hash",
             searchable_text="test text",
