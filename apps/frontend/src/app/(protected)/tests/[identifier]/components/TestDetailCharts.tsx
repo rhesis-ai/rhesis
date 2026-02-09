@@ -9,7 +9,6 @@ import {
   Card,
   CardContent,
   useTheme,
-  Grid,
   Chip,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';

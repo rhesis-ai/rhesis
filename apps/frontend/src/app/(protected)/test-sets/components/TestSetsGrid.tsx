@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   GridColDef,
   GridRowSelectionModel,
@@ -10,18 +10,7 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import {
-  Box,
-  Chip,
-  Tooltip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  SelectChangeEvent,
-  Typography,
-  Avatar,
-} from '@mui/material';
+import { Box, Chip, Tooltip, Typography, Avatar } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -134,7 +123,7 @@ export default function TestSetsGrid({
 
       setTestSets(response.data);
       setTotalCount(response.pagination.totalCount);
-    } catch (error) {
+    } catch (_error) {
     } finally {
       setLoading(false);
     }
@@ -413,7 +402,7 @@ export default function TestSetsGrid({
       // Clear selection and refresh data
       setSelectedRows([]);
       fetchTestSets();
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to delete test sets', {
         severity: 'error',
         autoHideDuration: 6000,

@@ -44,7 +44,7 @@ export default async function TestSetsPage() {
               testSet.status_id as string
             );
             updatedTestSet = { ...updatedTestSet, status: status.name };
-          } catch (error) {
+          } catch (_error) {
             // Keep original testSet if status fetch fails
           }
         }
@@ -57,7 +57,7 @@ export default async function TestSetsPage() {
               testSet.test_set_type_id as string
             );
             updatedTestSet = { ...updatedTestSet, test_set_type: testSetType };
-          } catch (error) {
+          } catch (_error) {
             // Keep original testSet if test set type fetch fails
           }
         }
