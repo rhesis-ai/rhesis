@@ -1,4 +1,4 @@
-# Standalone Prod network (no peering). For full deploy with peerings run from infrastructure/
+# Standalone prd network (no peering). For full deploy with peerings run from infrastructure/
 
 terraform {
   required_providers {
@@ -15,11 +15,11 @@ provider "google" {
   region  = var.region
 }
 
-module "prod" {
+module "prd" {
   source = "../../modules/network/gcp"
 
   project_id         = var.project_id
-  environment        = "prod"
+  environment        = "prd"
   region             = var.region
   network_cidr       = "10.6.0.0/15"
   create_gke_subnets = true

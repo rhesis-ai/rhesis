@@ -1,4 +1,4 @@
-# Creates all four VPCs and peerings (WireGuard <-> dev, staging, prod).
+# Creates all four VPCs and peerings (WireGuard <-> dev, stg, prd).
 # Run: terraform init && terraform apply from infrastructure/
 
 terraform {
@@ -43,12 +43,12 @@ module "dev" {
   service_cidr      = "10.3.128.0/17"
 }
 
-# Staging VPC
-module "staging" {
+# stg VPC
+module "stg" {
   source = "./modules/network/gcp"
 
   project_id         = var.project_id
-  environment        = "staging"
+  environment        = "stg"
   region             = var.region
   network_cidr       = "10.4.0.0/15"
   create_gke_subnets = true
@@ -59,12 +59,12 @@ module "staging" {
   service_cidr      = "10.5.128.0/17"
 }
 
-# Prod VPC
-module "prod" {
+# prd VPC
+module "prd" {
   source = "./modules/network/gcp"
 
   project_id         = var.project_id
-  environment        = "prod"
+  environment        = "prd"
   region             = var.region
   network_cidr       = "10.6.0.0/15"
   create_gke_subnets = true
@@ -88,28 +88,28 @@ resource "google_compute_network_peering" "dev_to_wireguard" {
   peer_network = module.wireguard.vpc_self_link
 }
 
-# VPC Peering: WireGuard <-> Staging (bidirectional)
-resource "google_compute_network_peering" "wireguard_to_staging" {
-  name         = "peering-wireguard-to-staging"
+# VPC Peering: WireGuard <-> stg (bidirectional)
+resource "google_compute_network_peering" "wireguard_to_stg" {
+  name         = "peering-wireguard-to-stg"
   network      = module.wireguard.vpc_self_link
-  peer_network = module.staging.vpc_self_link
+  peer_network = module.stg.vpc_self_link
 }
 
-resource "google_compute_network_peering" "staging_to_wireguard" {
-  name         = "peering-staging-to-wireguard"
-  network      = module.staging.vpc_self_link
+resource "google_compute_network_peering" "stg_to_wireguard" {
+  name         = "peering-stg-to-wireguard"
+  network      = module.stg.vpc_self_link
   peer_network = module.wireguard.vpc_self_link
 }
 
-# VPC Peering: WireGuard <-> Prod (bidirectional)
-resource "google_compute_network_peering" "wireguard_to_prod" {
-  name         = "peering-wireguard-to-prod"
+# VPC Peering: WireGuard <-> prd (bidirectional)
+resource "google_compute_network_peering" "wireguard_to_prd" {
+  name         = "peering-wireguard-to-prd"
   network      = module.wireguard.vpc_self_link
-  peer_network = module.prod.vpc_self_link
+  peer_network = module.prd.vpc_self_link
 }
 
-resource "google_compute_network_peering" "prod_to_wireguard" {
-  name         = "peering-prod-to-wireguard"
-  network      = module.prod.vpc_self_link
+resource "google_compute_network_peering" "prd_to_wireguard" {
+  name         = "peering-prd-to-wireguard"
+  network      = module.prd.vpc_self_link
   peer_network = module.wireguard.vpc_self_link
 }

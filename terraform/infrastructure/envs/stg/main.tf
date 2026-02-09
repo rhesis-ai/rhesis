@@ -1,4 +1,4 @@
-# Standalone Staging network (no peering). For full deploy with peerings run from infrastructure/
+# Standalone stg network (no peering). For full deploy with peerings run from infrastructure/
 
 terraform {
   required_providers {
@@ -15,11 +15,11 @@ provider "google" {
   region  = var.region
 }
 
-module "staging" {
+module "stg" {
   source = "../../modules/network/gcp"
 
   project_id         = var.project_id
-  environment        = "staging"
+  environment        = "stg"
   region             = var.region
   network_cidr       = "10.4.0.0/15"
   create_gke_subnets = true

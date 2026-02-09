@@ -10,15 +10,15 @@ output "dev_vpc_name" {
 output "dev_vpc_self_link" {
   value = module.dev.vpc_self_link
 }
-output "staging_vpc_name" {
-  value = module.staging.vpc_name
+output "stg_vpc_name" {
+  value = module.stg.vpc_name
 }
-output "staging_vpc_self_link" {
-  value = module.staging.vpc_self_link
+output "stg_vpc_self_link" {
+  value = module.stg.vpc_self_link
 }
-output "prod_vpc_name" {
-  value = module.prod.vpc_name
+output "prd_vpc_name" {
+  value = module.prd.vpc_name
 }
-output "prod_vpc_self_link" {
-  value = module.prod.vpc_self_link
+output "prd_vpc_self_link" {
+  value = module.prd.vpc_self_link
 }
