@@ -170,7 +170,24 @@ class EmbeddableMixin:
     - Hashed to Embedding.text_hash (to detect changes)
     - Converted to tsvector in Embedding.tsv (for PostgreSQL full-text search)
     - Vectorized and stored in Embedding.embedding_{dimension} columns
+
+    The mixin also provides a polymorphic `embeddings` relationship that automatically
+    filters by the entity's class name.
     """
+
+    @declared_attr
+    def embeddings(cls):
+        """Polymorphic embedding relationship"""
+        return relationship(
+            "Embedding",
+            primaryjoin=(
+                f"and_(Embedding.entity_id == foreign({cls.__name__}.id), "
+                f"Embedding.entity_type == '{cls.__name__}')"
+            ),
+            foreign_keys="[Embedding.entity_id]",
+            viewonly=True,
+            uselist=True,
+        )
 
     def to_searchable_text(self) -> str:
         """
