@@ -3,7 +3,6 @@ import {
   Box,
   TextField,
   Button,
-  Typography,
   CircularProgress,
   Snackbar,
   Alert,
@@ -14,7 +13,6 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import StepHeader from './StepHeader';
 import {
-  validateRequired,
   validateName,
   validateOrganizationName,
   validateUrl,

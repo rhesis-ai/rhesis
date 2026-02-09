@@ -1,4 +1,3 @@
-import { Box } from '@mui/material';
 import { auth } from '@/auth';
 import OnboardingPageClient from './components/OnboardingPageClient';
 import { UUID } from 'crypto';

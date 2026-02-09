@@ -11,7 +11,6 @@ import {
   StepLabel,
   Typography,
   Container,
-  Stack,
 } from '@mui/material';
 import OrganizationDetailsStep from './OrganizationDetailsStep';
 import InviteTeamStep from './InviteTeamStep';
@@ -48,7 +47,7 @@ export default function OnboardingPageClient({
   sessionToken,
   userId,
 }: OnboardingPageClientProps) {
-  const router = useRouter();
+  const _router = useRouter();
   const { data: _session, update: _update } = useSession();
   const notifications = useNotifications();
   const [activeStep, setActiveStep] = React.useState(0);
