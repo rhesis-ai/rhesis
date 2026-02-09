@@ -22,8 +22,8 @@ class GitHubProvider(AuthProvider):
     Implements GitHub Sign-In using OAuth 2.0.
 
     Environment variables:
-        GITHUB_CLIENT_ID: GitHub OAuth client ID (required to enable)
-        GITHUB_CLIENT_SECRET: GitHub OAuth client secret (required to enable)
+        GH_CLIENT_ID: GitHub OAuth client ID (required to enable)
+        GH_CLIENT_SECRET: GitHub OAuth client secret (required to enable)
 
     Setup:
         1. Go to https://github.com/settings/developers
@@ -33,7 +33,7 @@ class GitHubProvider(AuthProvider):
            - Homepage URL: Your app URL
            - Authorization callback URL: https://yourapp.com/auth/callback
         4. Copy the client ID and generate a client secret
-        5. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment variables
+        5. Set GH_CLIENT_ID and GH_CLIENT_SECRET environment variables
 
     Note:
         GitHub may not return an email if the user has set their email to private.
@@ -59,9 +59,9 @@ class GitHubProvider(AuthProvider):
         """
         Check if GitHub OAuth is configured.
 
-        Both GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be set.
+        Both GH_CLIENT_ID and GH_CLIENT_SECRET must be set.
         """
-        return bool(os.getenv("GITHUB_CLIENT_ID") and os.getenv("GITHUB_CLIENT_SECRET"))
+        return bool(os.getenv("GH_CLIENT_ID") and os.getenv("GH_CLIENT_SECRET"))
 
     @property
     def is_oauth(self) -> bool:
@@ -78,8 +78,8 @@ class GitHubProvider(AuthProvider):
             self._oauth = OAuth()
             self._oauth.register(
                 name="github",
-                client_id=os.getenv("GITHUB_CLIENT_ID"),
-                client_secret=os.getenv("GITHUB_CLIENT_SECRET"),
+                client_id=os.getenv("GH_CLIENT_ID"),
+                client_secret=os.getenv("GH_CLIENT_SECRET"),
                 access_token_url="https://github.com/login/oauth/access_token",
                 authorize_url="https://github.com/login/oauth/authorize",
                 api_base_url="https://api.github.com/",
