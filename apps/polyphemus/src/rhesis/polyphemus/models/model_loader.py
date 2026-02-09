@@ -38,11 +38,25 @@ def _strip_provider_prefix(model_name: str) -> str:
 
     Converts:
     - "huggingface/Qwen/Qwen2.5-8B-Instruct" -> "Qwen/Qwen2.5-8B-Instruct"
+    - "lmformatenforcer/Org/Model" -> "Org/Model" (handles incorrect prefixes)
     - "huggingface/distilgpt2" -> "distilgpt2"
     - "Qwen/Qwen2.5-8B-Instruct" -> "Qwen/Qwen2.5-8B-Instruct" (no change)
+
+    If the model name has 2+ slashes (e.g., "prefix/org/model"), strips the first
+    segment assuming it's a provider prefix.
     """
+    # Count slashes to detect provider prefix
+    slash_count = model_name.count("/")
+
+    # If there are 2+ slashes, assume first segment is a provider prefix
+    if slash_count >= 2:
+        # Strip everything up to and including the first slash
+        return model_name.split("/", 1)[1]
+
+    # Legacy: explicit huggingface/ prefix stripping
     if model_name.startswith("huggingface/"):
         return model_name[len("huggingface/") :]
+
     return model_name
 
 
@@ -53,12 +67,15 @@ def _map_gcs_to_mounted_path(model_name: str, gcs_path: str) -> str:
     Cloud Run mounts GCS buckets at /gcs-models, so we convert:
     gs://bucket/path/to/model -> /gcs-models/path/to/model
 
+    Preserves the full model path including organization name to match
+    HuggingFace directory structure (e.g., "org/model-name").
+
     Args:
-        model_name: Model identifier (e.g., "organization/model-name")
+        model_name: Model identifier (e.g., "Goekdeniz-Guelmez/Josiefied-Qwen3-8B")
         gcs_path: GCS path (e.g., "gs://bucket-name/models")
 
     Returns:
-        str: Local mounted path (e.g., "/gcs-models/models/model-name")
+        str: Local mounted path (e.g., "/gcs-models/models/Org/Model")
     """
     if not gcs_path.startswith("gs://"):
         return gcs_path
@@ -68,16 +85,17 @@ def _map_gcs_to_mounted_path(model_name: str, gcs_path: str) -> str:
     parts = bucket_and_path.split("/", 1)
     bucket_path = parts[1] if len(parts) > 1 else ""
 
-    # Get model directory name from model_name
-    model_dir_name = model_name.split("/")[-1]
+    # Preserve full model path (includes org name)
+    # E.g., "Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1"
+    model_path = model_name
 
     # Construct mounted path
     if bucket_path:
-        mounted_path = f"{GCS_MOUNT_PATH}/{bucket_path}/{model_dir_name}"
+        mounted_path = f"{GCS_MOUNT_PATH}/{bucket_path}/{model_path}"
     else:
-        mounted_path = f"{GCS_MOUNT_PATH}/{model_dir_name}"
+        mounted_path = f"{GCS_MOUNT_PATH}/{model_path}"
 
-    logger.info(f"Mapped GCS path: {gcs_path}/{model_dir_name}")
+    logger.info(f"Mapped GCS path: {gcs_path}/{model_path}")
     logger.info(f"To mounted path: {mounted_path}")
 
     return mounted_path
@@ -86,6 +104,10 @@ def _map_gcs_to_mounted_path(model_name: str, gcs_path: str) -> str:
 def _resolve_model_source(model_name: str) -> str:
     """
     Resolve model source from model name and MODEL_PATH configuration.
+
+    Priority order:
+    1. Check GCS mounted volume / local path (if MODEL_PATH is set)
+    2. Fall back to HuggingFace Hub if path doesn't exist
 
     Returns either a local path (from GCS mount or local disk) or
     a HuggingFace Hub model identifier.
@@ -98,12 +120,32 @@ def _resolve_model_source(model_name: str) -> str:
     """
     if MODEL_PATH:
         if MODEL_PATH.startswith("gs://"):
-            source = _map_gcs_to_mounted_path(model_name, MODEL_PATH)
-            logger.info(f"Using Cloud Storage mounted volume: {source}")
-            return source
+            # Try GCS mounted volume first
+            gcs_mounted_path = _map_gcs_to_mounted_path(model_name, MODEL_PATH)
+
+            # Check if the path exists
+            import os.path
+
+            if os.path.exists(gcs_mounted_path):
+                logger.info(f"Found model in GCS mounted volume: {gcs_mounted_path}")
+                return gcs_mounted_path
+            else:
+                logger.warning(
+                    f"Model not found in GCS at {gcs_mounted_path}, falling back to HuggingFace Hub"
+                )
+                return model_name
         else:
-            logger.info(f"Using local path: {MODEL_PATH}")
-            return MODEL_PATH
+            # Local path - check if it exists
+            import os.path
+
+            if os.path.exists(MODEL_PATH):
+                logger.info(f"Using local path: {MODEL_PATH}")
+                return MODEL_PATH
+            else:
+                logger.warning(
+                    f"Local path {MODEL_PATH} not found, falling back to HuggingFace Hub"
+                )
+                return model_name
     else:
         logger.info("No MODEL_PATH set, will use HuggingFace Hub")
         return model_name

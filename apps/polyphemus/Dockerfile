@@ -90,6 +90,7 @@ FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04 AS runtime
 WORKDIR /app
 
 # Install Python 3.10 and runtime dependencies
+# Note: build-essential (gcc) is required for vLLM's Triton kernel JIT compilation
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     --allow-unauthenticated \
@@ -98,6 +99,8 @@ RUN apt-get update && \
     -o Acquire::https::Timeout=10 \
     python3.10 \
     python3.10-venv \
+    python3.10-dev \
+    build-essential \
     curl \
     && ln -s /usr/bin/python3.10 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
