@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.adaptive_testing import (
+    create_adaptive_test_set,
     create_test_node,
     create_topic_node,
     delete_test_node,
@@ -531,6 +532,67 @@ class TestGetAdaptiveTestSets:
         )
 
         assert result == []
+
+
+# ============================================================================
+# Tests for create_adaptive_test_set
+# ============================================================================
+
+
+@pytest.mark.integration
+@pytest.mark.service
+class TestCreateAdaptiveTestSet:
+    """Test create_adaptive_test_set - creates a test set for adaptive testing."""
+
+    def test_returns_test_set_model(self, test_db, test_org_id, authenticated_user_id):
+        """Creating with name and optional description returns a TestSet model."""
+        result = create_adaptive_test_set(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            name="My Adaptive Set",
+            description="Optional description",
+        )
+        assert isinstance(result, models.TestSet)
+        assert result.name == "My Adaptive Set"
+        assert result.description == "Optional description"
+
+    def test_attributes_contain_adaptive_testing_behavior(
+        self, test_db, test_org_id, authenticated_user_id
+    ):
+        """Created test set has attributes.metadata.behaviors containing Adaptive Testing."""
+        result = create_adaptive_test_set(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            name=f"Adaptive Set {uuid.uuid4().hex[:6]}",
+        )
+        assert result.attributes is not None
+        assert "metadata" in result.attributes
+        assert "behaviors" in result.attributes["metadata"]
+        assert "Adaptive Testing" in result.attributes["metadata"]["behaviors"]
+
+    def test_has_correct_organization_and_user(self, test_db, test_org_id, authenticated_user_id):
+        """Created test set has correct organization_id and user_id."""
+        result = create_adaptive_test_set(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            name=f"Adaptive Set {uuid.uuid4().hex[:6]}",
+        )
+        assert str(result.organization_id) == str(test_org_id)
+        assert str(result.user_id) == str(authenticated_user_id)
+
+    def test_description_optional(self, test_db, test_org_id, authenticated_user_id):
+        """Created test set has the given name; description can be omitted."""
+        result = create_adaptive_test_set(
+            db=test_db,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            name="No Description Set",
+        )
+        assert result.name == "No Description Set"
+        assert result.description is None
 
 
 # ============================================================================

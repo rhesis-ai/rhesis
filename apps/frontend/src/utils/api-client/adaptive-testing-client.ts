@@ -55,6 +55,24 @@ export class AdaptiveTestingClient extends BaseApiClient {
   }
 
   /**
+   * Create a new test set configured for adaptive testing.
+   * @param name Test set name
+   * @param description Optional description
+   */
+  async createAdaptiveTestSet(
+    name: string,
+    description?: string
+  ): Promise<AdaptiveTestSet> {
+    return this.fetch<AdaptiveTestSet>(API_ENDPOINTS.adaptiveTesting, {
+      method: 'POST',
+      body: JSON.stringify({ name, description: description ?? null }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  /**
    * Get the full adaptive testing tree for a test set.
    * Returns all nodes including both test nodes and topic markers.
    * @param testSetId The test set identifier (UUID, nano_id, or slug)

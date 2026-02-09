@@ -40,6 +40,13 @@ class TestSetCreate(TestSetBase):
     pass
 
 
+class AdaptiveTestSetCreate(Base):
+    """Request body for creating a test set configured for adaptive testing."""
+
+    name: str
+    description: Optional[str] = None
+
+
 class TestSetUpdate(TestSetBase):
     name: str = None
 

@@ -21,6 +21,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.adaptive_testing import (
+    create_adaptive_test_set,
     create_test_node,
     create_topic_node,
     delete_test_node,
@@ -49,6 +50,31 @@ def _resolve_test_set_or_raise(identifier: str, db: Session, organization_id: st
             detail="Test set not found with provided identifier",
         )
     return db_test_set
+
+
+@router.post(
+    "",
+    response_model=schemas.TestSet,
+    status_code=201,
+)
+def create_adaptive_test_set_endpoint(
+    body: schemas.AdaptiveTestSetCreate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Create a new test set configured for adaptive testing.
+
+    The created test set will appear in the list of adaptive test sets.
+    """
+    organization_id, user_id = tenant_context
+    return create_adaptive_test_set(
+        db=db,
+        organization_id=str(organization_id),
+        user_id=str(user_id),
+        name=body.name,
+        description=body.description,
+    )
 
 
 @router.get(

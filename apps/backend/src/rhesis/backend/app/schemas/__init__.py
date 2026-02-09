@@ -107,6 +107,7 @@ from .test_result import (
 )
 from .test_run import TestRun, TestRunBase, TestRunCreate, TestRunUpdate
 from .test_set import (
+    AdaptiveTestSetCreate,
     TestData,
     TestPrompt,
     TestRunRescoreRequest,
@@ -186,6 +187,7 @@ __all__ = [
     "ReviewUpdate",
     "ReviewResponse",
     "ReviewTargetCreate",
+    "AdaptiveTestSetCreate",
     "TestSet",
     "TestSetBase",
     "TestSetCreate",

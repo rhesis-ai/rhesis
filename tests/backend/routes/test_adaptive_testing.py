@@ -372,6 +372,78 @@ class TestListAdaptiveTestSetsEndpoint:
 
 @pytest.mark.integration
 @pytest.mark.routes
+class TestCreateAdaptiveTestSetEndpoint:
+    """Test POST /adaptive_testing"""
+
+    def test_post_returns_201_and_test_set_schema(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """POST with name and description returns 201 and TestSet-like body."""
+        response = authenticated_client.post(
+            "/adaptive_testing",
+            json={
+                "name": "My Adaptive Set",
+                "description": "Optional",
+            },
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert "id" in data
+        assert data["name"] == "My Adaptive Set"
+        assert data["description"] == "Optional"
+        assert "attributes" in data
+        assert "metadata" in data["attributes"]
+        assert "behaviors" in data["attributes"]["metadata"]
+        assert "Adaptive Testing" in data["attributes"]["metadata"]["behaviors"]
+        assert "created_at" in data
+        assert "updated_at" in data
+
+    def test_created_set_appears_in_list(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """Created test set appears in GET /adaptive_testing."""
+        create_resp = authenticated_client.post(
+            "/adaptive_testing",
+            json={"name": "List Check Set", "description": None},
+        )
+        assert create_resp.status_code == status.HTTP_201_CREATED
+        created_id = create_resp.json()["id"]
+
+        list_resp = authenticated_client.get("/adaptive_testing")
+        assert list_resp.status_code == status.HTTP_200_OK
+        ids = [item["id"] for item in list_resp.json()]
+        assert created_id in ids
+
+    def test_unauthenticated_post_returns_401_or_403(
+        self,
+        client: TestClient,
+    ):
+        """Unauthenticated POST should be rejected."""
+        response = client.post(
+            "/adaptive_testing",
+            json={"name": "Unauth Set", "description": "No"},
+        )
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]
+
+    def test_missing_name_returns_422(
+        self,
+        authenticated_client: TestClient,
+    ):
+        """Missing name in body returns 422."""
+        response = authenticated_client.post(
+            "/adaptive_testing",
+            json={"description": "No name"},
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.integration
+@pytest.mark.routes
 class TestAdaptiveTestingTreeEndpoint:
     """Test GET /adaptive_testing/{test_set_id}/tree"""
 

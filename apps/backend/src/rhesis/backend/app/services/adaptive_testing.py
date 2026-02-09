@@ -11,7 +11,7 @@ from sqlalchemy import cast
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, models
+from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import get_or_create_topic
@@ -241,6 +241,52 @@ def get_adaptive_test_sets(
     )
 
     return test_sets
+
+
+def create_adaptive_test_set(
+    db: Session,
+    organization_id: str,
+    user_id: str,
+    name: str,
+    description: Optional[str] = None,
+) -> models.TestSet:
+    """Create a new test set configured for adaptive testing.
+
+    The created test set has attributes.metadata.behaviors containing
+    "Adaptive Testing" so it appears in get_adaptive_test_sets.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for ownership
+    name : str
+        Test set name
+    description : str, optional
+        Test set description
+
+    Returns
+    -------
+    models.TestSet
+        The created test set
+    """
+    attributes = {
+        "metadata": {"behaviors": [ADAPTIVE_TESTING_BEHAVIOR]},
+    }
+    test_set_data = schemas.TestSetCreate(
+        name=name,
+        description=description,
+        attributes=attributes,
+    )
+    return crud.create_test_set(
+        db=db,
+        test_set=test_set_data,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
 
 
 def create_topic_node(
