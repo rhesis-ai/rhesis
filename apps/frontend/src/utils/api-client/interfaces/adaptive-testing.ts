@@ -118,6 +118,8 @@ export interface DeleteTestResponse {
 export interface GenerateOutputsRequest {
   endpoint_id: string;
   test_ids?: string[] | null;
+  topic?: string | null;
+  include_subtopics?: boolean;
 }
 
 export interface GenerateOutputsUpdatedItem {

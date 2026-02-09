@@ -27,6 +27,8 @@ import {
   Autocomplete,
   CircularProgress,
   Alert,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   GridColDef,
@@ -73,6 +75,17 @@ interface AdaptiveTestingDetailProps {
   testSetId: string;
   sessionToken: string;
 }
+
+const allTestsTopicOption: Topic = {
+  path: '',
+  name: 'All tests',
+  parent_path: null,
+  depth: 0,
+  display_name: 'All tests',
+  display_path: 'All tests',
+  has_direct_tests: false,
+  has_subtopics: false,
+};
 
 // ============================================================================
 // Helpers
@@ -1532,6 +1545,11 @@ export default function AdaptiveTestingDetail({
     useState<Endpoint | null>(null);
   const [generateSubmitting, setGenerateSubmitting] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generateOutputsTopic, setGenerateOutputsTopic] = useState<
+    string | null
+  >(null);
+  const [generateOutputsIncludeSubtopics, setGenerateOutputsIncludeSubtopics] =
+    useState(true);
 
   const notifications = useNotifications();
 
@@ -1572,7 +1590,14 @@ export default function AdaptiveTestingDetail({
     };
   }, [generateOutputsDialogOpen, sessionToken]);
 
-  const handleGenerateOutputsOpen = () => {
+  const handleGenerateOutputsOpen = (fromTable?: boolean) => {
+    if (fromTable && activeTab === 0 && selectedTopic) {
+      setGenerateOutputsTopic(selectedTopic);
+      setGenerateOutputsIncludeSubtopics(true);
+    } else {
+      setGenerateOutputsTopic(null);
+      setGenerateOutputsIncludeSubtopics(true);
+    }
     setGenerateOutputsDialogOpen(true);
   };
 
@@ -1596,6 +1621,8 @@ export default function AdaptiveTestingDetail({
     try {
       const result = await client.generateOutputs(testSetId, {
         endpoint_id: selectedEndpoint.id,
+        topic: generateOutputsTopic ?? undefined,
+        include_subtopics: generateOutputsIncludeSubtopics,
       });
       const [treeNodes, updatedTopics] = await Promise.all([
         client.getTree(testSetId),
@@ -1903,7 +1930,7 @@ export default function AdaptiveTestingDetail({
         <Button
           variant="contained"
           startIcon={<PlayArrowIcon />}
-          onClick={handleGenerateOutputsOpen}
+          onClick={() => handleGenerateOutputsOpen()}
           sx={{ ml: 'auto', alignSelf: 'center', textTransform: 'none' }}
         >
           Generate outputs
@@ -2013,6 +2040,14 @@ export default function AdaptiveTestingDetail({
               </Typography>
               <Button
                 size="small"
+                startIcon={<PlayArrowIcon />}
+                onClick={() => handleGenerateOutputsOpen(true)}
+                sx={{ textTransform: 'none' }}
+              >
+                Generate outputs
+              </Button>
+              <Button
+                size="small"
                 startIcon={<AddIcon />}
                 onClick={() => setAddTestDialogOpen(true)}
                 sx={{ textTransform: 'none' }}
@@ -2040,8 +2075,17 @@ export default function AdaptiveTestingDetail({
               mb: 1,
               display: 'flex',
               justifyContent: 'flex-end',
+              gap: 1,
             }}
           >
+            <Button
+              size="small"
+              startIcon={<PlayArrowIcon />}
+              onClick={() => handleGenerateOutputsOpen(true)}
+              sx={{ textTransform: 'none' }}
+            >
+              Generate outputs
+            </Button>
             <Button
               size="small"
               startIcon={<AddIcon />}
@@ -2193,7 +2237,49 @@ export default function AdaptiveTestingDetail({
                 }}
               />
             )}
+            sx={{ mb: 2 }}
           />
+          <Autocomplete
+            options={[allTestsTopicOption, ...topics]}
+            getOptionLabel={option =>
+              option.path ? (option.display_path ?? option.path) : 'All tests'
+            }
+            value={
+              generateOutputsTopic === null || generateOutputsTopic === ''
+                ? allTestsTopicOption
+                : topics.find(t => t.path === generateOutputsTopic) ?? {
+                    path: generateOutputsTopic,
+                    name: generateOutputsTopic.split('/').pop() ?? generateOutputsTopic,
+                    parent_path: null,
+                    depth: 0,
+                    display_name: generateOutputsTopic,
+                    display_path: generateOutputsTopic,
+                    has_direct_tests: false,
+                    has_subtopics: false,
+                  }
+            }
+            onChange={(_, value) =>
+              setGenerateOutputsTopic(value?.path && value.path !== '' ? value.path : null)
+            }
+            isOptionEqualToValue={(a, b) => a.path === b.path}
+            renderInput={params => (
+              <TextField {...params} label="Topic" placeholder="All tests" />
+            )}
+            sx={{ mb: 1 }}
+          />
+          {generateOutputsTopic != null && generateOutputsTopic !== '' && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={generateOutputsIncludeSubtopics}
+                  onChange={e =>
+                    setGenerateOutputsIncludeSubtopics(e.target.checked)
+                  }
+                />
+              }
+              label="Include subtopics"
+            />
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleGenerateOutputsClose} disabled={generateSubmitting}>
