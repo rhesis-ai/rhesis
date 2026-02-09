@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession, getCsrfToken } from 'next-auth/react';
+import { useSession, signIn } from 'next-auth/react';
 import {
   Box,
   Paper,
@@ -129,22 +129,15 @@ export default function OnboardingPageClient({
       }
 
       if ('session_token' in response) {
-        if (typeof window !== 'undefined') {
-          const hostname = window.location.hostname;
-          const isLocalhost =
-            hostname === 'localhost' || hostname === '127.0.0.1';
+        // Use NextAuth to set the httpOnly session cookie server-side.
+        const signInResult = await signIn('credentials', {
+          session_token: response.session_token,
+          refresh_token: (response as any).refresh_token || '',
+          redirect: false,
+        });
 
-          // Fix: Use .rhesis.ai (with leading dot) to include all subdomains
-          // or use the current hostname for non-production environments
-          let cookieOptions;
-          if (isLocalhost) {
-            cookieOptions = 'path=/; samesite=lax';
-          } else {
-            // For deployed environments, use no domain (defaults to current hostname for isolation)
-            cookieOptions = `path=/; secure; samesite=lax`;
-          }
-
-          document.cookie = `next-auth.session-token=${response.session_token}; ${cookieOptions}`;
+        if (signInResult?.error) {
+          throw new Error('Failed to establish session after onboarding');
         }
 
         // Create invited users and send invitation emails now that we have the organization

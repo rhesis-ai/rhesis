@@ -4,67 +4,126 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 ## Overview
 
-The Rhesis backend implements a comprehensive authentication system using Auth0 as the identity provider. The system supports both session-based authentication for web UI users and token-based authentication for API access.
+The Rhesis backend implements a native authentication system with a pluggable provider architecture. The system supports email/password authentication, OAuth providers (Google and GitHub), magic link login, and token-based API access.
 
 ## Authentication Methods
 
-### Session-Based Authentication
+### Email/Password Authentication
 
-Session-based authentication is used for web UI users:
+Users can register and log in with email and password:
 
-1. User is redirected to Auth0 login page
-2. After successful authentication, Auth0 redirects back to the application
-3. A session is created and maintained using cookies
-4. Session middleware manages the user's session state
+1. User submits email and password via the frontend
+2. Backend validates credentials (bcrypt hash comparison)
+3. Backend issues a short-lived access token (JWT, 15 minutes) and a long-lived refresh token (opaque, 7 days)
+4. Frontend stores both tokens in an httpOnly cookie via NextAuth
+5. Access tokens are refreshed automatically before expiry
 
-### Token-Based Authentication
+### OAuth Authentication (Google, GitHub)
 
-Token-based authentication is used for API access:
+OAuth login is available when the corresponding provider is configured:
 
-1. Client obtains a JWT token (either from Auth0 or through the `/tokens/` endpoint)
+1. User clicks "Sign in with Google" or "Sign in with GitHub"
+2. Backend redirects to the OAuth provider's authorization page
+3. Provider redirects back to `/auth/callback` with an authorization code
+4. Backend exchanges the code, creates or updates the user, and issues tokens
+5. Tokens are wrapped in a short-lived auth code (60 seconds) and passed via redirect
+6. Frontend exchanges the auth code for access and refresh tokens
+
+### Magic Link Authentication
+
+Passwordless login via email:
+
+1. User enters their email address
+2. Backend sends a single-use magic link (15-minute expiry, JTI-tracked via Redis)
+3. User clicks the link and is authenticated immediately
+
+### Token-Based API Authentication
+
+For programmatic API access:
+
+1. Client obtains a JWT token through the `/tokens/` endpoint
 2. Client includes the token in the `Authorization` header with each request
-3. The backend validates the token and extracts user information
+3. Backend validates the token and extracts user information
 
-## Auth0 Integration
+## Provider Architecture
 
-The application integrates with Auth0 for identity management:
+The authentication system uses a pluggable provider registry:
 
-<CodeBlock filename="auth0-config.py" language="python">
-{`AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
-AUTH0_AUDIENCE = os.getenv("AUTH0_AUDIENCE")
-AUTH0_CLIENT_ID = os.getenv("AUTH0_CLIENT_ID")
-AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET")`}
+<CodeBlock filename="auth/providers/registry.py" language="python">
+{`# Provider Registry - discovers and manages auth providers at startup
+ProviderRegistry.initialize()           # Called at startup
+ProviderRegistry.get_provider("email")  # Get provider by name
+ProviderRegistry.get_enabled_providers()
+ProviderRegistry.get_enabled_oauth_providers()
+
+# Available providers:
+# - EmailProvider: email/password login and registration
+# - GoogleProvider: Google OAuth (requires GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)
+# - GitHubProvider: GitHub OAuth (requires GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET)`}
 </CodeBlock>
 
-### Login Flow
+Each provider implements the `AuthProvider` interface:
 
-1. User accesses `/auth/login`
-2. Backend redirects to Auth0 authorization URL
-3. User authenticates with Auth0
-4. Auth0 redirects back to `/auth/callback` with an authorization code
-5. Backend exchanges the code for tokens
-6. User information is stored in the session
+<CodeBlock filename="auth/providers/base.py" language="python">
+{`class AuthProvider(ABC):
+    name: str                # "email", "google", "github"
+    is_enabled: bool         # Configured via environment variables
+    display_name: str        # Human-readable name
+    is_oauth: bool           # True for OAuth providers
 
-<CodeBlock filename="auth-login-flow.py" language="python">
-{`@router.get("/login")
-async def login(request: Request):
-    redirect_uri = request.url_for("auth_callback")
-    return await oauth.auth0.authorize_redirect(request, redirect_uri)
-
-@router.get("/callback")
-async def auth_callback(request: Request, db: Session = Depends(get_db)):
-    token = await oauth.auth0.authorize_access_token(request)
-    user_info = token.get("userinfo")
-
-    # Store user info in session
-    request.session["user"] = dict(user_info)
-
-    # Create or update user in database
-    # ...
-
-    return RedirectResponse(url=FRONTEND_URL)`}
-
+    authenticate(request, **kwargs) -> AuthUser
+    get_authorization_url(request, redirect_uri)  # OAuth only`}
 </CodeBlock>
+
+### Enabling OAuth Providers
+
+OAuth providers are automatically enabled when their credentials are configured:
+
+<CodeBlock filename=".env" language="bash">
+{`# Google OAuth (optional)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# GitHub OAuth (optional)
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret`}
+</CodeBlock>
+
+If no OAuth credentials are provided, only email/password authentication is available.
+
+## Authentication Configuration
+
+<CodeBlock filename=".env" language="bash">
+{`# JWT Configuration (required)
+JWT_SECRET_KEY=your-jwt-secret-key
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
+
+# Auth feature flags
+AUTH_EMAIL_PASSWORD_ENABLED=true
+AUTH_REGISTRATION_ENABLED=true
+
+# Frontend URL (for email links and OAuth redirects)
+FRONTEND_URL=http://localhost:3000`}
+</CodeBlock>
+
+## Token System
+
+The authentication system uses multiple token types:
+
+- **Access token** (JWT, 15 minutes): Short-lived token for API requests, refreshed automatically
+- **Refresh token** (opaque, 7 days): Long-lived token stored as a SHA-256 hash in the database, rotated on every use
+- **Auth code** (JWT, 60 seconds): Wraps access and refresh tokens during OAuth redirects
+- **Email flow tokens** (JWT): Used for email verification (24 hours), password reset (1 hour, single-use), and magic link (15 minutes, single-use)
+
+### Token Rotation
+
+Refresh tokens implement automatic rotation with reuse detection:
+
+1. Each refresh token can only be used once
+2. On use, the old token is revoked and a new one is issued in the same family
+3. If a revoked token is reused, the entire token family is revoked (theft detection)
+4. Expired tokens are cleaned up periodically
 
 ## Authentication Middleware
 
@@ -83,91 +142,34 @@ The application uses a custom route class to enforce authentication requirements
         return [Depends(require_current_user)]`}
 </CodeBlock>
 
-## Authentication Dependencies
+## Rate Limiting
 
-The application defines several authentication dependencies:
+Authentication endpoints are rate-limited to prevent abuse:
 
-### `require_current_user`
-
-Requires a valid user session:
-
-<CodeBlock filename="require-current-user.py" language="python">
-{`async def require_current_user(request: Request, db: Session = Depends(get_db)):
-    user = request.session.get("user")
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    # Set tenant context for database operations
-    set_tenant(db, user.get("organization_id"), user.get("sub"))
-
-    return user`}
-</CodeBlock>
-
-### `require_current_user_or_token`
-
-Accepts either a valid user session or a valid token:
-
-<CodeBlock filename="require-current-user-or-token.py" language="python">
-{`async def require_current_user_or_token(
-    request: Request,
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-):
-    try:
-        # First try token authentication
-        payload = verify_token(token)
-        # Set tenant context for database operations
-        set_tenant(db, payload.get("organization_id"), payload.get("sub"))
-        return payload
-    except:
-        # Fall back to session authentication
-        return await require_current_user(request, db)`}
-</CodeBlock>
-
-## JWT Tokens
-
-The application uses JWT tokens for API authentication:
-
-### Token Generation
-
-<CodeBlock filename="create-access-token.py" language="python">
-{`def create_access_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-    return encoded_jwt`}
-</CodeBlock>
-
-### Token Validation
-
-<CodeBlock filename="verify-token.py" language="python">
-{`def verify_token(token: str):
-    try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        return payload
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")`}
-</CodeBlock>
-
-## Logout
-
-The logout process invalidates the user's session:
-
-<CodeBlock filename="logout.py" language="python">
-{`@router.get("/logout")
-async def logout(request: Request):
-    request.session.pop("user", None)
-    return RedirectResponse(url=FRONTEND_URL)`}
-</CodeBlock>
+- Login: 20 requests/hour per IP
+- Registration: 10 requests/hour per IP
+- Password reset: 5 requests/hour per IP
+- Magic link: 5 requests/hour per IP
+- Email verification resend: 5 requests/hour per IP
 
 ## Security Considerations
 
 - HTTPS is enforced for all communications
-- Tokens have a configurable expiration time
-- Session data is encrypted using a secret key
-- Auth0's security features protect against common attacks
-- CORS is configured to allow only specific origins
+- Access tokens are short-lived (15 minutes) to limit the impact of token theft
+- Refresh tokens are stored as SHA-256 hashes (raw token never persisted)
+- Passwords are hashed with bcrypt via passlib
+- Single-use tokens (magic link, password reset) are enforced via Redis JTI tracking
+- All email-sensitive endpoints return HTTP 200 regardless of user existence (prevents email enumeration)
+- OAuth redirect URLs are validated against an allowlist of frontend domains
+- Session cookies use httpOnly, secure, and sameSite flags
+
+## Email Flows
+
+The following email flows require SMTP configuration:
+
+- **Email verification**: Sent on registration, can be resent
+- **Password reset**: Sent via forgot-password flow
+- **Magic link**: Passwordless login link
+- **Welcome email**: Sent to new users
+
+See [Environment Variables](/development/environment-variables) for SMTP configuration details.

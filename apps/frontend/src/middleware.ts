@@ -6,14 +6,14 @@ import { getServerBackendUrl } from './utils/url-resolver';
 // Helper function to verify token with backend
 async function verifySessionWithBackend(sessionToken: string) {
   try {
-    const response = await fetch(
-      `${getServerBackendUrl()}/auth/verify?session_token=${sessionToken}`,
-      {
-        headers: {
-          Accept: 'application/json',
-        },
-      }
-    );
+    const response = await fetch(`${getServerBackendUrl()}/auth/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ session_token: sessionToken }),
+    });
 
     if (!response.ok) {
       return false;

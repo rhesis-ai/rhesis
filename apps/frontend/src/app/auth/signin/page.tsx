@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { CircularProgress, Box, Typography } from '@mui/material';
-import { clearAllSessionData } from '@/utils/session';
+import { getClientApiBaseUrl } from '@/utils/url-resolver';
 
 export default function SignIn() {
   const searchParams = useSearchParams();
@@ -35,41 +36,56 @@ export default function SignIn() {
           return;
         }
 
+        // OAuth callback: exchange short-lived auth code for tokens
+        const authCode = searchParams.get('code');
+        // Backward compatibility: also accept direct session_token
         const incomingToken = searchParams.get('session_token');
 
-        if (incomingToken) {
-          setStatus('Verifying session token...');
+        let sessionToken = incomingToken;
+        let refreshToken: string | null = null;
 
-          // Set cookie with proper domain - handle different environments
-          const hostname = window.location.hostname;
-          const isLocalhost =
-            hostname === 'localhost' || hostname === '127.0.0.1';
+        if (authCode && !sessionToken) {
+          setStatus('Exchanging auth code...');
 
-          let cookieOptions;
-          if (isLocalhost) {
-            cookieOptions = 'path=/; samesite=lax';
-          } else {
-            // For deployed environments, use no domain (defaults to current hostname for isolation)
-            cookieOptions = `path=/; secure; samesite=lax`;
+          const exchangeResponse = await fetch(
+            `${getClientApiBaseUrl()}/auth/exchange-code`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: authCode }),
+            }
+          );
+
+          if (!exchangeResponse.ok) {
+            setError(
+              'Authentication code expired or invalid. Please try again.'
+            );
+            return;
           }
 
-          document.cookie = `next-auth.session-token=${incomingToken}; ${cookieOptions}`;
+          const exchangeData = await exchangeResponse.json();
+          sessionToken = exchangeData.session_token;
+          refreshToken = exchangeData.refresh_token || null;
+        }
 
-          // Verify the cookie was set
-          setTimeout(() => {
-            const cookies = document.cookie.split(';').map(c => c.trim());
-            const sessionCookie = cookies.find(c =>
-              c.startsWith('next-auth.session-token=')
-            );
-          }, 50);
+        if (sessionToken) {
+          setStatus('Verifying session...');
+
+          // Use NextAuth to set the httpOnly session cookie server-side.
+          const result = await signIn('credentials', {
+            session_token: sessionToken,
+            refresh_token: refreshToken || '',
+            redirect: false,
+          });
+
+          if (result?.error) {
+            setError('Authentication failed. Please try again.');
+            return;
+          }
 
           setStatus('Authentication successful, redirecting...');
           const returnTo = searchParams.get('return_to') || '/dashboard';
-
-          // Small delay to ensure cookie is set
-          setTimeout(() => {
-            window.location.href = returnTo;
-          }, 100);
+          window.location.href = returnTo;
           return;
         }
 
@@ -85,7 +101,7 @@ export default function SignIn() {
         window.location.replace(homeUrl.toString());
       } catch (error) {
         const err = error as Error;
-        setError(`Authentication error: ${err.message}`);
+        setError('Authentication error. Please try again.');
       }
     };
 

@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, event
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -6,6 +8,9 @@ from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.user_settings import UserSettingsManager
 
 from .base import Base
+
+if TYPE_CHECKING:
+    from rhesis.backend.app.auth.providers.base import AuthUser
 
 
 class User(Base):
@@ -19,10 +24,29 @@ class User(Base):
     picture = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)  # To track if the user is active or not
     is_superuser = Column(Boolean, default=False)  # Admin flag
-    is_verified = Column(Boolean, default=False)  # To track if the user is verified or not
-    auth0_id = Column(String, nullable=True)
+    is_verified = Column(Boolean, default=False)  # Admin/Polyphemus access gate
+    is_email_verified = Column(Boolean, default=False)  # Email verification for sign-up
+    auth0_id = Column(String, nullable=True)  # Legacy: kept for migration, will be removed
     organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
     last_login_at = Column(DateTime, nullable=True)  # Track when user last logged in
+
+    # Native authentication columns (provider-agnostic)
+    provider_type = Column(
+        String(50),
+        nullable=True,
+        index=True,
+        comment="Authentication provider type (google, github, email, etc.)",
+    )
+    external_provider_id = Column(
+        String(255),
+        nullable=True,
+        comment="External ID from the authentication provider",
+    )
+    password_hash = Column(
+        String(255),
+        nullable=True,
+        comment="Bcrypt password hash for email/password authentication",
+    )
     user_settings = Column(
         JSONB,
         nullable=False,
@@ -101,7 +125,7 @@ class User(Base):
 
     @classmethod
     def from_auth0(cls, userinfo: dict) -> "User":
-        """Create a User instance from Auth0 userinfo"""
+        """Create a User instance from Auth0 userinfo (legacy, kept for migration)"""
         return cls(
             auth0_id=userinfo["sub"],
             email=userinfo["email"],
@@ -109,6 +133,33 @@ class User(Base):
             picture=userinfo.get("picture"),
             given_name=userinfo.get("given_name"),
             family_name=userinfo.get("family_name"),
+        )
+
+    @classmethod
+    def from_auth_user(cls, auth_user: "AuthUser") -> "User":
+        """
+        Create a User instance from an AuthUser (provider-agnostic).
+
+        Args:
+            auth_user: AuthUser dataclass from any authentication provider
+
+        Returns:
+            User instance with provider information populated
+        """
+        # Import here to avoid circular imports
+        from rhesis.backend.app.auth.providers.base import AuthUser
+
+        if not isinstance(auth_user, AuthUser):
+            raise TypeError(f"Expected AuthUser, got {type(auth_user)}")
+
+        return cls(
+            email=auth_user.email,
+            name=auth_user.name,
+            given_name=auth_user.given_name,
+            family_name=auth_user.family_name,
+            picture=auth_user.picture,
+            provider_type=auth_user.provider_type,
+            external_provider_id=auth_user.external_id,
         )
 
     @property
@@ -120,7 +171,7 @@ class User(Base):
         """Convert to dictionary for session storage"""
         return {
             "id": str(self.id),
-            "auth0_id": self.auth0_id,
+            "auth0_id": self.auth0_id,  # Legacy, kept for backward compatibility
             "email": self.email,
             "name": self.name,
             "given_name": self.given_name,
@@ -129,6 +180,8 @@ class User(Base):
             "is_active": self.is_active,
             "is_superuser": self.is_superuser,
             "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
+            "provider_type": self.provider_type,
+            "external_provider_id": self.external_provider_id,
         }
 
     @classmethod

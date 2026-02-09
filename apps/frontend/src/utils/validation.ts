@@ -211,39 +211,41 @@ export const validatePhone = (
   };
 };
 
+/** Password policy from backend (min/max length, NIST-aligned). */
+export interface PasswordPolicy {
+  min_length: number;
+  max_length: number;
+}
+
+/** Default policy when backend policy is not yet loaded. */
+export const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
+  min_length: 8,
+  max_length: 128,
+};
+
 /**
- * Password strength validation
+ * Password validation (NIST-aligned: length only, no complexity rules).
+ * Accepts policy from backend; uses default if not provided.
  */
-export const validatePassword = (password: string): ValidationResult => {
+export const validatePassword = (
+  password: string,
+  policy: PasswordPolicy = DEFAULT_PASSWORD_POLICY
+): ValidationResult => {
   if (!password) {
     return { isValid: false, message: 'Password is required' };
   }
 
-  if (password.length < 8) {
+  if (password.length < policy.min_length) {
     return {
       isValid: false,
-      message: 'Password must be at least 8 characters long',
+      message: `Password must be at least ${policy.min_length} characters`,
     };
   }
 
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasLowerCase = /[a-z]/.test(password);
-  const hasNumbers = /\d/.test(password);
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-
-  const strengthChecks = [
-    hasUpperCase,
-    hasLowerCase,
-    hasNumbers,
-    hasSpecialChar,
-  ];
-  const passedChecks = strengthChecks.filter(Boolean).length;
-
-  if (passedChecks < 3) {
+  if (password.length > policy.max_length) {
     return {
       isValid: false,
-      message:
-        'Password must contain at least 3 of: uppercase letter, lowercase letter, number, special character',
+      message: `Password must be at most ${policy.max_length} characters`,
     };
   }
 

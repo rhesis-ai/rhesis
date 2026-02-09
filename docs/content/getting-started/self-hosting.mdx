@@ -10,7 +10,7 @@ Deploy Rhesis on your own infrastructure with proper security, authentication, a
 
 This guide covers deploying Rhesis for production use with:
 
-- **[Secure authentication](#authentication--security)** - Auth0 integration with JWT token management
+- **[Secure authentication](#authentication--security)** - Native authentication with JWT token management
 - **[Database encryption](#database-encryption)** - Field-level encryption for sensitive data
 - **[Email notifications](#email-configuration-optional)** - SMTP configuration for system emails
 - **[AI model providers](#ai-model-configuration)** - Gemini, OpenAI, and Azure OpenAI configuration
@@ -28,7 +28,7 @@ This guide is for production environments. For quick local testing, see the [Run
 - Docker Desktop installed and running (Docker Compose V2)
 - Git (to clone the repository)
 - Ports 3000, 8080, 8081, 5432, and 6379 available on your system
-- Auth0 account (or another OAuth provider)
+- (Optional) OAuth provider credentials for Google and/or GitHub sign-in
 - AI provider account (Gemini, OpenAI, or Azure OpenAI)
 
 > **Important**: This guide uses Docker Compose V2 syntax (`docker compose` without hyphen). If you're using an older version of Docker, you may need to install Docker Compose V2 or use the legacy `docker-compose` command.
@@ -198,29 +198,19 @@ Update your `.env.docker` file with the following configurations:
 These variables configure user authentication and security for the platform:
 
 <CodeBlock filename=".env.docker" language="bash">
-{`# Auth0 Configuration
-# Used for user authentication and authorization
-AUTH0_DOMAIN=your-auth0-domain
-AUTH0_AUDIENCE=your-auth0-audience
-AUTH0_CLIENT_ID=your-auth0-client-id
-AUTH0_CLIENT_SECRET=your-auth0-client-secret
-AUTH0_SECRET_KEY=your-auth0-secret-key
-
-# JWT Configuration
+{`# JWT Configuration
 # Used for secure token generation and validation
 JWT_SECRET_KEY=your-jwt-secret-key
 JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=10080
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
 
 # NextAuth Configuration
 # Required for Next.js authentication integration
 NEXTAUTH_SECRET=your-nextauth-secret
 NEXTAUTH_URL=https://your-domain.com
 
-# Frontend Configuration
-# Public variables accessible in the browser for Auth0 integration
-NEXT_PUBLIC_AUTH0_DOMAIN=your-auth0-domain
-NEXT_PUBLIC_AUTH0_CLIENT_ID=your-auth0-client-id`}
+# Frontend URL (used for email links and OAuth redirects)
+FRONTEND_URL=https://your-domain.com`}
 </CodeBlock>
 
 #### Database Encryption
@@ -233,13 +223,18 @@ DB_ENCRYPTION_KEY=your-generated-encryption-key`}
 
 #### OAuth Providers (Optional)
 
-Additional authentication providers for user login options:
+Additional authentication providers for social login. If no OAuth credentials are provided, only email/password authentication is available.
 
 <CodeBlock filename=".env.docker" language="bash">
 {`# Google OAuth (Optional)
 # Enables Google sign-in for users
 GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret`}
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# GitHub OAuth (Optional)
+# Enables GitHub sign-in for users
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret`}
 </CodeBlock>
 
 #### Email Configuration (Optional)
@@ -481,7 +476,7 @@ docker compose --env-file .env.docker up -d`}
 2. Verify environment variables:
 
 <CodeBlock filename="Terminal" language="bash">
-{`docker exec rhesis-backend env | grep AUTH0`}
+{`docker exec rhesis-backend env | grep JWT`}
 </CodeBlock>
 
 3. Check resource usage:
@@ -527,7 +522,7 @@ kill -9 <PID>`}
 - ✅ Keep environment variables secure (never commit `.env.docker`)
 - ✅ Regularly update Docker images
 - ✅ Enable HTTPS/TLS for all external connections
-- ✅ Configure proper Auth0 security settings
+- ✅ Configure proper authentication settings and strong JWT secrets
 - ✅ Implement backup and disaster recovery procedures
 </Callout>
 

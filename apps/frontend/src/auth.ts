@@ -28,22 +28,24 @@ export const authConfig: NextAuthConfig = {
       name: 'Credentials',
       credentials: {
         session_token: { type: 'text' },
+        refresh_token: { type: 'text' },
       },
       async authorize(credentials, request): Promise<User | null> {
         try {
           const sessionToken = credentials?.session_token as string | undefined;
+          const refreshToken = credentials?.refresh_token as string | undefined;
           if (!sessionToken) {
             return null;
           }
 
-          const response = await fetch(
-            `${BACKEND_URL}/auth/verify?session_token=${sessionToken}`,
-            {
-              headers: {
-                Accept: 'application/json',
-              },
-            }
-          );
+          const response = await fetch(`${BACKEND_URL}/auth/verify`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify({ session_token: sessionToken }),
+          });
 
           if (!response.ok) {
             return null;
@@ -70,7 +72,9 @@ export const authConfig: NextAuthConfig = {
             image: imageUrl || null,
             picture: imageUrl || null,
             organization_id: data.user.organization_id,
+            is_email_verified: data.user.is_email_verified ?? true,
             session_token: sessionToken,
+            refresh_token: refreshToken || undefined,
           };
         } catch (error) {
           return null;
@@ -140,14 +144,83 @@ export const authConfig: NextAuthConfig = {
   },
   callbacks: {
     async jwt({ token, user }: JWTCallbackParams) {
+      // Initial sign-in: store tokens + compute expiry
       if (user) {
         token.user = {
           ...user,
           image: user.picture || user.image || null,
         };
         token.session_token = user.session_token;
+        token.refresh_token = user.refresh_token;
+
+        // Decode the access token to read its exp claim
+        if (user.session_token) {
+          try {
+            const [, payloadB64] = user.session_token.split('.');
+            const payload = JSON.parse(
+              Buffer.from(payloadB64, 'base64url').toString('utf-8')
+            );
+            token.access_token_expires = payload.exp as number;
+          } catch {
+            // Fallback: treat as 15 min from now
+            token.access_token_expires =
+              Math.floor(Date.now() / 1000) + 15 * 60;
+          }
+        }
+
+        return token;
       }
-      return token;
+
+      // Subsequent requests: check if the access token is still valid.
+      // Refresh proactively 60 seconds before expiry.
+      const expiresAt = (token.access_token_expires as number) ?? 0;
+      const nowSeconds = Math.floor(Date.now() / 1000);
+
+      if (nowSeconds < expiresAt - 60) {
+        // Access token is still fresh
+        return token;
+      }
+
+      // Access token is expired or about to expire — refresh it
+      if (!token.refresh_token) {
+        // No refresh token available; force re-login
+        token.error = 'RefreshTokenMissing';
+        return token;
+      }
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: token.refresh_token }),
+        });
+
+        if (!res.ok) {
+          token.error = 'RefreshTokenError';
+          return token;
+        }
+
+        const data = await res.json();
+        token.session_token = data.access_token;
+        token.refresh_token = data.refresh_token;
+
+        // Read expiry from the new access token
+        try {
+          const [, payloadB64] = data.access_token.split('.');
+          const payload = JSON.parse(
+            Buffer.from(payloadB64, 'base64url').toString('utf-8')
+          );
+          token.access_token_expires = payload.exp as number;
+        } catch {
+          token.access_token_expires = Math.floor(Date.now() / 1000) + 15 * 60;
+        }
+
+        delete token.error;
+        return token;
+      } catch {
+        token.error = 'RefreshTokenError';
+        return token;
+      }
     },
     async session({ session, token }: SessionCallbackParams) {
       const updatedSession = {
@@ -160,6 +233,7 @@ export const authConfig: NextAuthConfig = {
           ...token.user,
           image: token.user.picture || token.user.image || null,
         };
+        // Expose the current (possibly refreshed) access token
         updatedSession.session_token = token.session_token;
       }
 

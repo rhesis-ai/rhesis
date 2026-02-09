@@ -5,9 +5,16 @@ import os
 from typing import Optional
 
 from cryptography.fernet import Fernet, InvalidToken
+from passlib.context import CryptContext
 from sqlalchemy import String, TypeDecorator
 
 from rhesis.backend.logging import logger
+
+# Password hashing context using bcrypt
+# bcrypt is intentionally separate from Fernet encryption:
+# - Fernet (EncryptedString): Reversible encryption for secrets that need retrieval
+# - bcrypt (password hashing): One-way hashing for passwords (irreversible by design)
+_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class EncryptionKeyNotFoundError(Exception):
@@ -28,6 +35,71 @@ class DecryptionError(Exception):
     pass
 
 
+# =============================================================================
+# Password Hashing Functions (bcrypt - one-way, irreversible)
+# =============================================================================
+
+
+def hash_password(password: str) -> str:
+    """
+    Hash a password using bcrypt.
+
+    This is a ONE-WAY hash - the original password cannot be recovered.
+    Use verify_password() to check if a password matches a hash.
+
+    Args:
+        password: The plaintext password to hash
+
+    Returns:
+        The bcrypt hash string (includes salt and algorithm info)
+
+    Raises:
+        ValueError: If password is empty or None
+
+    Note:
+        - bcrypt automatically generates a unique salt for each hash
+        - The same password will produce different hashes each time
+        - Hash includes algorithm version, cost factor, salt, and hash
+        - This is intentionally separate from EncryptedString (Fernet)
+          because passwords should never be decryptable
+    """
+    if not password:
+        raise ValueError("Password cannot be empty")
+
+    return _pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Verify a plaintext password against a bcrypt hash.
+
+    Args:
+        plain_password: The plaintext password to verify
+        hashed_password: The bcrypt hash to verify against
+
+    Returns:
+        True if the password matches, False otherwise
+
+    Note:
+        - Returns False (not raises) for invalid passwords
+        - Constant-time comparison prevents timing attacks
+        - Works with hashes from any bcrypt implementation
+    """
+    if not plain_password or not hashed_password:
+        return False
+
+    try:
+        return _pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:
+        logger.warning(f"Password verification failed: {str(e)}")
+        return False
+
+
+# =============================================================================
+# Fernet Encryption Functions (reversible, for secrets that need retrieval)
+# =============================================================================
+
+
 def get_encryption_key() -> bytes:
     """
     Get encryption key from environment variable.
@@ -42,7 +114,8 @@ def get_encryption_key() -> bytes:
     if not key:
         raise EncryptionKeyNotFoundError(
             "DB_ENCRYPTION_KEY environment variable is not set. "
-            'Generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
+            "Generate one with: python -c "
+            '"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
         )
     return key.encode()
 
@@ -128,7 +201,7 @@ def is_encrypted(value: Optional[str]) -> bool:
     # This is not foolproof but works for migration detection
     try:
         return value.startswith("gAAAAA")
-    except:
+    except Exception:
         return False
 
 
