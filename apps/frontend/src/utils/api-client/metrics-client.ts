@@ -6,7 +6,6 @@ import {
   MetricUpdate,
   MetricDetail,
   MetricQueryParams,
-  MetricsResponse,
 } from './interfaces/metric';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { UUID } from 'crypto';

@@ -6,7 +6,6 @@ import {
   ModelUpdate,
   ModelDetail,
   ModelQueryParams,
-  ModelsResponse,
   TestModelConnectionRequest,
   TestModelConnectionResponse,
 } from './interfaces/model';

@@ -1,5 +1,5 @@
 import { BaseApiClient } from './base-client';
-import { API_ENDPOINTS, API_CONFIG } from './config';
+import { API_ENDPOINTS } from './config';
 
 // Types for the new endpoints - matching backend schemas
 interface TestPrompt {
@@ -20,7 +20,7 @@ interface TestMetadata {
   }>;
 }
 
-interface Test {
+interface _Test {
   prompt: TestPrompt;
   behavior: string;
   category: string;
@@ -30,8 +30,6 @@ interface Test {
 
 import { RecentActivitiesResponse } from './interfaces/activities';
 import {
-  GenerationConfig,
-  SourceData,
   GenerateTestsRequest,
   GenerateTestsResponse,
 } from './interfaces/test-set';

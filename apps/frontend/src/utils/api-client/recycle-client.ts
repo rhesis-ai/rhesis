@@ -1,5 +1,4 @@
 import { BaseApiClient } from './base-client';
-import { API_ENDPOINTS } from './config';
 
 /**
  * Client for managing soft-deleted items in the recycle bin.

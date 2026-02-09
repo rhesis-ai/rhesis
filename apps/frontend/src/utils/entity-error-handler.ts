@@ -128,7 +128,7 @@ export function getNotFoundEntityData(error: any): NotFoundEntityData | null {
     // Parse encoded data
     const tableMatch = encodedParts.match(/table:([^|]+)/);
     const idMatch = encodedParts.match(/id:([^|]+)/);
-    const nameMatch = encodedParts.match(/name:([^|]+)/);
+    const _nameMatch = encodedParts.match(/name:([^|]+)/);
 
     const tableName = tableMatch ? tableMatch[1] : '';
     const itemId = idMatch ? idMatch[1] : '';

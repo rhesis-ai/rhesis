@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession, getCsrfToken } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import {
   Box,
   Paper,
@@ -19,7 +19,7 @@ import FinishStep from './FinishStep';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { OrganizationCreate } from '@/utils/api-client/organizations-client';
 import { UUID } from 'crypto';
-import { UserUpdate, UserCreate } from '@/utils/api-client/interfaces/user';
+import { UserUpdate } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 type OnboardingStatus =
@@ -49,7 +49,7 @@ export default function OnboardingPageClient({
   userId,
 }: OnboardingPageClientProps) {
   const router = useRouter();
-  const { data: session, update } = useSession();
+  const { data: _session, update: _update } = useSession();
   const notifications = useNotifications();
   const [activeStep, setActiveStep] = React.useState(0);
   const [isSubmitting, setIsSubmitting] = React.useState(false);

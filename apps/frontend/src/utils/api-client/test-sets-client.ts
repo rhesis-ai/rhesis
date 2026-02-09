@@ -16,9 +16,6 @@ import {
   GenerateTestsRequest,
   GenerateTestSetResponse,
   TestSetMetric,
-  // Legacy imports for backwards compatibility
-  TestSetGenerationRequest,
-  TestSetGenerationResponse,
 } from './interfaces/test-set';
 import { TestDetail, PriorityLevel } from './interfaces/tests';
 import { StatusClient } from './status-client';
@@ -183,7 +180,7 @@ export class TestSetsClient extends BaseApiClient {
           } else {
             errorMessage = await rawResponse.text();
           }
-        } catch (parseError) {
+        } catch (_parseError) {
           errorMessage = await rawResponse.text();
         }
 
@@ -517,7 +514,7 @@ export class TestSetsClient extends BaseApiClient {
         } else {
           errorMessage = await response.text();
         }
-      } catch (parseError) {
+      } catch (_parseError) {
         errorMessage = await response.text();
       }
 

@@ -7,12 +7,6 @@ import {
   Typography,
   Alert,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Button,
 } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
@@ -196,7 +190,6 @@ export default function TeamMembersGrid({
       renderCell: params => {
         const user = params.row as User;
         const displayName = getDisplayName(user);
-        const status = getUserStatus(user);
 
         return (
           <Typography variant="body2" fontWeight="medium">

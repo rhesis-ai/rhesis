@@ -25,7 +25,6 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestFiltersToOData } from '@/utils/odata-filter';
-import { isMultiTurnTest } from '@/constants/test-types';
 import {
   getTestContentValue,
   renderTestContentCell,

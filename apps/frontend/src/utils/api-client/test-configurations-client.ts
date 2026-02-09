@@ -7,7 +7,7 @@ import {
   TestConfigurationDetail,
   TestConfigurationExecuteResponse,
 } from './interfaces/test-configuration';
-import { TestRun, TestRunDetail } from './interfaces/test-run';
+import { TestRunDetail } from './interfaces/test-run';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 
 // Default pagination settings

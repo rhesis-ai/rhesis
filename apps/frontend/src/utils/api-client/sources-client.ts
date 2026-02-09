@@ -141,7 +141,7 @@ export class SourcesClient extends BaseApiClient {
         } else {
           errorMessage = await response.text();
         }
-      } catch (parseError) {
+      } catch (_parseError) {
         errorMessage = await response.text();
       }
 
@@ -215,7 +215,7 @@ export class SourcesClient extends BaseApiClient {
         } else {
           errorMessage = await response.text();
         }
-      } catch (parseError) {
+      } catch (_parseError) {
         errorMessage = await response.text();
       }
 
@@ -275,7 +275,7 @@ export class SourcesClient extends BaseApiClient {
         } else {
           errorMessage = await response.text();
         }
-      } catch (parseError) {
+      } catch (_parseError) {
         errorMessage = await response.text();
       }
 
