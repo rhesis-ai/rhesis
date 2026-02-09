@@ -1550,6 +1550,8 @@ export default function AdaptiveTestingDetail({
   >(null);
   const [generateOutputsIncludeSubtopics, setGenerateOutputsIncludeSubtopics] =
     useState(true);
+  const [endpointForGeneration, setEndpointForGeneration] =
+    useState<Endpoint | null>(null);
 
   const notifications = useNotifications();
 
@@ -1559,13 +1561,11 @@ export default function AdaptiveTestingDetail({
     [topics, tests]
   );
 
-  // Load endpoints when Generate outputs dialog opens
+  // Load endpoints on mount for the selector above the table and for the dialog
   useEffect(() => {
-    if (!generateOutputsDialogOpen || !sessionToken) return;
+    if (!sessionToken) return;
     let cancelled = false;
     setEndpointsLoading(true);
-    setGenerateError(null);
-    setSelectedEndpoint(null);
     const clientFactory = new ApiClientFactory(sessionToken);
     const endpointsClient = clientFactory.getEndpointsClient();
     endpointsClient
@@ -1588,7 +1588,7 @@ export default function AdaptiveTestingDetail({
     return () => {
       cancelled = true;
     };
-  }, [generateOutputsDialogOpen, sessionToken]);
+  }, [sessionToken]);
 
   const handleGenerateOutputsOpen = (fromTable?: boolean) => {
     if (fromTable && activeTab === 0 && selectedTopic) {
@@ -1598,6 +1598,8 @@ export default function AdaptiveTestingDetail({
       setGenerateOutputsTopic(null);
       setGenerateOutputsIncludeSubtopics(true);
     }
+    setSelectedEndpoint(endpointForGeneration);
+    setGenerateError(null);
     setGenerateOutputsDialogOpen(true);
   };
 
@@ -1927,6 +1929,37 @@ export default function AdaptiveTestingDetail({
             {failCount}
           </Typography>
         </Paper>
+      </Box>
+
+      {/* Endpoint for generation - above Tree View / List View */}
+      <Box sx={{ mb: 2 }}>
+        <Autocomplete
+          size="small"
+          options={endpoints}
+          getOptionLabel={option => option.name ?? ''}
+          value={endpointForGeneration}
+          onChange={(_, value) => setEndpointForGeneration(value ?? null)}
+          loading={endpointsLoading}
+          renderInput={params => (
+            <TextField
+              {...params}
+              label="Output generation endpoint"
+              placeholder="Select endpoint"
+              InputProps={{
+                ...params.InputProps,
+                endAdornment: (
+                  <>
+                    {endpointsLoading ? (
+                      <CircularProgress color="inherit" size={20} />
+                    ) : null}
+                    {params.InputProps.endAdornment}
+                  </>
+                ),
+              }}
+            />
+          )}
+          sx={{ maxWidth: 400 }}
+        />
       </Box>
 
       {/* View Tabs */}
