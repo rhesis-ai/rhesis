@@ -5,17 +5,10 @@ import {
   BasePieChart,
   BaseLineChart,
   BaseChartsGrid,
-  useChartColors,
 } from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSetDetailStatsResponse } from '@/utils/api-client/interfaces/test-set';
-import {
-  Box,
-  CircularProgress,
-  Typography,
-  Alert,
-  useTheme,
-} from '@mui/material';
+import { Box, CircularProgress, Alert, useTheme } from '@mui/material';
 import { pieChartUtils } from '@/components/common/BasePieChart';
 
 // Fallback mock data in case the API fails

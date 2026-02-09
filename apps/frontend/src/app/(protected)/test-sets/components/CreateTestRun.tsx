@@ -16,7 +16,6 @@ import {
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 import BaseTag from '@/components/common/BaseTag';
@@ -127,10 +126,10 @@ export default function CreateTestRun({
           } else {
             setEndpoints([]);
           }
-        } catch (endpointsError) {
+        } catch (_endpointsError) {
           setEndpoints([]);
         }
-      } catch (error) {
+      } catch (_error) {
         setProjects([]); // Ensure projects remains an empty array on error
         setEndpoints([]);
         onError?.('Failed to load initial data');
@@ -253,7 +252,7 @@ export default function CreateTestRun({
       }
 
       onSuccess?.();
-    } catch (error) {
+    } catch (_error) {
       onError?.('Failed to execute test sets');
     } finally {
       setLoading(false);

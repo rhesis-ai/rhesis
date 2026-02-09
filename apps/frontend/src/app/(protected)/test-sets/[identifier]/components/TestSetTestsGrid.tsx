@@ -7,7 +7,7 @@ import {
   GridPaginationModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { Typography, Box, Alert, Button, Chip } from '@mui/material';
+import { Typography, Box, Alert, Chip } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
@@ -15,7 +15,6 @@ import { Tag } from '@/utils/api-client/interfaces/tag';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { isMultiTurnTest } from '@/constants/test-types';
 import {
   getTestContentValue,
   renderTestContentCell,
@@ -69,7 +68,7 @@ export default function TestSetTestsGrid({
         setTotalCount(response.pagination.totalCount);
         setError(null);
       }
-    } catch (error) {
+    } catch (_error) {
       if (isMounted.current) {
         setError('Failed to load tests');
         setTests([]);
@@ -237,7 +236,7 @@ export default function TestSetTestsGrid({
     []
   );
 
-  const handleTestSaved = useCallback(() => {
+  const _handleTestSaved = useCallback(() => {
     if (sessionToken) {
       fetchTests();
       onRefresh?.();
@@ -266,7 +265,7 @@ export default function TestSetTestsGrid({
       // Refresh the data
       fetchTests();
       onRefresh?.();
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to remove tests from test set', {
         severity: 'error',
         autoHideDuration: 6000,

@@ -161,7 +161,7 @@ export default function TestRunDrawer({
             // Reset tags for new test runs
             setTags([]);
           }
-        } catch (fetchError) {
+        } catch (_fetchError) {
           setError('Failed to load required data');
           // Ensure state remains as empty arrays even on error
           setUsers([]);

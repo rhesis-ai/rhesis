@@ -29,7 +29,6 @@ import {
 } from '@mui/icons-material';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { UUID } from 'crypto';
@@ -157,7 +156,7 @@ export default function ExecuteTestSetDrawer({
             .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
 
           setProjects(processedProjects);
-        } catch (projectsError) {
+        } catch (_projectsError) {
           setProjects([]);
         }
 
@@ -184,10 +183,10 @@ export default function ExecuteTestSetDrawer({
           } else {
             setEndpoints([]);
           }
-        } catch (endpointsError) {
+        } catch (_endpointsError) {
           setEndpoints([]);
         }
-      } catch (error) {
+      } catch (_error) {
         setError(
           'Failed to load data. Please check your connection and try again.'
         );

@@ -27,7 +27,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
-import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';

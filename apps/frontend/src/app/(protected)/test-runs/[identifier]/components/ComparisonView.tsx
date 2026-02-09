@@ -677,7 +677,7 @@ export default function ComparisonView({
                 overflow: 'auto',
               }}
             >
-              {comparisonTests.map((test, index) => {
+              {comparisonTests.map((test, _index) => {
                 const baselinePassed = test.baseline
                   ? isTestPassed(test.baseline)
                   : null;
