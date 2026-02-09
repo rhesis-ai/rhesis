@@ -1,7 +1,17 @@
 from typing import List, Optional
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, CheckConstraint, Column, Computed, ForeignKey, Index, String, Text
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    Column,
+    Computed,
+    Float,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
 
@@ -68,9 +78,9 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
     text_hash = Column(String(64), nullable=False)
 
     # Ranking and metadata
-    weight = Column("weight", nullable=False, default=1.0)
+    weight = Column(Float, nullable=False, server_default="1.0")
     origin = Column(String(20), doc="Origin of the content: 'user', 'generated', 'imported'")
-    status = Column(String(20), default="active", doc="Lifecycle status of the embedding")
+    status = Column(String(20), server_default="active", doc="Lifecycle status of the embedding")
 
     # Multiple embedding columns for different dimensions
     embedding_384 = Column(Vector(384), nullable=True)

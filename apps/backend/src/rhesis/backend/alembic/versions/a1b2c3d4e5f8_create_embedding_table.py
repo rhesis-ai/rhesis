@@ -89,6 +89,7 @@ def upgrade() -> None:
 
     # Create indexes
     op.create_index("ix_embedding_id", "embedding", ["id"], unique=True)
+    op.create_index("ix_embedding_nano_id", "embedding", ["nano_id"], unique=True)
     op.create_index("ix_embedding_deleted_at", "embedding", ["deleted_at"])
     op.create_index("ix_embedding_entity_id", "embedding", ["entity_id"])
     op.create_index("ix_embedding_entity_type", "embedding", ["entity_type"])
