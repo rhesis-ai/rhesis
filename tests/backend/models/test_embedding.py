@@ -12,13 +12,12 @@ Tests focus on:
 """
 
 import uuid
-from typing import List
 
 import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.models import Embedding, Source, Test
+from rhesis.backend.app.models import Embedding, Source
 from rhesis.backend.app.models.embedding import EmbeddingConfig
 
 # Import the test_model fixture
@@ -31,7 +30,12 @@ class TestEmbeddingConfig:
 
     def test_supported_dimensions(self):
         """Test that supported dimensions are correctly defined"""
-        expected_dimensions = {384: "embedding_384", 768: "embedding_768", 1024: "embedding_1024", 1536: "embedding_1536"}
+        expected_dimensions = {
+            384: "embedding_384",
+            768: "embedding_768",
+            1024: "embedding_1024",
+            1536: "embedding_1536",
+        }
         assert EmbeddingConfig.SUPPORTED_DIMENSIONS == expected_dimensions
 
     def test_validate_dimension_valid(self):
@@ -103,8 +107,9 @@ class TestEmbeddingModel:
         test_db.refresh(embedding)
 
         # Property should return the vector from embedding_768
-        assert embedding.embedding == vector
-        assert len(embedding.embedding) == 768
+        result = embedding.embedding
+        assert list(result) == vector
+        assert len(result) == 768
 
     def test_embedding_property_setter(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
@@ -130,7 +135,7 @@ class TestEmbeddingModel:
         test_db.refresh(embedding)
 
         # Should be stored in embedding_1536
-        assert embedding.embedding_1536 == vector
+        assert list(embedding.embedding_1536) == vector
         assert embedding.embedding_384 is None
         assert embedding.embedding_768 is None
         assert embedding.embedding_1024 is None
@@ -165,7 +170,7 @@ class TestEmbeddingModel:
 
         # Only embedding_1024 should have data
         assert embedding.embedding_768 is None
-        assert embedding.embedding_1024 == [0.2] * 1024
+        assert list(embedding.embedding_1024) == [0.2] * 1024
         assert embedding.embedding_384 is None
         assert embedding.embedding_1536 is None
 
@@ -330,9 +335,7 @@ class TestEmbeddingModel:
 
         assert embedding.embedding_column_name == "embedding_1536"
 
-    def test_repr(
-        self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model
-    ):
+    def test_repr(self, test_db: Session, test_org_id: str, authenticated_user_id: str, test_model):
         """Test string representation"""
         entity_id = uuid.uuid4()
         embedding = Embedding(
@@ -481,7 +484,12 @@ class TestEmbeddingRelationships:
     """🔗 Test polymorphic relationships with Test and Source models"""
 
     def test_test_embeddings_relationship(
-        self, test_db: Session, db_test_minimal, test_org_id: str, authenticated_user_id: str, test_model
+        self,
+        test_db: Session,
+        db_test_minimal,
+        test_org_id: str,
+        authenticated_user_id: str,
+        test_model,
     ):
         """Test loading embeddings from Test model"""
         test = db_test_minimal
@@ -650,7 +658,10 @@ class TestSearchableText:
             __name__ = "DummyModel"
 
         dummy = DummyModel()
-        with pytest.raises(NotImplementedError, match="DummyModel must implement to_searchable_text"):
+        with pytest.raises(
+            NotImplementedError,
+            match="DummyModel must implement to_searchable_text",
+        ):
             dummy.to_searchable_text()
 
 
