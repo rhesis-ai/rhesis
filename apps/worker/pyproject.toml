@@ -28,6 +28,7 @@ dependencies = [
     "openpyxl>=3.1.5",
     "pandas==2.2.2",
     "pathspec==0.12.1",
+    "pgvector>=0.3.0",
     "portalocker==3.1.1",
     "proto-plus>=1.26.1",
     "protobuf>=6.33.5",
@@ -65,4 +66,3 @@ explicit = true
 torch = { index = "pytorch-cpu" }
 rhesis-sdk = { path = "../../sdk", editable = true }
 rhesis-penelope = { path = "../../penelope", editable = true }
-
