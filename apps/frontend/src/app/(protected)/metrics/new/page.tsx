@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-array-index-key -- Form fields and evaluation steps rendered from parsed data */
+
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PageContainer } from '@toolpad/core/PageContainer';

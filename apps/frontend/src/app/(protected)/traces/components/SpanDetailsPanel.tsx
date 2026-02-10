@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-array-index-key -- Trace attribute display */
+
 import { useState, useEffect } from 'react';
 import {
   Box,

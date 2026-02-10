@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-array-index-key -- Chart data display */
+
 import React, { useEffect, useState } from 'react';
 import {
   Box,

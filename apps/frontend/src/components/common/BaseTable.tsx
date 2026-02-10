@@ -1,3 +1,5 @@
+/* eslint-disable react/no-array-index-key -- Table row and cell rendering */
+
 import React from 'react';
 import {
   Table,

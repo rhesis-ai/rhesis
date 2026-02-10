@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-array-index-key -- Chart data rendering */
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Paper, Typography, CircularProgress, Alert, Box } from '@mui/material';
 import {

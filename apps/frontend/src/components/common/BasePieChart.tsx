@@ -1,3 +1,5 @@
+/* eslint-disable react/no-array-index-key -- Pie chart cell rendering */
+
 import React, { useMemo, useCallback } from 'react';
 import {
   PieChart,

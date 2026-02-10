@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-array-index-key -- Display-only list items */
+
 import React, { useMemo, useEffect, useRef } from 'react';
 import {
   Box,

@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-array-index-key -- Metrics display lists */
+
 import React, { useMemo, useState } from 'react';
 import {
   Box,

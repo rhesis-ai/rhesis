@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-array-index-key -- Display-only tag lists */
+
 import {
   Box,
   Button,

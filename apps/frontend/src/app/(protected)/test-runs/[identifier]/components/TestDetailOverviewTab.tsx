@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-array-index-key -- This file renders parsed text content where items are display-only and never reordered */
+
 import React, { useMemo, useState } from 'react';
 import {
   Box,

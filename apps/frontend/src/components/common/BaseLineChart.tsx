@@ -1,3 +1,5 @@
+/* eslint-disable react/no-array-index-key -- Chart series rendering */
+
 import React from 'react';
 import {
   LineChart,

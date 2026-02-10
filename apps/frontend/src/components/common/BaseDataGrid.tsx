@@ -1,3 +1,5 @@
+/* eslint-disable react/no-array-index-key -- Grid column and cell rendering */
+
 import React, {
   useState,
   useEffect,

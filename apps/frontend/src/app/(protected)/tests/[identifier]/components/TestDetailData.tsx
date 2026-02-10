@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-array-index-key -- Test sample display */
+
 import * as React from 'react';
 import { Box, Grid, Typography, useTheme, TextField } from '@mui/material';
 import BaseFreesoloAutocomplete, {

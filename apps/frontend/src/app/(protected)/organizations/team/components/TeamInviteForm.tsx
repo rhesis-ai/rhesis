@@ -1,3 +1,5 @@
+/* eslint-disable react/no-array-index-key -- Dynamic form fields */
+
 import * as React from 'react';
 import {
   Box,
