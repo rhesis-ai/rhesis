@@ -1,8 +1,6 @@
 ---
-description: TypeScript/ESLint rules for frontend development to avoid unused variable warnings
-globs:
-  - apps/frontend/**/*.ts
-  - apps/frontend/**/*.tsx
+description: TypeScript/ESLint rules for frontend development to avoid unused variable warnings. Apply when working on apps/frontend/**/*.ts or apps/frontend/**/*.tsx files.
+alwaysApply: true
 ---
 
 # Frontend TypeScript Linting Rules
