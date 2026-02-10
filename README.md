@@ -224,6 +224,30 @@ pip install rhesis-sdk
 
 ---
 
+## Integrations
+
+Connect Rhesis to your LLM application through multiple integration methods:
+
+| Integration | Description |
+|-------------|-------------|
+| **Python SDK** | Full-featured SDK with `@endpoint` decorator for automatic test execution and `@observe` for tracing |
+| **REST API** | Direct API integration for any language or framework. [OpenAPI spec available](https://app.rhesis.ai/api/docs) |
+| **OpenTelemetry** | Native OpenTelemetry support for distributed tracing and observability |
+| **MCP (Model Context Protocol)** | Connect context sources like Notion, GitHub, Jira, and Confluence for knowledge-aware test generation |
+| **CI/CD** | Integrate test execution into GitHub Actions, GitLab CI, Jenkins, or any CI/CD pipeline |
+
+### Supported LLM Providers
+
+**Cloud:** OpenAI, Anthropic, Google Gemini, Mistral, Cohere, Groq, Together AI
+
+**Local/Self-hosted:** Ollama, vLLM, LiteLLM
+
+**Frameworks:** LangChain, LlamaIndex, and any custom LLM implementation
+
+See [Integration Docs](https://docs.rhesis.ai/sdk/getting-started) for setup instructions.
+
+---
+
 ## Open source
 
 [MIT licensed](LICENSE). No plans to relicense core features. Enterprise version will live in `ee/` folders and remain separate.
