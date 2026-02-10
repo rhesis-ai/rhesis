@@ -48,7 +48,7 @@ export default function TokensGrid({
     pageSize: 10,
   },
 }: TokensGridProps) {
-  const theme = useTheme();
+  const _theme = useTheme();
   const [refreshModalOpen, setRefreshModalOpen] = useState(false);
   const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
 
