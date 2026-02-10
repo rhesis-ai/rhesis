@@ -312,4 +312,3 @@ def get_provider_embedding_models(
                 f"Failed to retrieve embedding models for provider '{provider_name}': {str(e)}"
             ),
         )
-

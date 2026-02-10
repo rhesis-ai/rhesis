@@ -1,6 +1,7 @@
 from sqlalchemy import JSON, Boolean, Column, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.utils.encryption import EncryptedString
 
 from .base import Base
@@ -31,6 +32,7 @@ class Model(
     description = Column(Text)
     icon = Column(String)
     model_name = Column(String, nullable=False)
+    model_type = Column(String, nullable=False, server_default=ModelType.LLM.value)
     endpoint = Column(String, nullable=True)  # Optional for cloud providers (OpenAI, Gemini, etc.)
     key = Column(
         EncryptedString(), nullable=False

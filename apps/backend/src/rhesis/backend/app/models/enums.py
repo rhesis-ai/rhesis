@@ -35,6 +35,13 @@ class EndpointAuthType(str, Enum):
     # Add more as needed
 
 
+class ModelType(str, Enum):
+    """Type of AI model configuration."""
+
+    LLM = "llm"
+    EMBEDDING = "embedding"
+
+
 class EmbeddingStatus(str, Enum):
     """
     Internal lifecycle status for embeddings.

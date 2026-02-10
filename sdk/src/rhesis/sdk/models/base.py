@@ -94,6 +94,7 @@ class BaseLLM(ABC):
             description=description,
             provider=provider,
             model_name=model_name,
+            model_type="llm",
             key=api_key,
         )
         model.push()
@@ -152,7 +153,7 @@ class BaseEmbedder(ABC):
         """Save this embedder configuration to the Rhesis platform as a Model entity.
 
         Creates a Model entity with this embedder's provider, model name, and API key,
-        then saves it to the platform.
+        then saves it to the platform with model_type="embedding".
 
         Args:
             name: Name for the saved model configuration (required)
@@ -163,11 +164,11 @@ class BaseEmbedder(ABC):
 
         Raises:
             ValueError: If provider is not set on this embedder class
-            NotImplementedError: If the subclass doesn't support push()
 
         Example:
             >>> embedder = get_embedder("openai", "text-embedding-3-small", api_key="sk-...")
             >>> model = embedder.push(name="My OpenAI Embeddings")
+            >>> model.set_default_embedding()
         """
         from rhesis.sdk.entities.model import Model
 
@@ -193,6 +194,7 @@ class BaseEmbedder(ABC):
             description=description,
             provider=provider,
             model_name=model_name,
+            model_type="embedding",
             key=api_key,
         )
         model.push()
