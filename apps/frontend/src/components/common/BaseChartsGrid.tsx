@@ -29,7 +29,14 @@ export default function BaseChartsGrid({
   return (
     <Grid container spacing={spacing} className={styles.grid} style={gridStyle}>
       {React.Children.map(children, (child, index) => (
-        <Grid key={index} size={columns}>
+        <Grid
+          key={
+            React.isValidElement(child) && child.key
+              ? child.key
+              : `grid-item-${index}`
+          }
+          size={columns}
+        >
           {child}
         </Grid>
       ))}

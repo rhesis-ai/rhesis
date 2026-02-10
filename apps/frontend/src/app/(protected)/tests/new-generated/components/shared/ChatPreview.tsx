@@ -34,7 +34,7 @@ export default function ChatPreview({ messages }: ChatPreviewProps) {
         const isLeft = index % 2 === 0;
         return (
           <Box
-            key={index}
+            key={`${message.role}-${index}`}
             sx={{
               display: 'flex',
               justifyContent: isLeft ? 'flex-start' : 'flex-end',

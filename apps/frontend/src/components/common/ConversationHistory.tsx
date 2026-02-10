@@ -271,7 +271,7 @@ export default function ConversationHistory({
                   </Typography>
                   {criteriaForTurn.map((criterion, idx) => (
                     <Box
-                      key={idx}
+                      key={`${criterion.criterion}-${idx}`}
                       sx={{ mb: idx < criteriaForTurn.length - 1 ? 2 : 0 }}
                     >
                       <Typography
