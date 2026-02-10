@@ -1,8 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import {
   Comment,
-  CreateCommentRequest,
-  UpdateCommentRequest,
   EntityType,
 } from '@/types/comments';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';

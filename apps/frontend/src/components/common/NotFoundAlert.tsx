@@ -33,7 +33,7 @@ interface NotFoundAlertProps {
 export function NotFoundAlert({
   entityData,
   backUrl,
-  backLabel,
+  backLabel: _backLabel,
 }: NotFoundAlertProps) {
   const displayName = entityData.model_name_display || entityData.model_name;
   const listUrl = backUrl || entityData.list_url;

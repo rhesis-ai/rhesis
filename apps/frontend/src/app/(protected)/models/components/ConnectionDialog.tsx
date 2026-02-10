@@ -628,7 +628,7 @@ export function ConnectionDialog({
                       type={showApiKey ? 'text' : 'password'}
                       value={apiKey}
                       onChange={e => setApiKey(e.target.value)}
-                      onFocus={e => {
+                      onFocus={_e => {
                         // Clear placeholder when user clicks on field in edit mode
                         if (isEditMode && apiKey === '************') {
                           setApiKey('');

@@ -1,11 +1,9 @@
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Box,
   Typography,
-  CircularProgress,
-  Paper,
   Button,
   Chip,
   Avatar,
@@ -17,13 +15,11 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import {
   GridColDef,
   GridPaginationModel,
-  GridRowSelectionModel,
 } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { TaskErrorBoundary } from './TaskErrorBoundary';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 interface TasksSectionProps {
@@ -42,12 +38,12 @@ export function TasksSection({
   entityType,
   entityId,
   sessionToken,
-  onCreateTask,
-  onEditTask,
+  onCreateTask: _onCreateTask,
+  onEditTask: _onEditTask,
   onDeleteTask,
   onNavigateToCreate,
-  currentUserId,
-  currentUserName,
+  currentUserId: _currentUserId,
+  currentUserName: _currentUserName,
 }: TasksSectionProps) {
   const router = useRouter();
   const notifications = useNotifications();

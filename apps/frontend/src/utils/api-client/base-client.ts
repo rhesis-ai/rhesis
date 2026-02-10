@@ -2,7 +2,6 @@ import { API_CONFIG, API_ENDPOINTS } from './config';
 import {
   PaginationParams,
   PaginatedResponse,
-  PaginationMetadata,
 } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
 import { clearAllSessionData } from '../session';

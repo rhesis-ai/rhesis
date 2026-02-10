@@ -21,7 +21,7 @@ export function TasksWrapper({
   sessionToken,
   currentUserId,
   currentUserName,
-  currentUserPicture,
+  currentUserPicture: _currentUserPicture,
 }: TasksWrapperProps) {
   const { createTask, deleteTask } = useTasks({
     entityType,

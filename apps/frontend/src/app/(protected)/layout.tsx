@@ -33,7 +33,7 @@ export default function ProtectedLayout({
 
   // Custom renderer for page items to handle external links
   const renderPageItem = React.useCallback(
-    (item: any, options: { mini: boolean }) => {
+    (item: any, _options: { mini: boolean }) => {
       // Check if this is an external link (has metadata from NavigationProvider)
       if (item.__isExternalLink && item.__href) {
         return <DashboardSidebarPageItem item={item} href={item.__href} />;

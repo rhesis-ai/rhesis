@@ -6,17 +6,10 @@
 
 import {
   WebTracerProvider,
-  BatchSpanProcessor,
 } from '@opentelemetry/sdk-trace-web';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { resourceFromAttributes } from '@opentelemetry/resources';
-import {
-  ATTR_SERVICE_NAME,
-  ATTR_SERVICE_VERSION,
-} from '@opentelemetry/semantic-conventions';
 
 let telemetryEnabled = false;
-const provider: WebTracerProvider | null = null;
+const _provider: WebTracerProvider | null = null;
 const tracer: any = null;
 
 /**

@@ -156,7 +156,7 @@ export default function ConversationHistory({
         const turnHasCriteria = criteriaForTurn.length > 0;
         const turnCriteriaMet =
           turnHasCriteria && criteriaForTurn.every(c => c.met);
-        const turnCriteriaFailed =
+        const _turnCriteriaFailed =
           turnHasCriteria && criteriaForTurn.some(c => !c.met);
 
         return (

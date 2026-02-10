@@ -3,14 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   TextField,
-  Button,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Box,
   Typography,
-  CircularProgress,
 } from '@mui/material';
 import { EntityType } from '@/types/tasks';
 import { getPriorities } from '@/utils/task-lookup';
@@ -39,8 +37,8 @@ export function TaskCreationDrawer({
   onSubmit,
   entityType,
   entityId,
-  currentUserId,
-  currentUserName,
+  currentUserId: _currentUserId,
+  currentUserName: _currentUserName,
   isLoading = false,
   commentId,
 }: TaskCreationDrawerProps) {

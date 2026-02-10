@@ -16,7 +16,7 @@ import CampaignIcon from '@mui/icons-material/Campaign';
 import { TestTemplate } from '@/app/(protected)/tests/new-generated/components/shared/types';
 
 // Icon mapping for YAML references
-const iconMap: Record<string, React.ComponentType<any>> = {
+const _iconMap: Record<string, React.ComponentType<any>> = {
   BalanceIcon,
   LanguageIcon,
   VerifiedUserIcon,

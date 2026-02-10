@@ -135,7 +135,7 @@ export async function middleware(request: NextRequest) {
   // At the top of the middleware function, after pathname declaration
   const isPostLogout =
     request.nextUrl.searchParams.get('post_logout') === 'true';
-  const isSessionExpired =
+  const _isSessionExpired =
     request.nextUrl.searchParams.get('session_expired') === 'true';
 
   // Prevent redirect loops by always allowing access to signin page
