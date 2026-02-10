@@ -278,7 +278,7 @@ export default function TestsTableView({
 
       // Poll for the updated test result with exponential backoff
       // Use a timestamp to ensure we only use the most recent response
-      const requestTimestamp = Date.now();
+      const _requestTimestamp = Date.now();
       let updatedTest: TestResultDetail | null = null;
       const delays = [100, 200, 400, 800]; // Exponential backoff delays
 

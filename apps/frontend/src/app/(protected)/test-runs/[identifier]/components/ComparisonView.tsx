@@ -710,7 +710,7 @@ export default function ComparisonView({
                     : 'No prompt available';
 
                 // Get responses/evaluations based on test type
-                const responseLabel = isMultiTurn
+                const _responseLabel = isMultiTurn
                   ? 'Overall Evaluation'
                   : 'Response';
                 const baselineResponse = isMultiTurn

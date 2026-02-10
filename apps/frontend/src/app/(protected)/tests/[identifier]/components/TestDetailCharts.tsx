@@ -313,7 +313,7 @@ function SinglePointChart({
   const chartColor = color || palettes.line[0];
 
   // Legend display name
-  const displayLegendLabel = legendLabel || label;
+  const _displayLegendLabel = legendLabel || label;
 
   // Custom tooltip with comprehensive details
   const CustomTooltip = ({ active, payload }: any) => {
@@ -473,7 +473,7 @@ export default function TestDetailCharts({
   testId,
   sessionToken,
 }: TestDetailChartsProps) {
-  const theme = useTheme();
+  const _theme = useTheme();
   const [stats, setStats] = useState<IndividualTestStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

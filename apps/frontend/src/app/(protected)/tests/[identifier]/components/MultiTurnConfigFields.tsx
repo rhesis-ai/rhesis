@@ -85,7 +85,7 @@ function EditableField({
     try {
       await onSave(editedValue);
       setIsEditing(false);
-    } catch (error) {
+    } catch (_error) {
       // Error notification is shown by parent
       // Revert to original value and exit edit mode
       setEditedValue(value);
@@ -367,7 +367,7 @@ export default function MultiTurnConfigFields({
 
       // Hide the field after successful update
       setShowFunction(false);
-    } catch (error) {
+    } catch (_error) {
       // Error is already handled in updateField
     }
   };
