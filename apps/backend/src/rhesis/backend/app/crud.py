@@ -28,8 +28,8 @@ from rhesis.backend.app.utils.crud_utils import (
     get_items_detail,
     update_item,
 )
-from rhesis.backend.app.utils.model_utils import QueryBuilder
 from rhesis.backend.app.utils.name_generator import generate_memorable_name
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.logging import logger
 
 
@@ -3201,7 +3201,7 @@ def get_tasks_with_comment_counts(
         comment_filters.append(Comment.organization_id == UUID(organization_id))
 
     # First get the tasks with organization filter using QueryBuilder
-    from rhesis.backend.app.utils.model_utils import QueryBuilder
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
 
     # Use QueryBuilder for organization filtering, OData, sorting, and pagination
     query_builder = (

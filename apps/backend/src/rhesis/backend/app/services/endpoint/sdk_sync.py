@@ -12,7 +12,7 @@ from rhesis.backend.app.models.enums import (
     EndpointConnectionType,
     EndpointEnvironment,
 )
-from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.status import get_or_create_status
 from rhesis.backend.logging import logger
 

@@ -18,7 +18,7 @@ from rhesis.backend.app.utils.crud_utils import (
     get_or_create_topic,
     get_or_create_type_lookup,
 )
-from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 
 def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:

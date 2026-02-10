@@ -236,7 +236,7 @@ def empty_recycle_bin_for_model(
         org_id = organization_id
 
     # Get all deleted items using QueryBuilder directly to bypass pagination limits
-    from rhesis.backend.app.utils.model_utils import QueryBuilder
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
 
     deleted_items = (
         QueryBuilder(db, model)
@@ -350,7 +350,7 @@ def get_recycle_bin_counts(
                 org_id = organization_id
 
             # Count deleted items using QueryBuilder directly to avoid pagination limits
-            from rhesis.backend.app.utils.model_utils import QueryBuilder
+            from rhesis.backend.app.utils.query_utils import QueryBuilder
 
             count = (
                 QueryBuilder(db, model)

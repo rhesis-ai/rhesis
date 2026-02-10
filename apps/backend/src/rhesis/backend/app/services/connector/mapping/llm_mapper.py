@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.utils.llm_utils import get_user_generation_model
+from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.backend.logging import logger
 from rhesis.sdk.models.factory import get_model
 
