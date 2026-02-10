@@ -54,6 +54,7 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 
 // ============================================================================
 // Types
@@ -1589,6 +1590,13 @@ export default function AdaptiveTestingDetail({
     useState(true);
   const [endpointForGeneration, setEndpointForGeneration] =
     useState<Endpoint | null>(null);
+  const [metrics, setMetrics] = useState<MetricDetail[]>([]);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metricForGeneration, setMetricForGeneration] =
+    useState<MetricDetail | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<MetricDetail | null>(
+    null
+  );
 
   const notifications = useNotifications();
 
@@ -1627,6 +1635,36 @@ export default function AdaptiveTestingDetail({
     };
   }, [sessionToken]);
 
+  // Load metrics on mount for the metric selector
+  useEffect(() => {
+    if (!sessionToken) return;
+    let cancelled = false;
+    setMetricsLoading(true);
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const metricsClient = clientFactory.getMetricsClient();
+    metricsClient
+      .getMetrics({
+        skip: 0,
+        sort_by: 'name',
+        sort_order: 'asc',
+        limit: 100,
+      })
+      .then(res => {
+        if (cancelled) return;
+        const list = res?.data ?? [];
+        setMetrics(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (!cancelled) setMetrics([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMetricsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionToken]);
+
   const handleGenerateOutputsOpen = (fromTable?: boolean) => {
     if (fromTable && activeTab === 0 && selectedTopic) {
       setGenerateOutputsTopic(selectedTopic);
@@ -1636,6 +1674,7 @@ export default function AdaptiveTestingDetail({
       setGenerateOutputsIncludeSubtopics(true);
     }
     setSelectedEndpoint(endpointForGeneration);
+    setSelectedMetric(metricForGeneration);
     setGenerateError(null);
     setGenerateOutputsDialogOpen(true);
   };
@@ -1644,6 +1683,7 @@ export default function AdaptiveTestingDetail({
     if (!generateSubmitting) {
       setGenerateOutputsDialogOpen(false);
       setSelectedEndpoint(null);
+      setSelectedMetric(null);
       setGenerateError(null);
     }
   };
@@ -2173,8 +2213,15 @@ export default function AdaptiveTestingDetail({
         </Paper>
       </Box>
 
-      {/* Endpoint for generation - above Tree View / List View */}
-      <Box sx={{ mb: 2 }}>
+      {/* Endpoint and Metric for generation - above Tree View / List View */}
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 2,
+          mb: 2,
+          flexWrap: 'wrap',
+        }}
+      >
         <Autocomplete
           size="small"
           options={endpoints}
@@ -2200,7 +2247,34 @@ export default function AdaptiveTestingDetail({
               }}
             />
           )}
-          sx={{ maxWidth: 400 }}
+          sx={{ minWidth: 280, maxWidth: 400 }}
+        />
+        <Autocomplete
+          size="small"
+          options={metrics}
+          getOptionLabel={option => option.name ?? ''}
+          value={metricForGeneration}
+          onChange={(_, value) => setMetricForGeneration(value ?? null)}
+          loading={metricsLoading}
+          renderInput={params => (
+            <TextField
+              {...params}
+              label="Metric"
+              placeholder="Select metric"
+              InputProps={{
+                ...params.InputProps,
+                endAdornment: (
+                  <>
+                    {metricsLoading ? (
+                      <CircularProgress color="inherit" size={20} />
+                    ) : null}
+                    {params.InputProps.endAdornment}
+                  </>
+                ),
+              }}
+            />
+          )}
+          sx={{ minWidth: 280, maxWidth: 400 }}
         />
       </Box>
 
@@ -2526,32 +2600,67 @@ export default function AdaptiveTestingDetail({
               {generateError}
             </Alert>
           )}
-          <Autocomplete
-            options={endpoints}
-            getOptionLabel={option => option.name ?? ''}
-            value={selectedEndpoint}
-            onChange={(_, value) => setSelectedEndpoint(value ?? null)}
-            loading={endpointsLoading}
-            renderInput={params => (
-              <TextField
-                {...params}
-                label="Endpoint"
-                placeholder="Select endpoint"
-                InputProps={{
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {endpointsLoading ? (
-                        <CircularProgress color="inherit" size={20} />
-                      ) : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                }}
-              />
-            )}
-            sx={{ mb: 2 }}
-          />
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              mb: 2,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Autocomplete
+              options={endpoints}
+              getOptionLabel={option => option.name ?? ''}
+              value={selectedEndpoint}
+              onChange={(_, value) => setSelectedEndpoint(value ?? null)}
+              loading={endpointsLoading}
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="Endpoint"
+                  placeholder="Select endpoint"
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {endpointsLoading ? (
+                          <CircularProgress color="inherit" size={20} />
+                        ) : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              sx={{ minWidth: 240, flex: 1 }}
+            />
+            <Autocomplete
+              options={metrics}
+              getOptionLabel={option => option.name ?? ''}
+              value={selectedMetric}
+              onChange={(_, value) => setSelectedMetric(value ?? null)}
+              loading={metricsLoading}
+              renderInput={params => (
+                <TextField
+                  {...params}
+                  label="Metric"
+                  placeholder="Select metric"
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {metricsLoading ? (
+                          <CircularProgress color="inherit" size={20} />
+                        ) : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              sx={{ minWidth: 240, flex: 1 }}
+            />
+          </Box>
           <Autocomplete
             options={[allTestsTopicOption, ...topics]}
             getOptionLabel={option =>
