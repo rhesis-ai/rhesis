@@ -671,6 +671,7 @@ export default function TestRunMainView({
           endpointName: testRun.test_configuration?.endpoint?.name || 'Unknown',
           projectName:
             testRun.test_configuration?.endpoint?.project?.name || 'Unknown',
+          testRunId: testRun.id,
           originalAttributes: testRun.test_configuration?.attributes,
         }}
         sessionToken={sessionToken}

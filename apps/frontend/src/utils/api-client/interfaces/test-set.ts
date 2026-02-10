@@ -360,3 +360,14 @@ export interface TestSetGenerationRequest extends GenerateTestsRequest {
 
 /** @deprecated Use GenerateTestSetResponse instead */
 export type TestSetGenerationResponse = GenerateTestSetResponse;
+
+/** Summary of the most recent test run for a test set + endpoint combo. */
+export interface LastTestRunSummary {
+  id: string;
+  nano_id: string | null;
+  name: string | null;
+  status: string | null;
+  created_at: string | null;
+  test_count: number;
+  pass_rate: number;
+}
