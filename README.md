@@ -244,7 +244,7 @@ Connect Rhesis to your LLM stack:
 | **HuggingFace** | Python | Direct integration with HuggingFace models. |
 | **REST API** | Any | Direct API access for custom integrations. [OpenAPI spec available](https://api.rhesis.ai/docs). |
 
-See [Integration Docs](https://docs.rhesis.ai/sdk/getting-started) for setup instructions.
+See [Integration Docs](https://docs.rhesis.ai/development) for setup instructions.
 
 ---
 
