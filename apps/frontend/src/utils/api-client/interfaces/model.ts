@@ -10,6 +10,7 @@ export interface Model {
   description?: string;
   icon?: string;
   model_name: string;
+  model_type?: 'llm' | 'embedding';
   endpoint: string;
   key: string;
   request_headers?: Record<string, any>;
@@ -31,6 +32,7 @@ export interface ModelCreate {
   description?: string;
   icon?: string;
   model_name: string;
+  model_type?: 'llm' | 'embedding';
   endpoint?: string;
   key: string;
   request_headers?: Record<string, any>;
@@ -47,6 +49,7 @@ export interface ModelUpdate {
   description?: string;
   icon?: string;
   model_name?: string;
+  model_type?: 'llm' | 'embedding';
   endpoint?: string;
   key?: string;
   request_headers?: Record<string, any>;
