@@ -207,7 +207,10 @@ export default function TestsTableView({
     setOverruleDrawerOpen(true);
   };
 
-  const handleOverruleSave = async (testId: string, _reviewData: ReviewData) => {
+  const handleOverruleSave = async (
+    testId: string,
+    _reviewData: ReviewData
+  ) => {
     try {
       // Fetch the updated test result from the backend
       const clientFactory = new ApiClientFactory(sessionToken);

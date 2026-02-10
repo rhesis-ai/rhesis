@@ -29,8 +29,13 @@ export default function TestsPage() {
   const [selectedTestType, setSelectedTestType] =
     React.useState<TestType | null>(null);
   const [chartsLoaded, setChartsLoaded] = React.useState(false);
-  const { markStepComplete: _markStepComplete, progress: _progress, activeTour, startTour, isComplete: _isComplete } =
-    useOnboarding();
+  const {
+    markStepComplete: _markStepComplete,
+    progress: _progress,
+    activeTour,
+    startTour,
+    isComplete: _isComplete,
+  } = useOnboarding();
 
   // Set document title
   useDocumentTitle('Tests');

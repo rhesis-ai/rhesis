@@ -1,8 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import {
-  Comment,
-  EntityType,
-} from '@/types/comments';
+import { Comment, EntityType } from '@/types/comments';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 

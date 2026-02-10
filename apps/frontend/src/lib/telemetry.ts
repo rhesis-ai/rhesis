@@ -4,9 +4,7 @@
  * This module provides conditional telemetry export based on user preferences.
  */
 
-import {
-  WebTracerProvider,
-} from '@opentelemetry/sdk-trace-web';
+import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
 
 let telemetryEnabled = false;
 const _provider: WebTracerProvider | null = null;

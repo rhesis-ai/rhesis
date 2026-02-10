@@ -127,7 +127,9 @@ export default function EntityCard({
           )}
 
           {chipSections.map((section, sectionIndex) => (
-            <React.Fragment key={section.chips[0]?.key ?? `section-${sectionIndex}`}>
+            <React.Fragment
+              key={section.chips[0]?.key ?? `section-${sectionIndex}`}
+            >
               {sectionIndex > 0 && (
                 <Box
                   sx={{

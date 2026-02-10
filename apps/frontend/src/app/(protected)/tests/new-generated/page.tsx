@@ -22,7 +22,8 @@ export default function GenerateTestsPage() {
       const storedTestType = sessionStorage.getItem(
         'testType'
       ) as TestType | null;
-      const _hasTemplate = sessionStorage.getItem('selectedTemplateId') !== null;
+      const _hasTemplate =
+        sessionStorage.getItem('selectedTemplateId') !== null;
 
       if (storedTestType) {
         setTestType(storedTestType);

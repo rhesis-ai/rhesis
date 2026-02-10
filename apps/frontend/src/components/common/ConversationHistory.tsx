@@ -271,7 +271,8 @@ export default function ConversationHistory({
                   </Typography>
                   {criteriaForTurn.map((criterion, idx) => (
                     // eslint-disable-next-line react/no-array-index-key -- Criteria list is display-only
-                    <Box key={`${criterion.criterion}-${idx}`}
+                    <Box
+                      key={`${criterion.criterion}-${idx}`}
                       sx={{ mb: idx < criteriaForTurn.length - 1 ? 2 : 0 }}
                     >
                       <Typography

@@ -1,21 +1,12 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import {
-  Box,
-  Typography,
-  Button,
-  Chip,
-  Avatar,
-} from '@mui/material';
+import { Box, Typography, Button, Chip, Avatar } from '@mui/material';
 import { AddIcon } from '@/components/icons';
 import { Task, EntityType } from '@/types/tasks';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import {
-  GridColDef,
-  GridPaginationModel,
-} from '@mui/x-data-grid';
+import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { TaskErrorBoundary } from './TaskErrorBoundary';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';

@@ -1,8 +1,5 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
-import {
-  PaginationParams,
-  PaginatedResponse,
-} from './interfaces/pagination';
+import { PaginationParams, PaginatedResponse } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
 import { clearAllSessionData } from '../session';
 
@@ -214,7 +211,10 @@ export class BaseApiClient {
               headers: Object.fromEntries(response.headers.entries()),
             };
             if (logLevel === 'error') {
-              console.error(`${logPrefix} [DEBUG] API Response Error:`, logData);
+              console.error(
+                `${logPrefix} [DEBUG] API Response Error:`,
+                logData
+              );
             } else {
               console.warn(`${logPrefix} [DEBUG] API Response Error:`, logData);
             }
@@ -254,9 +254,15 @@ export class BaseApiClient {
               errorData,
             };
             if (logLevel === 'error') {
-              console.error(`${logPrefix} [DEBUG] Full error details:`, errorDetails);
+              console.error(
+                `${logPrefix} [DEBUG] Full error details:`,
+                errorDetails
+              );
             } else {
-              console.warn(`${logPrefix} [DEBUG] Full error details:`, errorDetails);
+              console.warn(
+                `${logPrefix} [DEBUG] Full error details:`,
+                errorDetails
+              );
             }
           }
 

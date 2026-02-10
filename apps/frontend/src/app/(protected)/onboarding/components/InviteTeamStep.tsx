@@ -185,7 +185,12 @@ export default function InviteTeamStep({
         <Box p={3}>
           <Stack spacing={3}>
             {formData.invites.map((invite, index) => (
-              <Box key={invite.id} display="flex" alignItems="flex-start" gap={2}>
+              <Box
+                key={invite.id}
+                display="flex"
+                alignItems="flex-start"
+                gap={2}
+              >
                 <TextField
                   fullWidth
                   label="Email Address"

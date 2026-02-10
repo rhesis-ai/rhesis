@@ -94,9 +94,8 @@ export default function MetricsClientComponent({
   const [filters, setFilters] = React.useState<FilterState>(initialFilterState);
   const [filterOptions, setFilterOptions] =
     React.useState<FilterOptions>(initialFilterOptions);
-  const [_behaviorMetrics, setBehaviorMetrics] = React.useState<BehaviorMetrics>(
-    {}
-  );
+  const [_behaviorMetrics, setBehaviorMetrics] =
+    React.useState<BehaviorMetrics>({});
 
   // Refresh key for manual refresh
   const [refreshKey, setRefreshKey] = React.useState(0);

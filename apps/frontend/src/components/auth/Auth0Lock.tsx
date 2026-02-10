@@ -20,7 +20,10 @@ interface Props {
   domain: string;
 }
 
-export default function CustomAuthForm({ clientId: _clientId, domain: _domain }: Props) {
+export default function CustomAuthForm({
+  clientId: _clientId,
+  domain: _domain,
+}: Props) {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsWarning, setShowTermsWarning] = useState(false);
   const [previouslyAccepted, setPreviouslyAccepted] = useState(false);
