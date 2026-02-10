@@ -30,7 +30,7 @@ export default function TracesTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  filters,
+  filters: _filters,
 }: TracesTableProps) {
   const columns: GridColDef[] = useMemo(
     () => [

@@ -9,7 +9,6 @@ import {
   CardContent,
   Button,
   Chip,
-  Avatar,
   Dialog,
   DialogContent,
   DialogTitle,

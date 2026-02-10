@@ -1,12 +1,9 @@
 import NextAuth, {
   type NextAuthConfig,
   type User,
-  type Session,
 } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { JWTCallbackParams, SessionCallbackParams } from './types/next-auth.d';
-import type { JWT } from 'next-auth/jwt';
-import type { AdapterSession } from 'next-auth/adapters';
 import {
   SESSION_DURATION_MS,
   SESSION_DURATION_SECONDS,
@@ -29,7 +26,7 @@ export const authConfig: NextAuthConfig = {
       credentials: {
         session_token: { type: 'text' },
       },
-      async authorize(credentials, request): Promise<User | null> {
+      async authorize(credentials, _request): Promise<User | null> {
         try {
           const sessionToken = credentials?.session_token as string | undefined;
           if (!sessionToken) {
@@ -84,7 +81,7 @@ export const authConfig: NextAuthConfig = {
     maxAge: SESSION_DURATION_SECONDS,
   },
   jwt: {
-    encode: async ({ secret, token }) => {
+    encode: async ({ secret: _secret, token }) => {
       if (!token) return '';
       try {
         // If token has a session_token field, use it directly (it's already a JWT)
@@ -102,7 +99,7 @@ export const authConfig: NextAuthConfig = {
         return '';
       }
     },
-    decode: async ({ secret, token }) => {
+    decode: async ({ secret: _secret, token }) => {
       if (!token) return null;
       try {
         if (typeof token !== 'string') {
@@ -122,7 +119,7 @@ export const authConfig: NextAuthConfig = {
               ...decoded,
               session_token: token,
             };
-          } catch (jwtError) {
+          } catch (_jwtError) {
             // If JWT parsing fails, fall back to JSON parsing
           }
         }

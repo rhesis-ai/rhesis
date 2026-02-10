@@ -14,7 +14,6 @@ import {
   AnyTestSample,
   ChatMessage,
   TestSetSize,
-  TestTemplate,
   ChipConfig,
   TestType,
 } from './shared/types';

@@ -24,12 +24,12 @@ export default function TestsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = React.useState(0);
-  const [testCount, setTestCount] = React.useState(0);
+  const [_testCount, setTestCount] = React.useState(0);
   const [showTestTypeModal, setShowTestTypeModal] = React.useState(false);
   const [selectedTestType, setSelectedTestType] =
     React.useState<TestType | null>(null);
   const [chartsLoaded, setChartsLoaded] = React.useState(false);
-  const { markStepComplete, progress, activeTour, startTour, isComplete } =
+  const { markStepComplete: _markStepComplete, progress: _progress, activeTour, startTour, isComplete: _isComplete } =
     useOnboarding();
 
   // Set document title

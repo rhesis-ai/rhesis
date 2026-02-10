@@ -23,15 +23,12 @@ import {
   Autocomplete,
   createFilterOptions,
   Breadcrumbs,
-  ToggleButtonGroup,
-  ToggleButton,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Save as SaveIcon,
   Download as DownloadIcon,
-  Upload as UploadIcon,
   ArrowBack as ArrowBackIcon,
   NavigateNext as NavigateNextIcon,
 } from '@mui/icons-material';
@@ -86,7 +83,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
   const notifications = useNotifications();
 
   // Get test type from sessionStorage (set by the test creation flow)
-  const [testType, setTestType] = useState<TestType>(() => {
+  const [testType, _setTestType] = useState<TestType>(() => {
     if (typeof window !== 'undefined') {
       const storedType = sessionStorage.getItem('testType') as TestType | null;
       return storedType || 'single_turn';

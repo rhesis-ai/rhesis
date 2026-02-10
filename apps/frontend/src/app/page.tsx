@@ -3,7 +3,6 @@
 import * as React from 'react';
 import {
   Box,
-  Container,
   AppBar,
   Toolbar,
   Typography,
@@ -20,14 +19,9 @@ import { useEffect, useState } from 'react';
 import LoginSection from '../components/auth/LoginSection';
 import { getClientApiBaseUrl } from '../utils/url-resolver';
 // Import Material UI icons - Using Outlined variants as default
-import SpeedIcon from '@mui/icons-material/SpeedOutlined';
-import SecurityIcon from '@mui/icons-material/SecurityOutlined';
-import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotionsOutlined';
-import LightbulbIcon from '@mui/icons-material/LightbulbOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
 import GroupAddIcon from '@mui/icons-material/GroupAddOutlined';
 import ControlCameraIcon from '@mui/icons-material/ControlCameraOutlined';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMoreOutlined';
 import TuneIcon from '@mui/icons-material/TuneOutlined';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunchOutlined';
 
@@ -162,7 +156,7 @@ export default function LandingPage() {
               method: 'GET',
               headers: { Accept: 'application/json' },
             });
-          } catch (logoutError) {}
+          } catch (_logoutError) {}
 
           setBackendSessionValid(false);
           setSessionExpired(true);

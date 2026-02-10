@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CircularProgress, Box, Typography } from '@mui/material';
-import { clearAllSessionData } from '@/utils/session';
 
 export default function SignIn() {
   const searchParams = useSearchParams();
@@ -58,7 +57,7 @@ export default function SignIn() {
           // Verify the cookie was set
           setTimeout(() => {
             const cookies = document.cookie.split(';').map(c => c.trim());
-            const sessionCookie = cookies.find(c =>
+            const _sessionCookie = cookies.find(c =>
               c.startsWith('next-auth.session-token=')
             );
           }, 50);
