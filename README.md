@@ -242,9 +242,9 @@ Connect Rhesis to your LLM stack:
 | **OpenRouter** | Python | Access to multiple LLM providers through OpenRouter. |
 | **Vertex AI** | Python | Google Cloud Vertex AI model support. |
 | **HuggingFace** | Python | Direct integration with HuggingFace models. |
-| **REST API** | Any | Direct API access for custom integrations. [OpenAPI spec available](https://app.rhesis.ai/api/docs). |
+| **REST API** | Any | Direct API access for custom integrations. [OpenAPI spec available](https://api.rhesis.ai/docs). |
 
-See [Integration Docs](https://docs.rhesis.ai/sdk/getting-started) for setup instructions.
+See [Integration Docs](https://docs.rhesis.ai/development) for setup instructions.
 
 ---
 
