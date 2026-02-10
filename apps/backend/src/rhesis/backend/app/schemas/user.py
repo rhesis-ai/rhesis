@@ -17,6 +17,9 @@ class LLMModelSettings(BaseModel):
     )
     temperature: Optional[float] = Field(None, ge=0.0, le=2.0, description="Temperature override")
     max_tokens: Optional[int] = Field(None, gt=0, description="Max tokens override")
+    dimensions: Optional[int] = Field(
+        None, gt=0, description="Embedding dimensions (for embedding models only)"
+    )
 
 
 class ModelsSettings(BaseModel):
@@ -27,6 +30,9 @@ class ModelsSettings(BaseModel):
     )
     evaluation: Optional[LLMModelSettings] = Field(
         default_factory=LLMModelSettings, description="Settings for LLM-as-judge evaluation"
+    )
+    embedding: Optional[LLMModelSettings] = Field(
+        default_factory=LLMModelSettings, description="Settings for embedding generation"
     )
 
 

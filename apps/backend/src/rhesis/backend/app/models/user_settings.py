@@ -52,7 +52,7 @@ class UserSettingsManager:
         """Return default settings structure."""
         return {
             "version": 1,
-            "models": {"generation": {}, "evaluation": {}},
+            "models": {"generation": {}, "evaluation": {}, "embedding": {}},
         }
 
     @property
@@ -147,6 +147,11 @@ class ModelsSettingsAccessor:
         """Access evaluation model settings."""
         return ModelSettingsAccessor(self._data.get("evaluation", {}))
 
+    @property
+    def embedding(self) -> "ModelSettingsAccessor":
+        """Access embedding model settings."""
+        return ModelSettingsAccessor(self._data.get("embedding", {}))
+
 
 class ModelSettingsAccessor:
     """Accessor for individual model settings (generation or evaluation)."""
@@ -179,6 +184,11 @@ class ModelSettingsAccessor:
     def max_tokens(self) -> Optional[int]:
         """Get max tokens setting."""
         return self._data.get("max_tokens")
+
+    @property
+    def dimensions(self) -> Optional[int]:
+        """Get embedding dimensions setting."""
+        return self._data.get("dimensions")
 
     @property
     def all(self) -> dict:

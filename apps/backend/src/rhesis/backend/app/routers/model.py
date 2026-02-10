@@ -20,7 +20,7 @@ from rhesis.backend.app.services.model_connection import ModelConnectionService
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.sdk.models.factory import get_available_models
+from rhesis.sdk.models.factory import get_available_embedding_models, get_available_llm_models
 
 # Create the detailed schema for Model (uses ModelRead to exclude API key from responses)
 ModelDetailSchema = create_detailed_schema(ModelRead, models.Model)
@@ -274,10 +274,10 @@ def get_provider_models(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Get the list of available models for a specific provider.
+    Get the list of available LLM models for a specific provider.
     """
     try:
-        models_list = get_available_models(provider_name)
+        models_list = get_available_llm_models(provider_name)
         return models_list
     except ValueError as e:
         # ValueError is raised for unsupported providers or providers that don't support listing
@@ -288,3 +288,28 @@ def get_provider_models(
             status_code=500,
             detail=f"Failed to retrieve models for provider '{provider_name}': {str(e)}",
         )
+
+
+@router.get("/provider/{provider_name}/embeddings", response_model=List[str])
+def get_provider_embedding_models(
+    provider_name: str,
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Get the list of available embedding models for a specific provider.
+    """
+    try:
+        models_list = get_available_embedding_models(provider_name)
+        return models_list
+    except ValueError as e:
+        # ValueError is raised for unsupported providers or providers that don't support embeddings
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        # Other exceptions (network errors, API errors, etc.)
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Failed to retrieve embedding models for provider '{provider_name}': {str(e)}"
+            ),
+        )
+
