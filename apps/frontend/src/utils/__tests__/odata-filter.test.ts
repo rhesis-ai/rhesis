@@ -1,3 +1,4 @@
+import { GridLogicOperator } from '@mui/x-data-grid';
 import {
   createWildcardSearchFilter,
   createTaskWildcardSearchFilter,
@@ -125,7 +126,7 @@ describe('convertGridFilterModelToOData', () => {
         { field: 'name', operator: 'contains', value: 'a', id: 1 },
         { field: 'status', operator: 'equals', value: 'active', id: 2 },
       ],
-      logicOperator: 'or',
+      logicOperator: GridLogicOperator.Or,
     });
     expect(result).toContain(' or ');
   });

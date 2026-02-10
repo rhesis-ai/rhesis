@@ -5,6 +5,8 @@ import {
   formatVersionDisplay,
 } from '../git-utils';
 
+type MutableEnv = Record<string, string | undefined>;
+
 describe('shouldShowGitInfo', () => {
   const originalEnv = process.env;
 
@@ -22,8 +24,8 @@ describe('shouldShowGitInfo', () => {
   });
 
   it('returns true when NODE_ENV is development', () => {
-    delete process.env.FRONTEND_ENV;
-    process.env.NODE_ENV = 'development';
+    delete (process.env as MutableEnv).FRONTEND_ENV;
+    (process.env as MutableEnv).NODE_ENV = 'development';
     expect(shouldShowGitInfo()).toBe(true);
   });
 
@@ -34,13 +36,13 @@ describe('shouldShowGitInfo', () => {
 
   it('returns false for production', () => {
     process.env.FRONTEND_ENV = 'production';
-    process.env.NODE_ENV = 'production';
+    (process.env as MutableEnv).NODE_ENV = 'production';
     expect(shouldShowGitInfo()).toBe(false);
   });
 
   it('returns false for staging', () => {
     process.env.FRONTEND_ENV = 'staging';
-    process.env.NODE_ENV = 'production';
+    (process.env as MutableEnv).NODE_ENV = 'production';
     expect(shouldShowGitInfo()).toBe(false);
   });
 });
@@ -65,8 +67,8 @@ describe('getGitInfo', () => {
   });
 
   it('returns undefined when env vars are not set', () => {
-    delete process.env.GIT_BRANCH;
-    delete process.env.GIT_COMMIT;
+    delete (process.env as MutableEnv).GIT_BRANCH;
+    delete (process.env as MutableEnv).GIT_COMMIT;
     const info = getGitInfo();
     expect(info.branch).toBeUndefined();
     expect(info.commit).toBeUndefined();
@@ -92,7 +94,7 @@ describe('getVersionInfo', () => {
   });
 
   it('defaults to 0.0.0 when APP_VERSION is not set', () => {
-    delete process.env.APP_VERSION;
+    delete (process.env as MutableEnv).APP_VERSION;
     process.env.FRONTEND_ENV = 'production';
     const info = getVersionInfo();
     expect(info.version).toBe('0.0.0');
@@ -112,7 +114,7 @@ describe('getVersionInfo', () => {
   it('excludes git info in production', () => {
     process.env.APP_VERSION = '1.0.0';
     process.env.FRONTEND_ENV = 'production';
-    process.env.NODE_ENV = 'production';
+    (process.env as MutableEnv).NODE_ENV = 'production';
     process.env.GIT_BRANCH = 'main';
     process.env.GIT_COMMIT = 'abc1234';
     const info = getVersionInfo();

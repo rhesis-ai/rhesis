@@ -46,7 +46,8 @@ describe('getClientApiBaseUrl', () => {
   });
 
   it('falls back to default when env var is not set', () => {
-    delete process.env.NEXT_PUBLIC_API_BASE_URL;
+    delete (process.env as Record<string, string | undefined>)
+      .NEXT_PUBLIC_API_BASE_URL;
     expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:8080');
   });
 
@@ -73,7 +74,7 @@ describe('getServerBackendUrl', () => {
   });
 
   it('falls back to default when env var is not set', () => {
-    delete process.env.BACKEND_URL;
+    delete (process.env as Record<string, string | undefined>).BACKEND_URL;
     expect(getServerBackendUrl()).toBe('http://backend:8080');
   });
 });

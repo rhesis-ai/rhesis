@@ -32,8 +32,8 @@ describe('useFormChangeDetection', () => {
   });
 
   it('treats null and empty string as equal', () => {
-    const initial = { name: null as string | null, value: '' };
-    const current = { name: '', value: null as string | null };
+    const initial: Record<string, string | null> = { name: null, value: '' };
+    const current: Record<string, string | null> = { name: '', value: null };
     const { result } = renderHook(() =>
       useFormChangeDetection({ initialData: initial, currentData: current })
     );
@@ -42,13 +42,13 @@ describe('useFormChangeDetection', () => {
   });
 
   it('treats undefined and empty string as equal', () => {
-    const initial = {
-      name: undefined as string | undefined,
+    const initial: Record<string, string | undefined> = {
+      name: undefined,
       value: '',
     };
-    const current = {
+    const current: Record<string, string | undefined> = {
       name: '',
-      value: undefined as string | undefined,
+      value: undefined,
     };
     const { result } = renderHook(() =>
       useFormChangeDetection({ initialData: initial, currentData: current })
