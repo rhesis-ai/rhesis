@@ -90,7 +90,9 @@ export default function ChipGroup({
 
   // Map the current chips according to the cached order
   const chipsMap = new Map(chips.map(c => [c.id, c]));
-  const sortedChips = sortedOrder.map(id => chipsMap.get(id)!).filter(Boolean);
+  const sortedChips = sortedOrder
+    .map(id => chipsMap.get(id))
+    .filter((chip): chip is ChipConfig => chip !== undefined);
 
   return (
     <Box

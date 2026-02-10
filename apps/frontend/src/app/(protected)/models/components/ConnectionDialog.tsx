@@ -422,20 +422,20 @@ export function ConnectionDialog({
         (isLocalProvider || apiKey) &&
         (!requiresEndpoint || endpoint);
 
-      if (isValid && onConnect) {
+      if (isValid && onConnect && provider) {
         setLoading(true);
         setError(null);
         try {
           const modelData: ModelCreate = {
             name,
-            description: `${isCustomProvider ? providerName : provider!.description} Connection`,
-            icon: provider!.type_value,
+            description: `${isCustomProvider ? providerName : provider.description} Connection`,
+            icon: provider.type_value,
             model_name: modelName,
             key: apiKey || '', // Empty string for local providers without API key
-            tags: [provider!.type_value],
+            tags: [provider.type_value],
             // Only store custom headers (Authorization and Content-Type are handled automatically by SDK)
             request_headers: customHeaders,
-            provider_type_id: provider!.id,
+            provider_type_id: provider.id,
           };
 
           // Only include endpoint if it's required and has a value
@@ -443,7 +443,7 @@ export function ConnectionDialog({
             modelData.endpoint = endpoint.trim();
           }
 
-          const createdModel = await onConnect(provider!.type_value, modelData);
+          const createdModel = await onConnect(provider.type_value, modelData);
           // Update user settings for default models
           await updateUserSettingsDefaults(createdModel.id);
           // Don't reset loading state - let dialog close with "Connecting..." text

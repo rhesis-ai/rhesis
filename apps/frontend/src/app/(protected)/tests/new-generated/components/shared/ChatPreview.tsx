@@ -33,8 +33,8 @@ export default function ChatPreview({ messages }: ChatPreviewProps) {
       {messages.map((message, index) => {
         const isLeft = index % 2 === 0;
         return (
-          // eslint-disable-next-line react/no-array-index-key -- Messages are display-only and never reordered
           <Box
+            // eslint-disable-next-line react/no-array-index-key -- Messages are display-only and never reordered
             key={`${message.role}-${index}`}
             sx={{
               display: 'flex',

@@ -104,7 +104,8 @@ export default function TestSetsGrid({
       setLoading(true);
 
       const token = sessionToken || session?.session_token;
-      const clientFactory = new ApiClientFactory(token!);
+      if (!token) return;
+      const clientFactory = new ApiClientFactory(token);
       const testSetsClient = clientFactory.getTestSetsClient();
 
       const skip = paginationModel.page * paginationModel.pageSize;
@@ -383,7 +384,8 @@ export default function TestSetsGrid({
     try {
       setIsDeleting(true);
       const token = sessionToken || session?.session_token;
-      const clientFactory = new ApiClientFactory(token!);
+      if (!token) return;
+      const clientFactory = new ApiClientFactory(token);
       const testSetsClient = clientFactory.getTestSetsClient();
 
       // Delete all selected test sets

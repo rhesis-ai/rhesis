@@ -404,10 +404,10 @@ export function MCPConnectionDialog({
         tool_metadata?: Record<string, any>;
       };
 
-      if (isEditMode) {
+      if (isEditMode && tool?.id) {
         // In edit mode, use existing tool ID
         testRequest = {
-          tool_id: tool!.id,
+          tool_id: tool.id,
         };
       } else {
         // In create mode, use direct parameters

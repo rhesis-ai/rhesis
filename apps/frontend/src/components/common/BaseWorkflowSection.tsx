@@ -137,12 +137,13 @@ export default function BaseWorkflowSection({
     }
 
     // Otherwise fetch from API
-    if (!clients.statusClient) return;
+    const statusClient = clients.statusClient;
+    if (!statusClient) return;
 
     const fetchStatuses = async () => {
       try {
         setLoadingStatuses(true);
-        const fetchedStatuses = await clients.statusClient!.getStatuses({
+        const fetchedStatuses = await statusClient.getStatuses({
           entity_type: entityType,
           sort_by: 'name',
           sort_order: 'asc',
@@ -186,12 +187,13 @@ export default function BaseWorkflowSection({
     }
 
     // Otherwise fetch from API
-    if (!clients.usersClient) return;
+    const usersClient = clients.usersClient;
+    if (!usersClient) return;
 
     const fetchUsers = async () => {
       try {
         setLoadingUsers(true);
-        const fetchedUsers = await clients.usersClient!.getUsers({
+        const fetchedUsers = await usersClient.getUsers({
           limit: 100,
         });
 

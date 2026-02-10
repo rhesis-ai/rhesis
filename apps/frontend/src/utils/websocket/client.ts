@@ -171,7 +171,7 @@ export class WebSocketClient {
     if (!this.eventHandlers.has(eventType)) {
       this.eventHandlers.set(eventType, new Set());
     }
-    this.eventHandlers.get(eventType)!.add(handler);
+    this.eventHandlers.get(eventType)?.add(handler);
 
     // Return unsubscribe function
     return () => {

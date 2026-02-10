@@ -87,14 +87,14 @@ export const transformTimelineData = (
         failed: data.failed || 0,
       };
     })
-    .filter(item => {
+    .filter((item): item is NonNullable<typeof item> => {
       if (!item) return false;
       if (filterEmptyData && item.total === 0) return false;
       return true;
     })
     .map(item => ({
-      ...item!,
-      pass_rate: isNaN(item!.pass_rate) ? 0 : item!.pass_rate,
+      ...item,
+      pass_rate: isNaN(item.pass_rate) ? 0 : item.pass_rate,
     }));
 };
 

@@ -117,8 +117,8 @@ export default function MessageBubble({
           <Paper
             elevation={0}
             onClick={
-              hasTrace && onViewTrace
-                ? () => onViewTrace(message.traceId!)
+              hasTrace && onViewTrace && message.traceId
+                ? () => onViewTrace(message.traceId)
                 : undefined
             }
             sx={{

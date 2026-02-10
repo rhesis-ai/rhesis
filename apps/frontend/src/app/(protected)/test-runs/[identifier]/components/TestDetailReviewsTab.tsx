@@ -366,10 +366,10 @@ export default function TestDetailReviewsTab({
           Review History
         </Typography>
 
-        {hasReviews ? (
+        {hasReviews && test.test_reviews?.reviews ? (
           <Stack spacing={2}>
-            {test
-              .test_reviews!.reviews.sort(
+            {test.test_reviews.reviews
+              .sort(
                 (a, b) =>
                   new Date(b.updated_at).getTime() -
                   new Date(a.updated_at).getTime()

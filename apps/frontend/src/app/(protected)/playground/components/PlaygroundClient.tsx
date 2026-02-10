@@ -113,13 +113,16 @@ export default function PlaygroundClient() {
 
       // Build endpoint options with project information
       const options: EndpointOption[] = endpoints
-        .filter((endpoint: Endpoint) => endpoint.project_id)
-        .map((endpoint: Endpoint) => {
-          const project = projectMap.get(endpoint.project_id!);
+        .filter(
+          (endpoint: Endpoint): endpoint is Endpoint & { project_id: string } =>
+            !!endpoint.project_id
+        )
+        .map(endpoint => {
+          const project = projectMap.get(endpoint.project_id);
           return {
             endpointId: endpoint.id,
             endpointName: endpoint.name,
-            projectId: endpoint.project_id!,
+            projectId: endpoint.project_id,
             projectName: project?.name || 'Unknown Project',
             environment: endpoint.environment,
           };

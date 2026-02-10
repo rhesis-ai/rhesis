@@ -1036,7 +1036,8 @@ export default function SpanGraphView({
           // Only animate if this is the last transition AND this specific self-loop index
           const shouldAnimate = Boolean(
             isLastTransition &&
-            edge.data.selfLoopIndex === lastTransition!.index
+            lastTransition &&
+            edge.data.selfLoopIndex === lastTransition.index
           );
           return {
             ...edge,

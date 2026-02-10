@@ -54,14 +54,15 @@ export function TaskCreationDrawer({
   // Load data when modal opens
   useEffect(() => {
     const loadData = async () => {
-      if (!open || !session?.session_token) return;
+      const sessionToken = session?.session_token;
+      if (!open || !sessionToken) return;
 
       setIsLoadingData(true);
       try {
         const [fetchedPriorities, fetchedUsers] = await Promise.all([
-          getPriorities(session.session_token),
+          getPriorities(sessionToken),
           (async () => {
-            const clientFactory = new ApiClientFactory(session.session_token!);
+            const clientFactory = new ApiClientFactory(sessionToken);
             const usersClient = clientFactory.getUsersClient();
             const response = await usersClient.getUsers();
             return response.data;

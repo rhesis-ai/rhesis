@@ -1422,32 +1422,36 @@ export default function ComparisonView({
                                                         metric.baselineResult
                                                           .score
                                                       ).toFixed(2)}
-                                                      {hasScoreChange && (
-                                                        <Typography
-                                                          component="span"
-                                                          variant="caption"
-                                                          sx={{
-                                                            ml: 0.5,
-                                                            color:
-                                                              scoreDiff! > 0
-                                                                ? theme.palette
-                                                                    .success
-                                                                    .main
-                                                                : theme.palette
-                                                                    .error.main,
-                                                            fontWeight: 500,
-                                                          }}
-                                                        >
-                                                          (
-                                                          {scoreDiff! > 0
-                                                            ? '+'
-                                                            : ''}
-                                                          {scoreDiff!.toFixed(
-                                                            2
-                                                          )}
-                                                          )
-                                                        </Typography>
-                                                      )}
+                                                      {hasScoreChange &&
+                                                        scoreDiff !== null && (
+                                                          <Typography
+                                                            component="span"
+                                                            variant="caption"
+                                                            sx={{
+                                                              ml: 0.5,
+                                                              color:
+                                                                scoreDiff > 0
+                                                                  ? theme
+                                                                      .palette
+                                                                      .success
+                                                                      .main
+                                                                  : theme
+                                                                      .palette
+                                                                      .error
+                                                                      .main,
+                                                              fontWeight: 500,
+                                                            }}
+                                                          >
+                                                            (
+                                                            {scoreDiff > 0
+                                                              ? '+'
+                                                              : ''}
+                                                            {scoreDiff.toFixed(
+                                                              2
+                                                            )}
+                                                            )
+                                                          </Typography>
+                                                        )}
                                                     </Typography>
                                                     {metric.baselineResult
                                                       .threshold != null && (
@@ -1819,28 +1823,29 @@ export default function ComparisonView({
                                                   {Number(
                                                     metric.currentResult.score
                                                   ).toFixed(2)}
-                                                  {hasScoreChange && (
-                                                    <Typography
-                                                      component="span"
-                                                      variant="caption"
-                                                      sx={{
-                                                        ml: 0.5,
-                                                        color:
-                                                          scoreDiff! > 0
-                                                            ? theme.palette
-                                                                .success.main
-                                                            : theme.palette
-                                                                .error.main,
-                                                        fontWeight: 500,
-                                                      }}
-                                                    >
-                                                      (
-                                                      {scoreDiff! > 0
-                                                        ? '+'
-                                                        : ''}
-                                                      {scoreDiff!.toFixed(2)})
-                                                    </Typography>
-                                                  )}
+                                                  {hasScoreChange &&
+                                                    scoreDiff !== null && (
+                                                      <Typography
+                                                        component="span"
+                                                        variant="caption"
+                                                        sx={{
+                                                          ml: 0.5,
+                                                          color:
+                                                            scoreDiff > 0
+                                                              ? theme.palette
+                                                                  .success.main
+                                                              : theme.palette
+                                                                  .error.main,
+                                                          fontWeight: 500,
+                                                        }}
+                                                      >
+                                                        (
+                                                        {scoreDiff > 0
+                                                          ? '+'
+                                                          : ''}
+                                                        {scoreDiff.toFixed(2)})
+                                                      </Typography>
+                                                    )}
                                                 </Typography>
                                                 {metric.currentResult
                                                   .threshold != null && (

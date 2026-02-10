@@ -85,13 +85,15 @@ export default function EndpointSelector({
 
       // Build endpoint options with project information
       const options: EndpointOption[] = endpoints
-        .filter((endpoint: Endpoint) => endpoint.project_id) // Only include endpoints with projects
-        .map((endpoint: Endpoint) => ({
+        .filter(
+          (endpoint: Endpoint): endpoint is Endpoint & { project_id: string } =>
+            !!endpoint.project_id
+        ) // Only include endpoints with projects
+        .map(endpoint => ({
           endpointId: endpoint.id,
           endpointName: endpoint.name,
-          projectId: endpoint.project_id!,
-          projectName:
-            projectMap.get(endpoint.project_id!) || 'Unknown Project',
+          projectId: endpoint.project_id,
+          projectName: projectMap.get(endpoint.project_id) || 'Unknown Project',
           environment: endpoint.environment,
         }))
         .sort((a, b) => {

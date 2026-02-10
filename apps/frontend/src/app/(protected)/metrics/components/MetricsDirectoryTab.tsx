@@ -222,18 +222,19 @@ export default function MetricsDirectoryTab({
           ));
 
       // Behavior filter
+      const behaviors = metric.behaviors;
       const behaviorMatch =
         !filters.behavior ||
         filters.behavior.length === 0 ||
-        (metric.behaviors &&
-          Array.isArray(metric.behaviors) &&
-          metric.behaviors.length > 0 &&
+        (behaviors &&
+          Array.isArray(behaviors) &&
+          behaviors.length > 0 &&
           filters.behavior.some(behaviorId => {
             // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
-            if (typeof metric.behaviors![0] === 'string') {
-              return (metric.behaviors as string[]).includes(behaviorId);
+            if (typeof behaviors[0] === 'string') {
+              return (behaviors as string[]).includes(behaviorId);
             } else {
-              return metric.behaviors!.some((b: any) => b.id === behaviorId);
+              return behaviors.some((b: any) => b.id === behaviorId);
             }
           }));
 
