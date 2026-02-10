@@ -16,9 +16,8 @@ output "vpc_self_link" {
 output "subnet_ids" {
   description = "Map of subnet names to their IDs"
   value = var.create_gke_subnets ? {
-    nodes  = google_compute_subnetwork.nodes[0].id
-    ilb    = google_compute_subnetwork.ilb[0].id
-    master = google_compute_subnetwork.master[0].id
+    nodes = google_compute_subnetwork.nodes[0].id
+    ilb   = google_compute_subnetwork.ilb[0].id
     } : {
     main = google_compute_subnetwork.wireguard[0].id
   }
@@ -27,9 +26,8 @@ output "subnet_ids" {
 output "subnet_self_links" {
   description = "Map of subnet names to their self links"
   value = var.create_gke_subnets ? {
-    nodes  = google_compute_subnetwork.nodes[0].self_link
-    ilb    = google_compute_subnetwork.ilb[0].self_link
-    master = google_compute_subnetwork.master[0].self_link
+    nodes = google_compute_subnetwork.nodes[0].self_link
+    ilb   = google_compute_subnetwork.ilb[0].self_link
     } : {
     main = google_compute_subnetwork.wireguard[0].self_link
   }
