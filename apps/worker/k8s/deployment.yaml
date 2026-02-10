@@ -134,26 +134,6 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: VERTEX_AI_PROJECT
-        - name: AZURE_OPENAI_ENDPOINT
-          valueFrom:
-            secretKeyRef:
-              name: rhesis-worker-secrets
-              key: AZURE_OPENAI_ENDPOINT
-        - name: AZURE_OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: rhesis-worker-secrets
-              key: AZURE_OPENAI_API_KEY
-        - name: AZURE_OPENAI_DEPLOYMENT_NAME
-          valueFrom:
-            secretKeyRef:
-              name: rhesis-worker-secrets
-              key: AZURE_OPENAI_DEPLOYMENT_NAME
-        - name: AZURE_OPENAI_API_VERSION
-          valueFrom:
-            secretKeyRef:
-              name: rhesis-worker-secrets
-              key: AZURE_OPENAI_API_VERSION
         - name: PERSPECTIVE_API_KEY
           valueFrom:
             secretKeyRef:
