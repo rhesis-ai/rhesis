@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import CustomAuthForm from './Auth0Lock';
 
 export default function LoginSection() {

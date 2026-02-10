@@ -67,7 +67,7 @@ ${rating ? `<p><strong>Rating:</strong> ${rating}/5 stars</p>` : ''}
       success: true,
       message: 'Feedback sent successfully',
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json(
       { error: 'Failed to send feedback' },
       { status: 500 }

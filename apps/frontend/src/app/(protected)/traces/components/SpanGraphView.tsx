@@ -629,7 +629,7 @@ function TransitionEdge({
     );
   }
 
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const [edgePath, _labelX, _labelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -820,7 +820,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
 
 export default function SpanGraphView({
   spans,
-  selectedSpan,
+  selectedSpan: _selectedSpan,
   onSpanSelect,
 }: SpanGraphViewProps) {
   const theme = useTheme();

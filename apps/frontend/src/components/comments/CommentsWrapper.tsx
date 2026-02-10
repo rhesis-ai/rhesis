@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { Box } from '@mui/material';
 import { CommentsSection } from './CommentsSection';
 import { useComments } from '@/hooks/useComments';
 import { EntityType } from '@/types/comments';
@@ -32,12 +31,12 @@ export default function CommentsWrapper({
   const {
     comments,
     isLoading,
-    error,
+    error: _error,
     createComment,
     editComment,
     deleteComment,
     reactToComment,
-    refetch,
+    refetch: _refetch,
   } = useComments({
     entityType,
     entityId,

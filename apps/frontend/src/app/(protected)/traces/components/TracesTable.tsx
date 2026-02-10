@@ -4,9 +4,8 @@ import { useMemo } from 'react';
 import { GridColDef } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
-import { Chip, Box, Typography, Tooltip } from '@mui/material';
+import { Chip, Typography, Tooltip } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
-import Link from 'next/link';
 import { formatDuration } from '@/utils/format-duration';
 
 interface TracesTableProps {

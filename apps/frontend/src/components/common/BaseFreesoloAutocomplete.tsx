@@ -6,7 +6,6 @@ import {
   TextField,
   createFilterOptions,
   FormControl,
-  AutocompleteProps,
   Popper,
   PopperProps,
 } from '@mui/material';

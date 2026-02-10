@@ -18,7 +18,6 @@ import {
   MenuItem,
   SelectChangeEvent,
   ButtonGroup,
-  Menu,
   Popper,
   Grow,
   ClickAwayListener,
@@ -34,7 +33,6 @@ import {
   DataGrid,
   GridPaginationModel,
   GridRowModel,
-  GridRowId,
   GridEditMode,
   GridDensity,
   GridRowSelectionModel,
@@ -178,10 +176,10 @@ export default function BaseDataGrid({
   title,
   loading = false,
   getRowId,
-  showToolbar = true,
+  showToolbar: _showToolbar = true,
   onRowClick,
   density,
-  sx,
+  sx: _sx,
   disableMultipleRowSelection,
   actionButtons,
   enableEditing = false,
@@ -215,7 +213,7 @@ export default function BaseDataGrid({
   persistState = false,
   storageKey,
 }: BaseDataGridProps) {
-  const theme = useTheme();
+  const _theme = useTheme();
   const router = useRouter();
   const apiRef = useGridApiRef();
 

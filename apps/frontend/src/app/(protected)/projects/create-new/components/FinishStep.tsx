@@ -64,7 +64,7 @@ const PROJECT_ICONS = {
 };
 
 // Map of icon names to labels
-const ICON_LABELS = {
+const _ICON_LABELS = {
   SmartToy: 'AI Assistant',
   Psychology: 'AI Brain',
   Chat: 'Chatbot',

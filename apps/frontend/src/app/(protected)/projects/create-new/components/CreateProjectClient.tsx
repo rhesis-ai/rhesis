@@ -105,7 +105,7 @@ export default function CreateProjectClient({
       };
 
       try {
-        const project = await projectsClient.createProject(projectData);
+        const _project = await projectsClient.createProject(projectData);
 
         // Navigate to the projects page
         router.push('/projects');

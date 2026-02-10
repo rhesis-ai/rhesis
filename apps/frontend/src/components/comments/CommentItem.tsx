@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   IconButton,
-  Link,
   Popover,
   Button,
   TextField,
@@ -58,7 +57,7 @@ export function CommentItem({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [associatedTasks, setAssociatedTasks] = useState<Task[]>([]);
-  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  const [_isLoadingTasks, setIsLoadingTasks] = useState(false);
 
   const { fetchTasksByCommentId } = useTasks({ autoFetch: false });
 
