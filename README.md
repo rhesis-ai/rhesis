@@ -231,9 +231,23 @@ Connect Rhesis to your LLM stack:
 | Integration | Languages | Description |
 |-------------|-----------|-------------|
 | **Rhesis SDK** | Python, JS/TS | Native SDK with decorators for endpoints and observability. Full control over test execution and tracing. |
-| **OpenAI SDK** | Python, JS/TS | Drop-in replacement for OpenAI SDK. Automatic instrumentation with zero code changes. |
-| **LangChain** | Python, JS/TS | Add Rhesis callback handler to your LangChain app for automatic tracing and test execution. |
-| **LiteLLM** | Python, JS/TS | Unified interface for 100+ LLMs (OpenAI, Azure, Anthropic, Cohere, Ollama, vLLM, HuggingFace, Replicate). |
+| **OpenAI** | Python | Drop-in replacement for OpenAI SDK. Automatic instrumentation with zero code changes. |
+| **Anthropic** | Python | Native support for Claude models with automatic tracing. |
+| **LangChain** | Python | Add Rhesis callback handler to your LangChain app for automatic tracing and test execution. |
+| **LangGraph** | Python | Built-in integration for LangGraph agent workflows with full observability. |
+| **AutoGen** | Python | Automatic instrumentation for Microsoft AutoGen multi-agent conversations. |
+| **LiteLLM** | Python | Unified interface for 100+ LLMs (OpenAI, Azure, Anthropic, Cohere, Ollama, vLLM, HuggingFace, Replicate). |
+| **Google Gemini** | Python | Native integration for Google's Gemini models. |
+| **Mistral** | Python | Direct support for Mistral AI models. |
+| **Cohere** | Python | Built-in integration for Cohere's language models. |
+| **Groq** | Python | Fast inference with Groq's LPU architecture. |
+| **Together AI** | Python | Access to open-source models via Together AI. |
+| **Ollama** | Python | Local LLM deployment with Ollama integration. |
+| **Replicate** | Python | Run open-source models via Replicate's API. |
+| **Perplexity** | Python | Integration with Perplexity AI models. |
+| **OpenRouter** | Python | Access to multiple LLM providers through OpenRouter. |
+| **Vertex AI** | Python | Google Cloud Vertex AI model support. |
+| **HuggingFace** | Python | Direct integration with HuggingFace models. |
 | **REST API** | Any | Direct API access for custom integrations. [OpenAPI spec available](https://app.rhesis.ai/api/docs). |
 
 See [Integration Docs](https://docs.rhesis.ai/sdk/getting-started) for setup instructions.
