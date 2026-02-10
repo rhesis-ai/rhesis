@@ -475,7 +475,7 @@ export default function TaskDetailPage({ params }: PageProps) {
 
     try {
       await handleSave(updatedTask);
-    } catch (error) {
+    } catch (_error) {
       // Revert on error
       setEditTitle(editedTask.title || '');
       setIsEditingTitle(true);
