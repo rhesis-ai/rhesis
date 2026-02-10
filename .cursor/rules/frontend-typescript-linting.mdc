@@ -1,5 +1,5 @@
 ---
-description: TypeScript/ESLint rules for frontend development to avoid unused variable warnings. Apply when working on apps/frontend/**/*.ts or apps/frontend/**/*.tsx files.
+description: TypeScript/ESLint rules for frontend development to avoid lint errors and warnings. Apply when working on apps/frontend/**/*.ts or apps/frontend/**/*.tsx files.
 alwaysApply: true
 ---
 
@@ -105,11 +105,118 @@ items.map((item, _index) => (
 ));
 ```
 
+## React Keys - Avoiding Array Index as Key
+
+The codebase enforces `react/no-array-index-key`. Using array index as React key can cause rendering issues when items are reordered, added, or removed.
+
+### 1. Use Unique Identifiers When Available
+
+```typescript
+// BAD
+{users.map((user, index) => (
+  <UserCard key={index} user={user} />
+))}
+
+// GOOD - use unique id from data
+{users.map((user) => (
+  <UserCard key={user.id} user={user} />
+))}
+```
+
+### 2. For Dynamic Form Fields - Add ID to Data Structure
+
+```typescript
+// BAD
+interface Invite {
+  email: string;
+}
+
+// GOOD - include unique id for React keys
+interface Invite {
+  id: string;  // Use crypto.randomUUID() when creating
+  email: string;
+}
+
+// When adding new items:
+const newInvite = { id: crypto.randomUUID(), email: '' };
+```
+
+### 3. For Display-Only Static Lists - Use eslint-disable
+
+When rendering parsed text, chart data, or other display-only content that will never be reordered:
+
+```typescript
+// Acceptable with justification
+{criteriaList.map((criterion, idx) => (
+  // eslint-disable-next-line react/no-array-index-key -- Display-only list
+  <Box key={`${criterion.name}-${idx}`}>
+    {criterion.value}
+  </Box>
+))}
+```
+
+For files with many such cases, use file-level disable at the top:
+
+```typescript
+'use client';
+
+/* eslint-disable react/no-array-index-key -- This file renders parsed content */
+
+import React from 'react';
+```
+
+## Import Organization
+
+### 1. No Duplicate Imports
+
+Combine imports from the same module:
+
+```typescript
+// BAD
+import { Box, Typography } from '@mui/material';
+import type { TypographyProps } from '@mui/material';
+
+// GOOD
+import { Box, Typography, type TypographyProps } from '@mui/material';
+```
+
+### 2. Use Type Imports
+
+Use `import type` for type-only imports (automatically removed during compilation):
+
+```typescript
+import type { User, Organization } from './interfaces';
+import { ApiClient } from './client';
+```
+
+## Console Statements
+
+The codebase restricts console usage to `console.warn` and `console.error` only.
+
+```typescript
+// BAD
+console.log('Debug info');
+
+// GOOD
+console.warn('Warning message');
+console.error('Error message');
+
+// For debug logging that must stay, use explicit methods:
+if (logLevel === 'error') {
+  console.error('Message', data);
+} else {
+  console.warn('Message', data);
+}
+```
+
 ## Verification Commands
 
 Before committing frontend changes, run:
 
 ```bash
+# Format code with Prettier
+npm run format
+
 # TypeScript type checking
 npx tsc --noEmit
 
@@ -121,9 +228,6 @@ npm run lint
 
 1. **Prefer removal over underscore prefix** - If a variable is truly not needed, remove it entirely
 2. **Consider if the variable should be used** - Before prefixing, check if it should actually be used (e.g., error logging)
-3. **Use type imports** - Use `import type` for type-only imports (automatically removed during compilation)
-
-```typescript
-import type { User, Organization } from './interfaces';
-import { ApiClient } from './client';
-```
+3. **Use unique IDs for dynamic lists** - Add `id` field to data structures used in `.map()` with add/remove functionality
+4. **Run formatter before committing** - Always run `npm run format` to avoid formatting errors in pre-commit hooks
+5. **Combine imports** - Keep all imports from the same module in a single import statement
