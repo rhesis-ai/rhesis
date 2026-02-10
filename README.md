@@ -226,23 +226,15 @@ pip install rhesis-sdk
 
 ## Integrations
 
-Connect Rhesis to your LLM application through multiple integration methods:
+Connect Rhesis to your LLM stack:
 
-| Integration | Description |
-|-------------|-------------|
-| **Python SDK** | Full-featured SDK with `@endpoint` decorator for automatic test execution and `@observe` for tracing |
-| **REST API** | Direct API integration for any language or framework. [OpenAPI spec available](https://app.rhesis.ai/api/docs) |
-| **OpenTelemetry** | Native OpenTelemetry support for distributed tracing and observability |
-| **MCP (Model Context Protocol)** | Connect context sources like Notion, GitHub, Jira, and Confluence for knowledge-aware test generation |
-| **CI/CD** | Integrate test execution into GitHub Actions, GitLab CI, Jenkins, or any CI/CD pipeline |
-
-### Supported LLM Providers
-
-**Cloud:** OpenAI, Anthropic, Google Gemini, Mistral, Cohere, Groq, Together AI
-
-**Local/Self-hosted:** Ollama, vLLM, LiteLLM
-
-**Frameworks:** LangChain, LlamaIndex, and any custom LLM implementation
+| Integration | Languages | Description |
+|-------------|-----------|-------------|
+| **Rhesis SDK** | Python, JS/TS | Native SDK with decorators for endpoints and observability. Full control over test execution and tracing. |
+| **OpenAI SDK** | Python, JS/TS | Drop-in replacement for OpenAI SDK. Automatic instrumentation with zero code changes. |
+| **LangChain** | Python, JS/TS | Add Rhesis callback handler to your LangChain app for automatic tracing and test execution. |
+| **LiteLLM** | Python, JS/TS | Unified interface for 100+ LLMs (OpenAI, Azure, Anthropic, Cohere, Ollama, vLLM, HuggingFace, Replicate). |
+| **REST API** | Any | Direct API access for custom integrations. [OpenAPI spec available](https://app.rhesis.ai/api/docs). |
 
 See [Integration Docs](https://docs.rhesis.ai/sdk/getting-started) for setup instructions.
 
