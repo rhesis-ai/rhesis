@@ -48,6 +48,10 @@ export default defineConfig({
       NEXT_PUBLIC_QUICK_START: 'true',
       NEXT_PUBLIC_API_BASE_URL:
         process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080',
+      BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8080',
+      NEXTAUTH_SECRET:
+        process.env.NEXTAUTH_SECRET || 'test-secret-for-e2e-tests-only',
+      NEXTAUTH_URL: process.env.NEXTAUTH_URL || 'http://localhost:3000',
     },
   },
 });
