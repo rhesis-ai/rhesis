@@ -55,53 +55,6 @@ Generate tests from requirements, simulate conversation flows, detect adversaria
 
 ---
 
-## Quick Start
-
-**Option 1: Cloud (fastest)** - [app.rhesis.ai](https://app.rhesis.ai) - Managed service, just connect your app
-
-**Option 2: Self-host with Docker**
-```bash
-git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
-```
-Access at `http://localhost:3000` (auto-login enabled)
-
-**Option 3: Python SDK**
-```bash
-pip install rhesis-sdk
-```
-
----
-
-## Why Rhesis?
-
-**Platform for teams. SDK for developers.**
-
-Use the collaborative platform for team-based testing: product managers define requirements, domain experts review results, engineers integrate via CI/CD. Or integrate directly with the Python SDK for code-first workflows.
-
-### The testing lifecycle
-
-Six integrated phases from project setup to team collaboration:
-
-| Phase | What You Do |
-|--------------------------------|-------------|
-| **[1. Projects](https://docs.rhesis.ai/platform/projects)** | Configure your AI application, upload & connect context sources (files, docs), set up SDK connectors |
-| **[2. Requirements](https://docs.rhesis.ai/platform/behaviors)** | Define expected behaviors (what your app should and shouldn't do), cover all relevant aspects from product, marketing, customer support, legal and compliance teams |
-| **[3. Metrics](https://docs.rhesis.ai/platform/metrics)** | Select from 60+ pre-built metrics or create custom LLM-as-Judge evaluations to assess whether your requirements are met |
-| **[4. Tests](https://docs.rhesis.ai/platform/tests)** | Generate single-turn and conversation simulation test scenarios. Organize in test sets and understand your test coverage |
-| **[5. Execution](https://docs.rhesis.ai/platform/test-execution)** | Run tests via UI, SDK, or API; integrate into CI/CD pipelines; collect traces during execution |
-| **[6. Collaboration](https://docs.rhesis.ai/platform/test-runs)** | Review results with your team through comments, tasks, workflows, and side-by-side comparisons |
-
-### Rhesis vs...
-
-| Instead of... | Rhesis gives you... |
-|---------------|---------------------|
-| **Manual testing** | AI-generated test cases based on your context, hundreds in minutes |
-| **Traditional test frameworks** | Non-deterministic output handling built-in |
-| **LLM observability tools** | Pre-production validation, not post-production monitoring |
-| **Red-teaming services** | Continuous, self-service adversarial testing, not one-time audits |
-
----
-
 ## Core features
 
 <p align="center">
@@ -172,6 +125,36 @@ See [Model Configuration Docs](https://docs.rhesis.ai/sdk/models) for setup inst
 
 ---
 
+## Why Rhesis?
+
+**Platform for teams. SDK for developers.**
+
+Use the collaborative platform for team-based testing: product managers define requirements, domain experts review results, engineers integrate via CI/CD. Or integrate directly with the Python SDK for code-first workflows.
+
+### The testing lifecycle
+
+Six integrated phases from project setup to team collaboration:
+
+| Phase | What You Do |
+|--------------------------------|-------------|
+| **[1. Projects](https://docs.rhesis.ai/platform/projects)** | Configure your AI application, upload & connect context sources (files, docs), set up SDK connectors |
+| **[2. Requirements](https://docs.rhesis.ai/platform/behaviors)** | Define expected behaviors (what your app should and shouldn't do), cover all relevant aspects from product, marketing, customer support, legal and compliance teams |
+| **[3. Metrics](https://docs.rhesis.ai/platform/metrics)** | Select from 60+ pre-built metrics or create custom LLM-as-Judge evaluations to assess whether your requirements are met |
+| **[4. Tests](https://docs.rhesis.ai/platform/tests)** | Generate single-turn and conversation simulation test scenarios. Organize in test sets and understand your test coverage |
+| **[5. Execution](https://docs.rhesis.ai/platform/test-execution)** | Run tests via UI, SDK, or API; integrate into CI/CD pipelines; collect traces during execution |
+| **[6. Collaboration](https://docs.rhesis.ai/platform/test-runs)** | Review results with your team through comments, tasks, workflows, and side-by-side comparisons |
+
+### Rhesis vs...
+
+| Instead of... | Rhesis gives you... |
+|---------------|---------------------|
+| **Manual testing** | AI-generated test cases based on your context, hundreds in minutes |
+| **Traditional test frameworks** | Non-deterministic output handling built-in |
+| **LLM observability tools** | Pre-production validation, not post-production monitoring |
+| **Red-teaming services** | Continuous, self-service adversarial testing, not one-time audits |
+
+---
+
 ## What you can test
 
 | Use Case | What Rhesis Tests |
@@ -219,12 +202,13 @@ test_set = synthesizer.generate(num_tests=10)
 | **Docker** | Local development and testing | 5 minutes |
 | **Kubernetes** | Production self-hosting | [See docs](https://docs.rhesis.ai/getting-started/self-hosting) |
 
-### Docker quick start
+### Quick Start
 
+**Option 1: Cloud (fastest)** - [app.rhesis.ai](https://app.rhesis.ai) - Managed service, just connect your app
+
+**Option 2: Self-host with Docker**
 ```bash
-git clone https://github.com/rhesis-ai/rhesis.git
-cd rhesis
-./rh start
+git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
 ```
 
 **Access:** Frontend at `localhost:3000`, API at `localhost:8080/docs`
@@ -232,6 +216,11 @@ cd rhesis
 **Commands:** `./rh logs` · `./rh stop` · `./rh restart` · `./rh delete`
 
 > **Note:** This setup enables auto-login for local testing. For production, see [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
+
+**Option 3: Python SDK**
+```bash
+pip install rhesis-sdk
+```
 
 ---
 
