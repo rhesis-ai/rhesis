@@ -7,6 +7,8 @@ from rhesis.sdk.models.factory import (
     DEFAULT_MODELS,
     DEFAULT_PROVIDER,
     ModelConfig,
+    get_available_embedding_models,
+    get_available_llm_models,
     get_model,
 )
 
@@ -432,3 +434,91 @@ class TestModelFactoryEdgeCases:
         ]
 
         assert mock_rhesis_class.call_args_list == expected_calls
+
+
+class TestGetAvailableLLMModels:
+    """Test the get_available_llm_models function."""
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAILLM.get_available_models")
+    def test_get_available_llm_models_openai(self, mock_get_models):
+        """Test getting available LLM models for OpenAI."""
+        mock_get_models.return_value = ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"]
+
+        models = get_available_llm_models("openai")
+
+        assert models == ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"]
+        mock_get_models.assert_called_once()
+
+    @patch("rhesis.sdk.models.providers.gemini.GeminiLLM.get_available_models")
+    def test_get_available_llm_models_gemini(self, mock_get_models):
+        """Test getting available LLM models for Gemini."""
+        mock_get_models.return_value = ["gemini-2.0-flash", "gemini-2.5-flash"]
+
+        models = get_available_llm_models("gemini")
+
+        assert models == ["gemini-2.0-flash", "gemini-2.5-flash"]
+        mock_get_models.assert_called_once()
+
+    def test_get_available_llm_models_unsupported_provider(self):
+        """Test getting models for unsupported provider raises ValueError."""
+        with pytest.raises(ValueError, match="Provider 'unsupported' not supported"):
+            get_available_llm_models("unsupported")
+
+    def test_get_available_llm_models_non_litellm_provider(self):
+        """Test getting models for provider that doesn't support listing."""
+        with pytest.raises(
+            ValueError, match="Provider 'rhesis' does not support listing available models"
+        ):
+            get_available_llm_models("rhesis")
+
+
+class TestGetAvailableEmbeddingModels:
+    """Test the get_available_embedding_models function."""
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder.get_available_models")
+    def test_get_available_embedding_models_openai(self, mock_get_models):
+        """Test getting available embedding models for OpenAI."""
+        mock_get_models.return_value = [
+            "text-embedding-3-small",
+            "text-embedding-3-large",
+            "text-embedding-ada-002",
+        ]
+
+        models = get_available_embedding_models("openai")
+
+        assert models == [
+            "text-embedding-3-small",
+            "text-embedding-3-large",
+            "text-embedding-ada-002",
+        ]
+        mock_get_models.assert_called_once()
+
+    @patch("rhesis.sdk.models.providers.gemini.GeminiEmbedder.get_available_models")
+    def test_get_available_embedding_models_gemini(self, mock_get_models):
+        """Test getting available embedding models for Gemini."""
+        mock_get_models.return_value = ["text-embedding-004", "gemini-embedding-001"]
+
+        models = get_available_embedding_models("gemini")
+
+        assert models == ["text-embedding-004", "gemini-embedding-001"]
+        mock_get_models.assert_called_once()
+
+    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAIEmbedder.get_available_models")
+    def test_get_available_embedding_models_vertex_ai(self, mock_get_models):
+        """Test getting available embedding models for Vertex AI."""
+        mock_get_models.return_value = ["text-embedding-005", "text-embedding-004"]
+
+        models = get_available_embedding_models("vertex_ai")
+
+        assert models == ["text-embedding-005", "text-embedding-004"]
+        mock_get_models.assert_called_once()
+
+    def test_get_available_embedding_models_unsupported_provider(self):
+        """Test getting embedding models for unsupported provider raises ValueError."""
+        with pytest.raises(ValueError, match="Embedding provider 'unsupported' not supported"):
+            get_available_embedding_models("unsupported")
+
+    def test_get_available_embedding_models_non_embedding_provider(self):
+        """Test getting embedding models for provider that doesn't support embeddings."""
+        with pytest.raises(ValueError, match="Embedding provider 'anthropic' not supported"):
+            get_available_embedding_models("anthropic")
