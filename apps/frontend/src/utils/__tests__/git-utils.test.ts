@@ -131,15 +131,15 @@ describe('formatVersionDisplay', () => {
   });
 
   it('formats version with branch', () => {
-    expect(
-      formatVersionDisplay({ version: '1.0.0', branch: 'main' })
-    ).toBe('v1.0.0 (main)');
+    expect(formatVersionDisplay({ version: '1.0.0', branch: 'main' })).toBe(
+      'v1.0.0 (main)'
+    );
   });
 
   it('formats version with commit', () => {
-    expect(
-      formatVersionDisplay({ version: '1.0.0', commit: 'abc1234' })
-    ).toBe('v1.0.0 (abc1234)');
+    expect(formatVersionDisplay({ version: '1.0.0', commit: 'abc1234' })).toBe(
+      'v1.0.0 (abc1234)'
+    );
   });
 
   it('formats version with branch and commit', () => {

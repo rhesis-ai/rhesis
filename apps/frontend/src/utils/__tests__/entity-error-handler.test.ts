@@ -102,8 +102,7 @@ describe('getNotFoundEntityData', () => {
 
   it('parses encoded data from error message (new format)', () => {
     const error = {
-      message:
-        'API error: 404 - table:test_run|id:abc-123|Test Run not found',
+      message: 'API error: 404 - table:test_run|id:abc-123|Test Run not found',
     };
 
     const result = getNotFoundEntityData(error);
@@ -176,8 +175,7 @@ describe('getDeletedEntityData', () => {
 
   it('generates user-friendly message for parsed errors', () => {
     const error = {
-      message:
-        'API error: 410 - table:project|id:p-1|Project has been deleted',
+      message: 'API error: 410 - table:project|id:p-1|Project has been deleted',
     };
 
     const result = getDeletedEntityData(error);
