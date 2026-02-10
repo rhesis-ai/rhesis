@@ -14,11 +14,11 @@ test.describe('Test Runs @sanity', () => {
     await page.waitForLoadState('networkidle');
 
     const dataGrid = page.locator('[role="grid"]');
-    const pageContent = page.locator('body');
+    const emptyState = page.locator('main, [role="main"]');
 
     const hasGrid = await dataGrid.isVisible().catch(() => false);
-    const hasContent = await pageContent.isVisible();
+    const hasEmptyState = await emptyState.isVisible();
 
-    expect(hasGrid || hasContent).toBeTruthy();
+    expect(hasGrid || hasEmptyState).toBeTruthy();
   });
 });

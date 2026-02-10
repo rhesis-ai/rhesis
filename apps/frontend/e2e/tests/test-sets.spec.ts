@@ -18,12 +18,12 @@ test.describe('Test Sets @sanity', () => {
     const charts = page.locator(
       'canvas, svg[class*="chart"], [class*="Chart"]'
     );
-    const pageBody = page.locator('body');
+    const emptyState = page.locator('main, [role="main"]');
 
     const hasGrid = await dataGrid.isVisible().catch(() => false);
     const hasCharts = (await charts.count()) > 0;
-    const hasContent = await pageBody.isVisible();
+    const hasEmptyState = await emptyState.isVisible();
 
-    expect(hasGrid || hasCharts || hasContent).toBeTruthy();
+    expect(hasGrid || hasCharts || hasEmptyState).toBeTruthy();
   });
 });
