@@ -238,3 +238,13 @@ class TestSetExecutionRequest(BaseModel):
             v["execution_mode"] = "Parallel"
 
         return v
+
+
+class TestRunRescoreRequest(BaseModel):
+    """Request to re-score a test run with different metrics.
+
+    No endpoints will be invoked -- only metric evaluation on stored outputs.
+    """
+
+    metrics: Optional[List[ExecutionMetric]] = None
+    execution_options: Optional[Dict[str, Any]] = None

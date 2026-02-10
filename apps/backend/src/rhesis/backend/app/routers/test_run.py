@@ -17,6 +17,7 @@ from rhesis.backend.app.schemas.telemetry import TraceListResponse, TraceSource,
 from rhesis.backend.app.services.stats.test_run import get_test_run_stats
 from rhesis.backend.app.services.test_run import (
     get_test_results_for_test_run,
+    rescore_test_run,
     test_run_results_to_csv,
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -392,6 +393,56 @@ def delete_test_run(
     return crud.delete_test_run(
         db=db, test_run_id=test_run_id, organization_id=organization_id, user_id=user_id
     )
+
+
+@router.post("/{test_run_id}/rescore")
+async def rescore_test_run_endpoint(
+    test_run_id: UUID,
+    request: schemas.TestRunRescoreRequest = None,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Re-score all tests in a test run with new metrics.
+
+    No endpoints will be invoked -- only metric evaluation on stored
+    outputs from the original test run.
+
+    Args:
+        test_run_id: UUID of the test run to re-score
+        request: Optional rescore request with metric overrides
+    """
+    organization_id, user_id = tenant_context
+
+    # Convert metrics from schema to dicts if provided
+    metrics = None
+    if request and request.metrics:
+        metrics = [
+            {
+                "id": str(m.id),
+                "name": m.name,
+                "scope": m.scope,
+            }
+            for m in request.metrics
+        ]
+
+    try:
+        result = rescore_test_run(
+            db=db,
+            reference_test_run_id=str(test_run_id),
+            current_user=current_user,
+            metrics=metrics,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to rescore test run: {str(e)}",
+        )
 
 
 @router.get("/{test_run_id}/download", response_class=StreamingResponse)

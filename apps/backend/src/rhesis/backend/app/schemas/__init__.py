@@ -104,6 +104,7 @@ from .test_run import TestRun, TestRunBase, TestRunCreate, TestRunUpdate
 from .test_set import (
     TestData,
     TestPrompt,
+    TestRunRescoreRequest,
     TestSet,
     TestSetBase,
     TestSetBulkAssociateRequest,
@@ -190,6 +191,7 @@ __all__ = [
     "TestSetBulkResponse",
     "TestSetBulkAssociateResponse",
     "TestSetBulkAssociateRequest",
+    "TestRunRescoreRequest",
     "TestSetBulkDisassociateResponse",
     "TestSetBulkDisassociateRequest",
     "TestRun",
