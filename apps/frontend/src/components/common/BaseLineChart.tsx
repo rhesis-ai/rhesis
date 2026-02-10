@@ -174,7 +174,7 @@ export default function BaseLineChart({
   series,
   colorPalette = 'line',
   useThemeColors = true,
-  height = 180,
+  height: _height = 180,
   xAxisDataKey = 'name',
   showGrid = true,
   legendProps,

@@ -176,7 +176,7 @@ export default function TestSetDetailsSection({
       // Update the testSet object to reflect the new description
       testSet.description = editedDescription;
       setIsEditingDescription(false);
-    } catch (error) {
+    } catch (_error) {
       // Reset the edited description to the original value on error
       setEditedDescription(testSet.description || '');
     } finally {
@@ -210,7 +210,7 @@ export default function TestSetDetailsSection({
 
       // Refresh the page to update breadcrumbs and title
       window.location.reload();
-    } catch (error) {
+    } catch (_error) {
       // Reset the edited title to the original value on error
       setEditedTitle(testSet.name || '');
     } finally {
@@ -239,7 +239,7 @@ export default function TestSetDetailsSection({
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
+    } catch (_error) {
       // You might want to show a user-friendly error message here
     } finally {
       setIsDownloading(false);

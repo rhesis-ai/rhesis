@@ -421,7 +421,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
     });
   };
 
-  const handleImport = () => {
+  const _handleImport = () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/json';

@@ -185,7 +185,7 @@ export default function TestGenerationFlow({
   const [mode, setMode] = useState<GenerationMode | null>(
     hasTemplate ? 'template' : 'ai'
   );
-  const [testType, setTestType] = useState<TestType>(
+  const [testType, _setTestType] = useState<TestType>(
     storedTestType || 'single_turn'
   );
 
@@ -254,7 +254,7 @@ export default function TestGenerationFlow({
               if (!items || !Array.isArray(items)) {
                 return [];
               }
-              return items.map((item, index) => ({
+              return items.map((item, _index) => ({
                 id: item.name.toLowerCase().replace(/\s+/g, '-'),
                 label: item.name,
                 description: item.description,
@@ -704,7 +704,7 @@ export default function TestGenerationFlow({
         // Build complete iteration context
 
         // 1. Collect all rated samples with feedback
-        const ratedSamples = testSamples
+        const _ratedSamples = testSamples
           .filter(sample => sample.rating !== null)
           .map(sample => ({
             prompt: sample.prompt,

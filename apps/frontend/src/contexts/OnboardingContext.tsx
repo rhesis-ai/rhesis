@@ -230,7 +230,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
                 ...stepWithCompletion,
                 popover: {
                   ...stepWithCompletion.popover,
-                  onNextClick: (element: Element | undefined) => {
+                  onNextClick: (_element: Element | undefined) => {
                     // Dispatch custom event to open modal (more reliable than clicking disabled button)
                     window.dispatchEvent(new Event('tour-open-test-modal'));
                     setTimeout(() => {

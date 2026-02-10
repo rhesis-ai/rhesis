@@ -204,7 +204,7 @@ function SpanTreeNode({
               },
             }}
           >
-            {span.children.map((child, index) => (
+            {span.children.map((child, _index) => (
               <Box
                 key={child.span_id}
                 sx={{

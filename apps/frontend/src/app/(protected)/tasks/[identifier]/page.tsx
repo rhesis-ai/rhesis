@@ -885,7 +885,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                           gap: 1,
                         },
                       }}
-                      renderValue={value => {
+                      renderValue={_value => {
                         return (
                           <Box
                             sx={{

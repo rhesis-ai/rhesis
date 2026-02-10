@@ -41,12 +41,12 @@ export default function TestSetWorkflowSection({
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
       const {
-        id,
-        status_details,
-        user,
-        owner,
-        assignee,
-        organization,
+        id: _id,
+        status_details: _status_details,
+        user: _user,
+        owner: _owner,
+        assignee: _assignee,
+        organization: _organization,
         ...rest
       } = updateData;
       const processedData: Partial<TestSetCreate> = {

@@ -95,7 +95,7 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
     }));
   };
 
-  const handleRefresh = () => {
+  const _handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
   };
 
