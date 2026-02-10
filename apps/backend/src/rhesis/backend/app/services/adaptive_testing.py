@@ -5,6 +5,7 @@ providing tree, tests-only, and topics-only views.
 Also provides generation of test outputs by invoking an endpoint.
 """
 
+import asyncio
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -963,28 +964,34 @@ async def generate_outputs_for_tests(
     updated: List[Dict[str, str]] = []
     failed: List[Dict[str, str]] = []
 
-    for db_test in eligible:
+    # Invoke the endpoint concurrently (up to 10 at a time).
+    semaphore = asyncio.Semaphore(50)
+
+    async def _invoke_one(db_test: models.Test) -> None:
         test_id_str = str(db_test.id)
         prompt_content = (db_test.prompt.content or "").strip()
-        try:
-            result = await svc.invoke_endpoint(
-                db=db,
-                endpoint_id=endpoint_id,
-                input_data={"input": prompt_content},
-                organization_id=organization_id,
-                user_id=user_id,
-            )
-            processed = process_endpoint_result(result)
-            output = (processed.get("output") or "").strip() or "[no output]"
+        async with semaphore:
+            try:
+                result = await svc.invoke_endpoint(
+                    db=db,
+                    endpoint_id=endpoint_id,
+                    input_data={"input": prompt_content},
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
+                processed = process_endpoint_result(result)
+                output = (processed.get("output") or "").strip() or "[no output]"
 
-            meta = dict(db_test.test_metadata or {})
-            meta["output"] = output
-            db_test.test_metadata = meta
-            db.add(db_test)
-            updated.append({"test_id": test_id_str, "output": output})
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"Failed to generate output for test {test_id_str}: {e}")
-            failed.append({"test_id": test_id_str, "error": str(e)})
+                meta = dict(db_test.test_metadata or {})
+                meta["output"] = output
+                db_test.test_metadata = meta
+                db.add(db_test)
+                updated.append({"test_id": test_id_str, "output": output})
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Failed to generate output for test {test_id_str}: {e}")
+                failed.append({"test_id": test_id_str, "error": str(e)})
+
+    await asyncio.gather(*[_invoke_one(t) for t in eligible])
 
     db.flush()
 
