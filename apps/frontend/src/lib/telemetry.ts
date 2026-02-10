@@ -50,9 +50,7 @@ async function hashString(str: string): Promise<string> {
 
 export function initTelemetry() {
   // Client-side telemetry is intentionally disabled
-  console.log(
-    'Frontend telemetry is disabled (client-side tracking not configured)'
-  );
+  // No-op: frontend telemetry not configured
 }
 
 /**

@@ -2,8 +2,7 @@
 
 import React from 'react';
 import Markdown from 'markdown-to-jsx';
-import { Box, Link, useTheme } from '@mui/material';
-import type { TypographyProps } from '@mui/material';
+import { Box, Link, useTheme, type TypographyProps } from '@mui/material';
 
 interface MarkdownContentProps {
   /** The markdown content to render */

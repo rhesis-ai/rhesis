@@ -207,12 +207,17 @@ export class BaseApiClient {
           );
 
           if (shouldLog) {
-            console[logLevel](`${logPrefix} [DEBUG] API Response Error:`, {
+            const logData = {
               url,
               status: response.status,
               statusText: response.statusText,
               headers: Object.fromEntries(response.headers.entries()),
-            });
+            };
+            if (logLevel === 'error') {
+              console.error(`${logPrefix} [DEBUG] API Response Error:`, logData);
+            } else {
+              console.warn(`${logPrefix} [DEBUG] API Response Error:`, logData);
+            }
           }
 
           let errorMessage = '';
@@ -244,10 +249,15 @@ export class BaseApiClient {
           }
 
           if (shouldLog) {
-            console[logLevel](`${logPrefix} [DEBUG] Full error details:`, {
+            const errorDetails = {
               errorMessage,
               errorData,
-            });
+            };
+            if (logLevel === 'error') {
+              console.error(`${logPrefix} [DEBUG] Full error details:`, errorDetails);
+            } else {
+              console.warn(`${logPrefix} [DEBUG] Full error details:`, errorDetails);
+            }
           }
 
           // Provide user-friendly messages for rate limiting
