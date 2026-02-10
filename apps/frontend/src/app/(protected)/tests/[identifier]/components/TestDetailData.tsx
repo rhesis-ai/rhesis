@@ -419,21 +419,29 @@ export default function TestDetailData({
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {test.test_metadata.sources.map((source: any, index: number) => (
-              <Box key={`source-${index}`}>
-                <FilePreview
-                  title={
-                    source.name ||
-                    source.document ||
-                    source.source ||
-                    'Unknown Source'
-                  }
-                  content={source.content || 'No content available'}
-                  showCopyButton={true}
-                  defaultExpanded={false}
-                />
-              </Box>
-            ))}
+            {test.test_metadata.sources.map((source: any, index: number) => {
+              // Create stable key from source name/document
+              const sourceKey =
+                source.name ||
+                source.document ||
+                source.source ||
+                `source-${index}`;
+              return (
+                <Box key={sourceKey}>
+                  <FilePreview
+                    title={
+                      source.name ||
+                      source.document ||
+                      source.source ||
+                      'Unknown Source'
+                    }
+                    content={source.content || 'No content available'}
+                    showCopyButton={true}
+                    defaultExpanded={false}
+                  />
+                </Box>
+              );
+            })}
           </Box>
         </Grid>
       )}

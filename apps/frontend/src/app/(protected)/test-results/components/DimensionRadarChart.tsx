@@ -117,19 +117,23 @@ const createCustomTick = (
 
     return (
       <g>
-        {lines.map((line, index) => (
-          <text
-            key={index}
-            x={adjustedX}
-            y={adjustedY + index * 12 - (lines.length - 1) * 6} // Center multi-line text vertically
-            textAnchor={adjustedTextAnchor}
-            fontSize={getPixelFontSize(chartTickFontSize)}
-            fill={textColor}
-            dominantBaseline="middle"
-          >
-            {line}
-          </text>
-        ))}
+        {lines.map((line, index) => {
+          // Create stable key from line content and index
+          const lineKey = `line-${index}-${line.substring(0, 20).replace(/\s+/g, '-')}`;
+          return (
+            <text
+              key={lineKey}
+              x={adjustedX}
+              y={adjustedY + index * 12 - (lines.length - 1) * 6} // Center multi-line text vertically
+              textAnchor={adjustedTextAnchor}
+              fontSize={getPixelFontSize(chartTickFontSize)}
+              fill={textColor}
+              dominantBaseline="middle"
+            >
+              {line}
+            </text>
+          );
+        })}
       </g>
     );
   };

@@ -289,7 +289,7 @@ export default function BaseLineChart({
             />
             {series.map((s, index) => (
               <Line
-                key={index}
+                key={s.dataKey}
                 type="monotone"
                 dataKey={s.dataKey}
                 name={s.name || s.dataKey}

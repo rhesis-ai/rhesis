@@ -70,7 +70,7 @@ export default [
       // React specific rules
       'react/prop-types': 'off',
       'react/react-in-jsx-scope': 'off',
-      'react/no-array-index-key': 'warn',
+      'react/no-array-index-key': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       'react-hooks/rules-of-hooks': 'error',
       'react/jsx-uses-react': 'off',

@@ -357,9 +357,9 @@ function SinglePointChart({
             </Typography>
           </Box>
           {tooltipDetails &&
-            tooltipDetails.map((detail, index) => (
+            tooltipDetails.map(detail => (
               <Box
-                key={index}
+                key={detail.label}
                 sx={{ mb: '4px', fontSize: theme.typography.caption.fontSize }}
               >
                 <Typography

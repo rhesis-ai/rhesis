@@ -32,9 +32,11 @@ export default function ChatPreview({ messages }: ChatPreviewProps) {
     >
       {messages.map((message, index) => {
         const isLeft = index % 2 === 0;
+        // Create a stable key from role, index, and a hash of content
+        const messageKey = `${message.role}-${index}-${message.content.substring(0, 20)}`;
         return (
           <Box
-            key={index}
+            key={messageKey}
             sx={{
               display: 'flex',
               justifyContent: isLeft ? 'flex-start' : 'flex-end',

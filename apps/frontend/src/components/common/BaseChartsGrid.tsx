@@ -28,11 +28,17 @@ export default function BaseChartsGrid({
 
   return (
     <Grid container spacing={spacing} className={styles.grid} style={gridStyle}>
-      {React.Children.map(children, (child, index) => (
-        <Grid key={index} size={columns}>
-          {child}
-        </Grid>
-      ))}
+      {React.Children.map(children, (child, index) => {
+        // Generate a stable key from child type and index
+        const childKey = React.isValidElement(child)
+          ? `${child.type?.toString().split(' ')[1] || 'child'}-${index}`
+          : `child-${index}`;
+        return (
+          <Grid key={childKey} size={columns}>
+            {child}
+          </Grid>
+        );
+      })}
     </Grid>
   );
 }

@@ -1059,32 +1059,36 @@ export default function MetricDetailPage() {
                     {metric.evaluation_steps ? (
                       metric.evaluation_steps
                         .split('\n---\n')
-                        .map((step, index) => (
-                          <Paper
-                            key={index}
-                            variant="outlined"
-                            sx={{
-                              p: 2,
-                              bgcolor: 'background.paper',
-                              position: 'relative',
-                              pl: 6,
-                            }}
-                          >
-                            <Typography
+                        .map((step, index) => {
+                          // Create stable key from step content
+                          const stepKey = `step-${index}-${step.substring(0, 30).replace(/\s+/g, '-')}`;
+                          return (
+                            <Paper
+                              key={stepKey}
+                              variant="outlined"
                               sx={{
-                                position: 'absolute',
-                                left: 16,
-                                color: 'primary.main',
-                                fontWeight: 'bold',
+                                p: 2,
+                                bgcolor: 'background.paper',
+                                position: 'relative',
+                                pl: 6,
                               }}
                             >
-                              {index + 1}
-                            </Typography>
-                            <Typography sx={{ whiteSpace: 'pre-wrap' }}>
-                              {step.replace(/^Step \d+:\n?/, '').trim()}
-                            </Typography>
-                          </Paper>
-                        ))
+                              <Typography
+                                sx={{
+                                  position: 'absolute',
+                                  left: 16,
+                                  color: 'primary.main',
+                                  fontWeight: 'bold',
+                                }}
+                              >
+                                {index + 1}
+                              </Typography>
+                              <Typography sx={{ whiteSpace: 'pre-wrap' }}>
+                                {step.replace(/^Step \d+:\n?/, '').trim()}
+                              </Typography>
+                            </Paper>
+                          );
+                        })
                     ) : (
                       <Typography>-</Typography>
                     )}
@@ -1236,9 +1240,9 @@ export default function MetricDetailPage() {
                     ) : (
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                         {metric.categories && metric.categories.length > 0 ? (
-                          metric.categories.map((category, index) => (
+                          metric.categories.map(category => (
                             <Chip
-                              key={index}
+                              key={category}
                               label={category}
                               color="primary"
                               variant="outlined"
@@ -1314,9 +1318,9 @@ export default function MetricDetailPage() {
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                         {metric.passing_categories &&
                         metric.passing_categories.length > 0 ? (
-                          metric.passing_categories.map((category, index) => (
+                          metric.passing_categories.map(category => (
                             <Chip
-                              key={index}
+                              key={category}
                               label={category}
                               color="success"
                               variant="filled"
@@ -1508,9 +1512,9 @@ export default function MetricDetailPage() {
                 ) : (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     {metric.metric_scope && metric.metric_scope.length > 0 ? (
-                      metric.metric_scope.map((scope, index) => (
+                      metric.metric_scope.map(scope => (
                         <Typography
-                          key={index}
+                          key={scope}
                           sx={{
                             bgcolor: 'primary.main',
                             color: 'primary.contrastText',

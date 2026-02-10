@@ -185,29 +185,38 @@ export default function InviteTeamStep({
       <Paper variant="outlined" elevation={0}>
         <Box p={3}>
           <Stack spacing={3}>
-            {formData.invites.map((invite, index) => (
-              <Box key={index} display="flex" alignItems="flex-start" gap={2}>
-                <TextField
-                  fullWidth
-                  label="Email Address"
-                  value={invite.email}
-                  onChange={e => handleEmailChange(index, e.target.value)}
-                  error={Boolean(errors[index]?.hasError)}
-                  helperText={errors[index]?.message || ''}
-                  placeholder="colleague@company.com"
-                  variant="outlined"
-                />
-                {formData.invites.length > 1 && (
-                  <IconButton
-                    onClick={() => removeEmailField(index)}
-                    color="error"
-                    size="large"
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                )}
-              </Box>
-            ))}
+            {formData.invites.map((invite, index) => {
+              // Create stable key from email or index
+              const inviteKey = invite.email || `invite-${index}`;
+              return (
+                <Box
+                  key={inviteKey}
+                  display="flex"
+                  alignItems="flex-start"
+                  gap={2}
+                >
+                  <TextField
+                    fullWidth
+                    label="Email Address"
+                    value={invite.email}
+                    onChange={e => handleEmailChange(index, e.target.value)}
+                    error={Boolean(errors[index]?.hasError)}
+                    helperText={errors[index]?.message || ''}
+                    placeholder="colleague@company.com"
+                    variant="outlined"
+                  />
+                  {formData.invites.length > 1 && (
+                    <IconButton
+                      onClick={() => removeEmailField(index)}
+                      color="error"
+                      size="large"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  )}
+                </Box>
+              );
+            })}
 
             <Box display="flex" justifyContent="flex-start">
               <Button

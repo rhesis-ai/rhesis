@@ -62,8 +62,8 @@ function MetadataField({ label, items, maxVisible = 20 }: MetadataFieldProps) {
         {label}
       </Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-        {visibleItems.map((item, index) => (
-          <Chip key={index} label={item} variant="outlined" size="small" />
+        {visibleItems.map(item => (
+          <Chip key={item} label={item} variant="outlined" size="small" />
         ))}
         {remainingCount > 0 && (
           <Chip
@@ -641,41 +641,45 @@ export default function TestSetDetailsSection({
             Sources
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {sources.map((source: any, index: number) => (
-              <Box
-                key={index}
-                sx={{
-                  p: 2,
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: theme => theme.shape.borderRadius * 0.25,
-                  backgroundColor: 'background.paper',
-                }}
-              >
-                <Typography
-                  variant="subtitle1"
+            {sources.map((source: any, index: number) => {
+              // Create stable key from source name/document
+              const sourceKey = `source-${source.name || source.document || index}`;
+              return (
+                <Box
+                  key={sourceKey}
                   sx={{
-                    fontWeight: 'bold',
-                    mb: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
+                    p: 2,
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: theme => theme.shape.borderRadius * 0.25,
+                    backgroundColor: 'background.paper',
                   }}
                 >
-                  <DocumentIcon sx={{ fontSize: 'inherit' }} />
-                  {source.name || source.document || 'Unknown Source'}
-                </Typography>
-                {source.document && source.document !== source.name && (
                   <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: 'block', mt: 0.5 }}
+                    variant="subtitle1"
+                    sx={{
+                      fontWeight: 'bold',
+                      mb: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                    }}
                   >
-                    File: {source.document}
+                    <DocumentIcon sx={{ fontSize: 'inherit' }} />
+                    {source.name || source.document || 'Unknown Source'}
                   </Typography>
-                )}
-              </Box>
-            ))}
+                  {source.document && source.document !== source.name && (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: 'block', mt: 0.5 }}
+                    >
+                      File: {source.document}
+                    </Typography>
+                  )}
+                </Box>
+              );
+            })}
           </Box>
         </Box>
       )}

@@ -598,9 +598,9 @@ export default function TestDetailMetricsTab({
                     >
                       <List dense disablePadding sx={{ mt: 2 }}>
                         {goalAchievementData.criteriaEvaluations.map(
-                          (criterion: any, index: number) => (
+                          (criterion: any) => (
                             <ListItem
-                              key={index}
+                              key={criterion.criterion}
                               disablePadding
                               sx={{
                                 py: 0.75,
@@ -712,9 +712,9 @@ export default function TestDetailMetricsTab({
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredMetrics.map((metric, index) => (
+                filteredMetrics.map(metric => (
                   <TableRow
-                    key={`${metric.behaviorName}-${metric.name}-${index}`}
+                    key={`${metric.behaviorName}-${metric.name}`}
                     sx={{
                       '&:hover': {
                         backgroundColor: theme.palette.action.hover,

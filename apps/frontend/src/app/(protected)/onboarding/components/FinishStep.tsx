@@ -139,7 +139,7 @@ export default function FinishStep({
 
               <List disablePadding>
                 {validInvites.map((invite, index) => (
-                  <React.Fragment key={index}>
+                  <React.Fragment key={invite.email}>
                     {index > 0 && <Divider component="li" />}
                     <ListItem>
                       <ListItemText
