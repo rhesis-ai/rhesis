@@ -33,7 +33,7 @@ interface FormData {
   lastName: string;
   organizationName: string;
   website: string;
-  invites: { email: string }[];
+  invites: { id: string; email: string }[];
 }
 
 interface OnboardingPageClientProps {
@@ -59,7 +59,7 @@ export default function OnboardingPageClient({
     lastName: '',
     organizationName: '',
     website: '',
-    invites: [{ email: '' }],
+    invites: [{ id: crypto.randomUUID(), email: '' }],
   });
 
   const organizationsClient = new ApiClientFactory(

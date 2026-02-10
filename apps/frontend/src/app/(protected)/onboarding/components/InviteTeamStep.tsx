@@ -16,7 +16,7 @@ import { useState } from 'react';
 import StepHeader from './StepHeader';
 
 interface FormData {
-  invites: { email: string }[];
+  invites: { id: string; email: string }[];
 }
 
 interface InviteTeamStepProps {
@@ -130,7 +130,7 @@ export default function InviteTeamStep({
 
   const handleEmailChange = (index: number, value: string) => {
     const updatedInvites = [...formData.invites];
-    updatedInvites[index] = { email: value };
+    updatedInvites[index] = { ...updatedInvites[index], email: value };
     updateFormData({ invites: updatedInvites });
 
     // Clear error when user types
@@ -150,7 +150,7 @@ export default function InviteTeamStep({
     }
 
     updateFormData({
-      invites: [...formData.invites, { email: '' }],
+      invites: [...formData.invites, { id: crypto.randomUUID(), email: '' }],
     });
   };
 
@@ -185,7 +185,7 @@ export default function InviteTeamStep({
         <Box p={3}>
           <Stack spacing={3}>
             {formData.invites.map((invite, index) => (
-              <Box key={index} display="flex" alignItems="flex-start" gap={2}>
+              <Box key={invite.id} display="flex" alignItems="flex-start" gap={2}>
                 <TextField
                   fullWidth
                   label="Email Address"
