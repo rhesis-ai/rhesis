@@ -1,0 +1,131 @@
+---
+description: TypeScript/ESLint rules for frontend development to avoid unused variable warnings
+globs:
+  - apps/frontend/**/*.ts
+  - apps/frontend/**/*.tsx
+---
+
+# Frontend TypeScript Linting Rules
+
+## Avoiding Unused Variable Warnings
+
+The codebase enforces `@typescript-eslint/no-unused-vars`. Unused variables must be prefixed with underscore (`_`) or removed entirely.
+
+### 1. Unused Imports - Remove Them
+
+```typescript
+// BAD
+import { Box, Typography, Button } from '@mui/material'; // Button not used
+
+// GOOD
+import { Box, Typography } from '@mui/material';
+```
+
+### 2. Unused Function Parameters - Prefix with Underscore
+
+```typescript
+// BAD
+const handleChange = (event, value) => {
+  console.log(value);
+};
+
+// GOOD
+const handleChange = (_event, value) => {
+  console.log(value);
+};
+```
+
+### 3. Unused Catch Block Errors
+
+```typescript
+// BAD
+try {
+  await fetchData();
+} catch (error) {
+  showDefaultMessage();
+}
+
+// GOOD
+try {
+  await fetchData();
+} catch (_error) {
+  showDefaultMessage();
+}
+```
+
+### 4. Unused Destructured Variables
+
+```typescript
+// BAD - key is destructured but not used (common in MUI Autocomplete)
+const { key, ...otherProps } = props;
+return <li key={item.id} {...otherProps}>;
+
+// GOOD
+const { key: _key, ...otherProps } = props;
+return <li key={item.id} {...otherProps}>;
+```
+
+### 5. Unused useState Setters
+
+```typescript
+// BAD
+const [value, setValue] = useState(initialValue); // setValue never used
+
+// GOOD
+const [value, _setValue] = useState(initialValue);
+```
+
+### 6. Unused Component Props
+
+```typescript
+// BAD
+export default function MyComponent({
+  data,
+  unusedProp,
+  anotherProp,
+}: Props) {
+
+// GOOD
+export default function MyComponent({
+  data,
+  unusedProp: _unusedProp,
+  anotherProp,
+}: Props) {
+```
+
+### 7. Unused Map/Filter Callback Parameters
+
+```typescript
+// BAD
+items.map((item, index) => (  // index not used
+  <div key={item.id}>{item.name}</div>
+));
+
+// GOOD
+items.map((item, _index) => (
+  <div key={item.id}>{item.name}</div>
+));
+```
+
+## Verification Commands
+
+Before committing frontend changes, run:
+
+```bash
+# TypeScript type checking
+npx tsc --noEmit
+
+# ESLint
+npm run lint
+```
+
+## Best Practices
+
+1. **Prefer removal over underscore prefix** - If a variable is truly not needed, remove it entirely
+2. **Consider if the variable should be used** - Before prefixing, check if it should actually be used (e.g., error logging)
+3. **Use type imports** - Use `import type` for type-only imports (automatically removed during compilation)
+
+```typescript
+import type { User, Organization } from './interfaces';
+import { ApiClient } from './client';
+```
