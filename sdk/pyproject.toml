@@ -47,6 +47,16 @@ dependencies = [
     "opentelemetry-api>=1.32.1",
     "opentelemetry-sdk>=1.32.1",
     "opentelemetry-exporter-otlp-proto-http>=1.32.1",
+    "aiohttp",
+    "aiohttp_security",
+    "aiohttp_session",
+    "appdirs",
+    "cryptography",
+    "diskcache",
+    "nest_asyncio",
+    "numpy",
+    "scikit-learn",
+    "torch",
 ]
 
 [project.license]
@@ -106,22 +116,6 @@ all = [
     "langchain-core>=1.2.5",
     "langgraph>=0.0.26",
     "pyautogen>=0.2.0",
-]
-adaptive-testing = [
-    "aiohttp",
-    "aiohttp_security",
-    "aiohttp_session",
-    "appdirs",
-    "cryptography",
-    "diskcache",
-    "nest_asyncio",
-    "numpy",
-    "pandas",
-    "pyyaml",
-    "transformers",
-    "scikit-learn",
-    "litellm",
-    "torch",
 ]
 [dependency-groups]
 dev = [
