@@ -61,19 +61,5 @@ resource "google_compute_subnetwork" "ilb" {
   }
 }
 
-resource "google_compute_subnetwork" "master" {
-  count = var.create_gke_subnets ? 1 : 0
-
-  name                     = "subnet-master-${var.environment}-${var.region}"
-  ip_cidr_range            = var.master_cidr
-  region                   = var.region
-  network                  = google_compute_network.vpc.id
-  project                  = var.project_id
-  private_ip_google_access = true
-
-  log_config {
-    aggregation_interval = "INTERVAL_10_MIN"
-    flow_sampling        = 0.5
-    metadata             = "INCLUDE_ALL_METADATA"
-  }
-}
+# Do NOT create a subnet for the GKE control plane. GKE's master_ipv4_cidr_block
+# must not overlap any existing subnet; the master range is reserved by GKE only.
