@@ -73,6 +73,7 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
         <Paper sx={{ p: 2, maxWidth: 500, maxHeight: 600, overflow: 'auto' }}>
           <Stack spacing={2}>
             {context.map((source, index) => (
+              // eslint-disable-next-line react/no-array-index-key -- Context items are display-only and never reordered
               <Box key={`${source.name}-${index}`}>
                 <Box
                   sx={{
