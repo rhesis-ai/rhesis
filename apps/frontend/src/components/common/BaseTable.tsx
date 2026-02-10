@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 
-interface AddButtonProps {
+interface _AddButtonProps {
   label: string;
   href?: string;
   onClick?: () => void;

@@ -7,7 +7,6 @@ import {
   Avatar,
   Autocomplete,
   TextField,
-  MenuItem,
 } from '@mui/material';
 import {
   UserReference,

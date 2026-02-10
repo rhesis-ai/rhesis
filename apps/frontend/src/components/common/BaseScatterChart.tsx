@@ -6,9 +6,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
-  Cell,
 } from 'recharts';
 import { Typography, Box, Card, CardContent, useTheme } from '@mui/material';
 import { useChartColors } from '../layout/BaseChartColors';
@@ -120,7 +118,7 @@ export default function BaseScatterChart({
     wrapperStyle: { fontSize: String(theme.typography.chartTick.fontSize) },
     iconSize: 8,
   };
-  const themedLegendProps = {
+  const _themedLegendProps = {
     ...defaultLegendProps,
     ...legendProps,
     wrapperStyle: {
@@ -184,7 +182,7 @@ export default function BaseScatterChart({
 
   // Custom tooltip formatter
   const customTooltipFormatter = (value: any, name: string, props: any) => {
-    const { payload } = props;
+    const { payload: _payload } = props;
     if (name === 'y') {
       return [`${value}%`, 'Pass Rate'];
     }

@@ -163,10 +163,10 @@ const createCustomizedLabel = (
     cx,
     cy,
     midAngle,
-    innerRadius,
+    innerRadius: _innerRadius,
     outerRadius,
     percent,
-    index,
+    index: _index,
     name,
   }: LabelProps) => {
     // Only show labels for segments with significant percentage (helps prevent overlap)
@@ -244,7 +244,7 @@ export default function BasePieChart({
   tooltipProps,
   elevation = 2,
   preventLegendOverflow = false,
-  variant = 'dashboard',
+  variant: _variant = 'dashboard',
 }: BasePieChartProps) {
   // Validate props in development
   if (process.env.FRONTEND_ENV === 'development') {
