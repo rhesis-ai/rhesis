@@ -181,9 +181,6 @@ export default function CreateTestRun({
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
-      const testConfigurationsClient =
-        clientFactory.getTestConfigurationsClient();
-      const tagsClient = new TagsClient(sessionToken);
 
       // Prepare test configuration attributes
       const testConfigurationAttributes = {
@@ -264,7 +261,7 @@ export default function CreateTestRun({
     submitRef.current = handleSubmit;
   }
 
-  const isFormValid = selectedProject && selectedEndpoint;
+  const _isFormValid = selectedProject && selectedEndpoint;
 
   return (
     <>
@@ -292,7 +289,7 @@ export default function CreateTestRun({
               }}
               getOptionLabel={option => option.name}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box component="li" key={option.id} {...otherProps}>
                     {option.name}
@@ -336,7 +333,7 @@ export default function CreateTestRun({
                 />
               )}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box
                     key={option.id}

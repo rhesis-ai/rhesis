@@ -410,7 +410,7 @@ export default function TestRunDrawer({
               getOptionLabel={option => option.name || 'Unnamed Test Set'}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box component="li" key={option.id} {...otherProps}>
                     {option.name || 'Unnamed Test Set'}
@@ -430,7 +430,7 @@ export default function TestRunDrawer({
               getOptionLabel={option => option.name}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box component="li" key={option.id} {...otherProps}>
                     {option.name}

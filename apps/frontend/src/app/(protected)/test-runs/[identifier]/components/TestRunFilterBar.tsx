@@ -113,7 +113,7 @@ export default function TestRunFilterBar({
     });
   };
 
-  const handleClearBehaviors = () => {
+  const _handleClearBehaviors = () => {
     onFilterChange({
       ...filter,
       selectedBehaviors: [],
@@ -149,7 +149,7 @@ export default function TestRunFilterBar({
     });
   };
 
-  const handleCommentRangeChange = (range: { min: number; max: number }) => {
+  const _handleCommentRangeChange = (range: { min: number; max: number }) => {
     onFilterChange({
       ...filter,
       commentCountRange: range,
@@ -165,7 +165,7 @@ export default function TestRunFilterBar({
     });
   };
 
-  const handleTaskRangeChange = (range: { min: number; max: number }) => {
+  const _handleTaskRangeChange = (range: { min: number; max: number }) => {
     onFilterChange({
       ...filter,
       taskCountRange: range,

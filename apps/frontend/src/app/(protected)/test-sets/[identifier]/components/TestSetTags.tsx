@@ -17,7 +17,7 @@ export default function TestSetTags({
   testSet,
 }: TestSetTagsProps) {
   const [tagNames, setTagNames] = useState<string[]>([]);
-  const theme = useTheme();
+  const _theme = useTheme();
 
   // Initialize and update tag names when testSet changes
   useEffect(() => {

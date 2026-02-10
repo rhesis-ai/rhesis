@@ -55,7 +55,7 @@ function TestRunsTable({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [projectNames, setProjectNames] = useState<ProjectCache>({});
+  const [_projectNames, setProjectNames] = useState<ProjectCache>({});
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -189,26 +189,6 @@ function TestRunsTable({
       isMounted.current = false;
     };
   }, [sessionToken, paginationModel, fetchTestRuns]);
-
-  // Memoized helper function to format execution time in a user-friendly way
-  const formatExecutionTime = useMemo(
-    () =>
-      (timeMs: number): string => {
-        const seconds = timeMs / 1000;
-
-        if (seconds < 60) {
-          return `${Math.round(seconds)}s`;
-        } else if (seconds < 3600) {
-          // Less than 1 hour
-          const minutes = seconds / 60;
-          return `${Math.round(minutes * 10) / 10}m`; // Round to 1 decimal place
-        } else {
-          const hours = seconds / 3600;
-          return `${Math.round(hours * 10) / 10}h`; // Round to 1 decimal place
-        }
-      },
-    []
-  );
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -411,7 +391,7 @@ function TestRunsTable({
         },
       },
     ],
-    [formatExecutionTime]
+    []
   );
 
   // Handle row click to navigate to test run details

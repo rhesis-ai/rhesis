@@ -74,7 +74,7 @@ export default function CreateTest({
   submitRef,
   test,
 }: CreateTestProps) {
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<TestFormData>(defaultFormData);
 
   // Reset form to default state

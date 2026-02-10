@@ -3,22 +3,17 @@ import {
   TextField,
   FormControl,
   Stack,
-  FormHelperText,
   MenuItem,
   Autocomplete,
   Box,
   Avatar,
   Typography,
-  ListItemAvatar,
-  ListItemText,
   Divider,
-  CircularProgress,
 } from '@mui/material';
 import BaseFreesoloAutocomplete, {
   AutocompleteOption as FreeSoloOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
 import {
-  TestBulkCreateRequest,
   PriorityLevel,
   TestDetail,
   TestUpdate,
@@ -73,7 +68,7 @@ export default function UpdateTest({
   submitRef,
   test,
 }: UpdateTestProps) {
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<TestFormData>({
     behavior_id: test.behavior?.id || test.behavior?.name || undefined,
     topic_id: test.topic?.name || test.topic?.id || undefined,

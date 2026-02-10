@@ -10,7 +10,6 @@ import {
   FormHelperText,
   CircularProgress,
   Paper,
-  Divider,
   Chip,
   Autocomplete,
   TextField,
@@ -21,7 +20,6 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { UUID } from 'crypto';
 import { isMultiTurnTest } from '@/constants/test-types';
@@ -55,7 +53,7 @@ export default function TrialDrawer({
   onClose,
   sessionToken,
   testIds,
-  onSuccess,
+  onSuccess: _onSuccess,
 }: TrialDrawerProps) {
   const [error, setError] = useState<string>();
   const theme = useTheme();
@@ -70,7 +68,7 @@ export default function TrialDrawer({
   );
   const [trialResponse, setTrialResponse] = useState<any>(null);
   const [trialInProgress, setTrialInProgress] = useState(false);
-  const [trialCompleted, setTrialCompleted] = useState(false);
+  const [_trialCompleted, setTrialCompleted] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedProjectData, setSelectedProjectData] =
     useState<Project | null>(null);
@@ -123,7 +121,7 @@ export default function TrialDrawer({
             }
 
             setTestData(testDetail);
-          } catch (testError) {
+          } catch (_testError) {
             // Continue with projects/endpoints even if test fetch fails
           }
         }
@@ -153,7 +151,7 @@ export default function TrialDrawer({
             .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
 
           setProjects(processedProjects);
-        } catch (projectsError) {
+        } catch (_projectsError) {
           setProjects([]);
           notifications.show(
             'Failed to load projects. Please refresh the page.',
@@ -184,7 +182,7 @@ export default function TrialDrawer({
           } else {
             setEndpoints([]);
           }
-        } catch (endpointsError) {
+        } catch (_endpointsError) {
           setEndpoints([]);
           notifications.show(
             'Failed to load endpoints. Please refresh the page.',
@@ -401,7 +399,7 @@ export default function TrialDrawer({
             }}
             getOptionLabel={option => option.name}
             renderOption={(props, option) => {
-              const { key, ...otherProps } = props;
+              const { key: _key, ...otherProps } = props;
               return (
                 <Box component="li" key={option.id} {...otherProps}>
                   {option.name}
@@ -443,7 +441,7 @@ export default function TrialDrawer({
               />
             )}
             renderOption={(props, option) => {
-              const { key, ...otherProps } = props;
+              const { key: _key, ...otherProps } = props;
               return (
                 <Box
                   key={option.id}

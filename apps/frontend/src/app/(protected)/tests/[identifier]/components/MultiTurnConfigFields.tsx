@@ -7,7 +7,6 @@ import {
   TextField,
   Typography,
   Button,
-  useTheme,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -54,7 +53,6 @@ function EditableField({
   onRemove,
   maxLength,
 }: EditableFieldProps) {
-  const theme = useTheme();
   const [isEditing, setIsEditing] = React.useState(false);
   const [editedValue, setEditedValue] = React.useState(value);
   const [isUpdating, setIsUpdating] = React.useState(false);

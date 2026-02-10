@@ -131,7 +131,7 @@ function SummaryCard({
 export default function TestRunHeader({
   testRun,
   testResults,
-  loading = false,
+  loading: _loading = false,
 }: TestRunHeaderProps) {
   const theme = useTheme();
 

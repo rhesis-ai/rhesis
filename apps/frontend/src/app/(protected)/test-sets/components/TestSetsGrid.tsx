@@ -72,8 +72,6 @@ export default function TestSetsGrid({
 }: TestSetsGridProps) {
   const router = useRouter();
   const { data: session } = useSession();
-  const [filteredTestSets, setFilteredTestSets] =
-    useState<TestSet[]>(initialTestSets);
   const [loading, setLoading] = useState(initialLoading);
   const [testSets, setTestSets] = useState<TestSet[]>(initialTestSets);
   const [totalCount, setTotalCount] = useState<number>(

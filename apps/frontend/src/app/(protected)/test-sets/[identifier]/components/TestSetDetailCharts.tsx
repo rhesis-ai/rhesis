@@ -50,11 +50,6 @@ const calculateDomain = (data: LineChartDataItem[]): [number, number] => {
   return [0, upperBound];
 };
 
-// Helper function to truncate long names for legends
-const truncateName = (name: string): string => {
-  return pieChartUtils.truncateName(name);
-};
-
 // Helper function to generate a title for a dimension
 const generateDimensionTitle = (dimension: string): string => {
   return pieChartUtils.generateDimensionTitle(dimension);
