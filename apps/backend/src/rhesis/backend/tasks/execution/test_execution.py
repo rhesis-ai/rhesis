@@ -21,6 +21,12 @@ from rhesis.backend.tasks.execution.executors import create_executor
 # Import get_test_and_prompt from data module
 from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
 
+# Import output providers for re-scoring and trace evaluation
+from rhesis.backend.tasks.execution.executors.output_providers import (
+    TestResultOutput,
+    TraceOutput,
+)
+
 # ============================================================================
 # MAIN EXECUTION FUNCTION (Strategy Pattern Entry Point)
 # ============================================================================
@@ -35,15 +41,17 @@ async def execute_test(
     organization_id: Optional[str] = None,
     user_id: Optional[str] = None,
     model: Optional[Any] = None,
+    reference_test_run_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Execute a test and return its results.
 
     This function is the main entry point for test execution. It uses the Strategy
     Pattern to delegate to the appropriate executor based on the test's type:
-    - Single-Turn tests → SingleTurnTestExecutor
-    - Multi-Turn tests → MultiTurnTestExecutor
-    - Future types → New executors can be added without modifying this code
+    - Single-Turn tests -> SingleTurnTestExecutor
+    - Multi-Turn tests -> MultiTurnTestExecutor
+    - Future types -> New executors can be added without modifying this code
 
     The function maintains backward compatibility with existing code while enabling
     a more modular and extensible architecture.
@@ -57,6 +65,11 @@ async def execute_test(
         organization_id: UUID string of the organization (optional)
         user_id: UUID string of the user (optional)
         model: Optional model override for evaluation
+        reference_test_run_id: Optional UUID string of a previous test run
+            to re-score. When provided, output is loaded from stored
+            TestResults instead of invoking the endpoint.
+        trace_id: Optional trace ID for trace-based evaluation. When
+            provided, output is loaded from stored Trace records.
 
     Returns:
         Dictionary with test execution results containing:
@@ -69,20 +82,31 @@ async def execute_test(
         Exception: If test execution fails
 
     Examples:
-        >>> result = execute_test(
-        ...     db=db,
-        ...     test_config_id="config-uuid",
-        ...     test_run_id="run-uuid",
-        ...     test_id="test-uuid",
+        >>> # Normal execution
+        >>> result = await execute_test(
+        ...     db=db, test_config_id="config-uuid",
+        ...     test_run_id="run-uuid", test_id="test-uuid",
         ...     endpoint_id="endpoint-uuid",
-        ...     organization_id="org-uuid"
         ... )
-        >>> print(result["execution_time"])
-        >>> print(result["metrics"])
+        >>> # Re-scoring from a previous run
+        >>> result = await execute_test(
+        ...     db=db, ...,
+        ...     reference_test_run_id="previous-run-uuid",
+        ... )
     """
     logger.info(f"Starting test execution for test {test_id}")
 
     try:
+        # Create output provider based on mode
+        output_provider = None
+        if reference_test_run_id:
+            output_provider = TestResultOutput(reference_test_run_id)
+            logger.info(f"Re-scoring test {test_id} from run {reference_test_run_id}")
+        elif trace_id:
+            output_provider = TraceOutput(trace_id)
+            logger.info(f"Evaluating test {test_id} from trace {trace_id}")
+        # else: None -> runner uses its default (live execution)
+
         # Retrieve test to determine type
         test, _, _ = get_test_and_prompt(db, test_id, organization_id)
         logger.debug(f"Retrieved test {test_id}, determining executor...")
@@ -100,13 +124,17 @@ async def execute_test(
             organization_id=organization_id,
             user_id=user_id,
             model=model,
+            output_provider=output_provider,
         )
 
         logger.info(f"Test execution completed successfully for test {test_id}")
         return result
 
     except Exception as e:
-        logger.error(f"Test execution failed for test {test_id}: {str(e)}", exc_info=True)
+        logger.error(
+            f"Test execution failed for test {test_id}: {str(e)}",
+            exc_info=True,
+        )
         raise
 
 

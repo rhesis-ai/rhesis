@@ -20,9 +20,21 @@ from rhesis.backend.tasks.execution.sequential import execute_tests_sequentially
 
 
 def execute_test_cases(
-    session: Session, test_config: TestConfiguration, test_run: TestRun
+    session: Session,
+    test_config: TestConfiguration,
+    test_run: TestRun,
+    reference_test_run_id: str = None,
+    trace_id: str = None,
 ) -> Dict[str, Any]:
-    """Execute test cases based on the configured execution mode (Sequential or Parallel)."""
+    """Execute test cases based on the configured execution mode.
+
+    Args:
+        session: Database session
+        test_config: Test configuration model
+        test_run: Test run model
+        reference_test_run_id: Optional previous test run ID for re-scoring
+        trace_id: Optional trace ID for trace-based evaluation
+    """
 
     # Get test set and tests
     test_set = get_test_set(session, str(test_config.test_set_id))
@@ -43,6 +55,20 @@ def execute_test_cases(
 
     # Delegate to the appropriate execution strategy
     if execution_mode == ExecutionMode.SEQUENTIAL:
-        return execute_tests_sequentially(session, test_config, test_run, tests)
+        return execute_tests_sequentially(
+            session,
+            test_config,
+            test_run,
+            tests,
+            reference_test_run_id=reference_test_run_id,
+            trace_id=trace_id,
+        )
     else:
-        return execute_tests_in_parallel(session, test_config, test_run, tests)
+        return execute_tests_in_parallel(
+            session,
+            test_config,
+            test_run,
+            tests,
+            reference_test_run_id=reference_test_run_id,
+            trace_id=trace_id,
+        )

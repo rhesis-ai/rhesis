@@ -22,9 +22,23 @@ from rhesis.backend.tasks.execution.test_execution import execute_test
 
 
 def execute_tests_sequentially(
-    session: Session, test_config: TestConfiguration, test_run: TestRun, tests: List
+    session: Session,
+    test_config: TestConfiguration,
+    test_run: TestRun,
+    tests: List,
+    reference_test_run_id: str = None,
+    trace_id: str = None,
 ) -> Dict[str, Any]:
-    """Execute test cases sequentially, one after another."""
+    """Execute test cases sequentially, one after another.
+
+    Args:
+        session: Database session
+        test_config: Test configuration model
+        test_run: Test run model
+        tests: List of test models to execute
+        reference_test_run_id: Optional previous test run ID for re-scoring
+        trace_id: Optional trace ID for trace-based evaluation
+    """
     logger.info(f"Starting sequential execution for test run {test_run.id} with {len(tests)} tests")
 
     start_time = datetime.utcnow()
@@ -52,6 +66,8 @@ def execute_tests_sequentially(
                     if test_config.organization_id
                     else None,
                     user_id=str(test_config.user_id) if test_config.user_id else None,
+                    reference_test_run_id=reference_test_run_id,
+                    trace_id=trace_id,
                 )
             )
             results.append(result)

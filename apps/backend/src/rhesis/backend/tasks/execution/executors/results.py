@@ -127,12 +127,32 @@ def create_test_result_record(
     execution_time: float,
     metrics_results: Dict,
     processed_result: Dict,
+    metadata: Optional[Dict[str, Any]] = None,
 ) -> Optional[UUID]:
     """
     Create and store test result record in database.
 
     After creating the test result, this function automatically links
     any traces from the test execution to the new test result record.
+
+    Args:
+        db: Database session
+        test: Test model instance
+        test_config_id: UUID string of the test configuration
+        test_run_id: UUID string of the test run
+        test_id: UUID string of the test
+        organization_id: UUID string of the organization (optional)
+        user_id: UUID string of the user (optional)
+        execution_time: Execution time in milliseconds
+        metrics_results: Dictionary of metric evaluation results
+        processed_result: Processed endpoint response / Penelope trace
+        metadata: Optional provenance metadata to include in test_metrics.
+            Used to record the source of the output, e.g.::
+
+                {
+                    "source": "rescore",
+                    "reference_test_run_id": "uuid-of-original-run",
+                }
 
     Returns:
         UUID of the created test result, or None if creation failed
@@ -154,6 +174,14 @@ def create_test_result_record(
         db, status_value, "TestResult", organization_id=organization_id
     )
 
+    # Build test_metrics with optional provenance metadata
+    test_metrics: Dict[str, Any] = {
+        "execution_time": execution_time,
+        "metrics": metrics_results,
+    }
+    if metadata:
+        test_metrics["metadata"] = metadata
+
     test_result_data = {
         "test_configuration_id": UUID(test_config_id),
         "test_run_id": UUID(test_run_id),
@@ -162,7 +190,7 @@ def create_test_result_record(
         "status_id": test_result_status.id,
         "user_id": UUID(user_id) if user_id else None,
         "organization_id": UUID(organization_id) if organization_id else None,
-        "test_metrics": {"execution_time": execution_time, "metrics": metrics_results},
+        "test_metrics": test_metrics,
         "test_output": processed_result,
     }
 

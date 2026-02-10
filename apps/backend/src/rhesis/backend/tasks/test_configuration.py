@@ -88,8 +88,17 @@ def execute_test_configuration(self, test_configuration_id: str):
                 db.commit()
                 self.log_with_context("debug", f"Test run {test_run.id} committed to database")
 
-            # Execute test cases in parallel
-            result = execute_test_cases(db, test_config, test_run)
+            # Extract re-scoring params from configuration attributes
+            config_attrs = test_config.attributes or {}
+            reference_test_run_id = config_attrs.get("reference_test_run_id")
+
+            # Execute test cases (parallel or sequential)
+            result = execute_test_cases(
+                db,
+                test_config,
+                test_run,
+                reference_test_run_id=reference_test_run_id,
+            )
 
         # Use utility to create standardized result
         # Remove test_run_id from result if present to avoid duplicate parameter

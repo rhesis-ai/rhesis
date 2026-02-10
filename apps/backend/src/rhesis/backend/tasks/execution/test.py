@@ -249,6 +249,8 @@ def execute_single_test(
     endpoint_id: str,
     organization_id: str = None,
     user_id: str = None,
+    reference_test_run_id: str = None,
+    trace_id: str = None,
 ):
     """
     Execute a single test and return its results.
@@ -268,6 +270,9 @@ def execute_single_test(
         endpoint_id: Endpoint ID to test against
         organization_id: Organization ID for tenant context
         user_id: User ID for tenant context
+        reference_test_run_id: Optional previous test run ID for
+            re-scoring (loads stored outputs instead of invoking endpoint)
+        trace_id: Optional trace ID for trace-based evaluation
 
     Returns:
         Dict containing test execution results
@@ -294,6 +299,8 @@ def execute_single_test(
                     organization_id=organization_id,
                     user_id=user_id,
                     model=model,
+                    reference_test_run_id=reference_test_run_id,
+                    trace_id=trace_id,
                 )
             )
 
