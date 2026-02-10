@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Paper, Divider } from '@mui/material';
 import { EntityType } from '@/types/tasks';

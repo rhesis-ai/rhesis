@@ -124,7 +124,7 @@ export function TasksSection({
     };
   }, [currentPage, currentPageSize, entityType, entityId, sessionToken]);
 
-  const handleDeleteTask = async (taskId: string) => {
+  const _handleDeleteTask = async (taskId: string) => {
     if (onDeleteTask) {
       try {
         await onDeleteTask(taskId);

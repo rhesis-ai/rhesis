@@ -135,7 +135,7 @@ export class BaseApiClient {
 
       // This line should never be reached as clearAllSessionData redirects
       throw createUnauthorizedError('Unauthorized - session cleared');
-    } catch (error) {
+    } catch (_error) {
       // Throw clean error instead of re-throwing complex error
       throw createUnauthorizedError('Unauthorized');
     } finally {
@@ -164,7 +164,7 @@ export class BaseApiClient {
 
       const parsed = parseInt(totalCount, 10);
       return isNaN(parsed) ? defaultValue : parsed;
-    } catch (error) {
+    } catch (_error) {
       return defaultValue;
     }
   }
@@ -239,7 +239,7 @@ export class BaseApiClient {
             } else {
               errorMessage = await response.text();
             }
-          } catch (parseError) {
+          } catch (_parseError) {
             errorMessage = await response.text();
           }
 

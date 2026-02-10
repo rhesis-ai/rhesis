@@ -1,5 +1,5 @@
 import { UUID } from 'crypto';
-import { UserReference, Organization, Status, Behavior } from './tests';
+import { UserReference, Organization, Status } from './tests';
 import { Tag } from './tag';
 
 // Metric interfaces

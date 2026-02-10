@@ -21,7 +21,7 @@ async function verifySessionWithBackend(sessionToken: string) {
 
     const data = await response.json();
     return data.authenticated && data.user;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
@@ -44,7 +44,7 @@ function getSessionTokenFromRequest(request: NextRequest): string | null {
     ) {
       return sessionData.session_token;
     }
-  } catch (error) {
+  } catch (_error) {
     // If JSON parsing fails, it might be a direct JWT token
   }
 
@@ -75,7 +75,7 @@ async function createSessionClearingResponse(
           Accept: 'application/json',
         },
       });
-    } catch (error) {
+    } catch (_error) {
       // Continue with frontend cleanup even if backend fails
     }
   }

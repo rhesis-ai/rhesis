@@ -69,14 +69,14 @@ export default function BaseWorkflowSection({
   assignee,
   owner,
   clientFactory,
-  entityId,
+  entityId: _entityId,
   entityType,
   onStatusChange,
   onPriorityChange,
   onAssigneeChange,
   onOwnerChange,
   onUpdateEntity,
-  statusReadOnly = false,
+  statusReadOnly: _statusReadOnly = false,
   showPriority = true,
   preloadedStatuses,
   preloadedUsers,
@@ -234,7 +234,7 @@ export default function BaseWorkflowSection({
     setCurrentPriority(reversePriorityMap[priority] || 'Medium');
   }, [priority]);
 
-  const InfoRow = ({
+  const _InfoRow = ({
     label,
     children,
   }: {
@@ -280,7 +280,7 @@ export default function BaseWorkflowSection({
           // If newStatus is null, clear the status
           await onUpdateEntity({ status_id: null }, 'Status');
         }
-      } catch (error) {
+      } catch (_error) {
         // Revert on error
         setCurrentStatus(status || null);
         onStatusChange?.(status || '');
@@ -300,7 +300,7 @@ export default function BaseWorkflowSection({
       // Then update backend
       try {
         await onUpdateEntity({ priority: numericPriority }, 'Priority');
-      } catch (error) {
+      } catch (_error) {
         // Revert on error
         setCurrentPriority(reversePriorityMap[priority] || 'Medium');
         onPriorityChange?.(priority);
@@ -321,7 +321,7 @@ export default function BaseWorkflowSection({
         );
         // Only call onAssigneeChange after successful API update
         onAssigneeChange?.(newAssignee);
-      } catch (error) {
+      } catch (_error) {
         // Revert on error
         const originalAssignee = findUserById(
           assignee?.id
@@ -348,7 +348,7 @@ export default function BaseWorkflowSection({
       // Then update backend
       try {
         await onUpdateEntity({ owner_id: newOwner?.id || null }, 'Owner');
-      } catch (error) {
+      } catch (_error) {
         // Revert on error
         const originalOwner = findUserById(owner?.id) as UserOption | null;
         setCurrentOwner(originalOwner);
@@ -442,7 +442,7 @@ export default function BaseWorkflowSection({
           />
         )}
         renderOption={(props, option) => {
-          const { key, ...otherProps } = props;
+          const { key: _key, ...otherProps } = props;
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -494,7 +494,7 @@ export default function BaseWorkflowSection({
           />
         )}
         renderOption={(props, option) => {
-          const { key, ...otherProps } = props;
+          const { key: _key, ...otherProps } = props;
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

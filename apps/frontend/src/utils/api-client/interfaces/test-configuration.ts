@@ -1,5 +1,5 @@
 import { UUID } from 'crypto';
-import { UserReference, TypeLookup, Topic, Status, Category } from './tests';
+import { UserReference, Topic, Status, Category } from './tests';
 import { Prompt } from './prompt';
 import { TestSet } from './test-set';
 import { Endpoint } from './endpoint';
