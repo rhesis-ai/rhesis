@@ -331,7 +331,7 @@ dev_up() {
         -e POSTGRES_USER=rhesis-user \
         -e POSTGRES_PASSWORD=rhesis-password \
         -p ${DEV_POSTGRES_PORT}:5432 \
-        mirror.gcr.io/library/postgres:16-alpine
+        mirror.gcr.io/pgvector/pgvector:pg16
 
     docker start rhesis-dev-redis 2>/dev/null || \
     docker run -d \

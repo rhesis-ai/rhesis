@@ -51,6 +51,8 @@ export default function TestExecutableField({
     setEditedContent(initialContent);
   };
 
+  const hasChanges = editedContent.trim() !== initialContent.trim();
+
   const handleConfirmEdit = async () => {
     if (!sessionToken) return;
 
@@ -153,7 +155,13 @@ export default function TestExecutableField({
             color="primary"
             startIcon={<CheckIcon />}
             onClick={handleConfirmEdit}
-            disabled={isUpdating}
+            disabled={isUpdating || !hasChanges}
+            sx={{
+              '&.Mui-disabled': {
+                bgcolor: 'action.disabledBackground',
+                color: 'action.disabled',
+              },
+            }}
           >
             Confirm
           </Button>

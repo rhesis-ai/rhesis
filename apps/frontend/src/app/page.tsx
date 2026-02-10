@@ -85,10 +85,11 @@ export default function LandingPage() {
             .then(async response => {
               if (response.ok) {
                 const data = await response.json();
-                // Sign in with NextAuth using the session token
+                // Sign in with NextAuth using the tokens
                 const { signIn } = await import('next-auth/react');
                 await signIn('credentials', {
                   session_token: data.session_token,
+                  refresh_token: data.refresh_token || '',
                   redirect: true,
                   callbackUrl: '/dashboard',
                 });
@@ -136,10 +137,14 @@ export default function LandingPage() {
     ) {
       const validateBackendSession = async () => {
         try {
-          const response = await fetch(
-            `${getClientApiBaseUrl()}/auth/verify?session_token=${session.session_token}`,
-            { headers: { Accept: 'application/json' } }
-          );
+          const response = await fetch(`${getClientApiBaseUrl()}/auth/verify`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify({ session_token: session.session_token }),
+          });
 
           if (response.ok) {
             const data = await response.json();

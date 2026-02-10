@@ -16,13 +16,20 @@ declare module 'next-auth' {
     picture?: string | null;
     organization_id?: string;
     session_token?: string;
+    refresh_token?: string;
+    is_email_verified?: boolean;
   }
 }
 
 declare module 'next-auth/jwt' {
   interface JWT extends NextAuthJWT {
     session_token?: string;
+    refresh_token?: string;
+    /** Unix timestamp (seconds) when the access token expires */
+    access_token_expires?: number;
     user?: User;
+    /** Set when a refresh attempt fails; forces re-login */
+    error?: string;
   }
 }
 

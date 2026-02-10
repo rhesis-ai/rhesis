@@ -41,9 +41,11 @@ Update `.env.local` with the necessary configurations:
 
 - `NEXTAUTH_SECRET`: Generate one using `npx auth secret` or `openssl rand -hex 32`.
 - `NEXT_PUBLIC_API_BASE_URL`: The base URL for your backend API.
-- `GOOGLE_CLIENT_ID`: Your Google OAuth Client ID.
-- `GOOGLE_CLIENT_SECRET`: Your Google OAuth Client Secret.
 - `AUTH_SECRET`: Should be the same as `NEXTAUTH_SECRET`.
+- `GOOGLE_CLIENT_ID`: (Optional) Your Google OAuth Client ID. Enables Google sign-in.
+- `GOOGLE_CLIENT_SECRET`: (Optional) Your Google OAuth Client Secret.
+- `GH_CLIENT_ID`: (Optional) Your GitHub OAuth Client ID. Enables GitHub sign-in.
+- `GH_CLIENT_SECRET`: (Optional) Your GitHub OAuth Client Secret.
 
 ### 4. Run the Development Server
 

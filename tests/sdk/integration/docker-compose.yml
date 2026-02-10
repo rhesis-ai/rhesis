@@ -23,7 +23,7 @@ x-backend-config: &backend-config
 services:
   # PostgreSQL Database
   postgres:
-    image: mirror.gcr.io/postgres:16-alpine
+    image: mirror.gcr.io/pgvector/pgvector:pg16
     container_name: rhesis-postgres-test
     environment:
       POSTGRES_DB: rhesis-db

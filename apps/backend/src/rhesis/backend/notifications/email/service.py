@@ -235,3 +235,112 @@ class EmailService:
             from_email=welcome_from_email,
             bcc=bcc_email,
         )
+
+    def send_verification_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        verification_url: str,
+    ) -> bool:
+        """Send an email verification link to a user."""
+        if not self.is_configured:
+            logger.warning(
+                f"Cannot send verification email to {recipient_email}: SMTP not configured"
+            )
+            return False
+
+        return self.send_email(
+            template=EmailTemplate.EMAIL_VERIFICATION,
+            recipient_email=recipient_email,
+            subject="Verify your email - Rhesis AI",
+            template_variables={
+                "recipient_name": recipient_name or "",
+                "verification_url": verification_url,
+            },
+            task_id="email_verification",
+        )
+
+    def send_password_reset_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        reset_url: str,
+    ) -> bool:
+        """Send a password reset link to a user."""
+        if not self.is_configured:
+            logger.warning(
+                f"Cannot send password reset email to {recipient_email}: SMTP not configured"
+            )
+            return False
+
+        return self.send_email(
+            template=EmailTemplate.PASSWORD_RESET,
+            recipient_email=recipient_email,
+            subject="Reset your password - Rhesis AI",
+            template_variables={
+                "recipient_name": recipient_name or "",
+                "reset_url": reset_url,
+            },
+            task_id="password_reset",
+        )
+
+    def send_migration_reset_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        reset_url: str,
+    ) -> bool:
+        """Send a password setup email to an Auth0-migrated user."""
+        if not self.is_configured:
+            logger.warning(
+                "Cannot send migration email to %s: SMTP not configured",
+                recipient_email,
+            )
+            return False
+
+        return self.send_email(
+            template=EmailTemplate.MIGRATION_PASSWORD_SETUP,
+            recipient_email=recipient_email,
+            subject="Set up your new password - Rhesis AI",
+            template_variables={
+                "recipient_name": recipient_name or "",
+                "reset_url": reset_url,
+            },
+            task_id="migration_password_setup",
+        )
+
+    def send_magic_link_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        magic_link_url: str,
+        is_new_user: bool = False,
+    ) -> bool:
+        """Send a magic link email to a user.
+
+        Args:
+            recipient_email: The recipient's email address.
+            recipient_name: The recipient's display name.
+            magic_link_url: The magic link URL.
+            is_new_user: Whether this is a newly created account.
+        """
+        if not self.is_configured:
+            logger.warning(
+                "Cannot send magic link email to %s: SMTP not configured",
+                recipient_email,
+            )
+            return False
+
+        subject = "Welcome to Rhesis AI" if is_new_user else "Sign in to Rhesis AI"
+
+        return self.send_email(
+            template=EmailTemplate.MAGIC_LINK,
+            recipient_email=recipient_email,
+            subject=subject,
+            template_variables={
+                "recipient_name": recipient_name or "",
+                "magic_link_url": magic_link_url,
+                "is_new_user": is_new_user,
+            },
+            task_id="magic_link",
+        )

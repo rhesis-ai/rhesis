@@ -115,6 +115,8 @@ Always follow the Conventional Commits specification for all commit messages.
 
 
 ### Scope
+**Use only one of these scopes.** Do not invent other scopes (e.g. no `adaptive-testing`, `api`, `auth`).
+
 - **backend**: Changes to the backend code (apps/backend/)
 - **frontend**: Changes to the frontend code (apps/frontend/)
 - **sdk**: Changes to the SDK code (sdk/)

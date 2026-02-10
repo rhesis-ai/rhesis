@@ -13,7 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from rhesis.backend.app.database import get_db
-from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.dependencies import get_db_session, get_tenant_db_session
 from rhesis.backend.app.main import app
 
 
@@ -28,6 +28,7 @@ def client(test_db):
 
     # Override the database dependencies
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_db_session] = override_get_db
     app.dependency_overrides[get_tenant_db_session] = override_get_db
 
     with TestClient(app) as test_client:

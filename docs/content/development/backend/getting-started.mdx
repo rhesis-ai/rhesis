@@ -137,19 +137,23 @@ Run the test suite:
 
 ## Authentication Setup
 
-For local development, you can use Auth0 or set up a mock authentication system.
+For local development, Quick Start mode provides automatic authentication bypass. For production-like setup, configure the authentication system:
 
-### Auth0 Configuration
+### Authentication Configuration
 
-1. Create an Auth0 application at https://auth0.com/
-2. Update the Auth0 configuration in your `.env` file:
+Update the authentication settings in your `.env` file:
 
 <CodeBlock filename=".env" language="bash">
-{`AUTH0_DOMAIN=your-domain.auth0.com
-AUTH0_AUDIENCE=your-audience
-AUTH0_CLIENT_ID=your-client-id
-AUTH0_CLIENT_SECRET=your-client-secret
-AUTH0_SECRET_KEY=your-secret-key`}
+{`# JWT Configuration (required)
+JWT_SECRET_KEY=your-jwt-secret-key
+JWT_ALGORITHM=HS256
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
+
+# OAuth Providers (optional - enables social login)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GH_CLIENT_ID=your-github-client-id
+GH_CLIENT_SECRET=your-github-client-secret`}
 </CodeBlock>
 
 ## API Endpoints

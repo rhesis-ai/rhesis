@@ -46,8 +46,23 @@ Base.metadata.create_all(bind=engine)
 public_routes = [
     "/",
     "/auth/login",
+    "/auth/login/{provider}",
+    "/auth/login/email",
     "/auth/callback",
     "/auth/logout",
+    "/auth/providers",
+    "/auth/register",
+    "/auth/verify-email",
+    "/auth/resend-verification",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/auth/magic-link",
+    "/auth/magic-link/verify",
+    "/auth/exchange-code",
+    "/auth/refresh",
+    "/auth/verify",
+    "/auth/demo",
+    "/auth/local-login",
     "/home",
     "/docs",
     "/redoc",
@@ -262,6 +277,15 @@ app = FastAPI(
     route_class=AuthenticatedAPIRoute,
     lifespan=lifespan,
 )
+
+# Register rate limiter for slowapi (used by auth and user routers)
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
+from rhesis.backend.app.utils.rate_limit import limiter
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 # Global exception handler for soft-deleted items

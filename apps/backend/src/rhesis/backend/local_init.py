@@ -101,6 +101,7 @@ def initialize_local_environment(db: Session) -> None:
             family_name="Admin",
             is_active=True,
             is_superuser=True,
+            is_email_verified=True,
             organization_id=None,  # Set after organization is created
             auth0_id=None,  # No Auth0 ID for local
             last_login_at=current_time,

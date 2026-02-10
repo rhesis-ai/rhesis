@@ -7,6 +7,7 @@ from .category import Category
 from .comment import Comment
 from .demographic import Demographic
 from .dimension import Dimension
+from .embedding import Embedding
 from .endpoint import Endpoint
 from .guid import GUID
 from .metric import Metric, behavior_metric_association
@@ -18,6 +19,7 @@ from .organization import Organization
 from .project import Project
 from .prompt import Prompt
 from .prompt_template import PromptTemplate
+from .refresh_token import RefreshToken
 from .response_pattern import ResponsePattern
 from .risk import Risk
 from .source import Source
@@ -48,6 +50,7 @@ __all__ = [
     "TestSet",
     "Category",
     "Comment",
+    "Embedding",
     "Endpoint",
     "GUID",
     "Metric",
@@ -74,6 +77,7 @@ __all__ = [
     "TaggedItem",
     "TagsMixin",
     "Token",
+    "RefreshToken",
     "Organization",
     "Project",
     "Task",

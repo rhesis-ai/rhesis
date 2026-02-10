@@ -8,15 +8,16 @@ The Rhesis backend implements multiple layers of security to protect sensitive d
 
 ## Authentication and Authorization
 
-### Auth0 Integration
+### Native Authentication
 
-The application uses Auth0 as the identity provider, which offers:
+The application uses a native authentication system with a pluggable provider architecture:
 
-- Secure user authentication
-- Multi-factor authentication (MFA)
-- Social login integration
-- Centralized user management
-- Security monitoring and anomaly detection
+- Email/password authentication with bcrypt password hashing
+- OAuth providers (Google, GitHub) for social login
+- Magic link (passwordless) login via email
+- Refresh token rotation with reuse detection
+- Rate limiting on all authentication endpoints
+- Single-use token enforcement via Redis
 
 ### JWT Token Security
 
@@ -127,7 +128,7 @@ Sensitive authentication tokens and API keys are encrypted at rest using Fernet 
 
 User passwords are managed securely:
 
-- Passwords are never stored in the database (delegated to Auth0)
+- Passwords are hashed with bcrypt (via passlib) and stored securely in the database
 - Password reset flows follow security best practices
 - Password strength requirements are enforced
 

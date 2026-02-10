@@ -12,7 +12,7 @@ The documentation is organized into the following sections:
 - [Architecture Overview](./architecture.md) - High-level architecture and design patterns
 - [Database Models](./database-models.md) - Database schema and model relationships
 - [API Structure](./api-structure.md) - API endpoints and request/response formats
-- [Authentication](./authentication.md) - Auth0 integration and security mechanisms
+- [Authentication](./authentication.md) - Native authentication and security mechanisms
 - [Multi-tenancy](./multi-tenancy.md) - Organization isolation and row-level security
 - [Background Tasks](./background-tasks.md) - Celery integration for asynchronous processing
 - [Environment Configuration](./environment-config.md) - Environment variables and configuration
@@ -26,7 +26,7 @@ The Rhesis backend provides:
 
 1. **RESTful API** - A comprehensive API for managing AI model testing and evaluation
 2. **Multi-tenancy** - Complete data isolation between organizations
-3. **Authentication** - Secure authentication via Auth0
+3. **Authentication** - Native authentication with email/password and OAuth providers
 4. **Background Processing** - Asynchronous task execution with Celery
 5. **Database Integration** - PostgreSQL with SQLAlchemy ORM
 6. **Containerization** - Docker-based deployment
@@ -41,7 +41,7 @@ The Rhesis backend provides:
 
 - **Framework**: FastAPI
 - **Database**: PostgreSQL with SQLAlchemy ORM
-- **Authentication**: Auth0
+- **Authentication**: Native (email/password, Google OAuth, GitHub OAuth)
 - **Task Queue**: Celery with Redis broker
 - **API Documentation**: Swagger UI (via FastAPI)
 - **Package Management**: UV (Python package installer)
