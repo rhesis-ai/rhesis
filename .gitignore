@@ -295,6 +295,8 @@ override.tf.json
 .terraformrc
 terraform.rc
 terraform-*-plan*
+tfplan
+*.tfplan
 
 # DeepEval
 .deepeval/
