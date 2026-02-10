@@ -265,7 +265,6 @@ export default function ExecuteTestSetDrawer({
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = apiFactory.getTestSetsClient();
-      const tagsClient = new TagsClient(sessionToken);
 
       // Prepare test configuration attributes
       const testConfigurationAttributes: Record<string, any> = {
@@ -387,7 +386,7 @@ export default function ExecuteTestSetDrawer({
               }}
               getOptionLabel={option => option.name}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box component="li" key={option.id} {...otherProps}>
                     {option.name}
@@ -431,7 +430,7 @@ export default function ExecuteTestSetDrawer({
                 />
               )}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box
                     key={option.id}

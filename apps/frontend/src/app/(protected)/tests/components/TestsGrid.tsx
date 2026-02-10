@@ -419,7 +419,7 @@ export default function TestsTable({
     setDeleteModalOpen(false);
   }, []);
 
-  const handleNewTest = useCallback(() => {
+  const _handleNewTest = useCallback(() => {
     setSelectedTest(undefined);
     setDrawerOpen(true);
   }, []);

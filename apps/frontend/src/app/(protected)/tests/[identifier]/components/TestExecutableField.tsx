@@ -25,7 +25,7 @@ export default function TestExecutableField({
   onUpdate,
   fieldName = 'content',
 }: TestExecutableFieldProps) {
-  const theme = useTheme();
+  const _theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(initialContent);
   const [isUpdating, setIsUpdating] = useState(false);

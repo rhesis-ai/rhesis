@@ -34,10 +34,10 @@ export default function TestDetailData({
   sessionToken,
   test: initialTest,
 }: TestDetailDataProps) {
-  const theme = useTheme();
+  const _theme = useTheme();
   const router = useRouter();
   const [behaviors, setBehaviors] = React.useState<TestDetailOption[]>([]);
-  const [types, setTypes] = React.useState<TestDetailOption[]>([]);
+  const [_types, setTypes] = React.useState<TestDetailOption[]>([]);
   const [topics, setTopics] = React.useState<TestDetailOption[]>([]);
   const [categories, setCategories] = React.useState<TestDetailOption[]>([]);
   const [isUpdating, setIsUpdating] = React.useState(false);
