@@ -222,6 +222,7 @@ class TestSetExecutionRequest(BaseModel):
 
     execution_options: Optional[Dict[str, Any]] = None
     metrics: Optional[List[ExecutionMetric]] = None
+    reference_test_run_id: Optional[UUID4] = None
 
     @field_validator("execution_options")
     @classmethod
