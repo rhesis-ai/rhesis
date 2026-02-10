@@ -1700,39 +1700,92 @@ export default function AdaptiveTestingDetail({
   };
 
   const handleAddTopicSubmit = async (topicPath: string) => {
+    // Build optimistic topic object
+    const parts = topicPath.split('/');
+    const name = parts[parts.length - 1];
+    const parentPath =
+      parts.length > 1
+        ? parts.slice(0, -1).join('/')
+        : null;
+    const optimisticTopic: Topic = {
+      path: topicPath,
+      name,
+      parent_path: parentPath,
+      depth: parts.length,
+      display_name: name,
+      display_path: topicPath,
+      has_direct_tests: false,
+      has_subtopics: false,
+    };
+
+    // Optimistically add to local state
+    setTopics(prev => [...prev, optimisticTopic]);
+
+    // Fire API call in background (not awaited)
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
 
-    await client.createTopic(testSetId, { path: topicPath });
-
-    // Refresh tree and topics data
-    const [treeNodes, updatedTopics] = await Promise.all([
-      client.getTree(testSetId),
-      client.getTopics(testSetId),
-    ]);
-
-    setTests(
-      treeNodes.filter(node => node.label !== 'topic_marker')
-    );
-    setTopics(updatedTopics);
+    client
+      .createTopic(testSetId, { path: topicPath })
+      .catch(() => {
+        // Rollback: remove the optimistic topic
+        setTopics(prev =>
+          prev.filter(t => t.path !== topicPath)
+        );
+        notifications.show(
+          'Failed to add topic. Change has been reverted.',
+          { severity: 'error' }
+        );
+      });
   };
 
   const handleAddTestSubmit = async (data: TestNodeCreate) => {
+    // Create optimistic test entry with a temporary ID
+    const tempId = `temp-${Date.now()}`;
+    const optimisticTest: TestNode = {
+      id: tempId,
+      topic: data.topic || '',
+      input: data.input || '',
+      output: data.output || '',
+      label: data.label || '',
+      labeler: data.labeler || 'user',
+      to_eval: data.to_eval ?? true,
+      model_score: data.model_score ?? 0,
+    };
+
+    // Optimistically add to local state
+    setTests(prev => [...prev, optimisticTest]);
+
+    // Fire API call in background (not awaited)
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
 
-    await client.createTest(testSetId, data);
-
-    // Refresh tree and topics data
-    const [treeNodes, updatedTopics] = await Promise.all([
-      client.getTree(testSetId),
-      client.getTopics(testSetId),
-    ]);
-
-    setTests(
-      treeNodes.filter(node => node.label !== 'topic_marker')
-    );
-    setTopics(updatedTopics);
+    client
+      .createTest(testSetId, data)
+      .then(async () => {
+        // Refresh to get the real test with server ID
+        const [treeNodes, updatedTopics] =
+          await Promise.all([
+            client.getTree(testSetId),
+            client.getTopics(testSetId),
+          ]);
+        setTests(
+          treeNodes.filter(
+            node => node.label !== 'topic_marker'
+          )
+        );
+        setTopics(updatedTopics);
+      })
+      .catch(() => {
+        // Rollback: remove the optimistic test
+        setTests(prev =>
+          prev.filter(t => t.id !== tempId)
+        );
+        notifications.show(
+          'Failed to add test. Change has been reverted.',
+          { severity: 'error' }
+        );
+      });
   };
 
   const handleEditTestOpen = (test: TestNode) => {
@@ -1744,54 +1797,79 @@ export default function AdaptiveTestingDetail({
     testId: string,
     data: TestNodeUpdate
   ) => {
+    // Save previous test state for rollback
+    const previousTest = tests.find(t => t.id === testId);
+    if (!previousTest) return;
+
+    // Optimistically update local state
+    setTests(prev =>
+      prev.map(t =>
+        t.id === testId ? { ...t, ...data } : t
+      )
+    );
+
+    // Fire API call in background (not awaited)
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
 
-    await client.updateTest(testSetId, testId, data);
-
-    // Refresh tree and topics data
-    const [treeNodes, updatedTopics] = await Promise.all([
-      client.getTree(testSetId),
-      client.getTopics(testSetId),
-    ]);
-
-    setTests(
-      treeNodes.filter(node => node.label !== 'topic_marker')
-    );
-    setTopics(updatedTopics);
+    client.updateTest(testSetId, testId, data).catch(() => {
+      // Rollback on error
+      setTests(prev =>
+        prev.map(t =>
+          t.id === testId ? previousTest : t
+        )
+      );
+      notifications.show(
+        'Failed to update test. Change has been reverted.',
+        { severity: 'error' }
+      );
+    });
   };
 
   const handleDropTestOnTopic = useCallback(
-    async (testId: string, topicPath: string) => {
+    (testId: string, topicPath: string) => {
       // Find the test to check if topic actually changed
       const test = tests.find(t => t.id === testId);
       if (!test || test.topic === topicPath) return;
 
+      const previousTopic = test.topic;
+
+      // Optimistically update local state
+      setTests(prev =>
+        prev.map(t =>
+          t.id === testId
+            ? { ...t, topic: topicPath }
+            : t
+        )
+      );
+
+      // Fire API call in background
       const clientFactory = new ApiClientFactory(
         sessionToken
       );
       const client =
         clientFactory.getAdaptiveTestingClient();
 
-      await client.updateTest(testSetId, testId, {
-        topic: topicPath,
-      });
-
-      // Refresh tree and topics data
-      const [treeNodes, updatedTopics] =
-        await Promise.all([
-          client.getTree(testSetId),
-          client.getTopics(testSetId),
-        ]);
-
-      setTests(
-        treeNodes.filter(
-          node => node.label !== 'topic_marker'
-        )
-      );
-      setTopics(updatedTopics);
+      client
+        .updateTest(testSetId, testId, {
+          topic: topicPath,
+        })
+        .catch(() => {
+          // Rollback on error
+          setTests(prev =>
+            prev.map(t =>
+              t.id === testId
+                ? { ...t, topic: previousTopic }
+                : t
+            )
+          );
+          notifications.show(
+            'Failed to move test. Change has been reverted.',
+            { severity: 'error' }
+          );
+        });
     },
-    [tests, sessionToken, testSetId]
+    [tests, sessionToken, testSetId, notifications]
   );
 
   const handleEditTopicOpen = (topicPath: string) => {
@@ -1804,81 +1882,164 @@ export default function AdaptiveTestingDetail({
     setDeleteTopicConfirmOpen(true);
   };
 
-  const handleDeleteTopicConfirm = async () => {
+  const handleDeleteTopicConfirm = () => {
     if (!deletingTopicPath) return;
 
-    try {
-      const clientFactory = new ApiClientFactory(sessionToken);
-      const client = clientFactory.getAdaptiveTestingClient();
+    const removedTopicPath = deletingTopicPath;
+    const previousTopics = topics;
+    const previousTests = tests;
+    const previousSelectedTopic = selectedTopic;
 
-      await client.deleteTopic(testSetId, deletingTopicPath);
+    // Optimistically remove topic and children from local state
+    setTopics(prev =>
+      prev.filter(
+        t =>
+          t.path !== removedTopicPath &&
+          !t.path.startsWith(removedTopicPath + '/')
+      )
+    );
 
-      const [treeNodes, updatedTopics] = await Promise.all([
-        client.getTree(testSetId),
-        client.getTopics(testSetId),
-      ]);
+    // Remove tests under the deleted topic
+    setTests(prev =>
+      prev.filter(
+        t =>
+          t.topic !== removedTopicPath &&
+          !t.topic.startsWith(removedTopicPath + '/')
+      )
+    );
 
-      setTests(
-        treeNodes.filter(node => node.label !== 'topic_marker')
-      );
-      setTopics(updatedTopics);
-
-      if (
-        selectedTopic === deletingTopicPath ||
-        selectedTopic?.startsWith(deletingTopicPath + '/')
-      ) {
-        setSelectedTopic(null);
-      }
-
-      setDeleteTopicConfirmOpen(false);
-      setDeletingTopicPath(null);
-    } catch (err) {
-      notifications.show(
-        err instanceof Error ? err.message : 'Failed to remove topic.',
-        { severity: 'error' }
-      );
+    if (
+      selectedTopic === removedTopicPath ||
+      selectedTopic?.startsWith(removedTopicPath + '/')
+    ) {
+      setSelectedTopic(null);
     }
+
+    setDeleteTopicConfirmOpen(false);
+    setDeletingTopicPath(null);
+
+    // Fire API call in background
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+
+    client
+      .deleteTopic(testSetId, removedTopicPath)
+      .catch(err => {
+        // Rollback
+        setTopics(previousTopics);
+        setTests(previousTests);
+        setSelectedTopic(previousSelectedTopic);
+        notifications.show(
+          err instanceof Error
+            ? err.message
+            : 'Failed to remove topic. Change has been reverted.',
+          { severity: 'error' }
+        );
+      });
   };
 
   const handleRenameTopicSubmit = async (
     topicPath: string,
     newName: string
   ) => {
-    const clientFactory = new ApiClientFactory(sessionToken);
-    const client = clientFactory.getAdaptiveTestingClient();
+    const parentPath = topicPath.includes('/')
+      ? topicPath.substring(0, topicPath.lastIndexOf('/'))
+      : null;
+    const newPath = parentPath
+      ? `${parentPath}/${newName}`
+      : newName;
 
-    await client.updateTopic(testSetId, topicPath, {
-      new_name: newName,
-    });
+    // Save previous state for rollback
+    const previousTopics = topics;
+    const previousTests = tests;
+    const previousSelectedTopic = selectedTopic;
 
-    // Refresh tree and topics data
-    const [treeNodes, updatedTopics] = await Promise.all([
-      client.getTree(testSetId),
-      client.getTopics(testSetId),
-    ]);
-
-    setTests(
-      treeNodes.filter(node => node.label !== 'topic_marker')
+    // Optimistically rename topic and children in local state
+    setTopics(prev =>
+      prev.map(t => {
+        if (t.path === topicPath) {
+          return {
+            ...t,
+            path: newPath,
+            name: newName,
+            display_name: newName,
+            display_path: newPath,
+          };
+        }
+        if (t.path.startsWith(topicPath + '/')) {
+          const newChildPath =
+            newPath + t.path.substring(topicPath.length);
+          return {
+            ...t,
+            path: newChildPath,
+            parent_path:
+              t.parent_path === topicPath
+                ? newPath
+                : t.parent_path?.startsWith(
+                      topicPath + '/'
+                    )
+                  ? newPath +
+                    t.parent_path.substring(
+                      topicPath.length
+                    )
+                  : t.parent_path,
+            display_path: newChildPath,
+          };
+        }
+        return t;
+      })
     );
-    setTopics(updatedTopics);
 
-    // Update selected topic if it was under the renamed path
+    // Update test topics that reference the old path
+    setTests(prev =>
+      prev.map(t => {
+        if (t.topic === topicPath) {
+          return { ...t, topic: newPath };
+        }
+        if (t.topic.startsWith(topicPath + '/')) {
+          return {
+            ...t,
+            topic:
+              newPath +
+              t.topic.substring(topicPath.length),
+          };
+        }
+        return t;
+      })
+    );
+
+    // Update selected topic
     if (selectedTopic) {
-      const parentPath = topicPath.includes('/')
-        ? topicPath.substring(0, topicPath.lastIndexOf('/'))
-        : null;
-      const newPath = parentPath
-        ? `${parentPath}/${newName}`
-        : newName;
-
       if (selectedTopic === topicPath) {
         setSelectedTopic(newPath);
-      } else if (selectedTopic.startsWith(topicPath + '/')) {
+      } else if (
+        selectedTopic.startsWith(topicPath + '/')
+      ) {
         setSelectedTopic(
-          newPath + selectedTopic.substring(topicPath.length)
+          newPath +
+            selectedTopic.substring(topicPath.length)
         );
       }
     }
+
+    // Fire API call in background (not awaited)
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+
+    client
+      .updateTopic(testSetId, topicPath, {
+        new_name: newName,
+      })
+      .catch(() => {
+        // Rollback
+        setTopics(previousTopics);
+        setTests(previousTests);
+        setSelectedTopic(previousSelectedTopic);
+        notifications.show(
+          'Failed to rename topic. Change has been reverted.',
+          { severity: 'error' }
+        );
+      });
   };
 
   const handleDeleteTestOpen = (test: TestNode) => {
@@ -1886,32 +2047,35 @@ export default function AdaptiveTestingDetail({
     setDeleteConfirmOpen(true);
   };
 
-  const handleDeleteTestConfirm = async () => {
+  const handleDeleteTestConfirm = () => {
     if (!deletingTest) return;
 
+    const removedTest = deletingTest;
+
+    // Optimistically remove from local state and close dialog
+    setTests(prev =>
+      prev.filter(t => t.id !== removedTest.id)
+    );
+    setDeleteConfirmOpen(false);
+    setDeletingTest(null);
+
+    // Fire API call in background
     const clientFactory = new ApiClientFactory(
       sessionToken
     );
     const client =
       clientFactory.getAdaptiveTestingClient();
 
-    await client.deleteTest(testSetId, deletingTest.id);
-
-    // Refresh tree and topics data
-    const [treeNodes, updatedTopics] = await Promise.all([
-      client.getTree(testSetId),
-      client.getTopics(testSetId),
-    ]);
-
-    setTests(
-      treeNodes.filter(
-        node => node.label !== 'topic_marker'
-      )
-    );
-    setTopics(updatedTopics);
-
-    setDeleteConfirmOpen(false);
-    setDeletingTest(null);
+    client
+      .deleteTest(testSetId, removedTest.id)
+      .catch(() => {
+        // Rollback: re-add the test
+        setTests(prev => [...prev, removedTest]);
+        notifications.show(
+          'Failed to delete test. Change has been reverted.',
+          { severity: 'error' }
+        );
+      });
   };
 
   // Filter tests by selected topic
