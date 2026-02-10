@@ -238,13 +238,7 @@ Connect Rhesis to your LLM stack:
 | **AutoGen** | Python | Automatic instrumentation for Microsoft AutoGen multi-agent conversations. |
 | **LiteLLM** | Python | Unified interface for 100+ LLMs (OpenAI, Azure, Anthropic, Cohere, Ollama, vLLM, HuggingFace, Replicate). |
 | **Google Gemini** | Python | Native integration for Google's Gemini models. |
-| **Mistral** | Python | Direct support for Mistral AI models. |
-| **Cohere** | Python | Built-in integration for Cohere's language models. |
-| **Groq** | Python | Fast inference with Groq's LPU architecture. |
-| **Together AI** | Python | Access to open-source models via Together AI. |
 | **Ollama** | Python | Local LLM deployment with Ollama integration. |
-| **Replicate** | Python | Run open-source models via Replicate's API. |
-| **Perplexity** | Python | Integration with Perplexity AI models. |
 | **OpenRouter** | Python | Access to multiple LLM providers through OpenRouter. |
 | **Vertex AI** | Python | Google Cloud Vertex AI model support. |
 | **HuggingFace** | Python | Direct integration with HuggingFace models. |
