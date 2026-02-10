@@ -224,6 +224,30 @@ pip install rhesis-sdk
 
 ---
 
+## Integrations
+
+Connect Rhesis to your LLM stack:
+
+| Integration | Languages | Description |
+|-------------|-----------|-------------|
+| **Rhesis SDK** | Python, JS/TS | Native SDK with decorators for endpoints and observability. Full control over test execution and tracing. |
+| **OpenAI** | Python | Drop-in replacement for OpenAI SDK. Automatic instrumentation with zero code changes. |
+| **Anthropic** | Python | Native support for Claude models with automatic tracing. |
+| **LangChain** | Python | Add Rhesis callback handler to your LangChain app for automatic tracing and test execution. |
+| **LangGraph** | Python | Built-in integration for LangGraph agent workflows with full observability. |
+| **AutoGen** | Python | Automatic instrumentation for Microsoft AutoGen multi-agent conversations. |
+| **LiteLLM** | Python | Unified interface for 100+ LLMs (OpenAI, Azure, Anthropic, Cohere, Ollama, vLLM, HuggingFace, Replicate). |
+| **Google Gemini** | Python | Native integration for Google's Gemini models. |
+| **Ollama** | Python | Local LLM deployment with Ollama integration. |
+| **OpenRouter** | Python | Access to multiple LLM providers through OpenRouter. |
+| **Vertex AI** | Python | Google Cloud Vertex AI model support. |
+| **HuggingFace** | Python | Direct integration with HuggingFace models. |
+| **REST API** | Any | Direct API access for custom integrations. [OpenAPI spec available](https://app.rhesis.ai/api/docs). |
+
+See [Integration Docs](https://docs.rhesis.ai/sdk/getting-started) for setup instructions.
+
+---
+
 ## Open source
 
 [MIT licensed](LICENSE). No plans to relicense core features. Enterprise version will live in `ee/` folders and remain separate.
