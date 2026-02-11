@@ -422,7 +422,9 @@ function TreeNodeView({
               }}
               className="topic-edit-btn"
             >
-              <DeleteIcon sx={{ fontSize: theme.typography.subtitle2.fontSize }} />
+              <DeleteIcon
+                sx={{ fontSize: theme.typography.subtitle2.fontSize }}
+              />
             </IconButton>
           </Tooltip>
         )}
