@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 from uuid import UUID
 
@@ -13,7 +14,11 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.stats import get_individual_test_stats, get_test_stats
-from rhesis.backend.app.services.test import bulk_create_tests
+from rhesis.backend.app.services.test import (
+    bulk_create_tests,
+    create_test_from_conversation,
+    extract_test_from_conversation,
+)
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import (
@@ -21,6 +26,8 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_execution_model,
 )
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+
+logger = logging.getLogger(__name__)
 
 # Create the detailed schema for Test
 TestDetailSchema = create_detailed_schema(schemas.Test, models.Test)
@@ -127,6 +134,85 @@ def create_tests_bulk(
             raise HTTPException(
                 status_code=500, detail=f"An error occurred while creating tests: {error_message}"
             )
+
+
+@router.post(
+    "/from-conversation",
+    response_model=schemas.ConversationToTestResponse,
+)
+def create_test_from_conversation_endpoint(
+    request: schemas.ConversationToTestRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Create a test by extracting metadata from a playground conversation.
+
+    For multi-turn: uses synthesizer to extract goal, instructions,
+    restrictions, scenario, behavior, category, and topic.
+
+    For single-turn: uses LLM to extract behavior, category, and topic,
+    with the user message as prompt and assistant response as expected output.
+    """
+    try:
+        test_id = create_test_from_conversation(
+            db=db,
+            messages=request.messages,
+            user=current_user,
+            test_type=request.test_type or "Multi-Turn",
+        )
+
+        return schemas.ConversationToTestResponse(
+            test_id=test_id,
+            message="Test created successfully from conversation",
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(
+            f"Error creating test from conversation: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to create test from conversation: {str(e)}",
+        )
+
+
+@router.post(
+    "/extract-from-conversation",
+    response_model=schemas.ConversationTestExtractionResponse,
+)
+def extract_test_from_conversation_endpoint(
+    request: schemas.ConversationToTestRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Extract test metadata from a conversation without creating a test.
+
+    Returns pre-filled fields that the user can review and edit in a
+    drawer before saving.
+    """
+    try:
+        return extract_test_from_conversation(
+            db=db,
+            messages=request.messages,
+            user=current_user,
+            test_type=request.test_type or "Multi-Turn",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(
+            f"Error extracting test from conversation: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(f"Failed to extract test from conversation: {str(e)}"),
+        )
 
 
 @router.get("/stats", response_model=schemas.EntityStats)

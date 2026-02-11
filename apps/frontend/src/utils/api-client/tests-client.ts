@@ -10,6 +10,9 @@ import {
   TestBulkCreateResponse,
   TestExecuteRequest,
   TestExecuteResponse,
+  ConversationToTestRequest,
+  ConversationToTestResponse,
+  ConversationTestExtractionResponse,
   PriorityLevel,
 } from './interfaces/tests';
 import { StatsOptions } from './interfaces/common';
@@ -206,5 +209,29 @@ export class TestsClient extends BaseApiClient {
       method: 'POST',
       body: JSON.stringify(request),
     });
+  }
+
+  async createTestFromConversation(
+    request: ConversationToTestRequest
+  ): Promise<ConversationToTestResponse> {
+    return this.fetch<ConversationToTestResponse>(
+      `${API_ENDPOINTS.tests}/from-conversation`,
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
+  }
+
+  async extractTestFromConversation(
+    request: ConversationToTestRequest
+  ): Promise<ConversationTestExtractionResponse> {
+    return this.fetch<ConversationTestExtractionResponse>(
+      `${API_ENDPOINTS.tests}/extract-from-conversation`,
+      {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }
+    );
   }
 }

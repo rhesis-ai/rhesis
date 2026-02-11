@@ -15,6 +15,7 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
+import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
 
@@ -23,6 +24,8 @@ interface MessageBubbleProps {
   message: ChatMessage;
   /** Callback when the trace icon is clicked (for assistant messages with traces) */
   onViewTrace?: (traceId: string) => void;
+  /** Callback to create a single-turn test from this user message */
+  onCreateSingleTurnTest?: (messageId: string) => void;
 }
 
 /**
@@ -34,21 +37,15 @@ interface MessageBubbleProps {
 export default function MessageBubble({
   message,
   onViewTrace,
+  onCreateSingleTurnTest,
 }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
 
   const isUser = message.role === 'user';
   const hasTrace = !isUser && message.traceId && !message.isError;
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering trace view
+    e.stopPropagation();
     try {
       await navigator.clipboard.writeText(message.content);
       setCopied(true);
@@ -56,6 +53,13 @@ export default function MessageBubble({
     } catch (err) {
       console.error('Failed to copy text:', err);
     }
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   return (
@@ -152,7 +156,7 @@ export default function MessageBubble({
             <Box
               sx={{
                 display: 'flex',
-                alignItems: 'flex-start',
+                alignItems: 'center',
                 gap: 1,
               }}
             >
@@ -184,28 +188,54 @@ export default function MessageBubble({
                   ml: 1,
                 }}
               >
-                {/* Copy button */}
-                <Tooltip title={copied ? 'Copied!' : 'Copy message'}>
-                  <IconButton
-                    size="small"
-                    onClick={handleCopy}
-                    sx={{
-                      p: 0.5,
-                      color: isUser ? 'primary.contrastText' : 'action.active',
-                      opacity: 0.7,
-                      '&:hover': {
-                        opacity: 1,
-                        bgcolor: isUser ? 'primary.dark' : 'action.hover',
-                      },
-                    }}
-                  >
-                    {copied ? (
-                      <CheckIcon sx={{ fontSize: 16 }} />
-                    ) : (
-                      <ContentCopyIcon sx={{ fontSize: 16 }} />
-                    )}
-                  </IconButton>
-                </Tooltip>
+                {/* Create single-turn test button (user messages only) */}
+                {isUser && (
+                  <Tooltip title="Create single-turn test from this message">
+                    <IconButton
+                      size="small"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onCreateSingleTurnTest?.(message.id);
+                      }}
+                      sx={{
+                        p: 0.5,
+                        color: 'primary.contrastText',
+                        opacity: 0.7,
+                        '&:hover': {
+                          opacity: 1,
+                          bgcolor: 'primary.dark',
+                        },
+                      }}
+                    >
+                      <ScienceOutlinedIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+
+                {/* Copy button (assistant messages only) */}
+                {!isUser && (
+                  <Tooltip title={copied ? 'Copied!' : 'Copy message'}>
+                    <IconButton
+                      size="small"
+                      onClick={handleCopy}
+                      sx={{
+                        p: 0.5,
+                        color: 'action.active',
+                        opacity: 0.7,
+                        '&:hover': {
+                          opacity: 1,
+                          bgcolor: 'action.hover',
+                        },
+                      }}
+                    >
+                      {copied ? (
+                        <CheckIcon sx={{ fontSize: 16 }} />
+                      ) : (
+                        <ContentCopyIcon sx={{ fontSize: 16 }} />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                )}
 
                 {/* Trace Icon indicator (for assistant messages with traces) */}
                 {hasTrace && (

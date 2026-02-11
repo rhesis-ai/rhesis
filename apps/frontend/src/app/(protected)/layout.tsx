@@ -13,7 +13,6 @@ import { alpha } from '@mui/material/styles';
 import SidebarFooter from '@/components/navigation/SidebarFooter';
 import ToolbarActions from '@/components/layout/ToolbarActions';
 import VerificationBanner from '@/components/auth/VerificationBanner';
-import { WebSocketProvider } from '@/contexts/WebSocketContext';
 
 // Define extended user interface that includes organization_id
 interface ExtendedUser {
@@ -184,11 +183,7 @@ export default function ProtectedLayout({
   return (
     <AuthErrorBoundary>
       {!isOnboarding && <VerificationBanner />}
-      {isOnboarding ? (
-        content
-      ) : (
-        <WebSocketProvider>{content}</WebSocketProvider>
-      )}
+      {content}
     </AuthErrorBoundary>
   );
 }

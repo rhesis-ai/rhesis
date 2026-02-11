@@ -13,10 +13,15 @@ import {
   Alert,
   Chip,
   Stack,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -31,6 +36,100 @@ interface EndpointOption {
   projectId: string;
   projectName: string;
   environment: string;
+}
+
+/**
+ * Placeholder shown when no endpoint is selected.
+ */
+function ChatPlaceholder({
+  label,
+  onClose,
+  onSplit,
+}: {
+  label?: string;
+  onClose?: () => void;
+  onSplit?: () => void;
+}) {
+  return (
+    <Paper
+      elevation={1}
+      sx={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: theme => theme.shape.borderRadius,
+        overflow: 'hidden',
+      }}
+    >
+      {(label || onSplit) && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: label ? 'space-between' : 'flex-end',
+            px: 1.5,
+            minHeight: theme => theme.spacing(4),
+            bgcolor: 'action.hover',
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
+        >
+          {label && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              fontWeight="medium"
+            >
+              {label}
+            </Typography>
+          )}
+          {onClose && (
+            <IconButton
+              size="small"
+              onClick={onClose}
+              sx={{ color: 'text.secondary', p: 0.25 }}
+            >
+              <CloseIcon fontSize="inherit" />
+            </IconButton>
+          )}
+          {onSplit && (
+            <Tooltip title="Add chat pane">
+              <IconButton
+                size="small"
+                onClick={onSplit}
+                sx={{ color: 'text.secondary', p: 0.25 }}
+              >
+                <AddIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      )}
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Stack spacing={1} alignItems="center">
+          <ChatBubbleOutlineIcon
+            sx={{
+              fontSize: theme => theme.typography.h3.fontSize,
+              color: 'text.disabled',
+            }}
+          />
+          <Typography variant="h6" color="text.secondary">
+            Select an endpoint to start chatting
+          </Typography>
+          <Typography variant="body2" color="text.disabled">
+            Choose an endpoint from the dropdown above
+          </Typography>
+        </Stack>
+      </Box>
+    </Paper>
+  );
 }
 
 /**
@@ -54,6 +153,7 @@ export default function PlaygroundClient() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [initialEndpointApplied, setInitialEndpointApplied] = useState(false);
+  const [isSplit, setIsSplit] = useState(false);
 
   // Load endpoints on mount
   useEffect(() => {
@@ -274,35 +374,41 @@ export default function PlaygroundClient() {
           height: 'calc(100vh - 340px)',
           minHeight: 400,
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: 'row',
+          gap: 1,
         }}
       >
+        {/* Pane 1 */}
         {selectedEndpointId && selectedProjectId ? (
           <PlaygroundChat
+            key="pane-left"
             endpointId={selectedEndpointId}
             projectId={selectedProjectId}
+            label={isSplit ? 'Chat 1' : undefined}
+            onClose={isSplit ? () => setIsSplit(false) : undefined}
+            onSplit={!isSplit ? () => setIsSplit(true) : undefined}
           />
         ) : (
-          <Paper
-            elevation={1}
-            sx={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: theme => theme.shape.borderRadius,
-            }}
-          >
-            <Stack spacing={1} alignItems="center">
-              <Typography variant="h6" color="text.secondary">
-                Select an endpoint to start chatting
-              </Typography>
-              <Typography variant="body2" color="text.disabled">
-                Choose an endpoint from the dropdown above
-              </Typography>
-            </Stack>
-          </Paper>
+          <ChatPlaceholder
+            label={isSplit ? 'Chat 1' : undefined}
+            onClose={isSplit ? () => setIsSplit(false) : undefined}
+            onSplit={!isSplit ? () => setIsSplit(true) : undefined}
+          />
         )}
+
+        {/* Pane 2 (split mode only) */}
+        {isSplit &&
+          (selectedEndpointId && selectedProjectId ? (
+            <PlaygroundChat
+              key="pane-right"
+              endpointId={selectedEndpointId}
+              projectId={selectedProjectId}
+              label="Chat 2"
+              onClose={() => setIsSplit(false)}
+            />
+          ) : (
+            <ChatPlaceholder label="Chat 2" onClose={() => setIsSplit(false)} />
+          ))}
       </Box>
     </PageContainer>
   );
