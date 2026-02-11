@@ -1,9 +1,5 @@
 name: "[Test] Backend"
 
-# This workflow mirrors the local development testing workflow:
-# 1. Start Docker services using docker-compose (make docker-up)
-# 2. Run tests using make test
-
 on:
   push:
     branches: [ main ]
