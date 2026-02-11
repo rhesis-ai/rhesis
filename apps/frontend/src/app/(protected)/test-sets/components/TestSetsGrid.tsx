@@ -12,13 +12,7 @@ import { useRouter } from 'next/navigation';
 import { combineTestSetFiltersToOData } from '@/utils/odata-filter';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
-import {
-  Box,
-  Chip,
-  Tooltip,
-  Typography,
-  Avatar,
-} from '@mui/material';
+import { Box, Chip, Tooltip, Typography, Avatar } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';

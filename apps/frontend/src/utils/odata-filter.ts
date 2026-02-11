@@ -938,11 +938,7 @@ export function convertTestSetQuickFilterToOData(
     return '';
   }
 
-  const searchFields = [
-    'name',
-    'user/name',
-    'test_set_type/type_value',
-  ];
+  const searchFields = ['name', 'user/name', 'test_set_type/type_value'];
 
   const quickFilterExpressions = quickFilterValues
     .map(value => {
