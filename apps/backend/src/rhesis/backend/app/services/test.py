@@ -763,8 +763,7 @@ def bulk_create_tests(
                 db.add(test)
                 _pending_tests.append(test)
                 logger.debug(
-                    f"bulk_create_tests - Successfully created Test model "
-                    f"for test {i + 1}"
+                    f"bulk_create_tests - Successfully created Test model for test {i + 1}"
                 )
             except Exception as model_error:
                 logger.error(
@@ -772,8 +771,7 @@ def bulk_create_tests(
                     f"for test {i + 1}: {model_error}"
                 )
                 logger.error(
-                    f"bulk_create_tests - Test parameters that caused "
-                    f"error: {test_params}"
+                    f"bulk_create_tests - Test parameters that caused error: {test_params}"
                 )
                 raise
 
