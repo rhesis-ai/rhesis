@@ -68,6 +68,11 @@ from .task import (
 )
 from .task_management import Task, TaskBase, TaskCreate, TaskUpdate
 from .test import (
+    ConversationMessage,
+    ConversationTestExtractionResponse,
+    ConversationToTestRequest,
+    ConversationToTestResponse,
+    SingleTurnTestExtraction,
     Test,
     TestBase,
     TestBulkCreate,

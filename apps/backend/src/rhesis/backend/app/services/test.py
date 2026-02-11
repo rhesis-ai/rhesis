@@ -12,17 +12,20 @@ from rhesis.backend.app.constants import (
     EntityType,
 )
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_entity,
     get_or_create_status,
     get_or_create_type_lookup,
 )
+from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.backend.app.utils.uuid_utils import (
     ensure_owner_id,
     sanitize_uuid_field,
     validate_uuid_parameters,
 )
 from rhesis.backend.logging import logger
+from rhesis.sdk.models.factory import get_model
 
 
 class _BulkEntityCache:
@@ -1023,3 +1026,309 @@ def remove_test_set_associations(
             "removed_associations": 0,
             "message": f"An error occurred while removing test associations: {str(e)}",
         }
+
+
+def _get_user_llm(db: Session, user: User):
+    """Get a configured BaseLLM instance for the user."""
+    model_or_provider = get_user_generation_model(db, user)
+    if isinstance(model_or_provider, str):
+        return get_model(provider=model_or_provider)
+    return model_or_provider
+
+
+def extract_test_from_conversation(
+    db: Session,
+    messages: List[schemas.ConversationMessage],
+    user: User,
+    test_type: str = "Multi-Turn",
+) -> schemas.ConversationTestExtractionResponse:
+    """
+    Extract test metadata from a conversation without creating a test.
+
+    Returns pre-filled fields that a user can review/edit before saving.
+
+    Args:
+        db: Database session
+        messages: List of conversation messages (role + content)
+        user: Current authenticated user
+        test_type: "Single-Turn" or "Multi-Turn"
+
+    Returns:
+        ConversationTestExtractionResponse with pre-filled test fields
+    """
+    if not messages or len(messages) < 1:
+        raise ValueError("At least one message is required")
+
+    if test_type == "Single-Turn":
+        return _extract_single_turn_test(db, messages, user)
+    else:
+        return _extract_multi_turn_test(db, messages, user)
+
+
+def _extract_single_turn_test(
+    db: Session,
+    messages: List[schemas.ConversationMessage],
+    user: User,
+) -> schemas.ConversationTestExtractionResponse:
+    """Extract single-turn test metadata from a user message."""
+    user_msg = next((m for m in messages if m.role == "user"), None)
+    assistant_msg = next((m for m in messages if m.role == "assistant"), None)
+
+    if not user_msg:
+        raise ValueError("A user message is required for single-turn tests")
+
+    model = _get_user_llm(db, user)
+
+    extraction_prompt = (
+        "Analyze the following user message sent to an AI assistant"
+        " and classify it.\n\n"
+        f"User message: {user_msg.content}\n"
+    )
+    if assistant_msg:
+        extraction_prompt += f"\nAssistant response: {assistant_msg.content}\n"
+
+    extraction_prompt += (
+        "\nExtract:\n"
+        "- behavior: The high-level behavior being tested (e.g., "
+        "Compliance, Reliability, Robustness, Fairness, Safety)\n"
+        "- category: Whether the scenario is Harmless or Harmful\n"
+        "- topic: The domain or subject area\n"
+    )
+
+    extraction = model.generate(
+        prompt=extraction_prompt,
+        schema=schemas.SingleTurnTestExtraction,
+        temperature=0.1,
+    )
+
+    logger.info(f"Single-turn LLM extraction: {extraction}")
+
+    return schemas.ConversationTestExtractionResponse(
+        test_type="Single-Turn",
+        behavior=extraction["behavior"],
+        category=extraction["category"],
+        topic=extraction["topic"],
+        prompt_content=user_msg.content,
+        expected_response=(assistant_msg.content if assistant_msg else None),
+    )
+
+
+def _extract_multi_turn_test(
+    db: Session,
+    messages: List[schemas.ConversationMessage],
+    user: User,
+) -> schemas.ConversationTestExtractionResponse:
+    """Extract multi-turn test metadata using the MultiTurnSynthesizer."""
+    from rhesis.sdk.synthesizers.multi_turn.base import (
+        GenerationConfig,
+        MultiTurnSynthesizer,
+    )
+
+    if len(messages) < 2:
+        raise ValueError(
+            "At least two messages (one user and one assistant) are required for multi-turn tests"
+        )
+
+    conversation_text = "\n".join(f"{msg.role.upper()}: {msg.content}" for msg in messages)
+
+    model = _get_user_llm(db, user)
+
+    config = GenerationConfig(
+        generation_prompt=(
+            "Based on the following real conversation between a user and "
+            "an AI assistant (provided in the additional context), create "
+            "a multi-turn test case that captures the interaction pattern, "
+            "intent, and behavior being demonstrated. The test should "
+            "reproduce the scenario observed in the conversation."
+        ),
+        additional_context=conversation_text,
+    )
+
+    synthesizer = MultiTurnSynthesizer(
+        config=config,
+        model=model,
+        batch_size=1,
+    )
+
+    generated_tests = synthesizer._generate_batch()
+
+    if not generated_tests:
+        raise ValueError("Synthesizer failed to generate a test from the conversation")
+
+    test_dict = generated_tests[0]
+    logger.info(f"Multi-turn synthesizer extraction: {test_dict}")
+
+    return schemas.ConversationTestExtractionResponse(
+        test_type="Multi-Turn",
+        behavior=test_dict["behavior"],
+        category=test_dict["category"],
+        topic=test_dict["topic"],
+        test_configuration=test_dict.get("test_configuration"),
+    )
+
+
+def create_test_from_conversation(
+    db: Session,
+    messages: List[schemas.ConversationMessage],
+    user: User,
+    test_type: str = "Multi-Turn",
+) -> str:
+    """
+    Create a test by extracting metadata from a playground conversation.
+
+    For multi-turn: leverages the MultiTurnSynthesizer to generate a full
+    test case with goal, instructions, restrictions, and scenario.
+
+    For single-turn: uses an LLM call to extract behavior, category, and
+    topic, then creates a test with the user message as prompt and the
+    assistant response as expected_response.
+
+    Args:
+        db: Database session
+        messages: List of conversation messages (role + content)
+        user: Current authenticated user
+        test_type: "Single-Turn" or "Multi-Turn"
+
+    Returns:
+        The created test ID as a string
+
+    Raises:
+        ValueError: If messages are insufficient or synthesis fails
+    """
+    if not messages or len(messages) < 1:
+        raise ValueError("At least one message is required")
+
+    if test_type == "Single-Turn":
+        return _create_single_turn_test(db, messages, user)
+    else:
+        return _create_multi_turn_test(db, messages, user)
+
+
+def _create_single_turn_test(
+    db: Session,
+    messages: List[schemas.ConversationMessage],
+    user: User,
+) -> str:
+    """Create a single-turn test from a user message and optional assistant response."""
+    # Extract user message and optional assistant response
+    user_msg = next((m for m in messages if m.role == "user"), None)
+    assistant_msg = next((m for m in messages if m.role == "assistant"), None)
+
+    if not user_msg:
+        raise ValueError("A user message is required for single-turn tests")
+
+    model = _get_user_llm(db, user)
+
+    # Use LLM to extract behavior, category, topic
+    extraction_prompt = (
+        "Analyze the following user message sent to an AI assistant"
+        " and classify it.\n\n"
+        f"User message: {user_msg.content}\n"
+    )
+    if assistant_msg:
+        extraction_prompt += f"\nAssistant response: {assistant_msg.content}\n"
+
+    extraction_prompt += (
+        "\nExtract:\n"
+        "- behavior: The high-level behavior being tested (e.g., "
+        "Compliance, Reliability, Robustness, Fairness, Safety)\n"
+        "- category: Whether the scenario is Harmless or Harmful\n"
+        "- topic: The domain or subject area\n"
+    )
+
+    extraction = model.generate(
+        prompt=extraction_prompt,
+        schema=schemas.SingleTurnTestExtraction,
+        temperature=0.1,
+    )
+
+    logger.info(f"Single-turn LLM extraction: {extraction}")
+
+    # Build single-turn test data
+    test_data = schemas.TestBulkCreate(
+        prompt=schemas.TestPromptCreate(
+            content=user_msg.content,
+            language_code="en",
+            expected_response=assistant_msg.content if assistant_msg else None,
+        ),
+        behavior=extraction["behavior"],
+        category=extraction["category"],
+        topic=extraction["topic"],
+    )
+
+    test_ids = bulk_create_tests(
+        db=db,
+        tests_data=[test_data],
+        organization_id=str(user.organization_id),
+        user_id=str(user.id),
+    )
+
+    if not test_ids:
+        raise ValueError("Failed to create single-turn test")
+
+    return test_ids[0]
+
+
+def _create_multi_turn_test(
+    db: Session,
+    messages: List[schemas.ConversationMessage],
+    user: User,
+) -> str:
+    """Create a multi-turn test using the MultiTurnSynthesizer."""
+    from rhesis.sdk.synthesizers.multi_turn.base import (
+        GenerationConfig,
+        MultiTurnSynthesizer,
+    )
+
+    if len(messages) < 2:
+        raise ValueError(
+            "At least two messages (one user and one assistant) are required for multi-turn tests"
+        )
+
+    conversation_text = "\n".join(f"{msg.role.upper()}: {msg.content}" for msg in messages)
+
+    model = _get_user_llm(db, user)
+
+    config = GenerationConfig(
+        generation_prompt=(
+            "Based on the following real conversation between a user and an "
+            "AI assistant (provided in the additional context), create a "
+            "multi-turn test case that captures the interaction pattern, "
+            "intent, and behavior being demonstrated. The test should "
+            "reproduce the scenario observed in the conversation."
+        ),
+        additional_context=conversation_text,
+    )
+
+    synthesizer = MultiTurnSynthesizer(
+        config=config,
+        model=model,
+        batch_size=1,
+    )
+
+    generated_tests = synthesizer._generate_batch()
+
+    if not generated_tests:
+        raise ValueError("Synthesizer failed to generate a test from the conversation")
+
+    test_dict = generated_tests[0]
+    logger.info(f"Synthesizer generated test: {test_dict}")
+
+    test_data = schemas.TestBulkCreate(
+        behavior=test_dict["behavior"],
+        category=test_dict["category"],
+        topic=test_dict["topic"],
+        test_configuration=test_dict["test_configuration"],
+    )
+
+    test_ids = bulk_create_tests(
+        db=db,
+        tests_data=[test_data],
+        organization_id=str(user.organization_id),
+        user_id=str(user.id),
+    )
+
+    if not test_ids:
+        raise ValueError("Failed to create multi-turn test")
+
+    return test_ids[0]
