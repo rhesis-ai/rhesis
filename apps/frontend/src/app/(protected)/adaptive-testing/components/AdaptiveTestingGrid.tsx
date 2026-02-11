@@ -1,10 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import {
-  GridColDef,
-  GridPaginationModel,
-} from '@mui/x-data-grid';
+import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import {
@@ -83,13 +80,7 @@ export default function AdaptiveTestingGrid({
       renderCell: params => {
         const status = params.value;
         if (!status) return '-';
-        return (
-          <Chip
-            label={status}
-            size="small"
-            variant="outlined"
-          />
-        );
+        return <Chip label={status} size="small" variant="outlined" />;
       },
     },
     {
@@ -135,7 +126,9 @@ export default function AdaptiveTestingGrid({
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const client = new ApiClientFactory(sessionToken).getAdaptiveTestingClient();
+      const client = new ApiClientFactory(
+        sessionToken
+      ).getAdaptiveTestingClient();
       const created = await client.createAdaptiveTestSet(
         trimmedName,
         description.trim() || undefined
@@ -163,13 +156,9 @@ export default function AdaptiveTestingGrid({
       </Box>
       {testSets.length === 0 ? (
         <Box sx={{ p: 4, textAlign: 'center' }}>
-          <Typography
-            variant="body1"
-            color="text.secondary"
-          >
-            No adaptive testing test sets found. Create a
-            test set with the &quot;Adaptive Testing&quot;
-            behavior to get started.
+          <Typography variant="body1" color="text.secondary">
+            No adaptive testing test sets found. Create a test set with the
+            &quot;Adaptive Testing&quot; behavior to get started.
           </Typography>
         </Box>
       ) : (
@@ -181,9 +170,7 @@ export default function AdaptiveTestingGrid({
           showToolbar={false}
           onRowClick={handleRowClick}
           paginationModel={paginationModel}
-          onPaginationModelChange={
-            handlePaginationModelChange
-          }
+          onPaginationModelChange={handlePaginationModelChange}
           serverSidePagination={false}
           totalRows={testSets.length}
           pageSizeOptions={[10, 25, 50]}
@@ -191,7 +178,12 @@ export default function AdaptiveTestingGrid({
           persistState
         />
       )}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>Add test set</DialogTitle>
         <DialogContent>
           <TextField
@@ -223,7 +215,11 @@ export default function AdaptiveTestingGrid({
           <Button onClick={handleCloseDialog} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={handleCreate} variant="contained" disabled={submitting}>
+          <Button
+            onClick={handleCreate}
+            variant="contained"
+            disabled={submitting}
+          >
             {submitting ? 'Creating…' : 'Create'}
           </Button>
         </DialogActions>

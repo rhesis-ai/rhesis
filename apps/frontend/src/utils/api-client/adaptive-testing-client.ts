@@ -156,12 +156,9 @@ export class AdaptiveTestingClient extends BaseApiClient {
     topicPath: string
   ): Promise<DeleteTopicResponse> {
     const basePath = this.getBasePath(testSetId);
-    return this.fetch<DeleteTopicResponse>(
-      `${basePath}/topics/${topicPath}`,
-      {
-        method: 'DELETE',
-      }
-    );
+    return this.fetch<DeleteTopicResponse>(`${basePath}/topics/${topicPath}`, {
+      method: 'DELETE',
+    });
   }
 
   // ===========================================================================
@@ -275,15 +272,12 @@ export class AdaptiveTestingClient extends BaseApiClient {
     body: GenerateOutputsRequest
   ): Promise<GenerateOutputsResponse> {
     const basePath = this.getBasePath(testSetId);
-    return this.fetch<GenerateOutputsResponse>(
-      `${basePath}/generate_outputs`,
-      {
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return this.fetch<GenerateOutputsResponse>(`${basePath}/generate_outputs`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   }
 }

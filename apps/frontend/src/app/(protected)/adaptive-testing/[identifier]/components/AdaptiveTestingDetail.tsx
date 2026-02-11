@@ -30,10 +30,7 @@ import {
   FormControlLabel,
   Checkbox,
 } from '@mui/material';
-import {
-  GridColDef,
-  GridPaginationModel,
-} from '@mui/x-data-grid';
+import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -101,9 +98,7 @@ function getScoreColor(
   return 'success';
 }
 
-function getLabelColor(
-  label: string
-): 'success' | 'error' | 'default' {
+function getLabelColor(label: string): 'success' | 'error' | 'default' {
   if (label === 'pass') return 'success';
   if (label === 'fail') return 'error';
   return 'default';
@@ -112,10 +107,7 @@ function getLabelColor(
 /**
  * Build a hierarchical tree from flat topic list and tests.
  */
-function buildTopicTree(
-  topics: Topic[],
-  tests: TestNode[]
-): TopicTreeNode[] {
+function buildTopicTree(topics: Topic[], tests: TestNode[]): TopicTreeNode[] {
   const nodeMap = new Map<string, TopicTreeNode>();
 
   // Create nodes from topics
@@ -158,19 +150,13 @@ function buildTopicTree(
 
   for (const test of tests) {
     if (!test.topic) continue;
-    testCounts.set(
-      test.topic,
-      (testCounts.get(test.topic) || 0) + 1
-    );
+    testCounts.set(test.topic, (testCounts.get(test.topic) || 0) + 1);
     if (test.model_score !== null && test.model_score !== undefined) {
       scoreSums.set(
         test.topic,
         (scoreSums.get(test.topic) || 0) + test.model_score
       );
-      scoreCounts.set(
-        test.topic,
-        (scoreCounts.get(test.topic) || 0) + 1
-      );
+      scoreCounts.set(test.topic, (scoreCounts.get(test.topic) || 0) + 1);
     }
   }
 
@@ -178,10 +164,7 @@ function buildTopicTree(
   for (const [path, node] of nodeMap) {
     node.directTestCount = testCounts.get(path) || 0;
     const sCount = scoreCounts.get(path) || 0;
-    node.avgScore =
-      sCount > 0
-        ? (scoreSums.get(path) || 0) / sCount
-        : null;
+    node.avgScore = sCount > 0 ? (scoreSums.get(path) || 0) / sCount : null;
   }
 
   // Build parent-child relationships
@@ -205,11 +188,8 @@ function buildTopicTree(
   } {
     let totalCount = node.directTestCount;
     let scoreSum =
-      node.avgScore !== null
-        ? node.avgScore * node.directTestCount
-        : 0;
-    let scoreCount =
-      node.avgScore !== null ? node.directTestCount : 0;
+      node.avgScore !== null ? node.avgScore * node.directTestCount : 0;
+    let scoreCount = node.avgScore !== null ? node.directTestCount : 0;
 
     for (const child of node.children) {
       const childStats = computeTotals(child);
@@ -265,10 +245,7 @@ interface TreeNodeViewProps {
   onTopicSelect: (path: string | null) => void;
   expandedPaths: Set<string>;
   onToggleExpand: (path: string) => void;
-  onDropTest?: (
-    testId: string,
-    topicPath: string
-  ) => void;
+  onDropTest?: (testId: string, topicPath: string) => void;
   onEditTopic?: (topicPath: string) => void;
   onDeleteTopic?: (topicPath: string) => void;
 }
@@ -304,9 +281,7 @@ function TreeNodeView({
     e.preventDefault();
     e.stopPropagation();
     setDragOver(false);
-    const testId = e.dataTransfer.getData(
-      'application/test-id'
-    );
+    const testId = e.dataTransfer.getData('application/test-id');
     if (testId && onDropTest) {
       onDropTest(testId, node.path);
     }
@@ -332,9 +307,7 @@ function TreeNodeView({
             : isSelected
               ? 'action.selected'
               : 'transparent',
-          color: dragOver
-            ? 'primary.contrastText'
-            : 'inherit',
+          color: dragOver ? 'primary.contrastText' : 'inherit',
           opacity: dragOver ? 0.9 : 1,
           transition: 'background-color 0.15s ease',
           '&:hover': {
@@ -384,15 +357,9 @@ function TreeNodeView({
           }}
         >
           {isExpanded ? (
-            <FolderOpenIcon
-              fontSize="small"
-              sx={{ color: 'text.secondary' }}
-            />
+            <FolderOpenIcon fontSize="small" sx={{ color: 'text.secondary' }} />
           ) : (
-            <FolderIcon
-              fontSize="small"
-              sx={{ color: 'text.secondary' }}
-            />
+            <FolderIcon fontSize="small" sx={{ color: 'text.secondary' }} />
           )}
         </Box>
 
@@ -561,9 +528,7 @@ function AddTopicDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const fullPath = parentTopic
-    ? `${parentTopic}/${topicName}`
-    : topicName;
+  const fullPath = parentTopic ? `${parentTopic}/${topicName}` : topicName;
 
   const handleSubmit = async () => {
     const trimmed = topicName.trim();
@@ -583,9 +548,7 @@ function AddTopicDialog({
       setTopicName('');
       onClose();
     } catch (err) {
-      setError(
-        (err as Error).message || 'Failed to create topic'
-      );
+      setError((err as Error).message || 'Failed to create topic');
     } finally {
       setSubmitting(false);
     }
@@ -598,20 +561,11 @@ function AddTopicDialog({
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={handleClose}
-      maxWidth="sm"
-      fullWidth
-    >
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Add Topic</DialogTitle>
       <DialogContent>
         {parentTopic && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 2 }}
-          >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Parent: {decodeURIComponent(parentTopic)}
           </Typography>
         )}
@@ -631,10 +585,7 @@ function AddTopicDialog({
           }}
           error={!!error}
           helperText={
-            error ||
-            (topicName.trim()
-              ? `Will create: ${fullPath}`
-              : ' ')
+            error || (topicName.trim() ? `Will create: ${fullPath}` : ' ')
           }
           disabled={submitting}
           sx={{ mt: 1 }}
@@ -673,17 +624,13 @@ function RenameTopicDialog({
   onSubmit,
   topicPath,
 }: RenameTopicDialogProps) {
-  const currentName = topicPath
-    ? topicPath.split('/').pop() || ''
-    : '';
+  const currentName = topicPath ? topicPath.split('/').pop() || '' : '';
   const [newName, setNewName] = useState(currentName);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleOpen = () => {
-    const name = topicPath
-      ? topicPath.split('/').pop() || ''
-      : '';
+    const name = topicPath ? topicPath.split('/').pop() || '' : '';
     setNewName(name);
     setError('');
   };
@@ -706,9 +653,7 @@ function RenameTopicDialog({
       await onSubmit(topicPath, trimmed);
       onClose();
     } catch (err) {
-      setError(
-        (err as Error).message || 'Failed to rename topic'
-      );
+      setError((err as Error).message || 'Failed to rename topic');
     } finally {
       setSubmitting(false);
     }
@@ -738,11 +683,7 @@ function RenameTopicDialog({
       <DialogTitle>Rename Topic</DialogTitle>
       <DialogContent>
         {topicPath && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mb: 2 }}
-          >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Current path: {decodeURIComponent(topicPath)}
           </Typography>
         )}
@@ -762,10 +703,7 @@ function RenameTopicDialog({
           }}
           error={!!error}
           helperText={
-            error ||
-            (newName.trim()
-              ? `New path: ${previewPath}`
-              : ' ')
+            error || (newName.trim() ? `New path: ${previewPath}` : ' ')
           }
           disabled={submitting}
           sx={{ mt: 1 }}
@@ -779,9 +717,7 @@ function RenameTopicDialog({
           onClick={handleSubmit}
           variant="contained"
           disabled={
-            submitting ||
-            !newName.trim() ||
-            newName.trim() === currentName
+            submitting || !newName.trim() || newName.trim() === currentName
           }
         >
           {submitting ? 'Renaming...' : 'Rename'}
@@ -812,9 +748,7 @@ function AddTestDialog({
 }: AddTestDialogProps) {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
-  const [selectedTopic, setSelectedTopic] = useState(
-    topic || ''
-  );
+  const [selectedTopic, setSelectedTopic] = useState(topic || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -845,9 +779,7 @@ function AddTestDialog({
       setSelectedTopic('');
       onClose();
     } catch (err) {
-      setError(
-        (err as Error).message || 'Failed to create test'
-      );
+      setError((err as Error).message || 'Failed to create test');
     } finally {
       setSubmitting(false);
     }
@@ -953,10 +885,7 @@ function AddTestDialog({
 interface EditTestDialogProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (
-    testId: string,
-    data: TestNodeUpdate
-  ) => Promise<void>;
+  onSubmit: (testId: string, data: TestNodeUpdate) => Promise<void>;
   test: TestNode | null;
   topics: Topic[];
 }
@@ -995,22 +924,15 @@ function EditTestDialog({
     setError('');
     try {
       const updates: TestNodeUpdate = {};
-      if (trimmedInput !== (test.input || ''))
-        updates.input = trimmedInput;
-      if (output.trim() !== (test.output || ''))
-        updates.output = output.trim();
-      if (
-        selectedTopic.trim() &&
-        selectedTopic.trim() !== (test.topic || '')
-      )
+      if (trimmedInput !== (test.input || '')) updates.input = trimmedInput;
+      if (output.trim() !== (test.output || '')) updates.output = output.trim();
+      if (selectedTopic.trim() && selectedTopic.trim() !== (test.topic || ''))
         updates.topic = selectedTopic.trim();
 
       await onSubmit(test.id, updates);
       onClose();
     } catch (err) {
-      setError(
-        (err as Error).message || 'Failed to update test'
-      );
+      setError((err as Error).message || 'Failed to update test');
     } finally {
       setSubmitting(false);
     }
@@ -1116,10 +1038,7 @@ interface TopicTreePanelProps {
   selectedTopic: string | null;
   onTopicSelect: (path: string | null) => void;
   onAddTopic: (parentTopic: string | null) => void;
-  onDropTest?: (
-    testId: string,
-    topicPath: string
-  ) => void;
+  onDropTest?: (testId: string, topicPath: string) => void;
   onEditTopic?: (topicPath: string) => void;
   onDeleteTopic?: (topicPath: string) => void;
 }
@@ -1135,9 +1054,7 @@ function TopicTreePanel({
   onDeleteTopic,
 }: TopicTreePanelProps) {
   // Start with all paths expanded
-  const [expandedPaths, setExpandedPaths] = useState<
-    Set<string>
-  >(() => {
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
     const paths = new Set<string>();
     function collectPaths(nodes: TopicTreeNode[]) {
       for (const node of nodes) {
@@ -1196,29 +1113,21 @@ function TopicTreePanel({
           cursor: 'pointer',
           borderRadius: 1,
           backgroundColor:
-            selectedTopic === null
-              ? 'action.selected'
-              : 'transparent',
+            selectedTopic === null ? 'action.selected' : 'transparent',
           '&:hover': {
             backgroundColor:
-              selectedTopic === null
-                ? 'action.selected'
-                : 'action.hover',
+              selectedTopic === null ? 'action.selected' : 'action.hover',
           },
           mb: 1,
         }}
       >
         <Box sx={{ width: 28, flexShrink: 0 }} />
-        <FolderIcon
-          fontSize="small"
-          sx={{ mr: 1, color: 'text.secondary' }}
-        />
+        <FolderIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
         <Typography
           variant="body2"
           sx={{
             flex: 1,
-            fontWeight:
-              selectedTopic === null ? 600 : 400,
+            fontWeight: selectedTopic === null ? 600 : 400,
           }}
         >
           All Tests
@@ -1300,9 +1209,7 @@ function TestsList({
 
     const makeRowsDraggable = () => {
       container
-        .querySelectorAll(
-          '.MuiDataGrid-row:not([draggable])'
-        )
+        .querySelectorAll('.MuiDataGrid-row:not([draggable])')
         .forEach(row => {
           row.setAttribute('draggable', 'true');
         });
@@ -1310,9 +1217,7 @@ function TestsList({
 
     makeRowsDraggable();
 
-    const observer = new MutationObserver(
-      makeRowsDraggable
-    );
+    const observer = new MutationObserver(makeRowsDraggable);
     observer.observe(container, {
       childList: true,
       subtree: true,
@@ -1335,11 +1240,7 @@ function TestsList({
       flex: 2,
       minWidth: 200,
       renderCell: params => (
-        <Tooltip
-          title={params.value || ''}
-          arrow
-          placement="top"
-        >
+        <Tooltip title={params.value || ''} arrow placement="top">
           <Typography
             variant="body2"
             sx={{
@@ -1359,11 +1260,7 @@ function TestsList({
       flex: 2,
       minWidth: 200,
       renderCell: params => (
-        <Tooltip
-          title={params.value || ''}
-          arrow
-          placement="top"
-        >
+        <Tooltip title={params.value || ''} arrow placement="top">
           <Typography
             variant="body2"
             sx={{
@@ -1385,18 +1282,8 @@ function TestsList({
       headerAlign: 'center',
       renderCell: params => {
         const score = params.value;
-        if (
-          score === null ||
-          score === undefined ||
-          score === 0
-        ) {
-          return (
-            <Chip
-              label="N/A"
-              size="small"
-              variant="outlined"
-            />
-          );
+        if (score === null || score === undefined || score === 0) {
+          return <Chip label="N/A" size="small" variant="outlined" />;
         }
         return (
           <Chip
@@ -1444,9 +1331,7 @@ function TestsList({
                 {onEditTest && (
                   <IconButton
                     size="small"
-                    onClick={() =>
-                      onEditTest(params.row)
-                    }
+                    onClick={() => onEditTest(params.row)}
                     sx={{ color: 'text.secondary' }}
                   >
                     <EditIcon fontSize="small" />
@@ -1455,9 +1340,7 @@ function TestsList({
                 {onDeleteTest && (
                   <IconButton
                     size="small"
-                    onClick={() =>
-                      onDeleteTest(params.row)
-                    }
+                    onClick={() => onDeleteTest(params.row)}
                     sx={{
                       color: 'text.secondary',
                       '&:hover': {
@@ -1479,10 +1362,7 @@ function TestsList({
     <Box>
       {tests.length === 0 ? (
         <Box sx={{ p: 4, textAlign: 'center' }}>
-          <Typography
-            variant="body1"
-            color="text.secondary"
-          >
+          <Typography variant="body1" color="text.secondary">
             No tests found
           </Typography>
         </Box>
@@ -1490,16 +1370,10 @@ function TestsList({
         <Box
           ref={gridWrapperRef}
           onDragStart={(e: DragEvent<HTMLDivElement>) => {
-            const row = (
-              e.target as HTMLElement
-            ).closest('[data-id]');
+            const row = (e.target as HTMLElement).closest('[data-id]');
             if (row) {
-              const testId =
-                row.getAttribute('data-id') || '';
-              e.dataTransfer.setData(
-                'application/test-id',
-                testId
-              );
+              const testId = row.getAttribute('data-id') || '';
+              e.dataTransfer.setData('application/test-id', testId);
               e.dataTransfer.effectAllowed = 'move';
             }
           }}
@@ -1511,9 +1385,7 @@ function TestsList({
             getRowId={row => row.id}
             showToolbar={false}
             paginationModel={paginationModel}
-            onPaginationModelChange={
-              handlePaginationModelChange
-            }
+            onPaginationModelChange={handlePaginationModelChange}
             serverSidePagination={false}
             totalRows={tests.length}
             pageSizeOptions={[10, 25, 50, 100]}
@@ -1545,42 +1417,32 @@ export default function AdaptiveTestingDetail({
   testSetId,
   sessionToken,
 }: AdaptiveTestingDetailProps) {
-  const [selectedTopic, setSelectedTopic] = useState<
-    string | null
-  >(null);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
-  const [addTopicDialogOpen, setAddTopicDialogOpen] =
-    useState(false);
-  const [addTopicParent, setAddTopicParent] = useState<
-    string | null
-  >(null);
+  const [addTopicDialogOpen, setAddTopicDialogOpen] = useState(false);
+  const [addTopicParent, setAddTopicParent] = useState<string | null>(null);
   const [tests, setTests] = useState<TestNode[]>(initialTests);
-  const [topics, setTopics] =
-    useState<Topic[]>(initialTopics);
-  const [addTestDialogOpen, setAddTestDialogOpen] =
-    useState(false);
-  const [editTestDialogOpen, setEditTestDialogOpen] =
-    useState(false);
-  const [editingTest, setEditingTest] =
-    useState<TestNode | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] =
-    useState(false);
-  const [deletingTest, setDeletingTest] =
-    useState<TestNode | null>(null);
-  const [renameTopicDialogOpen, setRenameTopicDialogOpen] =
-    useState(false);
-  const [renamingTopicPath, setRenamingTopicPath] =
-    useState<string | null>(null);
-  const [deleteTopicConfirmOpen, setDeleteTopicConfirmOpen] =
-    useState(false);
-  const [deletingTopicPath, setDeletingTopicPath] =
-    useState<string | null>(null);
+  const [topics, setTopics] = useState<Topic[]>(initialTopics);
+  const [addTestDialogOpen, setAddTestDialogOpen] = useState(false);
+  const [editTestDialogOpen, setEditTestDialogOpen] = useState(false);
+  const [editingTest, setEditingTest] = useState<TestNode | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingTest, setDeletingTest] = useState<TestNode | null>(null);
+  const [renameTopicDialogOpen, setRenameTopicDialogOpen] = useState(false);
+  const [renamingTopicPath, setRenamingTopicPath] = useState<string | null>(
+    null
+  );
+  const [deleteTopicConfirmOpen, setDeleteTopicConfirmOpen] = useState(false);
+  const [deletingTopicPath, setDeletingTopicPath] = useState<string | null>(
+    null
+  );
   const [generateOutputsDialogOpen, setGenerateOutputsDialogOpen] =
     useState(false);
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [endpointsLoading, setEndpointsLoading] = useState(false);
-  const [selectedEndpoint, setSelectedEndpoint] =
-    useState<Endpoint | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(
+    null
+  );
   const [generateSubmitting, setGenerateSubmitting] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [generateOutputsTopic, setGenerateOutputsTopic] = useState<
@@ -1707,9 +1569,7 @@ export default function AdaptiveTestingDetail({
         client.getTree(testSetId),
         client.getTopics(testSetId),
       ]);
-      setTests(
-        treeNodes.filter(node => node.label !== 'topic_marker')
-      );
+      setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
       setTopics(updatedTopics);
       setGenerateOutputsDialogOpen(false);
       setSelectedEndpoint(null);
@@ -1743,10 +1603,7 @@ export default function AdaptiveTestingDetail({
     // Build optimistic topic object
     const parts = topicPath.split('/');
     const name = parts[parts.length - 1];
-    const parentPath =
-      parts.length > 1
-        ? parts.slice(0, -1).join('/')
-        : null;
+    const parentPath = parts.length > 1 ? parts.slice(0, -1).join('/') : null;
     const optimisticTopic: Topic = {
       path: topicPath,
       name,
@@ -1765,18 +1622,13 @@ export default function AdaptiveTestingDetail({
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
 
-    client
-      .createTopic(testSetId, { path: topicPath })
-      .catch(() => {
-        // Rollback: remove the optimistic topic
-        setTopics(prev =>
-          prev.filter(t => t.path !== topicPath)
-        );
-        notifications.show(
-          'Failed to add topic. Change has been reverted.',
-          { severity: 'error' }
-        );
+    client.createTopic(testSetId, { path: topicPath }).catch(() => {
+      // Rollback: remove the optimistic topic
+      setTopics(prev => prev.filter(t => t.path !== topicPath));
+      notifications.show('Failed to add topic. Change has been reverted.', {
+        severity: 'error',
       });
+    });
   };
 
   const handleAddTestSubmit = async (data: TestNodeCreate) => {
@@ -1804,27 +1656,19 @@ export default function AdaptiveTestingDetail({
       .createTest(testSetId, data)
       .then(async () => {
         // Refresh to get the real test with server ID
-        const [treeNodes, updatedTopics] =
-          await Promise.all([
-            client.getTree(testSetId),
-            client.getTopics(testSetId),
-          ]);
-        setTests(
-          treeNodes.filter(
-            node => node.label !== 'topic_marker'
-          )
-        );
+        const [treeNodes, updatedTopics] = await Promise.all([
+          client.getTree(testSetId),
+          client.getTopics(testSetId),
+        ]);
+        setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
         setTopics(updatedTopics);
       })
       .catch(() => {
         // Rollback: remove the optimistic test
-        setTests(prev =>
-          prev.filter(t => t.id !== tempId)
-        );
-        notifications.show(
-          'Failed to add test. Change has been reverted.',
-          { severity: 'error' }
-        );
+        setTests(prev => prev.filter(t => t.id !== tempId));
+        notifications.show('Failed to add test. Change has been reverted.', {
+          severity: 'error',
+        });
       });
   };
 
@@ -1833,20 +1677,13 @@ export default function AdaptiveTestingDetail({
     setEditTestDialogOpen(true);
   };
 
-  const handleEditTestSubmit = async (
-    testId: string,
-    data: TestNodeUpdate
-  ) => {
+  const handleEditTestSubmit = async (testId: string, data: TestNodeUpdate) => {
     // Save previous test state for rollback
     const previousTest = tests.find(t => t.id === testId);
     if (!previousTest) return;
 
     // Optimistically update local state
-    setTests(prev =>
-      prev.map(t =>
-        t.id === testId ? { ...t, ...data } : t
-      )
-    );
+    setTests(prev => prev.map(t => (t.id === testId ? { ...t, ...data } : t)));
 
     // Fire API call in background (not awaited)
     const clientFactory = new ApiClientFactory(sessionToken);
@@ -1854,15 +1691,10 @@ export default function AdaptiveTestingDetail({
 
     client.updateTest(testSetId, testId, data).catch(() => {
       // Rollback on error
-      setTests(prev =>
-        prev.map(t =>
-          t.id === testId ? previousTest : t
-        )
-      );
-      notifications.show(
-        'Failed to update test. Change has been reverted.',
-        { severity: 'error' }
-      );
+      setTests(prev => prev.map(t => (t.id === testId ? previousTest : t)));
+      notifications.show('Failed to update test. Change has been reverted.', {
+        severity: 'error',
+      });
     });
   };
 
@@ -1876,19 +1708,12 @@ export default function AdaptiveTestingDetail({
 
       // Optimistically update local state
       setTests(prev =>
-        prev.map(t =>
-          t.id === testId
-            ? { ...t, topic: topicPath }
-            : t
-        )
+        prev.map(t => (t.id === testId ? { ...t, topic: topicPath } : t))
       );
 
       // Fire API call in background
-      const clientFactory = new ApiClientFactory(
-        sessionToken
-      );
-      const client =
-        clientFactory.getAdaptiveTestingClient();
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const client = clientFactory.getAdaptiveTestingClient();
 
       client
         .updateTest(testSetId, testId, {
@@ -1898,15 +1723,12 @@ export default function AdaptiveTestingDetail({
           // Rollback on error
           setTests(prev =>
             prev.map(t =>
-              t.id === testId
-                ? { ...t, topic: previousTopic }
-                : t
+              t.id === testId ? { ...t, topic: previousTopic } : t
             )
           );
-          notifications.show(
-            'Failed to move test. Change has been reverted.',
-            { severity: 'error' }
-          );
+          notifications.show('Failed to move test. Change has been reverted.', {
+            severity: 'error',
+          });
         });
     },
     [tests, sessionToken, testSetId, notifications]
@@ -1962,20 +1784,18 @@ export default function AdaptiveTestingDetail({
     const clientFactory = new ApiClientFactory(sessionToken);
     const client = clientFactory.getAdaptiveTestingClient();
 
-    client
-      .deleteTopic(testSetId, removedTopicPath)
-      .catch(err => {
-        // Rollback
-        setTopics(previousTopics);
-        setTests(previousTests);
-        setSelectedTopic(previousSelectedTopic);
-        notifications.show(
-          err instanceof Error
-            ? err.message
-            : 'Failed to remove topic. Change has been reverted.',
-          { severity: 'error' }
-        );
-      });
+    client.deleteTopic(testSetId, removedTopicPath).catch(err => {
+      // Rollback
+      setTopics(previousTopics);
+      setTests(previousTests);
+      setSelectedTopic(previousSelectedTopic);
+      notifications.show(
+        err instanceof Error
+          ? err.message
+          : 'Failed to remove topic. Change has been reverted.',
+        { severity: 'error' }
+      );
+    });
   };
 
   const handleRenameTopicSubmit = async (
@@ -1985,9 +1805,7 @@ export default function AdaptiveTestingDetail({
     const parentPath = topicPath.includes('/')
       ? topicPath.substring(0, topicPath.lastIndexOf('/'))
       : null;
-    const newPath = parentPath
-      ? `${parentPath}/${newName}`
-      : newName;
+    const newPath = parentPath ? `${parentPath}/${newName}` : newName;
 
     // Save previous state for rollback
     const previousTopics = topics;
@@ -2007,21 +1825,15 @@ export default function AdaptiveTestingDetail({
           };
         }
         if (t.path.startsWith(topicPath + '/')) {
-          const newChildPath =
-            newPath + t.path.substring(topicPath.length);
+          const newChildPath = newPath + t.path.substring(topicPath.length);
           return {
             ...t,
             path: newChildPath,
             parent_path:
               t.parent_path === topicPath
                 ? newPath
-                : t.parent_path?.startsWith(
-                      topicPath + '/'
-                    )
-                  ? newPath +
-                    t.parent_path.substring(
-                      topicPath.length
-                    )
+                : t.parent_path?.startsWith(topicPath + '/')
+                  ? newPath + t.parent_path.substring(topicPath.length)
                   : t.parent_path,
             display_path: newChildPath,
           };
@@ -2039,9 +1851,7 @@ export default function AdaptiveTestingDetail({
         if (t.topic.startsWith(topicPath + '/')) {
           return {
             ...t,
-            topic:
-              newPath +
-              t.topic.substring(topicPath.length),
+            topic: newPath + t.topic.substring(topicPath.length),
           };
         }
         return t;
@@ -2052,13 +1862,8 @@ export default function AdaptiveTestingDetail({
     if (selectedTopic) {
       if (selectedTopic === topicPath) {
         setSelectedTopic(newPath);
-      } else if (
-        selectedTopic.startsWith(topicPath + '/')
-      ) {
-        setSelectedTopic(
-          newPath +
-            selectedTopic.substring(topicPath.length)
-        );
+      } else if (selectedTopic.startsWith(topicPath + '/')) {
+        setSelectedTopic(newPath + selectedTopic.substring(topicPath.length));
       }
     }
 
@@ -2093,29 +1898,21 @@ export default function AdaptiveTestingDetail({
     const removedTest = deletingTest;
 
     // Optimistically remove from local state and close dialog
-    setTests(prev =>
-      prev.filter(t => t.id !== removedTest.id)
-    );
+    setTests(prev => prev.filter(t => t.id !== removedTest.id));
     setDeleteConfirmOpen(false);
     setDeletingTest(null);
 
     // Fire API call in background
-    const clientFactory = new ApiClientFactory(
-      sessionToken
-    );
-    const client =
-      clientFactory.getAdaptiveTestingClient();
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
 
-    client
-      .deleteTest(testSetId, removedTest.id)
-      .catch(() => {
-        // Rollback: re-add the test
-        setTests(prev => [...prev, removedTest]);
-        notifications.show(
-          'Failed to delete test. Change has been reverted.',
-          { severity: 'error' }
-        );
+    client.deleteTest(testSetId, removedTest.id).catch(() => {
+      // Rollback: re-add the test
+      setTests(prev => [...prev, removedTest]);
+      notifications.show('Failed to delete test. Change has been reverted.', {
+        severity: 'error',
       });
+    });
   };
 
   // Filter tests by selected topic
@@ -2129,12 +1926,8 @@ export default function AdaptiveTestingDetail({
   // Stats
   const totalTests = tests.length;
   const totalTopics = topics.length;
-  const passCount = tests.filter(
-    t => t.label === 'pass'
-  ).length;
-  const failCount = tests.filter(
-    t => t.label === 'fail'
-  ).length;
+  const passCount = tests.filter(t => t.label === 'pass').length;
+  const failCount = tests.filter(t => t.label === 'fail').length;
 
   return (
     <Box>
@@ -2147,67 +1940,35 @@ export default function AdaptiveTestingDetail({
           flexWrap: 'wrap',
         }}
       >
-        <Paper
-          variant="outlined"
-          sx={{ px: 3, py: 2, minWidth: 120 }}
-        >
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
+        <Paper variant="outlined" sx={{ px: 3, py: 2, minWidth: 120 }}>
+          <Typography variant="caption" color="text.secondary">
             Total Tests
           </Typography>
           <Typography variant="h5" fontWeight={600}>
             {totalTests}
           </Typography>
         </Paper>
-        <Paper
-          variant="outlined"
-          sx={{ px: 3, py: 2, minWidth: 120 }}
-        >
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
+        <Paper variant="outlined" sx={{ px: 3, py: 2, minWidth: 120 }}>
+          <Typography variant="caption" color="text.secondary">
             Topics
           </Typography>
           <Typography variant="h5" fontWeight={600}>
             {totalTopics}
           </Typography>
         </Paper>
-        <Paper
-          variant="outlined"
-          sx={{ px: 3, py: 2, minWidth: 120 }}
-        >
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
+        <Paper variant="outlined" sx={{ px: 3, py: 2, minWidth: 120 }}>
+          <Typography variant="caption" color="text.secondary">
             Pass
           </Typography>
-          <Typography
-            variant="h5"
-            fontWeight={600}
-            color="success.main"
-          >
+          <Typography variant="h5" fontWeight={600} color="success.main">
             {passCount}
           </Typography>
         </Paper>
-        <Paper
-          variant="outlined"
-          sx={{ px: 3, py: 2, minWidth: 120 }}
-        >
-          <Typography
-            variant="caption"
-            color="text.secondary"
-          >
+        <Paper variant="outlined" sx={{ px: 3, py: 2, minWidth: 120 }}>
+          <Typography variant="caption" color="text.secondary">
             Fail
           </Typography>
-          <Typography
-            variant="h5"
-            fontWeight={600}
-            color="error.main"
-          >
+          <Typography variant="h5" fontWeight={600} color="error.main">
             {failCount}
           </Typography>
         </Paper>
@@ -2289,11 +2050,7 @@ export default function AdaptiveTestingDetail({
             iconPosition="start"
             label="Tree View"
           />
-          <Tab
-            icon={<ListIcon />}
-            iconPosition="start"
-            label="List View"
-          />
+          <Tab icon={<ListIcon />} iconPosition="start" label="List View" />
         </Tabs>
       </Box>
 
@@ -2324,16 +2081,10 @@ export default function AdaptiveTestingDetail({
                 borderColor: 'divider',
               }}
             >
-              <Typography
-                variant="subtitle2"
-                fontWeight={600}
-              >
+              <Typography variant="subtitle2" fontWeight={600}>
                 Topics
               </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-              >
+              <Typography variant="caption" color="text.secondary">
                 Click to filter tests by topic
               </Typography>
             </Box>
@@ -2361,10 +2112,7 @@ export default function AdaptiveTestingDetail({
                 gap: 1,
               }}
             >
-              <Typography
-                variant="subtitle2"
-                color="text.primary"
-              >
+              <Typography variant="subtitle2" color="text.primary">
                 {selectedTopic
                   ? decodeURIComponent(selectedTopic)
                   : 'All Tests'}
@@ -2375,10 +2123,7 @@ export default function AdaptiveTestingDetail({
                 sx={{ flex: 1 }}
               >
                 ({filteredTests.length}{' '}
-                {filteredTests.length === 1
-                  ? 'test'
-                  : 'tests'}
-                )
+                {filteredTests.length === 1 ? 'test' : 'tests'})
               </Typography>
               <Button
                 size="small"
@@ -2500,9 +2245,7 @@ export default function AdaptiveTestingDetail({
       >
         <DialogTitle>Delete Test</DialogTitle>
         <DialogContent>
-          <Typography>
-            Are you sure you want to delete this test?
-          </Typography>
+          <Typography>Are you sure you want to delete this test?</Typography>
           {deletingTest && (
             <Typography
               variant="body2"
@@ -2554,11 +2297,7 @@ export default function AdaptiveTestingDetail({
             this topic will be moved to the parent topic.
           </Typography>
           {deletingTopicPath && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ mt: 1 }}
-            >
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               {decodeURIComponent(deletingTopicPath)}
             </Typography>
           )}
@@ -2596,7 +2335,11 @@ export default function AdaptiveTestingDetail({
             response as the test output.
           </Typography>
           {generateError && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setGenerateError(null)}>
+            <Alert
+              severity="error"
+              sx={{ mb: 2 }}
+              onClose={() => setGenerateError(null)}
+            >
               {generateError}
             </Alert>
           )}
@@ -2669,19 +2412,23 @@ export default function AdaptiveTestingDetail({
             value={
               generateOutputsTopic === null || generateOutputsTopic === ''
                 ? allTestsTopicOption
-                : topics.find(t => t.path === generateOutputsTopic) ?? {
+                : (topics.find(t => t.path === generateOutputsTopic) ?? {
                     path: generateOutputsTopic,
-                    name: generateOutputsTopic.split('/').pop() ?? generateOutputsTopic,
+                    name:
+                      generateOutputsTopic.split('/').pop() ??
+                      generateOutputsTopic,
                     parent_path: null,
                     depth: 0,
                     display_name: generateOutputsTopic,
                     display_path: generateOutputsTopic,
                     has_direct_tests: false,
                     has_subtopics: false,
-                  }
+                  })
             }
             onChange={(_, value) =>
-              setGenerateOutputsTopic(value?.path && value.path !== '' ? value.path : null)
+              setGenerateOutputsTopic(
+                value?.path && value.path !== '' ? value.path : null
+              )
             }
             isOptionEqualToValue={(a, b) => a.path === b.path}
             renderInput={params => (
@@ -2704,7 +2451,10 @@ export default function AdaptiveTestingDetail({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleGenerateOutputsClose} disabled={generateSubmitting}>
+          <Button
+            onClick={handleGenerateOutputsClose}
+            disabled={generateSubmitting}
+          >
             Cancel
           </Button>
           <Button

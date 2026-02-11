@@ -22,11 +22,8 @@ export default async function AdaptiveTestingDetailPage({
       throw new Error('No session token available');
     }
 
-    const clientFactory = new ApiClientFactory(
-      session.session_token
-    );
-    const adaptiveTestingClient =
-      clientFactory.getAdaptiveTestingClient();
+    const clientFactory = new ApiClientFactory(session.session_token);
+    const adaptiveTestingClient = clientFactory.getAdaptiveTestingClient();
 
     // Fetch tree data (all nodes) and topics in parallel
     const [treeNodes, topics] = await Promise.all([
@@ -35,17 +32,13 @@ export default async function AdaptiveTestingDetailPage({
     ]);
 
     // Separate tests from topic markers
-    const tests = treeNodes.filter(
-      node => node.label !== 'topic_marker'
-    );
+    const tests = treeNodes.filter(node => node.label !== 'topic_marker');
 
     // Try to get the test set name for the breadcrumb
     let testSetName = identifier;
     try {
-      const testSetsClient =
-        clientFactory.getTestSetsClient();
-      const testSet =
-        await testSetsClient.getTestSet(identifier);
+      const testSetsClient = clientFactory.getTestSetsClient();
+      const testSet = await testSetsClient.getTestSet(identifier);
       testSetName = testSet.name || identifier;
     } catch {
       // Fall back to identifier if test set fetch fails
@@ -76,8 +69,7 @@ export default async function AdaptiveTestingDetailPage({
     return (
       <Box sx={{ p: 3 }}>
         <Typography color="error">
-          Error loading adaptive testing details:{' '}
-          {errorMessage}
+          Error loading adaptive testing details: {errorMessage}
         </Typography>
       </Box>
     );

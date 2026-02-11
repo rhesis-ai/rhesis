@@ -16,12 +16,10 @@ export default async function AdaptiveTestingPage() {
     }
 
     const clientFactory = new ApiClientFactory(session.session_token);
-    const adaptiveTestingClient =
-      clientFactory.getAdaptiveTestingClient();
+    const adaptiveTestingClient = clientFactory.getAdaptiveTestingClient();
 
     // Fetch adaptive test sets using the dedicated endpoint
-    const testSets =
-      await adaptiveTestingClient.getAdaptiveTestSets();
+    const testSets = await adaptiveTestingClient.getAdaptiveTestSets();
 
     return (
       <PageContainer title="Adaptive Testing" breadcrumbs={[]}>
