@@ -75,7 +75,8 @@ export interface ModelQueryParams extends PaginationParams {
 export interface TestModelConnectionRequest {
   provider: string;
   model_name: string;
-  api_key: string;
+  api_key?: string;
+  model_id?: UUID;
   endpoint?: string;
 }
 

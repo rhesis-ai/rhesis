@@ -59,10 +59,15 @@ def create_model(
 @router.post("/test-connection", response_model=TestModelConnectionResponse)
 async def test_model_connection_endpoint(
     request: TestModelConnectionRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Test a model connection before saving it.
+
+    When model_id is provided (edit mode), uses the stored API key and endpoint
+    from that model so the user can test without re-entering credentials.
 
     This endpoint validates that:
     1. The provider is supported by the SDK
@@ -71,16 +76,31 @@ async def test_model_connection_endpoint(
     4. A simple generation call works (for full validation)
 
     Args:
-        request: Contains provider, model_name, api_key, and optional endpoint
+        request: Contains provider, model_name, api_key (or model_id), endpoint
 
     Returns:
         TestModelConnectionResponse: Success status and message
     """
+    api_key = request.api_key
+    endpoint = request.endpoint
+
+    # When model_id is set, the API key is taken from the backend-stored model credentials.
+    if request.model_id:
+        organization_id, user_id = tenant_context
+        db_model = crud.get_model(
+            db, model_id=request.model_id, organization_id=organization_id, user_id=user_id
+        )
+        if db_model is None:
+            raise HTTPException(status_code=404, detail="Model not found")
+        api_key = db_model.key or ""
+        if endpoint is None or (isinstance(endpoint, str) and not endpoint.strip()):
+            endpoint = db_model.endpoint
+
     result = ModelConnectionService.test_connection(
         provider=request.provider,
         model_name=request.model_name,
-        api_key=request.api_key,
-        endpoint=request.endpoint,
+        api_key=api_key,
+        endpoint=endpoint,
     )
 
     return TestModelConnectionResponse(
