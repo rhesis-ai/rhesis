@@ -36,28 +36,41 @@ os.environ["DB_ENCRYPTION_KEY"] = "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="
 os.environ["AUTH0_DOMAIN"] = "test.auth0.com"
 
 # =============================================================================
-# Run migrations before importing fixtures (like CI does)
+# Database migrations (pytest fixture - runs before tests that need DB)
 # =============================================================================
 
 import subprocess  # noqa: E402
 from pathlib import Path  # noqa: E402
 
-_migrations_run = False
+import pytest  # noqa: E402
+
+# Import all modular fixtures
+from tests.backend.fixtures import *  # noqa: E402, F403
+
+# Import all entity fixtures to make them available to tests
+from tests.backend.routes.fixtures.entities import *  # noqa: E402, F403
+
+# =============================================================================
+# Session-scoped database migrations
+# =============================================================================
 
 
+@pytest.fixture(scope="session", autouse=True)
 def run_migrations_once():
-    """Run Alembic migrations once per test session."""
-    global _migrations_run
-    if _migrations_run:
+    """
+    Run Alembic migrations once per test session. Fails hard if migrations fail.
+
+    Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
+    """
+    if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
+        yield
         return
 
     print("🔄 Running database migrations...")
-    # alembic.ini is in apps/backend/src/rhesis/backend/
     backend_dir = (
         Path(__file__).parent.parent.parent / "apps" / "backend" / "src" / "rhesis" / "backend"
     )
 
-    # Build environment with explicit database config
     env = os.environ.copy()
     env["SQLALCHEMY_DB_MODE"] = "test"
     env["SQLALCHEMY_DATABASE_TEST_URL"] = os.environ.get(
@@ -77,28 +90,15 @@ def run_migrations_once():
     )
 
     if result.returncode != 0:
-        print(f"❌ Migration failed: {result.stderr}")
-        # Don't fail - migrations might already be applied
-    else:
-        print("✅ Migrations completed")
+        pytest.fail(
+            f"Database migrations failed (returncode={result.returncode}):\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}\n"
+            "Set RHESIS_SKIP_MIGRATIONS=1 to skip migrations for unit-only runs."
+        )
 
-    _migrations_run = True
+    print("✅ Migrations completed")
+    yield
 
-
-# Run migrations before importing fixtures
-run_migrations_once()
-
-# =============================================================================
-# Now import other modules
-# =============================================================================
-
-import pytest  # noqa: E402
-
-# Import all modular fixtures
-from tests.backend.fixtures import *  # noqa: E402, F403
-
-# Import all entity fixtures to make them available to tests
-from tests.backend.routes.fixtures.entities import *  # noqa: E402, F403
 
 # Simple fixtures for testing markers functionality
 
