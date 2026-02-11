@@ -1,136 +1,56 @@
 name: "[Test] Backend"
 
-# USAGE INSTRUCTIONS:
-#
-# This workflow automatically detects the environment:
-#   • GitHub Actions: Uses environment secrets from 'test' environment
-#   • Local 'act': Uses secrets from --secret-file (environment is skipped)
-#   • No manual changes needed - works seamlessly in both contexts!
-#
-# For local testing: gh act -W .github/workflows/backend-test.yml --secret-file apps/backend/.env.test
-
 on:
   push:
     branches: [ main ]
     paths:
       - 'apps/backend/**'
       - 'sdk/**'
-      - '.github/workflows/backend.yml'
+      - 'tests/backend/**'
+      - '.github/workflows/backend-test.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'apps/backend/**'
-      - '.github/workflows/backend.yml'
       - 'sdk/**'
+      - 'tests/backend/**'
+      - '.github/workflows/backend-test.yml'
   workflow_dispatch:
-    inputs:
-      test_markers:
-        description: 'Test markers to run'
-        required: false
-        default: 'all'
-        type: choice
-        options:
-          - 'all'
-          - 'unit'
-          - 'integration'
-          - 'slow'
-          - 'ai'
-          - 'critical'
-          - 'security'
-          - 'unit,critical'
-          - 'integration,security'
-          - 'custom'
-      custom_markers:
-        description: 'Custom marker expression (only if "custom" is selected above)'
-        required: false
-        default: ''
-        type: string
-      run_coverage:
-        description: 'Generate coverage report'
-        required: false
-        default: true
-        type: boolean
   schedule:
     - cron: '0 0 * * *'
 
-# Workflow-level env can only contain non-secret variables
 env:
-  POSTGRES_HOST: localhost
-  POSTGRES_PORT: 5432
+  # Database configuration (matches tests/backend/integration/docker-compose.yml)
+  SQLALCHEMY_DATABASE_URL: postgresql://rhesis-user:your-secured-password@localhost:12000/rhesis-test-db
+  SQLALCHEMY_DB_DRIVER: postgresql
+  SQLALCHEMY_DB_PORT: "12000"
+  SQLALCHEMY_DB_USER: rhesis-user
+  SQLALCHEMY_DB_PASS: your-secured-password
+  SQLALCHEMY_DB_HOST: localhost
+  SQLALCHEMY_DB_NAME: rhesis-test-db
+
+  # Redis configuration (matches tests/backend/integration/docker-compose.yml)
+  REDIS_URL: redis://:rhesis-redis-pass@localhost:12002/0
+  BROKER_URL: redis://:rhesis-redis-pass@localhost:12002/0
+  CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@localhost:12002/1
+
+  # Application configuration
+  DB_ENCRYPTION_KEY: UNXfgCCzYS8AhNE0cNJTsPSUup1xjL2coSvsInOI-sE=
+  ENVIRONMENT: test
+  LOG_LEVEL: WARNING
+
+  # JWT configuration
+  JWT_SECRET_KEY: test-jwt-secret-key-for-ci-only
+  JWT_ALGORITHM: HS256
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "10080"
+
+  # PYTHONPATH for imports
   PYTHONPATH: ${{ github.workspace }}/apps/backend/src:${{ github.workspace }}
 
 jobs:
   test:
-    name: 🧪 Backend Tests (${{ inputs.test_markers == 'custom' && inputs.custom_markers || inputs.test_markers || 'all' }})
+    name: 🧪 Backend Tests (Local-Style)
     runs-on: ubuntu-latest
-
-    # 👇 Only apply environment when running on GitHub (not act)
-    environment: test
-
-    env:
-      # Database configuration with isolation
-      SQLALCHEMY_DB_MODE: test
-      SQLALCHEMY_DB_USER: ${{ secrets.SQLALCHEMY_DB_USER }}
-      SQLALCHEMY_DB_PASS: ${{ secrets.SQLALCHEMY_DB_PASS }}
-      SQLALCHEMY_DB_HOST: localhost
-      SQLALCHEMY_DB_NAME: ${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-      SQLALCHEMY_DATABASE_TEST_URL: postgresql://${{ secrets.SQLALCHEMY_DB_USER }}:${{ secrets.SQLALCHEMY_DB_PASS }}@localhost:5432/${{ secrets.SQLALCHEMY_DB_NAME }}_${{ github.run_id }}
-
-      # Application configuration
-      LOG_LEVEL: ${{ secrets.LOG_LEVEL }}
-      BROKER_URL: ${{ secrets.BROKER_URL }}
-      CELERY_RESULT_BACKEND: ${{ secrets.CELERY_RESULT_BACKEND }}
-
-      # External services
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      GEMINI_MODEL_NAME: ${{ secrets.GEMINI_MODEL_NAME }}
-      JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-      JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM }}
-      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}
-      FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
-      SMTP_HOST: ${{ secrets.SMTP_HOST }}
-      SMTP_PORT: ${{ secrets.SMTP_PORT }}
-      SMTP_USER: ${{ secrets.SMTP_USER }}
-      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-      FROM_EMAIL: ${{ secrets.FROM_EMAIL }}
-      AGENT_EMAIL_BCC: ${{ secrets.AGENT_EMAIL_BCC }}
-      WELCOME_CALENDAR_LINK: ${{ secrets.WELCOME_CALENDAR_LINK }}
-      WELCOME_FROM_EMAIL: ${{ secrets.WELCOME_FROM_EMAIL }}
-      STORAGE_SERVICE_URI: ${{ secrets.STORAGE_SERVICE_URI }}
-      STORAGE_SERVICE_ACCOUNT_KEY: ${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }}
-      LOCAL_STORAGE_PATH: ${{ secrets.LOCAL_STORAGE_PATH }}
-
-      # Encryption
-      DB_ENCRYPTION_KEY: ${{ secrets.DB_ENCRYPTION_KEY }}
-
-      # Observability (disable connector functionalities)
-      RHESIS_CONNECTOR_DISABLED: ${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }}
-
-    services:
-      postgres:
-        image: mirror.gcr.io/pgvector/pgvector:pg16
-        env:
-          POSTGRES_DB: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          # Removed POSTGRES_HOST_AUTH_METHOD: trust for better security
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: mirror.gcr.io/library/redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -152,264 +72,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-backend-
 
+      - name: Start Docker services
+        run: make docker-up
+        working-directory: apps/backend
+
       - name: Install dependencies
-        run: |
-          cd apps/backend
-          uv sync --dev
-
-      - name: Verify SDK installation
-        run: |
-          cd apps/backend
-          uv pip show rhesis-sdk || {
-            echo "❌ SDK not installed correctly"
-            exit 1
-          }
-
-      - name: Debug environment detection
-        run: |
-          echo "🔍 Environment detection debug:"
-          echo "ACT: ${ACT:-not set}"
-          echo "GITHUB_ACTIONS: ${GITHUB_ACTIONS:-not set}"
-          echo "CI: ${CI:-not set}"
-          echo "Isolated database name: $SQLALCHEMY_DB_NAME"
-
-      - name: Install PostgreSQL client
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-
-      - name: Wait for PostgreSQL
-        run: |
-          echo "⏳ Waiting for PostgreSQL..."
-          until PGPASSWORD=postgres pg_isready -h localhost -p 5432 -U postgres; do
-            sleep 2
-          done
-          echo "✅ PostgreSQL ready"
-
-      - name: Create test database and user
-        run: |
-          echo "🔗 Setting up test database and user..."
-          echo "Creating isolated database: $SQLALCHEMY_DB_NAME"
-          echo "Database user: $SQLALCHEMY_DB_USER"
-
-          # Drop and recreate user to ensure clean state
-          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
-            DROP USER IF EXISTS \"$SQLALCHEMY_DB_USER\";
-            CREATE USER \"$SQLALCHEMY_DB_USER\" WITH PASSWORD '$SQLALCHEMY_DB_PASS' CREATEDB;
-          " || exit 1
-
-          # Create isolated database for this run
-          echo "Creating database: $SQLALCHEMY_DB_NAME"
-          PGPASSWORD=postgres createdb -h localhost -U postgres -O "$SQLALCHEMY_DB_USER" "$SQLALCHEMY_DB_NAME" || {
-            echo "❌ Failed to create database $SQLALCHEMY_DB_NAME"
-            exit 1
-          }
-
-          # Grant comprehensive privileges
-          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
-            GRANT ALL PRIVILEGES ON DATABASE \"$SQLALCHEMY_DB_NAME\" TO \"$SQLALCHEMY_DB_USER\";
-            GRANT ALL ON SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
-          " || exit 1
-
-          # Connect to the new database and grant schema permissions
-          PGPASSWORD=postgres psql -h localhost -U postgres -d "$SQLALCHEMY_DB_NAME" -c "
-            CREATE EXTENSION IF NOT EXISTS vector;
-            GRANT ALL ON SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
-            GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
-            GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO \"$SQLALCHEMY_DB_USER\";
-            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO \"$SQLALCHEMY_DB_USER\";
-            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO \"$SQLALCHEMY_DB_USER\";
-          " || exit 1
-
-          # Verify database exists
-          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "
-            SELECT datname FROM pg_database WHERE datname = '$SQLALCHEMY_DB_NAME';
-          " | grep -q "$SQLALCHEMY_DB_NAME" || {
-            echo "❌ Database $SQLALCHEMY_DB_NAME was not created successfully"
-            exit 1
-          }
-
-          # Test connection to the new database with proper authentication
-          echo "Testing connection with user credentials..."
-          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c 'SELECT current_user, current_database();' || {
-            echo "❌ Cannot connect to database $SQLALCHEMY_DB_NAME with user $SQLALCHEMY_DB_USER"
-            echo "Testing if user can connect to postgres database..."
-            PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d postgres -c 'SELECT current_user;' || {
-              echo "❌ User cannot connect to any database - password issue"
-              exit 1
-            }
-            exit 1
-          }
-
-          echo "✅ Database and user created successfully"
-
-      - name: Run database migrations
-        run: |
-          cd apps/backend/src/rhesis/backend
-          echo "🔄 Running migrations on isolated database: $SQLALCHEMY_DB_NAME"
-          echo "Migration environment variables:"
-          echo "  SQLALCHEMY_DB_MODE: $SQLALCHEMY_DB_MODE"
-          echo "  SQLALCHEMY_DB_NAME: $SQLALCHEMY_DB_NAME"
-          echo "  SQLALCHEMY_DATABASE_TEST_URL: $SQLALCHEMY_DATABASE_TEST_URL"
-          echo "  SQLALCHEMY_DB_USER: $SQLALCHEMY_DB_USER"
-          echo "  SQLALCHEMY_DB_HOST: $SQLALCHEMY_DB_HOST"
-          echo "  SQLALCHEMY_DB_PASS: [REDACTED - $(if [ -n "$SQLALCHEMY_DB_PASS" ]; then echo "SET"; else echo "NOT SET"; fi)]"
-
-          # Verify database exists before running migrations
-          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c 'SELECT version();' || {
-            echo "❌ Cannot connect to database $SQLALCHEMY_DB_NAME for migrations"
-            echo "Listing available databases:"
-            PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c '\l'
-            exit 1
-          }
-
-          # Ensure environment variables take precedence over .env file
-          export SQLALCHEMY_DB_MODE="test"
-          export SQLALCHEMY_DB_NAME="$SQLALCHEMY_DB_NAME"
-          export SQLALCHEMY_DATABASE_TEST_URL="postgresql://$SQLALCHEMY_DB_USER:$SQLALCHEMY_DB_PASS@localhost:5432/$SQLALCHEMY_DB_NAME"
-          export SQLALCHEMY_DB_USER="$SQLALCHEMY_DB_USER"
-          export SQLALCHEMY_DB_PASS="$SQLALCHEMY_DB_PASS"
-          export SQLALCHEMY_DB_HOST="localhost"
-
-          echo "🔄 Running Alembic with exported environment variables..."
-          echo "Final environment check:"
-          echo "  SQLALCHEMY_DATABASE_TEST_URL: $SQLALCHEMY_DATABASE_TEST_URL"
-          uv run alembic upgrade head
-
-      - name: Verify database structure
-        run: |
-          echo "🔍 Verifying database structure..."
-          echo "Checking isolated database: $SQLALCHEMY_DB_NAME"
-          PGPASSWORD=$SQLALCHEMY_DB_PASS psql -h localhost -U "$SQLALCHEMY_DB_USER" -d "$SQLALCHEMY_DB_NAME" -c "
-            SELECT COUNT(*) as table_count
-            FROM information_schema.tables
-            WHERE table_schema = 'public';
-          " || exit 1
-          echo "✅ Database structure verified"
-
-      - name: Setup test data
-        id: setup_env
-        env:
-          LOG_LEVEL: WARNING
-        run: |
-          cd apps/backend
-          export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}/tests:$PYTHONPATH"
-          echo "🚀 Setting up test environment..."
-          echo "Using isolated database: $SQLALCHEMY_DB_NAME"
-          echo "Database URL: $SQLALCHEMY_DATABASE_TEST_URL"
-
-          # Setup test environment and capture API token
-          API_TOKEN=$(timeout 300 uv run python -c "
-          import os
-          from backend.fixtures.test_setup import setup_test_environment
-          setup_test_environment()
-          print(os.environ.get('RHESIS_API_KEY', ''))
-          " | tail -1) || exit 1
-
-          # Export the API token for subsequent steps
-          echo "RHESIS_API_KEY=${API_TOKEN}" >> $GITHUB_OUTPUT
-          echo "✅ Test environment ready"
-
-      - name: Determine pytest command
-        id: pytest_cmd
-        run: |
-          PYTEST_OPTS="-v --durations=10 --tb=short --maxfail=10 -x --junitxml=junit.xml -o junit_family=legacy"
-          if [ "${{ inputs.test_markers }}" = "all" ]; then
-            echo "cmd=uv run --project apps/backend python -m pytest tests/backend $PYTEST_OPTS" >> $GITHUB_OUTPUT
-          elif [ "${{ inputs.test_markers }}" = "custom" ]; then
-            echo "cmd=uv run --project apps/backend python -m pytest tests/backend -m \"${{ inputs.custom_markers }}\" $PYTEST_OPTS" >> $GITHUB_OUTPUT
-          else
-            echo "cmd=uv run --project apps/backend python -m pytest tests/backend -m \"${{ inputs.test_markers }}\" $PYTEST_OPTS" >> $GITHUB_OUTPUT
-          fi
+        run: uv sync --dev --extra cpu
+        working-directory: apps/backend
 
       - name: Run tests
-        env:
-          # Test-generated API key (only step-specific override)
-          RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY || 'fallback-for-unit-tests' }}
-        run: |
-          export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
-          echo "🧪 Running tests with database: $SQLALCHEMY_DB_NAME"
-          echo "Database URL: $SQLALCHEMY_DATABASE_TEST_URL"
+        run: make test
+        working-directory: apps/backend
 
-          # Ensure environment variables take precedence over .env file for tests
-          export SQLALCHEMY_DB_MODE="test"
-          export SQLALCHEMY_DB_NAME="$SQLALCHEMY_DB_NAME"
-          export SQLALCHEMY_DATABASE_TEST_URL="$SQLALCHEMY_DATABASE_TEST_URL"
-          export SQLALCHEMY_DB_USER="$SQLALCHEMY_DB_USER"
-          export SQLALCHEMY_DB_PASS="$SQLALCHEMY_DB_PASS"
-          export SQLALCHEMY_DB_HOST="localhost"
-
-          ${{ steps.pytest_cmd.outputs.cmd }}
-
-      - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload test results
+      - name: Stop Docker services
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: |
-            junit.xml
-            .pytest_cache/
-          retention-days: 7
-
-      - name: Generate coverage report
-        if: ${{ inputs.run_coverage == true }}
-        env:
-          # Override with mock services for coverage (lighter than real services)
-          LOG_LEVEL: WARNING
-          GEMINI_API_KEY: mock-gemini-key-for-testing
-          JWT_SECRET_KEY: mock-jwt-secret-key-for-testing-only
-          JWT_ALGORITHM: HS256
-          RHESIS_API_KEY: ${{ steps.setup_env.outputs.RHESIS_API_KEY || 'mock-api-key-for-coverage' }}
-          DB_ENCRYPTION_KEY: ${{ secrets.DB_ENCRYPTION_KEY }}
-        run: |
-          export PYTHONPATH="${{ github.workspace }}/apps/backend/src:${{ github.workspace }}:$PYTHONPATH"
-
-          # Ensure environment variables take precedence over .env file for coverage
-          export SQLALCHEMY_DB_MODE="test"
-          export SQLALCHEMY_DB_NAME="$SQLALCHEMY_DB_NAME"
-          export SQLALCHEMY_DATABASE_TEST_URL="$SQLALCHEMY_DATABASE_TEST_URL"
-          export SQLALCHEMY_DB_USER="$SQLALCHEMY_DB_USER"
-          export SQLALCHEMY_DB_PASS="$SQLALCHEMY_DB_PASS"
-          export SQLALCHEMY_DB_HOST="localhost"
-
-          if [ "${{ inputs.test_markers }}" = "all" ]; then
-            uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=junit-coverage.xml -o junit_family=legacy -v
-          elif [ "${{ inputs.test_markers }}" = "custom" ]; then
-            uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=junit-coverage.xml -o junit_family=legacy -m "${{ inputs.custom_markers }}" -v
-          else
-            uv run --project apps/backend python -m pytest tests/backend --cov=apps/backend/src --cov-report=xml --cov-report=html --cov-report=term-missing --junitxml=junit-coverage.xml -o junit_family=legacy -m "${{ inputs.test_markers }}" -v
-          fi
-
-      - name: Upload coverage test results to Codecov
-        if: ${{ inputs.run_coverage == true && !cancelled() }}
-        uses: codecov/test-results-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: junit-coverage.xml
-
-      - name: Upload coverage to Codecov
-        if: ${{ inputs.run_coverage == true }}
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          flags: backend
-          fail_ci_if_error: false
-          verbose: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Upload coverage reports as artifacts
-        if: ${{ inputs.run_coverage == true }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-reports
-          path: |
-            coverage.xml
-            junit-coverage.xml
-            htmlcov/
-          retention-days: 30
+        run: make docker-down
+        working-directory: apps/backend
