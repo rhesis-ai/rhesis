@@ -530,8 +530,15 @@ def bulk_create_tests(
     user_id: str,
     test_set_id: str | None = None,
     test_type_value: str | None = None,
-) -> List[models.Test]:
+    flush_interval: int = 100,
+) -> List[str]:
     """Bulk create tests from a list of test data dictionaries or TestData objects.
+
+    Uses a flush+expunge pattern to keep ORM memory bounded while maintaining
+    a single atomic transaction. Every ``flush_interval`` tests the newly
+    created Test objects are flushed (to assign IDs) and then expunged from
+    the identity map so they no longer consume memory. Cached entities
+    (topics, behaviors, categories, statuses) remain attached to the session.
 
     Args:
         db: Database session
@@ -540,6 +547,10 @@ def bulk_create_tests(
         user_id: User ID
         test_set_id: Optional test set ID
         test_type_value: Optional test type value (e.g., "Single-Turn", "Multi-Turn")
+        flush_interval: Number of tests between flush+expunge cycles (default 100)
+
+    Returns:
+        List of created test ID strings.
     """
     # Validate input UUIDs
     validation_error = validate_uuid_parameters(organization_id, user_id, test_set_id)
@@ -548,7 +559,9 @@ def bulk_create_tests(
         logger.error(error_msg)
         raise Exception(ERROR_BULK_CREATE_FAILED.format(entity="tests", error=error_msg))
 
-    created_tests = []
+    created_test_ids: List[str] = []
+    # Buffer of Test ORM objects in the current flush interval
+    _pending_tests: List[models.Test] = []
     defaults = load_defaults()
 
     # Create cache for entity lookups - dramatically reduces DB round-trips
@@ -748,36 +761,62 @@ def bulk_create_tests(
             try:
                 test = models.Test(**test_params)
                 db.add(test)
-                created_tests.append(test)
+                _pending_tests.append(test)
                 logger.debug(
-                    f"bulk_create_tests - Successfully created Test model for test {i + 1}"
+                    f"bulk_create_tests - Successfully created Test model "
+                    f"for test {i + 1}"
                 )
             except Exception as model_error:
                 logger.error(
-                    f"bulk_create_tests - Failed to create Test model for test {i + 1}: "
-                    f"{model_error}"
+                    f"bulk_create_tests - Failed to create Test model "
+                    f"for test {i + 1}: {model_error}"
                 )
                 logger.error(
-                    f"bulk_create_tests - Test parameters that caused error: {test_params}"
+                    f"bulk_create_tests - Test parameters that caused "
+                    f"error: {test_params}"
                 )
                 raise
 
-            db.flush()
+            # Flush+expunge cycle: every flush_interval tests, flush to
+            # assign IDs then expunge the Test objects to free memory.
+            # The transaction is NOT committed -- full rollback on failure.
+            if len(_pending_tests) >= flush_interval:
+                db.flush()
+                for t in _pending_tests:
+                    created_test_ids.append(str(t.id))
+                    db.expunge(t)
+                logger.debug(
+                    f"bulk_create_tests - Flushed and expunged "
+                    f"{len(_pending_tests)} tests "
+                    f"(total so far: {len(created_test_ids)})"
+                )
+                _pending_tests.clear()
 
-        # Create test set associations AFTER all tests are created (moved outside loop)
-        # This fixes O(n²) behavior - previously called N times with growing list
-        if test_set_id and created_tests:
-            test_ids = [str(test.id) for test in created_tests]
+        # Flush any remaining tests in the last partial batch
+        if _pending_tests:
+            db.flush()
+            for t in _pending_tests:
+                created_test_ids.append(str(t.id))
+                db.expunge(t)
+            logger.debug(
+                f"bulk_create_tests - Flushed final batch of "
+                f"{len(_pending_tests)} tests "
+                f"(total: {len(created_test_ids)})"
+            )
+            _pending_tests.clear()
+
+        # Create test set associations AFTER all tests are created
+        if test_set_id and created_test_ids:
             bulk_create_test_set_associations(
                 db=db,
-                test_ids=test_ids,
+                test_ids=created_test_ids,
                 test_set_id=test_set_id,
                 organization_id=organization_id,
                 user_id=user_id,
             )
 
         # Transaction commit/rollback is handled by the session context manager
-        return created_tests
+        return created_test_ids
 
     except Exception as e:
         error_msg = str(e)

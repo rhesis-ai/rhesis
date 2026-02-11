@@ -31,9 +31,11 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonIcon from '@mui/icons-material/Person';
 import SecurityIcon from '@mui/icons-material/Security';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 import TestSetDrawer from './TestSetDrawer';
 import TestRunDrawer from './TestRunDrawer';
 import GarakImportDialog from './GarakImportDialog';
+import FileImportDialog from './FileImportDialog';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
@@ -100,6 +102,7 @@ export default function TestSetsGrid({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [garakImportDialogOpen, setGarakImportDialogOpen] = useState(false);
+  const [fileImportDialogOpen, setFileImportDialogOpen] = useState(false);
   const notifications = useNotifications();
 
   // Set initial data from props
@@ -428,6 +431,13 @@ export default function TestSetsGrid({
     setDeleteModalOpen(false);
   };
 
+  const handleFileImportSuccess = (testSetId: string) => {
+    fetchTestSets();
+    notifications.show('Test set imported successfully from file', {
+      severity: 'success',
+    });
+  };
+
   const handleGarakImportSuccess = (testSetIds: string[]) => {
     fetchTestSets();
     const count = testSetIds.length;
@@ -464,6 +474,12 @@ export default function TestSetsGrid({
         icon: <AddIcon />,
         variant: 'contained' as const,
         onClick: handleNewTestSet,
+      },
+      {
+        label: 'Import from File',
+        icon: <FileUploadIcon />,
+        variant: 'outlined' as const,
+        onClick: () => setFileImportDialogOpen(true),
       },
       {
         label: 'Import from Garak',
@@ -552,6 +568,12 @@ export default function TestSetsGrid({
             sessionToken={sessionToken || session?.session_token || ''}
             selectedTestSetIds={selectedRows as string[]}
             onSuccess={handleTestRunSuccess}
+          />
+          <FileImportDialog
+            open={fileImportDialogOpen}
+            onClose={() => setFileImportDialogOpen(false)}
+            sessionToken={sessionToken || session?.session_token || ''}
+            onSuccess={handleFileImportSuccess}
           />
           <GarakImportDialog
             open={garakImportDialogOpen}

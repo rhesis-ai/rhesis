@@ -25,6 +25,7 @@ import { RecycleClient } from './recycle-client';
 import { ToolsClient } from './tools-client';
 import { TelemetryClient } from './telemetry-client';
 import { GarakClient } from './garak-client';
+import { ImportClient } from './import-client';
 
 export class ApiClientFactory {
   private sessionToken: string;
@@ -38,6 +39,7 @@ export class ApiClientFactory {
   private toolsClient: ToolsClient | null = null;
   private telemetryClient: TelemetryClient | null = null;
   private garakClient: GarakClient | null = null;
+  private importClient: ImportClient | null = null;
 
   constructor(sessionToken: string) {
     this.sessionToken = sessionToken;
@@ -179,5 +181,12 @@ export class ApiClientFactory {
       this.garakClient = new GarakClient(this.sessionToken);
     }
     return this.garakClient;
+  }
+
+  getImportClient(): ImportClient {
+    if (!this.importClient) {
+      this.importClient = new ImportClient(this.sessionToken);
+    }
+    return this.importClient;
   }
 }
