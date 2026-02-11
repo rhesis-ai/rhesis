@@ -4,7 +4,7 @@ Adds 'vertex_ai' as a new ProviderType to support Google Vertex AI
 embedding models for semantic search and similarity tasks.
 
 Revision ID: c0974af513a6
-Revises: 1776e6dd47d3
+Revises: d4e5f6a7b8c9
 Create Date: 2026-02-11 10:47:11
 
 """
@@ -20,7 +20,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 
 # revision identifiers, used by Alembic.
 revision: str = "c0974af513a6"
-down_revision: Union[str, None] = "1776e6dd47d3"
+down_revision: Union[str, None] = "d4e5f6a7b8c9"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
