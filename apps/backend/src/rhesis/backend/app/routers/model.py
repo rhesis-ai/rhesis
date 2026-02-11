@@ -20,7 +20,7 @@ from rhesis.backend.app.services.model_connection import ModelConnectionService
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.sdk.models.factory import get_available_embedding_models, get_available_llm_models
+from rhesis.sdk.models.factory import get_available_embedding_models, get_available_language_models
 
 # Create the detailed schema for Model (uses ModelRead to exclude API key from responses)
 ModelDetailSchema = create_detailed_schema(ModelRead, models.Model)
@@ -76,7 +76,8 @@ async def test_model_connection_endpoint(
     4. A test call works (generation for LLMs, embedding for embedding models)
 
     Args:
-        request: Contains provider, model_name, api_key (or model_id), optional endpoint, and model_type
+        request: Contains provider, model_name, api_key (or model_id), optional endpoint,
+            and model_type
 
     Returns:
         TestModelConnectionResponse: Success status and message
@@ -278,10 +279,10 @@ def get_provider_models(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Get the list of available LLM models for a specific provider.
+    Get the list of available language models for a specific provider.
     """
     try:
-        models_list = get_available_llm_models(provider_name)
+        models_list = get_available_language_models(provider_name)
         return models_list
     except ValueError as e:
         # ValueError is raised for unsupported providers or providers that don't support listing

@@ -16,12 +16,12 @@ class Model(BaseEntity):
     """
     Model entity for interacting with the Rhesis API.
 
-    Models represent AI model configurations (LLMs or embeddings) that can be
+    Models represent AI model configurations (language models or embeddings) that can be
     used for generation, evaluation, embedding, and other AI-powered tasks.
     Each model configuration includes the provider, model name, and API key.
 
     Examples:
-        Create a new LLM model:
+        Create a new language model:
         >>> model = Model(
         ...     name="GPT-4 Production",
         ...     provider="openai",

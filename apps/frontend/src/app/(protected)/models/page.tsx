@@ -307,8 +307,9 @@ export default function ModelsPage() {
     <PageContainer title="Models" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
-          Connect LLM models for test generation and LLM-as-Judge evaluation,
-          and embedding models. Set your default models for each purpose.
+          Connect language models for test generation and
+          language-model-as-judge evaluation, and embedding models. Set your
+          default models for each purpose.
         </Typography>
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
@@ -323,10 +324,10 @@ export default function ModelsPage() {
         </Box>
       ) : (
         <>
-          {/* LLM Models Section */}
+          {/* Language Models Section */}
           <Box sx={{ mb: 6 }}>
             <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-              LLM Models
+              Language Models
             </Typography>
             <Box
               sx={{
@@ -341,7 +342,7 @@ export default function ModelsPage() {
                 px: 0,
               }}
             >
-              {/* Connected LLM Model Cards */}
+              {/* Connected Language Model Cards */}
               {llmModels.map(model => (
                 <ConnectedModelCard
                   key={model.id}
@@ -353,7 +354,7 @@ export default function ModelsPage() {
                 />
               ))}
 
-              {/* Add LLM Model Card */}
+              {/* Add Language Model Card */}
               <AddModelCard onClick={handleAddLLM} />
             </Box>
           </Box>

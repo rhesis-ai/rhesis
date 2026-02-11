@@ -1,7 +1,7 @@
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.factory import (
     get_available_embedding_models,
-    get_available_llm_models,
+    get_available_language_models,
     get_embedder,
     get_model,
 )
@@ -41,7 +41,7 @@ __all__ = [
     "VertexAIEmbedder",
     "VertexAILLM",
     "get_available_embedding_models",
-    "get_available_llm_models",
+    "get_available_language_models",
     "get_embedder",
     "get_model",
 ]

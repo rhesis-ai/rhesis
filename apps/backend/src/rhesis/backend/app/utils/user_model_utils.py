@@ -24,7 +24,7 @@ def get_user_generation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     Get the user's configured default generation model or fall back to DEFAULT_GENERATION_MODEL.
 
     This function is used for test generation workflows where the user can specify
-    their preferred LLM model via the Models page in the UI.
+    their preferred language model via the Models page in the UI.
 
     Args:
         db: Database session
@@ -44,8 +44,8 @@ def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
     Get the user's configured default evaluation model or fall back to DEFAULT_GENERATION_MODEL.
 
-    This function is used for LLM-as-a-judge scenarios where metrics are evaluated
-    using an LLM. The user can specify their preferred model via the Models page.
+    This function is used for language-model-as-a-judge scenarios where metrics are evaluated
+    using a language model. The user can specify their preferred model via the Models page.
 
     Args:
         db: Database session

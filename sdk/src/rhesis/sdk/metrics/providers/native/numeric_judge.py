@@ -65,7 +65,7 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
             metric_scope (Optional[List[Union[str, MetricScope]]], optional): Scope(s) where
                 this metric applies. Can be ["Single-Turn"], ["Multi-Turn"], or both.
                 Defaults to both Single-Turn and Multi-Turn if not specified.
-            model (Optional[str], optional): The LLM model to use for evaluation.
+            model (Optional[str], optional): The language model to use for evaluation.
                 If None, uses the default model. Defaults to None.
             **kwargs: Additional keyword arguments passed to the base class
 

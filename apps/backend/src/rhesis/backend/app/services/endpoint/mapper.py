@@ -25,7 +25,7 @@ def generate_and_apply_mappings(
 
     Args:
         db: Database session
-        user: User for LLM model access
+        user: User for language model access
         endpoint: Endpoint to update with mappings
         function_name: Name of the function
         function_data: Function metadata from SDK

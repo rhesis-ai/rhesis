@@ -1,7 +1,7 @@
 """
 Model Factory for Rhesis SDK
 
-This module provides a simple and intuitive way to create LLM model instances
+This module provides a simple and intuitive way to create language model instances
 and embedder instances with smart defaults and comprehensive error handling.
 
 """
@@ -302,17 +302,17 @@ def get_model(
     return factory_func(config.model_name, config.api_key, **kwargs)
 
 
-def get_available_llm_models(provider: str) -> list[str]:
-    """Get the list of available LLM models for a specific provider.
+def get_available_language_models(provider: str) -> list[str]:
+    """Get the list of available language models for a specific provider.
 
-    This function retrieves the available LLM models by calling the provider class's
+    This function retrieves the available language models by calling the provider class's
     get_available_models() method. It supports all LiteLLM-based providers.
 
     Args:
         provider: Provider name (e.g., "anthropic", "openai", "gemini", "groq")
 
     Returns:
-        List of available LLM model names for the provider
+        List of available language model names for the provider
 
     Raises:
         ValueError: If the provider is not supported or doesn't support listing models
@@ -320,15 +320,15 @@ def get_available_llm_models(provider: str) -> list[str]:
 
     Examples:
         >>> # Get Anthropic models
-        >>> models = get_available_llm_models("anthropic")
+        >>> models = get_available_language_models("anthropic")
         >>> print(models)
         ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', ...]
 
         >>> # Get OpenAI models
-        >>> models = get_available_llm_models("openai")
+        >>> models = get_available_language_models("openai")
 
         >>> # Get Gemini models
-        >>> models = get_available_llm_models("gemini")
+        >>> models = get_available_language_models("gemini")
     """
     if provider not in PROVIDER_REGISTRY:
         available_providers = ", ".join(sorted(PROVIDER_REGISTRY.keys()))

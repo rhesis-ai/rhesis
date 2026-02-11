@@ -51,7 +51,7 @@ class DeepEvalTurnRelevancy(DeepEvalConversationalBase):
         Args:
             threshold: Minimum passing score (0.0 to 1.0)
             window_size: Size of sliding window for context evaluation
-            model: LLM model for evaluation
+            model: Language model for evaluation
         """
         config = MetricConfig(
             name="turn_relevancy",
@@ -116,7 +116,7 @@ class DeepEvalRoleAdherence(DeepEvalConversationalBase):
 
         Args:
             threshold: Minimum passing score (0.0 to 1.0)
-            model: LLM model for evaluation
+            model: Language model for evaluation
         """
         config = MetricConfig(
             name="role_adherence",
@@ -214,7 +214,7 @@ class DeepEvalKnowledgeRetention(DeepEvalConversationalBase):
 
         Args:
             threshold: Minimum passing score (0.0 to 1.0)
-            model: LLM model for evaluation
+            model: Language model for evaluation
         """
         config = MetricConfig(
             name="knowledge_retention",
@@ -277,7 +277,7 @@ class DeepEvalConversationCompleteness(DeepEvalConversationalBase):
         Args:
             threshold: Minimum passing score (0.0 to 1.0)
             window_size: Number of recent turns to consider (default: 3)
-            model: LLM model for evaluation
+            model: Language model for evaluation
         """
         config = MetricConfig(
             name="conversation_completeness",
@@ -344,7 +344,7 @@ class DeepEvalGoalAccuracy(DeepEvalConversationalBase):
 
         Args:
             threshold: Minimum passing score (0.0 to 1.0)
-            model: LLM model for evaluation
+            model: Language model for evaluation
         """
         config = MetricConfig(
             name="goal_accuracy",
@@ -416,7 +416,7 @@ class DeepEvalToolUse(DeepEvalConversationalBase):
             available_tools: Optional list of available tools (each with 'name' and
                            optional 'description'). Defaults to empty list if not provided.
             threshold: Minimum passing score (0.0 to 1.0)
-            model: LLM model for evaluation
+            model: Language model for evaluation
         """
         if available_tools is None:
             available_tools = []

@@ -62,7 +62,7 @@ export function ProviderSelectionDialog({
         <DialogTitle>
           {modelType === 'embedding'
             ? 'Select Embedder Provider'
-            : 'Select LLM Provider'}
+            : 'Select Language Model Provider'}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ py: 2, textAlign: 'center' }}>
@@ -112,7 +112,7 @@ export function ProviderSelectionDialog({
       <DialogTitle>
         {modelType === 'embedding'
           ? 'Select Embedder Provider'
-          : 'Select LLM Provider'}
+          : 'Select Language Model Provider'}
       </DialogTitle>
       <DialogContent>
         <List>

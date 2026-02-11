@@ -819,7 +819,7 @@ export function ConnectionDialog({
                 Default Model Settings
               </Typography>
               <Stack spacing={1}>
-                {/* Show generation and evaluation toggles for LLM models */}
+                {/* Show generation and evaluation toggles for language models */}
                 {modelType === 'llm' && (
                   <>
                     <FormControlLabel

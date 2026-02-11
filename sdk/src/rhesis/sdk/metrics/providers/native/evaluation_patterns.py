@@ -28,7 +28,7 @@ class NumericEvaluationMixin:
     - Any future numeric judges
 
     Expected attributes on the class using this mixin:
-    - model: LLM model instance
+    - model: Language model instance
     - min_score: Minimum score value
     - max_score: Maximum score value
     - threshold: Success threshold

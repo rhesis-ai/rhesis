@@ -120,7 +120,7 @@ class MappingService:
 
         Args:
             db: Database session
-            user: User for LLM model access
+            user: User for language model access
             endpoint: Endpoint being synced
             sdk_metadata: Metadata from SDK registration
             function_data: Function information

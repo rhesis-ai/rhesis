@@ -120,7 +120,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             name: Unique name for this metric.
             description: Description of what this metric measures.
             metric_type: Type of metric (defaults to CONVERSATIONAL).
-            model: LLM model to use for evaluation.
+            model: Language model to use for evaluation.
             **kwargs: Additional keyword arguments.
 
         Raises:

@@ -25,7 +25,7 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
 
         Args:
             config: Metric configuration
-            model: LLM model for evaluation
+            model: Language model for evaluation
         """
         super().__init__(config=config, model=model)
         self._deepeval_model = DeepEvalModelWrapper(self._model)

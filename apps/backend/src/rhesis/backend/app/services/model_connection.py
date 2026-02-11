@@ -85,7 +85,7 @@ class ModelConnectionService:
     def _test_llm_connection(
         provider: str, model_name: str, api_key: str, endpoint: str | None = None
     ) -> ModelConnectionTestResult:
-        """Test an LLM model connection."""
+        """Test a language model connection."""
         try:
             from rhesis.sdk.models.factory import ModelConfig, get_model
 
@@ -107,7 +107,7 @@ class ModelConnectionService:
                 model = get_model(config=config)
             except ValueError as e:
                 # Provider not supported or invalid configuration
-                logger.warning(f"LLM model configuration error: {str(e)}")
+                logger.warning(f"Language model configuration error: {str(e)}")
                 return ModelConnectionTestResult(
                     success=False,
                     message=f"Configuration error: {str(e)}",
@@ -120,7 +120,9 @@ class ModelConnectionService:
                 test_prompt = "Say 'OK' if you can read this."
                 _ = model.generate(prompt=test_prompt)
 
-                logger.info(f"LLM connection test successful for {provider}/{model_name}")
+                logger.info(
+                    f"Language model connection test successful for {provider}/{model_name}"
+                )
                 return ModelConnectionTestResult(
                     success=True,
                     message=f"Successfully connected to {provider}. Model is responding correctly.",
@@ -129,7 +131,7 @@ class ModelConnectionService:
                 )
             except Exception as e:
                 # API call failed - likely authentication or network issue
-                logger.warning(f"LLM model generation test failed: {str(e)}")
+                logger.warning(f"Language model generation test failed: {str(e)}")
                 return ModelConnectionTestResult(
                     success=False,
                     message=str(e),
@@ -138,7 +140,9 @@ class ModelConnectionService:
                 )
 
         except Exception as e:
-            logger.error(f"Unexpected error testing LLM connection: {str(e)}", exc_info=True)
+            logger.error(
+                f"Unexpected error testing language model connection: {str(e)}", exc_info=True
+            )
             return ModelConnectionTestResult(
                 success=False,
                 message=f"Unexpected error: {str(e)}",

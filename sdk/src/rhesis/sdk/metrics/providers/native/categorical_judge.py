@@ -51,7 +51,7 @@ class CategoricalJudge(JudgeBase):
                 categories.
             evaluation_examples (str, optional): Examples to guide the LLM's evaluation.
                 Defaults to empty string.
-            model (Optional[str], optional): The LLM model to use for evaluation.
+            model (Optional[str], optional): The language model to use for evaluation.
                 If None, uses the default model. Defaults to None.
             requires_ground_truth (bool, optional): Whether this metric requires ground truth
                 for evaluation. Defaults to True.
