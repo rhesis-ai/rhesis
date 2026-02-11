@@ -38,6 +38,9 @@ export default function ModelsPage() {
   const [modelToEdit, setModelToEdit] = useState<Model | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [modelToDelete, setModelToDelete] = useState<Model | null>(null);
+  const [selectedModelType, setSelectedModelType] = useState<
+    'llm' | 'embedding'
+  >('llm');
 
   useEffect(() => {
     async function loadData() {
@@ -88,6 +91,12 @@ export default function ModelsPage() {
   }, [session]);
 
   const handleAddLLM = () => {
+    setSelectedModelType('llm');
+    setProviderSelectionOpen(true);
+  };
+
+  const handleAddEmbedding = () => {
+    setSelectedModelType('embedding');
     setProviderSelectionOpen(true);
   };
 
@@ -234,6 +243,7 @@ export default function ModelsPage() {
     event.stopPropagation();
     setModelToEdit(model);
     setSelectedProvider(model.provider_type || null);
+    setSelectedModelType(model.model_type || 'llm');
     setConnectionDialogOpen(true);
   };
 
@@ -285,12 +295,20 @@ export default function ModelsPage() {
     }
   };
 
+  // Separate models by type
+  const llmModels = connectedModels.filter(
+    model => !model.model_type || model.model_type === 'llm'
+  );
+  const embeddingModels = connectedModels.filter(
+    model => model.model_type === 'embedding'
+  );
+
   return (
     <PageContainer title="Models" breadcrumbs={[]}>
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
-          Connect to leading AI model providers to power your evaluation and
-          testing workflows.
+          Connect LLM models for test generation and LLM-as-Judge evaluation,
+          and embedding models. Set your default models for each purpose.
         </Typography>
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
@@ -304,34 +322,77 @@ export default function ModelsPage() {
           <CircularProgress />
         </Box>
       ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: '1fr',
-              sm: 'repeat(2, 1fr)',
-              md: 'repeat(3, 1fr)',
-            },
-            gap: 3,
-            width: '100%',
-            px: 0,
-          }}
-        >
-          {/* Connected Model Cards */}
-          {connectedModels.map(model => (
-            <ConnectedModelCard
-              key={model.id}
-              model={model}
-              userSettings={userSettings}
-              validationStatus={modelValidationStatus.get(model.id)}
-              onEdit={handleEditClick}
-              onDelete={handleDeleteClick}
-            />
-          ))}
+        <>
+          {/* LLM Models Section */}
+          <Box sx={{ mb: 6 }}>
+            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+              LLM Models
+            </Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(2, 1fr)',
+                  md: 'repeat(3, 1fr)',
+                },
+                gap: 3,
+                width: '100%',
+                px: 0,
+              }}
+            >
+              {/* Connected LLM Model Cards */}
+              {llmModels.map(model => (
+                <ConnectedModelCard
+                  key={model.id}
+                  model={model}
+                  userSettings={userSettings}
+                  validationStatus={modelValidationStatus.get(model.id)}
+                  onEdit={handleEditClick}
+                  onDelete={handleDeleteClick}
+                />
+              ))}
 
-          {/* Add Model Card */}
-          <AddModelCard onClick={handleAddLLM} />
-        </Box>
+              {/* Add LLM Model Card */}
+              <AddModelCard onClick={handleAddLLM} />
+            </Box>
+          </Box>
+
+          {/* Embedding Models Section */}
+          <Box>
+            <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+              Embedding Models
+            </Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(2, 1fr)',
+                  md: 'repeat(3, 1fr)',
+                },
+                gap: 3,
+                width: '100%',
+                px: 0,
+              }}
+            >
+              {/* Connected Embedding Model Cards */}
+              {embeddingModels.map(model => (
+                <ConnectedModelCard
+                  key={model.id}
+                  model={model}
+                  userSettings={userSettings}
+                  validationStatus={modelValidationStatus.get(model.id)}
+                  onEdit={handleEditClick}
+                  onDelete={handleDeleteClick}
+                />
+              ))}
+
+              {/* Add Embedding Model Card */}
+              <AddModelCard onClick={handleAddEmbedding} />
+            </Box>
+          </Box>
+        </>
       )}
 
       <ProviderSelectionDialog
@@ -339,6 +400,7 @@ export default function ModelsPage() {
         onClose={() => setProviderSelectionOpen(false)}
         onSelectProvider={handleProviderSelect}
         providers={providerTypes}
+        modelType={selectedModelType}
       />
 
       <ConnectionDialog
@@ -346,6 +408,7 @@ export default function ModelsPage() {
         provider={selectedProvider}
         model={modelToEdit}
         mode={modelToEdit ? 'edit' : 'create'}
+        modelType={selectedModelType}
         userSettings={userSettings}
         onClose={() => {
           setConnectionDialogOpen(false);

@@ -44,6 +44,10 @@ export const SUPPORTED_PROVIDERS = [
 
 export const LOCAL_PROVIDERS = ['huggingface', 'lmformatenforcer', 'ollama'];
 
+// Providers that support embedding models
+// These must match the keys in EMBEDDER_REGISTRY in sdk/src/rhesis/sdk/models/factory.py
+export const EMBEDDING_PROVIDERS = ['openai', 'gemini', 'vertex_ai'];
+
 // Providers that require custom endpoint URLs (self-hosted or local)
 export const PROVIDERS_REQUIRING_ENDPOINT = [
   'ollama',

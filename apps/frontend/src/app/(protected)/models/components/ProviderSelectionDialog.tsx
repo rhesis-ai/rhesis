@@ -18,6 +18,7 @@ import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import {
   SUPPORTED_PROVIDERS,
   LOCAL_PROVIDERS,
+  EMBEDDING_PROVIDERS,
   PROVIDER_ICONS,
   type ProviderInfo,
 } from '@/config/model-providers';
@@ -27,6 +28,7 @@ interface ProviderSelectionDialogProps {
   onClose: () => void;
   onSelectProvider: (provider: TypeLookup) => void;
   providers: TypeLookup[];
+  modelType?: 'llm' | 'embedding';
 }
 
 export function ProviderSelectionDialog({
@@ -34,11 +36,21 @@ export function ProviderSelectionDialog({
   onClose,
   onSelectProvider,
   providers,
+  modelType = 'llm',
 }: ProviderSelectionDialogProps) {
   // Filter out system-managed providers (like 'rhesis') that users cannot create
-  const userSelectableProviders = providers.filter(
-    provider => provider.type_value !== 'rhesis'
-  );
+  // and filter by model type (embedding providers for embedding models)
+  const userSelectableProviders = providers.filter(provider => {
+    if (provider.type_value === 'rhesis') return false;
+
+    // For embedding models, only show providers that support embeddings
+    if (modelType === 'embedding') {
+      return EMBEDDING_PROVIDERS.includes(provider.type_value);
+    }
+
+    // For LLM models, show all supported providers
+    return true;
+  });
 
   // Check if frontend is running in local mode by detecting localhost in the app URL
   const isLocalMode =
@@ -47,7 +59,11 @@ export function ProviderSelectionDialog({
   if (!userSelectableProviders || userSelectableProviders.length === 0) {
     return (
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Select LLM Provider</DialogTitle>
+        <DialogTitle>
+          {modelType === 'embedding'
+            ? 'Select Embedding Provider'
+            : 'Select Model Provider'}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ py: 2, textAlign: 'center' }}>
             <Typography color="text.secondary">
@@ -93,7 +109,11 @@ export function ProviderSelectionDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Select Model Provider</DialogTitle>
+      <DialogTitle>
+        {modelType === 'embedding'
+          ? 'Select Embedding Provider'
+          : 'Select Model Provider'}
+      </DialogTitle>
       <DialogContent>
         <List>
           {sortedProviders.map(provider => {

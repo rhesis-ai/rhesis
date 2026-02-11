@@ -42,6 +42,7 @@ interface ConnectionDialogProps {
   provider: TypeLookup | null;
   model?: Model | null; // For edit mode
   mode?: 'create' | 'edit';
+  modelType?: 'llm' | 'embedding'; // Pre-selected model type from page section
   userSettings?: UserSettings | null; // Current user settings
   onClose: () => void;
   onConnect?: (providerId: string, modelData: ModelCreate) => Promise<Model>;
@@ -54,6 +55,7 @@ export function ConnectionDialog({
   provider,
   model,
   mode = 'create',
+  modelType: initialModelType = 'llm',
   userSettings,
   onClose,
   onConnect,
@@ -63,6 +65,7 @@ export function ConnectionDialog({
   const [name, setName] = useState('');
   const [providerName, setProviderName] = useState('');
   const [modelName, setModelName] = useState('');
+  const [modelType, setModelType] = useState<'llm' | 'embedding'>('llm');
   const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [customHeaders, setCustomHeaders] = useState<Record<string, string>>(
@@ -83,6 +86,7 @@ export function ConnectionDialog({
   const [showApiKey, setShowApiKey] = useState(false);
   const [defaultForGeneration, setDefaultForGeneration] = useState(false);
   const [defaultForEvaluation, setDefaultForEvaluation] = useState(false);
+  const [defaultForEmbedding, setDefaultForEmbedding] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
 
@@ -112,6 +116,7 @@ export function ConnectionDialog({
         // Edit mode: populate with existing model data
         setName(model.name || '');
         setModelName(model.model_name || '');
+        setModelType(model.model_type || 'llm');
         setEndpoint(model.endpoint || '');
         setApiKey('************'); // Show placeholder for existing key
         setCustomHeaders(model.request_headers || {});
@@ -128,13 +133,17 @@ export function ConnectionDialog({
           userSettings?.models?.generation?.model_id === model.id;
         const isDefaultEvaluation =
           userSettings?.models?.evaluation?.model_id === model.id;
+        const isDefaultEmbedding =
+          userSettings?.models?.embedding?.model_id === model.id;
         setDefaultForGeneration(isDefaultGeneration || false);
         setDefaultForEvaluation(isDefaultEvaluation || false);
+        setDefaultForEmbedding(isDefaultEmbedding || false);
       } else if (provider) {
         // Create mode: reset to defaults
         setName('');
         setProviderName('');
         setModelName('');
+        setModelType(initialModelType); // Use the model type from the section
         // Set default endpoint if provider requires it
         setEndpoint(
           PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
@@ -152,10 +161,11 @@ export function ConnectionDialog({
         setShowApiKey(false);
         setDefaultForGeneration(false);
         setDefaultForEvaluation(false);
+        setDefaultForEmbedding(false);
         setLoading(false); // Reset loading state
       }
     }
-  }, [open, provider, model, isEditMode, userSettings]);
+  }, [open, provider, model, isEditMode, userSettings, initialModelType]);
 
   // Reset connection test status when critical fields change
   useEffect(() => {
@@ -191,7 +201,7 @@ export function ConnectionDialog({
 
   const { data: session } = useSession();
 
-  // Fetch available models when provider is selected
+  // Fetch available models when provider is selected or model type changes
   useEffect(() => {
     const fetchModels = async () => {
       const currentProvider =
@@ -202,9 +212,18 @@ export function ConnectionDialog({
       try {
         const apiFactory = new ApiClientFactory(session.session_token);
         const modelsClient = apiFactory.getModelsClient();
-        const models = await modelsClient.getProviderModels(
-          currentProvider.type_value
-        );
+
+        // Fetch different model lists based on model type
+        let models: string[];
+        if (modelType === 'embedding') {
+          models = await modelsClient.getProviderEmbeddingModels(
+            currentProvider.type_value
+          );
+        } else {
+          models = await modelsClient.getProviderModels(
+            currentProvider.type_value
+          );
+        }
         setAvailableModels(models);
       } catch (err) {
         // Silently fail - user can still manually enter model name
@@ -217,7 +236,7 @@ export function ConnectionDialog({
     if (open) {
       fetchModels();
     }
-  }, [open, provider, model, isEditMode, session]);
+  }, [open, provider, model, isEditMode, session, modelType]);
 
   // Helper function to update user settings for default models
   const updateUserSettingsDefaults = async (modelId: UUID) => {
@@ -244,6 +263,14 @@ export function ConnectionDialog({
       } else if (userSettings?.models?.evaluation?.model_id === modelId) {
         // If toggle is off and this model was previously the default, clear it by setting model_id to null
         updates.models.evaluation = { model_id: null };
+      }
+
+      // Update embedding default if toggle is on
+      if (defaultForEmbedding) {
+        updates.models.embedding = { model_id: modelId };
+      } else if (userSettings?.models?.embedding?.model_id === modelId) {
+        // If toggle is off and this model was previously the default, clear it by setting model_id to null
+        updates.models.embedding = { model_id: null };
       }
 
       // Only update if there are changes
@@ -443,6 +470,7 @@ export function ConnectionDialog({
             description: `${isCustomProvider ? providerName : provider!.description} Connection`,
             icon: provider!.type_value,
             model_name: modelName,
+            model_type: modelType,
             key: apiKey || '', // Empty string for local providers without API key
             tags: [provider!.type_value],
             // Only store custom headers (Authorization and Content-Type are handled automatically by SDK)
@@ -909,46 +937,77 @@ export function ConnectionDialog({
                 Default Model Settings
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Set this model as the default for test generation or evaluation
-                tasks.
+                {modelType === 'llm'
+                  ? 'Set this model as the default for test generation or evaluation tasks.'
+                  : 'Set this model as the default for embedding generation.'}
               </Typography>
               <Stack spacing={1}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={defaultForGeneration}
-                      onChange={e => setDefaultForGeneration(e.target.checked)}
+                {/* Show generation and evaluation toggles for LLM models */}
+                {modelType === 'llm' && (
+                  <>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={defaultForGeneration}
+                          onChange={e =>
+                            setDefaultForGeneration(e.target.checked)
+                          }
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            Default for Test Generation
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Use this model when generating new test cases
+                          </Typography>
+                        </Box>
+                      }
                     />
-                  }
-                  label={
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        Default for Test Generation
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Use this model when generating new test cases
-                      </Typography>
-                    </Box>
-                  }
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={defaultForEvaluation}
-                      onChange={e => setDefaultForEvaluation(e.target.checked)}
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={defaultForEvaluation}
+                          onChange={e =>
+                            setDefaultForEvaluation(e.target.checked)
+                          }
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            Default for Evaluation (LLM as Judge)
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Use this model when running metrics and evaluations
+                          </Typography>
+                        </Box>
+                      }
                     />
-                  }
-                  label={
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        Default for Evaluation (LLM as Judge)
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Use this model when running metrics and evaluations
-                      </Typography>
-                    </Box>
-                  }
-                />
+                  </>
+                )}
+                {/* Show embedding toggle for embedding models */}
+                {modelType === 'embedding' && (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={defaultForEmbedding}
+                        onChange={e => setDefaultForEmbedding(e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          Default for Embedding
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Use this model for semantic search and similarity
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                )}
               </Stack>
             </Box>
           </Stack>
