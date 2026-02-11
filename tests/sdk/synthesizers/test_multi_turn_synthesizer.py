@@ -3,9 +3,9 @@ from unittest.mock import Mock, patch
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers.multi_turn.base import (
+    FlatTests,
     GenerationConfig,
     MultiTurnSynthesizer,
-    Tests,
 )
 
 os.environ["RHESIS_API_KEY"] = "test"
@@ -122,29 +122,30 @@ def test_prompt_template_renders_config():
 # --- _generate_batch tests ---
 
 
-def test_generate_batch_returns_correct_structure():
-    """Test that _generate_batch returns list of dicts with nested structure."""
+def test_generate_batch_returns_nested_structure():
+    """Test that _generate_batch returns list of dicts with nested structure.
+
+    The LLM is given a flat schema (test_configuration_goal, etc.);
+    the synthesizer repacks the response into the nested structure.
+    """
     mock_model = Mock(spec=BaseLLM)
+    # Simulate LLM returning flat structure (FlatTests schema)
     mock_model.generate.return_value = {
         "tests": [
             {
-                "test_configuration": {
-                    "goal": "Test goal A",
-                    "instructions": "Step 1, Step 2",
-                    "restrictions": "No PII",
-                    "scenario": "Customer support",
-                },
+                "test_configuration_goal": "Test goal A",
+                "test_configuration_instructions": "Step 1, Step 2",
+                "test_configuration_restrictions": "No PII",
+                "test_configuration_scenario": "Customer support",
                 "behavior": "Compliance",
                 "category": "Harmful",
                 "topic": "data privacy",
             },
             {
-                "test_configuration": {
-                    "goal": "Test goal B",
-                    "instructions": "",
-                    "restrictions": "",
-                    "scenario": "",
-                },
+                "test_configuration_goal": "Test goal B",
+                "test_configuration_instructions": "",
+                "test_configuration_restrictions": "",
+                "test_configuration_scenario": "",
                 "behavior": "Reliability",
                 "category": "Harmless",
                 "topic": "product info",
@@ -158,7 +159,7 @@ def test_generate_batch_returns_correct_structure():
 
     assert len(result) == 2
 
-    # First test
+    # First test — nested structure preserved
     assert result[0]["test_configuration"]["goal"] == "Test goal A"
     assert result[0]["test_configuration"]["instructions"] == "Step 1, Step 2"
     assert result[0]["test_configuration"]["restrictions"] == "No PII"
@@ -170,6 +171,9 @@ def test_generate_batch_returns_correct_structure():
 
     # Second test
     assert result[1]["test_configuration"]["goal"] == "Test goal B"
+    assert result[1]["test_configuration"]["instructions"] == ""
+    assert result[1]["test_configuration"]["restrictions"] == ""
+    assert result[1]["test_configuration"]["scenario"] == ""
     assert result[1]["behavior"] == "Reliability"
     assert result[1]["category"] == "Harmless"
     assert result[1]["topic"] == "product info"
@@ -179,15 +183,14 @@ def test_generate_batch_returns_correct_structure():
 def test_generate_batch_sets_multi_turn_type():
     """Test that _generate_batch always sets test_type to Multi-Turn."""
     mock_model = Mock(spec=BaseLLM)
+    # Simulate LLM returning flat structure
     mock_model.generate.return_value = {
         "tests": [
             {
-                "test_configuration": {
-                    "goal": "Goal",
-                    "instructions": "",
-                    "restrictions": "",
-                    "scenario": "",
-                },
+                "test_configuration_goal": "Goal",
+                "test_configuration_instructions": "",
+                "test_configuration_restrictions": "",
+                "test_configuration_scenario": "",
                 "behavior": "Robustness",
                 "category": "Harmful",
                 "topic": "security",
@@ -202,8 +205,8 @@ def test_generate_batch_sets_multi_turn_type():
     assert result[0]["test_type"] == "Multi-Turn"
 
 
-def test_generate_batch_passes_schema_to_model():
-    """Test that _generate_batch passes the Tests schema to the model."""
+def test_generate_batch_passes_flat_schema_to_model():
+    """Test that _generate_batch passes the FlatTests schema to the model."""
     mock_model = Mock(spec=BaseLLM)
     mock_model.generate.return_value = {"tests": []}
 
@@ -212,8 +215,8 @@ def test_generate_batch_passes_schema_to_model():
     synthesizer._generate_batch()
 
     call_args = mock_model.generate.call_args
-    assert call_args.kwargs.get("schema") is Tests or (
-        len(call_args.args) > 1 and call_args.args[1] is Tests
+    assert call_args.kwargs.get("schema") is FlatTests or (
+        len(call_args.args) > 1 and call_args.args[1] is FlatTests
     )
 
 
