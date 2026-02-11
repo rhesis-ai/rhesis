@@ -106,7 +106,7 @@ jobs:
         working-directory: apps/backend
 
       - name: Install dependencies
-        run: uv sync --dev
+        run: uv sync --dev --extra cpu
         working-directory: apps/backend
 
       - name: Run tests
