@@ -28,13 +28,17 @@ Lets quickly start with the basics. A user journey is a structured view of a use
 
 | Journey element | What it means | Where it maps in Rhesis |
 |---|---|---|
-| `Persona` | Who the user is and what they care about | Multi-turn test `scenario` (and optional topic/category) |
-| `Intent / Goal` | The concrete outcome the user wants | Multi-turn test `goal` (success criteria) |
-| `Touchpoints` | Interactions the user has with the system | Conversation `turns` in a Multi-turn test (and the configured `endpoint´) |
-| `Actions / decisions` | What the user and assistant do each step | `Instructions` for how the test agent should conduct the conversation. Captured in the `conversation history` inside a Test Run |
-| `Phases / timeline` | Stages like onboarding → use → retention | Represent as separate flow slices (`multiple tests`) grouped into a Test Set |
-| `Emotions / UX quality` | Clarity, trust, frustration, confidence | Optional `restrictions` defining what the system must not do during testing |
-| `Opportunities for improvement` | Where the experience breaks down | Failed `metrics` and reasoning in Test Runs, aggregated patterns in Results Overview |
+| `Persona` | Who the user is and what they care about | `Multi-turn test` scenario (and optional topic/category) |
+| `Intent / Goal` | The concrete outcome the user wants | `Multi-turn test` goal (success criteria) |
+| `Touchpoints` | Interactions the user has with the system | Conversation turns in a `Multi-turn test` (and the configured endpoint) |
+| `Actions / decisions` | What the user and assistant do each step | Captured in the multi-turn conversation history inside a `Test Run` |
+| `Phases / timeline` | Stages like onboarding → use → retention | Represent as separate flow slices (multiple tests) grouped into a `Test Set` |
+| `Emotions / UX quality` | Clarity, trust, frustration, confidence | A journey-specific `Behavior` + `Metrics` (e.g., clarity/confirmation/empathetic tone) |
+| `Opportunities for improvement` | Where the experience breaks down | Failed metrics and reasoning in `Test Runs`, aggregated patterns in `Results Overview` |
+
+**Additional testing controls (not part of journey maps):**
+- **Instructions**: Optional guidance for how the test agent should conduct the conversation
+- **Restrictions**: Optional boundaries defining what the system must not do during testing
 
 ## The Rhesis building blocks (from expectation to evidence)
 
@@ -48,13 +52,16 @@ From here on, we’ll use **Rhesis entities** to describe how to model and evalu
 
 ### Visual: expectation → measurement → execution → evidence
 
-![Rhesis: from expectation to evidence](/diagrams/Flow-2.svg)
+<ThemeAwareImage
+  lightSrc="/diagrams/user-journey-light.svg"
+  darkSrc="/diagrams/user-journey-dark.svg"
+  alt="Rhesis: from expectation to evidence"
+/>
 
-## How to test one flow in a complex journey (example: “book a flight”)
+## Testing one flow in a complex user journey (example: “book a flight”)
 
 A journey like “booking a flight” is rarely a single prompt; it’s a conversation over time. The user has context and constraints, the AI agent asks clarifying questions, proposes options, confirms decisions, and either completes the goal or fails in ways that matter to real users.
-
-## Concrete example (flight booking)
+Treat **one flow slice** as a small set of multi-turn tests: one test per expectation. Start with a single “happy path” flow, then add variants.
 
 | Rhesis term | What it means | Flight-booking example |
 |---|---|---|
@@ -64,12 +71,6 @@ A journey like “booking a flight” is rarely a single prompt; it’s a conver
 | **Test set** | The suite you execute together | `journey_flight_booking_happy_path` containing a few expectation-focused tests |
 | **Test run** | One execution snapshot | “Run from Feb 11, 2026 against Production endpoint” with outcomes + metric reasoning |
 
-## How to test one flow in a complex journey (example: “book a flight”)
-
-A journey like “booking a flight” is rarely a single prompt; it’s a flow over time. The user has context and constraints, the assistant asks clarifying questions, proposes options, confirms decisions, and either completes the goal or fails in ways that matter to real users.
-
-Treat **one flow slice** as a **small set of multi-turn tests**: one test per expectation. Start with a single “happy path” flow, then add variants.
-
 ### Step 1: Define the flow slice you want to test
 
 Pick one flow that has a clear finish line.
@@ -77,7 +78,7 @@ Pick one flow that has a clear finish line.
 - **Flow name**: `Flight booking (happy path)`
 - **Success criteria** (what “done” means): user provides origin/destination/dates; assistant collects missing constraints; assistant proposes an itinerary; assistant confirms before “booking”; assistant outputs a summary.
 
-### Step 2: Create (or reuse) 2–3 behaviors for this flow
+### Step 2: Create 1-2 behaviors for this flow
 
 Keep it minimal at first. A good starting set:
 
@@ -85,13 +86,19 @@ Keep it minimal at first. A good starting set:
 - **Flight booking - constraints matched**: does the proposed itinerary match the stated constraints (budget, times, baggage) without silently dropping a constraint?
 - **Flight booking - no invented availability**: does the agent avoid inventing flight prices or availability (and, if it can’t access live inventory, clearly state that limitation and ask for missing constraints or move to a real booking step)?
 
-Attach custom metrics to these behaviors in the platform (for example: a goal-achievement judge for `Flight booking - completion`, a constraint-check judge for `Flight booking - constraints matched`, and a realism/uncertainty judge for `Flight booking - no invented availability`).
+### Step 3: Attach custom metrics to behaviors
 
-### Step 3: Create one multi-turn test per expectation
+Attach custom metrics to these behaviors in the platform.
 
-Each test uses the same flow slice (goal/scenario/restrictions), but uses a different behavior so evaluation focuses on one expectation at a time.
+- A **goal-achievement metric** for `Flight booking - completion`
+- A **constraint-check metric** for `Flight booking - constraints matched`. (Optionally be more specific and add one metric per constraint, e.g. for travel time restrictions, cost restrictions, assistance needs)
+- A **hallucination/uncertainty metric** for `Flight booking - no invented availability`). (Optionally be more specific and add one metric per potential hallucination type: seat availability, flight no., costs, etc.)
 
-Create a **Multi-Turn** test with:
+### Step 3: Create 5 multi-turn tests per behavior
+
+Each test focusses on the same flow slice `Flight booking (happy path)`, but tests for a different behavior so your evaluation is done for one expectation at a time.
+
+Create **Multi-Turn** tests with:
 
 - **Behavior**: pick the expectation you want to evaluate (for example `Flight booking - completion`).
 - **Goal**: the finish line for the agentic test.
@@ -107,27 +114,24 @@ Example (what you’d enter in the test fields):
 | **Goal** | Successfully book a round-trip flight that matches travel constraints and have the AI agent confirm all details before finalizing. |
 | **Scenario** | I'm booking a work trip and care about staying within budget, arriving at a reasonable time, and bringing one carry-on bag. I may not provide all the details upfront. |
 | **Instructions** | Provide my travel requirements gradually, as a real user would. Wait for the AI agent to ask clarifying questions when information is missing. |
-| **Restrictions** | The AI agent (target application) must not invent prices or availability. The AI agent must ask for any missing required information. The AI agent must confirm the final itinerary before completing the booking. |
+| **Restrictions** | The AI agent must confirm the final itinerary before completing the booking. |
 | **Max turns** | 10 |
 
 ### Step 4: Put the flow tests into a dedicated test set
 
-Create a test set like `journey_flight_booking_happy_path` and include **only these 2–3 flow tests**. This is the simplest way to iterate: one flow slice, a few expectation-focused tests, fast feedback.
+Create a test set like `journey_flight_booking_happy_path` and include **only these multi-turn tests**. This is the simplest way to iterate: one flow slice, a few expectation-focused tests, fast feedback.
 
 ### Step 5: Execute and read results the right way
 
-Execute the test set against the target endpoint.\n\nWhen you look at outcomes, separate these questions:
+Execute the test set against the target endpoint. When you look at outcomes, separate these questions:
 
 - **Did the flow succeed?** (journey completion and constraint satisfaction)
 - **Why did it fail?** (which metric failed, and what the reasoning says)
 - **Which metrics ran?** (behavior defaults vs test set override vs execution override)
 
-If the metrics don’t match what you expected, check the precedence rule above and confirm whether your test set or execution options are overriding behavior defaults.
-
-
 ## How to scale from one flow to a full journey suite
 
-Once the happy path is stable, clone it into variants:
+Once the happy path is stable, create variants:
 
 - **Missing information**: user omits dates or destination (forces clarifying questions).
 - **Conflicting constraints**: budget vs direct-flight requirement (forces tradeoff and confirmation).
