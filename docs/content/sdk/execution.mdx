@@ -1,0 +1,208 @@
+import { CodeBlock } from '@/components/CodeBlock'
+import { Callout } from 'nextra/components'
+
+# Test Execution
+
+The SDK provides methods on `TestSet` for executing tests against endpoints, re-scoring existing
+outputs with different metrics, and managing which metrics are assigned to a test set.
+
+For background on execution concepts (metrics hierarchy, execution modes, output reuse) see the
+[Platform Test Execution](/platform/test-execution) guide.
+
+## Executing Test Sets
+
+Use `execute()` to run every test in a set against an endpoint. The endpoint is called for each
+test and the responses are scored against the configured metrics.
+
+<CodeBlock filename="execute_basic.py" language="python">
+{`from rhesis.sdk.entities import TestSets, Endpoints
+
+test_set = TestSets.pull(name="Safety Evaluation")
+endpoint = Endpoints.pull(name="Production Chatbot")
+
+# Execute with default settings (parallel mode)
+result = test_set.execute(endpoint)
+print(f"Execution submitted: {result}")`}
+</CodeBlock>
+
+### Execution Mode
+
+Control whether tests are sent to the endpoint in parallel or one at a time.
+
+<CodeBlock filename="execute_mode.py" language="python">
+{`# Parallel (default) — fast, best for stateless endpoints
+result = test_set.execute(endpoint)
+
+# Sequential — one test at a time, useful for rate-limited APIs
+result = test_set.execute(endpoint, mode="sequential")`}
+</CodeBlock>
+
+- **parallel** (default): Tests are dispatched concurrently for maximum throughput.
+- **sequential**: Tests run one after another. Use this for endpoints with strict rate limits or
+  when order matters.
+
+### Custom Metrics
+
+Pass a `metrics` list to override the test set and behavior-level metrics for a single execution.
+Each item can be a dict (with at least an `"id"` key) or a metric name string (resolved
+automatically via the `/metrics` API).
+
+<CodeBlock filename="execute_metrics.py" language="python">
+{`# Override metrics for this run only
+result = test_set.execute(endpoint, metrics=[
+    {"id": "abc-123", "name": "Accuracy"},
+    "Toxicity",  # resolved by name
+])
+
+# Combine with sequential mode
+result = test_set.execute(
+    endpoint,
+    mode="sequential",
+    metrics=["Accuracy", "Toxicity"],
+)`}
+</CodeBlock>
+
+<Callout type="info">
+Execution-time metrics take the highest priority. When provided, they replace both the test
+set-level and behavior-level metrics for that run.
+</Callout>
+
+## Re-scoring Existing Outputs
+
+`rescore()` re-evaluates metrics on outputs from a previous test run without calling the endpoint
+again. This is useful when you want to apply new or different metrics to an existing set of
+responses.
+
+<CodeBlock filename="rescore_basic.py" language="python">
+{`# Re-score the latest completed run (one-liner)
+result = test_set.rescore(endpoint)
+
+# Re-score with different metrics
+result = test_set.rescore(endpoint, metrics=["Accuracy", "Toxicity"])`}
+</CodeBlock>
+
+### Specifying Which Run to Re-score
+
+By default, `rescore()` uses the latest completed run for the test set / endpoint combination.
+You can also pass a specific run:
+
+<CodeBlock filename="rescore_run.py" language="python">
+{`from rhesis.sdk.entities import TestRuns
+
+# By name
+result = test_set.rescore(endpoint, run="Safety - Run 42")
+
+# By UUID string
+result = test_set.rescore(endpoint, run="a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+
+# By TestRun object
+run = TestRuns.pull(name="Safety - Run 42")
+result = test_set.rescore(endpoint, run=run)`}
+</CodeBlock>
+
+If no completed run exists for the combination, `rescore()` raises a `ValueError`.
+
+## Last Completed Run
+
+`last_run()` returns a summary of the most recent completed test run for a given test set and
+endpoint. Returns `None` if no completed run exists.
+
+<CodeBlock filename="last_run.py" language="python">
+{`last = test_set.last_run(endpoint)
+if last:
+    print(f"Run: {last['name']}")
+    print(f"Pass rate: {last['pass_rate']}")
+    print(f"Tests: {last['test_count']}")
+else:
+    print("No completed runs yet")`}
+</CodeBlock>
+
+Combine with `rescore()` for an inspect-then-rescore workflow:
+
+<CodeBlock filename="inspect_rescore.py" language="python">
+{`last = test_set.last_run(endpoint)
+if last and last["pass_rate"] < 0.9:
+    # Re-score with stricter metrics
+    result = test_set.rescore(endpoint, run=last["id"], metrics=["Strictness"])
+    print(f"Re-score submitted: {result}")`}
+</CodeBlock>
+
+## Managing Test Set Metrics
+
+Manage which metrics are assigned to a test set. These metrics are used by default when a test
+set is executed without explicit per-execution metrics.
+
+### Get Current Metrics
+
+<CodeBlock filename="get_metrics.py" language="python">
+{`metrics = test_set.get_metrics()
+for m in metrics:
+    print(f"  {m['name']} (id: {m['id']})")`}
+</CodeBlock>
+
+### Add Metrics
+
+Add a single metric or a list. Each item can be a dict with an `"id"` key, a UUID string, or a
+metric name string.
+
+<CodeBlock filename="add_metrics.py" language="python">
+{`# Single metric by name
+test_set.add_metric("Accuracy")
+
+# Single metric by UUID
+test_set.add_metric("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+
+# Single metric by dict
+test_set.add_metric({"id": "abc-123"})
+
+# Multiple metrics at once
+test_set.add_metrics(["Accuracy", "Toxicity", "Relevance"])`}
+</CodeBlock>
+
+### Remove Metrics
+
+<CodeBlock filename="remove_metrics.py" language="python">
+{`# Single metric
+test_set.remove_metric("Accuracy")
+
+# Multiple metrics
+test_set.remove_metrics(["Toxicity", "Relevance"])`}
+</CodeBlock>
+
+## Complete Workflow
+
+<CodeBlock filename="complete_execution.py" language="python">
+{`from rhesis.sdk.entities import TestSets, Endpoints
+
+# Setup
+test_set = TestSets.pull(name="Safety Evaluation")
+endpoint = Endpoints.pull(name="Production Chatbot")
+
+# 1. Assign metrics to the test set
+test_set.add_metrics(["Accuracy", "Toxicity", "Relevance"])
+
+# 2. Execute fresh
+result = test_set.execute(endpoint)
+print(f"Execution submitted: {result}")
+
+# 3. Check the last run
+last = test_set.last_run(endpoint)
+if last:
+    print(f"Last run: {last['name']} — pass rate: {last['pass_rate']}")
+
+    # 4. Re-score with a new metric (without calling the endpoint again)
+    result = test_set.rescore(endpoint, metrics=["Strictness"])
+    print(f"Re-score submitted: {result}")
+
+# 5. Clean up metrics
+test_set.remove_metrics(["Accuracy", "Toxicity", "Relevance"])`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+**Related** — [Test Sets](/sdk/entities/test-sets) |
+[Test Runs](/sdk/entities/test-runs) |
+[SDK Metrics (Evaluation Engine)](/sdk/metrics) |
+[Platform Test Execution](/platform/test-execution)
+</Callout>

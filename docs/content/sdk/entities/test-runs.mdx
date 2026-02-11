@@ -174,21 +174,28 @@ endpoint = Endpoints.pull(name="Production Chatbot")
 execution = test_set.execute(endpoint)
 print(f"Execution started: {execution}")
 
-# 3. Later: fetch the test run
-# (In practice, you'd get the run ID from the execution response or webhook)
+# 3. Inspect the last completed run
+last = test_set.last_run(endpoint)
+if last:
+    print(f"Last run: {last['name']} — pass rate: {last['pass_rate']}")
+
+    # 4. Re-score with different metrics (reuses existing outputs)
+    rescore_result = test_set.rescore(endpoint, metrics=["Strictness"])
+    print(f"Re-score submitted: {rescore_result}")
+
+# 5. Fetch a specific test run and its results
 runs = TestRuns.all(filter="contains(name, 'Safety')")
 latest_run = runs[0] if runs else None
 
 if latest_run:
-    # 4. Get results
     results = latest_run.get_test_results()
-    
-    # 5. Analyze results
     passed = sum(1 for r in results if r.get('status_id') == 'passed')
     failed = sum(1 for r in results if r.get('status_id') == 'failed')
-    
     print(f"Passed: {passed}, Failed: {failed}")`}
 </CodeBlock>
+
+For the full execution API — including execution modes, metric overrides, re-scoring, and test
+set metric management — see [Test Execution](/sdk/execution).
 
 ---
 
