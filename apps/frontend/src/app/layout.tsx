@@ -175,12 +175,16 @@ async function getNavigationItems(
       title: 'Test Sets',
       icon: <CategoryIcon />,
     },
-    {
-      kind: 'page',
-      segment: 'adaptive-testing',
-      title: 'Adaptive Testing',
-      icon: <AccountTreeIcon />,
-    },
+    ...(process.env.NODE_ENV === 'development'
+      ? [
+          {
+            kind: 'page' as const,
+            segment: 'adaptive-testing',
+            title: 'Adaptive Testing',
+            icon: <AccountTreeIcon />,
+          },
+        ]
+      : []),
     // Results Section
     {
       kind: 'header',
