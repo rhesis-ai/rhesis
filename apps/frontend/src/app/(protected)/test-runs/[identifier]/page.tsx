@@ -145,8 +145,8 @@ export default async function TestRunPage({
 
   // All errors (404 not found, 410 deleted, etc.) are caught by the global error.tsx
   return (
-    <PageContainer title={title} breadcrumbs={breadcrumbs}>
-      <Box sx={{ flexGrow: 1, pt: 3 }}>
+    <PageContainer title="" breadcrumbs={breadcrumbs}>
+      <Box sx={{ flexGrow: 1 }}>
         {/* Main Split View */}
         <TestRunMainView
           testRunId={identifier}

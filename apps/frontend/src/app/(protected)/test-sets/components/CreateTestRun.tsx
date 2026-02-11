@@ -215,8 +215,6 @@ export default function CreateTestRun({
 
           // Assign tags to each created test run
           for (const result of results) {
-            // The result should contain test_configuration_id
-            // We need to get the test run from the test configuration
             if ((result as any).test_configuration_id) {
               const testConfigurationId = (result as any).test_configuration_id;
 
@@ -226,11 +224,12 @@ export default function CreateTestRun({
               );
 
               if (testRun) {
-                // Assign each tag to the test run
                 for (const tagName of tags) {
                   const tagPayload: TagCreate = {
                     name: tagName,
-                    ...(organizationId && { organization_id: organizationId }),
+                    ...(organizationId && {
+                      organization_id: organizationId,
+                    }),
                   };
 
                   await tagsClient.assignTagToEntity(
