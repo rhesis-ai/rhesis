@@ -298,6 +298,7 @@ class TestTestSetExecution:
                 None,
                 None,
                 "behavior",
+                reference_test_run_id=None,
             )
             mock_submit.assert_called_once_with("test_config_id", user)
 
