@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.database import without_soft_delete_filter
 from rhesis.backend.app.utils import crud_utils
-from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 # Use existing data factories
 from tests.backend.routes.fixtures.data_factories import (
