@@ -73,8 +73,8 @@ export default function ContextPreview({ context }: ContextPreviewProps) {
       >
         <Paper sx={{ p: 2, maxWidth: 500, maxHeight: 600, overflow: 'auto' }}>
           <Stack spacing={2}>
-            {context.map((source, index) => (
-              <Box key={index}>
+            {context.map(source => (
+              <Box key={source.name}>
                 <Box
                   sx={{
                     display: 'flex',

@@ -56,7 +56,7 @@ export default function BehaviorCard({
       });
 
       onRefresh();
-    } catch (err) {
+    } catch {
       notifications.show('Failed to delete behavior', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -87,7 +87,7 @@ export default function BehaviorCard({
       });
 
       onRefresh();
-    } catch (err) {
+    } catch {
       notifications.show('Failed to add metric to behavior', {
         severity: 'error',
         autoHideDuration: 4000,

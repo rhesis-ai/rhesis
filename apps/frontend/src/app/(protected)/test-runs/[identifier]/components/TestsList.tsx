@@ -397,9 +397,11 @@ export default function TestsList({
         }}
       >
         <List>
-          {Array.from({ length: 5 }).map((_, index) => (
-            <TestListItemSkeleton key={index} />
-          ))}
+          {Array.from({ length: 5 }, (_, index) => `skeleton-${index}`).map(
+            skeletonId => (
+              <TestListItemSkeleton key={skeletonId} />
+            )
+          )}
         </List>
       </Box>
     );

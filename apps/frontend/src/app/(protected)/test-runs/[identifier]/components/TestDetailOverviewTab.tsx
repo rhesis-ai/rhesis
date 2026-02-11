@@ -46,20 +46,19 @@ const renderFormattedText = (text: string) => {
     if (trimmedLine.startsWith('- ')) {
       // Flush current paragraph if exists
       if (currentParagraph.length > 0) {
+        const paragraphKey = `p-${index}-${currentParagraph.join(' ').substring(0, 20)}`;
         elements.push(
-          <Typography key={`p-${index}`} variant="body2" sx={{ mb: 1 }}>
+          <Typography key={paragraphKey} variant="body2" sx={{ mb: 1 }}>
             {currentParagraph.join(' ')}
           </Typography>
         );
         currentParagraph = [];
       }
 
-      // Add bullet point
+      // Add bullet point with content-based key
+      const bulletKey = `bullet-${index}-${trimmedLine.substring(0, 20)}`;
       elements.push(
-        <Box
-          key={`bullet-${index}`}
-          sx={{ display: 'flex', gap: 1, mb: 0.5, pl: 2 }}
-        >
+        <Box key={bulletKey} sx={{ display: 'flex', gap: 1, mb: 0.5, pl: 2 }}>
           <Typography variant="body2">•</Typography>
           <Typography variant="body2" sx={{ flex: 1 }}>
             {trimmedLine.substring(2).trim()}
@@ -71,8 +70,9 @@ const renderFormattedText = (text: string) => {
       currentParagraph.push(trimmedLine);
     } else if (currentParagraph.length > 0) {
       // Empty line - flush paragraph
+      const paragraphKey = `p-${index}-${currentParagraph.join(' ').substring(0, 20)}`;
       elements.push(
-        <Typography key={`p-${index}`} variant="body2" sx={{ mb: 1 }}>
+        <Typography key={paragraphKey} variant="body2" sx={{ mb: 1 }}>
           {currentParagraph.join(' ')}
         </Typography>
       );
@@ -271,28 +271,32 @@ export default function TestDetailOverviewTab({
             test.test_output.context.filter(item => item.trim()).length > 0 ? (
               test.test_output.context
                 .filter(item => item.trim())
-                .map((item, index, filteredArray) => (
-                  <Box
-                    key={`context-${index}-${item.slice(0, 20)}`}
-                    sx={{
-                      display: 'flex',
-                      gap: 1,
-                      mb: index < filteredArray.length - 1 ? 0.5 : 0,
-                    }}
-                  >
-                    <Typography variant="body2">•</Typography>
-                    <Typography
-                      variant="body2"
+                .map((item, index, filteredArray) => {
+                  // Create stable key from content
+                  const contextKey = `context-${item.slice(0, 30).replace(/\s+/g, '-')}`;
+                  return (
+                    <Box
+                      key={contextKey}
                       sx={{
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                        flex: 1,
+                        display: 'flex',
+                        gap: 1,
+                        mb: index < filteredArray.length - 1 ? 0.5 : 0,
                       }}
                     >
-                      {item}
-                    </Typography>
-                  </Box>
-                ))
+                      <Typography variant="body2">•</Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                          flex: 1,
+                        }}
+                      >
+                        {item}
+                      </Typography>
+                    </Box>
+                  );
+                })
             ) : (
               <Typography
                 variant="body2"
@@ -412,34 +416,38 @@ export default function TestDetailOverviewTab({
                   <Collapse in={evidenceExpanded} timeout="auto" unmountOnExit>
                     <Box sx={{ mt: 1, pl: 2 }}>
                       {test.test_output.goal_evaluation.evidence.map(
-                        (item, index) => (
-                          <Box
-                            key={index}
-                            sx={{
-                              display: 'flex',
-                              gap: 1,
-                              mb: 0.5,
-                            }}
-                          >
-                            <Typography
-                              variant="body2"
+                        (item, index) => {
+                          // Create stable key from evidence content
+                          const evidenceKey = `evidence-${index}-${item.substring(0, 30).replace(/\s+/g, '-')}`;
+                          return (
+                            <Box
+                              key={evidenceKey}
                               sx={{
-                                color: 'text.secondary',
+                                display: 'flex',
+                                gap: 1,
+                                mb: 0.5,
                               }}
                             >
-                              •
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                color: 'text.secondary',
-                                flex: 1,
-                              }}
-                            >
-                              {item}
-                            </Typography>
-                          </Box>
-                        )
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: 'text.secondary',
+                                }}
+                              >
+                                •
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: 'text.secondary',
+                                  flex: 1,
+                                }}
+                              >
+                                {item}
+                              </Typography>
+                            </Box>
+                          );
+                        }
                       )}
                     </Box>
                   </Collapse>

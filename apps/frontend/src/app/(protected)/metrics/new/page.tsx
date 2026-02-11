@@ -454,28 +454,32 @@ export default function NewMetricPage() {
           Break down the evaluation process into clear, sequential steps. Each
           step should be specific and actionable.
         </Typography>
-        {formData.evaluation_steps?.map((step, index) => (
-          <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
-            <TextField
-              fullWidth
-              required
-              multiline
-              rows={2}
-              label={`Step ${index + 1}`}
-              placeholder="Describe this evaluation step..."
-              value={step}
-              onChange={handleStepChange(index)}
-            />
-            <IconButton
-              onClick={() => removeStep(index)}
-              disabled={formData.evaluation_steps.length === 1}
-              sx={{ mt: 1 }}
-              color="error"
-            >
-              <DeleteIcon />
-            </IconButton>
-          </Box>
-        ))}
+        {formData.evaluation_steps?.map((step, index) => {
+          // Create stable key from step content and index
+          const stepKey = `step-${index}-${step.substring(0, 20).replace(/\s+/g, '-')}`;
+          return (
+            <Box key={stepKey} sx={{ display: 'flex', gap: 1, mb: 2 }}>
+              <TextField
+                fullWidth
+                required
+                multiline
+                rows={2}
+                label={`Step ${index + 1}`}
+                placeholder="Describe this evaluation step..."
+                value={step}
+                onChange={handleStepChange(index)}
+              />
+              <IconButton
+                onClick={() => removeStep(index)}
+                disabled={formData.evaluation_steps.length === 1}
+                sx={{ mt: 1 }}
+                color="error"
+              >
+                <DeleteIcon />
+              </IconButton>
+            </Box>
+          );
+        })}
         <Button startIcon={<AddIcon />} onClick={addStep} sx={{ mb: 3 }}>
           Add Step
         </Button>
@@ -872,41 +876,45 @@ export default function NewMetricPage() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {formData.evaluation_steps
               ?.filter(step => step.trim())
-              .map((step, index) => (
-                <Box
-                  key={index}
-                  sx={{
-                    p: 2,
-                    bgcolor: 'action.hover',
-                    borderRadius: theme.shape.borderRadius / 4,
-                    position: 'relative',
-                    pl: 4,
-                    border: 1,
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Typography
+              .map((step, index) => {
+                // Create stable key from step content
+                const stepKey = `preview-step-${index}-${step.substring(0, 30).replace(/\s+/g, '-')}`;
+                return (
+                  <Box
+                    key={stepKey}
                     sx={{
-                      position: 'absolute',
-                      left: 12,
-                      top: 12,
-                      color: 'text.secondary',
-                      fontWeight: 'bold',
-                      fontSize: theme.typography.body2.fontSize,
+                      p: 2,
+                      bgcolor: 'action.hover',
+                      borderRadius: theme.shape.borderRadius / 4,
+                      position: 'relative',
+                      pl: 4,
+                      border: 1,
+                      borderColor: 'divider',
                     }}
                   >
-                    {index + 1}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: 'text.primary',
-                    }}
-                  >
-                    {step}
-                  </Typography>
-                </Box>
-              ))}
+                    <Typography
+                      sx={{
+                        position: 'absolute',
+                        left: 12,
+                        top: 12,
+                        color: 'text.secondary',
+                        fontWeight: 'bold',
+                        fontSize: theme.typography.body2.fontSize,
+                      }}
+                    >
+                      {index + 1}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'text.primary',
+                      }}
+                    >
+                      {step}
+                    </Typography>
+                  </Box>
+                );
+              })}
           </Box>
         </Box>
 
@@ -976,9 +984,9 @@ export default function NewMetricPage() {
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 {formData.categories && formData.categories.length > 0 ? (
-                  formData.categories.map((category, index) => (
+                  formData.categories.map(category => (
                     <Chip
-                      key={`category-${index}`}
+                      key={category}
                       label={category}
                       color="primary"
                       variant="outlined"
@@ -1003,9 +1011,9 @@ export default function NewMetricPage() {
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                 {formData.passing_categories &&
                 formData.passing_categories.length > 0 ? (
-                  formData.passing_categories.map((category, index) => (
+                  formData.passing_categories.map(category => (
                     <Chip
-                      key={`passing-${index}`}
+                      key={category}
                       label={category}
                       color="success"
                       variant="filled"
@@ -1089,9 +1097,9 @@ export default function NewMetricPage() {
             Metric Scope
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {formData.metric_scope.map((scope, index) => (
+            {formData.metric_scope.map(scope => (
               <Chip
-                key={`scope-${index}`}
+                key={scope}
                 label={scope}
                 color="primary"
                 variant="filled"

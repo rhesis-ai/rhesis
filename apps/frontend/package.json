@@ -21,7 +21,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:ci": "jest --ci --coverage --watchAll=false",
+    "test:ci": "jest --ci --coverage --coverageReporters text json-summary lcov --watchAll=false",
     "test:clean-coverage": "rm -rf coverage/",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",

@@ -409,7 +409,7 @@ export default function BasePieChart({
             >
               {data.map((entry, index) => (
                 <Cell
-                  key={`cell-${index}`}
+                  key={entry.name}
                   fill={chartColors[index % chartColors.length]}
                 />
               ))}
