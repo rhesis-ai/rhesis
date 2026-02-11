@@ -26,7 +26,10 @@ import {
   Tune as TuneIcon,
   Psychology as PsychologyIcon,
   Edit as EditIcon,
+  Bolt as BoltIcon,
+  Replay as ReplayIcon,
 } from '@mui/icons-material';
+import Link from 'next/link';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
@@ -39,7 +42,10 @@ import { TagsClient } from '@/utils/api-client/tags-client';
 import { pollForTestRun } from '@/utils/test-run-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
-import type { TestSetMetric } from '@/utils/api-client/interfaces/test-set';
+import type {
+  TestSetMetric,
+  LastTestRunSummary,
+} from '@/utils/api-client/interfaces/test-set';
 
 interface ProjectOption {
   id: UUID;
@@ -54,6 +60,7 @@ interface EndpointOption {
 }
 
 type MetricMode = 'use_test_set' | 'use_behavior' | 'define_custom';
+type ScoringTarget = 'fresh' | 'reuse';
 
 interface SelectedMetric {
   id: UUID;
@@ -96,6 +103,13 @@ export default function ExecuteTestSetDrawer({
   const [metricMode, setMetricMode] = useState<MetricMode>('use_behavior');
   const [selectedMetrics, setSelectedMetrics] = useState<SelectedMetric[]>([]);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
+
+  // Scoring target state
+  const [scoringTarget, setScoringTarget] = useState<ScoringTarget>('fresh');
+  const [lastTestRun, setLastTestRun] = useState<LastTestRunSummary | null>(
+    null
+  );
+  const [loadingLastRun, setLoadingLastRun] = useState(false);
 
   // Fetch projects, endpoints, and test set info when drawer opens
   useEffect(() => {
@@ -203,6 +217,8 @@ export default function ExecuteTestSetDrawer({
       setSelectedEndpoint(null);
       setTags([]);
       setSelectedMetrics([]);
+      setScoringTarget('fresh');
+      setLastTestRun(null);
     }
   }, [sessionToken, open, testSetId]);
 
@@ -223,6 +239,37 @@ export default function ExecuteTestSetDrawer({
     // Reset selected endpoint when project changes
     setSelectedEndpoint(null);
   }, [selectedProject, endpoints]);
+
+  // Fetch last test run when endpoint changes (for output reuse hint)
+  useEffect(() => {
+    const fetchLastRun = async () => {
+      if (!sessionToken || !selectedEndpoint || !open) {
+        setLastTestRun(null);
+        setScoringTarget('fresh');
+        return;
+      }
+
+      try {
+        setLoadingLastRun(true);
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const testSetsClient = clientFactory.getTestSetsClient();
+        const result = await testSetsClient.getLastTestRun(
+          testSetId,
+          selectedEndpoint
+        );
+        setLastTestRun(result);
+        // Reset scoring target when endpoint changes
+        setScoringTarget('fresh');
+      } catch {
+        setLastTestRun(null);
+        setScoringTarget('fresh');
+      } finally {
+        setLoadingLastRun(false);
+      }
+    };
+
+    fetchLastRun();
+  }, [sessionToken, selectedEndpoint, testSetId, open]);
 
   const handleEndpointChange = (value: EndpointOption | null) => {
     if (!value) {
@@ -280,6 +327,11 @@ export default function ExecuteTestSetDrawer({
           name: m.name,
           scope: m.scope,
         }));
+      }
+
+      // Add reference_test_run_id if reusing outputs
+      if (scoringTarget === 'reuse' && lastTestRun) {
+        testConfigurationAttributes.reference_test_run_id = lastTestRun.id;
       }
 
       // Execute test set against the selected endpoint with test configuration attributes
@@ -509,6 +561,60 @@ export default function ExecuteTestSetDrawer({
               </MenuItem>
             </Select>
           </FormControl>
+
+          <FormControl fullWidth>
+            <InputLabel>Scoring Target</InputLabel>
+            <Select
+              value={scoringTarget}
+              onChange={e => setScoringTarget(e.target.value as ScoringTarget)}
+              label="Scoring Target"
+            >
+              <MenuItem value="fresh">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <BoltIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Fresh Outputs</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Call the endpoint and score the new responses
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>
+              <MenuItem value="reuse" disabled={!lastTestRun}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ReplayIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Reuse Outputs</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {lastTestRun
+                        ? 'Re-score outputs from the latest test run'
+                        : 'No previous test run available'}
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
+
+          {scoringTarget === 'reuse' && lastTestRun && (
+            <Alert severity="info">
+              Outputs from{' '}
+              <Link
+                href={`/test-runs/${lastTestRun.nano_id || lastTestRun.id}`}
+                target="_blank"
+                style={{ fontWeight: 600 }}
+              >
+                {lastTestRun.name ||
+                  `Test run from ${
+                    lastTestRun.created_at
+                      ? new Date(lastTestRun.created_at).toLocaleDateString()
+                      : 'unknown date'
+                  }`}
+              </Link>{' '}
+              ({lastTestRun.pass_rate}% pass rate, {lastTestRun.test_count}{' '}
+              tests) will be reused. Only metrics will be re-evaluated.
+            </Alert>
+          )}
 
           <Divider />
 

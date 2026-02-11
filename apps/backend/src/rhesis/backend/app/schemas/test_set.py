@@ -222,6 +222,7 @@ class TestSetExecutionRequest(BaseModel):
 
     execution_options: Optional[Dict[str, Any]] = None
     metrics: Optional[List[ExecutionMetric]] = None
+    reference_test_run_id: Optional[UUID4] = None
 
     @field_validator("execution_options")
     @classmethod
@@ -238,3 +239,13 @@ class TestSetExecutionRequest(BaseModel):
             v["execution_mode"] = "Parallel"
 
         return v
+
+
+class TestRunRescoreRequest(BaseModel):
+    """Request to re-score a test run with different metrics.
+
+    No endpoints will be invoked -- only metric evaluation on stored outputs.
+    """
+
+    metrics: Optional[List[ExecutionMetric]] = None
+    execution_options: Optional[Dict[str, Any]] = None

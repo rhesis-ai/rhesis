@@ -9,6 +9,10 @@ from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
 from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
+from rhesis.backend.tasks.execution.executors.output_providers import (
+    OutputProvider,
+    get_provider_metadata,
+)
 from rhesis.backend.tasks.execution.executors.results import (
     check_existing_result,
     create_test_result_record,
@@ -39,6 +43,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,
         model: Optional[Any] = None,
+        output_provider: Optional[OutputProvider] = None,
     ) -> Dict[str, Any]:
         """
         Execute a single-turn test.
@@ -52,6 +57,8 @@ class SingleTurnTestExecutor(BaseTestExecutor):
             organization_id: UUID string of the organization (optional)
             user_id: UUID string of the user (optional)
             model: Optional model override for metric evaluation
+            output_provider: Optional OutputProvider. If provided, used
+                instead of live endpoint invocation (e.g., for re-scoring).
 
         Returns:
             Dictionary with test execution results:
@@ -117,6 +124,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 test_execution_context=test_execution_context,
                 test_set=test_set,
                 test_configuration=test_config,
+                output_provider=output_provider,
             )
 
             # Persist to database and link traces
@@ -131,6 +139,7 @@ class SingleTurnTestExecutor(BaseTestExecutor):
                 execution_time=execution_time,
                 metrics_results=metrics_results,
                 processed_result=processed_result,
+                metadata=get_provider_metadata(output_provider),
             )
 
             # Return execution summary
