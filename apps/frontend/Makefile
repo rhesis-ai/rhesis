@@ -70,8 +70,7 @@ eslint:
 
 # Run tests
 test:
-	@echo "🔍 Running tests..."
-	@npm test -- --passWithNoTests --watchAll=false || (echo "❌ Tests failed" && exit 1)
+	npm test -- --passWithNoTests --ci --watchAll=false
 
 # Build the application
 build:

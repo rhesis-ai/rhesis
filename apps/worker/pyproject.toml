@@ -27,6 +27,7 @@ dependencies = [
     "odata-query==0.10.0",
     "openpyxl>=3.1.5",
     "pandas==2.2.2",
+    "passlib[bcrypt]>=1.7.4",
     "pathspec==0.12.1",
     "pgvector>=0.3.0",
     "portalocker==3.1.1",

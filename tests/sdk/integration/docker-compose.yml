@@ -24,7 +24,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: mirror.gcr.io/pgvector/pgvector:pg16
-    container_name: rhesis-postgres-test
+    container_name: rhesis-postgres-sdk-test
     environment:
       POSTGRES_DB: rhesis-db
       POSTGRES_USER: rhesis-user
@@ -45,7 +45,7 @@ services:
   # Redis for Celery
   redis:
     image: mirror.gcr.io/redis:7-alpine
-    container_name: rhesis-redis-test
+    container_name: rhesis-redis-sdk-test
     command: redis-server --requirepass rhesis-redis-pass
     ports:
       - "10002:6379"

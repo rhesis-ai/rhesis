@@ -388,6 +388,21 @@
             "description": "OpenRouter unified API for multiple LLM providers"
         },
         {
+            "type_name": "ProviderType",
+            "type_value": "polyphemus",
+            "description": "Polyphemus LLM provider"
+        },
+        {
+            "type_name": "ProviderType",
+            "type_value": "lmformatenforcer",
+            "description": "LM Format Enforcer for guaranteed JSON schema compliance"
+        },
+        {
+            "type_name": "ProviderType",
+            "type_value": "vertex_ai",
+            "description": "Google Vertex AI"
+        },
+        {
             "type_name": "MetricType",
             "type_value": "grading",
             "description": "LLM-based grading using rubrics or classification prompts"
