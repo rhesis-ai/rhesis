@@ -68,11 +68,6 @@ export function ConnectionDialog({
   const [modelType, setModelType] = useState<'llm' | 'embedding'>('llm');
   const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [customHeaders, setCustomHeaders] = useState<Record<string, string>>(
-    {}
-  );
-  const [newHeaderKey, setNewHeaderKey] = useState('');
-  const [newHeaderValue, setNewHeaderValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testingConnection, setTestingConnection] = useState(false);
@@ -119,7 +114,6 @@ export function ConnectionDialog({
         setModelType(model.model_type || 'llm');
         setEndpoint(model.endpoint || '');
         setApiKey('************'); // Show placeholder for existing key
-        setCustomHeaders(model.request_headers || {});
         setProviderName('');
         setError(null);
         setTestResult(null);
@@ -151,9 +145,6 @@ export function ConnectionDialog({
             : ''
         );
         setApiKey('');
-        setCustomHeaders({});
-        setNewHeaderKey('');
-        setNewHeaderValue('');
         setError(null);
         setTestResult(null);
         setShowFullError(false);
@@ -179,25 +170,6 @@ export function ConnectionDialog({
       setTestResult(null);
     }
   }, [modelName, apiKey, endpoint, isEditMode]);
-
-  const handleAddHeader = () => {
-    if (newHeaderKey.trim() && newHeaderValue.trim()) {
-      setCustomHeaders(prev => ({
-        ...prev,
-        [newHeaderKey.trim()]: newHeaderValue.trim(),
-      }));
-      setNewHeaderKey('');
-      setNewHeaderValue('');
-    }
-  };
-
-  const handleRemoveHeader = (key: string) => {
-    setCustomHeaders(prev => {
-      const newHeaders = { ...prev };
-      delete newHeaders[key];
-      return newHeaders;
-    });
-  };
 
   const { data: session } = useSession();
 
@@ -432,9 +404,6 @@ export function ConnectionDialog({
           if (apiKey && apiKey.trim() && apiKey !== '************') {
             updates.key = apiKey.trim();
           }
-
-          // Always update custom headers to allow removal (Authorization and Content-Type are handled automatically)
-          updates.request_headers = customHeaders;
         }
 
         await onUpdate(model.id, updates);
@@ -473,8 +442,6 @@ export function ConnectionDialog({
             model_type: modelType,
             key: apiKey || '', // Empty string for local providers without API key
             tags: [provider!.type_value],
-            // Only store custom headers (Authorization and Content-Type are handled automatically by SDK)
-            request_headers: customHeaders,
             provider_type_id: provider!.id,
           };
 
@@ -840,92 +807,6 @@ export function ConnectionDialog({
                   updating.
                 </Alert>
               )}
-
-            {/* Custom Headers - Hidden for protected models */}
-            {!model?.is_protected && (
-              <Stack spacing={1}>
-                <Typography
-                  variant="subtitle1"
-                  sx={{ fontWeight: 600, color: 'primary.main', mt: 1 }}
-                >
-                  Custom Headers (Optional)
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Add any additional HTTP headers required for your API calls.
-                  Authorization and Content-Type headers are handled
-                  automatically.
-                </Typography>
-
-                {/* Existing Headers */}
-                {Object.entries(customHeaders).length > 0 && (
-                  <Stack spacing={1}>
-                    {Object.entries(customHeaders).map(([key, value]) => (
-                      <Paper
-                        key={key}
-                        variant="outlined"
-                        sx={{
-                          p: 2,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          bgcolor: 'grey.50',
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', gap: 2, flex: 1 }}>
-                          <Typography
-                            variant="body2"
-                            sx={{ fontWeight: 500, minWidth: 120 }}
-                          >
-                            {key}:
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {value}
-                          </Typography>
-                        </Box>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveHeader(key)}
-                          color="error"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Paper>
-                    ))}
-                  </Stack>
-                )}
-
-                {/* Add New Header */}
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={2}
-                    alignItems="flex-end"
-                  >
-                    <TextField
-                      label="Header Name"
-                      fullWidth
-                      value={newHeaderKey}
-                      onChange={e => setNewHeaderKey(e.target.value)}
-                    />
-                    <TextField
-                      label="Header Value"
-                      fullWidth
-                      value={newHeaderValue}
-                      onChange={e => setNewHeaderValue(e.target.value)}
-                    />
-                    <Button
-                      variant="outlined"
-                      onClick={handleAddHeader}
-                      disabled={!newHeaderKey.trim() || !newHeaderValue.trim()}
-                      sx={{ minWidth: { xs: '100%', sm: 'auto' } }}
-                      startIcon={<AddIcon />}
-                    >
-                      Add
-                    </Button>
-                  </Stack>
-                </Paper>
-              </Stack>
-            )}
 
             {/* Default Model Settings */}
             <Box sx={{ mt: 3 }}>

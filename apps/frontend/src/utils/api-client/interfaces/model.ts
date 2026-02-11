@@ -13,7 +13,6 @@ export interface Model {
   model_type?: 'llm' | 'embedding';
   endpoint: string;
   key: string;
-  request_headers?: Record<string, any>;
   is_protected?: boolean;
   tags: string[];
   created_at: string;
@@ -35,7 +34,6 @@ export interface ModelCreate {
   model_type?: 'llm' | 'embedding';
   endpoint?: string;
   key: string;
-  request_headers?: Record<string, any>;
   is_protected?: boolean;
   tags: string[];
   provider_type_id?: UUID;
@@ -52,7 +50,6 @@ export interface ModelUpdate {
   model_type?: 'llm' | 'embedding';
   endpoint?: string;
   key?: string;
-  request_headers?: Record<string, any>;
   is_protected?: boolean;
   tags?: string[];
   provider_type_id?: UUID;

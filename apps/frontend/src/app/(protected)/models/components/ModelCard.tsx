@@ -118,7 +118,6 @@ export function ConnectedModelCard({
         </Box>
 
         <Box>
-          {/* Model header */}
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
             <Box
               sx={{
