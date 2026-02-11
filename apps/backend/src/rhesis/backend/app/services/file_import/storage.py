@@ -34,6 +34,7 @@ class ImportSession:
     mapping_confidence: float = 0.0
 
     # Populated after parse
+    test_type: str = "Single-Turn"
     parsed_rows: List[Dict[str, Any]] = field(default_factory=list)
     row_errors: List[List[Dict[str, str]]] = field(default_factory=list)
     row_warnings: List[List[Dict[str, str]]] = field(default_factory=list)

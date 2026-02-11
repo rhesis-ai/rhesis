@@ -38,13 +38,13 @@ def validate_rows(
         errors, warnings = _validate_single_row(row, i)
         all_errors.append(errors)
         all_warnings.append(warnings)
-        
+
         # Count rows with at least one error/warning, not total error messages
         if len(errors) > 0:
             rows_with_errors += 1
         if len(warnings) > 0:
             rows_with_warnings += 1
-            
+
         for e in errors:
             etype = e.get("type", "unknown")
             error_types[etype] = error_types.get(etype, 0) + 1
@@ -115,23 +115,24 @@ def _validate_single_row(
             }
         )
 
-    # Multi-turn: test_configuration.goal is required
+    # Multi-turn: requires goal via test_configuration (nested) OR goal (flat)
+    # Supports both nested and flat format like the SDK
     if test_type == "Multi-Turn":
         config = row.get("test_configuration")
-        if not config or not isinstance(config, dict):
-            errors.append(
-                {
-                    "type": "missing_required",
-                    "field": "test_configuration",
-                    "message": ("Multi-Turn tests require a test_configuration with a goal"),
-                }
-            )
-        elif not config.get("goal"):
+        goal_flat = row.get("goal")
+        goal_nested = config.get("goal") if isinstance(config, dict) and config else None
+        has_goal = bool(
+            (goal_flat and str(goal_flat).strip()) or (goal_nested and str(goal_nested).strip())
+        )
+        if not has_goal:
             errors.append(
                 {
                     "type": "missing_required",
                     "field": "test_configuration.goal",
-                    "message": ("Multi-Turn tests require test_configuration.goal"),
+                    "message": (
+                        "Multi-Turn tests require a goal "
+                        "(in test_configuration or as a separate column)"
+                    ),
                 }
             )
 

@@ -4,6 +4,7 @@ Coordinates file upload, parsing, mapping, validation, and
 final test set creation through a stateful multi-step flow.
 """
 
+import json
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -122,6 +123,7 @@ class ImportService:
         row_errors, row_warnings, summary = validate_rows(normalized)
 
         # Store results in session
+        session.test_type = test_type
         session.parsed_rows = normalized
         session.row_errors = row_errors
         session.row_warnings = row_warnings
@@ -205,13 +207,23 @@ class ImportService:
             "tests": tests_payload,
         }
 
-        logger.info(f"Confirming import {import_id}: {len(tests_payload)} tests")
+        # Determine test set type from session
+        from rhesis.backend.app.constants import TestType
+
+        test_set_type = (
+            TestType.MULTI_TURN if session.test_type == "Multi-Turn" else TestType.SINGLE_TURN
+        )
+
+        logger.info(
+            f"Confirming import {import_id}: {len(tests_payload)} tests ({session.test_type})"
+        )
 
         test_set = bulk_create_test_set(
             db=db,
             test_set_data=payload,
             organization_id=organization_id,
             user_id=user_id,
+            test_set_type=test_set_type,
         )
 
         # Clean up session
@@ -351,6 +363,14 @@ def _normalize_row(
     if "test_type" not in result:
         result["test_type"] = default_test_type
 
+    # Parse test_configuration if it's a JSON string (e.g. from CSV column)
+    config_raw = result.get("test_configuration")
+    if isinstance(config_raw, str):
+        try:
+            result["test_configuration"] = json.loads(config_raw)
+        except json.JSONDecodeError:
+            pass  # Leave as string; validation will report invalid format
+
     return result
 
 
@@ -411,10 +431,17 @@ def _rows_to_test_data(
             test["test_type"] = row["test_type"]
 
         # Build test_configuration from separate fields or use existing dict
-        if row.get("test_configuration"):
-            # Already a dict, use as-is
-            test["test_configuration"] = row["test_configuration"]
-        else:
+        config_raw = row.get("test_configuration")
+        if config_raw is not None:
+            # Parse JSON string if needed (e.g. from CSV column with JSON text)
+            if isinstance(config_raw, str):
+                try:
+                    config_raw = json.loads(config_raw)
+                except json.JSONDecodeError:
+                    config_raw = None
+            if isinstance(config_raw, dict):
+                test["test_configuration"] = config_raw
+        if "test_configuration" not in test:
             # Build from separate fields: goal, instructions, restrictions, scenario
             test_config = {}
             if row.get("goal"):
