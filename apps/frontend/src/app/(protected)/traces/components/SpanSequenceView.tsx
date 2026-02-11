@@ -257,7 +257,7 @@ export default function SpanSequenceView({
       );
     });
     return positions;
-  }, [participants]);
+  }, [participants, PARTICIPANT_GAP, PARTICIPANT_WIDTH, TIMELINE_WIDTH]);
 
   // Handle span click
   const handleSpanClick = useCallback(

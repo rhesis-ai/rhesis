@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -55,11 +55,6 @@ export default function PlaygroundClient() {
   const [error, setError] = useState<string | null>(null);
   const [initialEndpointApplied, setInitialEndpointApplied] = useState(false);
 
-  // Load endpoints on mount
-  useEffect(() => {
-    loadEndpoints();
-  }, [session]);
-
   // Apply initial endpoint from URL params after endpoints are loaded
   useEffect(() => {
     if (!initialEndpointApplied && endpointOptions.length > 0) {
@@ -77,7 +72,7 @@ export default function PlaygroundClient() {
     }
   }, [endpointOptions, searchParams, initialEndpointApplied]);
 
-  const loadEndpoints = async () => {
+  const loadEndpoints = useCallback(async () => {
     if (!session?.session_token) {
       setIsLoading(false);
       return;
@@ -140,7 +135,12 @@ export default function PlaygroundClient() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session]);
+
+  // Load endpoints on mount
+  useEffect(() => {
+    loadEndpoints();
+  }, [loadEndpoints]);
 
   const handleEndpointChange = (event: any) => {
     const value = event.target.value;

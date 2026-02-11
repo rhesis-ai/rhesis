@@ -59,25 +59,7 @@ export default function TraceDrawer({
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (open && traceId && projectId) {
-      fetchTrace();
-    }
-  }, [open, traceId, projectId]);
-
-  // Add keyboard shortcut for ESC key
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && open) {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
-  const fetchTrace = async () => {
+  const fetchTrace = useCallback(async () => {
     if (!traceId || !projectId) return;
 
     setLoading(true);
@@ -102,7 +84,25 @@ export default function TraceDrawer({
     } finally {
       setLoading(false);
     }
-  };
+  }, [traceId, projectId, sessionToken]);
+
+  useEffect(() => {
+    if (open && traceId && projectId) {
+      fetchTrace();
+    }
+  }, [open, traceId, projectId, fetchTrace]);
+
+  // Add keyboard shortcut for ESC key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && open) {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
 
   const handleSpanSelect = (span: SpanNode) => {
     setSelectedSpan(span);

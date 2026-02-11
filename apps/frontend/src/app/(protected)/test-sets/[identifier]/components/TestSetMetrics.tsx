@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -72,7 +72,7 @@ export default function TestSetMetrics({
 
   const notifications = useNotifications();
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     if (!sessionToken) return;
 
     try {
@@ -88,11 +88,11 @@ export default function TestSetMetrics({
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionToken, testSetId]);
 
   useEffect(() => {
     fetchMetrics();
-  }, [testSetId, sessionToken]);
+  }, [fetchMetrics]);
 
   const handleAddMetric = async (metricId: UUID) => {
     try {

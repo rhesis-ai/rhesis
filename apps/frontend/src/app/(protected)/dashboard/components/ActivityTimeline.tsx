@@ -336,7 +336,7 @@ export default function ActivityTimeline({
       setLoading(false);
       onLoadComplete?.();
     }
-  }, [sessionToken, calculateLimit]);
+  }, [sessionToken, calculateLimit, onLoadComplete]);
 
   useEffect(() => {
     // Set viewport height once on mount

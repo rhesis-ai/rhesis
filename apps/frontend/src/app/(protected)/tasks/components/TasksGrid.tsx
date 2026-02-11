@@ -121,7 +121,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         fetchTasks();
       }
     },
-    [sessionToken, onRefresh, fetchTasks]
+    [sessionToken, onRefresh, fetchTasks, notifications]
   );
 
   // Delete selected tasks

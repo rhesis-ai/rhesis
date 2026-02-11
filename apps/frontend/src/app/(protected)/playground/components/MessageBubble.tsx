@@ -118,7 +118,7 @@ export default function MessageBubble({
             elevation={0}
             onClick={
               hasTrace && onViewTrace && message.traceId
-                ? () => onViewTrace(message.traceId)
+                ? () => onViewTrace(message.traceId as string)
                 : undefined
             }
             sx={{

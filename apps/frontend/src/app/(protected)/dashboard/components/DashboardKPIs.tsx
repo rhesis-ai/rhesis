@@ -282,7 +282,7 @@ export default function DashboardKPIs({
     if (sessionToken) {
       fetchKPIs();
     }
-  }, [sessionToken]);
+  }, [sessionToken, onLoadComplete]);
 
   if (loading) {
     return (

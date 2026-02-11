@@ -76,6 +76,7 @@ export default function ChipGroup({
 
   // Cache the sort order (IDs only) based on initial chip structure
   // This prevents re-sorting when toggling but uses current chip data
+  const chipIdKey = chips.map(c => c.id).join(',');
   const sortedOrder = useMemo(() => {
     const sorted = [...chips].sort((a, b) => {
       // First sort by active status (active first)
@@ -86,7 +87,8 @@ export default function ChipGroup({
       return a.label.localeCompare(b.label);
     });
     return sorted.map(c => c.id);
-  }, [chips.map(c => c.id).join(',')]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chipIdKey]);
 
   // Map the current chips according to the cached order
   const chipsMap = new Map(chips.map(c => [c.id, c]));

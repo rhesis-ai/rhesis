@@ -52,7 +52,7 @@ export function useComments({
     } finally {
       setIsLoading(false);
     }
-  }, [entityType, entityId, sessionToken]);
+  }, [entityType, entityId, sessionToken, notifications]);
 
   const createComment = useCallback(
     async (text: string) => {
@@ -175,7 +175,7 @@ export function useComments({
         throw err;
       }
     },
-    [sessionToken]
+    [sessionToken, notifications]
   );
 
   const reactToComment = useCallback(

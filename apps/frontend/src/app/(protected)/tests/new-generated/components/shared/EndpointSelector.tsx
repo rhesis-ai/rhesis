@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   FormControl,
@@ -43,11 +43,7 @@ export default function EndpointSelector({
   const [error, setError] = useState<string | null>(null);
   const { data: session } = useSession();
 
-  useEffect(() => {
-    loadEndpoints();
-  }, [session]);
-
-  const loadEndpoints = async () => {
+  const loadEndpoints = useCallback(async () => {
     if (!session?.session_token) {
       setIsLoading(false);
       return;
@@ -109,7 +105,11 @@ export default function EndpointSelector({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session]);
+
+  useEffect(() => {
+    loadEndpoints();
+  }, [loadEndpoints]);
 
   const handleChange = (event: any) => {
     const value = event.target.value;

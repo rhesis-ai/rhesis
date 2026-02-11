@@ -45,15 +45,7 @@ export default function SelectBehaviorsDialog({
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Fetch behaviors when dialog opens
-  React.useEffect(() => {
-    if (open) {
-      fetchBehaviors();
-      setSearchQuery('');
-    }
-  }, [open]);
-
-  const fetchBehaviors = async () => {
+  const fetchBehaviors = React.useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -79,7 +71,15 @@ export default function SelectBehaviorsDialog({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [sessionToken, excludeBehaviorIds]);
+
+  // Fetch behaviors when dialog opens
+  React.useEffect(() => {
+    if (open) {
+      fetchBehaviors();
+      setSearchQuery('');
+    }
+  }, [open, fetchBehaviors]);
 
   // Filter behaviors based on search query
   React.useEffect(() => {

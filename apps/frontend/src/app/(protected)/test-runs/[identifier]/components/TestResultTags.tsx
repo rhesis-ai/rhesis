@@ -30,7 +30,7 @@ export default function TestResultTags({
     } else {
       setTagNames([]);
     }
-  }, [testResult.id]);
+  }, [testResult.id, testResult.tags]);
 
   // Handle tag changes and update parent state
   const handleTagChange = async (newTagNames: string[]) => {

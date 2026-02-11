@@ -35,17 +35,20 @@ export default function DragAndDropUpload({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const validateFile = (file: File): string | null => {
-    if (file.size > maxSize) {
-      return `File size exceeds maximum allowed size (${formatFileSize(maxSize)})`;
-    }
-    const acceptedTypes = accept.split(',').map(type => type.trim());
-    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-    if (!acceptedTypes.includes(fileExtension)) {
-      return `File type ${fileExtension} is not supported`;
-    }
-    return null;
-  };
+  const validateFile = useCallback(
+    (file: File): string | null => {
+      if (file.size > maxSize) {
+        return `File size exceeds maximum allowed size (${formatFileSize(maxSize)})`;
+      }
+      const acceptedTypes = accept.split(',').map(type => type.trim());
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+      if (!acceptedTypes.includes(fileExtension)) {
+        return `File type ${fileExtension} is not supported`;
+      }
+      return null;
+    },
+    [maxSize, accept]
+  );
 
   const handleFile = useCallback(
     (file: File) => {
@@ -57,7 +60,7 @@ export default function DragAndDropUpload({
       setError(null);
       onFileSelect(file);
     },
-    [onFileSelect, maxSize, accept]
+    [onFileSelect, validateFile]
   );
 
   const handleDragOver = useCallback(

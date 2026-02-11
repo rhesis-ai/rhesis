@@ -152,7 +152,7 @@ export default function TaskDetailPage({ params }: PageProps) {
         setIsRetrying(false);
       }
     },
-    [taskId, getTask, session?.session_token, show]
+    [taskId, getTask, session?.session_token, show, hasInitialLoad]
   );
 
   // Initial load effect - only depends on essential values

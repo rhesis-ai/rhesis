@@ -194,6 +194,7 @@ export default function TestGenerationInterface({
     });
 
     setLocalTestSamples(mergedSamples);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testSamples]);
 
   // Load endpoint information when selectedEndpointId changes

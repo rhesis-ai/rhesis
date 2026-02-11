@@ -133,7 +133,7 @@ export default function TestRunPerformance({
       setLoading(false);
       onLoadComplete?.();
     }
-  }, [sessionToken, calculateLimit, propLimit]);
+  }, [sessionToken, calculateLimit, propLimit, onLoadComplete]);
 
   useEffect(() => {
     // Set viewport height once on mount

@@ -75,14 +75,7 @@ export default function GarakImportDialog({
     isComplete: boolean;
   } | null>(null);
 
-  // Fetch available modules when dialog opens
-  React.useEffect(() => {
-    if (open && modules.length === 0) {
-      fetchModules();
-    }
-  }, [open]);
-
-  const fetchModules = async () => {
+  const fetchModules = React.useCallback(async () => {
     try {
       setLoadingModules(true);
       setError(undefined);
@@ -98,7 +91,14 @@ export default function GarakImportDialog({
     } finally {
       setLoadingModules(false);
     }
-  };
+  }, [sessionToken]);
+
+  // Fetch available modules when dialog opens
+  React.useEffect(() => {
+    if (open && modules.length === 0) {
+      fetchModules();
+    }
+  }, [open, fetchModules, modules.length]);
 
   // Get all probes from a module
   const getModuleProbes = (module: GarakProbeModule): GarakProbeClass[] => {

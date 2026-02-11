@@ -64,7 +64,7 @@ export function useTasks(options: UseTasksOptions = {}) {
         setIsLoading(false);
       }
     },
-    [entityType, entityId, session?.session_token, status]
+    [entityType, entityId, session?.session_token, status, show]
   );
 
   const createTask = useCallback(
@@ -93,7 +93,7 @@ export function useTasks(options: UseTasksOptions = {}) {
         return null;
       }
     },
-    [session?.session_token]
+    [session?.session_token, show]
   );
 
   const updateTask = useCallback(
@@ -124,7 +124,7 @@ export function useTasks(options: UseTasksOptions = {}) {
         return null;
       }
     },
-    [session?.session_token]
+    [session?.session_token, show]
   );
 
   const deleteTask = useCallback(
@@ -153,7 +153,7 @@ export function useTasks(options: UseTasksOptions = {}) {
         return false;
       }
     },
-    [session?.session_token]
+    [session?.session_token, show]
   );
 
   const getTask = useCallback(
@@ -176,7 +176,7 @@ export function useTasks(options: UseTasksOptions = {}) {
         return null;
       }
     },
-    [session?.session_token]
+    [session?.session_token, show]
   );
 
   const fetchTasksByCommentId = useCallback(

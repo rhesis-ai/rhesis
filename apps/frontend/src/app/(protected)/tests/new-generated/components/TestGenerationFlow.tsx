@@ -321,7 +321,7 @@ export default function TestGenerationFlow({
     };
 
     initializeFromTemplate();
-  }, [sessionToken, show, project]);
+  }, [sessionToken, show, project, selectedProjectId, selectedSources, testType]);
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
@@ -460,7 +460,7 @@ export default function TestGenerationFlow({
         setIsLoadingSamples(false);
       }
     },
-    [sessionToken, project, show]
+    [sessionToken, project, show, testType]
   );
 
   // Generate test samples
@@ -823,12 +823,14 @@ export default function TestGenerationFlow({
     [
       sessionToken,
       description,
-      selectedSourceIds,
+      selectedProjectId,
+      selectedSources,
       project,
       show,
       configChips,
       testSamples,
       chatMessages,
+      testType,
     ]
   );
 

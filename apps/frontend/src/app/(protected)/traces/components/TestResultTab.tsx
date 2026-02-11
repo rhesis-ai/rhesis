@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -45,13 +45,7 @@ export default function TestResultTab({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (trace.test_result?.id) {
-      fetchTestResult();
-    }
-  }, [trace.test_result?.id]);
-
-  const fetchTestResult = async () => {
+  const fetchTestResult = useCallback(async () => {
     if (!trace.test_result?.id) return;
 
     setLoading(true);
@@ -71,7 +65,13 @@ export default function TestResultTab({
     } finally {
       setLoading(false);
     }
-  };
+  }, [trace.test_result?.id, sessionToken]);
+
+  useEffect(() => {
+    if (trace.test_result?.id) {
+      fetchTestResult();
+    }
+  }, [trace.test_result?.id, fetchTestResult]);
 
   if (!trace.test_result) {
     return (
