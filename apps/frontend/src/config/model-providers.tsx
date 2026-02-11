@@ -26,6 +26,7 @@ import Image from 'next/image';
 export const SUPPORTED_PROVIDERS = [
   'openai',
   'gemini',
+  'vertex_ai',
   'ollama',
   'anthropic',
   'groq',
@@ -67,7 +68,7 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   groq: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   huggingface: <SiHuggingface className="h-8 w-8" />,
   lmformatenforcer: <SiHuggingface className="h-8 w-8" />,
-  meta: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  meta_llama: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   mistral: <MistralIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   ollama: <SiOllama className="h-8 w-8" />,
   openai: <SiOpenai className="h-8 w-8" />,
@@ -93,6 +94,7 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   together_ai: (
     <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
   ),
+  vertex_ai: <SiGoogle className="h-8 w-8" />,
   vllm: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
 };
 
