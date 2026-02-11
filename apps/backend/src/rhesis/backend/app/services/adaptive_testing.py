@@ -927,6 +927,7 @@ async def generate_outputs_for_tests(
         - failed: list of {"test_id": str, "error": str}
         - updated: list of {"test_id": str, "output": str}
     """
+    from rhesis.backend.app.database import get_db_with_tenant_variables
     from rhesis.backend.app.dependencies import get_endpoint_service
     from rhesis.backend.tasks.execution.executors.results import (
         process_endpoint_result,
@@ -964,34 +965,44 @@ async def generate_outputs_for_tests(
     updated: List[Dict[str, str]] = []
     failed: List[Dict[str, str]] = []
 
-    # Invoke the endpoint concurrently (up to 10 at a time).
-    semaphore = asyncio.Semaphore(50)
+    # --- Phase A: extract plain data from ORM objects ---
+    work_items = [(str(t.id), (t.prompt.content or "").strip()) for t in eligible]
 
-    async def _invoke_one(db_test: models.Test) -> None:
-        test_id_str = str(db_test.id)
-        prompt_content = (db_test.prompt.content or "").strip()
+    # --- Phase B: concurrent invocations, each with its own DB session ---
+    # Keep semaphore within connection pool limits (pool_size=10, max_overflow=20).
+    semaphore = asyncio.Semaphore(10)
+
+    async def _invoke_one(test_id_str: str, prompt_content: str) -> tuple:
         async with semaphore:
             try:
-                result = await svc.invoke_endpoint(
-                    db=db,
-                    endpoint_id=endpoint_id,
-                    input_data={"input": prompt_content},
-                    organization_id=organization_id,
-                    user_id=user_id,
-                )
+                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
+                    result = await svc.invoke_endpoint(
+                        db=task_db,
+                        endpoint_id=endpoint_id,
+                        input_data={"input": prompt_content},
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    )
                 processed = process_endpoint_result(result)
                 output = (processed.get("output") or "").strip() or "[no output]"
+                return (test_id_str, output, None)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Failed to generate output for test {test_id_str}: {e}")
+                return (test_id_str, None, str(e))
 
+    results = await asyncio.gather(*[_invoke_one(tid, pc) for tid, pc in work_items])
+
+    # --- Phase C: sequential writes on the main request session ---
+    for test_id_str, output, error in results:
+        if error:
+            failed.append({"test_id": test_id_str, "error": error})
+        else:
+            db_test = db.query(models.Test).filter(models.Test.id == test_id_str).first()
+            if db_test:
                 meta = dict(db_test.test_metadata or {})
                 meta["output"] = output
                 db_test.test_metadata = meta
-                db.add(db_test)
                 updated.append({"test_id": test_id_str, "output": output})
-            except Exception as e:  # noqa: BLE001
-                logger.warning(f"Failed to generate output for test {test_id_str}: {e}")
-                failed.append({"test_id": test_id_str, "error": str(e)})
-
-    await asyncio.gather(*[_invoke_one(t) for t in eligible])
 
     db.flush()
 

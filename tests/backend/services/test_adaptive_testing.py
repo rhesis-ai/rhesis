@@ -7,6 +7,7 @@ database. Also tests generate_outputs_for_tests with mocked endpoint responses.
 """
 
 import uuid
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -1643,6 +1644,25 @@ class TestUpdateTopicNode:
 # ============================================================================
 
 
+def _mock_db_context(test_db):
+    """Return a context manager that yields the test DB session.
+
+    Used to patch ``get_db_with_tenant_variables`` so that per-task sessions
+    in ``generate_outputs_for_tests`` reuse the same test session.
+    """
+
+    @contextmanager
+    def _ctx(*_args, **_kwargs):
+        yield test_db
+
+    return _ctx
+
+
+# Patch target for the per-task session factory imported inside the function.
+_DB_CTX_PATCH = "rhesis.backend.app.database.get_db_with_tenant_variables"
+_SVC_PATCH = "rhesis.backend.app.dependencies.get_endpoint_service"
+
+
 @pytest.mark.integration
 @pytest.mark.service
 @pytest.mark.asyncio
@@ -1659,9 +1679,9 @@ class TestGenerateOutputsForTests:
         """Endpoint response output is stored in each test's test_metadata."""
         mock_svc = MagicMock()
         mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "mocked endpoint response"})
-        with patch(
-            "rhesis.backend.app.dependencies.get_endpoint_service",
-            return_value=mock_svc,
+        with (
+            patch(_SVC_PATCH, return_value=mock_svc),
+            patch(_DB_CTX_PATCH, _mock_db_context(test_db)),
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
@@ -1693,9 +1713,9 @@ class TestGenerateOutputsForTests:
     ):
         """Unknown test set identifier raises ValueError."""
         mock_svc = MagicMock()
-        with patch(
-            "rhesis.backend.app.dependencies.get_endpoint_service",
-            return_value=mock_svc,
+        with (
+            patch(_SVC_PATCH, return_value=mock_svc),
+            patch(_DB_CTX_PATCH, _mock_db_context(test_db)),
         ):
             with pytest.raises(ValueError, match="Test set not found"):
                 await generate_outputs_for_tests(
@@ -1725,9 +1745,9 @@ class TestGenerateOutputsForTests:
 
         mock_svc = MagicMock()
         mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "single test output"})
-        with patch(
-            "rhesis.backend.app.dependencies.get_endpoint_service",
-            return_value=mock_svc,
+        with (
+            patch(_SVC_PATCH, return_value=mock_svc),
+            patch(_DB_CTX_PATCH, _mock_db_context(test_db)),
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
@@ -1769,9 +1789,9 @@ class TestGenerateOutputsForTests:
 
         mock_svc = MagicMock()
         mock_svc.invoke_endpoint = AsyncMock(side_effect=mock_invoke)
-        with patch(
-            "rhesis.backend.app.dependencies.get_endpoint_service",
-            return_value=mock_svc,
+        with (
+            patch(_SVC_PATCH, return_value=mock_svc),
+            patch(_DB_CTX_PATCH, _mock_db_context(test_db)),
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
@@ -1796,9 +1816,9 @@ class TestGenerateOutputsForTests:
         """With topic set and include_subtopics=True, generates for topic and all subtopics."""
         mock_svc = MagicMock()
         mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "generated"})
-        with patch(
-            "rhesis.backend.app.dependencies.get_endpoint_service",
-            return_value=mock_svc,
+        with (
+            patch(_SVC_PATCH, return_value=mock_svc),
+            patch(_DB_CTX_PATCH, _mock_db_context(test_db)),
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
@@ -1825,9 +1845,9 @@ class TestGenerateOutputsForTests:
         """include_subtopics=False: only tests directly under the topic are generated."""
         mock_svc = MagicMock()
         mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "generated"})
-        with patch(
-            "rhesis.backend.app.dependencies.get_endpoint_service",
-            return_value=mock_svc,
+        with (
+            patch(_SVC_PATCH, return_value=mock_svc),
+            patch(_DB_CTX_PATCH, _mock_db_context(test_db)),
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
@@ -1854,9 +1874,9 @@ class TestGenerateOutputsForTests:
         """Filtering by leaf topic (Safety/Violence) generates only that topic's tests."""
         mock_svc = MagicMock()
         mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "generated"})
-        with patch(
-            "rhesis.backend.app.dependencies.get_endpoint_service",
-            return_value=mock_svc,
+        with (
+            patch(_SVC_PATCH, return_value=mock_svc),
+            patch(_DB_CTX_PATCH, _mock_db_context(test_db)),
         ):
             result = await generate_outputs_for_tests(
                 db=test_db,
