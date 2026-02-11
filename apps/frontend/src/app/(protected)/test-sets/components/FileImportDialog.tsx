@@ -188,13 +188,20 @@ export default function FileImportDialog({
         .getImportClient()
         .analyzeFile(file, signal);
       if (signal.aborted) return;
-      setAnalyzeResult(result);
+
       setImportId(result.import_id);
-      setMapping(result.suggested_mapping);
       setTestSetName(`Import: ${file.name}`);
 
       if (result.confidence >= 1) {
+        // Auto-advance: parse first, then populate step-0 state so it's
+        // available if the user navigates back.  This avoids a flash of
+        // the mapping UI before the stepper advances.
         await handleParse(result.suggested_mapping, result.import_id);
+        setAnalyzeResult(result);
+        setMapping(result.suggested_mapping);
+      } else {
+        setAnalyzeResult(result);
+        setMapping(result.suggested_mapping);
       }
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
