@@ -478,11 +478,13 @@ def create_prompt(
         prompt_data = prompt_data.model_dump()
 
     demographic = None
-    if "demographic" in prompt_data and "dimension" in prompt_data:
+    dimension_name = prompt_data.pop("dimension", None)
+    demographic_name = prompt_data.pop("demographic", None)
+    if dimension_name and demographic_name:
         dimension = create_entity_with_status(
             db=db,
             model=models.Dimension,
-            name=prompt_data.pop("dimension"),
+            name=dimension_name,
             defaults=defaults,
             entity_type=EntityType.DIMENSION,
             organization_id=organization_id,
@@ -492,7 +494,7 @@ def create_prompt(
         demographic = create_entity_with_status(
             db=db,
             model=models.Demographic,
-            name=prompt_data.pop("demographic"),
+            name=demographic_name,
             defaults=defaults,
             entity_type=EntityType.DEMOGRAPHIC,
             organization_id=organization_id,
