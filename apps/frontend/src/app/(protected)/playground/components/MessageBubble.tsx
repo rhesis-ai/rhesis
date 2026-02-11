@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Paper,
@@ -13,6 +13,8 @@ import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckIcon from '@mui/icons-material/Check';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
@@ -37,8 +39,21 @@ export default function MessageBubble({
   onViewTrace,
   onCreateSingleTurnTest,
 }: MessageBubbleProps) {
+  const [copied, setCopied] = useState(false);
+
   const isUser = message.role === 'user';
   const hasTrace = !isUser && message.traceId && !message.isError;
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], {
@@ -193,6 +208,31 @@ export default function MessageBubble({
                       }}
                     >
                       <ScienceOutlinedIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+
+                {/* Copy button (assistant messages only) */}
+                {!isUser && (
+                  <Tooltip title={copied ? 'Copied!' : 'Copy message'}>
+                    <IconButton
+                      size="small"
+                      onClick={handleCopy}
+                      sx={{
+                        p: 0.5,
+                        color: 'action.active',
+                        opacity: 0.7,
+                        '&:hover': {
+                          opacity: 1,
+                          bgcolor: 'action.hover',
+                        },
+                      }}
+                    >
+                      {copied ? (
+                        <CheckIcon sx={{ fontSize: 16 }} />
+                      ) : (
+                        <ContentCopyIcon sx={{ fontSize: 16 }} />
+                      )}
                     </IconButton>
                   </Tooltip>
                 )}

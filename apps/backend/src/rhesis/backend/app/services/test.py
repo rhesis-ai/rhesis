@@ -1101,8 +1101,6 @@ def _extract_single_turn_test(
         temperature=0.1,
     )
 
-    logger.info(f"Single-turn LLM extraction: {extraction}")
-
     return schemas.ConversationTestExtractionResponse(
         test_type="Single-Turn",
         behavior=extraction["behavior"],
@@ -1156,7 +1154,6 @@ def _extract_multi_turn_test(
         raise ValueError("Synthesizer failed to generate a test from the conversation")
 
     test_dict = generated_tests[0]
-    logger.info(f"Multi-turn synthesizer extraction: {test_dict}")
 
     return schemas.ConversationTestExtractionResponse(
         test_type="Multi-Turn",
@@ -1242,8 +1239,6 @@ def _create_single_turn_test(
         temperature=0.1,
     )
 
-    logger.info(f"Single-turn LLM extraction: {extraction}")
-
     # Build single-turn test data
     test_data = schemas.TestBulkCreate(
         prompt=schemas.TestPromptCreate(
@@ -1312,7 +1307,6 @@ def _create_multi_turn_test(
         raise ValueError("Synthesizer failed to generate a test from the conversation")
 
     test_dict = generated_tests[0]
-    logger.info(f"Synthesizer generated test: {test_dict}")
 
     test_data = schemas.TestBulkCreate(
         behavior=test_dict["behavior"],
