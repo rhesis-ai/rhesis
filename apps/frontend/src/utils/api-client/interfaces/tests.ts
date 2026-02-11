@@ -230,3 +230,30 @@ export interface TestExecuteResponse {
   status: 'Pass' | 'Fail' | 'Error' | 'Pending'; // Status
   test_configuration?: Record<string, any>; // For multi-turn tests
 }
+
+// Conversation-to-test interfaces
+export interface ConversationMessage {
+  role: string;
+  content: string;
+}
+
+export interface ConversationToTestRequest {
+  messages: ConversationMessage[];
+  endpoint_id?: string;
+  test_type?: 'Single-Turn' | 'Multi-Turn';
+}
+
+export interface ConversationToTestResponse {
+  test_id: string;
+  message: string;
+}
+
+export interface ConversationTestExtractionResponse {
+  test_type: 'Single-Turn' | 'Multi-Turn';
+  behavior: string;
+  category: string;
+  topic: string;
+  prompt_content?: string;
+  expected_response?: string;
+  test_configuration?: Record<string, any>;
+}

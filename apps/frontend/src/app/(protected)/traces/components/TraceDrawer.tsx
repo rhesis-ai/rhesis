@@ -489,7 +489,7 @@ export default function TraceDrawer({
     <BaseDrawer
       open={open}
       onClose={onClose}
-      width="80%"
+      width="60%"
       showHeader={false}
       closeButtonText="Close"
     >
