@@ -1,13 +1,11 @@
-import { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Playground',
-};
+import { WebSocketProvider } from '@/contexts/WebSocketContext';
 
 export default function PlaygroundLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return <WebSocketProvider>{children}</WebSocketProvider>;
 }
