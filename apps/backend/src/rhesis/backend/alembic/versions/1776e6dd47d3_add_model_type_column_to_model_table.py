@@ -6,7 +6,7 @@ import rhesis
 
 # revision identifiers, used by Alembic.
 revision: str = "1776e6dd47d3"
-down_revision: Union[str, None] = "d4e5f6a7b8c9"
+down_revision: Union[str, None] = "c0974af513a6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
