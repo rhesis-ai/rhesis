@@ -216,8 +216,7 @@ export default function CreateTestRun({
           // Assign tags to each created test run
           for (const result of results) {
             if ((result as any).test_configuration_id) {
-              const testConfigurationId =
-                (result as any).test_configuration_id;
+              const testConfigurationId = (result as any).test_configuration_id;
 
               const testRun = await pollForTestRun(
                 testRunsClient,
