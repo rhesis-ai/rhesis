@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.constants import DEFAULT_EMBEDDING_MODEL, DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.models.user import User
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.factory import get_embedder, get_model
 
 logger = logging.getLogger(__name__)
@@ -80,21 +80,6 @@ def get_user_embedding_model(db: Session, user: User) -> Union[str, BaseLLM]:
         >>> # Use model for embedding generation
     """
     return _get_user_embedding_model_with_settings(db, user)
-
-
-def get_user_embedding_dimensions(user: User, default: int = 768) -> int:
-    """
-    Get the user's configured embedding dimensions or fall back to default.
-
-    Args:
-        user: Current user
-        default: Default dimension value if not configured
-
-    Returns:
-        Embedding dimension as integer
-    """
-    dimensions = user.settings.models.embedding.dimensions
-    return dimensions if dimensions is not None else default
 
 
 def validate_user_evaluation_model(db: Session, user: User) -> None:
@@ -340,17 +325,16 @@ def _get_user_model(
 
 
 def _fetch_and_configure_embedder(
-    db: Session, model_id: str, organization_id: str, default_model: str, dimensions: int = None
-):
+    db: Session, model_id: str, organization_id: str, default_model: str
+) -> Union[str, BaseEmbedder]:
     """
     Fetch a model from the database and configure it as an embedder.
 
     Args:
         db: Database session
-        model_id: ID of the model to fetch
-        organization_id: Organization ID for security filtering
-        default_model: Default provider to fall back to
-        dimensions: Optional embedding dimensions
+        model_id: UUID of the configured Model
+        organization_id: Organization ID (for security filtering)
+        default_model: Default embedder provider to fall back to
 
     Returns:
         Either a string (provider name) or a configured BaseEmbedder instance,
@@ -371,7 +355,7 @@ def _fetch_and_configure_embedder(
 
     logger.info(
         f"[LLM_UTILS] Found configured embedder: name={model.name}, provider={provider}, "
-        f"model_name={model_name}, api_key={api_key_preview}, dimensions={dimensions}"
+        f"model_name={model_name}, api_key={api_key_preview}"
     )
 
     # Special handling for Rhesis system models
@@ -386,7 +370,7 @@ def _fetch_and_configure_embedder(
     # Use SDK's get_embedder to create configured instance with error handling
     try:
         configured_embedder = get_embedder(
-            provider=provider, model_name=model_name, api_key=api_key, dimensions=dimensions
+            provider=provider, model_name=model_name, api_key=api_key
         )
         logger.info(
             f"[LLM_UTILS] ✓ Returning configured BaseEmbedder instance: "
@@ -421,12 +405,12 @@ def _fetch_and_configure_embedder(
 
 def _get_user_embedding_model_with_settings(db: Session, user: User):
     """
-    Internal helper to get user's configured embedding model with dimensions.
+    Internal helper to get user's configured embedding model.
 
     This function:
-    1. Checks user settings for a configured embedding model ID and dimensions
+    1. Checks user settings for a configured embedding model ID
     2. Fetches the model from database with organization filtering
-    3. Creates a configured BaseEmbedder instance with provider, model name, API key, and dimensions
+    3. Creates a configured BaseEmbedder instance with provider, model name, and API key
     4. Falls back to default if no configuration exists
 
     Args:
@@ -447,9 +431,8 @@ def _get_user_embedding_model_with_settings(db: Session, user: User):
     # Get embedding model settings
     model_settings = user.settings.models.embedding
     model_id = model_settings.model_id
-    dimensions = model_settings.dimensions
 
-    logger.info(f"[LLM_UTILS] User settings: model_id={model_id}, dimensions={dimensions}")
+    logger.info(f"[LLM_UTILS] User settings: model_id={model_id}")
 
     if not model_id:
         logger.info("[LLM_UTILS] No configured embedding model found in user settings")
@@ -463,5 +446,4 @@ def _get_user_embedding_model_with_settings(db: Session, user: User):
         model_id=str(model_id),
         organization_id=str(user.organization_id),
         default_model=DEFAULT_EMBEDDING_MODEL,
-        dimensions=dimensions,
     )

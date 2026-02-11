@@ -186,11 +186,6 @@ class ModelSettingsAccessor:
         return self._data.get("max_tokens")
 
     @property
-    def dimensions(self) -> Optional[int]:
-        """Get embedding dimensions setting."""
-        return self._data.get("dimensions")
-
-    @property
     def all(self) -> dict:
         """Get all settings as dictionary."""
         return self._data

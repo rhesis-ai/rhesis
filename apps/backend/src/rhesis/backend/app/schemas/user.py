@@ -17,9 +17,6 @@ class LLMModelSettings(BaseModel):
     )
     temperature: Optional[float] = Field(None, ge=0.0, le=2.0, description="Temperature override")
     max_tokens: Optional[int] = Field(None, gt=0, description="Max tokens override")
-    dimensions: Optional[int] = Field(
-        None, gt=0, description="Embedding dimensions (for embedding models only)"
-    )
 
 
 class ModelsSettings(BaseModel):
