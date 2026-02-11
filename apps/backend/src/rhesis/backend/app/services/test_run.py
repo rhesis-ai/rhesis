@@ -170,8 +170,6 @@ def rescore_test_run(
     reference_test_run_id: str,
     current_user: models.User,
     metrics: Optional[List[Dict[str, Any]]] = None,
-    organization_id: str = None,
-    user_id: str = None,
 ) -> Dict[str, Any]:
     """Create a new test run that re-scores an existing one.
 
@@ -184,8 +182,6 @@ def rescore_test_run(
         metrics: Optional list of execution-time metrics to use.
             Each dict should have: id, name, and optionally scope.
             If None, re-uses the original test run's metrics.
-        organization_id: Organization ID for tenant context
-        user_id: User ID for tenant context
 
     Returns:
         Dict containing new test_run_id and status
@@ -193,8 +189,8 @@ def rescore_test_run(
     Raises:
         ValueError: If the reference test run is not found
     """
-    org_id = organization_id or str(current_user.organization_id)
-    uid = user_id or str(current_user.id)
+    org_id = str(current_user.organization_id)
+    uid = str(current_user.id)
 
     # 1. Load the reference test run
     ref_run = crud.get_test_run(

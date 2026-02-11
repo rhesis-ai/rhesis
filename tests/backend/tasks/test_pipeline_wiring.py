@@ -11,6 +11,7 @@ Covers:
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -59,6 +60,7 @@ class TestExecuteTestWiring:
     @pytest.mark.asyncio
     async def test_creates_test_result_output_for_rescore(self):
         """When reference_test_run_id is set, TestResultOutput is created."""
+        ref_run_id = str(uuid4())
         mock_test = MagicMock()
         mock_test.id = "test-1"
 
@@ -85,14 +87,14 @@ class TestExecuteTestWiring:
                 test_run_id="run-1",
                 test_id="test-1",
                 endpoint_id="ep-1",
-                reference_test_run_id="ref-run-123",
+                reference_test_run_id=ref_run_id,
             )
 
         call_kwargs = mock_executor.execute.call_args.kwargs
         provider = call_kwargs["output_provider"]
         assert provider is not None
         assert provider.__class__.__name__ == "TestResultOutput"
-        assert provider.reference_test_run_id == "ref-run-123"
+        assert provider.reference_test_run_id == ref_run_id
 
     @pytest.mark.asyncio
     async def test_creates_trace_output_for_trace_id(self):
@@ -135,6 +137,7 @@ class TestExecuteTestWiring:
     @pytest.mark.asyncio
     async def test_rescore_takes_priority_over_trace(self):
         """When both reference_test_run_id and trace_id are set, rescore wins."""
+        ref_run_id = str(uuid4())
         mock_test = MagicMock()
         mock_test.id = "test-1"
 
@@ -161,7 +164,7 @@ class TestExecuteTestWiring:
                 test_run_id="run-1",
                 test_id="test-1",
                 endpoint_id="ep-1",
-                reference_test_run_id="ref-run-1",
+                reference_test_run_id=ref_run_id,
                 trace_id="trace-1",
             )
 

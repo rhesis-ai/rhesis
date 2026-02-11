@@ -432,8 +432,6 @@ async def rescore_test_run_endpoint(
             reference_test_run_id=str(test_run_id),
             current_user=current_user,
             metrics=metrics,
-            organization_id=organization_id,
-            user_id=user_id,
         )
         return result
     except ValueError as e:

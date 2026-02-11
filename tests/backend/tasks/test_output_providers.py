@@ -10,6 +10,7 @@ Covers all 5 output providers:
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -249,9 +250,27 @@ class TestMultiTurnOutput:
 class TestTestResultOutput:
     """Tests for the TestResultOutput provider (re-scoring)."""
 
+    def test_rejects_invalid_uuid_in_constructor(self):
+        """TestResultOutput raises ValueError for non-UUID reference_test_run_id."""
+        with pytest.raises(ValueError):
+            TestResultOutput(reference_test_run_id="not-a-uuid")
+
+    @pytest.mark.asyncio
+    async def test_rejects_invalid_uuid_test_id(self):
+        """TestResultOutput raises ValueError for non-UUID test_id in get_output."""
+        run_id = str(uuid4())
+        provider = TestResultOutput(reference_test_run_id=run_id)
+        with pytest.raises(ValueError):
+            await provider.get_output(
+                db=MagicMock(),
+                test_id="not-a-uuid",
+            )
+
     @pytest.mark.asyncio
     async def test_loads_stored_output(self):
         """TestResultOutput loads output from stored TestResult via CRUD."""
+        run_id = str(uuid4())
+        test_id = str(uuid4())
         mock_result = MagicMock()
         mock_result.test_output = {"output": "stored response"}
 
@@ -259,10 +278,10 @@ class TestTestResultOutput:
             "rhesis.backend.tasks.execution.executors.output_providers.crud.get_test_results",
             return_value=[mock_result],
         ):
-            provider = TestResultOutput(reference_test_run_id="run-abc")
+            provider = TestResultOutput(reference_test_run_id=run_id)
             output = await provider.get_output(
                 db=MagicMock(),
-                test_id="test-123",
+                test_id=test_id,
                 organization_id="org-1",
                 user_id="user-1",
             )
@@ -275,21 +294,25 @@ class TestTestResultOutput:
     @pytest.mark.asyncio
     async def test_raises_when_no_stored_output(self):
         """TestResultOutput raises ValueError when no stored output is found."""
+        run_id = str(uuid4())
+        test_id = str(uuid4())
         with patch(
             "rhesis.backend.tasks.execution.executors.output_providers.crud.get_test_results",
             return_value=[],
         ):
-            provider = TestResultOutput(reference_test_run_id="run-abc")
+            provider = TestResultOutput(reference_test_run_id=run_id)
             with pytest.raises(ValueError, match="No stored output"):
                 await provider.get_output(
                     db=MagicMock(),
-                    test_id="test-123",
+                    test_id=test_id,
                     organization_id="org-1",
                 )
 
     @pytest.mark.asyncio
     async def test_raises_when_output_is_none(self):
         """TestResultOutput raises ValueError when test_output is None."""
+        run_id = str(uuid4())
+        test_id = str(uuid4())
         mock_result = MagicMock()
         mock_result.test_output = None
 
@@ -297,16 +320,18 @@ class TestTestResultOutput:
             "rhesis.backend.tasks.execution.executors.output_providers.crud.get_test_results",
             return_value=[mock_result],
         ):
-            provider = TestResultOutput(reference_test_run_id="run-abc")
+            provider = TestResultOutput(reference_test_run_id=run_id)
             with pytest.raises(ValueError, match="No stored output"):
                 await provider.get_output(
                     db=MagicMock(),
-                    test_id="test-999",
+                    test_id=test_id,
                 )
 
     @pytest.mark.asyncio
     async def test_odata_filter_string(self):
         """TestResultOutput builds the correct OData filter for multi-tenant safe lookup."""
+        run_id = str(uuid4())
+        test_id = str(uuid4())
         mock_result = MagicMock()
         mock_result.test_output = {"output": "ok"}
 
@@ -314,10 +339,10 @@ class TestTestResultOutput:
             "rhesis.backend.tasks.execution.executors.output_providers.crud.get_test_results",
             return_value=[mock_result],
         ) as mock_get:
-            provider = TestResultOutput(reference_test_run_id="run-xyz")
+            provider = TestResultOutput(reference_test_run_id=run_id)
             await provider.get_output(
                 db=MagicMock(),
-                test_id="test-42",
+                test_id=test_id,
                 organization_id="org-1",
                 user_id="user-1",
             )
@@ -327,8 +352,8 @@ class TestTestResultOutput:
         if filter_arg is None:
             # positional args
             filter_arg = call_kwargs[0][2] if len(call_kwargs[0]) > 2 else None
-        assert "run-xyz" in str(filter_arg)
-        assert "test-42" in str(filter_arg)
+        assert run_id in str(filter_arg)
+        assert test_id in str(filter_arg)
 
 
 # ============================================================================
@@ -798,12 +823,13 @@ class TestGetProviderMetadata:
 
     def test_rescore_metadata(self):
         """TestResultOutput returns source='rescore' and reference_test_run_id."""
-        provider = TestResultOutput(reference_test_run_id="run-abc-123")
+        run_id = str(uuid4())
+        provider = TestResultOutput(reference_test_run_id=run_id)
         meta = get_provider_metadata(provider)
 
         assert meta is not None
         assert meta["source"] == "rescore"
-        assert meta["reference_test_run_id"] == "run-abc-123"
+        assert meta["reference_test_run_id"] == run_id
 
     def test_trace_metadata(self):
         """TraceOutput returns source='trace' and trace_id."""

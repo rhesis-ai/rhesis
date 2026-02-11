@@ -68,13 +68,21 @@ class TestSet(BaseEntity):
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _resolve_metric_id(self, metric: Union[Dict[str, Any], str]) -> str:
+    def _resolve_metric_id(
+        self,
+        metric: Union[Dict[str, Any], str],
+        client: Optional[APIClient] = None,
+    ) -> str:
         """Resolve a single metric reference to an ID.
 
         Accepts:
             - A dict with an ``"id"`` key
             - A UUID string (used directly)
             - A metric name string (looked up via ``GET /metrics``)
+
+        Args:
+            metric: Metric reference (dict, UUID string, or name).
+            client: Optional shared APIClient instance.
         """
         if isinstance(metric, dict):
             mid = metric.get("id")
@@ -92,7 +100,8 @@ class TestSet(BaseEntity):
             pass
 
         # Treat as a name – look up via the metrics endpoint
-        client = APIClient()
+        if client is None:
+            client = APIClient()
         results = client.send_request(
             endpoint=Endpoints.METRICS,
             method=Methods.GET,
@@ -109,12 +118,13 @@ class TestSet(BaseEntity):
 
     def _resolve_metrics(self, metrics: List[Union[Dict[str, Any], str]]) -> List[Dict[str, Any]]:
         """Resolve a mixed list of metric dicts / name strings."""
+        client = APIClient()
         resolved: List[Dict[str, Any]] = []
         for m in metrics:
             if isinstance(m, dict):
                 resolved.append(m)
             else:
-                metric_id = self._resolve_metric_id(m)
+                metric_id = self._resolve_metric_id(m, client=client)
                 resolved.append({"id": metric_id, "name": str(m)})
         return resolved
 
@@ -138,6 +148,8 @@ class TestSet(BaseEntity):
         from rhesis.sdk.entities.test_run import TestRuns
 
         resolved = TestRuns.pull(name=run_str)
+        if resolved is None or not getattr(resolved, "id", None):
+            raise ValueError(f"Test run not found: {run_str}")
         return str(resolved.id)
 
     def _build_execution_body(
