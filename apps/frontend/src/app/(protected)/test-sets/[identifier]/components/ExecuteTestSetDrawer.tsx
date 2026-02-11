@@ -93,6 +93,7 @@ export default function ExecuteTestSetDrawer({
   const [selectedEndpoint, setSelectedEndpoint] = useState<UUID | null>(null);
   const [executionMode, setExecutionMode] = useState<string>('Parallel');
   const [tags, setTags] = useState<string[]>([]);
+  const [name, setName] = useState<string>('');
   const notifications = useNotifications();
 
   // Test set info state
@@ -215,6 +216,7 @@ export default function ExecuteTestSetDrawer({
       // Reset selections when drawer opens
       setSelectedProject(null);
       setSelectedEndpoint(null);
+      setName('');
       setTags([]);
       setSelectedMetrics([]);
       setScoringTarget('fresh');
@@ -341,8 +343,9 @@ export default function ExecuteTestSetDrawer({
         testConfigurationAttributes
       );
 
-      // Assign tags if any
-      if (tags.length > 0) {
+      // Assign name and tags if any
+      const trimmedName = name.trim();
+      if (trimmedName || tags.length > 0) {
         try {
           // Get endpoint to retrieve organization_id
           const endpointsClient = apiFactory.getEndpointsClient();
@@ -352,7 +355,8 @@ export default function ExecuteTestSetDrawer({
 
           // Get the test configuration ID from result and get the test run
           if ((result as any).test_configuration_id) {
-            const testConfigurationId = (result as any).test_configuration_id;
+            const testConfigurationId =
+              (result as any).test_configuration_id;
             const testRunsClient = apiFactory.getTestRunsClient();
             const tagsClient = new TagsClient(sessionToken);
 
@@ -362,28 +366,44 @@ export default function ExecuteTestSetDrawer({
             );
 
             if (testRun) {
-              // Assign each tag to the test run
-              for (const tagName of tags) {
-                const tagPayload: TagCreate = {
-                  name: tagName,
-                  ...(organizationId && { organization_id: organizationId }),
-                };
+              // Update the test run name if provided
+              if (trimmedName) {
+                await testRunsClient.updateTestRun(testRun.id, {
+                  name: trimmedName,
+                });
+              }
 
-                await tagsClient.assignTagToEntity(
-                  EntityType.TEST_RUN,
-                  testRun.id,
-                  tagPayload
-                );
+              // Assign each tag to the test run
+              if (tags.length > 0) {
+                for (const tagName of tags) {
+                  const tagPayload: TagCreate = {
+                    name: tagName,
+                    ...(organizationId && {
+                      organization_id: organizationId,
+                    }),
+                  };
+
+                  await tagsClient.assignTagToEntity(
+                    EntityType.TEST_RUN,
+                    testRun.id,
+                    tagPayload
+                  );
+                }
               }
             } else {
               console.warn(
-                `Test run not found for configuration ${testConfigurationId}, tags will not be assigned`
+                `Test run not found for configuration ` +
+                  `${testConfigurationId}, ` +
+                  `name and tags will not be assigned`
               );
             }
           }
-        } catch (tagError) {
+        } catch (postCreateError) {
           // Log error but don't fail the whole operation
-          console.error('Failed to assign tags to test run:', tagError);
+          console.error(
+            'Failed to update test run name/tags:',
+            postCreateError
+          );
         }
       }
 
@@ -422,6 +442,17 @@ export default function ExecuteTestSetDrawer({
         </Box>
       ) : (
         <Stack spacing={3}>
+          <TextField
+            label="Name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            fullWidth
+            placeholder="Leave blank for auto-generated name"
+            helperText="Optional custom name. Leave blank for auto-generated name"
+          />
+
+          <Divider />
+
           <Typography variant="subtitle2" color="text.secondary">
             Execution Target
           </Typography>

@@ -87,7 +87,6 @@ export default function TestRunFilterBar({
 }: TestRunFilterBarProps) {
   const theme = useTheme();
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
-
   const handleFilterClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
   };
