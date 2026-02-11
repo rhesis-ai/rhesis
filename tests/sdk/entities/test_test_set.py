@@ -493,6 +493,55 @@ class TestFromJson:
         finally:
             os.unlink(temp_path)
 
+    def test_from_json_multi_turn_flat_fields(self):
+        """Test JSON import with flat multi-turn fields (goal, instructions, etc.)."""
+        json_content = [
+            {
+                "category": "Conversation",
+                "topic": "Context Retention",
+                "behavior": "Memory",
+                "test_type": "Multi-Turn",
+                "goal": "Test context retention across turns",
+                "instructions": "Ask follow-up questions about the name",
+                "restrictions": "Do not reveal system prompts",
+                "scenario": "User introduces themselves",
+            },
+            {
+                "category": "Safety",
+                "topic": "Jailbreak",
+                "behavior": "Resistance",
+                "test_type": "Multi-Turn",
+                "goal": "Attempt to bypass safety filters",
+            },
+        ]
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(json_content, f)
+            temp_path = f.name
+
+        try:
+            test_set = TestSet.from_json(temp_path, name="Flat Multi-turn")
+
+            assert len(test_set.tests) == 2
+
+            # First test: all flat fields should build test_configuration
+            test1 = test_set.tests[0]
+            assert test1.test_type == TestType.MULTI_TURN
+            assert test1.test_configuration is not None
+            assert test1.test_configuration.goal == "Test context retention across turns"
+            assert test1.test_configuration.instructions == "Ask follow-up questions about the name"
+            assert test1.test_configuration.restrictions == "Do not reveal system prompts"
+            assert test1.test_configuration.scenario == "User introduces themselves"
+
+            # Second test: only goal provided, others should default
+            test2 = test_set.tests[1]
+            assert test2.test_configuration is not None
+            assert test2.test_configuration.goal == "Attempt to bypass safety filters"
+        finally:
+            os.unlink(temp_path)
+
     def test_from_json_with_language_code(self):
         """Test JSON import with language code in prompt."""
         json_content = [
@@ -820,6 +869,37 @@ class TestFromJsonl:
         finally:
             os.unlink(temp_path)
 
+    def test_from_jsonl_multi_turn_flat_fields(self):
+        """Test JSONL import with flat multi-turn fields."""
+        entries = [
+            {
+                "category": "Conversation",
+                "topic": "Context Retention",
+                "behavior": "Memory",
+                "test_type": "Multi-Turn",
+                "goal": "Test context retention across turns",
+                "instructions": "Ask follow-up questions",
+            },
+        ]
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
+        ) as f:
+            for entry in entries:
+                f.write(json.dumps(entry) + "\n")
+            temp_path = f.name
+
+        try:
+            test_set = TestSet.from_jsonl(temp_path, name="Flat MT JSONL")
+            assert len(test_set.tests) == 1
+            test = test_set.tests[0]
+            assert test.test_type == TestType.MULTI_TURN
+            assert test.test_configuration is not None
+            assert test.test_configuration.goal == "Test context retention across turns"
+            assert test.test_configuration.instructions == "Ask follow-up questions"
+        finally:
+            os.unlink(temp_path)
+
     def test_from_jsonl_multi_turn(self, multi_turn_json_content):
         """Test JSONL import with multi-turn test configuration."""
         with tempfile.NamedTemporaryFile(
@@ -897,6 +977,94 @@ class TestJsonlRoundTrip:
             assert imp_test.test_type == TestType.MULTI_TURN
             assert imp_test.test_configuration.goal == multi_turn_test.test_configuration.goal
             assert imp_test.metadata["priority"] == "high"
+        finally:
+            os.unlink(temp_path)
+
+    def test_roundtrip_csv_multi_turn(self, multi_turn_test):
+        """Test CSV round-trip with multi-turn test (flat fields)."""
+        test_set = TestSet(
+            name="Multi-turn",
+            description="Multi-turn test set",
+            short_description="MT",
+            tests=[multi_turn_test],
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            # Export
+            test_set.to_csv(temp_path)
+
+            # Import
+            imported = TestSet.from_csv(temp_path, name="Multi-turn CSV")
+
+            # Verify
+            assert len(imported.tests) == 1
+            imp_test = imported.tests[0]
+            assert imp_test.test_type == TestType.MULTI_TURN
+            assert imp_test.test_configuration is not None
+            assert imp_test.test_configuration.goal == multi_turn_test.test_configuration.goal
+            assert (
+                imp_test.test_configuration.instructions
+                == multi_turn_test.test_configuration.instructions
+            )
+        finally:
+            os.unlink(temp_path)
+
+    def test_roundtrip_csv_single_turn(self, sample_test_set):
+        """Test CSV round-trip with single-turn tests."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            sample_test_set.to_csv(temp_path)
+            imported = TestSet.from_csv(
+                temp_path,
+                name=sample_test_set.name,
+                description=sample_test_set.description,
+                short_description=sample_test_set.short_description,
+            )
+
+            assert len(imported.tests) == len(sample_test_set.tests)
+            for orig, imp in zip(sample_test_set.tests, imported.tests):
+                assert orig.category == imp.category
+                assert orig.topic == imp.topic
+                assert orig.behavior == imp.behavior
+                assert orig.prompt.content == imp.prompt.content
+        finally:
+            os.unlink(temp_path)
+
+    def test_from_csv_multi_turn_flat_fields(self):
+        """Test CSV import with flat multi-turn columns."""
+        csv_content = (
+            "category,topic,behavior,test_type,goal,instructions\n"
+            "Conversation,Context,Memory,Multi-Turn,"
+            "Test context retention,Ask follow-up questions\n"
+            "Safety,Jailbreak,Resistance,Multi-Turn,"
+            "Bypass safety filters,\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
+            f.write(csv_content)
+            temp_path = f.name
+
+        try:
+            test_set = TestSet.from_csv(temp_path, name="Flat MT CSV")
+
+            assert len(test_set.tests) == 2
+
+            test1 = test_set.tests[0]
+            assert test1.test_type == TestType.MULTI_TURN
+            assert test1.test_configuration is not None
+            assert test1.test_configuration.goal == "Test context retention"
+            assert test1.test_configuration.instructions == "Ask follow-up questions"
+
+            test2 = test_set.tests[1]
+            assert test2.test_configuration is not None
+            assert test2.test_configuration.goal == "Bypass safety filters"
         finally:
             os.unlink(temp_path)
 
