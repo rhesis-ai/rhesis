@@ -38,11 +38,11 @@ type-check:
 
 # Unit tests (no docker required)
 test:
-	uv run pytest ../../tests/backend --ignore=../../tests/backend/integration
+	uv run --extra cpu pytest ../../tests/backend --ignore=../../tests/backend/integration
 
 # Re-run only failed unit tests
 test-lf:
-	uv run pytest ../../tests/backend --lf
+	uv run --extra cpu pytest ../../tests/backend --lf
 
 # Docker management for integration tests
 docker-up:
