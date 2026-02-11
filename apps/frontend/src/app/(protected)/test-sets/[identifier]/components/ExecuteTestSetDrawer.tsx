@@ -355,8 +355,7 @@ export default function ExecuteTestSetDrawer({
 
           // Get the test configuration ID from result and get the test run
           if ((result as any).test_configuration_id) {
-            const testConfigurationId =
-              (result as any).test_configuration_id;
+            const testConfigurationId = (result as any).test_configuration_id;
             const testRunsClient = apiFactory.getTestRunsClient();
             const tagsClient = new TagsClient(sessionToken);
 
