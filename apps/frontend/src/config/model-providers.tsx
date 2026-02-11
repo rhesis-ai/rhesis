@@ -68,7 +68,9 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   groq: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   huggingface: <SiHuggingface className="h-8 w-8" />,
   lmformatenforcer: <SiHuggingface className="h-8 w-8" />,
-  meta_llama: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  meta_llama: (
+    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
+  ),
   mistral: <MistralIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   ollama: <SiOllama className="h-8 w-8" />,
   openai: <SiOpenai className="h-8 w-8" />,
