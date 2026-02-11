@@ -38,19 +38,11 @@ type-check:
 
 # Unit tests (no docker required)
 test:
-	uv run pytest -s ../../tests/backend --ignore=../../tests/backend/integration
+	uv run pytest ../../tests/backend --ignore=../../tests/backend/integration
 
 # Re-run only failed unit tests
 test-lf:
-	uv run pytest -s ../../tests/backend --lf
-
-# Integration tests (requires docker-compose)
-test-integration:
-	uv run pytest -s  ../../tests/backend
-
-# Re-run only failed integration tests
-test-integration-lf:
-	uv run pytest -s ../../tests/backend --lf
+	uv run pytest ../../tests/backend --lf
 
 # Docker management for integration tests
 docker-up:
@@ -62,5 +54,3 @@ docker-down:
 docker-clean:
 	docker compose -f ../../tests/backend/integration/docker-compose.yml down -v
 
-docs:
-	cd ../../docs/backend && make clean && make html
