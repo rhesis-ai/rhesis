@@ -112,14 +112,36 @@ export default function FileImportDialog({
   const [error, setError] = React.useState<string>();
   const [importId, setImportId] = React.useState<string>('');
 
+  // AbortController ref — aborts in-flight requests on unmount/close/new file
+  const abortRef = React.useRef<AbortController | null>(null);
+
   const clientFactory = React.useMemo(
     () => new ApiClientFactory(sessionToken),
     [sessionToken]
   );
 
+  // Abort any pending request and create a fresh controller
+  const freshSignal = React.useCallback(() => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    return controller.signal;
+  }, []);
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
   // ── Clean up on close ──────────────────────────────────────────
 
   const handleClose = async () => {
+    // Abort any in-flight requests first
+    abortRef.current?.abort();
+    abortRef.current = null;
+
     if (importId && !importResult) {
       try {
         await clientFactory.getImportClient().cancelImport(importId);
@@ -159,9 +181,13 @@ export default function FileImportDialog({
     setAnalyzeResult(null);
     setMapping({});
 
+    const signal = freshSignal();
     try {
       setAnalyzing(true);
-      const result = await clientFactory.getImportClient().analyzeFile(file);
+      const result = await clientFactory
+        .getImportClient()
+        .analyzeFile(file, signal);
+      if (signal.aborted) return;
       setAnalyzeResult(result);
       setImportId(result.import_id);
       setMapping(result.suggested_mapping);
@@ -171,6 +197,7 @@ export default function FileImportDialog({
         await handleParse(result.suggested_mapping, result.import_id);
       }
     } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       setError(getImportErrorMessage(err, 'Failed to analyze file'));
     } finally {
       setAnalyzing(false);
@@ -178,6 +205,7 @@ export default function FileImportDialog({
   };
 
   const handleFileRemove = () => {
+    abortRef.current?.abort();
     setSelectedFile(null);
     setAnalyzeResult(null);
     setMapping({});
@@ -198,18 +226,21 @@ export default function FileImportDialog({
 
   const handleRemapWithLlm = async () => {
     if (!importId) return;
+    const signal = freshSignal();
     try {
       setAnalyzing(true);
       setError(undefined);
       const result = await clientFactory
         .getImportClient()
         .remapWithLlm(importId);
+      if (signal.aborted) return;
       if (!result.llm_available) {
         setError(result.message || 'No LLM available for AI-assisted mapping');
       } else {
         setMapping(result.mapping);
       }
     } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       setError(getImportErrorMessage(err, 'Failed to remap with AI'));
     } finally {
       setAnalyzing(false);
@@ -225,17 +256,20 @@ export default function FileImportDialog({
     const mappingToUse = overrideMapping ?? mapping;
     const importIdToUse = overrideImportId ?? importId;
     if (!importIdToUse) return;
+    const signal = freshSignal();
     try {
       setParsing(true);
       setError(undefined);
       const result = await clientFactory
         .getImportClient()
-        .parseWithMapping(importIdToUse, mappingToUse, testType);
+        .parseWithMapping(importIdToUse, mappingToUse, testType, signal);
+      if (signal.aborted) return;
       setParseResult(result);
       setPreviewPage(result.preview);
       setCurrentPage(1);
       setActiveStep(1);
     } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       setError(getImportErrorMessage(err, 'Failed to parse file'));
     } finally {
       setParsing(false);
@@ -247,14 +281,17 @@ export default function FileImportDialog({
     page: number
   ) => {
     if (!importId) return;
+    const signal = freshSignal();
     try {
       setLoadingPage(true);
       const result = await clientFactory
         .getImportClient()
-        .getPreviewPage(importId, page);
+        .getPreviewPage(importId, page, 50, signal);
+      if (signal.aborted) return;
       setPreviewPage(result);
       setCurrentPage(page);
     } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       setError(getImportErrorMessage(err, 'Failed to load page'));
     } finally {
       setLoadingPage(false);
@@ -265,18 +302,23 @@ export default function FileImportDialog({
 
   const handleConfirm = async () => {
     if (!importId) return;
+    const signal = freshSignal();
     try {
       setImporting(true);
       setError(undefined);
-      const result = await clientFactory
-        .getImportClient()
-        .confirmImport(importId, {
+      const result = await clientFactory.getImportClient().confirmImport(
+        importId,
+        {
           name: testSetName || undefined,
           description: testSetDescription || undefined,
-        });
+        },
+        signal
+      );
+      if (signal.aborted) return;
       setImportResult(result);
       onSuccess?.(result.id);
     } catch (err: any) {
+      if (err?.name === 'AbortError') return;
       setError(getImportErrorMessage(err, 'Failed to create test set'));
     } finally {
       setImporting(false);
@@ -285,23 +327,26 @@ export default function FileImportDialog({
 
   // ── Target field options for mapping dropdowns ─────────────────
 
-  const TARGET_FIELDS = [
-    { value: '', label: '(skip)' },
-    { value: 'category', label: 'Category' },
-    { value: 'topic', label: 'Topic' },
-    { value: 'behavior', label: 'Behavior' },
-    { value: 'prompt_content', label: 'Prompt Content' },
-    { value: 'expected_response', label: 'Expected Response' },
-    { value: 'language_code', label: 'Language Code' },
-    ...(testType === 'Multi-Turn'
-      ? [{ value: 'test_configuration', label: 'Test Configuration' }]
-      : []),
-    { value: 'metadata', label: 'Metadata' },
-  ];
+  const TARGET_FIELDS = React.useMemo(
+    () => [
+      { value: '', label: '(skip)' },
+      { value: 'category', label: 'Category' },
+      { value: 'topic', label: 'Topic' },
+      { value: 'behavior', label: 'Behavior' },
+      { value: 'prompt_content', label: 'Prompt Content' },
+      { value: 'expected_response', label: 'Expected Response' },
+      { value: 'language_code', label: 'Language Code' },
+      ...(testType === 'Multi-Turn'
+        ? [{ value: 'test_configuration', label: 'Test Configuration' }]
+        : []),
+      { value: 'metadata', label: 'Metadata' },
+    ],
+    [testType]
+  );
 
-  // ── Preview DataGrid columns ───────────────────────────────────
+  // ── Preview DataGrid columns (memoized) ────────────────────────
 
-  const getPreviewColumns = (): GridColDef[] => {
+  const previewColumns = React.useMemo((): GridColDef[] => {
     const indexColWidth = Number(theme.spacing(7.5).replace('px', ''));
     const statusColWidth = Number(theme.spacing(10).replace('px', ''));
     const dataColMinWidth = Number(theme.spacing(15).replace('px', ''));
@@ -378,16 +423,16 @@ export default function FileImportDialog({
     }
 
     return cols;
-  };
+  }, [previewPage, theme]);
 
-  const getPreviewRows = () => {
+  const previewRows = React.useMemo(() => {
     if (!previewPage) return [];
     return previewPage.rows.map(row => ({
       ...row,
       id: row.index,
       index: row.index + 1, // Display row numbers starting from 1
     }));
-  };
+  }, [previewPage]);
 
   // ── Render ─────────────────────────────────────────────────────
 
@@ -650,8 +695,8 @@ export default function FileImportDialog({
           <Box sx={{ height: theme.spacing(50), width: '100%' }}>
             {loadingPage && <LinearProgress />}
             <DataGrid
-              rows={getPreviewRows()}
-              columns={getPreviewColumns()}
+              rows={previewRows}
+              columns={previewColumns}
               hideFooter
               disableColumnMenu
               density="compact"
@@ -777,6 +822,12 @@ export default function FileImportDialog({
   };
 
   const handleBack = () => {
+    if (activeStep === 1) {
+      // Going back to upload: clear parse results to avoid stale data
+      setParseResult(null);
+      setPreviewPage(null);
+      setCurrentPage(1);
+    }
     if (activeStep > 0) {
       setActiveStep(activeStep - 1);
     }
@@ -799,7 +850,11 @@ export default function FileImportDialog({
           alignItems="center"
         >
           <Typography variant="h6">Import Test Set from File</Typography>
-          <IconButton onClick={handleClose} size="small">
+          <IconButton
+            onClick={handleClose}
+            size="small"
+            aria-label="Close import dialog"
+          >
             <CloseIcon />
           </IconButton>
         </Stack>

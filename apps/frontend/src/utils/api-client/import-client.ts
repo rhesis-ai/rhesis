@@ -29,7 +29,10 @@ export class ImportClient extends BaseApiClient {
    *
    * Uses multipart/form-data (browser sets Content-Type automatically).
    */
-  async analyzeFile(file: File): Promise<AnalyzeResponse> {
+  async analyzeFile(
+    file: File,
+    signal?: AbortSignal
+  ): Promise<AnalyzeResponse> {
     const url = new URL(`${this.baseUrl}${IMPORT_PREFIX}/analyze`);
 
     const formData = new FormData();
@@ -46,6 +49,7 @@ export class ImportClient extends BaseApiClient {
       body: formData,
       headers,
       credentials: 'include',
+      signal,
     });
 
     if (!response.ok) {
@@ -70,12 +74,14 @@ export class ImportClient extends BaseApiClient {
   async parseWithMapping(
     importId: string,
     mapping: Record<string, string>,
-    testType: 'Single-Turn' | 'Multi-Turn' = 'Single-Turn'
+    testType: 'Single-Turn' | 'Multi-Turn' = 'Single-Turn',
+    signal?: AbortSignal
   ): Promise<ParseResponse> {
     const body: ParseRequest = { mapping, test_type: testType };
     return this.fetch<ParseResponse>(`${IMPORT_PREFIX}/${importId}/parse`, {
       method: 'POST',
       body: JSON.stringify(body),
+      signal,
     });
   }
 
@@ -85,10 +91,12 @@ export class ImportClient extends BaseApiClient {
   async getPreviewPage(
     importId: string,
     page: number = 1,
-    pageSize: number = 50
+    pageSize: number = 50,
+    signal?: AbortSignal
   ): Promise<PreviewPage> {
     return this.fetch<PreviewPage>(
-      `${IMPORT_PREFIX}/${importId}/preview?page=${page}&page_size=${pageSize}`
+      `${IMPORT_PREFIX}/${importId}/preview?page=${page}&page_size=${pageSize}`,
+      { signal }
     );
   }
 
@@ -97,11 +105,13 @@ export class ImportClient extends BaseApiClient {
    */
   async confirmImport(
     importId: string,
-    options: ConfirmRequest = {}
+    options: ConfirmRequest = {},
+    signal?: AbortSignal
   ): Promise<ConfirmResponse> {
     return this.fetch<ConfirmResponse>(`${IMPORT_PREFIX}/${importId}/confirm`, {
       method: 'POST',
       body: JSON.stringify(options),
+      signal,
     });
   }
 
