@@ -1,7 +1,7 @@
 # Frontend Makefile
 # Mimics the validation script behavior with focus on errors only
 
-.PHONY: help lint lint-fast clean format format-check type-check eslint test build install
+.PHONY: help lint lint-fast clean format format-check type-check eslint test test-coverage build install
 
 # Default target
 help:
@@ -14,6 +14,7 @@ help:
 	@echo "  type-check   - Run TypeScript type checking"
 	@echo "  eslint       - Run ESLint (errors only)"
 	@echo "  test         - Run tests"
+	@echo "  test-coverage - Run tests with coverage (matches CI)"
 	@echo "  build        - Build the application"
 	@echo "  install      - Install dependencies"
 
@@ -71,6 +72,10 @@ eslint:
 # Run tests
 test:
 	npm test -- --passWithNoTests --ci --watchAll=false
+
+# Run tests with coverage (matches CI)
+test-coverage:
+	npm run test:ci
 
 # Build the application
 build:
