@@ -14,7 +14,7 @@ from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import handle_http_errors
 from rhesis.sdk.entities.prompt import Prompt
 from rhesis.sdk.entities.test import Test
-from rhesis.sdk.enums import TestType
+from rhesis.sdk.enums import ExecutionMode, TestType
 from rhesis.sdk.models.base import BaseLLM
 
 logger = logging.getLogger(__name__)
@@ -143,14 +143,15 @@ class TestSet(BaseEntity):
     def _build_execution_body(
         self,
         *,
-        mode: str = "parallel",
+        mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
         metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
         reference_test_run_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Build the request body for the execute endpoint."""
+        resolved_mode = ExecutionMode.from_string(mode)
         body: Dict[str, Any] = {
             "execution_options": {
-                "execution_mode": mode.capitalize(),
+                "execution_mode": resolved_mode.value,
             },
         }
         if metrics:
@@ -168,15 +169,15 @@ class TestSet(BaseEntity):
         self,
         endpoint: Endpoint,
         *,
-        mode: str = "parallel",
+        mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
         metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Execute the test set against the given endpoint.
 
         Args:
             endpoint: The endpoint to execute tests against.
-            mode: Execution mode – ``"parallel"`` (default) or
-                ``"sequential"``.
+            mode: Execution mode – ``ExecutionMode.PARALLEL`` (default),
+                ``ExecutionMode.SEQUENTIAL``, or ``"parallel"`` / ``"sequential"``.
             metrics: Optional list of metrics for this execution.
                 Overrides test set and behavior metrics.  Each item
                 can be a dict with ``"id"``, ``"name"``, and optional
@@ -194,6 +195,7 @@ class TestSet(BaseEntity):
             >>> test_set = TestSets.pull(name="Safety Tests")
             >>> endpoint = Endpoints.pull(name="GPT-4o")
             >>> result = test_set.execute(endpoint)
+            >>> result = test_set.execute(endpoint, mode=ExecutionMode.SEQUENTIAL)
             >>> result = test_set.execute(endpoint, mode="sequential")
         """
         if not self.id:
@@ -214,7 +216,7 @@ class TestSet(BaseEntity):
         endpoint: Endpoint,
         run: Optional[Union[str, Any]] = None,
         *,
-        mode: str = "parallel",
+        mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
         metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
     ) -> Optional[Dict[str, Any]]:
         """Re-score outputs from an existing test run.
@@ -233,8 +235,8 @@ class TestSet(BaseEntity):
                   ``TestRuns`` collection)
                 - ``None`` (default) – uses the latest completed run
 
-            mode: Execution mode – ``"parallel"`` (default) or
-                ``"sequential"``.
+            mode: Execution mode – ``ExecutionMode.PARALLEL`` (default),
+                ``ExecutionMode.SEQUENTIAL``, or ``"parallel"`` / ``"sequential"``.
             metrics: Optional list of metrics for re-scoring.
 
         Returns:

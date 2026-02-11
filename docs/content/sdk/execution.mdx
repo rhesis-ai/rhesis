@@ -26,19 +26,25 @@ print(f"Execution submitted: {result}")`}
 
 ### Execution Mode
 
-Control whether tests are sent to the endpoint in parallel or one at a time.
+Control whether tests are sent to the endpoint in parallel or one at a time. Use the
+`ExecutionMode` enum or strings `"parallel"` / `"sequential"`.
 
 <CodeBlock filename="execute_mode.py" language="python">
-{`# Parallel (default) — fast, best for stateless endpoints
+{`from rhesis.sdk import ExecutionMode
+
+# Parallel (default) — fast, best for stateless endpoints
 result = test_set.execute(endpoint)
 
 # Sequential — one test at a time, useful for rate-limited APIs
-result = test_set.execute(endpoint, mode="sequential")`}
+result = test_set.execute(endpoint, mode=ExecutionMode.SEQUENTIAL)
+result = test_set.execute(endpoint, mode="sequential")  # string also valid`}
 </CodeBlock>
 
-- **parallel** (default): Tests are dispatched concurrently for maximum throughput.
-- **sequential**: Tests run one after another. Use this for endpoints with strict rate limits or
-  when order matters.
+- **ExecutionMode.PARALLEL** (default): Tests are dispatched concurrently for maximum throughput.
+- **ExecutionMode.SEQUENTIAL**: Tests run one after another. Use this for endpoints with strict
+  rate limits or when order matters.
+
+Invalid mode values raise `ValueError`.
 
 ### Custom Metrics
 
@@ -47,7 +53,9 @@ Each item can be a dict (with at least an `"id"` key) or a metric name string (r
 automatically via the `/metrics` API).
 
 <CodeBlock filename="execute_metrics.py" language="python">
-{`# Override metrics for this run only
+{`from rhesis.sdk import ExecutionMode
+
+# Override metrics for this run only
 result = test_set.execute(endpoint, metrics=[
     {"id": "abc-123", "name": "Accuracy"},
     "Toxicity",  # resolved by name
@@ -56,7 +64,7 @@ result = test_set.execute(endpoint, metrics=[
 # Combine with sequential mode
 result = test_set.execute(
     endpoint,
-    mode="sequential",
+    mode=ExecutionMode.SEQUENTIAL,
     metrics=["Accuracy", "Toxicity"],
 )`}
 </CodeBlock>

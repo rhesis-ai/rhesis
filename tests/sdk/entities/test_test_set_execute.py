@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rhesis.sdk.enums import ExecutionMode
 from rhesis.sdk.entities.endpoint import Endpoint
 from rhesis.sdk.entities.test_set import TestSet
 
@@ -87,6 +88,24 @@ class TestExecute:
         _, kwargs = mock_request.call_args
         body = kwargs["json"]
         assert body["execution_options"]["execution_mode"] == "Sequential"
+
+    @patch("requests.request")
+    def test_execute_with_enum_mode(self, mock_request, test_set, endpoint):
+        """ExecutionMode enum is accepted and sent correctly."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "submitted"}
+        mock_request.return_value = mock_response
+
+        test_set.execute(endpoint, mode=ExecutionMode.SEQUENTIAL)
+
+        _, kwargs = mock_request.call_args
+        body = kwargs["json"]
+        assert body["execution_options"]["execution_mode"] == "Sequential"
+
+    def test_execute_invalid_mode_raises(self, test_set, endpoint):
+        """Invalid execution mode raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid execution mode"):
+            test_set.execute(endpoint, mode="invalid")
 
     @patch("requests.request")
     def test_execute_with_metric_dicts(self, mock_request, test_set, endpoint):
