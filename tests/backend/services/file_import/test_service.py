@@ -123,6 +123,21 @@ class TestNormalizeRow:
         result = _normalize_row(row, default_test_type="Multi-Turn")
         assert result["test_type"] == "Single-Turn"
 
+    def test_parses_test_configuration_json_string(self):
+        """test_configuration as JSON string (e.g. from CSV) is parsed to dict."""
+        row = {
+            "category": "Safety",
+            "topic": "Content",
+            "behavior": "Refusal",
+            "test_type": "Multi-Turn",
+            "test_configuration": '{"goal": "Test goal", "instructions": "Do X"}',
+        }
+        result = _normalize_row(row)
+        assert result["test_configuration"] == {
+            "goal": "Test goal",
+            "instructions": "Do X",
+        }
+
 
 # ── _rows_to_test_data ──────────────────────────────────────────
 
@@ -184,6 +199,24 @@ class TestRowsToTestData:
         assert result[0]["category"] == "Uncategorized"
         assert result[0]["topic"] == "General"
         assert result[0]["behavior"] == "Default"
+
+    def test_test_configuration_json_string_parsed(self):
+        """test_configuration as JSON string (from CSV) is parsed to dict."""
+        rows = [
+            {
+                "category": "Safety",
+                "topic": "Content",
+                "behavior": "Refusal",
+                "test_type": "Multi-Turn",
+                "test_configuration": '{"goal": "Probe the model", "instructions": "Ask"}',
+            }
+        ]
+        result = _rows_to_test_data(rows)
+        assert len(result) == 1
+        assert result[0]["test_configuration"] == {
+            "goal": "Probe the model",
+            "instructions": "Ask",
+        }
 
 
 # ── ImportService.analyze ────────────────────────────────────────

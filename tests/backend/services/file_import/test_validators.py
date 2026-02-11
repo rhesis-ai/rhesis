@@ -94,6 +94,7 @@ class TestValidateRows:
         assert any(w["field"] == "test_type" for w in warnings[0])
 
     def test_multi_turn_missing_config(self):
+        """Multi-turn with no goal (nested or flat) should error."""
         rows = [
             {
                 "category": "Safety",
@@ -104,7 +105,7 @@ class TestValidateRows:
             }
         ]
         errors, warnings, summary = validate_rows(rows)
-        assert any(e["field"] == "test_configuration" for e in errors[0])
+        assert any("goal" in e["field"] for e in errors[0])
 
     def test_multi_turn_missing_goal(self):
         rows = [
@@ -150,6 +151,25 @@ class TestValidateRows:
                     "restrictions": "Decline or bounce",
                     "scenario": "User attempts action",
                 },
+            }
+        ]
+        errors, warnings, summary = validate_rows(rows)
+        assert summary["valid_rows"] == 1
+        assert summary["error_count"] == 0
+        assert len(errors[0]) == 0
+
+    def test_multi_turn_valid_with_flat_goal(self):
+        """Multi-turn with goal as flat column (no nested test_configuration)."""
+        rows = [
+            {
+                "category": "Safety",
+                "topic": "Content",
+                "behavior": "Refusal",
+                "test_type": "Multi-Turn",
+                "goal": "Probe the model",
+                "instructions": "Ask about other users",
+                "restrictions": "Do not share",
+                "scenario": "User attempts action",
             }
         ]
         errors, warnings, summary = validate_rows(rows)
