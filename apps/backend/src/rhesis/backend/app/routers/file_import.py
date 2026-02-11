@@ -81,6 +81,8 @@ async def analyze_file(
             filename=file.filename,
             db=db,
             user=current_user,
+            user_id=str(current_user.id),
+            organization_id=str(current_user.organization_id or ""),
         )
         return result
     except ValueError as e:
@@ -122,6 +124,7 @@ async def parse_file(
             import_id=import_id,
             mapping=request.mapping,
             test_type=request.test_type,
+            user_id=str(current_user.id),
         )
         return result
     except ValueError as e:
@@ -156,6 +159,7 @@ async def preview_data(
         import_id=import_id,
         page=page,
         page_size=page_size,
+        user_id=str(current_user.id),
     )
     if result is None:
         raise HTTPException(
@@ -226,7 +230,7 @@ async def cancel_import(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Cancel and clean up an import session."""
-    deleted = ImportService.cancel(import_id)
+    deleted = ImportService.cancel(import_id, user_id=str(current_user.id))
     if not deleted:
         raise HTTPException(
             status_code=404,
@@ -254,6 +258,7 @@ async def remap_with_llm(
             import_id=import_id,
             db=db,
             user=current_user,
+            user_id=str(current_user.id),
         )
         return result
     except ValueError as e:

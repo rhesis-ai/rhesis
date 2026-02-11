@@ -14,7 +14,7 @@ from rhesis.backend.logging import logger
 
 from .mapping import auto_map_columns, is_llm_available, llm_map_columns
 from .parsers import detect_format, extract_headers_and_sample, parse_file
-from .storage import ImportSessionStore
+from .storage import MAX_ROWS_PER_IMPORT, ImportSessionStore
 from .validators import validate_rows
 
 
@@ -29,6 +29,8 @@ class ImportService:
         filename: str,
         db: Optional[Session] = None,
         user: Optional[User] = None,
+        user_id: str = "",
+        organization_id: str = "",
     ) -> Dict[str, Any]:
         """Upload a file, detect format, extract headers/sample, suggest mapping.
 
@@ -37,6 +39,8 @@ class ImportService:
             filename: Original filename (used for format detection).
             db: Optional DB session (needed for LLM mapping).
             user: Optional current user (needed for LLM mapping).
+            user_id: Owning user ID (stored for session verification).
+            organization_id: Owning org ID.
 
         Returns:
             Dict with import_id, file_info, headers, sample_rows,
@@ -50,6 +54,8 @@ class ImportService:
             file_bytes=file_bytes,
             filename=filename,
             file_format=file_format,
+            user_id=user_id,
+            organization_id=organization_id,
         )
         session.headers = headers
         session.sample_rows = sample_rows
@@ -93,6 +99,7 @@ class ImportService:
         import_id: str,
         mapping: Dict[str, str],
         test_type: str = "Single-Turn",
+        user_id: str = "",
     ) -> Dict[str, Any]:
         """Parse the full file with the confirmed column mapping.
 
@@ -101,17 +108,25 @@ class ImportService:
             mapping: Confirmed column mapping {source_col: target_field}.
             test_type: The test type for the entire import
                        ("Single-Turn" or "Multi-Turn").
+            user_id: Current user for ownership verification.
 
         Returns:
             Dict with total_rows, validation_summary, and first
             page of preview data.
         """
-        session = ImportSessionStore.get_session(import_id)
+        session = ImportSessionStore.get_session(import_id, user_id=user_id)
         if session is None:
             raise ValueError(f"Import session not found: {import_id}")
 
         # Parse the full file
         raw_rows = parse_file(session.file_bytes, session.file_format)
+
+        if len(raw_rows) > MAX_ROWS_PER_IMPORT:
+            raise ValueError(
+                f"File contains {len(raw_rows)} rows which exceeds "
+                f"the maximum of {MAX_ROWS_PER_IMPORT}. "
+                f"Please split the file into smaller parts."
+            )
 
         # Apply mapping: rename columns in each row
         mapped_rows = _apply_mapping(raw_rows, mapping)
@@ -145,9 +160,12 @@ class ImportService:
         import_id: str,
         page: int = 1,
         page_size: int = 50,
+        user_id: str = "",
     ) -> Optional[Dict[str, Any]]:
         """Return a page of parsed preview data."""
-        return ImportSessionStore.get_preview_page(import_id, page=page, page_size=page_size)
+        return ImportSessionStore.get_preview_page(
+            import_id, page=page, page_size=page_size, user_id=user_id
+        )
 
     # ── Step 4: Confirm ──────────────────────────────────────────
 
@@ -173,7 +191,7 @@ class ImportService:
             bulk_create_test_set,
         )
 
-        session = ImportSessionStore.get_session(import_id)
+        session = ImportSessionStore.get_session(import_id, user_id=user_id)
         if session is None:
             raise ValueError(f"Import session not found: {import_id}")
 
@@ -226,17 +244,17 @@ class ImportService:
             test_set_type=test_set_type,
         )
 
-        # Clean up session
-        ImportSessionStore.delete_session(import_id)
+        # Clean up session on success
+        ImportSessionStore.delete_session(import_id, user_id=user_id)
 
         return test_set
 
     # ── Step 5: Cancel ───────────────────────────────────────────
 
     @staticmethod
-    def cancel(import_id: str) -> bool:
+    def cancel(import_id: str, user_id: str = "") -> bool:
         """Cancel and clean up an import session."""
-        return ImportSessionStore.delete_session(import_id)
+        return ImportSessionStore.delete_session(import_id, user_id=user_id)
 
     # ── Re-map with LLM ─────────────────────────────────────────
 
@@ -245,13 +263,14 @@ class ImportService:
         import_id: str,
         db: Optional[Session] = None,
         user: Optional[User] = None,
+        user_id: str = "",
     ) -> Dict[str, Any]:
         """Re-run mapping using LLM for an existing session.
 
         Returns the new mapping result, or the existing auto-mapping
         if LLM is not available.
         """
-        session = ImportSessionStore.get_session(import_id)
+        session = ImportSessionStore.get_session(import_id, user_id=user_id)
         if session is None:
             raise ValueError(f"Import session not found: {import_id}")
 
