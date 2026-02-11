@@ -15,7 +15,7 @@ from rhesis.backend.app.constants import EntityType
 # Removed unused imports - legacy tenant functions no longer needed
 from rhesis.backend.app.models import Behavior, Category, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
-from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.logging import logger
 
 # Define a generic type variable

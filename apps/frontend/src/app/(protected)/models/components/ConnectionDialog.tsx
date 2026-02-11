@@ -42,6 +42,7 @@ interface ConnectionDialogProps {
   provider: TypeLookup | null;
   model?: Model | null; // For edit mode
   mode?: 'create' | 'edit';
+  modelType?: 'llm' | 'embedding'; // Pre-selected model type from page section
   userSettings?: UserSettings | null; // Current user settings
   onClose: () => void;
   onConnect?: (providerId: string, modelData: ModelCreate) => Promise<Model>;
@@ -54,6 +55,7 @@ export function ConnectionDialog({
   provider,
   model,
   mode = 'create',
+  modelType: initialModelType = 'llm',
   userSettings,
   onClose,
   onConnect,
@@ -63,13 +65,9 @@ export function ConnectionDialog({
   const [name, setName] = useState('');
   const [providerName, setProviderName] = useState('');
   const [modelName, setModelName] = useState('');
+  const [modelType, setModelType] = useState<'llm' | 'embedding'>('llm');
   const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
-  const [customHeaders, setCustomHeaders] = useState<Record<string, string>>(
-    {}
-  );
-  const [newHeaderKey, setNewHeaderKey] = useState('');
-  const [newHeaderValue, setNewHeaderValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testingConnection, setTestingConnection] = useState(false);
@@ -83,6 +81,7 @@ export function ConnectionDialog({
   const [showApiKey, setShowApiKey] = useState(false);
   const [defaultForGeneration, setDefaultForGeneration] = useState(false);
   const [defaultForEvaluation, setDefaultForEvaluation] = useState(false);
+  const [defaultForEmbedding, setDefaultForEmbedding] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
 
@@ -112,9 +111,9 @@ export function ConnectionDialog({
         // Edit mode: populate with existing model data
         setName(model.name || '');
         setModelName(model.model_name || '');
+        setModelType(model.model_type || 'llm');
         setEndpoint(model.endpoint || '');
         setApiKey('************'); // Show placeholder for existing key
-        setCustomHeaders(model.request_headers || {});
         setProviderName('');
         setError(null);
         setTestResult(null);
@@ -128,13 +127,17 @@ export function ConnectionDialog({
           userSettings?.models?.generation?.model_id === model.id;
         const isDefaultEvaluation =
           userSettings?.models?.evaluation?.model_id === model.id;
+        const isDefaultEmbedding =
+          userSettings?.models?.embedding?.model_id === model.id;
         setDefaultForGeneration(isDefaultGeneration || false);
         setDefaultForEvaluation(isDefaultEvaluation || false);
+        setDefaultForEmbedding(isDefaultEmbedding || false);
       } else if (provider) {
         // Create mode: reset to defaults
         setName('');
         setProviderName('');
         setModelName('');
+        setModelType(initialModelType); // Use the model type from the section
         // Set default endpoint if provider requires it
         setEndpoint(
           PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
@@ -142,9 +145,6 @@ export function ConnectionDialog({
             : ''
         );
         setApiKey('');
-        setCustomHeaders({});
-        setNewHeaderKey('');
-        setNewHeaderValue('');
         setError(null);
         setTestResult(null);
         setShowFullError(false);
@@ -152,10 +152,11 @@ export function ConnectionDialog({
         setShowApiKey(false);
         setDefaultForGeneration(false);
         setDefaultForEvaluation(false);
+        setDefaultForEmbedding(false);
         setLoading(false); // Reset loading state
       }
     }
-  }, [open, provider, model, isEditMode, userSettings]);
+  }, [open, provider, model, isEditMode, userSettings, initialModelType]);
 
   // Reset connection test status when critical fields change
   useEffect(() => {
@@ -170,28 +171,9 @@ export function ConnectionDialog({
     }
   }, [modelName, apiKey, endpoint, isEditMode]);
 
-  const handleAddHeader = () => {
-    if (newHeaderKey.trim() && newHeaderValue.trim()) {
-      setCustomHeaders(prev => ({
-        ...prev,
-        [newHeaderKey.trim()]: newHeaderValue.trim(),
-      }));
-      setNewHeaderKey('');
-      setNewHeaderValue('');
-    }
-  };
-
-  const handleRemoveHeader = (key: string) => {
-    setCustomHeaders(prev => {
-      const newHeaders = { ...prev };
-      delete newHeaders[key];
-      return newHeaders;
-    });
-  };
-
   const { data: session } = useSession();
 
-  // Fetch available models when provider is selected
+  // Fetch available models when provider is selected or model type changes
   useEffect(() => {
     const fetchModels = async () => {
       const currentProvider =
@@ -202,9 +184,18 @@ export function ConnectionDialog({
       try {
         const apiFactory = new ApiClientFactory(session.session_token);
         const modelsClient = apiFactory.getModelsClient();
-        const models = await modelsClient.getProviderModels(
-          currentProvider.type_value
-        );
+
+        // Fetch different model lists based on model type
+        let models: string[];
+        if (modelType === 'embedding') {
+          models = await modelsClient.getProviderEmbeddingModels(
+            currentProvider.type_value
+          );
+        } else {
+          models = await modelsClient.getProviderModels(
+            currentProvider.type_value
+          );
+        }
         setAvailableModels(models);
       } catch (err) {
         // Silently fail - user can still manually enter model name
@@ -217,7 +208,7 @@ export function ConnectionDialog({
     if (open) {
       fetchModels();
     }
-  }, [open, provider, model, isEditMode, session]);
+  }, [open, provider, model, isEditMode, session, modelType]);
 
   // Helper function to update user settings for default models
   const updateUserSettingsDefaults = async (modelId: UUID) => {
@@ -244,6 +235,14 @@ export function ConnectionDialog({
       } else if (userSettings?.models?.evaluation?.model_id === modelId) {
         // If toggle is off and this model was previously the default, clear it by setting model_id to null
         updates.models.evaluation = { model_id: null };
+      }
+
+      // Update embedding default if toggle is on
+      if (defaultForEmbedding) {
+        updates.models.embedding = { model_id: modelId };
+      } else if (userSettings?.models?.embedding?.model_id === modelId) {
+        // If toggle is off and this model was previously the default, clear it by setting model_id to null
+        updates.models.embedding = { model_id: null };
       }
 
       // Only update if there are changes
@@ -311,7 +310,8 @@ export function ConnectionDialog({
       const requestBody: any = {
         provider: currentProvider.type_value,
         model_name: modelName,
-        api_key: hasApiKey ? apiKey : '',
+        api_key: apiKey && apiKey !== '************' ? apiKey : '', // Always include api_key field, empty string for local providers
+        model_type: modelType, // Include model type for proper test validation
       };
 
       if (canUseStoredKey && model?.id) {
@@ -405,9 +405,6 @@ export function ConnectionDialog({
           if (apiKey && apiKey.trim() && apiKey !== '************') {
             updates.key = apiKey.trim();
           }
-
-          // Always update custom headers to allow removal (Authorization and Content-Type are handled automatically)
-          updates.request_headers = customHeaders;
         }
 
         await onUpdate(model.id, updates);
@@ -443,10 +440,9 @@ export function ConnectionDialog({
             description: `${isCustomProvider ? providerName : provider!.description} Connection`,
             icon: provider!.type_value,
             model_name: modelName,
+            model_type: modelType,
             key: apiKey || '', // Empty string for local providers without API key
             tags: [provider!.type_value],
-            // Only store custom headers (Authorization and Content-Type are handled automatically by SDK)
-            request_headers: customHeaders,
             provider_type_id: provider!.id,
           };
 
@@ -506,11 +502,11 @@ export function ConnectionDialog({
             <Typography variant="h6" component="div">
               {isEditMode ? `Edit ${displayName}` : `Connect to ${displayName}`}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {isEditMode
-                ? 'Update your connection settings'
-                : 'Configure your connection settings below'}
-            </Typography>
+            {isEditMode && (
+              <Typography variant="body2" color="text.secondary">
+                Update your connection settings
+              </Typography>
+            )}
           </Box>
         </Box>
       </DialogTitle>
@@ -813,92 +809,6 @@ export function ConnectionDialog({
                 </Alert>
               )}
 
-            {/* Custom Headers - Hidden for protected models */}
-            {!model?.is_protected && (
-              <Stack spacing={1}>
-                <Typography
-                  variant="subtitle1"
-                  sx={{ fontWeight: 600, color: 'primary.main', mt: 1 }}
-                >
-                  Custom Headers (Optional)
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Add any additional HTTP headers required for your API calls.
-                  Authorization and Content-Type headers are handled
-                  automatically.
-                </Typography>
-
-                {/* Existing Headers */}
-                {Object.entries(customHeaders).length > 0 && (
-                  <Stack spacing={1}>
-                    {Object.entries(customHeaders).map(([key, value]) => (
-                      <Paper
-                        key={key}
-                        variant="outlined"
-                        sx={{
-                          p: 2,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          bgcolor: 'grey.50',
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', gap: 2, flex: 1 }}>
-                          <Typography
-                            variant="body2"
-                            sx={{ fontWeight: 500, minWidth: 120 }}
-                          >
-                            {key}:
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {value}
-                          </Typography>
-                        </Box>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveHeader(key)}
-                          color="error"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Paper>
-                    ))}
-                  </Stack>
-                )}
-
-                {/* Add New Header */}
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={2}
-                    alignItems="flex-end"
-                  >
-                    <TextField
-                      label="Header Name"
-                      fullWidth
-                      value={newHeaderKey}
-                      onChange={e => setNewHeaderKey(e.target.value)}
-                    />
-                    <TextField
-                      label="Header Value"
-                      fullWidth
-                      value={newHeaderValue}
-                      onChange={e => setNewHeaderValue(e.target.value)}
-                    />
-                    <Button
-                      variant="outlined"
-                      onClick={handleAddHeader}
-                      disabled={!newHeaderKey.trim() || !newHeaderValue.trim()}
-                      sx={{ minWidth: { xs: '100%', sm: 'auto' } }}
-                      startIcon={<AddIcon />}
-                    >
-                      Add
-                    </Button>
-                  </Stack>
-                </Paper>
-              </Stack>
-            )}
-
             {/* Default Model Settings */}
             <Box sx={{ mt: 3 }}>
               <Divider sx={{ mb: 2 }} />
@@ -908,47 +818,70 @@ export function ConnectionDialog({
               >
                 Default Model Settings
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Set this model as the default for test generation or evaluation
-                tasks.
-              </Typography>
               <Stack spacing={1}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={defaultForGeneration}
-                      onChange={e => setDefaultForGeneration(e.target.checked)}
+                {/* Show generation and evaluation toggles for language models */}
+                {modelType === 'llm' && (
+                  <>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={defaultForGeneration}
+                          onChange={e =>
+                            setDefaultForGeneration(e.target.checked)
+                          }
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            Default for Test Generation
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Use this model when generating new test cases
+                          </Typography>
+                        </Box>
+                      }
                     />
-                  }
-                  label={
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        Default for Test Generation
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Use this model when generating new test cases
-                      </Typography>
-                    </Box>
-                  }
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={defaultForEvaluation}
-                      onChange={e => setDefaultForEvaluation(e.target.checked)}
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={defaultForEvaluation}
+                          onChange={e =>
+                            setDefaultForEvaluation(e.target.checked)
+                          }
+                        />
+                      }
+                      label={
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            Default for Evaluation (LLM as Judge)
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Use this model when running metrics and evaluations
+                          </Typography>
+                        </Box>
+                      }
                     />
-                  }
-                  label={
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        Default for Evaluation (LLM as Judge)
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Use this model when running metrics and evaluations
-                      </Typography>
-                    </Box>
-                  }
-                />
+                  </>
+                )}
+                {/* Show embedding toggle for embedding models */}
+                {modelType === 'embedding' && (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={defaultForEmbedding}
+                        onChange={e => setDefaultForEmbedding(e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          Default Embedding Model
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                )}
               </Stack>
             </Box>
           </Stack>

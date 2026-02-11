@@ -20,7 +20,7 @@ from rhesis.backend.app.services.model_connection import ModelConnectionService
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.sdk.models.factory import get_available_models
+from rhesis.sdk.models.factory import get_available_embedding_models, get_available_language_models
 
 # Create the detailed schema for Model (uses ModelRead to exclude API key from responses)
 ModelDetailSchema = create_detailed_schema(ModelRead, models.Model)
@@ -73,10 +73,11 @@ async def test_model_connection_endpoint(
     1. The provider is supported by the SDK
     2. The API key is valid
     3. The model can be initialized successfully
-    4. A simple generation call works (for full validation)
+    4. A test call works (generation for LLMs, embedding for embedding models)
 
     Args:
-        request: Contains provider, model_name, api_key (or model_id), endpoint
+        request: Contains provider, model_name, api_key (or model_id), optional endpoint,
+            and model_type
 
     Returns:
         TestModelConnectionResponse: Success status and message
@@ -101,6 +102,7 @@ async def test_model_connection_endpoint(
         model_name=request.model_name,
         api_key=api_key,
         endpoint=endpoint,
+        model_type=request.model_type,
     )
 
     return TestModelConnectionResponse(
@@ -220,7 +222,8 @@ async def test_model_connection(
     Test a model's connection by making an actual test call.
 
     Uses ModelConnectionService which validates the model configuration
-    and makes a test generation call to verify it works properly.
+    and makes a test call to verify it works properly (generation for LLMs,
+    embedding for embedding models).
     """
     from rhesis.backend.app.services.model_connection import ModelConnectionService
     from rhesis.backend.logging import logger
@@ -236,10 +239,11 @@ async def test_model_connection(
     provider = db_model.provider_type.type_value if db_model.provider_type else None
     model_name = db_model.model_name
     api_key = db_model.key
+    model_type = db_model.model_type or "llm"
 
     logger.info(
         f"[MODEL_TEST] Testing model: name={db_model.name}, "
-        f"provider={provider}, model_name={model_name}"
+        f"provider={provider}, model_name={model_name}, type={model_type}"
     )
 
     try:
@@ -248,6 +252,7 @@ async def test_model_connection(
             provider=provider,
             model_name=model_name,
             api_key=api_key,
+            model_type=model_type,
         )
 
         status = "success" if result.success else "error"
@@ -274,10 +279,10 @@ def get_provider_models(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Get the list of available models for a specific provider.
+    Get the list of available language models for a specific provider.
     """
     try:
-        models_list = get_available_models(provider_name)
+        models_list = get_available_language_models(provider_name)
         return models_list
     except ValueError as e:
         # ValueError is raised for unsupported providers or providers that don't support listing
@@ -287,4 +292,28 @@ def get_provider_models(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve models for provider '{provider_name}': {str(e)}",
+        )
+
+
+@router.get("/provider/{provider_name}/embeddings", response_model=List[str])
+def get_provider_embedding_models(
+    provider_name: str,
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Get the list of available embedding models for a specific provider.
+    """
+    try:
+        models_list = get_available_embedding_models(provider_name)
+        return models_list
+    except ValueError as e:
+        # ValueError is raised for unsupported providers or providers that don't support embeddings
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        # Other exceptions (network errors, API errors, etc.)
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Failed to retrieve embedding models for provider '{provider_name}': {str(e)}"
+            ),
         )

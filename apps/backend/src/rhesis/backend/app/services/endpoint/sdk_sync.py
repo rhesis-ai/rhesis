@@ -12,7 +12,7 @@ from rhesis.backend.app.models.enums import (
     EndpointConnectionType,
     EndpointEnvironment,
 )
-from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.status import get_or_create_status
 from rhesis.backend.logging import logger
 
@@ -50,7 +50,7 @@ async def sync_sdk_endpoints(
     logger.info(f"Environment: {environment}")
     logger.info(f"Functions to sync: {len(functions_data)}")
 
-    # Get user for LLM model access
+    # Get user for language model access
     user = crud.get_user_by_id(db, user_id)
     if not user:
         logger.error(f"User {user_id} not found for mapping generation")

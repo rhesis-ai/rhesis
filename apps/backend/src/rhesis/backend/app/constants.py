@@ -78,6 +78,9 @@ DEFAULT_GENERATION_MODEL = os.getenv(
 DEFAULT_MODEL_NAME = os.getenv(
     "DEFAULT_MODEL_NAME", "default"
 )  # Default model name (gemini-2.0-flash recommended, avoid 2.5-flash)
+DEFAULT_EMBEDDING_MODEL = os.getenv(
+    "DEFAULT_EMBEDDING_MODEL", "openai"
+)  # Default provider for embedding generation
 
 # Rhesis API configuration
 # Required for Rhesis system models to work

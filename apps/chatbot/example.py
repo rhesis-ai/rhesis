@@ -32,12 +32,12 @@ DEFAULT_MODEL_NAME = os.getenv("DEFAULT_MODEL_NAME", "gemini-2.5-flash")
 
 
 def get_llm_model():
-    """Get the configured LLM model using SDK factory."""
+    """Get the configured language model using SDK factory."""
     try:
         return get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
     except Exception as e:
-        logger.error(f"Failed to initialize LLM model: {str(e)}")
-        raise ValueError(f"Could not initialize LLM model: {str(e)}")
+        logger.error(f"Failed to initialize language model: {str(e)}")
+        raise ValueError(f"Could not initialize language model: {str(e)}")
 
 
 class ResponseGenerator:

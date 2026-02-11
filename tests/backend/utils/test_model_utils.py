@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 
 @pytest.mark.unit
@@ -56,7 +56,7 @@ class TestQueryBuilder:
 
         # Mock the apply_joinedloads function
         with patch(
-            "rhesis.backend.app.utils.model_utils.apply_joinedloads"
+            "rhesis.backend.app.utils.query_utils.apply_joinedloads"
         ) as mock_apply_joinedloads:
             mock_modified_query = MagicMock()
             mock_apply_joinedloads.return_value = mock_modified_query
@@ -80,7 +80,7 @@ class TestQueryBuilder:
 
         # Mock the apply_optimized_loads function
         with patch(
-            "rhesis.backend.app.utils.model_utils.apply_optimized_loads"
+            "rhesis.backend.app.utils.query_utils.apply_optimized_loads"
         ) as mock_apply_optimized_loads:
             mock_modified_query = MagicMock()
             mock_apply_optimized_loads.return_value = mock_modified_query
@@ -111,10 +111,10 @@ class TestQueryBuilder:
         # Mock the functions used in chaining
         with (
             patch(
-                "rhesis.backend.app.utils.model_utils.apply_joinedloads"
+                "rhesis.backend.app.utils.query_utils.apply_joinedloads"
             ) as mock_apply_joinedloads,
             patch(
-                "rhesis.backend.app.utils.model_utils.apply_optimized_loads"
+                "rhesis.backend.app.utils.query_utils.apply_optimized_loads"
             ) as mock_apply_optimized_loads,
         ):
             mock_query_1 = MagicMock()

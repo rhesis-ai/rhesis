@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.database import get_db_with_tenant_variables
-from rhesis.backend.app.utils.llm_utils import get_user_evaluation_model
+from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.execution.test_execution import execute_test

@@ -26,7 +26,7 @@ class ConversationalMetricBase(ABC):
 
         Args:
             config: Metric configuration
-            model: LLM model for evaluation (BaseLLM instance or string identifier)
+            model: Language model for evaluation (BaseLLM instance or string identifier)
         """
         self.name = config.name
         self.description = config.description

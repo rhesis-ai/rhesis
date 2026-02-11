@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.endpoint.validation import validate_and_update_status_async
-from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 logger = logging.getLogger(__name__)
 

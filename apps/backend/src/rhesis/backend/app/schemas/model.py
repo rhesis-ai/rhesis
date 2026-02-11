@@ -5,7 +5,7 @@ Security: API keys are write-only. They can be set via POST/PUT but are never
 returned in responses to prevent exposure through logs, caches, or clients.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
@@ -23,6 +23,9 @@ class ModelBaseFields(Base):
     description: Optional[str] = None
     icon: Optional[str] = None
     model_name: str
+    model_type: Optional[Literal["llm", "embedding"]] = Field(
+        default="llm", description="Type of model: 'llm' or 'embedding'"
+    )
     endpoint: Optional[str] = Field(
         default=None, description="API endpoint URL (optional for cloud providers)"
     )
@@ -122,6 +125,9 @@ class TestModelConnectionRequest(BaseModel):
     )
     endpoint: Optional[str] = Field(
         default=None, description="Optional endpoint URL for self-hosted providers"
+    )
+    model_type: Optional[Literal["llm", "embedding"]] = Field(
+        default="llm", description="Type of model: 'llm' or 'embedding'"
     )
 
     @field_validator("endpoint")

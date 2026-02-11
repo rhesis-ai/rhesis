@@ -1,7 +1,7 @@
 """
 Model Factory for Rhesis SDK
 
-This module provides a simple and intuitive way to create LLM model instances
+This module provides a simple and intuitive way to create language model instances
 and embedder instances with smart defaults and comprehensive error handling.
 
 """
@@ -302,17 +302,17 @@ def get_model(
     return factory_func(config.model_name, config.api_key, **kwargs)
 
 
-def get_available_models(provider: str) -> list[str]:
-    """Get the list of available models for a specific provider.
+def get_available_language_models(provider: str) -> list[str]:
+    """Get the list of available language models for a specific provider.
 
-    This function retrieves the available models by calling the provider class's
+    This function retrieves the available language models by calling the provider class's
     get_available_models() method. It supports all LiteLLM-based providers.
 
     Args:
         provider: Provider name (e.g., "anthropic", "openai", "gemini", "groq")
 
     Returns:
-        List of available model names for the provider
+        List of available language model names for the provider
 
     Raises:
         ValueError: If the provider is not supported or doesn't support listing models
@@ -320,15 +320,15 @@ def get_available_models(provider: str) -> list[str]:
 
     Examples:
         >>> # Get Anthropic models
-        >>> models = get_available_models("anthropic")
+        >>> models = get_available_language_models("anthropic")
         >>> print(models)
         ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', ...]
 
         >>> # Get OpenAI models
-        >>> models = get_available_models("openai")
+        >>> models = get_available_language_models("openai")
 
         >>> # Get Gemini models
-        >>> models = get_available_models("gemini")
+        >>> models = get_available_language_models("gemini")
     """
     if provider not in PROVIDER_REGISTRY:
         available_providers = ", ".join(sorted(PROVIDER_REGISTRY.keys()))
@@ -362,6 +362,82 @@ def get_available_models(provider: str) -> list[str]:
 
     # Call the provider-specific function to get models
     return litellm_providers[provider]()
+
+
+def get_available_embedding_models(provider: str) -> list[str]:
+    """Get the list of available embedding models for a specific provider.
+
+    This function retrieves available embedding models by calling the provider's
+    embedder class get_available_models() method. It supports OpenAI, Gemini,
+    and Vertex AI providers.
+
+    Args:
+        provider: Provider name (e.g., "openai", "gemini", "vertex_ai")
+
+    Returns:
+        List of available embedding model names for the provider
+
+    Raises:
+        ValueError: If the provider is not supported or doesn't support embeddings
+        ImportError: If required dependencies for the provider are missing
+
+    Examples:
+        >>> # Get OpenAI embedding models
+        >>> models = get_available_embedding_models("openai")
+        >>> print(models)
+        ['text-embedding-3-small', 'text-embedding-3-large', 'text-embedding-ada-002']
+
+        >>> # Get Gemini embedding models
+        >>> models = get_available_embedding_models("gemini")
+
+        >>> # Get Vertex AI embedding models
+        >>> models = get_available_embedding_models("vertex_ai")
+    """
+    if provider not in EMBEDDER_REGISTRY:
+        available_providers = ", ".join(sorted(EMBEDDER_REGISTRY.keys()))
+        raise ValueError(
+            f"Embedding provider '{provider}' not supported. "
+            f"Available embedding providers: {available_providers}"
+        )
+
+    # Map of providers that support embedding model listing
+    embedder_providers = {
+        "openai": _get_openai_embedding_models,
+        "gemini": _get_gemini_embedding_models,
+        "vertex_ai": _get_vertex_ai_embedding_models,
+    }
+
+    if provider not in embedder_providers:
+        raise ValueError(
+            f"Provider '{provider}' does not support listing available embedding models. "
+            f"Only the following providers support this feature: "
+            f"{', '.join(sorted(embedder_providers.keys()))}"
+        )
+
+    # Call the provider-specific function to get embedding models
+    return embedder_providers[provider]()
+
+
+# Provider-specific functions to get available embedding models
+def _get_openai_embedding_models() -> list[str]:
+    """Get available OpenAI embedding models."""
+    from rhesis.sdk.models.providers.openai import OpenAIEmbedder
+
+    return OpenAIEmbedder.get_available_models()
+
+
+def _get_gemini_embedding_models() -> list[str]:
+    """Get available Gemini embedding models."""
+    from rhesis.sdk.models.providers.gemini import GeminiEmbedder
+
+    return GeminiEmbedder.get_available_models()
+
+
+def _get_vertex_ai_embedding_models() -> list[str]:
+    """Get available Vertex AI embedding models."""
+    from rhesis.sdk.models.providers.vertex_ai import VertexAIEmbedder
+
+    return VertexAIEmbedder.get_available_models()
 
 
 # Provider-specific functions to get available models

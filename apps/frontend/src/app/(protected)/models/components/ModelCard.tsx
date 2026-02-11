@@ -34,12 +34,15 @@ export function ConnectedModelCard({
   onEdit,
   onDelete,
 }: ConnectedModelCardProps) {
-  // Check if this model is set as default for generation or evaluation
+  // Check if this model is set as default for generation, evaluation, or embedding
   const isGenerationDefault =
     userSettings?.models?.generation?.model_id === model.id;
   const isEvaluationDefault =
     userSettings?.models?.evaluation?.model_id === model.id;
-  const isAnyDefault = isGenerationDefault || isEvaluationDefault;
+  const isEmbeddingDefault =
+    userSettings?.models?.embedding?.model_id === model.id;
+  const isAnyDefault =
+    isGenerationDefault || isEvaluationDefault || isEmbeddingDefault;
 
   const showValidationError =
     validationStatus &&
@@ -115,7 +118,6 @@ export function ConnectedModelCard({
         </Box>
 
         <Box>
-          {/* Model header */}
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
             <Box
               sx={{
@@ -183,7 +185,9 @@ export function ConnectedModelCard({
                   ? 'Generation & Evaluation'
                   : isGenerationDefault
                     ? 'Generation'
-                    : 'Evaluation'}
+                    : isEvaluationDefault
+                      ? 'Evaluation'
+                      : 'Embedding'}
               </Box>
             </Typography>
           )}

@@ -5,7 +5,7 @@ from pydantic import UUID4, BaseModel, create_model
 from rhesis.backend.app.schemas.base import Base
 from rhesis.backend.app.schemas.tag import TagRead
 from rhesis.backend.app.schemas.test_set import TestSet
-from rhesis.backend.app.utils.model_utils import get_model_relationships
+from rhesis.backend.app.utils.query_utils import get_model_relationships
 
 
 def create_detailed_schema(

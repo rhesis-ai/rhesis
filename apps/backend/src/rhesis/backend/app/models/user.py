@@ -50,7 +50,9 @@ class User(Base):
     user_settings = Column(
         JSONB,
         nullable=False,
-        server_default='{"version": 1, "models": {"generation": {}, "evaluation": {}}}',
+        server_default=(
+            '{"version": 1, "models": {"generation": {}, "evaluation": {}, "embedding": {}}}'
+        ),
     )  # User preferences and settings
 
     # Relationship to subscriptions
@@ -209,6 +211,7 @@ class User(Base):
             model_id = user.settings.models.generation.model_id
             temperature = user.settings.models.generation.temperature
             eval_model = user.settings.models.evaluation.model_id
+            embedding_model = user.settings.models.embedding.model_id
 
             # Access UI settings
             theme = user.settings.ui.theme
