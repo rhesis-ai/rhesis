@@ -98,22 +98,26 @@ class TestBulkCreateTests:
                 user_id=authenticated_user_id,
             )
 
-            # Verify result
+            # Verify result — bulk_create_tests returns a list of ID strings
             assert len(result) == 2
-            assert all(isinstance(test, models.Test) for test in result)
+            assert all(isinstance(test_id, str) for test_id in result)
 
             # Verify the mocked function was called
             mock_load_defaults.assert_called_once()
 
-            # Verify the tests have the expected relationships
-            for test in result:
-                assert str(test.organization_id) == test_org_id
-                assert str(test.user_id) == authenticated_user_id
-                assert test.prompt_id is not None
-                assert test.topic_id is not None
-                assert test.behavior_id is not None
-                assert test.category_id is not None
-                assert test.status_id is not None
+            # Verify the tests exist in the DB with expected relationships
+            for test_id in result:
+                test_obj = test_db.query(models.Test).filter(
+                    models.Test.id == test_id
+                ).first()
+                assert test_obj is not None
+                assert str(test_obj.organization_id) == test_org_id
+                assert str(test_obj.user_id) == authenticated_user_id
+                assert test_obj.prompt_id is not None
+                assert test_obj.topic_id is not None
+                assert test_obj.behavior_id is not None
+                assert test_obj.category_id is not None
+                assert test_obj.status_id is not None
 
     def test_bulk_create_tests_with_test_set_id(
         self,
@@ -149,19 +153,23 @@ class TestBulkCreateTests:
             test_set_id=str(test_set.id),
         )
 
-        # Verify result
+        # Verify result — bulk_create_tests returns a list of ID strings
         assert len(result) == 1
-        assert all(isinstance(test, models.Test) for test in result)
+        assert all(isinstance(test_id, str) for test_id in result)
 
-        # Verify the tests have the expected relationships
-        for test in result:
-            assert str(test.organization_id) == test_org_id
-            assert str(test.user_id) == authenticated_user_id
-            assert test.prompt_id is not None
-            assert test.topic_id is not None
-            assert test.behavior_id is not None
-            assert test.category_id is not None
-            assert test.status_id is not None
+        # Verify the tests exist in the DB with expected relationships
+        for test_id in result:
+            test_obj = test_db.query(models.Test).filter(
+                models.Test.id == test_id
+            ).first()
+            assert test_obj is not None
+            assert str(test_obj.organization_id) == test_org_id
+            assert str(test_obj.user_id) == authenticated_user_id
+            assert test_obj.prompt_id is not None
+            assert test_obj.topic_id is not None
+            assert test_obj.behavior_id is not None
+            assert test_obj.category_id is not None
+            assert test_obj.status_id is not None
 
     def test_bulk_create_tests_invalid_uuid(self, test_db: Session, authenticated_user_id):
         """Test bulk_create_tests with invalid UUID parameters."""
@@ -212,16 +220,15 @@ class TestTestSetAssociationsInTestService:
         ]
 
         # Use the real bulk_create_tests service to create tests with proper relationships
-        created_tests = test_service.bulk_create_tests(
+        # Returns a list of ID strings (not ORM objects)
+        created_test_ids = test_service.bulk_create_tests(
             db=test_db,
             tests_data=test_data_list,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
 
-        test1, test2 = created_tests[0], created_tests[1]
-
-        test_ids = [str(test1.id), str(test2.id)]
+        test_ids = created_test_ids
 
         # Mock the entire create_test_set_associations function
         with patch(
@@ -304,22 +311,22 @@ class TestTestSetAssociationsInTestService:
 
         # Required entities are provided by fixtures (test_type_lookup, db_status, db_user)
 
-        # Create test using the real service
+        # Create test using the real service (returns list of ID strings)
         test_data_list = [create_bulk_test_data()]
-        created_tests = test_service.bulk_create_tests(
+        created_test_ids = test_service.bulk_create_tests(
             db=test_db,
             tests_data=test_data_list,
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )
-        test = created_tests[0]
+        test_id = created_test_ids[0]
 
         # Create association manually for testing
         from rhesis.backend.app.models.test import test_test_set_association
 
         test_db.execute(
             test_test_set_association.insert().values(
-                test_id=test.id,
+                test_id=test_id,
                 test_set_id=test_set.id,
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
@@ -327,7 +334,7 @@ class TestTestSetAssociationsInTestService:
         )
         test_db.commit()
 
-        test_ids = [str(test.id)]
+        test_ids = [test_id]
 
         # Mock the entire remove_test_set_associations function
         with patch(
