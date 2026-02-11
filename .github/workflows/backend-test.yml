@@ -49,7 +49,7 @@ env:
 
 jobs:
   test:
-    name: 🧪 Backend Tests (Local-Style)
+    name: Backend tests
     runs-on: ubuntu-latest
 
     steps:
