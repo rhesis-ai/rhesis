@@ -24,12 +24,14 @@ import {
 interface TestSetTestsGridProps {
   sessionToken: string;
   testSetId: string;
+  testSetType?: string;
   onRefresh?: () => void;
 }
 
 export default function TestSetTestsGrid({
   sessionToken,
   testSetId,
+  testSetType,
   onRefresh,
 }: TestSetTestsGridProps) {
   const isMounted = useRef(true);
@@ -100,7 +102,7 @@ export default function TestSetTestsGrid({
     () => [
       {
         field: 'prompt.content',
-        headerName: 'Content',
+        headerName: isMultiTurnTest(testSetType) ? 'Goal' : 'Content',
         flex: 3,
         valueGetter: getTestContentValue,
         renderCell: renderTestContentCell,
@@ -217,7 +219,7 @@ export default function TestSetTestsGrid({
         },
       },
     ],
-    []
+    [testSetType]
   );
 
   // Handle row click to navigate to test details

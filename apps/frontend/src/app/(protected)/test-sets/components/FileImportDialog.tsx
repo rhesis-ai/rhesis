@@ -842,7 +842,11 @@ export default function FileImportDialog({
               Cancel
             </Button>
             {activeStep > 0 && (
-              <Button onClick={handleBack} disabled={importing || parsing}>
+              <Button
+                variant="outlined"
+                onClick={handleBack}
+                disabled={importing || parsing}
+              >
                 Back
               </Button>
             )}

@@ -113,6 +113,7 @@ export default async function TestSetPage({ params }: { params: any }) {
               <TestSetTestsGrid
                 testSetId={identifier}
                 sessionToken={session.session_token}
+                testSetType={serializedTestSet.test_set_type?.type_value}
               />
             </Paper>
 
