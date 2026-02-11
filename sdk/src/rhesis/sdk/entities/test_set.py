@@ -547,8 +547,15 @@ class TestSet(BaseEntity):
     def to_csv(self, filename: Union[str, Path]) -> None:
         """Save the tests from this test set to a CSV file.
 
-        Exports single-turn tests with their properties including category, topic,
-        behavior, and prompt content.
+        Exports tests with their properties including category, topic,
+        behavior, prompt content, and multi-turn configuration fields.
+
+        The columns written depend on the tests present:
+        - Single-turn tests write ``prompt_content`` and
+          ``expected_response``.
+        - Multi-turn tests write ``goal``, ``instructions``,
+          ``restrictions``, and ``scenario``.
+        - If the set is mixed, all columns are included.
 
         Args:
             filename: Path to the CSV file to create/overwrite.
@@ -563,12 +570,26 @@ class TestSet(BaseEntity):
         if not self.tests:
             raise ValueError("Test set has no tests to export")
 
-        fieldnames = [
-            "category",
-            "topic",
-            "behavior",
-            "prompt_content",
-        ]
+        # Determine which column sets are needed
+        has_single = False
+        has_multi = False
+        for test in self.tests:
+            obj = Test(**test) if isinstance(test, dict) else test
+            if obj.test_configuration and obj.test_configuration.goal:
+                has_multi = True
+            if obj.prompt and obj.prompt.content:
+                has_single = True
+
+        fieldnames = ["category", "topic", "behavior", "test_type"]
+        if has_single or not has_multi:
+            fieldnames += ["prompt_content", "expected_response"]
+        if has_multi:
+            fieldnames += [
+                "goal",
+                "instructions",
+                "restrictions",
+                "scenario",
+            ]
 
         filepath = Path(filename)
         with open(filepath, "w", newline="", encoding="utf-8") as csvfile:
@@ -576,17 +597,37 @@ class TestSet(BaseEntity):
             writer.writeheader()
 
             for test in self.tests:
-                if isinstance(test, dict):
-                    test_obj = Test(**test)
-                else:
-                    test_obj = test
+                test_obj = Test(**test) if isinstance(test, dict) else test
 
-                row = {
+                row: Dict[str, str] = {
                     "category": test_obj.category or "",
                     "topic": test_obj.topic or "",
                     "behavior": test_obj.behavior or "",
-                    "prompt_content": test_obj.prompt.content if test_obj.prompt else "",
+                    "test_type": (
+                        test_obj.test_type.value
+                        if isinstance(test_obj.test_type, TestType)
+                        else str(test_obj.test_type or "Single-Turn")
+                    ),
                 }
+
+                if "prompt_content" in fieldnames:
+                    row["prompt_content"] = test_obj.prompt.content if test_obj.prompt else ""
+                    row["expected_response"] = (
+                        test_obj.prompt.expected_response or "" if test_obj.prompt else ""
+                    )
+
+                if "goal" in fieldnames and test_obj.test_configuration:
+                    cfg = test_obj.test_configuration
+                    row["goal"] = cfg.goal or ""
+                    row["instructions"] = cfg.instructions or ""
+                    row["restrictions"] = cfg.restrictions or ""
+                    row["scenario"] = cfg.scenario or ""
+                elif "goal" in fieldnames:
+                    row["goal"] = ""
+                    row["instructions"] = ""
+                    row["restrictions"] = ""
+                    row["scenario"] = ""
+
                 writer.writerow(row)
 
     def _test_to_dict(self, test: Union[Test, Dict[str, Any]]) -> Dict[str, Any]:
@@ -647,14 +688,19 @@ class TestSet(BaseEntity):
     def _dict_to_test(cls, entry: Dict[str, Any]) -> Optional[Test]:
         """Convert a dictionary entry to a Test object.
 
+        Supports both nested and flat formats for prompts and
+        test configuration.  Flat multi-turn fields (``goal``,
+        ``instructions``, ``restrictions``, ``scenario``) are
+        forwarded to the ``Test`` constructor whose
+        ``model_validator`` builds ``test_configuration``
+        automatically.
+
         Args:
             entry: Dictionary containing test data.
 
         Returns:
             Test object, or None if the entry is empty/invalid.
         """
-        from rhesis.sdk.entities.test import TestConfiguration
-
         if not isinstance(entry, dict):
             return None
 
@@ -664,29 +710,36 @@ class TestSet(BaseEntity):
         language_code = None
 
         if "prompt" in entry and isinstance(entry["prompt"], dict):
-            # Nested format: {"prompt": {"content": "...", "expected_response": "..."}}
             prompt_content = entry["prompt"].get("content")
             expected_response = entry["prompt"].get("expected_response")
             language_code = entry["prompt"].get("language_code")
         else:
-            # Flat format: {"prompt_content": "...", "expected_response": "..."}
             prompt_content = entry.get("prompt_content")
             expected_response = entry.get("expected_response")
 
-        # Skip empty entries - check if any required field has content
+        # Extract multi-turn flat fields
+        goal = entry.get("goal", "")
+        instructions = entry.get("instructions", "")
+        restrictions = entry.get("restrictions", "")
+        scenario = entry.get("scenario", "")
+
+        # Skip empty entries - check if any meaningful field has content
         category = entry.get("category", "")
         topic = entry.get("topic", "")
         behavior = entry.get("behavior", "")
 
-        if not any(
-            [
-                str(prompt_content or "").strip(),
-                str(category).strip(),
-                str(topic).strip(),
-                str(behavior).strip(),
+        has_content = any(
+            str(v or "").strip()
+            for v in [
+                prompt_content,
+                category,
+                topic,
+                behavior,
+                goal,
             ]
-        ):
-            return None  # Empty entry
+        )
+        if not has_content:
+            return None
 
         # Build prompt if content exists
         prompt = None
@@ -704,29 +757,33 @@ class TestSet(BaseEntity):
         else:
             test_type = TestType.SINGLE_TURN
 
-        # Build test configuration if present (for multi-turn tests)
-        test_configuration = None
+        # Build test kwargs — let Test.model_validator handle
+        # building test_configuration from flat fields.
+        test_kwargs: Dict[str, Any] = {
+            "category": category or None,
+            "topic": topic or None,
+            "behavior": behavior or None,
+            "prompt": prompt,
+            "test_type": test_type,
+            "metadata": entry.get("metadata") or {},
+        }
+
+        # Pass nested test_configuration if present
         if "test_configuration" in entry and isinstance(entry["test_configuration"], dict):
-            config = entry["test_configuration"]
-            test_configuration = TestConfiguration(
-                goal=config.get("goal", ""),
-                instructions=config.get("instructions", ""),
-                restrictions=config.get("restrictions", ""),
-                scenario=config.get("scenario", ""),
-            )
+            test_kwargs["test_configuration"] = entry["test_configuration"]
+        else:
+            # Pass flat fields — Test.build_test_configuration will
+            # assemble them into test_configuration when goal is set.
+            if str(goal).strip():
+                test_kwargs["goal"] = goal
+            if str(instructions).strip():
+                test_kwargs["instructions"] = instructions
+            if str(restrictions).strip():
+                test_kwargs["restrictions"] = restrictions
+            if str(scenario).strip():
+                test_kwargs["scenario"] = scenario
 
-        # Build metadata if present
-        metadata = entry.get("metadata", {})
-
-        return Test(
-            category=category or None,
-            topic=topic or None,
-            behavior=behavior or None,
-            prompt=prompt,
-            test_type=test_type,
-            test_configuration=test_configuration,
-            metadata=metadata if metadata else {},
-        )
+        return Test(**test_kwargs)
 
     def to_json(self, filename: Union[str, Path], indent: int = 2) -> None:
         """Save the tests from this test set to a JSON file.
@@ -963,31 +1020,39 @@ class TestSet(BaseEntity):
         description: str = "",
         short_description: str = "",
     ) -> "TestSet":
-        """Load single-turn tests from a CSV file and create a new TestSet.
+        """Load tests from a CSV file and create a new TestSet.
 
         Creates a TestSet populated with Test objects from the CSV file.
+        Supports both single-turn and multi-turn test formats.
 
-        Required CSV Columns:
-            - prompt_content: The test prompt text (required for valid tests)
-            - category: Test category (required for valid tests)
-            - topic: Test topic (required for valid tests)
-            - behavior: Test behavior (required for valid tests)
+        Common CSV Columns:
+            - category: Test category
+            - topic: Test topic
+            - behavior: Test behavior
+            - test_type: "Single-Turn" or "Multi-Turn"
+              (default: "Single-Turn")
 
-        Optional CSV Columns:
-            - test_type: Test type (defaults to "Single-Turn")
+        Single-Turn Columns:
+            - prompt_content: The test prompt text
             - expected_response: Expected response text
-            - Any other columns will be ignored
+
+        Multi-Turn Columns (flat):
+            - goal: Multi-turn test goal
+            - instructions: How the agent should conduct the test
+            - restrictions: Forbidden behaviors for the target
+            - scenario: Contextual framing for the test
 
         Empty Row Handling:
-            Rows with empty or whitespace-only values for all required fields
-            (prompt_content, category, topic, behavior) will be automatically
-            skipped during import.
+            Rows with no meaningful content (no prompt, category,
+            topic, behavior, or goal) are automatically skipped.
 
         Args:
             filename: Path to the CSV file to read.
             name: Name for the test set (default: empty string).
-            description: Description for the test set (default: empty string).
-            short_description: Short description for the test set (default: empty string).
+            description: Description for the test set
+                (default: empty string).
+            short_description: Short description for the test set
+                (default: empty string).
 
         Returns:
             A new TestSet instance populated with tests from the CSV.
@@ -996,8 +1061,8 @@ class TestSet(BaseEntity):
             FileNotFoundError: If the CSV file does not exist.
 
         Example:
-            >>> test_set = TestSet.from_csv("my_tests.csv", name="Imported Tests")
-            >>> print(f"Loaded {len(test_set.tests)} tests")
+            >>> ts = TestSet.from_csv("tests.csv", name="Imported")
+            >>> print(f"Loaded {len(ts.tests)} tests")
         """
         filepath = Path(filename)
         tests: List[Test] = []
@@ -1006,33 +1071,11 @@ class TestSet(BaseEntity):
             reader = csv.DictReader(csvfile)
 
             for row in reader:
-                # Skip empty rows - check if any required field has content
-                if not any(
-                    [
-                        row.get("prompt_content", "").strip(),
-                        row.get("category", "").strip(),
-                        row.get("topic", "").strip(),
-                        row.get("behavior", "").strip(),
-                    ]
-                ):
-                    continue  # Skip this empty row
-
-                # Build prompt if content exists
-                prompt = None
-                if row.get("prompt_content"):
-                    prompt = Prompt(
-                        content=row["prompt_content"],
-                        expected_response=row.get("expected_response"),
-                    )
-
-                test = Test(
-                    category=row.get("category") or None,
-                    topic=row.get("topic") or None,
-                    behavior=row.get("behavior") or None,
-                    prompt=prompt,
-                    test_type=TestType.SINGLE_TURN,
-                )
-                tests.append(test)
+                # Use _dict_to_test which handles both single-turn
+                # and multi-turn (nested + flat) formats.
+                test = cls._dict_to_test(row)
+                if test is not None:
+                    tests.append(test)
 
         return cls(
             name=name,

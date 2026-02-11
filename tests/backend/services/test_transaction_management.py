@@ -141,14 +141,16 @@ class TestServiceTransactionManagement:
             test_db, tests_data, test_org_id, authenticated_user_id
         )
 
-        # Verify tests were created and persisted
+        # Verify tests were created and persisted (returns list of ID strings)
         assert result is not None
         assert len(result) == len(tests_data)
 
         # Verify each test is actually in the database (committed)
-        for created_test in result:
-            assert created_test.id is not None
-            db_test = test_db.query(models.Test).filter(models.Test.id == created_test.id).first()
+        for test_id in result:
+            assert test_id is not None
+            db_test = test_db.query(models.Test).filter(
+                models.Test.id == test_id
+            ).first()
             assert db_test is not None
 
     def test_bulk_create_tests_rollback_on_exception(
