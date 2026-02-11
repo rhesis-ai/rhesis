@@ -1,16 +1,31 @@
 """Tests for WebSocket connection error handling and retry logic."""
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
-import websockets
+from websockets.exceptions import InvalidStatus
 
 from rhesis.sdk.connector.connection import (
     WebSocketConnection,
     classify_websocket_error,
 )
 from rhesis.sdk.connector.types import ConnectionState
+
+
+def _make_invalid_status(status_code: int) -> InvalidStatus:
+    """Create an ``InvalidStatus`` exception with the given HTTP status code.
+
+    ``InvalidStatus`` (websockets 13+) replaces the deprecated
+    ``InvalidStatusCode`` and expects a response object instead of
+    ``(code, headers)`` positional arguments.
+    """
+    mock_response = Mock()
+    mock_response.status_code = status_code
+    mock_response.reason_phrase = "Mocked"
+    mock_response.headers = {}
+    mock_response.body = b""
+    return InvalidStatus(mock_response)
 
 
 async def wait_for_state(
@@ -173,9 +188,7 @@ class TestWebSocketConnectionRetry:
         """Test that permanent errors (401/403) don't trigger retries."""
         # Mock websockets.connect to raise HTTP 403
         with patch("rhesis.sdk.connector.connection.websockets.connect") as mock_connect:
-            mock_connect.side_effect = websockets.exceptions.InvalidStatusCode(
-                403, {"status": "403"}
-            )
+            mock_connect.side_effect = _make_invalid_status(403)
 
             # Start connection
             await connection.connect()
@@ -216,9 +229,7 @@ class TestWebSocketConnectionRetry:
 
         # Mock websockets.connect to raise HTTP 500 multiple times
         with patch("rhesis.sdk.connector.connection.websockets.connect") as mock_connect:
-            mock_connect.side_effect = websockets.exceptions.InvalidStatusCode(
-                500, {"status": "500"}
-            )
+            mock_connect.side_effect = _make_invalid_status(500)
 
             # Start connection (runs in background task)
             await connection.connect()
@@ -287,14 +298,14 @@ class TestWebSocketConnectionRetry:
 
             if call_count < 3:
                 # First 2 attempts fail with transient error
-                raise websockets.exceptions.InvalidStatusCode(500, {"status": "500"})
+                raise _make_invalid_status(500)
             elif call_count == 3:
                 # Third attempt succeeds
                 return MockWebSocket()
             else:
                 # After first successful connection closes, prevent infinite reconnection
                 # by raising an error that will be handled by the retry loop
-                raise websockets.exceptions.InvalidStatusCode(500, {"status": "500"})
+                raise _make_invalid_status(500)
 
         with patch(
             "rhesis.sdk.connector.connection.websockets.connect",
@@ -335,9 +346,7 @@ class TestWebSocketConnectionRetry:
         )
 
         with patch("rhesis.sdk.connector.connection.websockets.connect") as mock_connect:
-            mock_connect.side_effect = websockets.exceptions.InvalidStatusCode(
-                500, {"status": "500"}
-            )
+            mock_connect.side_effect = _make_invalid_status(500)
 
             # Start connection
             await connection.connect()
@@ -371,9 +380,7 @@ class TestWebSocketConnectionRetry:
         """Test that connection state transitions correctly during retries."""
         with patch("rhesis.sdk.connector.connection.websockets.connect") as mock_connect:
             # Make it fail with transient error
-            mock_connect.side_effect = websockets.exceptions.InvalidStatusCode(
-                500, {"status": "500"}
-            )
+            mock_connect.side_effect = _make_invalid_status(500)
 
             # Initial state
             assert connection.state == ConnectionState.DISCONNECTED
@@ -402,9 +409,7 @@ class TestWebSocketConnectionRetry:
     async def test_failure_reason_stored(self, connection):
         """Test that failure reason is stored on permanent failure."""
         with patch("rhesis.sdk.connector.connection.websockets.connect") as mock_connect:
-            mock_connect.side_effect = websockets.exceptions.InvalidStatusCode(
-                403, {"status": "403"}
-            )
+            mock_connect.side_effect = _make_invalid_status(403)
 
             # Start connection
             await connection.connect()

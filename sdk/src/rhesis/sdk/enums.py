@@ -12,6 +12,8 @@ class TestType(str, Enum):
     - MULTI_TURN: Agentic multi-turn conversation tests using Penelope
     """
 
+    __test__ = False  # Prevent pytest collection
+
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
 
