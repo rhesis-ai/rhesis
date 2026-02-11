@@ -1,5 +1,7 @@
 import csv
 import json
+import logging
+import uuid as uuid_mod
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
@@ -12,8 +14,10 @@ from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import handle_http_errors
 from rhesis.sdk.entities.prompt import Prompt
 from rhesis.sdk.entities.test import Test
-from rhesis.sdk.enums import TestType
+from rhesis.sdk.enums import ExecutionMode, TestType
 from rhesis.sdk.models.base import BaseLLM
+
+logger = logging.getLogger(__name__)
 
 ENDPOINT = Endpoints.TEST_SETS
 
@@ -60,39 +64,377 @@ class TestSet(BaseEntity):
             return v.get("type_value")
         return v
 
-    @handle_http_errors
-    def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:
-        """Execute the test set against the given endpoint.
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
 
-        This method sends a request to the Rhesis backend to execute all tests
-        in the test set against the specified endpoint.
+    def _resolve_metric_id(
+        self,
+        metric: Union[Dict[str, Any], str],
+        client: Optional[APIClient] = None,
+    ) -> str:
+        """Resolve a single metric reference to an ID.
+
+        Accepts:
+            - A dict with an ``"id"`` key
+            - A UUID string (used directly)
+            - A metric name string (looked up via ``GET /metrics``)
 
         Args:
-            endpoint: The endpoint to execute tests against
+            metric: Metric reference (dict, UUID string, or name).
+            client: Optional shared APIClient instance.
+        """
+        if isinstance(metric, dict):
+            mid = metric.get("id")
+            if not mid:
+                raise ValueError("Metric dict must contain an 'id' key")
+            return str(mid)
+
+        metric_str = str(metric)
+
+        # Check if it looks like a UUID
+        try:
+            uuid_mod.UUID(metric_str)
+            return metric_str
+        except ValueError:
+            pass
+
+        # Treat as a name – look up via the metrics endpoint
+        if client is None:
+            client = APIClient()
+        results = client.send_request(
+            endpoint=Endpoints.METRICS,
+            method=Methods.GET,
+            params={"$filter": f"name eq '{metric_str}'"},
+        )
+        if not results:
+            raise ValueError(f"Metric not found: {metric_str}")
+
+        items = results if isinstance(results, list) else [results]
+        if not items:
+            raise ValueError(f"Metric not found: {metric_str}")
+
+        return str(items[0]["id"])
+
+    def _resolve_metrics(self, metrics: List[Union[Dict[str, Any], str]]) -> List[Dict[str, Any]]:
+        """Resolve a mixed list of metric dicts / name strings."""
+        client = APIClient()
+        resolved: List[Dict[str, Any]] = []
+        for m in metrics:
+            if isinstance(m, dict):
+                resolved.append(m)
+            else:
+                metric_id = self._resolve_metric_id(m, client=client)
+                resolved.append({"id": metric_id, "name": str(m)})
+        return resolved
+
+    def _resolve_run_id(self, run: Union[str, Any]) -> str:
+        """Resolve a test run reference to an ID.
+
+        Accepts a TestRun instance, a UUID string, or a test run name.
+        """
+        if hasattr(run, "id") and run.id:
+            return str(run.id)
+
+        run_str = str(run)
+
+        try:
+            uuid_mod.UUID(run_str)
+            return run_str
+        except ValueError:
+            pass
+
+        # Treat as a name
+        from rhesis.sdk.entities.test_run import TestRuns
+
+        resolved = TestRuns.pull(name=run_str)
+        if resolved is None or not getattr(resolved, "id", None):
+            raise ValueError(f"Test run not found: {run_str}")
+        return str(resolved.id)
+
+    def _build_execution_body(
+        self,
+        *,
+        mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
+        metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
+        reference_test_run_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Build the request body for the execute endpoint."""
+        resolved_mode = ExecutionMode.from_string(mode)
+        body: Dict[str, Any] = {
+            "execution_options": {
+                "execution_mode": resolved_mode.value,
+            },
+        }
+        if metrics:
+            body["metrics"] = self._resolve_metrics(metrics)
+        if reference_test_run_id:
+            body["reference_test_run_id"] = reference_test_run_id
+        return body
+
+    # ------------------------------------------------------------------
+    # Execution
+    # ------------------------------------------------------------------
+
+    @handle_http_errors
+    def execute(
+        self,
+        endpoint: Endpoint,
+        *,
+        mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
+        metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Execute the test set against the given endpoint.
+
+        Args:
+            endpoint: The endpoint to execute tests against.
+            mode: Execution mode – ``ExecutionMode.PARALLEL`` (default),
+                ``ExecutionMode.SEQUENTIAL``, or ``"parallel"`` / ``"sequential"``.
+            metrics: Optional list of metrics for this execution.
+                Overrides test set and behavior metrics.  Each item
+                can be a dict with ``"id"``, ``"name"``, and optional
+                ``"scope"``; or a metric name string (resolved via
+                the ``/metrics`` API).
 
         Returns:
-            Dict containing the execution results, or None if error occurred.
+            Dict containing the execution submission response, or
+            ``None`` if an error occurred.
 
         Raises:
-            ValueError: If test set ID is not set
-            requests.exceptions.HTTPError: If the API request fails
+            ValueError: If test set ID is not set.
 
         Example:
-            >>> test_set = TestSet(id='test-set-123')
-            >>> test_set.fetch()
-            >>> result = test_set.execute(endpoint=Endpoint.TESTS)
-            >>> print(result)
+            >>> test_set = TestSets.pull(name="Safety Tests")
+            >>> endpoint = Endpoints.pull(name="GPT-4o")
+            >>> result = test_set.execute(endpoint)
+            >>> result = test_set.execute(endpoint, mode=ExecutionMode.SEQUENTIAL)
+            >>> result = test_set.execute(endpoint, mode="sequential")
         """
         if not self.id:
             raise ValueError("Test set ID must be set before executing")
 
+        body = self._build_execution_body(mode=mode, metrics=metrics)
         client = APIClient()
-        response = client.send_request(
+        return client.send_request(
             endpoint=self.endpoint,
             method=Methods.POST,
             url_params=f"{self.id}/execute/{endpoint.id}",
+            data=body,
         )
-        return response
+
+    @handle_http_errors
+    def rescore(
+        self,
+        endpoint: Endpoint,
+        run: Optional[Union[str, Any]] = None,
+        *,
+        mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
+        metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Re-score outputs from an existing test run.
+
+        Re-evaluates metrics on stored outputs without calling the
+        endpoint again.
+
+        Args:
+            endpoint: The endpoint the original run was executed
+                against.
+            run: The test run whose outputs to re-score.  Accepts:
+
+                - A ``TestRun`` instance
+                - A string test run ID (UUID)
+                - A string test run name (resolved via
+                  ``TestRuns`` collection)
+                - ``None`` (default) – uses the latest completed run
+
+            mode: Execution mode – ``ExecutionMode.PARALLEL`` (default),
+                ``ExecutionMode.SEQUENTIAL``, or ``"parallel"`` / ``"sequential"``.
+            metrics: Optional list of metrics for re-scoring.
+
+        Returns:
+            Dict containing the execution submission response, or
+            ``None`` if an error occurred.
+
+        Raises:
+            ValueError: If test set ID is not set or no completed
+                run is found when *run* is ``None``.
+
+        Example:
+            >>> test_set.rescore(endpoint)
+            >>> test_set.rescore(endpoint, run="Safety - Run 42")
+            >>> test_set.rescore(endpoint, metrics=["Accuracy"])
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before rescoring")
+
+        if run is None:
+            last = self.last_run(endpoint)
+            if not last:
+                raise ValueError("No completed test run found for this test set and endpoint")
+            run_id = str(last["id"])
+        else:
+            run_id = self._resolve_run_id(run)
+
+        body = self._build_execution_body(
+            mode=mode,
+            metrics=metrics,
+            reference_test_run_id=run_id,
+        )
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            url_params=f"{self.id}/execute/{endpoint.id}",
+            data=body,
+        )
+
+    @handle_http_errors
+    def last_run(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:
+        """Get the most recent completed test run.
+
+        Returns a summary dict for the latest completed run of this
+        test set against the given endpoint, or ``None`` if no
+        completed run exists.
+
+        The dict contains: ``id``, ``nano_id``, ``name``, ``status``,
+        ``created_at``, ``test_count``, and ``pass_rate``.
+
+        Args:
+            endpoint: The endpoint to look up the last run for.
+
+        Raises:
+            ValueError: If test set ID is not set.
+
+        Example:
+            >>> last = test_set.last_run(endpoint)
+            >>> if last:
+            ...     print(last["pass_rate"])
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before fetching last run")
+
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/last-run/{endpoint.id}",
+        )
+
+    # ------------------------------------------------------------------
+    # Test set metric management
+    # ------------------------------------------------------------------
+
+    @handle_http_errors
+    def get_metrics(self) -> Optional[List[Dict[str, Any]]]:
+        """Get metrics associated with this test set.
+
+        Returns:
+            A list of metric dicts, or an empty list if none are
+            assigned.
+
+        Raises:
+            ValueError: If test set ID is not set.
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before fetching metrics")
+
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/metrics",
+        )
+
+    @handle_http_errors
+    def add_metric(self, metric: Union[Dict[str, Any], str]) -> Optional[List[Dict[str, Any]]]:
+        """Add a metric to this test set.
+
+        Args:
+            metric: The metric to add.  Accepts a dict with an
+                ``"id"`` key, a UUID string, or a metric name string
+                (resolved via the ``/metrics`` API).
+
+        Returns:
+            The updated list of metrics on this test set.
+
+        Raises:
+            ValueError: If test set ID is not set or the metric
+                cannot be resolved.
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before adding metrics")
+
+        metric_id = self._resolve_metric_id(metric)
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            url_params=f"{self.id}/metrics/{metric_id}",
+        )
+
+    def add_metrics(
+        self, metrics: List[Union[Dict[str, Any], str]]
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Add multiple metrics to this test set.
+
+        Args:
+            metrics: A list where each item can be a dict, UUID
+                string, or metric name string.
+
+        Returns:
+            The updated list of metrics on this test set after all
+            additions.
+        """
+        result = None
+        for metric in metrics:
+            result = self.add_metric(metric)
+        return result
+
+    @handle_http_errors
+    def remove_metric(self, metric: Union[Dict[str, Any], str]) -> Optional[List[Dict[str, Any]]]:
+        """Remove a metric from this test set.
+
+        Accepts the same input types as :meth:`add_metric`.
+
+        Returns:
+            The updated list of metrics on this test set.
+
+        Raises:
+            ValueError: If test set ID is not set or the metric
+                cannot be resolved.
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before removing metrics")
+
+        metric_id = self._resolve_metric_id(metric)
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.DELETE,
+            url_params=f"{self.id}/metrics/{metric_id}",
+        )
+
+    def remove_metrics(
+        self, metrics: List[Union[Dict[str, Any], str]]
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Remove multiple metrics from this test set.
+
+        Args:
+            metrics: A list where each item can be a dict, UUID
+                string, or metric name string.
+
+        Returns:
+            The updated list of metrics on this test set after all
+            removals.
+        """
+        result = None
+        for metric in metrics:
+            result = self.remove_metric(metric)
+        return result
+
+    # ------------------------------------------------------------------
+    # Properties / LLM
+    # ------------------------------------------------------------------
 
     def set_properties(self, model: BaseLLM) -> None:
         """Set test set attributes using LLM based on categories and topics in tests.

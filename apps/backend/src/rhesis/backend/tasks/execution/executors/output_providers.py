@@ -13,8 +13,9 @@ metrics uniformly regardless of how the output was obtained.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
@@ -72,7 +73,7 @@ class SingleTurnOutput(OutputProvider):
         test_execution_context=None,
         **kwargs,
     ) -> TestOutput:
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         # Reuse existing EndpointService singleton
         endpoint_service = get_endpoint_service()
@@ -84,7 +85,7 @@ class SingleTurnOutput(OutputProvider):
             user_id=user_id,
             test_execution_context=test_execution_context,
         )
-        execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+        execution_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
         # Reuse existing result processing (ErrorResponse handling, output extraction)
         processed = process_endpoint_result(result)
@@ -112,7 +113,7 @@ class MultiTurnOutput(OutputProvider):
         test_execution_context=None,
         **kwargs,
     ) -> TestOutput:
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
 
         # Extract multi-turn configuration from test
         test_config = test.test_configuration or {}
@@ -145,7 +146,7 @@ class MultiTurnOutput(OutputProvider):
             context=context,
             max_turns=max_turns,
         )
-        execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+        execution_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
         trace = penelope_result.model_dump(mode="json")
         metrics = trace.pop("metrics", {})
@@ -165,6 +166,8 @@ class TestResultOutput(OutputProvider):
     """
 
     def __init__(self, reference_test_run_id: str):
+        # Validate UUID format to prevent malformed filter strings
+        UUID(reference_test_run_id)
         self.reference_test_run_id = reference_test_run_id
 
     async def get_output(
@@ -176,6 +179,9 @@ class TestResultOutput(OutputProvider):
         user_id=None,
         **kwargs,
     ) -> TestOutput:
+        # Validate test_id format before interpolating into filter
+        UUID(str(test_id))
+
         # Reuse existing CRUD with OData filter (multi-tenant safe)
         filter_str = f"test_run_id eq {self.reference_test_run_id} and test_id eq {test_id}"
         results = crud.get_test_results(

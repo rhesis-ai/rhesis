@@ -1,5 +1,6 @@
 """Tests for ConnectorManager."""
 
+import inspect
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -7,6 +8,23 @@ import pytest
 from rhesis.sdk.connector.manager import ConnectorManager
 from rhesis.sdk.connector.types import MessageType
 from rhesis.sdk.telemetry import Tracer
+
+
+def _make_create_task_mock():
+    """Return a ``(mock_create_task, mock_task)`` pair.
+
+    The mock ``create_task`` closes any coroutine it receives so that
+    Python does not emit *RuntimeWarning: coroutine ... was never awaited*.
+    """
+    mock_task = Mock(spec=["cancel"])
+
+    def _side_effect(coro, **kwargs):
+        if inspect.iscoroutine(coro):
+            coro.close()
+        return mock_task
+
+    mock_create_task = Mock(side_effect=_side_effect)
+    return mock_create_task, mock_task
 
 
 @pytest.fixture
@@ -53,9 +71,8 @@ def test_manager_uses_telemetry_tracer(manager):
 
 
 @patch("rhesis.sdk.connector.manager.WebSocketConnection")
-@patch("asyncio.create_task")
 @patch("asyncio.get_running_loop")
-def test_initialize(mock_get_loop, mock_create_task, mock_ws_class, manager):
+def test_initialize(mock_get_loop, mock_ws_class, manager):
     """Test manager initialization."""
     # Mock get_running_loop to return a mock loop (instead of raising RuntimeError)
     mock_get_loop.return_value = Mock()
@@ -65,11 +82,10 @@ def test_initialize(mock_get_loop, mock_create_task, mock_ws_class, manager):
     mock_ws_instance.connect = AsyncMock()
     mock_ws_class.return_value = mock_ws_instance
 
-    # Mock create_task to return a mock task
-    mock_task = Mock(spec=["cancel"])
-    mock_create_task.return_value = mock_task
+    mock_create_task, _mock_task = _make_create_task_mock()
 
-    manager.initialize()
+    with patch("asyncio.create_task", mock_create_task):
+        manager.initialize()
 
     assert manager._initialized
     assert manager._connection is not None
@@ -77,18 +93,18 @@ def test_initialize(mock_get_loop, mock_create_task, mock_ws_class, manager):
     mock_create_task.assert_called_once()
 
 
-@patch("asyncio.create_task")
 @patch("asyncio.get_running_loop")
-def test_initialize_idempotent(mock_get_loop, mock_create_task, manager):
+def test_initialize_idempotent(mock_get_loop, manager):
     """Test that calling initialize multiple times is safe."""
     # Mock get_running_loop to return a mock loop (instead of raising RuntimeError)
     mock_get_loop.return_value = Mock()
 
-    # Mock create_task to return a mock task
-    mock_task = Mock(spec=["cancel"])
-    mock_create_task.return_value = mock_task
+    mock_create_task, _mock_task = _make_create_task_mock()
 
-    with patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class:
+    with (
+        patch("asyncio.create_task", mock_create_task),
+        patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class,
+    ):
         mock_ws_instance = Mock()
         mock_ws_instance.connect = AsyncMock()
         mock_ws_class.return_value = mock_ws_instance
@@ -100,15 +116,14 @@ def test_initialize_idempotent(mock_get_loop, mock_create_task, manager):
     assert mock_create_task.call_count == 1
 
 
-@patch("asyncio.create_task")
-def test_register_function(mock_create_task, manager, sample_function):
+def test_register_function(manager, sample_function):
     """Test function registration."""
+    mock_create_task, _mock_task = _make_create_task_mock()
 
-    # Mock create_task to return a mock task
-    mock_task = Mock(spec=["cancel"])
-    mock_create_task.return_value = mock_task
-
-    with patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class:
+    with (
+        patch("asyncio.create_task", mock_create_task),
+        patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class,
+    ):
         mock_ws_instance = Mock()
         mock_ws_instance.connect = AsyncMock()
         mock_ws_class.return_value = mock_ws_instance

@@ -187,6 +187,8 @@ def handle_retry_or_fail(
     endpoint_id: str,
     organization_id: str,
     user_id: str,
+    reference_test_run_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Handle task retry logic or return failure result.
@@ -201,6 +203,8 @@ def handle_retry_or_fail(
         endpoint_id: Endpoint ID
         organization_id: Organization ID
         user_id: User ID
+        reference_test_run_id: Optional previous test run ID for re-scoring
+        trace_id: Optional trace ID for trace-based evaluation
 
     Returns:
         Failure result dict
@@ -211,16 +215,22 @@ def handle_retry_or_fail(
             f"{task_self.max_retries} for test {test_id}"
         )
         try:
+            retry_kwargs = {
+                "test_config_id": test_config_id,
+                "test_run_id": test_run_id,
+                "test_id": test_id,
+                "endpoint_id": endpoint_id,
+                "organization_id": organization_id,
+                "user_id": user_id,
+            }
+            if reference_test_run_id:
+                retry_kwargs["reference_test_run_id"] = reference_test_run_id
+            if trace_id:
+                retry_kwargs["trace_id"] = trace_id
+
             task_self.retry(
                 exc=exception,
-                kwargs={
-                    "test_config_id": test_config_id,
-                    "test_run_id": test_run_id,
-                    "test_id": test_id,
-                    "endpoint_id": endpoint_id,
-                    "organization_id": organization_id,
-                    "user_id": user_id,
-                },
+                kwargs=retry_kwargs,
             )
         except task_self.MaxRetriesExceededError:
             logger.error(f"Test {test_id} failed after max retries, returning failure result")
@@ -336,4 +346,6 @@ def execute_single_test(
             endpoint_id,
             organization_id,
             user_id,
+            reference_test_run_id=reference_test_run_id,
+            trace_id=trace_id,
         )
