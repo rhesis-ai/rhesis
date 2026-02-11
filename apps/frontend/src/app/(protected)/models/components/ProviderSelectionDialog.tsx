@@ -61,8 +61,8 @@ export function ProviderSelectionDialog({
       <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
         <DialogTitle>
           {modelType === 'embedding'
-            ? 'Select Embedding Provider'
-            : 'Select Model Provider'}
+            ? 'Select Embedder Provider'
+            : 'Select LLM Provider'}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ py: 2, textAlign: 'center' }}>
@@ -111,8 +111,8 @@ export function ProviderSelectionDialog({
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         {modelType === 'embedding'
-          ? 'Select Embedding Provider'
-          : 'Select Model Provider'}
+          ? 'Select Embedder Provider'
+          : 'Select LLM Provider'}
       </DialogTitle>
       <DialogContent>
         <List>
@@ -188,10 +188,6 @@ export function ProviderSelectionDialog({
                       )}
                     </Box>
                   }
-                  secondary={providerInfo.description}
-                  secondaryTypographyProps={{
-                    sx: { opacity: isEnabled ? 1 : 0.6 },
-                  }}
                 />
               </ListItemButton>
             );

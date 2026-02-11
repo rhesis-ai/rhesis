@@ -502,11 +502,11 @@ export function ConnectionDialog({
             <Typography variant="h6" component="div">
               {isEditMode ? `Edit ${displayName}` : `Connect to ${displayName}`}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {isEditMode
-                ? 'Update your connection settings'
-                : 'Configure your connection settings below'}
-            </Typography>
+            {isEditMode && (
+              <Typography variant="body2" color="text.secondary">
+                Update your connection settings
+              </Typography>
+            )}
           </Box>
         </Box>
       </DialogTitle>
@@ -818,11 +818,6 @@ export function ConnectionDialog({
               >
                 Default Model Settings
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {modelType === 'llm'
-                  ? 'Set this model as the default for test generation or evaluation tasks.'
-                  : 'Set this model as the default for embedding generation.'}
-              </Typography>
               <Stack spacing={1}>
                 {/* Show generation and evaluation toggles for LLM models */}
                 {modelType === 'llm' && (
@@ -881,10 +876,7 @@ export function ConnectionDialog({
                     label={
                       <Box>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          Default for Embedding
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Use this model for semantic search and similarity
+                          Default Embedding Model
                         </Typography>
                       </Box>
                     }
