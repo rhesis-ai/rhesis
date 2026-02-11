@@ -232,7 +232,14 @@ export default class Row extends React.Component {
     return <div className={outerClasses} draggable onMouseOver={this.onMouseOver} onMouseOut={this.onMouseOut} onMouseDown={this.onMouseDown}
                 onDragStart={this.onDragStart} onDragEnd={this.onDragEnd} onDragOver={this.onDragOver}
                 onDragEnter={this.onDragEnter} onDragLeave={this.onDragLeave} onDrop={this.onDrop} ref={(el) => this.divRef = el}
-                style={this.props.hideBorder ? {} : {borderTop: "1px solid rgb(216, 222, 228)"}} tabIndex="0" onKeyDown={this.keyDownHandler}>
+                style={
+                  this.props.hideBorder
+                    ? {}
+                    : {
+                        borderTop:
+                          "1px solid var(--rhesis-row-border-color, #d8dee4)",
+                      }
+                } tabIndex="0" onKeyDown={this.keyDownHandler}>
       <ContextMenu top={this.state.contextTop} left={this.state.contextLeft} open={this.state.contextOpen}
                     onClose={this.closeContextMenu} rows={this.state.contextRows} onClick={this.handleContextMenuClick} />
       {this.state.topic_name !== null && !this.props.isSuggestion &&

@@ -30,6 +30,7 @@ import {
   FormControlLabel,
   Checkbox,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -261,6 +262,7 @@ function TreeNodeView({
   onEditTopic,
   onDeleteTopic,
 }: TreeNodeViewProps) {
+  const theme = useTheme();
   const hasChildren = node.children.length > 0;
   const isExpanded = expandedPaths.has(node.path);
   const isSelected = selectedTopic === node.path;
@@ -301,7 +303,7 @@ function TreeNodeView({
           px: 1,
           ml: level * 2,
           cursor: 'pointer',
-          borderRadius: 1,
+          borderRadius: theme.shape.borderRadius / 4,
           backgroundColor: dragOver
             ? 'primary.main'
             : isSelected
@@ -396,7 +398,7 @@ function TreeNodeView({
             }}
             className="topic-edit-btn"
           >
-            <EditIcon sx={{ fontSize: '0.9rem' }} />
+            <EditIcon sx={{ fontSize: theme.typography.subtitle2.fontSize }} />
           </IconButton>
         )}
 
@@ -420,7 +422,7 @@ function TreeNodeView({
               }}
               className="topic-edit-btn"
             >
-              <DeleteIcon sx={{ fontSize: '0.9rem' }} />
+              <DeleteIcon sx={{ fontSize: theme.typography.subtitle2.fontSize }} />
             </IconButton>
           </Tooltip>
         )}
@@ -432,7 +434,7 @@ function TreeNodeView({
           variant="outlined"
           sx={{
             height: 20,
-            fontSize: '0.75rem',
+            fontSize: theme.typography.overline.fontSize,
             ml: 1,
           }}
         />
@@ -445,7 +447,7 @@ function TreeNodeView({
             variant="outlined"
             sx={{
               height: 18,
-              fontSize: '0.7rem',
+              fontSize: theme.typography.chartTick.fontSize,
               ml: 0.5,
               color: 'text.secondary',
               borderColor: 'divider',
@@ -461,7 +463,7 @@ function TreeNodeView({
             color={getScoreColor(node.avgScore)}
             sx={{
               height: 20,
-              fontSize: '0.75rem',
+              fontSize: theme.typography.overline.fontSize,
               ml: 0.5,
             }}
           />
@@ -1053,6 +1055,7 @@ function TopicTreePanel({
   onEditTopic,
   onDeleteTopic,
 }: TopicTreePanelProps) {
+  const theme = useTheme();
   // Start with all paths expanded
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
     const paths = new Set<string>();
@@ -1111,7 +1114,7 @@ function TopicTreePanel({
           py: 0.75,
           px: 1,
           cursor: 'pointer',
-          borderRadius: 1,
+          borderRadius: theme.shape.borderRadius / 4,
           backgroundColor:
             selectedTopic === null ? 'action.selected' : 'transparent',
           '&:hover': {
@@ -1136,7 +1139,10 @@ function TopicTreePanel({
           label={tests.length}
           size="small"
           variant="outlined"
-          sx={{ height: 20, fontSize: '0.75rem' }}
+          sx={{
+            height: 20,
+            fontSize: theme.typography.overline.fontSize,
+          }}
         />
       </Box>
 
