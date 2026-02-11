@@ -75,6 +75,60 @@ def test_get_synthesizer_name():
     assert name == "PromptSynthesizer"
 
 
+# Batch generation tests (structure of _generate_batch output)
+def test_generate_batch_returns_nested_structure():
+    """Test that _generate_batch returns list of dicts with nested prompt structure.
+
+    The LLM is given a flat schema (prompt_content, prompt_expected_response, etc.);
+    the synthesizer repacks the response into the nested structure (prompt.content, etc.).
+    """
+    mock_model = Mock(spec=BaseLLM)
+    # Simulate LLM returning flat structure (FlatTests schema)
+    mock_model.generate.return_value = {
+        "tests": [
+            {
+                "prompt_content": "User query A",
+                "prompt_expected_response": "Expected A",
+                "prompt_language_code": "en",
+                "behavior": "behavior one",
+                "category": "category one",
+                "topic": "topic one",
+            },
+            {
+                "prompt_content": "User query B",
+                "prompt_expected_response": "Expected B",
+                "prompt_language_code": "pl",
+                "behavior": "behavior two",
+                "category": "category two",
+                "topic": "topic two",
+            },
+        ]
+    }
+
+    synthesizer = PromptSynthesizer(prompt="Generate tests", model=mock_model)
+    result = synthesizer._generate_batch(2, generation_prompt="Generate tests")
+
+    assert len(result) == 2
+    # Nested prompt structure preserved
+    assert result[0]["prompt"]["content"] == "User query A"
+    assert result[0]["prompt"]["expected_response"] == "Expected A"
+    assert result[0]["prompt"]["language_code"] == "en"
+    assert result[0]["behavior"] == "behavior one"
+    assert result[0]["category"] == "category one"
+    assert result[0]["topic"] == "topic one"
+    assert result[0]["test_type"] == "Single-Turn"
+    assert result[0]["metadata"]["generated_by"] == "PromptSynthesizer"
+
+    assert result[1]["prompt"]["content"] == "User query B"
+    assert result[1]["prompt"]["expected_response"] == "Expected B"
+    assert result[1]["prompt"]["language_code"] == "pl"
+    assert result[1]["behavior"] == "behavior two"
+    assert result[1]["category"] == "category two"
+    assert result[1]["topic"] == "topic two"
+    assert result[1]["test_type"] == "Single-Turn"
+    assert result[1]["metadata"]["generated_by"] == "PromptSynthesizer"
+
+
 # Generation tests
 @patch.object(PromptSynthesizer, "_generate_batch")
 def test_generate_without_sources_small_batch(mock_generate_batch):
@@ -86,19 +140,67 @@ def test_generate_without_sources_small_batch(mock_generate_batch):
                 "expected_response": "Response 1",
                 "language_code": "en",
             },
-            "behavior": "test behavior",
-            "category": "test category",
-            "topic": "test topic",
+            "behavior": "test behavior 1",
+            "category": "test category 1",
+            "topic": "test topic 1",
             "metadata": {"generated_by": "PromptSynthesizer"},
-        }
+        },
+        {
+            "prompt": {
+                "content": "Test prompt 2",
+                "expected_response": "Response 2",
+                "language_code": "en",
+            },
+            "behavior": "test behavior 2",
+            "category": "test category 2",
+            "topic": "test topic 2",
+            "metadata": {"generated_by": "PromptSynthesizer"},
+        },
+        {
+            "prompt": {
+                "content": "Test prompt 3",
+                "expected_response": "Response 3",
+                "language_code": "en",
+            },
+            "behavior": "test behavior 3",
+            "category": "test category 3",
+            "topic": "test topic 3",
+            "metadata": {"generated_by": "PromptSynthesizer"},
+        },
     ]
 
     synthesizer = PromptSynthesizer(prompt="Generate tests")
-    result = synthesizer._generate_without_sources(num_tests=1)
+    result = synthesizer._generate_without_sources(num_tests=3)
 
-    assert len(result) == 1
+    assert len(result) == 3
     assert mock_generate_batch.called
-    assert result[0]["prompt"]["content"] == "Test prompt 1"
+
+    item0 = result[0]
+    assert item0["prompt"]["content"] == "Test prompt 1"
+    assert item0["prompt"]["expected_response"] == "Response 1"
+    assert item0["prompt"]["language_code"] == "en"
+    assert item0["behavior"] == "test behavior 1"
+    assert item0["category"] == "test category 1"
+    assert item0["topic"] == "test topic 1"
+    assert item0["metadata"] == {"generated_by": "PromptSynthesizer"}
+
+    item1 = result[1]
+    assert item1["prompt"]["content"] == "Test prompt 2"
+    assert item1["prompt"]["expected_response"] == "Response 2"
+    assert item1["prompt"]["language_code"] == "en"
+    assert item1["behavior"] == "test behavior 2"
+    assert item1["category"] == "test category 2"
+    assert item1["topic"] == "test topic 2"
+    assert item1["metadata"] == {"generated_by": "PromptSynthesizer"}
+
+    item2 = result[2]
+    assert item2["prompt"]["content"] == "Test prompt 3"
+    assert item2["prompt"]["expected_response"] == "Response 3"
+    assert item2["prompt"]["language_code"] == "en"
+    assert item2["behavior"] == "test behavior 3"
+    assert item2["category"] == "test category 3"
+    assert item2["topic"] == "test topic 3"
+    assert item2["metadata"] == {"generated_by": "PromptSynthesizer"}
 
 
 @patch.object(PromptSynthesizer, "_generate_batch")
