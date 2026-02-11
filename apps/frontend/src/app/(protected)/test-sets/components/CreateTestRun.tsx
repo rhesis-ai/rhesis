@@ -67,7 +67,6 @@ export default function CreateTestRun({
   const [selectedEndpoint, setSelectedEndpoint] = useState<UUID | null>(null);
   const [executionMode, setExecutionMode] = useState<string>('Parallel');
   const [tags, setTags] = useState<string[]>([]);
-  const [name, setName] = useState<string>('');
 
   // Fetch projects and endpoints when drawer opens
   useEffect(() => {
@@ -143,7 +142,6 @@ export default function CreateTestRun({
       // Reset selections when drawer opens
       setSelectedProject(null);
       setSelectedEndpoint(null);
-      setName('');
       setTags([]);
     }
   }, [sessionToken, onError, selectedTestSetIds, open]);
@@ -204,9 +202,8 @@ export default function CreateTestRun({
         )
       );
 
-      // Get the test configuration IDs from results and assign name/tags if any
-      const trimmedName = name.trim();
-      if (trimmedName || tags.length > 0) {
+      // Get the test configuration IDs from results and assign tags if any
+      if (tags.length > 0) {
         try {
           // Get endpoint to retrieve organization_id
           const endpointsClient = clientFactory.getEndpointsClient();
@@ -216,10 +213,11 @@ export default function CreateTestRun({
           const testRunsClient = clientFactory.getTestRunsClient();
           const tagsClient = new TagsClient(sessionToken);
 
-          // Update name and assign tags to each created test run
+          // Assign tags to each created test run
           for (const result of results) {
             if ((result as any).test_configuration_id) {
-              const testConfigurationId = (result as any).test_configuration_id;
+              const testConfigurationId =
+                (result as any).test_configuration_id;
 
               const testRun = await pollForTestRun(
                 testRunsClient,
@@ -227,45 +225,30 @@ export default function CreateTestRun({
               );
 
               if (testRun) {
-                // Update the test run name if provided
-                if (trimmedName) {
-                  await testRunsClient.updateTestRun(testRun.id, {
-                    name: trimmedName,
-                  });
-                }
+                for (const tagName of tags) {
+                  const tagPayload: TagCreate = {
+                    name: tagName,
+                    ...(organizationId && {
+                      organization_id: organizationId,
+                    }),
+                  };
 
-                // Assign each tag to the test run
-                if (tags.length > 0) {
-                  for (const tagName of tags) {
-                    const tagPayload: TagCreate = {
-                      name: tagName,
-                      ...(organizationId && {
-                        organization_id: organizationId,
-                      }),
-                    };
-
-                    await tagsClient.assignTagToEntity(
-                      EntityType.TEST_RUN,
-                      testRun.id,
-                      tagPayload
-                    );
-                  }
+                  await tagsClient.assignTagToEntity(
+                    EntityType.TEST_RUN,
+                    testRun.id,
+                    tagPayload
+                  );
                 }
               } else {
                 console.warn(
-                  `Test run not found for configuration ` +
-                    `${testConfigurationId}, ` +
-                    `name and tags will not be assigned`
+                  `Test run not found for configuration ${testConfigurationId}, tags will not be assigned`
                 );
               }
             }
           }
-        } catch (postCreateError) {
+        } catch (tagError) {
           // Log error but don't fail the whole operation
-          console.error(
-            'Failed to update test run name/tags:',
-            postCreateError
-          );
+          console.error('Failed to assign tags to test runs:', tagError);
         }
       }
 
@@ -292,17 +275,6 @@ export default function CreateTestRun({
         </Box>
       ) : (
         <Stack spacing={3}>
-          <TextField
-            label="Name"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            fullWidth
-            placeholder="Leave blank for auto-generated name"
-            helperText="Optional custom name. Leave blank for auto-generated name"
-          />
-
-          <Divider />
-
           <Typography variant="subtitle2" color="text.secondary">
             Execution Target
           </Typography>

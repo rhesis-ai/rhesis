@@ -59,7 +59,6 @@ export default function TestRunDrawer({
     []
   );
   const [tags, setTags] = React.useState<string[]>([]);
-  const [name, setName] = React.useState<string>('');
 
   const getCurrentUserId = useCallback(() => {
     try {
@@ -146,8 +145,6 @@ export default function TestRunDrawer({
               );
               setOwner(currentOwner || null);
             }
-            // Set name if available
-            setName(testRun.name || '');
             // Set tags if available
             if (testRun.tags && testRun.tags.length > 0) {
               setTags(testRun.tags.map(tag => tag.name));
@@ -161,8 +158,7 @@ export default function TestRunDrawer({
               const currentUser = usersArray.find(u => u.id === currentUserId);
               setOwner(currentUser || null);
             }
-            // Reset name and tags for new test runs
-            setName('');
+            // Reset tags for new test runs
             setTags([]);
           }
         } catch (fetchError) {
@@ -236,9 +232,8 @@ export default function TestRunDrawer({
         testConfiguration.id
       );
 
-      // Get the created test run and assign name/tags if any
-      const trimmedName = name.trim();
-      if (trimmedName || tags.length > 0) {
+      // Get the created test run and assign tags if any
+      if (tags.length > 0) {
         try {
           const testRunsClient = clientFactory.getTestRunsClient();
           const testRun = await pollForTestRun(
@@ -247,47 +242,32 @@ export default function TestRunDrawer({
           );
 
           if (testRun) {
-            // Update the test run name if provided
-            if (trimmedName) {
-              await testRunsClient.updateTestRun(testRun.id, {
-                name: trimmedName,
-              });
-            }
+            const tagsClient = new TagsClient(sessionToken);
+            const organizationId = endpoint.organization_id as UUID;
+            const userId = owner?.id as UUID;
 
-            // Assign tags
-            if (tags.length > 0) {
-              const tagsClient = new TagsClient(sessionToken);
-              const organizationId = endpoint.organization_id as UUID;
-              const userId = owner?.id as UUID;
+            // Assign each tag to the test run
+            for (const tagName of tags) {
+              const tagPayload: TagCreate = {
+                name: tagName,
+                ...(organizationId && { organization_id: organizationId }),
+                ...(userId && { user_id: userId }),
+              };
 
-              for (const tagName of tags) {
-                const tagPayload: TagCreate = {
-                  name: tagName,
-                  ...(organizationId && {
-                    organization_id: organizationId,
-                  }),
-                  ...(userId && { user_id: userId }),
-                };
-
-                await tagsClient.assignTagToEntity(
-                  EntityType.TEST_RUN,
-                  testRun.id,
-                  tagPayload
-                );
-              }
+              await tagsClient.assignTagToEntity(
+                EntityType.TEST_RUN,
+                testRun.id,
+                tagPayload
+              );
             }
           } else {
             console.warn(
-              'Test run not found after polling, ' +
-                'name and tags will not be assigned'
+              'Test run not found after polling, tags will not be assigned'
             );
           }
-        } catch (postCreateError) {
+        } catch (tagError) {
           // Log error but don't fail the whole operation
-          console.error(
-            'Failed to update test run name/tags:',
-            postCreateError
-          );
+          console.error('Failed to assign tags to test run:', tagError);
         }
       }
 
@@ -344,18 +324,6 @@ export default function TestRunDrawer({
       saveButtonText="Execute Now"
     >
       <Stack spacing={3}>
-        {/* Name Section */}
-        <TextField
-          label="Name"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          fullWidth
-          placeholder="Leave blank for auto-generated name"
-          helperText="Optional custom name. Leave blank for auto-generated name"
-        />
-
-        <Divider />
-
         {/* Workflow Section */}
         <Stack spacing={2}>
           <Typography variant="subtitle2" color="text.secondary">
