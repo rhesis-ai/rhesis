@@ -6,7 +6,7 @@
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:16-alpine
+    image: mirror.gcr.io/pgvector/pgvector:pg16
     container_name: rhesis-postgres-backend-integration
     environment:
       POSTGRES_DB: rhesis-test-db
@@ -15,7 +15,7 @@ services:
     ports:
       - "12000:5432"
     tmpfs:
-      - /var/lib/postgresql/data:rw,noexec,nosuid,size=512m
+      - /var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-test-db"]
       interval: 10s
@@ -26,7 +26,7 @@ services:
 
   # Redis for Celery
   redis:
-    image: redis:7-alpine
+    image: mirror.gcr.io/redis:7-alpine
     container_name: rhesis-redis-backend-integration
     command: redis-server --requirepass rhesis-redis-pass
     ports:
@@ -34,7 +34,7 @@ services:
     environment:
       - REDIS_PASSWORD=rhesis-redis-pass
     tmpfs:
-      - /data:rw,noexec,nosuid,size=256m
+      - /data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "rhesis-redis-pass", "ping"]
       interval: 10s
