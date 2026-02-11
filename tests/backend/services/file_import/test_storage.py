@@ -3,6 +3,8 @@
 import pytest
 
 from rhesis.backend.app.services.file_import.storage import (
+    MAX_CONCURRENT_SESSIONS,
+    MAX_ROWS_PER_IMPORT,
     ImportSessionStore,
 )
 
@@ -92,6 +94,112 @@ class TestImportSessionStore:
     def test_preview_page_not_found(self):
         result = ImportSessionStore.get_preview_page("nonexistent")
         assert result is None
+
+    # ── Session ownership ──────────────────────────────────────
+
+    def test_create_session_stores_owner(self):
+        """Session stores user_id and organization_id."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+            user_id="user-1",
+            organization_id="org-1",
+        )
+        assert session.user_id == "user-1"
+        assert session.organization_id == "org-1"
+
+    def test_get_session_owner_match(self):
+        """get_session returns session when user_id matches."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+            user_id="user-1",
+        )
+        result = ImportSessionStore.get_session(session.import_id, user_id="user-1")
+        assert result is not None
+        assert result.import_id == session.import_id
+
+    def test_get_session_owner_mismatch(self):
+        """get_session returns None when user_id does not match."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+            user_id="user-1",
+        )
+        result = ImportSessionStore.get_session(session.import_id, user_id="user-2")
+        assert result is None
+
+    def test_get_session_no_user_check(self):
+        """get_session without user_id skips ownership check."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+            user_id="user-1",
+        )
+        result = ImportSessionStore.get_session(session.import_id)
+        assert result is not None
+
+    def test_delete_session_owner_mismatch(self):
+        """delete_session refuses when user_id does not match."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+            user_id="user-1",
+        )
+        deleted = ImportSessionStore.delete_session(session.import_id, user_id="user-2")
+        assert deleted is False
+        # Session still exists
+        assert ImportSessionStore.get_session(session.import_id) is not None
+
+    def test_preview_page_owner_mismatch(self):
+        """get_preview_page returns None on ownership mismatch."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+            user_id="user-1",
+        )
+        session.parsed_rows = [{"x": 1}]
+        session.row_errors = [[]]
+        session.row_warnings = [[]]
+        result = ImportSessionStore.get_preview_page(session.import_id, user_id="user-2")
+        assert result is None
+
+    # ── Concurrent session limits ────────────────────────────────
+
+    def test_max_concurrent_sessions(self):
+        """Creating sessions beyond the limit raises ValueError."""
+        for i in range(MAX_CONCURRENT_SESSIONS):
+            ImportSessionStore.create_session(
+                file_bytes=b"x",
+                filename=f"file{i}.csv",
+                file_format="csv",
+            )
+        with pytest.raises(ValueError, match="Too many concurrent imports"):
+            ImportSessionStore.create_session(
+                file_bytes=b"x",
+                filename="overflow.csv",
+                file_format="csv",
+            )
+
+    def test_active_session_count(self):
+        """active_session_count returns accurate count."""
+        assert ImportSessionStore.active_session_count() == 0
+        ImportSessionStore.create_session(file_bytes=b"x", filename="a.csv", file_format="csv")
+        assert ImportSessionStore.active_session_count() == 1
+
+    # ── Constants are importable ─────────────────────────────────
+
+    def test_max_rows_constant(self):
+        """MAX_ROWS_PER_IMPORT is importable and positive."""
+        assert MAX_ROWS_PER_IMPORT > 0
+
+    # ── Existing tests (unchanged) ───────────────────────────────
 
     def test_preview_row_structure(self):
         session = ImportSessionStore.create_session(

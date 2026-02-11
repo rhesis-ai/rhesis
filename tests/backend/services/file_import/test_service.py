@@ -1,6 +1,7 @@
 """Tests for file_import.service module (orchestrator)."""
 
 import json
+from unittest.mock import patch
 
 import pytest
 
@@ -372,3 +373,72 @@ class TestImportServiceCancel:
 
     def test_cancel_nonexistent(self):
         assert ImportService.cancel("nope") is False
+
+
+# ── Session ownership in service layer ───────────────────────────
+
+
+class TestServiceOwnership:
+    def test_analyze_stores_owner(self):
+        data = [{"category": "Safety"}]
+        file_bytes = json.dumps(data).encode("utf-8")
+        result = ImportService.analyze(
+            file_bytes=file_bytes,
+            filename="test.json",
+            user_id="user-A",
+            organization_id="org-A",
+        )
+        session = ImportSessionStore.get_session(result["import_id"], user_id="user-A")
+        assert session is not None
+        assert session.user_id == "user-A"
+        assert session.organization_id == "org-A"
+
+    def test_parse_rejects_wrong_user(self):
+        data = [{"category": "Safety"}]
+        file_bytes = json.dumps(data).encode("utf-8")
+        result = ImportService.analyze(
+            file_bytes=file_bytes,
+            filename="test.json",
+            user_id="user-A",
+        )
+        with pytest.raises(ValueError, match="not found"):
+            ImportService.parse(
+                result["import_id"],
+                {"category": "category"},
+                user_id="user-B",
+            )
+
+    def test_cancel_rejects_wrong_user(self):
+        data = [{"category": "Safety"}]
+        file_bytes = json.dumps(data).encode("utf-8")
+        result = ImportService.analyze(
+            file_bytes=file_bytes,
+            filename="test.json",
+            user_id="user-A",
+        )
+        assert ImportService.cancel(result["import_id"], user_id="user-B") is False
+        # Session still exists for the owner
+        assert ImportSessionStore.get_session(result["import_id"], user_id="user-A") is not None
+
+
+# ── Row count limits ─────────────────────────────────────────────
+
+
+class TestRowCountLimits:
+    @patch(
+        "rhesis.backend.app.services.file_import.service.MAX_ROWS_PER_IMPORT",
+        5,
+    )
+    def test_parse_rejects_too_many_rows(self):
+        """Parse raises ValueError when file exceeds row limit."""
+        data = [{"category": f"Cat{i}", "prompt_content": f"p{i}"} for i in range(10)]
+        file_bytes = json.dumps(data).encode("utf-8")
+        result = ImportService.analyze(file_bytes=file_bytes, filename="big.json")
+        with pytest.raises(ValueError, match="exceeds"):
+            ImportService.parse(
+                result["import_id"],
+                {
+                    "category": "category",
+                    "prompt_content": "prompt_content",
+                },
+            )
