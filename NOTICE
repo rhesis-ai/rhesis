@@ -53,6 +53,17 @@ Copyright 2018 The Hugging Face team
 Licensed under the Apache License, Version 2.0
 
 ================================================================================
+adaptive-testing - Adaptive Testing for NLP Models
+https://github.com/microsoft/adaptive-testing
+--------------------------------------------------------------------------------
+Copyright (c) Microsoft Corporation
+
+Licensed under the MIT License
+
+================================================================================
 
 The full text of the Apache License, Version 2.0 is available at:
 http://www.apache.org/licenses/LICENSE-2.0
+
+The full text of the MIT License is available at:
+https://opensource.org/licenses/MIT

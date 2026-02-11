@@ -1,3 +1,8 @@
+# This module is based on Microsoft's adaptive-testing library
+# https://github.com/microsoft/adaptive-testing
+# Copyright (c) Microsoft Corporation. Licensed under the MIT License.
+# See LICENSE file in this directory for full license text.
+
 from . import generators
 from ._server import serve
 from ._test_tree import TestTree
