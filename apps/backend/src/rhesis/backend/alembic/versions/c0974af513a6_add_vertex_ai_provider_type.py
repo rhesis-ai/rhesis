@@ -27,9 +27,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Add 'vertex_ai' provider type for Google Vertex AI embedding models."""
-    provider_type_values = (
-        "('ProviderType', 'vertex_ai', 'Google Vertex AI')"
-    )
+    provider_type_values = "('ProviderType', 'vertex_ai', 'Google Vertex AI')"
     op.execute(load_type_lookup_template(provider_type_values))
 
 
