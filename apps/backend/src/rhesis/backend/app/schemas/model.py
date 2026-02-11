@@ -107,11 +107,19 @@ class Model(ModelBase):
 
 
 class TestModelConnectionRequest(BaseModel):
-    """Schema for testing a model connection before creating it"""
+    """Schema for testing a model connection before creating it.
+
+    When model_id is provided (edit mode), stored API key and endpoint are used
+    so the user can test without re-entering credentials.
+    """
 
     provider: str
     model_name: str
-    api_key: str
+    api_key: str = ""
+    model_id: Optional[UUID4] = Field(
+        default=None,
+        description="When set, use stored API key and endpoint from this model",
+    )
     endpoint: Optional[str] = Field(
         default=None, description="Optional endpoint URL for self-hosted providers"
     )
