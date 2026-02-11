@@ -310,7 +310,8 @@ export function ConnectionDialog({
       const requestBody: any = {
         provider: currentProvider.type_value,
         model_name: modelName,
-        api_key: hasApiKey ? apiKey : '',
+        api_key: apiKey && apiKey !== '************' ? apiKey : '', // Always include api_key field, empty string for local providers
+        model_type: modelType, // Include model type for proper test validation
       };
 
       if (canUseStoredKey && model?.id) {

@@ -78,6 +78,7 @@ export interface TestModelConnectionRequest {
   api_key?: string;
   model_id?: UUID;
   endpoint?: string;
+  model_type?: 'llm' | 'embedding';
 }
 
 export interface TestModelConnectionResponse {

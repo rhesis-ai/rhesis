@@ -73,10 +73,10 @@ async def test_model_connection_endpoint(
     1. The provider is supported by the SDK
     2. The API key is valid
     3. The model can be initialized successfully
-    4. A simple generation call works (for full validation)
+    4. A test call works (generation for LLMs, embedding for embedding models)
 
     Args:
-        request: Contains provider, model_name, api_key (or model_id), endpoint
+        request: Contains provider, model_name, api_key (or model_id), optional endpoint, and model_type
 
     Returns:
         TestModelConnectionResponse: Success status and message
@@ -101,6 +101,7 @@ async def test_model_connection_endpoint(
         model_name=request.model_name,
         api_key=api_key,
         endpoint=endpoint,
+        model_type=request.model_type,
     )
 
     return TestModelConnectionResponse(
@@ -220,7 +221,8 @@ async def test_model_connection(
     Test a model's connection by making an actual test call.
 
     Uses ModelConnectionService which validates the model configuration
-    and makes a test generation call to verify it works properly.
+    and makes a test call to verify it works properly (generation for LLMs,
+    embedding for embedding models).
     """
     from rhesis.backend.app.services.model_connection import ModelConnectionService
     from rhesis.backend.logging import logger
@@ -236,10 +238,11 @@ async def test_model_connection(
     provider = db_model.provider_type.type_value if db_model.provider_type else None
     model_name = db_model.model_name
     api_key = db_model.key
+    model_type = db_model.model_type or "llm"
 
     logger.info(
         f"[MODEL_TEST] Testing model: name={db_model.name}, "
-        f"provider={provider}, model_name={model_name}"
+        f"provider={provider}, model_name={model_name}, type={model_type}"
     )
 
     try:
@@ -248,6 +251,7 @@ async def test_model_connection(
             provider=provider,
             model_name=model_name,
             api_key=api_key,
+            model_type=model_type,
         )
 
         status = "success" if result.success else "error"

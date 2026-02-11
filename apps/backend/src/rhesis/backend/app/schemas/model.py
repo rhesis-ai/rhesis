@@ -126,6 +126,9 @@ class TestModelConnectionRequest(BaseModel):
     endpoint: Optional[str] = Field(
         default=None, description="Optional endpoint URL for self-hosted providers"
     )
+    model_type: Optional[Literal["llm", "embedding"]] = Field(
+        default="llm", description="Type of model: 'llm' or 'embedding'"
+    )
 
     @field_validator("endpoint")
     @classmethod
