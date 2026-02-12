@@ -151,7 +151,9 @@ class ImportService:
         ImportSessionStore.persist_session(session)
 
         # Return first page
-        preview = ImportSessionStore.get_preview_page(import_id, page=1, page_size=50)
+        preview = ImportSessionStore.get_preview_page(
+            import_id, page=1, page_size=50, user_id=user_id
+        )
 
         return {
             "total_rows": summary["total_rows"],
