@@ -1,4 +1,4 @@
-.PHONY: all format lint lint_diff format_diff type-check test test-lf test-integration test-integration-lf docs docker-up docker-down docker-clean
+.PHONY: all format lint lint_diff format_diff type-check test test-lf docs docker-up docker-down docker-clean
 
 all: format_diff lint_diff type-check test docs
 
@@ -36,11 +36,11 @@ type-check:
 	PYTHONPATH=src mypy --install-types --non-interactive
 	PYTHONPATH=src mypy --package rhesis.backend
 
-# Unit tests (no docker required)
-test:
+# Tests (starts docker automatically)
+test: docker-up
 	uv run --extra cpu pytest ../../tests/backend --ignore=../../tests/backend/integration
 
-# Re-run only failed unit tests
+# Re-run only failed tests
 test-lf:
 	uv run --extra cpu pytest ../../tests/backend --lf
 

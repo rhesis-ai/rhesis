@@ -49,10 +49,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-backend-
 
-      - name: Start Docker services
-        run: make docker-up
-        working-directory: apps/backend
-
       - name: Install dependencies
         run: uv sync --dev --extra cpu
         working-directory: apps/backend
