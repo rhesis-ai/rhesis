@@ -27,7 +27,7 @@ const footerData = {
     title: 'Product',
     links: [
       { name: 'Platform', href: 'https://app.rhesis.ai', external: true },
-      { name: 'SDK', href: '/sdk' },
+      { name: 'SDK', href: '/sdk/installation' },
       { name: 'Repository', href: 'https://github.com/rhesis-ai/rhesis', external: true },
     ],
   },
@@ -42,9 +42,9 @@ const footerData = {
   company: {
     title: 'Company',
     links: [
-      { name: 'About us', href: 'https://www.rhesis.ai/about-us', external: true },
+      { name: 'About us', href: 'https://www.rhesis.ai/about', external: true },
       { name: 'Careers', href: 'https://rhesis-ai.jobs.personio.com/', external: true },
-      { name: 'Contact us', href: 'https://www.rhesis.ai/contact-us', external: true },
+      { name: 'Contact us', href: 'https://www.rhesis.ai/talk-to-us', external: true },
     ],
   },
 }
