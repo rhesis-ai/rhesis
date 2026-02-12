@@ -1,0 +1,176 @@
+# How to: Testing user journeys of AI agents
+
+You spent weeks crafting your agent: mapping **user journeys**, writing requirements, implementing features and tuning prompts and tools until the experience felt great end-to-end. Now you need to **test** those journeys.
+
+Testing user journeys is important because the highest-impact failures in AI agents usually happen **between steps** (missing a critical detail, dropping a constraint, confusing the user, or making an unjustified assumption).
+
+User journeys are rarely a single prompt; they’re **flows over time**. The user has context and constraints, the assistant asks clarifying questions, proposes options, confirms decisions, and either completes the goal or fails in ways that matter to real users.
+
+So how does this work in practice?
+
+## Objective and takeaways
+
+The objective of this guide is to help you turn a real user journey into a **repeatable test suite** in Rhesis, so you can validate end-to-end behavior and catch regressions over time.
+
+By the end, you will learn how to:
+
+- Name **user journey-specific behaviors** (concrete expectations) and attach metrics to them
+- Turn user journey flows into sets of **multi-turn tests**
+- Execute test sets against an endpoint and interpret results
+
+Summarized, this guide shows how to test one flow slice of your user journey systematically in Rhesis, and how Behaviors, Metrics, and Tests fit together.
+
+## Before you begin
+
+To follow this guide you need:
+
+- A Rhesis account with a configured project
+- A connected endpoint, either via the [SDK Connector](/sdk/connector) (code-first, Python) or a [REST endpoint](/platform/endpoints) configured in the UI
+- If you are starting from scratch, complete the [Quick Start Guide](/guides/quick-start-guide) first
+
+## What does a user journey look like?
+
+Let's quickly start with the basics. A user journey is a structured view of a user’s experience from intent to outcome. Key elements often include user personas, specific scenarios/goals, phased timelines (awareness to retention), touchpoints, actions, emotions, and opportunities for improvement. They also represent a classic way for designing software features, e.g. via user journey mapping.
+
+### Journey elements mapped to Rhesis
+
+| Journey element | What it means | Where it maps in Rhesis |
+|---|---|---|
+| `Persona` | Who the user is and what they care about | `Scenario` field in a multi-turn test |
+| `Intent / Goal` | The concrete outcome the user wants | `Goal` field (success criteria) |
+| `Touchpoints` | Interactions the user has with the system | Conversation `turns` in a multi-turn test, sent to the configured `Endpoint` |
+| `Actions / decisions` | What the user and assistant do each step | `Instructions` for how the test agent conducts the conversation; captured in the conversation history inside a `Test Run` |
+| `Phases / timeline` | Stages like onboarding → use → retention | Separate flow slices (multiple tests) grouped into a `Test Set` |
+| `Emotions / UX quality` | Clarity, trust, frustration, confidence | Journey-specific `Behavior` + `Metrics`; optional `Restrictions` defining what the system must not do |
+| `Opportunities for improvement` | Where the experience breaks down | Failed metrics and reasoning in `Test Runs`, aggregated patterns in [Results Overview](/platform/results-overview) |
+
+## The Rhesis building blocks (from expectation to evidence)
+
+From here on, we’ll use **Rhesis entities** to describe how to model and evaluate a user-journey flow in detail.
+
+- **Behavior**: what “good” looks like. For user journeys, name behaviors after the journey and one concrete expectation that you want to assess.
+- **Metric**: how we measure that expectation (LLM-as-judge evaluation that returns pass/fail, often with a score and reasoning).
+- **Test**: a case to be tested. In Rhesis, each test is tagged with **one behavior** (plus optional topic/category metadata).
+- **Test Set**: a collection of tests you execute together (like a test suite).
+- **Test Run**: a snapshot created when you execute a test set against an endpoint.
+
+
+<div style={{ marginTop: '2rem' }}>
+  <ThemeAwareImage
+    lightSrc="/diagrams/user-journey-light.svg"
+    darkSrc="/diagrams/user-journey-dark.svg"
+    alt="Rhesis: from expectation to evidence"
+  />
+</div>
+
+## Testing one flow in a complex user journey (example: “book a flight”)
+
+Treat **one flow slice** as a small set of multi-turn tests: one test per expectation. Start with a single “happy path” flow, then add variants.
+
+| Rhesis term | What it means | Flight-booking example |
+|---|---|---|
+| **Behavior** | The expectation you care about | `Flight booking - completion` where “complete” means the booking reaches an issued ticket / confirmed itinerary state |
+| **Metric** | How you judge that expectation | “Pass if the assistant ends with a confirmed itinerary and explicitly indicates the ticket was issued (or the booking step was completed).” |
+| **Test** | A multi-turn scenario to run | “Happy path: user books a round-trip with constraints; assistant asks for missing info; proposes itinerary; confirms; completes.” |
+| **Test set** | The suite you execute together | `journey_flight_booking_happy_path` containing a few expectation-focused tests |
+| **Test run** | One execution snapshot | “Run from Feb 11, 2026 against Production endpoint” with outcomes + metric reasoning |
+
+### Step 1: Define the flow slice you want to test
+
+Pick one flow that has a clear finish line.
+
+- **Flow name**: `Flight booking (happy path)`
+- **Success criteria** (what “done” means): user provides origin/destination/dates; assistant collects missing constraints; assistant proposes an itinerary; assistant confirms before “booking”; assistant outputs a summary.
+
+### Step 2: Create 1-3 behaviors for this flow
+
+Keep it minimal at first. A good starting set:
+
+- **Flight booking - completion**: does the agent gather required details (route, dates, passengers) and end with a clear “ready to book” confirmation and summary?
+- **Flight booking - constraints matched**: does the proposed itinerary match the stated constraints (budget, times, baggage) without silently dropping a constraint?
+- **Flight booking - no invented availability**: does the agent avoid inventing flight prices or availability (and, if it can’t access live inventory, clearly state that limitation and ask for missing constraints or move to a real booking step)?
+
+### Step 3: Attach custom metrics to behaviors
+
+Attach custom metrics to these behaviors in the platform.
+
+- A **goal-achievement metric** for `Flight booking - completion`
+- A **constraint-check metric** for `Flight booking - constraints matched`. (Optionally be more specific and add one metric per constraint, e.g. for travel time restrictions, cost restrictions, assistance needs)
+- A **hallucination/uncertainty metric** for `Flight booking - no invented availability`. (Optionally be more specific and add one metric per potential hallucination type: seat availability, flight no., costs, etc.)
+
+### Step 4: Create 2-3 multi-turn tests per behavior
+
+Create 2-3 tests per behavior, each targeting a different persona or scenario variant (e.g., a business traveler with tight schedule constraints vs. a leisure traveler with flexible dates). The goal is to cover the most common and representative user contexts without over-testing a single flow slice. You can add more variants later when you scale to a full journey suite.
+
+Create **Multi-Turn** tests with:
+
+- **Behavior**: pick the expectation you want to evaluate (for example `Flight booking - completion`).
+- **Goal**: the finish line for the agentic test.
+- **Scenario**: the user persona and context.
+- **Restrictions**: “must not” constraints that matter for the journey.
+- **Max turns**: enough turns for clarifications (often 8–12).
+
+Example (what you’d enter in the test fields):
+
+| Field | Value |
+|-------|-------|
+| **Behavior** | Flight booking - completion |
+| **Goal** | Successfully book a round-trip flight that matches travel constraints and have the AI agent confirm all details before finalizing. |
+| **Scenario** | I'm booking a work trip and care about staying within budget, arriving at a reasonable time, and bringing one carry-on bag. I may not provide all the details upfront. |
+| **Instructions** | Provide my travel requirements gradually, as a real user would. Wait for the AI agent to ask clarifying questions when information is missing. |
+| **Restrictions** | The AI agent must confirm the final itinerary before completing the booking. |
+| **Max turns** | 10 |
+
+### Step 5: Put the flow tests into a dedicated test set
+
+Create a test set like `journey_flight_booking_happy_path` and include **only these multi-turn tests**. This is the simplest way to iterate: one flow slice, a few expectation-focused tests, fast feedback.
+
+### Step 6: Execute and read results the right way
+
+Navigate to **Test Sets**, select your test set, and click **Execute Test Set**. Choose the target endpoint and run.
+
+When the run completes, each test gets a **pass/fail per metric**, together with a reasoning explanation. When you look at outcomes, separate these questions:
+
+- **Did the flow succeed?** Look at the journey completion and constraint satisfaction metrics first.
+- **Why did it fail?** Read the metric reasoning to understand what went wrong. Check whether the issue is in the behavior definition (expectation too strict or too loose), the metric prompt (evaluation criteria unclear), or the endpoint itself (the AI system genuinely underperformed).
+
+Iterate by adjusting the behavior, metric, or test scenario and re-running. See [Test Runs](/platform/test-runs) for how to compare runs and track improvements over time.
+
+## How to scale from one flow to a full journey suite
+
+Once the happy path is stable, create variants:
+
+- **Missing information**: user omits dates or destination (forces clarifying questions).
+- **Conflicting constraints**: budget vs direct-flight requirement (forces tradeoff and confirmation).
+- **Policy boundary**: user requests something disallowed (checks safe refusal behavior).
+- **Ambiguity**: multiple airports or flexible dates (checks disambiguation and next-best question).
+
+Keep each variant as a separate multi-turn test. Group them into a “journey suite” test set when you’re ready to run regression checks.
+
+### When to use single-turn tests
+
+Not every check requires a full conversation. Use **single-turn tests** for pointed, isolated validations:
+
+- **Policy boundaries**: does the agent refuse a disallowed request? This can be tested with a single prompt and an expected refusal.
+- **Edge-case inputs**: a specific malformed or ambiguous input that should trigger a known response.
+- **Regression checks**: a previously failing prompt that you want to guard against.
+
+Single-turn tests complement multi-turn journey tests. Use them when you don’t need conversational context to trigger the behavior you want to evaluate. See [Tests](/platform/tests) for the full list of single-turn and multi-turn test fields.
+
+## Going programmatic
+
+Everything in this guide can also be done programmatically via the Rhesis SDK. You can create tests, assemble test sets, and trigger executions from code or a CI/CD pipeline. This is useful for automating regression checks on every deploy. See [SDK Connector](/sdk/connector) for connecting your endpoint from code and [CI/CD Integration](/guides/ci-cd-integration) for pipeline examples.
+
+## Related pages
+
+- [Behaviors](/platform/behaviors)
+- [Metrics](/platform/metrics)
+- [Tests](/platform/tests)
+- [Test Sets](/platform/test-sets)
+- [Test Runs](/platform/test-runs)
+- [Test Execution](/platform/test-execution)
+- [Results Overview](/platform/results-overview)
+- [Endpoints](/platform/endpoints)
+- [SDK Connector](/sdk/connector)
+- [Quick Start Guide](/guides/quick-start-guide)
+- [CI/CD Integration](/guides/ci-cd-integration)
