@@ -56,6 +56,23 @@ class ModelConnectionService:
                 f"model: {model_name}, type: {model_type}"
             )
 
+            # Special handling for Rhesis system models (protected models with no API key)
+            # These models use the backend's infrastructure and don't need testing
+            if provider == "rhesis" and not api_key:
+                logger.info(
+                    "Rhesis system model detected - skipping connection test "
+                    "(uses backend infrastructure)"
+                )
+                return ModelConnectionTestResult(
+                    success=True,
+                    message=(
+                        "Rhesis-hosted model is ready to use. "
+                        "This model uses Rhesis infrastructure and requires no API key."
+                    ),
+                    provider=provider,
+                    model_name=model_name,
+                )
+
             if model_type == "llm":
                 return ModelConnectionService._test_llm_connection(
                     provider, model_name, api_key, endpoint
