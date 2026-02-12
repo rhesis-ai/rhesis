@@ -156,6 +156,70 @@ This works for both REST and WebSocket endpoints without any additional configur
 
 ![Request Settings](/screenshots/rhesis-ai-endpoint-request-settings.png)
 
+**Stateless Endpoints (Message History)**
+
+Some AI endpoints are stateless: they do not maintain conversation context on
+the server side. Instead, the caller must send the entire conversation history
+with every request. Rhesis supports this pattern natively.
+
+To configure a stateless endpoint, use the `messages` template variable in your
+request body template. Rhesis detects this and manages the conversation history
+internally:
+
+<CodeBlock filename="stateless-request-body.json" language="json">
+  {`{
+  "messages": "{{ messages }}",
+  "model": "my-model",
+  "temperature": 0.7,
+  "system_prompt": "You are a helpful assistant."
+}`}
+</CodeBlock>
+
+How it works:
+
+- **Automatic detection**: Rhesis identifies a stateless endpoint when the
+  request body template contains `\{\{ messages \}\}`.
+- **History management**: During multi-turn test execution, Rhesis accumulates
+  the full conversation history (user messages and assistant responses) and sends
+  it as the `messages` array with each request.
+- **System prompt**: If you include a `system_prompt` field in the request body
+  template, Rhesis prepends it to the messages array as the first entry with the
+  `system` role. The `system_prompt` field itself is stripped from the final
+  request before sending.
+- **Single-turn auto-population**: For single test runs (outside multi-turn
+  conversations), Rhesis automatically builds the messages array from the test
+  input and system prompt so you do not need to provide it manually.
+
+The messages array follows the standard chat completion format used by most LLM
+providers:
+
+<CodeBlock filename="messages-format.json" language="json">
+  {`[
+  { "role": "system", "content": "You are a helpful assistant." },
+  { "role": "user", "content": "What is the capital of France?" },
+  { "role": "assistant", "content": "The capital of France is Paris." },
+  { "role": "user", "content": "What is its population?" }
+]`}
+</CodeBlock>
+
+The response mapping for stateless endpoints works the same way as for any other
+endpoint. Map the `output` field to the response path where the assistant's reply
+is returned:
+
+<CodeBlock filename="stateless-response-mapping.json" language="json">
+  {`{
+  "output": "$.choices[0].message.content"
+}`}
+</CodeBlock>
+
+<Callout type="info">
+  **Stateless vs. Stateful**: Use stateless configuration when your endpoint
+  expects the full conversation history in every request. Use stateful
+  configuration (with conversation tracking fields like `conversation_id`) when
+  your endpoint maintains server-side session state. Rhesis detects which mode to
+  use based on your request body template.
+</Callout>
+
 ### Importing from Swagger/OpenAPI
 
 Click **Import Swagger**, enter your Swagger/OpenAPI specification URL, and click **Import**. This automatically populates request templates and response structures from your API documentation. You'll still need to fill in authentication details and select which operations to configure.
