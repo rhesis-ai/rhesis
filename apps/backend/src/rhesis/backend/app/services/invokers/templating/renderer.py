@@ -49,9 +49,7 @@ class TemplateRenderer:
 
         # Check if template references any conversation fields
         template_str = (
-            json.dumps(template_data)
-            if isinstance(template_data, dict)
-            else str(template_data)
+            json.dumps(template_data) if isinstance(template_data, dict) else str(template_data)
         )
 
         for field in conversation_fields:
@@ -63,10 +61,7 @@ class TemplateRenderer:
                     else:
                         # No value under any alias -- omit the field
                         render_context[field] = "__OMIT_FIELD__"
-                        logger.debug(
-                            f"Set {field} to omit marker "
-                            "- will be filtered from request"
-                        )
+                        logger.debug(f"Set {field} to omit marker - will be filtered from request")
 
         return self._render_recursive(template_data, render_context)
 
