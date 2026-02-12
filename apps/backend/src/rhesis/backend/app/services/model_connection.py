@@ -13,11 +13,19 @@ from rhesis.backend.logging import logger
 class ModelConnectionTestResult:
     """Result of a model connection test."""
 
-    def __init__(self, success: bool, message: str, provider: str, model_name: str):
+    def __init__(
+        self,
+        success: bool,
+        message: str,
+        provider: str,
+        model_name: str,
+        dimension: int | None = None,
+    ):
         self.success = success
         self.message = message
         self.provider = provider
         self.model_name = model_name
+        self.dimension = dimension  # Embedding dimension (only for embedding models)
 
 
 class ModelConnectionService:
@@ -212,18 +220,20 @@ class ModelConnectionService:
                 if not isinstance(embedding, (list, tuple)) or len(embedding) == 0:
                     raise ValueError("Invalid embedding response: expected non-empty vector")
 
+                dimension = len(embedding)
                 logger.info(
                     f"Embedding connection test successful for {provider}/{model_name}, "
-                    f"vector size: {len(embedding)}"
+                    f"vector size: {dimension}"
                 )
                 return ModelConnectionTestResult(
                     success=True,
                     message=(
                         f"Successfully connected to {provider}. "
-                        f"Embedding model is responding correctly (vector size: {len(embedding)})."
+                        f"Embedding model is responding correctly (vector size: {dimension})."
                     ),
                     provider=provider,
                     model_name=model_name,
+                    dimension=dimension,
                 )
             except Exception as e:
                 # API call failed - likely authentication or network issue
