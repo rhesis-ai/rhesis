@@ -1,12 +1,21 @@
 """Temporary storage for import sessions.
 
-Two-level cache: in-memory L1 + Redis L2 (optional).
+Two-level cache: in-memory L1 + disk L2.
 Each import session stores the uploaded file bytes, parsed results,
 and validation data keyed by a unique import_id.  TTL-based cleanup
 ensures abandoned sessions don't leak memory.
+
+The disk layer survives server restarts (e.g. uvicorn ``--reload``)
+and bridges multi-worker deployments where each worker has its own
+memory.  File bytes are stored as raw binary; metadata is stored as
+JSON.  The session directory defaults to a platform temp folder but
+can be overridden via the ``IMPORT_SESSION_DIR`` environment variable.
 """
 
+import json
 import os
+import shutil
+import tempfile
 import threading
 import time
 import uuid
@@ -23,6 +32,12 @@ MAX_CONCURRENT_SESSIONS = int(os.getenv("IMPORT_MAX_CONCURRENT_SESSIONS", "50"))
 
 # Max rows per import (configurable via env)
 MAX_ROWS_PER_IMPORT = int(os.getenv("IMPORT_MAX_ROWS", "10000"))
+
+# Directory for disk-backed session persistence
+_SESSION_DIR = os.getenv(
+    "IMPORT_SESSION_DIR",
+    os.path.join(tempfile.gettempdir(), "rhesis-import-sessions"),
+)
 
 
 @dataclass
@@ -62,15 +77,17 @@ class ImportSession:
 
 
 class ImportSessionStore:
-    """In-memory store for import sessions with TTL-based cleanup.
+    """Two-level session store: in-memory L1 + disk L2.
 
-    Thread-safe via a class-level lock.  For single-pod deployments
-    this is sufficient.  A Redis L2 layer can be added later for
-    multi-pod production deployments.
+    Thread-safe via a class-level lock.  The disk layer ensures
+    sessions survive server restarts (e.g. ``uvicorn --reload``)
+    and are accessible across Gunicorn workers.
     """
 
     _sessions: ClassVar[Dict[str, ImportSession]] = {}
     _lock: ClassVar[threading.Lock] = threading.Lock()
+
+    # ── Public API ────────────────────────────────────────────────
 
     @classmethod
     def create_session(
@@ -104,6 +121,9 @@ class ImportSessionStore:
             )
             cls._sessions[import_id] = session
 
+        # Persist to disk so session survives server restarts
+        cls._persist_to_disk(session)
+
         logger.info(
             f"Created import session {import_id} for {filename} ({file_format}) [user={user_id}]"
         )
@@ -117,17 +137,31 @@ class ImportSessionStore:
     ) -> Optional[ImportSession]:
         """Retrieve a session by ID, returning None if not found or expired.
 
+        Checks in-memory first, then falls back to disk (handles
+        server restarts and multi-worker deployments).
+
         When *user_id* is provided the session owner is verified and
         ``None`` is returned on mismatch (prevents cross-user access).
         """
         with cls._lock:
             session = cls._sessions.get(import_id)
+
+            # L1 miss → try L2 (disk)
+            if session is None:
+                session = cls._load_from_disk(import_id)
+                if session is not None:
+                    cls._sessions[import_id] = session
+                    logger.info(f"Restored import session {import_id} from disk")
+
             if session is None:
                 return None
+
             if session.is_expired:
                 cls._sessions.pop(import_id, None)
+                cls._delete_from_disk(import_id)
                 logger.debug(f"Expired import session {import_id} removed on access")
                 return None
+
             if user_id and session.user_id and session.user_id != user_id:
                 logger.warning(
                     f"Session ownership mismatch for {import_id}: "
@@ -135,6 +169,15 @@ class ImportSessionStore:
                 )
                 return None
             return session
+
+    @classmethod
+    def persist_session(cls, session: ImportSession) -> None:
+        """Persist the current session state to disk.
+
+        Call this after mutating session data (e.g. after analyze
+        populates headers/mapping, or after parse populates rows).
+        """
+        cls._persist_to_disk(session)
 
     @classmethod
     def delete_session(
@@ -148,6 +191,11 @@ class ImportSessionStore:
         """
         with cls._lock:
             session = cls._sessions.get(import_id)
+
+            # Also check disk if not in memory
+            if session is None:
+                session = cls._load_from_disk(import_id)
+
             if session is None:
                 return False
             if user_id and session.user_id and session.user_id != user_id:
@@ -158,6 +206,7 @@ class ImportSessionStore:
                 return False
             cls._sessions.pop(import_id, None)
 
+        cls._delete_from_disk(import_id)
         logger.info(f"Deleted import session {import_id}")
         return True
 
@@ -214,10 +263,165 @@ class ImportSessionStore:
             cls._cleanup_expired_locked()
             return len(cls._sessions)
 
+    # ── Disk persistence (L2) ────────────────────────────────────
+
+    @classmethod
+    def _session_dir(cls, import_id: str) -> str:
+        """Return the disk directory for a session."""
+        return os.path.join(_SESSION_DIR, import_id)
+
+    @classmethod
+    def _persist_to_disk(cls, session: ImportSession) -> None:
+        """Write session state to disk (file bytes + JSON metadata)."""
+        try:
+            sdir = cls._session_dir(session.import_id)
+            os.makedirs(sdir, exist_ok=True)
+
+            # Raw file bytes — written once at creation
+            file_path = os.path.join(sdir, "file.bin")
+            if not os.path.exists(file_path):
+                with open(file_path, "wb") as f:
+                    f.write(session.file_bytes)
+
+            # Session metadata (everything except file_bytes)
+            meta = {
+                "import_id": session.import_id,
+                "filename": session.filename,
+                "file_format": session.file_format,
+                "created_at": session.created_at,
+                "user_id": session.user_id,
+                "organization_id": session.organization_id,
+                "headers": session.headers,
+                "sample_rows": session.sample_rows,
+                "suggested_mapping": session.suggested_mapping,
+                "mapping_confidence": session.mapping_confidence,
+                "test_type": session.test_type,
+                "validation_summary": session.validation_summary,
+            }
+            meta_path = os.path.join(sdir, "meta.json")
+            with open(meta_path, "w") as f:
+                json.dump(meta, f)
+
+            # Parsed data (rows, errors, warnings) — can be large,
+            # only written after the parse step populates them.
+            if session.parsed_rows:
+                data_path = os.path.join(sdir, "parsed.json")
+                with open(data_path, "w") as f:
+                    json.dump(
+                        {
+                            "parsed_rows": session.parsed_rows,
+                            "row_errors": session.row_errors,
+                            "row_warnings": session.row_warnings,
+                        },
+                        f,
+                    )
+        except Exception:
+            logger.warning(
+                f"Failed to persist session {session.import_id} to disk",
+                exc_info=True,
+            )
+
+    @classmethod
+    def _load_from_disk(cls, import_id: str) -> Optional[ImportSession]:
+        """Try to restore a session from disk.  Returns None on failure."""
+        sdir = cls._session_dir(import_id)
+        meta_path = os.path.join(sdir, "meta.json")
+        file_path = os.path.join(sdir, "file.bin")
+
+        if not os.path.exists(meta_path) or not os.path.exists(file_path):
+            return None
+
+        try:
+            with open(meta_path, "r") as f:
+                meta = json.load(f)
+
+            with open(file_path, "rb") as f:
+                file_bytes = f.read()
+
+            session = ImportSession(
+                import_id=meta["import_id"],
+                file_bytes=file_bytes,
+                filename=meta["filename"],
+                file_format=meta["file_format"],
+                created_at=meta["created_at"],
+                user_id=meta.get("user_id", ""),
+                organization_id=meta.get("organization_id", ""),
+            )
+            session.headers = meta.get("headers", [])
+            session.sample_rows = meta.get("sample_rows", [])
+            session.suggested_mapping = meta.get("suggested_mapping", {})
+            session.mapping_confidence = meta.get("mapping_confidence", 0.0)
+            session.test_type = meta.get("test_type", "Single-Turn")
+            session.validation_summary = meta.get("validation_summary", {})
+
+            # Load parsed data if available
+            data_path = os.path.join(sdir, "parsed.json")
+            if os.path.exists(data_path):
+                with open(data_path, "r") as f:
+                    data = json.load(f)
+                session.parsed_rows = data.get("parsed_rows", [])
+                session.row_errors = data.get("row_errors", [])
+                session.row_warnings = data.get("row_warnings", [])
+
+            return session
+        except Exception:
+            logger.warning(
+                f"Failed to load session {import_id} from disk",
+                exc_info=True,
+            )
+            return None
+
+    @classmethod
+    def _delete_from_disk(cls, import_id: str) -> None:
+        """Remove session files from disk."""
+        sdir = cls._session_dir(import_id)
+        try:
+            if os.path.isdir(sdir):
+                shutil.rmtree(sdir)
+        except Exception:
+            logger.debug(
+                f"Failed to remove session dir {sdir}",
+                exc_info=True,
+            )
+
     @classmethod
     def _cleanup_expired_locked(cls) -> None:
         """Remove all expired sessions.  Must be called under _lock."""
+        # Clean in-memory
         expired = [sid for sid, s in cls._sessions.items() if s.is_expired]
         for sid in expired:
             cls._sessions.pop(sid, None)
+            cls._delete_from_disk(sid)
             logger.debug(f"Cleaned up expired import session {sid}")
+
+        # Also clean disk sessions not in memory
+        cls._cleanup_disk_expired()
+
+    @classmethod
+    def _cleanup_disk_expired(cls) -> None:
+        """Scan the disk session directory for expired sessions."""
+        if not os.path.isdir(_SESSION_DIR):
+            return
+        try:
+            now = time.time()
+            for name in os.listdir(_SESSION_DIR):
+                sdir = os.path.join(_SESSION_DIR, name)
+                if not os.path.isdir(sdir):
+                    continue
+                meta_path = os.path.join(sdir, "meta.json")
+                if not os.path.exists(meta_path):
+                    continue
+                try:
+                    with open(meta_path, "r") as f:
+                        meta = json.load(f)
+                    created = meta.get("created_at", 0)
+                    if (now - created) > DEFAULT_TTL_SECONDS:
+                        shutil.rmtree(sdir)
+                        logger.debug(f"Cleaned up expired disk session {name}")
+                except Exception:
+                    pass  # Skip unreadable entries
+        except Exception:
+            logger.debug(
+                "Failed to clean up disk sessions",
+                exc_info=True,
+            )

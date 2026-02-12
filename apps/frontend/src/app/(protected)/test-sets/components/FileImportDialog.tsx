@@ -196,9 +196,23 @@ export default function FileImportDialog({
         // Auto-advance: parse first, then populate step-0 state so it's
         // available if the user navigates back.  This avoids a flash of
         // the mapping UI before the stepper advances.
-        await handleParse(result.suggested_mapping, result.import_id);
+        //
+        // If auto-advance parse fails (e.g. server restarted and the
+        // session was lost from memory before disk restore could kick
+        // in), we still populate the mapping UI so the user can retry
+        // by clicking "Next" manually.
+        const parseOk = await handleParseQuiet(
+          result.suggested_mapping,
+          result.import_id
+        );
         setAnalyzeResult(result);
         setMapping(result.suggested_mapping);
+        if (!parseOk) {
+          // Parse failed silently — user can retry via "Next" button.
+          // Don't show the raw error during auto-advance; the mapping
+          // UI is visible and functional.
+          setError(undefined);
+        }
       } else {
         setAnalyzeResult(result);
         setMapping(result.suggested_mapping);
@@ -278,6 +292,38 @@ export default function FileImportDialog({
     } catch (err: any) {
       if (err?.name === 'AbortError') return;
       setError(getImportErrorMessage(err, 'Failed to parse file'));
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  /**
+   * Like handleParse but returns a boolean and never sets the global
+   * error.  Used during auto-advance (confidence >= 1) so that a
+   * transient backend failure (e.g. session lost after restart) does
+   * not flash an error banner — the user can retry via "Next".
+   */
+  const handleParseQuiet = async (
+    overrideMapping?: Record<string, string>,
+    overrideImportId?: string
+  ): Promise<boolean> => {
+    const mappingToUse = overrideMapping ?? mapping;
+    const importIdToUse = overrideImportId ?? importId;
+    if (!importIdToUse) return false;
+    const signal = freshSignal();
+    try {
+      setParsing(true);
+      const result = await clientFactory
+        .getImportClient()
+        .parseWithMapping(importIdToUse, mappingToUse, testType, signal);
+      if (signal.aborted) return false;
+      setParseResult(result);
+      setPreviewPage(result.preview);
+      setCurrentPage(1);
+      setActiveStep(1);
+      return true;
+    } catch {
+      return false;
     } finally {
       setParsing(false);
     }
