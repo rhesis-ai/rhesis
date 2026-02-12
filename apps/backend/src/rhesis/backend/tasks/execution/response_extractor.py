@@ -21,7 +21,7 @@ def extract_response_with_fallback(result: Union[Dict, Any]) -> str:
     Args:
         result: The response dictionary from endpoint invocation,
                 or an ErrorResponse Pydantic object
-        Expected format: {"output": "...", "session_id": "...", "metadata": "..."}
+        Expected format: {"output": "...", "conversation_id": "...", "metadata": "..."}
 
     Returns:
         The extracted response string

@@ -176,6 +176,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 endpoint.request_mapping or {}, template_context
             )
 
+            # Strip reserved meta keys (e.g. system_prompt) from the wire body
+            self._strip_meta_keys(message_data)
+
             template_duration = time.time() - template_start_time
             logger.debug(f"Template rendered in {template_duration:.2f}s")
             message_keys = (

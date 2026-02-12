@@ -201,3 +201,104 @@ class TestConversationTracker:
         tier2_indices = [CONVERSATION_FIELD_NAMES.index(f) for f in tier2_fields]
 
         assert max(tier1_indices) < min(tier2_indices)
+
+
+class TestStatelessDetection:
+    """Test stateless endpoint detection via {{ messages }} in request_mapping."""
+
+    def test_detect_stateless_with_messages_reference(self, sample_endpoint_stateless):
+        """Dict request_mapping with {{ messages }} -> True."""
+        assert ConversationTracker.detect_stateless_mode(sample_endpoint_stateless) is True
+
+    def test_detect_stateless_with_no_spaces(self, sample_endpoint_rest):
+        """{{messages}} without spaces -> True."""
+        sample_endpoint_rest.request_mapping = {
+            "messages": "{{messages}}",
+            "model": "gpt-4",
+        }
+        assert ConversationTracker.detect_stateless_mode(sample_endpoint_rest) is True
+
+    def test_detect_stateless_false_for_normal_mapping(self, sample_endpoint_rest):
+        """Normal request_mapping without messages -> False."""
+        assert ConversationTracker.detect_stateless_mode(sample_endpoint_rest) is False
+
+    def test_detect_stateless_false_for_none_mapping(self, sample_endpoint_rest):
+        """request_mapping=None -> False."""
+        sample_endpoint_rest.request_mapping = None
+        assert ConversationTracker.detect_stateless_mode(sample_endpoint_rest) is False
+
+    def test_detect_stateless_false_for_empty_mapping(self, sample_endpoint_rest):
+        """request_mapping={} -> False."""
+        sample_endpoint_rest.request_mapping = {}
+        assert ConversationTracker.detect_stateless_mode(sample_endpoint_rest) is False
+
+    def test_detect_stateless_with_string_mapping(self, sample_endpoint_rest):
+        """JSON string request_mapping with {{ messages }} -> True."""
+        sample_endpoint_rest.request_mapping = '{"messages": "{{ messages }}", "model": "gpt-4"}'
+        assert ConversationTracker.detect_stateless_mode(sample_endpoint_rest) is True
+
+    def test_detect_conversation_field_returns_none_for_stateless(self, sample_endpoint_stateless):
+        """Stateless endpoint -> detect_conversation_field returns None."""
+        assert ConversationTracker.detect_conversation_field(sample_endpoint_stateless) is None
+
+    def test_detect_stateless_false_for_messages_in_different_context(self, sample_endpoint_rest):
+        """'messages' as a regular field (not a template variable) -> False."""
+        sample_endpoint_rest.request_mapping = {
+            "messages": [
+                {"role": "user", "content": "{{ input }}"},
+            ],
+        }
+        assert ConversationTracker.detect_stateless_mode(sample_endpoint_rest) is False
+
+    def test_detect_stateless_with_extra_whitespace(self, sample_endpoint_rest):
+        """{{ messages }} with extra whitespace inside braces -> True."""
+        sample_endpoint_rest.request_mapping = {
+            "messages": "{{   messages   }}",
+            "model": "gpt-4",
+        }
+        assert ConversationTracker.detect_stateless_mode(sample_endpoint_rest) is True
+
+    def test_stateful_endpoint_still_detects_conversation_field(self, sample_endpoint_conversation):
+        """Non-stateless endpoint still detects conversation_id normally."""
+        assert ConversationTracker.detect_stateless_mode(sample_endpoint_conversation) is False
+        assert (
+            ConversationTracker.detect_conversation_field(sample_endpoint_conversation)
+            == "conversation_id"
+        )
+
+
+class TestSystemPromptExtraction:
+    """Test system_prompt extraction from request_mapping."""
+
+    def test_extract_system_prompt_present(self, sample_endpoint_stateless):
+        """Returns the system_prompt value when key exists."""
+        result = ConversationTracker.extract_system_prompt(sample_endpoint_stateless)
+        assert result == "You are a helpful assistant."
+
+    def test_extract_system_prompt_absent(self, sample_endpoint_stateless_no_system_prompt):
+        """Returns None when system_prompt key is missing."""
+        result = ConversationTracker.extract_system_prompt(
+            sample_endpoint_stateless_no_system_prompt
+        )
+        assert result is None
+
+    def test_extract_system_prompt_with_none_mapping(self, sample_endpoint_rest):
+        """Returns None for request_mapping=None."""
+        sample_endpoint_rest.request_mapping = None
+        result = ConversationTracker.extract_system_prompt(sample_endpoint_rest)
+        assert result is None
+
+    def test_extract_system_prompt_empty_string(self, sample_endpoint_rest):
+        """Empty string system_prompt treated as None."""
+        sample_endpoint_rest.request_mapping = {
+            "system_prompt": "",
+            "messages": "{{ messages }}",
+        }
+        result = ConversationTracker.extract_system_prompt(sample_endpoint_rest)
+        assert result is None
+
+    def test_extract_system_prompt_does_not_mutate_original(self, sample_endpoint_stateless):
+        """Original endpoint's request_mapping is unchanged after extraction."""
+        original_mapping = sample_endpoint_stateless.request_mapping.copy()
+        ConversationTracker.extract_system_prompt(sample_endpoint_stateless)
+        assert sample_endpoint_stateless.request_mapping == original_mapping

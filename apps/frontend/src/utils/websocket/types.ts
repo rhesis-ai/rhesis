@@ -120,8 +120,8 @@ export interface SubscriptionPayload {
 export interface ChatMessagePayload {
   endpoint_id: string;
   message: string;
-  /** Session ID for multi-turn conversations (canonical name) */
-  session_id?: string;
+  /** Conversation ID for multi-turn conversations (canonical name) */
+  conversation_id?: string;
 }
 
 /**
@@ -131,8 +131,8 @@ export interface ChatResponsePayload {
   output: string;
   trace_id?: string;
   endpoint_id: string;
-  /** Session ID for multi-turn conversations (canonical name) */
-  session_id?: string;
+  /** Conversation ID for multi-turn conversations (canonical name) */
+  conversation_id?: string;
 }
 
 /**

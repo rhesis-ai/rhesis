@@ -336,6 +336,12 @@ class ChatResponse(BaseModel):
         "use_case": "{{ use_case | default('insurance') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
     },
+    response_mapping={
+        "output": "{{ message }}",
+        "session_id": "{{ session_id }}",
+        "context": "{{ context }}",
+        "metadata": "{{ metadata }}",
+    },
 )
 async def chat(
     message: str,
@@ -346,15 +352,34 @@ async def chat(
     """
     Process a chat message and return structured response.
 
+    Session management is handled here so the function works identically
+    whether called from the FastAPI route or invoked remotely via the
+    SDK connector (which bypasses the FastAPI route).
+
     Args:
         message: User's message
-        session_id: Session identifier
+        session_id: Session identifier (reuse to continue a conversation)
         use_case: Use case for system prompt
-        conversation_history: Previous conversation messages
+        conversation_history: Explicit conversation history; when ``None``
+            the history is looked up from the in-memory session store.
 
     Returns:
-        ChatResponse with message, session_id, context, and metadata (use_case, intent)
+        ChatResponse with message, session_id, context, and metadata
     """
+    # Resolve session – reuse existing or create new
+    session_id = session_id or str(uuid.uuid4())
+    if session_id not in sessions:
+        sessions[session_id] = SessionData()
+        logger.info(f"Created new session: {session_id}")
+    sessions[session_id].update_access_time()
+
+    # Use explicit history if provided, otherwise fetch from session.
+    # The isinstance guard is necessary because Jinja2 renders
+    # ``{{ conversation_history | default(none) }}`` as the *string*
+    # ``"None"`` rather than Python ``None``.
+    if not isinstance(conversation_history, list):
+        conversation_history = sessions[session_id].messages.copy()
+
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
     response_generator = endpoint_module.get_response_generator(use_case)
@@ -372,10 +397,14 @@ async def chat(
         )
     )
 
+    # Persist the exchange in the session store
+    sessions[session_id].messages.append({"role": "user", "content": message})
+    sessions[session_id].messages.append({"role": "assistant", "content": response_text})
+
     # Return Pydantic model
     return ChatResponse(
         message=response_text,
-        session_id=session_id or str(uuid.uuid4()),
+        session_id=session_id,
         context=context_fragments,
         metadata={"use_case": use_case, "intent": intent_result},
     )
@@ -417,50 +446,29 @@ async def chat_endpoint(
 ):
     try:
         logger.info(
-            f"💬 Chat request received - Auth tier: {auth['tier']}, "
+            f"Chat request received - Auth tier: {auth['tier']}, "
             f"Message: {chat_request.message[:50]}..."
         )
 
-        # Get or create session_id
-        session_id = chat_request.session_id or str(uuid.uuid4())
-
-        # Use the provided use_case or default to insurance
-        use_case = chat_request.use_case or "insurance"
-
         # Validate use case exists, default to insurance if not
+        use_case = chat_request.use_case or "insurance"
         available_use_cases = get_available_use_cases()
         if use_case not in available_use_cases:
             use_case = "insurance"
 
-        # Initialize session if it doesn't exist
-        if session_id not in sessions:
-            sessions[session_id] = SessionData()
-            logger.info(f"📝 Created new session: {session_id}")
-
-        # Update session access time
-        sessions[session_id].update_access_time()
-
-        # Get conversation history before adding the new message
-        conversation_history = sessions[session_id].messages.copy()
-
-        # Call the endpoint function
+        # Session management and history are handled inside chat()
         result = await chat(
             message=chat_request.message,
-            session_id=session_id,
+            session_id=chat_request.session_id,
             use_case=use_case,
-            conversation_history=conversation_history,
         )
 
-        # Update session with the conversation
-        sessions[session_id].messages.append({"role": "user", "content": chat_request.message})
-        sessions[session_id].messages.append({"role": "assistant", "content": result.message})
-
-        logger.info(f"✅ Response generated successfully - Length: {len(result.message)} chars")
+        logger.info(f"Response generated successfully - Length: {len(result.message)} chars")
 
         return result
 
     except Exception as e:
-        logger.error(f"❌ Error in chat endpoint: {str(e)}")
+        logger.error(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -52,7 +52,7 @@ class MappingValidator:
         # Create test input with all standard fields
         test_input = {
             "input": "test message for validation",
-            "session_id": "test_session_123",
+            "conversation_id": "test_session_123",
             "context": ["test document"],
             "metadata": {"test": True},
             "tool_calls": [],

@@ -380,15 +380,15 @@ class TraceOutput(OutputProvider):
 class MultiTurnTraceOutput(OutputProvider):
     """Placeholder for multi-turn trace evaluation.
 
-    Multi-turn conversations share a ``session_id`` (stored as
+    Multi-turn conversations share a ``conversation_id`` (stored as
     ``ai.session.id`` in the span ``attributes`` JSONB column).
-    Each turn produces a separate trace; all traces in a session
+    Each turn produces a separate trace; all traces in a conversation
     must be collected and ordered to reconstruct the conversation.
 
     This provider is **not yet fully implemented**.  When ready it
     will:
     1. Query all root spans where
-       ``attributes->>'ai.session.id' = <session_id>``.
+       ``attributes->>'ai.session.id' = <conversation_id>``.
     2. Order them by ``start_time``.
     3. Build a ``conversation_summary`` list suitable for
        ``evaluate_multi_turn_metrics()``.
@@ -399,10 +399,10 @@ class MultiTurnTraceOutput(OutputProvider):
 
     def __init__(
         self,
-        session_id: str,
+        conversation_id: str,
         project_id: Optional[str] = None,
     ):
-        self.session_id = session_id
+        self.conversation_id = conversation_id
         self.project_id = project_id
 
     async def get_output(
@@ -413,7 +413,8 @@ class MultiTurnTraceOutput(OutputProvider):
         **kwargs,
     ) -> TestOutput:
         raise NotImplementedError(
-            f"Multi-turn trace evaluation is not yet implemented. session_id={self.session_id}"
+            "Multi-turn trace evaluation is not yet implemented. "
+            f"conversation_id={self.conversation_id}"
         )
 
 
@@ -436,7 +437,7 @@ def get_provider_metadata(
     * **source** -- ``"rescore"`` | ``"trace"`` | ``"live"``
     * **reference_test_run_id** -- original run (re-score only)
     * **trace_id** / **project_id** -- trace identifiers (trace only)
-    * **session_id** -- multi-turn trace session (placeholder)
+    * **conversation_id** -- multi-turn trace conversation (placeholder)
     """
     if provider is None:
         return None
@@ -459,7 +460,7 @@ def get_provider_metadata(
     if isinstance(provider, MultiTurnTraceOutput):
         meta = {
             "source": "multi_turn_trace",
-            "session_id": provider.session_id,
+            "conversation_id": provider.conversation_id,
         }
         if provider.project_id:
             meta["project_id"] = provider.project_id

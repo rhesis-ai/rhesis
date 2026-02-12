@@ -3,7 +3,7 @@
       "type": "object",
       "properties": {
         "input": { "type": "string", "description": "User query" },
-        "session_id": { "type": "string", "description": "Session identifier" }
+        "conversation_id": { "type": "string", "description": "Conversation identifier" }
       },
       "required": ["input"]
     },

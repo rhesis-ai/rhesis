@@ -196,3 +196,153 @@ class TestTemplateRenderer:
 
         # Test with None
         assert renderer.render(None, {}) is None
+
+
+class TestMessagesListPassthrough:
+    """Test {{ messages }} rendering for stateless multi-turn endpoints.
+
+    Stateless endpoints use a request_mapping like:
+        {"messages": "{{ messages }}", "model": "gpt-4"}
+    where `messages` is an OpenAI-style list of dicts passed through as-is.
+    """
+
+    def test_messages_list_preserved_as_list(self):
+        """{{ messages }} with a list value preserves the list type."""
+        renderer = TemplateRenderer()
+        template = {"messages": "{{ messages }}", "model": "gpt-4"}
+        messages = [
+            {"role": "user", "content": "Hello"},
+        ]
+        input_data = {"messages": messages}
+
+        result = renderer.render(template, input_data)
+
+        assert isinstance(result["messages"], list)
+        assert result["messages"] == messages
+
+    def test_messages_multi_turn_passthrough(self):
+        """Full multi-turn messages array is preserved through rendering."""
+        renderer = TemplateRenderer()
+        template = {"messages": "{{ messages }}", "model": "gpt-4"}
+        messages = [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi! How can I help?"},
+            {"role": "user", "content": "What is 2+2?"},
+        ]
+        input_data = {"messages": messages}
+
+        result = renderer.render(template, input_data)
+
+        assert result["messages"] == messages
+        assert len(result["messages"]) == 4
+        assert result["messages"][0]["role"] == "system"
+        assert result["messages"][3]["content"] == "What is 2+2?"
+
+    def test_messages_passthrough_with_other_fields(self):
+        """Messages passthrough works alongside other template variables."""
+        renderer = TemplateRenderer()
+        template = {
+            "messages": "{{ messages }}",
+            "model": "{{ model_name }}",
+            "temperature": 0.7,
+        }
+        messages = [
+            {"role": "user", "content": "Hello"},
+        ]
+        input_data = {"messages": messages, "model_name": "gpt-4o"}
+
+        result = renderer.render(template, input_data)
+
+        assert result["messages"] == messages
+        assert result["model"] == "gpt-4o"
+        assert result["temperature"] == 0.7
+
+    def test_messages_passthrough_with_system_prompt_field(self):
+        """Stateless request mapping with system_prompt renders correctly."""
+        renderer = TemplateRenderer()
+        template = {
+            "messages": "{{ messages }}",
+            "model": "gpt-4",
+            "system_prompt": "You are a helpful assistant.",
+        }
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Hello"},
+        ]
+        input_data = {"messages": messages}
+
+        result = renderer.render(template, input_data)
+
+        assert result["messages"] == messages
+        assert result["system_prompt"] == "You are a helpful assistant."
+
+    def test_messages_empty_list_passthrough(self):
+        """An empty messages list is preserved as an empty list."""
+        renderer = TemplateRenderer()
+        template = {"messages": "{{ messages }}"}
+        input_data = {"messages": []}
+
+        result = renderer.render(template, input_data)
+
+        assert result["messages"] == []
+
+    def test_messages_single_system_prompt_only(self):
+        """A messages array with only a system prompt is preserved."""
+        renderer = TemplateRenderer()
+        template = {"messages": "{{ messages }}"}
+        messages = [{"role": "system", "content": "Be concise."}]
+        input_data = {"messages": messages}
+
+        result = renderer.render(template, input_data)
+
+        assert result["messages"] == messages
+
+    def test_stateless_request_mapping_end_to_end(self):
+        """Full stateless endpoint request mapping renders correctly.
+
+        Simulates what EndpointService produces for a single-turn stateless call.
+        """
+        renderer = TemplateRenderer()
+        template = {
+            "messages": "{{ messages }}",
+            "model": "cortecs/Llama-3.3-70B-Instruct-FP8-Dynamic",
+            "max_completion_tokens": 400,
+            "temperature": 0.2,
+            "system_prompt": "Du bist ein hilfreicher Assistent.",
+        }
+        messages = [
+            {
+                "role": "system",
+                "content": "Du bist ein hilfreicher Assistent.",
+            },
+            {"role": "user", "content": "Wie geht es dir?"},
+        ]
+        input_data = {"messages": messages}
+
+        result = renderer.render(template, input_data)
+
+        assert result["messages"] == messages
+        assert result["model"] == "cortecs/Llama-3.3-70B-Instruct-FP8-Dynamic"
+        assert result["max_completion_tokens"] == 400
+        assert result["temperature"] == 0.2
+        # system_prompt is still present after rendering;
+        # BaseEndpointInvoker._strip_meta_keys removes it before sending
+        assert result["system_prompt"] == "Du bist ein hilfreicher Assistent."
+
+    def test_messages_dict_contents_preserve_structure(self):
+        """Each message dict within the list preserves its exact structure."""
+        renderer = TemplateRenderer()
+        template = {"messages": "{{ messages }}"}
+        messages = [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there!"},
+        ]
+        input_data = {"messages": messages}
+
+        result = renderer.render(template, input_data)
+
+        for i, msg in enumerate(result["messages"]):
+            assert set(msg.keys()) == {"role", "content"}
+            assert msg["role"] == messages[i]["role"]
+            assert msg["content"] == messages[i]["content"]
