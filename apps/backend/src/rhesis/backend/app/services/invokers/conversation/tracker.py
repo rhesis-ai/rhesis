@@ -1,5 +1,7 @@
 """Conversation tracking for multi-turn conversations."""
 
+import json
+import re
 from typing import Any, Dict, Optional
 
 from rhesis.backend.app.models.endpoint import Endpoint
@@ -20,9 +22,79 @@ CONVERSATION_FIELD_NAMES = [
     "interaction_id",
 ]
 
+# Pattern to detect {{ messages }} (with or without spaces) in request_mapping
+_MESSAGES_TEMPLATE_PATTERN = re.compile(r"\{\{\s*messages\s*\}\}")
+
 
 class ConversationTracker:
     """Handles conversation tracking for multi-turn conversations."""
+
+    @staticmethod
+    def detect_stateless_mode(endpoint: Endpoint) -> bool:
+        """
+        Detect whether an endpoint operates in stateless mode.
+
+        Stateless endpoints expect the full conversation history as a
+        ``messages`` array in every request, rather than maintaining
+        server-side session state. Detection is convention-based: if the
+        ``request_mapping`` references ``{{ messages }}``, the endpoint
+        is treated as stateless.
+
+        Args:
+            endpoint: The endpoint configuration.
+
+        Returns:
+            True if the endpoint is stateless, False otherwise.
+        """
+        request_mapping = endpoint.request_mapping
+        if not request_mapping:
+            return False
+
+        # Serialize to string for pattern matching
+        if isinstance(request_mapping, dict):
+            mapping_str = json.dumps(request_mapping)
+        else:
+            mapping_str = str(request_mapping)
+
+        is_stateless = bool(_MESSAGES_TEMPLATE_PATTERN.search(mapping_str))
+        if is_stateless:
+            logger.info(
+                "Detected stateless endpoint mode ({{ messages }} found in request_mapping)"
+            )
+        return is_stateless
+
+    @staticmethod
+    def extract_system_prompt(endpoint: Endpoint) -> Optional[str]:
+        """
+        Extract the system prompt from an endpoint's request_mapping.
+
+        The ``system_prompt`` key is a reserved meta key in
+        ``request_mapping``. When present, its value is used to prepend a
+        system message to the conversation's ``messages`` array. The key
+        itself is stripped from the wire body by
+        ``BaseEndpointInvoker._strip_meta_keys()``.
+
+        Args:
+            endpoint: The endpoint configuration.
+
+        Returns:
+            The system prompt string, or None if not configured or empty.
+        """
+        request_mapping = endpoint.request_mapping
+        if not request_mapping or not isinstance(request_mapping, dict):
+            return None
+
+        system_prompt = request_mapping.get("system_prompt")
+        if not system_prompt or not isinstance(system_prompt, str):
+            return None
+
+        # Treat empty/whitespace-only as absent
+        stripped = system_prompt.strip()
+        if not stripped:
+            return None
+
+        logger.debug("Extracted system_prompt from request_mapping")
+        return stripped
 
     @staticmethod
     def detect_conversation_field(endpoint: Endpoint) -> Optional[str]:
@@ -33,12 +105,21 @@ class ConversationTracker:
         This enables automatic conversation tracking when a field like 'conversation_id',
         'session_id', 'thread_id', etc. is mapped in response_mapping.
 
+        For stateless endpoints (detected via ``{{ messages }}`` in
+        request_mapping), returns None because conversation state is
+        managed internally rather than by the endpoint.
+
         Args:
             endpoint: The endpoint configuration
 
         Returns:
             The field name to use for conversation tracking, or None if not configured.
         """
+        # Stateless endpoints don't use wire-level conversation tracking
+        if ConversationTracker.detect_stateless_mode(endpoint):
+            logger.debug("Stateless endpoint detected - skipping conversation field detection")
+            return None
+
         response_mapping = endpoint.response_mapping or {}
 
         # Check common field names (auto-detection)

@@ -10,12 +10,13 @@ This module tests the core test execution logic including:
 """
 
 from unittest.mock import AsyncMock, Mock, patch
+from uuid import uuid4
 
 import pytest
 from sqlalchemy.orm import Session
 
-# setup_tenant_context was removed - tenant context now passed directly to CRUD operations
-from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.models.test import Test  # noqa: F401
+from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
 
 # TestSetupTenantContext class removed - setup_tenant_context function no longer exists
 # Tenant context is now passed directly to CRUD operations
@@ -226,6 +227,236 @@ class TestExecutionContextFixtures:
         assert isinstance(sample_test_data["metrics"], list)
 
 
+class TestBackendEndpointTargetStateless:
+    """Test that BackendEndpointTarget uses the unified EndpointService path.
+
+    Since history management now lives in EndpointService, these tests
+    verify that the target:
+    1. Sends the right input_data shape (no messages array -- that's
+       EndpointService's job now)
+    2. Passes session_id from the response back on subsequent turns
+    3. Works identically for stateless and stateful endpoints
+    """
+
+    def _create_target(
+        self,
+        mock_db,
+        endpoint_id,
+        mock_endpoint_service,
+        mock_endpoint,
+        organization_id=None,
+    ):
+        """Helper to create a BackendEndpointTarget with common mocking."""
+        with (
+            patch(
+                "rhesis.backend.tasks.execution.penelope_target.get_endpoint_service",
+                return_value=mock_endpoint_service,
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.penelope_target.crud.get_endpoint",
+                return_value=mock_endpoint,
+            ),
+        ):
+            return BackendEndpointTarget(
+                db=mock_db,
+                endpoint_id=endpoint_id,
+                organization_id=organization_id,
+            )
+
+    def _make_mock_endpoint(self):
+        """Create a generic mock endpoint."""
+        mock_endpoint = Mock()
+        mock_endpoint.name = "test-endpoint"
+        mock_endpoint.url = "https://api.example.com/v1/chat"
+        mock_endpoint.description = "Test endpoint"
+        mock_endpoint.connection_type = "REST"
+        mock_endpoint.request_mapping = {"message": "{{ input }}"}
+        mock_endpoint.response_mapping = {"output": "$.text"}
+        return mock_endpoint
+
+    def test_first_turn_sends_input_without_session_id(self):
+        """First call sends input without session_id."""
+        mock_db = Mock(spec=Session)
+        endpoint_id = str(uuid4())
+
+        mock_endpoint_service = Mock()
+        mock_endpoint_service.invoke_endpoint = AsyncMock(
+            return_value={
+                "output": "Hello!",
+                "session_id": "srv-session-1",
+            }
+        )
+        mock_endpoint = self._make_mock_endpoint()
+
+        target = self._create_target(
+            mock_db,
+            endpoint_id,
+            mock_endpoint_service,
+            mock_endpoint,
+        )
+        response = target.send_message("Hi")
+
+        assert response.success is True
+        assert response.content == "Hello!"
+
+        call_kwargs = mock_endpoint_service.invoke_endpoint.call_args.kwargs
+        input_data = call_kwargs["input_data"]
+        assert input_data["input"] == "Hi"
+        assert "session_id" not in input_data
+
+    def test_second_turn_passes_session_id_from_response(self):
+        """session_id from first response is sent in second call."""
+        mock_db = Mock(spec=Session)
+        endpoint_id = str(uuid4())
+
+        mock_endpoint_service = Mock()
+        mock_endpoint_service.invoke_endpoint = AsyncMock(
+            side_effect=[
+                {"output": "Hi!", "session_id": "srv-session-1"},
+                {"output": "I'm fine.", "session_id": "srv-session-1"},
+            ]
+        )
+        mock_endpoint = self._make_mock_endpoint()
+
+        target = self._create_target(
+            mock_db,
+            endpoint_id,
+            mock_endpoint_service,
+            mock_endpoint,
+        )
+
+        resp1 = target.send_message("Hello")
+        # Penelope passes conversation_id from previous response
+        resp2 = target.send_message(
+            "How are you?",
+            conversation_id=resp1.conversation_id,
+        )
+
+        # Second call should include session_id
+        second_call = mock_endpoint_service.invoke_endpoint.call_args_list[1]
+        input_data = second_call.kwargs["input_data"]
+        assert input_data["session_id"] == "srv-session-1"
+
+        assert resp2.success is True
+        assert resp2.conversation_id == "srv-session-1"
+
+    def test_session_id_stable_across_turns(self):
+        """conversation_id in responses stays consistent across turns."""
+        mock_db = Mock(spec=Session)
+        endpoint_id = str(uuid4())
+
+        session = "stable-session-42"
+        mock_endpoint_service = Mock()
+        mock_endpoint_service.invoke_endpoint = AsyncMock(
+            side_effect=[
+                {"output": "A", "session_id": session},
+                {"output": "B", "session_id": session},
+                {"output": "C", "session_id": session},
+            ]
+        )
+        mock_endpoint = self._make_mock_endpoint()
+
+        target = self._create_target(
+            mock_db,
+            endpoint_id,
+            mock_endpoint_service,
+            mock_endpoint,
+        )
+
+        r1 = target.send_message("1")
+        r2 = target.send_message("2", conversation_id=r1.conversation_id)
+        r3 = target.send_message("3", conversation_id=r2.conversation_id)
+
+        assert r1.conversation_id == session
+        assert r2.conversation_id == session
+        assert r3.conversation_id == session
+
+    def test_none_response_returns_failure(self):
+        """When invoke_endpoint returns None, response is a failure."""
+        mock_db = Mock(spec=Session)
+        endpoint_id = str(uuid4())
+
+        mock_endpoint_service = Mock()
+        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value=None)
+        mock_endpoint = self._make_mock_endpoint()
+
+        target = self._create_target(
+            mock_db,
+            endpoint_id,
+            mock_endpoint_service,
+            mock_endpoint,
+        )
+        response = target.send_message("Hello")
+
+        assert response.success is False
+        assert "None" in response.error
+
+    def test_error_response_returns_failure(self):
+        """When invoker returns ErrorResponse, target returns failure."""
+        from rhesis.backend.app.services.invokers.common.schemas import (
+            ErrorResponse,
+        )
+
+        mock_db = Mock(spec=Session)
+        endpoint_id = str(uuid4())
+
+        error_resp = ErrorResponse(
+            output="Something went wrong",
+            error_type="http_error",
+            message="HTTP error occurred",
+        )
+        mock_endpoint_service = Mock()
+        mock_endpoint_service.invoke_endpoint = AsyncMock(
+            return_value=error_resp,
+        )
+        mock_endpoint = self._make_mock_endpoint()
+
+        target = self._create_target(
+            mock_db,
+            endpoint_id,
+            mock_endpoint_service,
+            mock_endpoint,
+        )
+        response = target.send_message("Hello")
+
+        assert response.success is False
+
+    def test_empty_message_rejected(self):
+        """Empty or whitespace-only messages are rejected."""
+        mock_db = Mock(spec=Session)
+        endpoint_id = str(uuid4())
+        mock_endpoint_service = Mock()
+        mock_endpoint = self._make_mock_endpoint()
+
+        target = self._create_target(
+            mock_db,
+            endpoint_id,
+            mock_endpoint_service,
+            mock_endpoint,
+        )
+
+        assert target.send_message("").success is False
+        assert target.send_message("   ").success is False
+
+    def test_long_message_rejected(self):
+        """Messages exceeding 10 000 chars are rejected."""
+        mock_db = Mock(spec=Session)
+        endpoint_id = str(uuid4())
+        mock_endpoint_service = Mock()
+        mock_endpoint = self._make_mock_endpoint()
+
+        target = self._create_target(
+            mock_db,
+            endpoint_id,
+            mock_endpoint_service,
+            mock_endpoint,
+        )
+
+        response = target.send_message("x" * 10001)
+        assert response.success is False
+        assert "too long" in response.error.lower()
+
+
 class TestBackendEndpointTargetConversationContext:
     """Test conversation context maintenance in BackendEndpointTarget"""
 
@@ -241,11 +472,13 @@ class TestBackendEndpointTargetConversationContext:
 
         # Mock endpoint service response with session_id
         mock_endpoint_service = Mock()
-        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={
-            "output": "Test response",
-            "session_id": "test-session-123",
-            "metadata": {"test": "data"},
-        })
+        mock_endpoint_service.invoke_endpoint = AsyncMock(
+            return_value={
+                "output": "Test response",
+                "session_id": "test-session-123",
+                "metadata": {"test": "data"},
+            }
+        )
 
         # Create valid UUIDs for testing
         endpoint_id = str(uuid4())
@@ -293,10 +526,12 @@ class TestBackendEndpointTargetConversationContext:
 
         # Mock endpoint service
         mock_endpoint_service = Mock()
-        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={
-            "output": "Follow-up response",
-            "session_id": "test-session-123",
-        })
+        mock_endpoint_service.invoke_endpoint = AsyncMock(
+            return_value={
+                "output": "Follow-up response",
+                "session_id": "test-session-123",
+            }
+        )
 
         # Create valid UUIDs for testing
         endpoint_id = str(uuid4())
@@ -345,11 +580,13 @@ class TestBackendEndpointTargetConversationContext:
 
         # Mock endpoint service response with thread_id instead of session_id
         mock_endpoint_service = Mock()
-        mock_endpoint_service.invoke_endpoint = AsyncMock(return_value={
-            "output": "Response with thread_id",
-            "thread_id": "thread-456",
-            "metadata": {},
-        })
+        mock_endpoint_service.invoke_endpoint = AsyncMock(
+            return_value={
+                "output": "Response with thread_id",
+                "thread_id": "thread-456",
+                "metadata": {},
+            }
+        )
 
         # Create valid UUID for testing
         endpoint_id = str(uuid4())

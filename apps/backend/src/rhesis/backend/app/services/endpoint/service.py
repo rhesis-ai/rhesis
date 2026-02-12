@@ -18,6 +18,10 @@ from rhesis.backend.app.models.enums import (
 )
 from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
+from rhesis.backend.app.services.invokers.conversation import (
+    ConversationTracker,
+    get_conversation_store,
+)
 
 # Import sdk_sync at module level to avoid circular imports
 from . import sdk_sync
@@ -87,6 +91,48 @@ class EndpointService:
             if user_id:
                 enriched_input_data["user_id"] = user_id
 
+            # -------------------------------------------------------
+            # Stateless conversation management
+            # -------------------------------------------------------
+            # For stateless endpoints (detected via {{ messages }} in
+            # request_mapping) the backend manages conversation history
+            # server-side.  Callers use ``session_id`` exactly like they
+            # would for stateful endpoints -- the difference is
+            # transparent.
+            is_stateless = ConversationTracker.detect_stateless_mode(endpoint)
+            stateless_session_id = None
+
+            if is_stateless and "messages" not in enriched_input_data:
+                store = get_conversation_store()
+                incoming_session = enriched_input_data.get("session_id")
+                user_input = enriched_input_data.get("input", "")
+
+                if incoming_session and store.exists(incoming_session):
+                    # Continue existing conversation
+                    stateless_session_id = incoming_session
+                else:
+                    # New conversation (or expired session -- start fresh)
+                    system_prompt = ConversationTracker.extract_system_prompt(endpoint)
+                    stateless_session_id = store.create(
+                        system_prompt=system_prompt,
+                    )
+                    if incoming_session:
+                        logger.warning(
+                            f"Session {incoming_session} not found, "
+                            f"created new: {stateless_session_id}"
+                        )
+
+                # Accumulate the user turn and build the messages array
+                store.add_user_message(stateless_session_id, user_input)
+                enriched_input_data["messages"] = store.get_messages(
+                    stateless_session_id,
+                )
+                logger.debug(
+                    "Stateless conversation %s: %d message(s)",
+                    stateless_session_id,
+                    len(enriched_input_data["messages"]),
+                )
+
             # Preprocess prompt placeholders (e.g., Garak's {TARGET_MODEL})
             # This substitutes placeholders with runtime context like project name
             if "input" in enriched_input_data and isinstance(enriched_input_data["input"], str):
@@ -119,6 +165,23 @@ class EndpointService:
                 result = await invoker.invoke(
                     db, endpoint, enriched_input_data, test_execution_context
                 )
+
+            # -------------------------------------------------------
+            # Post-invocation: store assistant response for stateless
+            # -------------------------------------------------------
+            if is_stateless and stateless_session_id and result:
+                result_dict = result if isinstance(result, dict) else None
+                if result_dict is not None:
+                    output = result_dict.get("output", "")
+                    if output:
+                        store = get_conversation_store()
+                        store.add_assistant_message(
+                            stateless_session_id,
+                            str(output),
+                        )
+                    # Surface session_id so callers can continue the
+                    # conversation -- same field stateful endpoints use.
+                    result_dict["session_id"] = stateless_session_id
 
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")
             return result

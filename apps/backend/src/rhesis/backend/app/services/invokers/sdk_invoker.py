@@ -127,7 +127,12 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             logger.warning(f"No request_mapping configured for {function_name}, using passthrough")
             return filtered_context
 
-        return self.template_renderer.render(request_mapping, filtered_context)
+        rendered = self.template_renderer.render(request_mapping, filtered_context)
+
+        # Strip reserved meta keys (e.g. system_prompt) from the wire body
+        self._strip_meta_keys(rendered)
+
+        return rendered
 
     async def _execute_via_rpc(
         self,
