@@ -30,8 +30,9 @@ class TestAutoMapper:
         assert len(result["missing_fields"]) == 0  # All REQUEST fields matched
 
         # Check request template (only REQUEST fields)
+        # Keys are original parameter names, values are standard template variables
         assert result["request_mapping"]["input"] == "{{ input }}"
-        assert result["request_mapping"]["conversation_id"] == "{{ conversation_id }}"
+        assert result["request_mapping"]["session_id"] == "{{ conversation_id }}"
         assert "context" not in result["request_mapping"]  # RESPONSE field
 
         # Check response mappings exist

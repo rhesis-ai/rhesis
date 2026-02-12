@@ -133,7 +133,9 @@ class TestChatMessageHandler:
             mock_service = MockEndpointService.return_value
             mock_service.invoke_endpoint = AsyncMock(return_value=mock_result)
 
-            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
+            with patch(
+                "rhesis.backend.app.services.websocket.handlers.chat.get_db_with_tenant_variables"
+            ) as mock_get_db:
                 # Mock the context manager
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
@@ -174,7 +176,9 @@ class TestChatMessageHandler:
             mock_service = MockEndpointService.return_value
             mock_service.invoke_endpoint = AsyncMock(side_effect=Exception("Endpoint not found"))
 
-            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
+            with patch(
+                "rhesis.backend.app.services.websocket.handlers.chat.get_db_with_tenant_variables"
+            ) as mock_get_db:
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
                 mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
@@ -219,7 +223,9 @@ class TestChatMessageHandler:
             mock_service = MockEndpointService.return_value
             mock_service.invoke_endpoint = AsyncMock(return_value=error_response)
 
-            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
+            with patch(
+                "rhesis.backend.app.services.websocket.handlers.chat.get_db_with_tenant_variables"
+            ) as mock_get_db:
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
                 mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
@@ -263,7 +269,9 @@ class TestChatMessageHandler:
             mock_service = MockEndpointService.return_value
             mock_service.invoke_endpoint = AsyncMock(return_value=mock_result)
 
-            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
+            with patch(
+                "rhesis.backend.app.services.websocket.handlers.chat.get_db_with_tenant_variables"
+            ) as mock_get_db:
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
                 mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
@@ -305,7 +313,9 @@ class TestChatMessageHandler:
             mock_service = MockEndpointService.return_value
             mock_service.invoke_endpoint = AsyncMock(return_value=mock_result)
 
-            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
+            with patch(
+                "rhesis.backend.app.services.websocket.handlers.chat.get_db_with_tenant_variables"
+            ) as mock_get_db:
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
                 mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
@@ -341,7 +351,9 @@ class TestChatMessageHandler:
             mock_service = MockEndpointService.return_value
             mock_service.invoke_endpoint = AsyncMock(return_value=mock_result)
 
-            with patch("rhesis.backend.app.services.websocket.handlers.chat.get_db") as mock_get_db:
+            with patch(
+                "rhesis.backend.app.services.websocket.handlers.chat.get_db_with_tenant_variables"
+            ) as mock_get_db:
                 mock_db = MagicMock()
                 mock_get_db.return_value.__enter__ = MagicMock(return_value=mock_db)
                 mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
