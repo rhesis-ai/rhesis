@@ -13,6 +13,56 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-02-12
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.3**
+- **Frontend 0.6.4**
+- **SDK 0.6.4**
+- **Polyphemus 0.2.5**
+
+### Summary of Changes
+
+**Backend v0.6.3:**
+- Added split-view playground with test creation from conversations.
+- Implemented file import for test sets with support for CSV, JSON, JSONL, and Excel formats.
+- Enhanced test set execution with rescoring, last run retrieval, and metric management.
+- Introduced user-configurable embedding model settings and connection testing.
+- Replaced Auth0 with a native authentication system including email verification, password reset, and magic link.
+
+
+**Frontend v0.6.4:**
+- Added split-view playground with test creation from conversations, including a drawer with LLM-extracted pre-filled fields for both single-turn and multi-turn tests.
+- Implemented file import for test sets, supporting CSV, JSON, JSONL, and Excel formats with column mapping and user-friendly error handling.
+- Added user-configurable embedding model settings, allowing users to select their preferred embedding model and test the connection.
+- Introduced test output reuse and re-scoring capabilities, enabling users to re-evaluate metrics on stored outputs without invoking endpoints, and added a "Scoring Target" dropdown to execution drawers.
+- Replaced Auth0 with a native authentication system, including email verification, password reset, magic link, and OAuth support, and added refresh token rotation for improved security.
+
+
+**SDK v0.6.4:**
+- Introduces a split-view playground with test creation from conversations, including file import for test sets and flat convenience fields for multi-turn test configurations.
+- Adds rescore, last_run, and metric management capabilities to TestSet, along with user-configurable embedding model settings and improved model connection testing.
+- Implements a native authentication system replacing Auth0, featuring email verification, password reset, magic link login, and refresh token rotation.
+- Improves error messages for model configuration and worker availability, providing clearer guidance for users to resolve issues.
+
+
+**Polyphemus v0.2.5:**
+- Enabled BetterTransformer optimization in Polyphemus, resulting in a 1.5-2x inference speedup.
+- Improved error messages for model configuration and worker availability issues, providing users with clear guidance on how to resolve them.
+- Enhanced model connection testing, validating model configurations with actual API calls and displaying specific error messages in the UI.
+- Updated dependencies to address security vulnerabilities (CVEs) in packages like cryptography, nbconvert, langsmith, protobuf, python-multipart, and others.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.6.3] - 2026-02-05
 
 ### Platform Release
