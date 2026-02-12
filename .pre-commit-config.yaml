@@ -11,9 +11,10 @@ repos:
         - id: trufflehog
           name: TruffleHog
           description: Detect secrets in your data.
-          entry: bash -c 'trufflehog --regex --entropy=True .'
+          entry: bash -c 'PATH="$HOME/.local/bin:$PATH" trufflehog git file://. --since-commit HEAD~1 --only-verified --fail --no-update'
           language: system
           stages: ["pre-commit", "pre-push"]
+          pass_filenames: false
 
         - id: sdk
           name  : format sdk
