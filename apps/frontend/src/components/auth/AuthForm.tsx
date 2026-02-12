@@ -386,9 +386,13 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                       <IconButton
                         aria-label="toggle password visibility"
                         onClick={() => setShowPassword(!showPassword)}
-                        onMouseDown={e => e.preventDefault()}
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
                         edge="end"
                         size="small"
+                        tabIndex={-1}
                       >
                         {showPassword ? (
                           <VisibilityOffIcon />

@@ -227,9 +227,13 @@ export default function ResetPasswordPage() {
                             <IconButton
                               aria-label="toggle password visibility"
                               onClick={() => setShowPassword(!showPassword)}
-                              onMouseDown={e => e.preventDefault()}
+                              onMouseDown={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
                               edge="end"
                               size="small"
+                              tabIndex={-1}
                             >
                               {showPassword ? (
                                 <VisibilityOffIcon />
@@ -258,9 +262,13 @@ export default function ResetPasswordPage() {
                               onClick={() =>
                                 setShowConfirmPassword(!showConfirmPassword)
                               }
-                              onMouseDown={e => e.preventDefault()}
+                              onMouseDown={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
                               edge="end"
                               size="small"
+                              tabIndex={-1}
                             >
                               {showConfirmPassword ? (
                                 <VisibilityOffIcon />
