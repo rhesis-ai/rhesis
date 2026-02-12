@@ -336,6 +336,12 @@ class ChatResponse(BaseModel):
         "use_case": "{{ use_case | default('insurance') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
     },
+    response_mapping={
+        "output": "{{ message }}",
+        "session_id": "{{ session_id }}",
+        "context": "{{ context }}",
+        "metadata": "{{ metadata }}",
+    },
 )
 async def chat(
     message: str,
