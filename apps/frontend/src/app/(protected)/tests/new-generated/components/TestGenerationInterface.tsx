@@ -194,6 +194,7 @@ export default function TestGenerationInterface({
     });
 
     setLocalTestSamples(mergedSamples);
+    // localTestSamples intentionally excluded - adding would cause infinite loop (effect sets it)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testSamples]);
 
@@ -382,8 +383,11 @@ export default function TestGenerationInterface({
                 executeResponse.test_output &&
                 typeof executeResponse.test_output === 'object'
               ) {
-                conversation =
-                  executeResponse.test_output.conversation_summary || [];
+                conversation = Array.isArray(
+                  executeResponse.test_output.conversation_summary
+                )
+                  ? executeResponse.test_output.conversation_summary
+                  : [];
               }
 
               if (sample.testType === 'multi_turn') {
@@ -600,8 +604,11 @@ export default function TestGenerationInterface({
             executeResponse.test_output &&
             typeof executeResponse.test_output === 'object'
           ) {
-            conversation =
-              executeResponse.test_output.conversation_summary || [];
+            conversation = Array.isArray(
+              executeResponse.test_output.conversation_summary
+            )
+              ? executeResponse.test_output.conversation_summary
+              : [];
           }
 
           const newSample = {

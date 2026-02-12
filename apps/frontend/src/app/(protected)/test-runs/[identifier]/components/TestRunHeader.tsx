@@ -186,7 +186,12 @@ export default function TestRunHeader({
     const startedAt = testRun.attributes?.started_at;
     const completedAt = testRun.attributes?.completed_at;
     let duration = 'N/A';
-    if (startedAt && completedAt) {
+    if (
+      startedAt &&
+      completedAt &&
+      typeof startedAt === 'string' &&
+      typeof completedAt === 'string'
+    ) {
       const start = new Date(startedAt).getTime();
       const end = new Date(completedAt).getTime();
       const diffMs = end - start;
@@ -332,7 +337,8 @@ export default function TestRunHeader({
             title="Duration"
             value={stats.duration}
             subtitle={
-              testRun.attributes?.started_at
+              testRun.attributes?.started_at &&
+              typeof testRun.attributes.started_at === 'string'
                 ? formatDate(testRun.attributes.started_at)
                 : 'N/A'
             }
@@ -475,8 +481,10 @@ export default function TestRunHeader({
                       }}
                     >
                       Endpoint:{' '}
-                      {testRun.test_configuration.endpoint.name ||
-                        testRun.attributes?.environment ||
+                      {testRun.test_configuration?.endpoint?.name ||
+                        (typeof testRun.attributes?.environment === 'string'
+                          ? testRun.attributes.environment
+                          : null) ||
                         'development'}
                     </Typography>
                     <OpenInNewIcon
@@ -496,7 +504,9 @@ export default function TestRunHeader({
                 >
                   Endpoint:{' '}
                   {testRun.test_configuration?.endpoint?.name ||
-                    testRun.attributes?.environment ||
+                    (typeof testRun.attributes?.environment === 'string'
+                      ? testRun.attributes.environment
+                      : null) ||
                     'development'}
                 </Typography>
               )}

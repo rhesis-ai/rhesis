@@ -532,7 +532,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                   if (task.task_metadata?.test_result_id) {
                     queryParams.append(
                       'selectedresult',
-                      task.task_metadata.test_result_id
+                      String(task.task_metadata.test_result_id)
                     );
                   }
                   const queryString = queryParams.toString()

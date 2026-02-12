@@ -1,9 +1,7 @@
 'use client';
 
-/* eslint-disable react/no-array-index-key -- Test sample display */
-
 import * as React from 'react';
-import { Box, Grid, Typography, useTheme, TextField } from '@mui/material';
+import { Box, Grid, Typography, TextField } from '@mui/material';
 import BaseFreesoloAutocomplete, {
   AutocompleteOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
@@ -36,7 +34,6 @@ export default function TestDetailData({
   sessionToken,
   test: initialTest,
 }: TestDetailDataProps) {
-  const _theme = useTheme();
   const router = useRouter();
   const [behaviors, setBehaviors] = React.useState<TestDetailOption[]>([]);
   const [_types, setTypes] = React.useState<TestDetailOption[]>([]);
@@ -222,7 +219,17 @@ export default function TestDetailData({
   };
 
   // Check if test is multi-turn
-  const isMultiTurn = isMultiTurnTest(test.test_type?.type_value);
+  const isMultiTurn: boolean = Boolean(
+    isMultiTurnTest(test.test_type?.type_value)
+  );
+
+  // Extract and type-narrow sources from test_metadata (Record<string, unknown>)
+  // to avoid `unknown` leaking into JSX children via short-circuit &&
+  const testSources: Array<Record<string, string>> = Array.isArray(
+    test.test_metadata?.sources
+  )
+    ? test.test_metadata.sources
+    : [];
 
   return (
     <Grid container spacing={2}>
@@ -333,10 +340,9 @@ export default function TestDetailData({
           />
         </Box>
       </Grid>
-      {/* Conditional rendering based on test type */}
+      {/* Multi-Turn Configuration Fields */}
       {isMultiTurn ? (
-        /* Multi-Turn Configuration Fields */
-        <Grid size={12}>
+        <Grid size={12} key="multi-turn-config">
           <MultiTurnConfigFields
             sessionToken={sessionToken}
             testId={test.id}
@@ -348,64 +354,57 @@ export default function TestDetailData({
             onUpdate={refreshTest}
           />
         </Grid>
-      ) : (
-        /* Standard Test Fields */
-        <>
-          <Grid size={12}>
-            <Box sx={{ mb: 1 }}>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                gutterBottom
-              >
-                Test Prompt
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', fontStyle: 'italic' }}
-              >
-                The input prompt that will be sent to the target system
-              </Typography>
-            </Box>
-            <TestExecutableField
-              sessionToken={sessionToken}
-              testId={test.id}
-              promptId={test.prompt_id}
-              initialContent={test.prompt?.content || ''}
-              onUpdate={refreshTest}
-            />
-          </Grid>
-          <Grid size={12}>
-            <Box sx={{ mb: 1 }}>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                gutterBottom
-              >
-                Expected Response
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', fontStyle: 'italic' }}
-              >
-                The expected output or behavior from the target system
-              </Typography>
-            </Box>
-            <TestExecutableField
-              sessionToken={sessionToken}
-              testId={test.id}
-              promptId={test.prompt_id}
-              initialContent={test.prompt?.expected_response || ''}
-              onUpdate={refreshTest}
-              fieldName="expected_response"
-            />
-          </Grid>
-        </>
+      ) : null}
+      {/* Standard Test Fields */}
+      {!isMultiTurn && (
+        <Grid size={12}>
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Test Prompt
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', fontStyle: 'italic' }}
+            >
+              The input prompt that will be sent to the target system
+            </Typography>
+          </Box>
+          <TestExecutableField
+            sessionToken={sessionToken}
+            testId={test.id}
+            promptId={test.prompt_id}
+            initialContent={test.prompt?.content || ''}
+            onUpdate={refreshTest}
+          />
+        </Grid>
+      )}
+      {!isMultiTurn && (
+        <Grid size={12}>
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Expected Response
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', fontStyle: 'italic' }}
+            >
+              The expected output or behavior from the target system
+            </Typography>
+          </Box>
+          <TestExecutableField
+            sessionToken={sessionToken}
+            testId={test.id}
+            promptId={test.prompt_id}
+            initialContent={test.prompt?.expected_response || ''}
+            onUpdate={refreshTest}
+            fieldName="expected_response"
+          />
+        </Grid>
       )}
       {/* Sources Section */}
-      {test.test_metadata?.sources && test.test_metadata.sources.length > 0 && (
+      {testSources.length > 0 && (
         <Grid size={12}>
           <Box sx={{ mb: 1 }}>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -421,21 +420,29 @@ export default function TestDetailData({
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {test.test_metadata.sources.map((source: any, index: number) => (
-              <Box key={`source-${index}`}>
-                <FilePreview
-                  title={
-                    source.name ||
-                    source.document ||
-                    source.source ||
-                    'Unknown Source'
-                  }
-                  content={source.content || 'No content available'}
-                  showCopyButton={true}
-                  defaultExpanded={false}
-                />
-              </Box>
-            ))}
+            {testSources.map((source, index: number) => {
+              // Create stable key from source name/document
+              const sourceKey =
+                source.name ||
+                source.document ||
+                source.source ||
+                `source-${index}`;
+              return (
+                <Box key={sourceKey}>
+                  <FilePreview
+                    title={
+                      source.name ||
+                      source.document ||
+                      source.source ||
+                      'Unknown Source'
+                    }
+                    content={source.content || 'No content available'}
+                    showCopyButton={true}
+                    defaultExpanded={false}
+                  />
+                </Box>
+              );
+            })}
           </Box>
         </Grid>
       )}

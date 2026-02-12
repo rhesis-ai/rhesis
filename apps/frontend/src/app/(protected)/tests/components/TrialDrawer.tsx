@@ -301,7 +301,11 @@ export default function TrialDrawer({
         ) {
           // Check for conversation_summary
           if (executeResponse.test_output.conversation_summary) {
-            conversation = executeResponse.test_output.conversation_summary;
+            conversation = Array.isArray(
+              executeResponse.test_output.conversation_summary
+            )
+              ? executeResponse.test_output.conversation_summary
+              : [];
           }
           // Also check if test_output itself is an array (alternative structure)
           else if (Array.isArray(executeResponse.test_output)) {
@@ -332,6 +336,7 @@ export default function TrialDrawer({
 
       notifications.show('Test executed successfully', { severity: 'success' });
     } catch (error) {
+      console.error('[TrialDrawer] Test execution failed', error);
       setError(
         `Failed to execute test: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
@@ -389,7 +394,11 @@ export default function TrialDrawer({
                   newValue.id
                 );
                 setSelectedProjectData(projectData);
-              } catch (_error) {
+              } catch (error) {
+                console.error(
+                  '[TrialDrawer] Failed to fetch project details:',
+                  error
+                );
                 // Fallback to basic data if fetch fails
                 setSelectedProjectData({
                   id: newValue.id,

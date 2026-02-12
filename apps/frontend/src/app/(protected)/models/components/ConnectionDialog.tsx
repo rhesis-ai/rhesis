@@ -114,7 +114,9 @@ export function ConnectionDialog({
         setModelName(model.model_name || '');
         setEndpoint(model.endpoint || '');
         setApiKey('************'); // Show placeholder for existing key
-        setCustomHeaders(model.request_headers || {});
+        setCustomHeaders(
+          (model.request_headers as Record<string, string>) || {}
+        );
         setProviderName('');
         setError(null);
         setTestResult(null);
@@ -269,16 +271,24 @@ export function ConnectionDialog({
       ? LOCAL_PROVIDERS.includes(currentProvider.type_value)
       : false;
 
+    // In edit mode with existing model, we can use stored API key (model_id)
+    const canUseStoredKey =
+      isEditMode && model?.id && (!apiKey || apiKey === '************');
+    const hasApiKey =
+      apiKey && apiKey !== '************' && apiKey.trim().length > 0;
+
     if (
       !currentProvider ||
       !modelName ||
-      (!currentIsLocalProvider && (!apiKey || apiKey === '************'))
+      (!currentIsLocalProvider && !hasApiKey && !canUseStoredKey)
     ) {
       setTestResult({
         success: false,
         message: currentIsLocalProvider
           ? 'Please fill in provider and model name'
-          : 'Please fill in provider, model name, and API key',
+          : canUseStoredKey
+            ? 'Please fill in provider and model name'
+            : 'Please fill in provider, model name, and API key',
       });
       return;
     }
@@ -303,8 +313,12 @@ export function ConnectionDialog({
       const requestBody: any = {
         provider: currentProvider.type_value,
         model_name: modelName,
-        api_key: apiKey && apiKey !== '************' ? apiKey : '', // Always include api_key field, empty string for local providers
+        api_key: hasApiKey ? apiKey : '',
       };
+
+      if (canUseStoredKey && model?.id) {
+        requestBody.model_id = model.id;
+      }
 
       // Only include endpoint if it's required and has a value
       if (requiresEndpoint && endpoint && endpoint.trim()) {
@@ -669,35 +683,32 @@ export function ConnectionDialog({
                           ) : null,
                       }}
                     />
-                    {(!isEditMode ||
-                      (isEditMode && apiKey !== '************')) && (
-                      <Button
-                        onClick={handleTestConnection}
-                        variant="outlined"
-                        disabled={
-                          !modelName ||
-                          !apiKey ||
-                          apiKey === '************' ||
-                          (requiresEndpoint && !endpoint) ||
-                          testingConnection ||
-                          loading
-                        }
-                        startIcon={
-                          testingConnection ? (
-                            <CircularProgress size={16} />
-                          ) : (
-                            <CheckCircleIcon />
-                          )
-                        }
-                        sx={{
-                          minWidth: '120px',
-                          height: '56px',
-                          mt: 0,
-                        }}
-                      >
-                        {testingConnection ? 'Testing...' : 'Test'}
-                      </Button>
-                    )}
+                    <Button
+                      onClick={handleTestConnection}
+                      variant="outlined"
+                      disabled={
+                        !modelName ||
+                        ((!apiKey || apiKey === '************') &&
+                          !(isEditMode && model?.id)) ||
+                        (requiresEndpoint && !endpoint) ||
+                        testingConnection ||
+                        loading
+                      }
+                      startIcon={
+                        testingConnection ? (
+                          <CircularProgress size={16} />
+                        ) : (
+                          <CheckCircleIcon />
+                        )
+                      }
+                      sx={{
+                        minWidth: '120px',
+                        height: '56px',
+                        mt: 0,
+                      }}
+                    >
+                      {testingConnection ? 'Testing...' : 'Test'}
+                    </Button>
                   </Box>
                 )}
 

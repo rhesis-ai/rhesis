@@ -55,6 +55,7 @@ interface RerunConfig {
   endpointId: string;
   endpointName: string;
   projectName: string;
+  testRunId?: string;
   /** Original test configuration attributes containing metrics if custom were used */
   originalAttributes?: {
     metrics?: OriginalMetric[];

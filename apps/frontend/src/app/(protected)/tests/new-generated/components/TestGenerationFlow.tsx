@@ -321,7 +321,9 @@ export default function TestGenerationFlow({
     };
 
     initializeFromTemplate();
-  }, [sessionToken, show, project, selectedProjectId, selectedSources, testType]);
+    // selectedProjectId, selectedSources, testType intentionally excluded - template init runs once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionToken, show, project]);
 
   // Input Screen Handler
   const handleContinueFromInput = useCallback(
@@ -445,8 +447,8 @@ export default function TestGenerationFlow({
           );
 
           setTestSamples(newSamples);
-        } catch (error) {
-          show(getApiErrorMessage(error, 'Failed to generate test samples'), {
+        } catch (_error) {
+          show(getApiErrorMessage(_error, 'Failed to generate test samples'), {
             severity: 'error',
           });
         } finally {
@@ -568,13 +570,14 @@ export default function TestGenerationFlow({
             const newSample: TestSample = {
               id: `sample-${Date.now()}-regenerated`,
               testType: 'single_turn',
-              prompt: response.tests[0].prompt.content,
-              response: response.tests[0].prompt.expected_response,
-              behavior: response.tests[0].behavior,
-              topic: response.tests[0].topic,
+              prompt: (response.tests[0] as any)?.prompt?.content || '',
+              response:
+                (response.tests[0] as any)?.prompt?.expected_response || '',
+              behavior: (response.tests[0] as any)?.behavior || '',
+              topic: (response.tests[0] as any)?.topic || '',
               rating: null,
               feedback: '',
-              context: response.tests[0].metadata?.sources
+              context: (response.tests[0] as any)?.metadata?.sources
                 ?.map((source: any) => ({
                   name: source.name || source.source || source.title || '',
                   description: source.description || '',
@@ -812,8 +815,8 @@ export default function TestGenerationFlow({
 
           show('Test generation refined successfully', { severity: 'success' });
         }
-      } catch (error) {
-        show(getApiErrorMessage(error, 'Failed to refine test generation'), {
+      } catch (_error) {
+        show(getApiErrorMessage(_error, 'Failed to refine test generation'), {
           severity: 'error',
         });
       } finally {

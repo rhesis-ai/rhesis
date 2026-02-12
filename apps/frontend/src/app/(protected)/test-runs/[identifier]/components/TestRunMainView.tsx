@@ -358,7 +358,12 @@ export default function TestRunMainView({
         .map(run => ({
           id: run.id,
           name: run.name,
-          created_at: run.attributes?.started_at || run.created_at || '',
+          created_at:
+            (typeof run.attributes?.started_at === 'string'
+              ? run.attributes.started_at
+              : null) ||
+            (typeof run.created_at === 'string' ? run.created_at : '') ||
+            '',
           pass_rate: undefined, // Will be calculated from test results if needed
         }));
 
@@ -671,6 +676,7 @@ export default function TestRunMainView({
           endpointName: testRun.test_configuration?.endpoint?.name || 'Unknown',
           projectName:
             testRun.test_configuration?.endpoint?.project?.name || 'Unknown',
+          testRunId: testRun.id,
           originalAttributes: testRun.test_configuration?.attributes,
         }}
         sessionToken={sessionToken}

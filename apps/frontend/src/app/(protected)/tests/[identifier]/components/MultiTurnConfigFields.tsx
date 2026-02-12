@@ -323,17 +323,20 @@ export default function MultiTurnConfigFields({
 
       setConfig(updatedConfig);
 
-      notifications.show(`Successfully updated ${field.replace('_', ' ')}`, {
-        severity: 'success',
-        autoHideDuration: 3000,
-      });
+      notifications.show(
+        `Successfully updated ${String(field).replace('_', ' ')}`,
+        {
+          severity: 'success',
+          autoHideDuration: 3000,
+        }
+      );
 
       if (onUpdate) {
         onUpdate();
       }
     } catch (error: any) {
       notifications.show(
-        `Failed to update ${field.replace('_', ' ')}: ${error.message || 'Unknown error'}`,
+        `Failed to update ${String(field).replace('_', ' ')}: ${error.message || 'Unknown error'}`,
         {
           severity: 'error',
           autoHideDuration: 6000,
