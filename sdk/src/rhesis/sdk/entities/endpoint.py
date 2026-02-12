@@ -80,7 +80,13 @@ class Endpoint(BaseEntity):
     auth_token: Optional[str] = None
 
     @handle_http_errors
-    def invoke(self, input: str, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def invoke(
+        self,
+        input: str,
+        conversation_id: Optional[str] = None,
+        # Deprecated alias kept for backward compatibility
+        session_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
         """
         Invoke the endpoint with the given input.
 
@@ -90,18 +96,23 @@ class Endpoint(BaseEntity):
 
         Args:
             input: The message or query to send to the endpoint
-            session_id: Optional session ID for multi-turn conversations
+            conversation_id: Optional conversation ID for multi-turn
+                conversations.  Pass the ``conversation_id`` from the
+                previous response to continue the same conversation.
+            session_id: Deprecated alias for *conversation_id*.
 
         Returns:
-            Dict containing the response from the endpoint, or None if error occurred.
+            Dict containing the response from the endpoint, or ``None``
+            if an error occurred.
 
-            Response structure (standard Rhesis format):
-            {
-                "output": "Response text from the endpoint",
-                "session_id": "Session identifier for tracking",
-                "metadata": {...},  # Optional endpoint metadata
-                "context": [...]    # Optional context items
-            }
+            Response structure (standard Rhesis format)::
+
+                {
+                    "output": "Response text from the endpoint",
+                    "conversation_id": "Identifier for tracking",
+                    "metadata": {...},
+                    "context": [...]
+                }
 
         Raises:
             ValueError: If endpoint ID is not set
@@ -112,12 +123,12 @@ class Endpoint(BaseEntity):
             >>> endpoint.fetch()
             >>> response = endpoint.invoke(
             ...     input="What is the weather?",
-            ...     session_id="session-abc"
+            ...     conversation_id="conv-abc"
             ... )
             >>> print(response)
             {
                 "output": "The weather is sunny today!",
-                "session_id": "session-abc",
+                "conversation_id": "conv-abc",
                 "metadata": None,
                 "context": []
             }
@@ -125,9 +136,12 @@ class Endpoint(BaseEntity):
         if not self.id:
             raise ValueError("Endpoint ID must be set before invoking")
 
+        # Resolve conversation_id: explicit param wins over deprecated alias
+        resolved_cid = conversation_id or session_id
+
         input_data: Dict[str, Any] = {"input": input}
-        if session_id is not None:
-            input_data["session_id"] = session_id
+        if resolved_cid is not None:
+            input_data["conversation_id"] = resolved_cid
 
         client = APIClient()
         return client.send_request(

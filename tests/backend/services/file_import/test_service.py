@@ -17,10 +17,18 @@ from rhesis.backend.app.services.file_import.storage import (
 
 
 @pytest.fixture(autouse=True)
-def clear_sessions():
-    """Ensure a clean session store for each test."""
+def clear_sessions(tmp_path):
+    """Ensure a clean session store for each test.
+
+    Patches the disk session directory to a per-test temp folder
+    so tests never interfere with each other or with real sessions.
+    """
     ImportSessionStore._sessions.clear()
-    yield
+    with patch(
+        "rhesis.backend.app.services.file_import.storage._SESSION_DIR",
+        str(tmp_path),
+    ):
+        yield
     ImportSessionStore._sessions.clear()
 
 
@@ -442,3 +450,126 @@ class TestRowCountLimits:
                     "prompt_content": "prompt_content",
                 },
             )
+
+
+# ── Service-level disk persistence ──────────────────────────────
+
+
+class TestServiceDiskPersistence:
+    """Service methods persist state to disk, surviving memory clears."""
+
+    def test_analyze_persists_to_disk(self):
+        """analyze() writes session to disk; survives memory clear."""
+        data = [
+            {
+                "category": "Safety",
+                "topic": "Content",
+                "behavior": "Refusal",
+                "prompt_content": "test",
+            }
+        ]
+        file_bytes = json.dumps(data).encode("utf-8")
+        result = ImportService.analyze(
+            file_bytes=file_bytes,
+            filename="test.json",
+            user_id="user-A",
+        )
+        import_id = result["import_id"]
+
+        # Wipe in-memory cache
+        ImportSessionStore._sessions.clear()
+
+        # Session should be restored from disk
+        session = ImportSessionStore.get_session(import_id, user_id="user-A")
+        assert session is not None
+        assert session.filename == "test.json"
+        assert session.suggested_mapping is not None
+        assert session.mapping_confidence is not None
+
+    def test_parse_persists_to_disk(self):
+        """parse() writes parsed rows to disk; survives memory clear."""
+        data = [
+            {
+                "Question": "test prompt",
+                "Cat": "Safety",
+                "Subject": "Content",
+                "Behavior": "Refusal",
+            }
+        ]
+        file_bytes = json.dumps(data).encode("utf-8")
+        result = ImportService.analyze(file_bytes=file_bytes, filename="test.json")
+        import_id = result["import_id"]
+        mapping = {
+            "Question": "prompt_content",
+            "Cat": "category",
+            "Subject": "topic",
+            "Behavior": "behavior",
+        }
+        ImportService.parse(import_id, mapping)
+
+        # Wipe in-memory cache
+        ImportSessionStore._sessions.clear()
+
+        session = ImportSessionStore.get_session(import_id)
+        assert session is not None
+        assert len(session.parsed_rows) == 1
+        assert session.parsed_rows[0]["category"] == "Safety"
+
+    def test_parse_after_memory_clear(self):
+        """analyze → clear memory → parse still works (disk reload)."""
+        data = [
+            {
+                "Question": "test prompt",
+                "Cat": "Safety",
+                "Subject": "Content",
+                "Behavior": "Refusal",
+            }
+        ]
+        file_bytes = json.dumps(data).encode("utf-8")
+        result = ImportService.analyze(file_bytes=file_bytes, filename="test.json")
+        import_id = result["import_id"]
+
+        # Simulate server restart
+        ImportSessionStore._sessions.clear()
+
+        mapping = {
+            "Question": "prompt_content",
+            "Cat": "category",
+            "Subject": "topic",
+            "Behavior": "behavior",
+        }
+        parse_result = ImportService.parse(import_id, mapping)
+        assert parse_result["total_rows"] == 1
+        assert "preview" in parse_result
+
+    def test_preview_after_memory_clear(self):
+        """analyze → parse → clear memory → preview still works."""
+        data = [{"category": f"Cat{i}", "prompt_content": f"p{i}"} for i in range(5)]
+        file_bytes = json.dumps(data).encode("utf-8")
+        result = ImportService.analyze(file_bytes=file_bytes, filename="test.json")
+        import_id = result["import_id"]
+        ImportService.parse(
+            import_id,
+            {"category": "category", "prompt_content": "prompt_content"},
+        )
+
+        # Simulate server restart
+        ImportSessionStore._sessions.clear()
+
+        page = ImportService.preview(import_id, page=1, page_size=10)
+        assert page is not None
+        assert page["total_rows"] == 5
+
+    def test_cancel_after_memory_clear(self):
+        """analyze → clear memory → cancel still works (disk cleanup)."""
+        data = [{"category": "Safety"}]
+        file_bytes = json.dumps(data).encode("utf-8")
+        result = ImportService.analyze(file_bytes=file_bytes, filename="test.json")
+        import_id = result["import_id"]
+
+        # Simulate server restart
+        ImportSessionStore._sessions.clear()
+
+        assert ImportService.cancel(import_id) is True
+        # Should be gone from both memory and disk
+        assert ImportSessionStore.get_session(import_id) is None

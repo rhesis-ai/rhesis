@@ -20,6 +20,10 @@ class BaseEndpointInvoker(ABC):
     # SDK invokers set this to True, REST/WebSocket set to False
     automatic_tracing: bool = False
 
+    # Keys in request_mapping that are used by Rhesis for configuration
+    # but must NOT appear in the wire request body sent to the endpoint.
+    RESERVED_META_KEYS: set = {"system_prompt"}
+
     def __init__(self):
         self.template_renderer = TemplateRenderer()
         self.response_mapper = ResponseMapper()
@@ -27,6 +31,25 @@ class BaseEndpointInvoker(ABC):
         self.error_builder = ErrorResponseBuilder()
         self.header_manager = HeaderManager()
         self.conversation_tracker = ConversationTracker()
+
+    def _strip_meta_keys(self, rendered_body: Any) -> Any:
+        """Remove reserved meta keys from a rendered request body.
+
+        Meta keys (e.g. ``system_prompt``) are configuration hints consumed
+        by Rhesis internally and must not be sent on the wire to the
+        external endpoint.
+
+        Args:
+            rendered_body: The rendered request body (usually a dict).
+
+        Returns:
+            The same object with meta keys removed (mutates in place for dicts).
+        """
+        if isinstance(rendered_body, dict):
+            for key in self.RESERVED_META_KEYS:
+                if key in rendered_body:
+                    rendered_body.pop(key)
+        return rendered_body
 
     @abstractmethod
     async def invoke(

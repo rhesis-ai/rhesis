@@ -12,13 +12,17 @@ import {
   CircularProgress,
   Alert,
   Tooltip,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import EmailIcon from '@mui/icons-material/Email';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { useState, useEffect } from 'react';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import { useState, useEffect, useRef } from 'react';
 import { signIn } from 'next-auth/react';
 import { getClientApiBaseUrl } from '../../utils/url-resolver';
 import {
@@ -71,6 +75,24 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   // Migration state: set when a migrated Auth0 user has no password
   const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
+
+  // Password visibility toggle
+  const [showPassword, setShowPassword] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTogglePasswordVisibility = () => {
+    const input = passwordInputRef.current;
+    const cursorPosition = input?.selectionStart ?? 0;
+
+    setShowPassword(!showPassword);
+
+    // Restore cursor position after state update
+    setTimeout(() => {
+      if (input) {
+        input.setSelectionRange(cursorPosition, cursorPosition);
+      }
+    }, 0);
+  };
 
   // Check local storage for previous acceptance on component mount
   useEffect(() => {
@@ -359,7 +381,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               />
               <TextField
                 label="Password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
@@ -373,6 +395,25 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                     ? `Minimum ${passwordPolicy?.min_length ?? 8} characters`
                     : undefined
                 }
+                inputRef={passwordInputRef}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={handleTogglePasswordVisibility}
+                        edge="end"
+                        size="small"
+                      >
+                        {showPassword ? (
+                          <VisibilityOffIcon />
+                        ) : (
+                          <VisibilityIcon />
+                        )}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
               {formError && (
                 <Alert severity="error" sx={{ py: 0 }}>

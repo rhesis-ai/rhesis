@@ -127,6 +127,9 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             endpoint.request_mapping or {}, template_context
         )
 
+        # Strip reserved meta keys (e.g. system_prompt) from the wire body
+        self._strip_meta_keys(request_body)
+
         # Extract conversation ID from rendered body
         conversation_id = None
         if isinstance(request_body, dict):

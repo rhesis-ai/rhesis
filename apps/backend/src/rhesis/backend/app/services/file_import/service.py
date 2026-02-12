@@ -78,6 +78,9 @@ class ImportService:
         session.suggested_mapping = mapping_result.get("mapping", {})
         session.mapping_confidence = mapping_result.get("confidence", 0.0)
 
+        # Persist to disk so the session survives server restarts
+        ImportSessionStore.persist_session(session)
+
         return {
             "import_id": session.import_id,
             "file_info": {
@@ -144,8 +147,13 @@ class ImportService:
         session.row_warnings = row_warnings
         session.validation_summary = summary
 
+        # Persist to disk so the session survives server restarts
+        ImportSessionStore.persist_session(session)
+
         # Return first page
-        preview = ImportSessionStore.get_preview_page(import_id, page=1, page_size=50)
+        preview = ImportSessionStore.get_preview_page(
+            import_id, page=1, page_size=50, user_id=user_id
+        )
 
         return {
             "total_rows": summary["total_rows"],
@@ -288,6 +296,9 @@ class ImportService:
         result = llm_map_columns(session.headers, session.sample_rows, db=db, user=user)
         session.suggested_mapping = result.get("mapping", {})
         session.mapping_confidence = result.get("confidence", 0.0)
+
+        # Persist updated mapping to disk
+        ImportSessionStore.persist_session(session)
 
         return {
             "mapping": session.suggested_mapping,

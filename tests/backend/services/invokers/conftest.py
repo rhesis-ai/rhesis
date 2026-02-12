@@ -133,6 +133,73 @@ def sample_endpoint_sdk():
 
 
 @pytest.fixture
+def sample_endpoint_stateless():
+    """Sample stateless endpoint with OpenAI-style messages and system_prompt."""
+    return Endpoint(
+        id="test-stateless-endpoint",
+        name="Test Stateless Endpoint",
+        connection_type=EndpointConnectionType.REST.value,
+        method="POST",
+        url="https://api.example.com/v1/chat/completions",
+        auth_type=EndpointAuthType.BEARER_TOKEN.value,
+        auth_token="test-bearer-token",
+        request_headers={"Content-Type": "application/json"},
+        request_mapping={
+            "system_prompt": "You are a helpful assistant.",
+            "messages": "{{ messages }}",
+            "model": "gpt-4",
+            "temperature": 0.7,
+        },
+        response_mapping={
+            "output": "$.choices[0].message.content",
+        },
+        project_id=TEST_PROJECT_ID,
+    )
+
+
+@pytest.fixture
+def sample_endpoint_stateless_no_system_prompt():
+    """Sample stateless endpoint without system_prompt key."""
+    return Endpoint(
+        id="test-stateless-no-sp-endpoint",
+        name="Test Stateless No SP Endpoint",
+        connection_type=EndpointConnectionType.REST.value,
+        method="POST",
+        url="https://api.example.com/v1/chat/completions",
+        auth_type=EndpointAuthType.BEARER_TOKEN.value,
+        auth_token="test-bearer-token",
+        request_headers={"Content-Type": "application/json"},
+        request_mapping={
+            "messages": "{{ messages }}",
+            "model": "gpt-4",
+        },
+        response_mapping={
+            "output": "$.choices[0].message.content",
+        },
+        project_id=TEST_PROJECT_ID,
+    )
+
+
+@pytest.fixture
+def sample_openai_response_data():
+    """Sample OpenAI-format response data."""
+    return {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "Paris is the capital of France.",
+                },
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+        "model": "gpt-4",
+        "usage": {"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18},
+    }
+
+
+@pytest.fixture
 def sample_input_data():
     """Sample input data for invoker tests."""
     return {"input": "What is the capital of France?"}

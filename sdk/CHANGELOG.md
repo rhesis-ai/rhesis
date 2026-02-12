@@ -13,6 +13,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-02-12
+
+### Added
+- Added split-view playground and test creation from conversations, including endpoints and a drawer with LLM-extracted pre-filled fields for both single-turn and multi-turn tests.
+- Added file import for test sets, supporting CSV, JSON, JSONL, and Excel formats with column mapping, auto-mapping with confidence, and user-friendly error handling.
+- Added flat convenience fields (goal, instructions, restrictions, scenario) for multi-turn test configuration on the `Test` entity in the SDK.
+- Added server-side filtering to the test sets grid, enabling column filters for name, type, creator, and tags.
+- Added `rescore()`, `last_run()`, and metric management methods (`get_metrics()`, `add_metric()`, `remove_metric()`) to `TestSet` for enhanced test execution control.
+- Added `get_available_embedding_models` and `get_available_llm_models` factory functions, and `get_available_models` and `push` methods on `BaseEmbedder` and `LiteLLMEmbedder` for embedding model support.
+- Added user-configurable embedding model support, including a new `DEFAULT_EMBEDDING_MODEL` constant and embedding settings in user preferences.
+- Added support for testing embedding model connections in addition to LLM models.
+- Added `ExecutionMode` enum (`PARALLEL`, `SEQUENTIAL`) and validation for `execute()` and `rescore()`.
+
+### Changed
+- Refactored the multi-turn synthesizer to use a flat schema for batch generation, improving efficiency and consistency.
+- Replaced Auth0 with a native authentication system, including email/password, Google OAuth, and GitHub OAuth providers.
+- Updated default generation model to `rhesis/default` for out-of-the-box functionality without external API keys.
+- Improved error messages for model configuration and worker availability, providing clear, actionable guidance to users.
+- Reduced access token lifetime to 15 minutes and introduced opaque refresh tokens with rotation and reuse detection for enhanced security.
+- Updated `bulk_create_tests` to return a list of ID strings instead of `models.Test` objects for memory optimization.
+
+### Fixed
+- Enforced newline-separated steps in synthesizer instructions for better LLM parsing.
+- Restored the copy button on assistant messages in the frontend.
+- Fixed an issue where multi-turn imports were incorrectly created as single-turn during file import.
+- Fixed session hijacking vulnerabilities in the file import flow by adding user/organization ownership verification.
+- Resolved numerous pytest warnings in the SDK test suite.
+- Fixed retry kwargs dropping `reference_test_run_id` and `trace_id` in the execution pipeline.
+- Fixed an issue where the UI flickered during auto-advance in the file import mapping UI.
+- Fixed handling of optional dimension and demographic in `create_prompt` to avoid `NotNullViolation`.
+- Fixed an open redirect vulnerability in the native authentication system by implementing exact domain validation.
+- Fixed an issue where the verification banner didn't hide immediately after email verification.
+- Fixed a bug where the quick start admin user was not marked as email verified.
+- Fixed an issue where the Rhesis default model validation was not being performed correctly.
+- Fixed a bug where validation warnings were not cleared when models were no longer defaults.
+- Resolved Python security vulnerabilities in dependencies.
+
+### Removed
+- Removed user-configurable embedding dimensions, as these are now determined automatically by the model provider.
+- Removed duplicated `push()` function from `LiteLLMEmbedder`.
+- Removed Azure OpenAI and Auth0 secrets from workflows and deployment configurations.
+
+
 ## [0.6.3] - 2026-02-05
 
 ### Added

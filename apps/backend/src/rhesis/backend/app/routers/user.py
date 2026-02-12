@@ -47,9 +47,9 @@ async def create_user(
     # Set the organization_id from the current user
     user.organization_id = current_user.organization_id
 
-    # Validate and normalize email
+    # Validate, normalize, and verify the email domain can receive mail
     try:
-        normalized_email = validate_and_normalize_email(user.email)
+        normalized_email = validate_and_normalize_email(user.email, check_deliverability=True)
         user.email = normalized_email
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -35,7 +35,7 @@ class TestMappingPatterns:
         assert len(MappingPatterns.STANDARD_FIELDS) == 5
         field_names = [f.name for f in MappingPatterns.STANDARD_FIELDS]
         assert "input" in field_names
-        assert "session_id" in field_names
+        assert "conversation_id" in field_names
         assert "context" in field_names
         assert "metadata" in field_names
         assert "tool_calls" in field_names
@@ -176,8 +176,8 @@ class TestMappingPatterns:
         }
 
         mappings = MappingPatterns.detect_nested_output_field(return_structure)
-        assert "session_id" in mappings
-        assert mappings["session_id"] == "$.conversation_id"
+        assert "conversation_id" in mappings
+        assert mappings["conversation_id"] == "$.conversation_id"
 
     def test_detect_deeply_nested_fields(self):
         """Test detecting deeply nested fields."""
@@ -196,7 +196,7 @@ class TestMappingPatterns:
         assert "output" in mappings
         # Should find "result" or "output" - both match output patterns
         assert "$.data.result" in mappings["output"] or "$.data.result.output" in mappings["output"]
-        assert "session_id" in mappings
+        assert "conversation_id" in mappings
 
     def test_get_all_patterns(self):
         """Test get_all_patterns method."""

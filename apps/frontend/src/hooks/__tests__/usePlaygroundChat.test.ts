@@ -216,7 +216,7 @@ describe('usePlaygroundChat', () => {
           output: 'Hi there!',
           trace_id: 'trace-123',
           endpoint_id: 'ep-1',
-          session_id: 'sess-1',
+          conversation_id: 'sess-1',
         },
       });
     });
@@ -306,7 +306,7 @@ describe('usePlaygroundChat', () => {
         payload: {
           output: 'Hi!',
           endpoint_id: 'ep-1',
-          session_id: 'sess-1',
+          conversation_id: 'sess-1',
         },
       });
     });
@@ -346,7 +346,7 @@ describe('usePlaygroundChat', () => {
     expect(result.current.sessionId).toBeNull();
   });
 
-  it('includes session_id in subsequent messages', () => {
+  it('includes conversation_id in subsequent messages', () => {
     const { result } = renderHook(() =>
       usePlaygroundChat({ endpointId: 'ep-1' })
     );
@@ -356,7 +356,7 @@ describe('usePlaygroundChat', () => {
       result.current.sendMessage('Hello');
     });
 
-    // Simulate response with session_id
+    // Simulate response with conversation_id
     const firstCall = mockSend.mock.calls[0][0];
     act(() => {
       subscriptionHandlers[EventType.CHAT_RESPONSE]({
@@ -365,7 +365,7 @@ describe('usePlaygroundChat', () => {
         payload: {
           output: 'Hi!',
           endpoint_id: 'ep-1',
-          session_id: 'sess-1',
+          conversation_id: 'sess-1',
         },
       });
     });
@@ -375,10 +375,10 @@ describe('usePlaygroundChat', () => {
       result.current.sendMessage('How are you?');
     });
 
-    // Second send call should include session_id
+    // Second send call should include conversation_id
     expect(mockSend).toHaveBeenCalledTimes(2);
     const secondCall = mockSend.mock.calls[1][0];
-    expect(secondCall.payload.session_id).toBe('sess-1');
+    expect(secondCall.payload.conversation_id).toBe('sess-1');
   });
 
   it('trims whitespace from messages before sending', () => {

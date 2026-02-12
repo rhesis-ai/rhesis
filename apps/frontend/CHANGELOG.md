@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-02-12
+
+### Added
+
+- **Split-View Playground and Test Creation:** Added a split-view chat panel in the playground and a drawer for creating tests directly from conversations, pre-filled with LLM-extracted fields for both single-turn and multi-turn tests. (#1321)
+- **Test Output Reuse and Re-scoring:** Introduced the ability to re-score test runs using stored outputs, without re-executing the tests. Added a "Scoring Target" dropdown to execution drawers, allowing users to choose between fresh outputs and reusing existing ones. (#1311)
+- **Test Set File Import:** Implemented a file import feature for test sets, supporting CSV, JSON, JSONL, and Excel formats with column mapping and LLM-based remapping. (#1319)
+- **Custom Test Run Names:** Added an optional name field to test run creation flows. (#1318)
+- **User-Configurable Embedding Models:** Enabled user-configurable embedding models with a new settings page, API endpoints, and SDK support. (#1297)
+- **Server-Side Filtering for Test Sets Grid:** Added server-side filtering to the test sets grid, allowing users to filter by name, type, creator, and tags.
+- **Native Authentication System:** Replaced Auth0 with a native authentication system, including email/password, Google OAuth, GitHub OAuth, magic link, and email verification. (#1283)
+- **Change Detection to Editable Components:** Added change detection to various editable components in the frontend, such as ContactInformationForm, OrganizationDetailsForm, BehaviorDrawer, ProjectDrawer, TestExecutableField, and metric edit sections. (#1235)
+- **Playwright E2E Smoke Tests:** Added Playwright E2E smoke tests covering auth setup, page-load baseline, sidebar navigation, and page-specific assertions. (#1299)
+
+### Changed
+
+- **WebSocket Connections:** Optimized WebSocket connections to be page-specific, reducing unnecessary connections on pages that don't use real-time features.
+- **Test Connection in Edit Mode:** Enabled test connection functionality in edit mode using stored model credentials. (#1315)
+- **Multi-Turn Test Configuration:** Allowed users to pass goal, instructions, restrictions, and scenario as top-level fields on Test, with automatic test_configuration building.
+- **Authentication Flow:** Unified magic link as a sign-in and sign-up flow, automatically creating user accounts for unregistered emails.
+- **Default Generation Model:** Changed the default generation model from vertex_ai/gemini-2.0-flash to rhesis/default. (#1279)
+- **Refresh Token Rotation:** Implemented access/refresh token rotation for improved security. (#1283)
+- **Docker Images:** Migrated Docker images from Docker Hub to mirror.gcr.io. (#1275)
+
+### Fixed
+
+- **Newline-Separated Steps in Synthesizer Instructions:** Enforced newline-separated steps in synthesizer instructions for multi-turn tests.
+- **Copy Button on Assistant Messages:** Restored the copy-to-clipboard button on assistant message bubbles.
+- **Test Set Type in File Import:** Ensured the correct test set type is passed through the file import flow.
+- **Mapping UI Flicker:** Eliminated mapping UI flicker on auto-advance during file import.
+- **Session Ownership and Thread Safety:** Added session ownership verification, thread safety, and limits to file import sessions.
+- **Abort Control and A11y in Import Dialog:** Added AbortController, memoization, and a11y improvements to the file import dialog.
+- **Error Messages:** Improved error messages for model configuration and worker availability issues. (#1279)
+- **Model Connection Testing:** Implemented actual model connection testing with real validation. (#1279)
+- **ESLint and TypeScript Errors:** Resolved all ESLint and TypeScript errors blocking CI. (#1298)
+- **React/no-array-index-key Violations:** Resolved all react/no-array-index-key violations. (#1298)
+- **Auth Security:** Hardened auth security across backend and frontend, including fixing open redirect vulnerabilities and improving email verification safety. (#1283)
+- **Auth Migration:** Fixed auth migration issues, making it idempotent and comprehensive. (#1283)
+- **Polyphemus BetterTransformer Optimization:** Enabled BetterTransformer optimization and upgraded to CUDA base image. (#1279)
+- **Validation Warnings:** Cleared validation warnings when models are no longer defaults. (#1279)
+
+### Removed
+
+- **Auth0 Dependency:** Removed Auth0 as a dependency. (#1283)
+- **Embedding Dimensions from User Settings:** Removed user-configurable embedding dimensions. (#1297)
+
+### Security
+
+- **Hardened Auth Security:** Addressed several security vulnerabilities in the authentication system, including open redirect, enumeration safety, and token handling. (#1283)
+
 ## [0.6.3] - 2026-02-05
 
 ### Added

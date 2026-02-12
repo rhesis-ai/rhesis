@@ -27,35 +27,33 @@ class SendTaskAssignmentEmailTask(BaseTask):
             frontend_url: Optional frontend URL for task links
         """
         try:
-            # Get database session
-            db = next(get_db())
+            with get_db() as db:
+                # Get the task
+                task = db.query(models.Task).filter(models.Task.id == UUID(task_id)).first()
+                if not task:
+                    logger.error(f"Task not found: {task_id}")
+                    return False
 
-            # Get the task
-            task = db.query(models.Task).filter(models.Task.id == UUID(task_id)).first()
-            if not task:
-                logger.error(f"Task not found: {task_id}")
-                return False
+                # Check if task has an assignee
+                if not task.assignee_id:
+                    logger.warning(f"Task {task_id} has no assignee, skipping email notification")
+                    return False
 
-            # Check if task has an assignee
-            if not task.assignee_id:
-                logger.warning(f"Task {task_id} has no assignee, skipping email notification")
-                return False
+                # Send the email notification
+                success = send_task_assignment_notification(
+                    db=db, task=task, frontend_url=frontend_url
+                )
 
-            # Send the email notification
-            success = send_task_assignment_notification(db=db, task=task, frontend_url=frontend_url)
+                if success:
+                    logger.info(f"Task assignment email sent for task {task_id}")
+                else:
+                    logger.error(f"Failed to send task assignment email for task {task_id}")
 
-            if success:
-                logger.info(f"Task assignment email sent successfully for task {task_id}")
-            else:
-                logger.error(f"Failed to send task assignment email for task {task_id}")
-
-            return success
+                return success
 
         except Exception as e:
             logger.error(f"Error in SendTaskAssignmentEmailTask for task {task_id}: {str(e)}")
             raise
-        finally:
-            db.close()
 
 
 # Create task instance

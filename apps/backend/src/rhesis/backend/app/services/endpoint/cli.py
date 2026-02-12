@@ -23,7 +23,10 @@ def main():
     args = parser.parse_args()
 
     # Prepare input data
-    input_data = {"input": args.input, "session_id": args.session or str(uuid.uuid4())}
+    input_data = {
+        "input": args.input,
+        "conversation_id": args.session or str(uuid.uuid4()),
+    }
 
     # Create service and invoke
     service = EndpointService()

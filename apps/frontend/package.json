@@ -1,6 +1,6 @@
 {
   "name": "rhesis-app",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "scripts": {
     "dev": "next dev --turbo -H 0.0.0.0 -p 3000",
     "build": "npm run clean && next build",
