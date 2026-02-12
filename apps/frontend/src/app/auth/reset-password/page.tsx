@@ -12,10 +12,14 @@ import {
   CircularProgress,
   useMediaQuery,
   useTheme,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
 import Image from 'next/image';
 import LockResetIcon from '@mui/icons-material/LockResetOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useSearchParams } from 'next/navigation';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import { DEFAULT_PASSWORD_POLICY, validatePassword } from '@/utils/validation';
@@ -39,6 +43,10 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Password visibility toggles
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     const fetchPolicy = async () => {
@@ -205,7 +213,7 @@ export default function ResetPasswordPage() {
                   >
                     <TextField
                       label="New password"
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       required
@@ -213,16 +221,56 @@ export default function ResetPasswordPage() {
                       size="small"
                       autoComplete="new-password"
                       helperText={`Minimum ${passwordPolicy?.min_length ?? 8} characters`}
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              aria-label="toggle password visibility"
+                              onClick={() => setShowPassword(!showPassword)}
+                              onMouseDown={e => e.preventDefault()}
+                              edge="end"
+                              size="small"
+                            >
+                              {showPassword ? (
+                                <VisibilityOffIcon />
+                              ) : (
+                                <VisibilityIcon />
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
                     />
                     <TextField
                       label="Confirm password"
-                      type="password"
+                      type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={e => setConfirmPassword(e.target.value)}
                       required
                       fullWidth
                       size="small"
                       autoComplete="new-password"
+                      InputProps={{
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              aria-label="toggle confirm password visibility"
+                              onClick={() =>
+                                setShowConfirmPassword(!showConfirmPassword)
+                              }
+                              onMouseDown={e => e.preventDefault()}
+                              edge="end"
+                              size="small"
+                            >
+                              {showConfirmPassword ? (
+                                <VisibilityOffIcon />
+                              ) : (
+                                <VisibilityIcon />
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
                     />
                     {error && (
                       <Alert severity="error" sx={{ py: 0 }}>
