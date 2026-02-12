@@ -66,7 +66,8 @@ class TestFindOrCreateUser:
         assert existing_user.picture == user_profile["picture"]
         assert existing_user.auth0_id == auth0_id
 
-        # Note: db.commit is not called for existing users - transaction is handled by session context
+        # Note: db.commit not called for existing users
+        # Transaction is handled by session context
 
     def test_find_user_by_auth0_id_matching_email(self, test_db: Session):
         """Test finding user by auth0_id with matching email"""
@@ -104,7 +105,8 @@ class TestFindOrCreateUser:
         assert existing_user.picture == user_profile["picture"]
         assert existing_user.auth0_id == auth0_id
 
-        # Note: db.commit is not called for existing users - transaction is handled by session context
+        # Note: db.commit not called for existing users
+        # Transaction is handled by session context
 
     def test_find_user_by_auth0_id_different_email_creates_new(self, test_db: Session):
         """Test finding user by auth0_id with different email creates new user"""
@@ -131,12 +133,16 @@ class TestFindOrCreateUser:
         test_db.add(existing_user)
         test_db.flush()
 
-        # Call function - should create new user because email is different
-        result = find_or_create_user(test_db, auth0_id, email, user_profile)
+        # Mock email validation to bypass deliverability check for test emails
+        with patch("rhesis.backend.app.utils.validation.validate_and_normalize_email") as mock_val:
+            mock_val.return_value = email.lower()
+
+            # Call function - should create new user because email is different
+            result = find_or_create_user(test_db, auth0_id, email, user_profile)
 
         # Should be a new user (different from existing_user)
         assert result.id != existing_user.id
-        assert result.email == email
+        assert result.email == email.lower()
         assert result.auth0_id == auth0_id
         assert result.name == user_profile["name"]
 
@@ -151,12 +157,16 @@ class TestFindOrCreateUser:
             "picture": "https://example.com/pic.jpg",
         }
 
-        # Call function - should create new user
-        result = find_or_create_user(test_db, auth0_id, email, user_profile)
+        # Mock email validation to bypass deliverability check for test emails
+        with patch("rhesis.backend.app.utils.validation.validate_and_normalize_email") as mock_val:
+            mock_val.return_value = email.lower()
+
+            # Call function - should create new user
+            result = find_or_create_user(test_db, auth0_id, email, user_profile)
 
         # Verify new user was created with correct data
         assert result is not None
-        assert result.email == email
+        assert result.email == email.lower()
         assert result.auth0_id == auth0_id
         assert result.name == user_profile["name"]
         assert result.given_name == user_profile["given_name"]

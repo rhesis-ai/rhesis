@@ -18,6 +18,7 @@ Run with: python -m pytest tests/backend/auth/test_transaction_management.py -v
 """
 
 import uuid
+from unittest.mock import patch
 
 import pytest
 from sqlalchemy.orm import Session
@@ -71,7 +72,10 @@ class TestAuthTransactionManagement:
     def test_auth_utils_update_token_usage_handles_exception_gracefully(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
-        """Test that auth_utils.update_token_usage handles exceptions gracefully without manual rollback"""
+        """
+        Test that auth_utils.update_token_usage handles exceptions
+        gracefully without manual rollback
+        """
         # Create a test token
         token_value = "test_token_456"
         test_token = models.Token(
@@ -145,7 +149,10 @@ class TestAuthTransactionManagement:
     def test_token_validation_update_token_usage_handles_exception_gracefully(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
-        """Test that token_validation.update_token_usage handles exceptions gracefully without manual rollback"""
+        """
+        Test that token_validation.update_token_usage handles exceptions
+        gracefully without manual rollback
+        """
         # Create a test token
         token_value = "validation_token_456"
         test_token = models.Token(
@@ -248,12 +255,18 @@ class TestAuthTransactionManagement:
         # Get initial user count
         initial_count = test_db.query(models.User).count()
 
-        # Create user from profile (this will actually create a user)
-        result = user_utils.find_or_create_user(test_db, auth0_id, user_email, user_profile)
+        # Mock email validation to bypass deliverability check for test emails
+        with patch(
+            "rhesis.backend.app.utils.validation.validate_and_normalize_email"
+        ) as mock_validate:
+            mock_validate.return_value = user_email.lower()
+
+            # Create user from profile (this will actually create a user)
+            result = user_utils.find_or_create_user(test_db, auth0_id, user_email, user_profile)
 
         # Verify result is a user
         assert result is not None
-        assert result.email == user_email
+        assert result.email == user_email.lower()
         assert result.name == user_profile["name"]
         assert result.given_name == user_profile["given_name"]
         assert result.family_name == user_profile["family_name"]
@@ -265,7 +278,7 @@ class TestAuthTransactionManagement:
         assert final_count == initial_count + 1
 
         # Verify the user exists in the database
-        db_user = test_db.query(models.User).filter(models.User.email == user_email).first()
+        db_user = test_db.query(models.User).filter(models.User.email == user_email.lower()).first()
         assert db_user is not None
         assert db_user.auth0_id == auth0_id
 
