@@ -116,8 +116,8 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     current_time = datetime.now(timezone.utc)
     is_new_user = False
 
-    # Normalize email and verify domain can receive mail
-    normalized_email = validate_and_normalize_email(auth_user.email, check_deliverability=True)
+    # Normalize email for lookup (no DNS check on login)
+    normalized_email = validate_and_normalize_email(auth_user.email)
 
     # First try to find user by email (this is our primary matching criteria)
     user = crud.get_user_by_email(db, normalized_email)
@@ -135,6 +135,9 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
         # Authenticating via any provider confirms email ownership
         user.is_email_verified = True
         return user
+
+    # Verify domain can receive mail before creating a new account
+    normalized_email = validate_and_normalize_email(auth_user.email, check_deliverability=True)
 
     # Create new user
     logger.info(f"Creating new user: {normalized_email} via {auth_user.provider_type}")
