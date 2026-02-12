@@ -1,8 +1,14 @@
 """Tests for file_import.storage module."""
 
+import json
+import os
+import time
+from unittest.mock import patch
+
 import pytest
 
 from rhesis.backend.app.services.file_import.storage import (
+    DEFAULT_TTL_SECONDS,
     MAX_CONCURRENT_SESSIONS,
     MAX_ROWS_PER_IMPORT,
     ImportSessionStore,
@@ -10,10 +16,18 @@ from rhesis.backend.app.services.file_import.storage import (
 
 
 @pytest.fixture(autouse=True)
-def clear_sessions():
-    """Ensure a clean session store for each test."""
+def clear_sessions(tmp_path):
+    """Ensure a clean session store for each test.
+
+    Patches the disk session directory to a per-test temp folder
+    so tests never interfere with each other or with real sessions.
+    """
     ImportSessionStore._sessions.clear()
-    yield
+    with patch(
+        "rhesis.backend.app.services.file_import.storage._SESSION_DIR",
+        str(tmp_path),
+    ):
+        yield
     ImportSessionStore._sessions.clear()
 
 
@@ -199,7 +213,7 @@ class TestImportSessionStore:
         """MAX_ROWS_PER_IMPORT is importable and positive."""
         assert MAX_ROWS_PER_IMPORT > 0
 
-    # ── Existing tests (unchanged) ───────────────────────────────
+    # ── Preview row structure ────────────────────────────────────
 
     def test_preview_row_structure(self):
         session = ImportSessionStore.create_session(
@@ -218,3 +232,193 @@ class TestImportSessionStore:
         assert row["data"]["category"] == "Safety"
         assert len(row["errors"]) == 1
         assert row["errors"][0]["field"] == "behavior"
+
+
+# ── Disk persistence (L2) ───────────────────────────────────────
+
+
+class TestDiskPersistence:
+    """Tests for the disk-backed L2 session storage."""
+
+    def test_session_survives_memory_clear(self):
+        """Session created in memory can be restored from disk."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"hello world",
+            filename="test.csv",
+            file_format="csv",
+            user_id="user-1",
+        )
+        import_id = session.import_id
+
+        # Simulate server restart: wipe in-memory store
+        ImportSessionStore._sessions.clear()
+
+        # Should restore from disk
+        restored = ImportSessionStore.get_session(import_id)
+        assert restored is not None
+        assert restored.import_id == import_id
+        assert restored.file_bytes == b"hello world"
+        assert restored.filename == "test.csv"
+        assert restored.file_format == "csv"
+        assert restored.user_id == "user-1"
+
+    def test_persist_session_saves_mutations(self):
+        """persist_session writes updated state to disk."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+        )
+        # Mutate session (simulates what analyze does)
+        session.headers = ["col_a", "col_b"]
+        session.suggested_mapping = {"col_a": "category"}
+        session.mapping_confidence = 0.75
+        ImportSessionStore.persist_session(session)
+
+        # Wipe memory, reload from disk
+        import_id = session.import_id
+        ImportSessionStore._sessions.clear()
+
+        restored = ImportSessionStore.get_session(import_id)
+        assert restored is not None
+        assert restored.headers == ["col_a", "col_b"]
+        assert restored.suggested_mapping == {"col_a": "category"}
+        assert restored.mapping_confidence == 0.75
+
+    def test_persist_session_saves_parsed_rows(self):
+        """Parsed rows, errors, and warnings survive memory clear."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+        )
+        session.parsed_rows = [{"category": "Safety", "topic": "Content"}]
+        session.row_errors = [[]]
+        session.row_warnings = [[{"type": "info", "field": "x", "message": "note"}]]
+        ImportSessionStore.persist_session(session)
+
+        import_id = session.import_id
+        ImportSessionStore._sessions.clear()
+
+        restored = ImportSessionStore.get_session(import_id)
+        assert restored is not None
+        assert len(restored.parsed_rows) == 1
+        assert restored.parsed_rows[0]["category"] == "Safety"
+        assert restored.row_errors == [[]]
+        assert len(restored.row_warnings[0]) == 1
+
+    def test_delete_session_removes_disk_files(self, tmp_path):
+        """delete_session cleans up the disk directory."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+        )
+        import_id = session.import_id
+        sdir = os.path.join(str(tmp_path), import_id)
+        assert os.path.isdir(sdir)
+
+        ImportSessionStore.delete_session(import_id)
+        assert not os.path.isdir(sdir)
+
+    def test_delete_from_disk_only(self, tmp_path):
+        """delete_session works even if session is only on disk."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+        )
+        import_id = session.import_id
+        sdir = os.path.join(str(tmp_path), import_id)
+
+        # Clear memory but leave disk
+        ImportSessionStore._sessions.clear()
+        assert os.path.isdir(sdir)
+
+        deleted = ImportSessionStore.delete_session(import_id)
+        assert deleted is True
+        assert not os.path.isdir(sdir)
+
+    def test_disk_ownership_verified_on_restore(self):
+        """Ownership check applies to sessions restored from disk."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+            user_id="user-1",
+        )
+        import_id = session.import_id
+        ImportSessionStore._sessions.clear()
+
+        # Wrong user
+        result = ImportSessionStore.get_session(import_id, user_id="user-2")
+        assert result is None
+
+        # Correct user
+        result = ImportSessionStore.get_session(import_id, user_id="user-1")
+        assert result is not None
+
+    def test_expired_session_cleaned_from_disk(self, tmp_path):
+        """Expired sessions on disk are removed on access."""
+        session = ImportSessionStore.create_session(
+            file_bytes=b"data",
+            filename="test.json",
+            file_format="json",
+        )
+        import_id = session.import_id
+        sdir = os.path.join(str(tmp_path), import_id)
+
+        # Force expiration by backdating created_at
+        session.created_at = time.time() - DEFAULT_TTL_SECONDS - 10
+        ImportSessionStore.persist_session(session)
+        ImportSessionStore._sessions.clear()
+
+        # Access should find it expired and clean up
+        result = ImportSessionStore.get_session(import_id)
+        assert result is None
+        assert not os.path.isdir(sdir)
+
+    def test_get_session_not_found_on_disk(self):
+        """get_session returns None for ID that has no disk files."""
+        ImportSessionStore._sessions.clear()
+        result = ImportSessionStore.get_session("no-such-id")
+        assert result is None
+
+
+# ── Atomic writes ────────────────────────────────────────────────
+
+
+class TestAtomicWrites:
+    """Verify the atomic write helpers produce correct files."""
+
+    def test_atomic_write_json(self, tmp_path):
+        path = str(tmp_path / "test.json")
+        ImportSessionStore._atomic_write_json(path, {"key": "value", "n": 42})
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        assert data == {"key": "value", "n": 42}
+
+    def test_atomic_write_json_no_temp_leftover(self, tmp_path):
+        """No .tmp file should remain after a successful write."""
+        path = str(tmp_path / "test.json")
+        ImportSessionStore._atomic_write_json(path, {"a": 1})
+        assert not os.path.exists(path + ".tmp")
+
+    def test_atomic_write_bytes(self, tmp_path):
+        path = str(tmp_path / "test.bin")
+        ImportSessionStore._atomic_write_bytes(path, b"\x00\x01\x02")
+        with open(path, "rb") as f:
+            assert f.read() == b"\x00\x01\x02"
+
+    def test_atomic_write_bytes_no_temp_leftover(self, tmp_path):
+        path = str(tmp_path / "test.bin")
+        ImportSessionStore._atomic_write_bytes(path, b"data")
+        assert not os.path.exists(path + ".tmp")
+
+    def test_atomic_write_json_overwrites(self, tmp_path):
+        """Successive writes replace the file atomically."""
+        path = str(tmp_path / "test.json")
+        ImportSessionStore._atomic_write_json(path, {"v": 1})
+        ImportSessionStore._atomic_write_json(path, {"v": 2})
+        with open(path, "r", encoding="utf-8") as f:
+            assert json.load(f) == {"v": 2}
