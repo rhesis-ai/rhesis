@@ -234,7 +234,7 @@ class TestBackendEndpointTargetStateless:
     verify that the target:
     1. Sends the right input_data shape (no messages array -- that's
        EndpointService's job now)
-    2. Passes session_id from the response back on subsequent turns
+    2. Passes conversation_id from the response back on subsequent turns
     3. Works identically for stateless and stateful endpoints
     """
 
@@ -274,8 +274,8 @@ class TestBackendEndpointTargetStateless:
         mock_endpoint.response_mapping = {"output": "$.text"}
         return mock_endpoint
 
-    def test_first_turn_sends_input_without_session_id(self):
-        """First call sends input without session_id."""
+    def test_first_turn_sends_input_without_conversation_id(self):
+        """First call sends input without conversation_id."""
         mock_db = Mock(spec=Session)
         endpoint_id = str(uuid4())
 
@@ -283,7 +283,7 @@ class TestBackendEndpointTargetStateless:
         mock_endpoint_service.invoke_endpoint = AsyncMock(
             return_value={
                 "output": "Hello!",
-                "session_id": "srv-session-1",
+                "conversation_id": "srv-session-1",
             }
         )
         mock_endpoint = self._make_mock_endpoint()
@@ -302,18 +302,18 @@ class TestBackendEndpointTargetStateless:
         call_kwargs = mock_endpoint_service.invoke_endpoint.call_args.kwargs
         input_data = call_kwargs["input_data"]
         assert input_data["input"] == "Hi"
-        assert "session_id" not in input_data
+        assert "conversation_id" not in input_data
 
-    def test_second_turn_passes_session_id_from_response(self):
-        """session_id from first response is sent in second call."""
+    def test_second_turn_passes_conversation_id_from_response(self):
+        """conversation_id from first response is sent in second call."""
         mock_db = Mock(spec=Session)
         endpoint_id = str(uuid4())
 
         mock_endpoint_service = Mock()
         mock_endpoint_service.invoke_endpoint = AsyncMock(
             side_effect=[
-                {"output": "Hi!", "session_id": "srv-session-1"},
-                {"output": "I'm fine.", "session_id": "srv-session-1"},
+                {"output": "Hi!", "conversation_id": "srv-session-1"},
+                {"output": "I'm fine.", "conversation_id": "srv-session-1"},
             ]
         )
         mock_endpoint = self._make_mock_endpoint()
@@ -332,15 +332,15 @@ class TestBackendEndpointTargetStateless:
             conversation_id=resp1.conversation_id,
         )
 
-        # Second call should include session_id
+        # Second call should include conversation_id
         second_call = mock_endpoint_service.invoke_endpoint.call_args_list[1]
         input_data = second_call.kwargs["input_data"]
-        assert input_data["session_id"] == "srv-session-1"
+        assert input_data["conversation_id"] == "srv-session-1"
 
         assert resp2.success is True
         assert resp2.conversation_id == "srv-session-1"
 
-    def test_session_id_stable_across_turns(self):
+    def test_conversation_id_stable_across_turns(self):
         """conversation_id in responses stays consistent across turns."""
         mock_db = Mock(spec=Session)
         endpoint_id = str(uuid4())
@@ -349,9 +349,9 @@ class TestBackendEndpointTargetStateless:
         mock_endpoint_service = Mock()
         mock_endpoint_service.invoke_endpoint = AsyncMock(
             side_effect=[
-                {"output": "A", "session_id": session},
-                {"output": "B", "session_id": session},
-                {"output": "C", "session_id": session},
+                {"output": "A", "conversation_id": session},
+                {"output": "B", "conversation_id": session},
+                {"output": "C", "conversation_id": session},
             ]
         )
         mock_endpoint = self._make_mock_endpoint()
@@ -470,12 +470,12 @@ class TestBackendEndpointTargetConversationContext:
         # Mock database session
         mock_db = Mock(spec=Session)
 
-        # Mock endpoint service response with session_id
+        # Mock endpoint service response with conversation_id
         mock_endpoint_service = Mock()
         mock_endpoint_service.invoke_endpoint = AsyncMock(
             return_value={
                 "output": "Test response",
-                "session_id": "test-session-123",
+                "conversation_id": "test-session-123",
                 "metadata": {"test": "data"},
             }
         )
@@ -529,7 +529,7 @@ class TestBackendEndpointTargetConversationContext:
         mock_endpoint_service.invoke_endpoint = AsyncMock(
             return_value={
                 "output": "Follow-up response",
-                "session_id": "test-session-123",
+                "conversation_id": "test-session-123",
             }
         )
 
@@ -559,11 +559,11 @@ class TestBackendEndpointTargetConversationContext:
             # Send message with conversation_id
             response = target.send_message("Follow up", conversation_id="test-session-123")
 
-            # Verify endpoint service was called with session_id
+            # Verify endpoint service was called with conversation_id
             mock_endpoint_service.invoke_endpoint.assert_called_once()
             call_args = mock_endpoint_service.invoke_endpoint.call_args
             input_data = call_args.kwargs["input_data"]
-            assert input_data["session_id"] == "test-session-123"
+            assert input_data["conversation_id"] == "test-session-123"
 
             # Verify response maintains conversation_id
             assert response.conversation_id == "test-session-123"
@@ -578,7 +578,7 @@ class TestBackendEndpointTargetConversationContext:
         # Mock database session
         mock_db = Mock(spec=Session)
 
-        # Mock endpoint service response with thread_id instead of session_id
+        # Mock endpoint service response with thread_id instead of conversation_id
         mock_endpoint_service = Mock()
         mock_endpoint_service.invoke_endpoint = AsyncMock(
             return_value={
