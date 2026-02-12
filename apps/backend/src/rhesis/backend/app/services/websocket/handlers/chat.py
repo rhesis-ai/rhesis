@@ -7,7 +7,7 @@ invoking endpoints and returning responses with trace information.
 import logging
 from typing import TYPE_CHECKING
 
-from rhesis.backend.app.database import get_db
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.websocket import (
     ConnectionTarget,
@@ -84,8 +84,8 @@ async def handle_chat_message(
     )
 
     try:
-        # Get database session
-        with get_db() as db:
+        # Get database session with tenant variables for RLS policies
+        with get_db_with_tenant_variables(str(user.organization_id), str(user.id)) as db:
             # Create endpoint service and invoke
             endpoint_service = EndpointService()
 
