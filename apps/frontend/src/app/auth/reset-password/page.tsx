@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Grid,
@@ -47,6 +47,34 @@ export default function ResetPasswordPage() {
   // Password visibility toggles
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const confirmPasswordInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTogglePasswordVisibility = () => {
+    const input = passwordInputRef.current;
+    const cursorPosition = input?.selectionStart ?? 0;
+
+    setShowPassword(!showPassword);
+
+    setTimeout(() => {
+      if (input) {
+        input.setSelectionRange(cursorPosition, cursorPosition);
+      }
+    }, 0);
+  };
+
+  const handleToggleConfirmPasswordVisibility = () => {
+    const input = confirmPasswordInputRef.current;
+    const cursorPosition = input?.selectionStart ?? 0;
+
+    setShowConfirmPassword(!showConfirmPassword);
+
+    setTimeout(() => {
+      if (input) {
+        input.setSelectionRange(cursorPosition, cursorPosition);
+      }
+    }, 0);
+  };
 
   useEffect(() => {
     const fetchPolicy = async () => {
@@ -221,19 +249,15 @@ export default function ResetPasswordPage() {
                       size="small"
                       autoComplete="new-password"
                       helperText={`Minimum ${passwordPolicy?.min_length ?? 8} characters`}
+                      inputRef={passwordInputRef}
                       InputProps={{
                         endAdornment: (
                           <InputAdornment position="end">
                             <IconButton
                               aria-label="toggle password visibility"
-                              onClick={() => setShowPassword(!showPassword)}
-                              onMouseDown={e => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
+                              onClick={handleTogglePasswordVisibility}
                               edge="end"
                               size="small"
-                              tabIndex={-1}
                             >
                               {showPassword ? (
                                 <VisibilityOffIcon />
@@ -254,21 +278,15 @@ export default function ResetPasswordPage() {
                       fullWidth
                       size="small"
                       autoComplete="new-password"
+                      inputRef={confirmPasswordInputRef}
                       InputProps={{
                         endAdornment: (
                           <InputAdornment position="end">
                             <IconButton
                               aria-label="toggle confirm password visibility"
-                              onClick={() =>
-                                setShowConfirmPassword(!showConfirmPassword)
-                              }
-                              onMouseDown={e => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
+                              onClick={handleToggleConfirmPasswordVisibility}
                               edge="end"
                               size="small"
-                              tabIndex={-1}
                             >
                               {showConfirmPassword ? (
                                 <VisibilityOffIcon />

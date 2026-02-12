@@ -22,7 +22,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { signIn } from 'next-auth/react';
 import { getClientApiBaseUrl } from '../../utils/url-resolver';
 import {
@@ -78,6 +78,21 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   // Password visibility toggle
   const [showPassword, setShowPassword] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTogglePasswordVisibility = () => {
+    const input = passwordInputRef.current;
+    const cursorPosition = input?.selectionStart ?? 0;
+
+    setShowPassword(!showPassword);
+
+    // Restore cursor position after state update
+    setTimeout(() => {
+      if (input) {
+        input.setSelectionRange(cursorPosition, cursorPosition);
+      }
+    }, 0);
+  };
 
   // Check local storage for previous acceptance on component mount
   useEffect(() => {
@@ -380,19 +395,15 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                     ? `Minimum ${passwordPolicy?.min_length ?? 8} characters`
                     : undefined
                 }
+                inputRef={passwordInputRef}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
                         aria-label="toggle password visibility"
-                        onClick={() => setShowPassword(!showPassword)}
-                        onMouseDown={e => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
+                        onClick={handleTogglePasswordVisibility}
                         edge="end"
                         size="small"
-                        tabIndex={-1}
                       >
                         {showPassword ? (
                           <VisibilityOffIcon />
