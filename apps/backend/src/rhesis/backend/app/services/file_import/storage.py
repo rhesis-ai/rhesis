@@ -272,7 +272,12 @@ class ImportSessionStore:
 
     @classmethod
     def _persist_to_disk(cls, session: ImportSession) -> None:
-        """Write session state to disk (file bytes + JSON metadata)."""
+        """Write session state to disk (file bytes + JSON metadata).
+
+        All writes use a temp-file + ``os.replace()`` pattern so that
+        a crash mid-write never leaves a partially-written file that
+        subsequent reads would treat as valid.
+        """
         try:
             sdir = cls._session_dir(session.import_id)
             os.makedirs(sdir, exist_ok=True)
@@ -280,8 +285,7 @@ class ImportSessionStore:
             # Raw file bytes — written once at creation
             file_path = os.path.join(sdir, "file.bin")
             if not os.path.exists(file_path):
-                with open(file_path, "wb") as f:
-                    f.write(session.file_bytes)
+                cls._atomic_write_bytes(file_path, session.file_bytes)
 
             # Session metadata (everything except file_bytes)
             meta = {
@@ -298,28 +302,46 @@ class ImportSessionStore:
                 "test_type": session.test_type,
                 "validation_summary": session.validation_summary,
             }
-            meta_path = os.path.join(sdir, "meta.json")
-            with open(meta_path, "w") as f:
-                json.dump(meta, f)
+            cls._atomic_write_json(os.path.join(sdir, "meta.json"), meta)
 
             # Parsed data (rows, errors, warnings) — can be large,
             # only written after the parse step populates them.
             if session.parsed_rows:
-                data_path = os.path.join(sdir, "parsed.json")
-                with open(data_path, "w") as f:
-                    json.dump(
-                        {
-                            "parsed_rows": session.parsed_rows,
-                            "row_errors": session.row_errors,
-                            "row_warnings": session.row_warnings,
-                        },
-                        f,
-                    )
+                cls._atomic_write_json(
+                    os.path.join(sdir, "parsed.json"),
+                    {
+                        "parsed_rows": session.parsed_rows,
+                        "row_errors": session.row_errors,
+                        "row_warnings": session.row_warnings,
+                    },
+                )
         except Exception:
             logger.warning(
                 f"Failed to persist session {session.import_id} to disk",
                 exc_info=True,
             )
+
+    # ── Atomic write helpers ─────────────────────────────────────
+
+    @staticmethod
+    def _atomic_write_json(path: str, data: Any) -> None:
+        """Write JSON atomically: temp file → ``os.replace()``."""
+        tmp_path = path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+
+    @staticmethod
+    def _atomic_write_bytes(path: str, data: bytes) -> None:
+        """Write bytes atomically: temp file → ``os.replace()``."""
+        tmp_path = path + ".tmp"
+        with open(tmp_path, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
 
     @classmethod
     def _load_from_disk(cls, import_id: str) -> Optional[ImportSession]:
