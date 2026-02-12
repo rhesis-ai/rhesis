@@ -2,7 +2,7 @@
 
 Provides server-side management of stateless endpoint conversation
 histories so that all callers (playground, SDK, Penelope) get a
-unified interface: pass ``session_id`` to continue a conversation,
+unified interface: pass ``conversation_id`` to continue a conversation,
 omit it to start a new one.
 
 Note:
@@ -32,15 +32,19 @@ class ConversationHistoryStore:
     """Thread-safe in-memory store for conversation histories.
 
     Manages :class:`MessageHistoryManager` instances keyed by
-    ``session_id``.  Entries are automatically evicted after
+    ``conversation_id``.  Entries are automatically evicted after
     *ttl_seconds* of inactivity (last access).
+
+    All public methods that read or mutate a conversation hold the
+    internal lock for the entire operation, so callers never need to
+    worry about thread-safety.
 
     Usage::
 
         store = ConversationHistoryStore()
-        sid = store.create(system_prompt="You are helpful.")
-        store.add_user_message(sid, "Hello")
-        messages = store.get_messages(sid)
+        cid = store.create(system_prompt="You are helpful.")
+        store.add_user_message(cid, "Hello")
+        messages = store.get_messages(cid)
         # -> [{"role": "system", ...}, {"role": "user", ...}]
     """
 
@@ -66,52 +70,61 @@ class ConversationHistoryStore:
     # ------------------------------------------------------------------
 
     def create(self, system_prompt: Optional[str] = None) -> str:
-        """Create a new conversation and return its ``session_id``."""
-        session_id = str(uuid4())
+        """Create a new conversation and return its ``conversation_id``."""
+        conversation_id = str(uuid4())
         with self._lock:
-            self._histories[session_id] = MessageHistoryManager(
+            self._histories[conversation_id] = MessageHistoryManager(
                 system_prompt=system_prompt,
             )
-            self._timestamps[session_id] = time.monotonic()
-        logger.debug(f"Created conversation history: {session_id}")
-        return session_id
+            self._timestamps[conversation_id] = time.monotonic()
+        logger.debug(f"Created conversation history: {conversation_id}")
+        return conversation_id
 
-    def get(self, session_id: str) -> Optional[MessageHistoryManager]:
-        """Return the history for *session_id*, or ``None`` if missing/expired."""
+    def get(self, conversation_id: str) -> Optional[MessageHistoryManager]:
+        """Return the history for *conversation_id*, or ``None`` if expired."""
         with self._lock:
             self._evict_expired()
-            history = self._histories.get(session_id)
+            history = self._histories.get(conversation_id)
             if history is not None:
-                # Touch – reset the TTL clock on access
-                self._timestamps[session_id] = time.monotonic()
+                # Touch -- reset the TTL clock on access
+                self._timestamps[conversation_id] = time.monotonic()
             return history
 
-    def exists(self, session_id: str) -> bool:
-        """Check whether *session_id* has a live (non-expired) history."""
-        return self.get(session_id) is not None
+    def exists(self, conversation_id: str) -> bool:
+        """Check whether *conversation_id* has a live (non-expired) history."""
+        return self.get(conversation_id) is not None
 
-    def add_user_message(self, session_id: str, content: str) -> bool:
-        """Append a user message.  Returns ``False`` if session not found."""
-        history = self.get(session_id)
-        if history is None:
-            return False
-        history.add_user_message(content)
+    def add_user_message(self, conversation_id: str, content: str) -> bool:
+        """Append a user message.  Returns ``False`` if not found."""
+        with self._lock:
+            self._evict_expired()
+            history = self._histories.get(conversation_id)
+            if history is None:
+                return False
+            self._timestamps[conversation_id] = time.monotonic()
+            history.add_user_message(content)
         return True
 
-    def add_assistant_message(self, session_id: str, content: str) -> bool:
-        """Append an assistant message.  Returns ``False`` if session not found."""
-        history = self.get(session_id)
-        if history is None:
-            return False
-        history.add_assistant_message(content)
+    def add_assistant_message(self, conversation_id: str, content: str) -> bool:
+        """Append an assistant message.  Returns ``False`` if not found."""
+        with self._lock:
+            self._evict_expired()
+            history = self._histories.get(conversation_id)
+            if history is None:
+                return False
+            self._timestamps[conversation_id] = time.monotonic()
+            history.add_assistant_message(content)
         return True
 
-    def get_messages(self, session_id: str) -> Optional[List[Dict[str, str]]]:
-        """Return all messages for *session_id*, or ``None`` if not found."""
-        history = self.get(session_id)
-        if history is None:
-            return None
-        return history.get_messages()
+    def get_messages(self, conversation_id: str) -> Optional[List[Dict[str, str]]]:
+        """Return all messages for *conversation_id*, or ``None``."""
+        with self._lock:
+            self._evict_expired()
+            history = self._histories.get(conversation_id)
+            if history is None:
+                return None
+            self._timestamps[conversation_id] = time.monotonic()
+            return history.get_messages()
 
     # ------------------------------------------------------------------
     # Internals
@@ -120,11 +133,11 @@ class ConversationHistoryStore:
     def _evict_expired(self) -> None:
         """Remove expired entries.  **Must** be called with ``_lock`` held."""
         now = time.monotonic()
-        expired = [sid for sid, ts in self._timestamps.items() if now - ts > self._ttl_seconds]
-        for sid in expired:
-            del self._histories[sid]
-            del self._timestamps[sid]
-            logger.debug(f"Evicted expired conversation: {sid}")
+        expired = [cid for cid, ts in self._timestamps.items() if now - ts > self._ttl_seconds]
+        for cid in expired:
+            del self._histories[cid]
+            del self._timestamps[cid]
+            logger.debug(f"Evicted expired conversation: {cid}")
 
     def _start_sweeper(self) -> None:
         """Start a daemon thread that periodically evicts expired entries."""
@@ -168,3 +181,12 @@ def get_conversation_store() -> ConversationHistoryStore:
             if _default_store is None:
                 _default_store = ConversationHistoryStore()
     return _default_store
+
+
+def _reset_conversation_store() -> None:
+    """Replace the singleton with a fresh instance.  **Test-only.**"""
+    global _default_store
+    with _store_lock:
+        if _default_store is not None:
+            _default_store.shutdown()
+        _default_store = None

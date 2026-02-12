@@ -28,22 +28,45 @@ class TemplateRenderer:
         # Create a copy to avoid modifying the original input_data
         render_context = input_data.copy()
 
-        # For conversation tracking fields that are None or missing, provide a special marker
-        # that will be filtered out during JSON processing
-        conversation_fields = ["session_id", "conversation_id", "thread_id", "chat_id"]
+        # Conversation field aliases: ensure a value provided under any
+        # recognised name is available under ALL recognised names so
+        # that templates using e.g. {{ session_id }} still work when
+        # the caller passes ``conversation_id`` (the canonical name).
+        conversation_fields = [
+            "conversation_id",
+            "session_id",
+            "thread_id",
+            "chat_id",
+        ]
+
+        # Resolve the first non-None value across all aliases
+        resolved_cid = None
+        for field in conversation_fields:
+            val = render_context.get(field)
+            if val is not None:
+                resolved_cid = val
+                break
 
         # Check if template references any conversation fields
         template_str = (
-            json.dumps(template_data) if isinstance(template_data, dict) else str(template_data)
+            json.dumps(template_data)
+            if isinstance(template_data, dict)
+            else str(template_data)
         )
 
         for field in conversation_fields:
-            # Check if this field is referenced in the template
             if f"{field}" in template_str:
                 if field not in render_context or render_context[field] is None:
-                    # Use a special marker that indicates "omit this field"
-                    render_context[field] = "__OMIT_FIELD__"
-                    logger.debug(f"Set {field} to omit marker - will be filtered from request")
+                    if resolved_cid is not None:
+                        # Propagate the resolved value to this alias
+                        render_context[field] = resolved_cid
+                    else:
+                        # No value under any alias -- omit the field
+                        render_context[field] = "__OMIT_FIELD__"
+                        logger.debug(
+                            f"Set {field} to omit marker "
+                            "- will be filtered from request"
+                        )
 
         return self._render_recursive(template_data, render_context)
 

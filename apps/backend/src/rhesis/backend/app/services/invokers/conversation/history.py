@@ -11,6 +11,12 @@ class MessageHistoryManager:
     as a messages array in every request, rather than maintaining server-side
     session state.
 
+    Note:
+        This class is **not** thread-safe on its own.  When used via
+        :class:`ConversationHistoryStore`, thread safety is provided by
+        the store's internal lock.  Do not share instances across threads
+        without external synchronization.
+
     Example usage:
         >>> history = MessageHistoryManager(system_prompt="You are helpful.")
         >>> history.add_user_message("Hello")

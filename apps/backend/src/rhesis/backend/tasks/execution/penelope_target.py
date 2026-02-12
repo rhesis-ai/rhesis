@@ -184,7 +184,7 @@ class BackendEndpointTarget(Target):
         The interface is identical for stateless and stateful endpoints.
         Conversation history for stateless endpoints is managed by
         ``EndpointService`` transparently -- callers just pass back the
-        ``session_id`` from the previous response, exactly as they would
+        ``conversation_id`` from the previous response, exactly as they would
         for a stateful endpoint.
 
         Args:
@@ -214,7 +214,7 @@ class BackendEndpointTarget(Target):
             # Prepare input data -- same shape for stateless and stateful
             input_data = {"input": message}
             if conversation_id:
-                input_data["session_id"] = conversation_id
+                input_data["conversation_id"] = conversation_id
 
             logger.info(
                 f"BackendEndpointTarget invoking {self.endpoint_id} "
@@ -259,7 +259,7 @@ class BackendEndpointTarget(Target):
 
             # Extract conversation_id using smart field detection.
             # For stateful endpoints this comes from the external API;
-            # for stateless endpoints EndpointService injects session_id.
+            # for stateless endpoints EndpointService injects conversation_id.
             from rhesis.penelope.conversation import extract_conversation_id
 
             response_conversation_id = extract_conversation_id(response_data)
@@ -340,11 +340,11 @@ Interface (defined by Rhesis platform):
 
 Input:
   - input: Text message (string)
-  - session_id: Optional, for multi-turn conversations
+  - conversation_id: Optional, for multi-turn conversations
 
 Output:
   - output: The response text from the endpoint
-  - session_id: Session identifier for conversation tracking
+  - conversation_id: Identifier for conversation tracking
   - metadata: Optional endpoint-specific metadata
   - context: Optional list of context items (RAG results, etc.)
 

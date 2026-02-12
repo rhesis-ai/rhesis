@@ -56,7 +56,7 @@ async def invoke(
         endpoint_id: ID of the endpoint to invoke
         input_data: Input data containing:
             - input: (required) Main user input/query
-            - session_id: (optional) Conversation session ID
+            - conversation_id: (optional) Conversation tracking ID
             - context: (optional) Additional context
             - metadata: (optional) Request metadata
             - tool_calls: (optional) Available tool calls
@@ -68,7 +68,7 @@ async def invoke(
     Returns:
         Dict containing the mapped response with standard fields:
             - output: Main response text
-            - session_id: Session identifier
+            - conversation_id: Conversation identifier
             - metadata: Response metadata
             - (other endpoint-specific fields)
 
@@ -79,7 +79,7 @@ async def invoke(
         >>> result = await invoke(
         ...     db=db,
         ...     endpoint_id="endpoint-uuid",
-        ...     input_data={"input": "Hello", "session_id": "session-123"},
+        ...     input_data={"input": "Hello", "conversation_id": "conv-123"},
         ...     organization_id="org-uuid",
         ...     user_id="user-uuid"
         ... )
