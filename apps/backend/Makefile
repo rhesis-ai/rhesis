@@ -46,11 +46,10 @@ test-lf:
 
 # Docker management for integration tests
 docker-up:
-	docker compose -f ../../tests/backend/integration/docker-compose.yml up -d --wait
+	docker compose -f ../../tests/docker-compose.test.yml --profile backend up -d --wait
 
 docker-down:
-	docker compose -f ../../tests/backend/integration/docker-compose.yml down
+	docker compose -f ../../tests/docker-compose.test.yml --profile backend down
 
 docker-clean:
-	docker compose -f ../../tests/backend/integration/docker-compose.yml down -v
-
+	docker compose -f ../../tests/docker-compose.test.yml --profile backend down -v

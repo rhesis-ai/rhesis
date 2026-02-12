@@ -20,31 +20,8 @@ on:
     - cron: '0 0 * * *'
 
 env:
-  # Database configuration (matches tests/backend/integration/docker-compose.yml)
-  SQLALCHEMY_DATABASE_URL: postgresql://rhesis-user:your-secured-password@localhost:12000/rhesis-test-db
-  SQLALCHEMY_DB_DRIVER: postgresql
-  SQLALCHEMY_DB_PORT: "12000"
-  SQLALCHEMY_DB_USER: rhesis-user
-  SQLALCHEMY_DB_PASS: your-secured-password
-  SQLALCHEMY_DB_HOST: localhost
-  SQLALCHEMY_DB_NAME: rhesis-test-db
-
-  # Redis configuration (matches tests/backend/integration/docker-compose.yml)
-  REDIS_URL: redis://:rhesis-redis-pass@localhost:12002/0
-  BROKER_URL: redis://:rhesis-redis-pass@localhost:12002/0
-  CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@localhost:12002/1
-
-  # Application configuration
-  DB_ENCRYPTION_KEY: UNXfgCCzYS8AhNE0cNJTsPSUup1xjL2coSvsInOI-sE=
-  ENVIRONMENT: test
-  LOG_LEVEL: WARNING
-
-  # JWT configuration
-  JWT_SECRET_KEY: test-jwt-secret-key-for-ci-only
-  JWT_ALGORITHM: HS256
-  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: "10080"
-
-  # PYTHONPATH for imports
+  # All test env vars (database, redis, JWT, etc.) are set in tests/backend/conftest.py
+  # Only PYTHONPATH is needed here for module resolution in CI
   PYTHONPATH: ${{ github.workspace }}/apps/backend/src:${{ github.workspace }}
 
 jobs:

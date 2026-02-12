@@ -91,7 +91,7 @@ make test-integration
 
 4. Check backend logs:
 ```bash
-docker logs rhesis-backend-test
+docker compose -f tests/docker-compose.test.yml --profile sdk logs sdk-test-backend
 ```
 
 5. Run single tests:

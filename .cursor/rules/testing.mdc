@@ -18,7 +18,7 @@ make test-integration
 ```
 Backend logs can be checked by using:
 ```bash
-docker logs rhesis-backend-sdk-test
+docker compose -f tests/docker-compose.test.yml --profile sdk logs sdk-test-backend
 ```
 
 4. Run single tests by using uv in the sdk directory:

@@ -3,10 +3,18 @@ import os
 # =============================================================================
 # Environment Setup - MUST be done BEFORE any backend imports
 # =============================================================================
-# This mirrors the CI workflow (backend-test.yml) which sets env vars directly
+# Single source of truth for test environment variables.
+# The CI workflow (backend-test.yml) only sets PYTHONPATH; everything else
+# is configured here so there is no duplication to keep in sync.
+
+# Port constants (must match tests/docker-compose.test.yml --profile backend)
+DATABASE_PORT = 12001
+REDIS_PORT = 12002
 
 # Test mode
 os.environ["SQLALCHEMY_DB_MODE"] = "test"
+os.environ["ENVIRONMENT"] = "test"
+os.environ["LOG_LEVEL"] = "WARNING"
 
 # Reduce log noise during tests (default is INFO)
 os.environ["LOG_LEVEL"] = "WARNING"
@@ -15,22 +23,28 @@ os.environ["LOG_LEVEL"] = "WARNING"
 os.environ["RHESIS_CONNECTOR_DISABLED"] = "true"
 os.environ["RHESIS_PROJECT_ID"] = "12340000-0000-4000-8000-000000001234"
 
-# Database configuration for docker-compose integration tests (port 12000)
+# Database configuration for docker-compose integration tests
 # These are set directly (not setdefault) to override any .env file values
 os.environ["SQLALCHEMY_DB_HOST"] = "localhost"
-os.environ["SQLALCHEMY_DB_PORT"] = "12000"
+os.environ["SQLALCHEMY_DB_PORT"] = str(DATABASE_PORT)
 os.environ["SQLALCHEMY_DB_NAME"] = "rhesis-test-db"
 os.environ["SQLALCHEMY_DB_USER"] = "rhesis-user"
 os.environ["SQLALCHEMY_DB_PASS"] = "your-secured-password"
 os.environ["SQLALCHEMY_DB_DRIVER"] = "postgresql"
 # Don't set SQLALCHEMY_DATABASE_URL - let the isolation check distinguish test from prod
 os.environ["SQLALCHEMY_DATABASE_TEST_URL"] = (
-    "postgresql://rhesis-user:your-secured-password@localhost:12000/rhesis-test-db"
+    f"postgresql://rhesis-user:your-secured-password@localhost:{DATABASE_PORT}/rhesis-test-db"
 )
+
+# Redis configuration
+os.environ["REDIS_URL"] = f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0"
+os.environ["BROKER_URL"] = f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0"
+os.environ["CELERY_RESULT_BACKEND"] = f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/1"
 
 # JWT configuration
 os.environ["JWT_SECRET_KEY"] = "test-jwt-secret-key-for-backend-tests"
 os.environ["JWT_ALGORITHM"] = "HS256"
+os.environ["JWT_ACCESS_TOKEN_EXPIRE_MINUTES"] = "10080"
 
 # Encryption key
 os.environ["DB_ENCRYPTION_KEY"] = "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="
@@ -78,7 +92,7 @@ def run_migrations_once():
     env["SQLALCHEMY_DB_MODE"] = "test"
     env["SQLALCHEMY_DATABASE_TEST_URL"] = os.environ.get(
         "SQLALCHEMY_DATABASE_TEST_URL",
-        "postgresql://rhesis-user:your-secured-password@localhost:12000/rhesis-test-db",
+        f"postgresql://rhesis-user:your-secured-password@localhost:{DATABASE_PORT}/rhesis-test-db",
     )
     env["DB_ENCRYPTION_KEY"] = os.environ.get(
         "DB_ENCRYPTION_KEY", "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="
