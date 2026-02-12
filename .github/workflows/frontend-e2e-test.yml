@@ -25,69 +25,26 @@ jobs:
           cache-dependency-path: apps/frontend/package-lock.json
 
       - name: Install dependencies
-        run: |
-          cd apps/frontend
-          npm ci --legacy-peer-deps
+        run: make install
+        working-directory: apps/frontend
 
       - name: Install Playwright browsers
-        run: |
-          cd apps/frontend
-          npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/frontend
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Create .env file for Docker Compose
-        run: |
-          cat > .env << EOF
-          SQLALCHEMY_DB_USER=rhesis-user
-          SQLALCHEMY_DB_PASS=rhesis-password
-          SQLALCHEMY_DB_HOST=postgres
-          SQLALCHEMY_DB_NAME=rhesis-db
-          DB_ENCRYPTION_KEY=test-encryption-key-32-bytes-long
-          REDIS_PASSWORD=rhesis-redis-pass
-          JWT_SECRET_KEY=test-jwt-secret-key-for-e2e-tests
-          JWT_ALGORITHM=HS256
-          JWT_ACCESS_TOKEN_EXPIRE_MINUTES=10080
-          SESSION_SECRET_KEY=test-session-secret-key-for-e2e
-          LOG_LEVEL=INFO
-          ENVIRONMENT=test
-          BACKEND_ENV=test
-          QUICK_START=true
-          RHESIS_CONNECTOR_DISABLED=true
-          EOF
+      - name: Run E2E tests
+        run: make test-e2e
+        working-directory: apps/frontend
 
-      - name: Start backend services
-        run: |
-          docker compose up -d postgres redis
-          echo "Waiting for services to be healthy..."
-          timeout 60 bash -c 'until docker compose ps | grep -q "postgres.*healthy"; do sleep 2; done'
-          timeout 60 bash -c 'until docker compose ps | grep -q "redis.*healthy"; do sleep 2; done'
-          echo "Services are healthy"
-
-      - name: Build and start backend
-        run: |
-          docker compose up -d backend
-          echo "Waiting for backend to be healthy..."
-          timeout 120 bash -c 'until curl -f http://localhost:8080/health > /dev/null 2>&1; do sleep 2; done'
-          echo "Backend is ready"
-
-      - name: Run Playwright E2E tests
-        run: |
-          cd apps/frontend
-          npx playwright test --grep "@sanity"
-        env:
-          NEXT_PUBLIC_QUICK_START: 'true'
-          NEXT_PUBLIC_API_BASE_URL: 'http://localhost:8080'
-          BACKEND_URL: 'http://localhost:8080'
-          NEXTAUTH_SECRET: 'test-secret-for-e2e-tests-only'
-          NEXTAUTH_URL: 'http://localhost:3000'
-
-      - name: Stop backend services
+      - name: Stop Docker services
         if: always()
         run: |
-          docker compose logs backend
-          docker compose down -v
+          docker compose -f ../../tests/docker-compose.frontend.yml logs frontend-test-backend
+          make docker-down
+        working-directory: apps/frontend
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
