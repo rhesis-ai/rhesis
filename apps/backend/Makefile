@@ -40,9 +40,9 @@ type-check:
 test: docker-up
 	uv run --extra cpu pytest ../../tests/backend --ignore=../../tests/backend/integration
 
-# Re-run only failed tests
-test-lf:
-	uv run --extra cpu pytest ../../tests/backend --lf
+# Re-run only failed tests (starts docker automatically)
+test-lf: docker-up
+	uv run --extra cpu pytest ../../tests/backend --lf --ignore=../../tests/backend/integration
 
 # Docker management for integration tests
 docker-up:
