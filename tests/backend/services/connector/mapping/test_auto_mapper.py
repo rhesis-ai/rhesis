@@ -22,16 +22,16 @@ class TestAutoMapper:
             description=standard_function_signature["metadata"]["description"],
         )
 
-        # Should match input and session_id (REQUEST fields only)
+        # Should match input and conversation_id (REQUEST fields only)
         # Context is a RESPONSE field, not counted in request confidence
         assert result["confidence"] == pytest.approx(0.7)  # 0.5 + 0.2 (request fields only)
         assert "input" in result["matched_fields"]
-        assert "session_id" in result["matched_fields"]
+        assert "conversation_id" in result["matched_fields"]
         assert len(result["missing_fields"]) == 0  # All REQUEST fields matched
 
         # Check request template (only REQUEST fields)
         assert result["request_mapping"]["input"] == "{{ input }}"
-        assert result["request_mapping"]["session_id"] == "{{ session_id }}"
+        assert result["request_mapping"]["conversation_id"] == "{{ conversation_id }}"
         assert "context" not in result["request_mapping"]  # RESPONSE field
 
         # Check response mappings exist
@@ -69,7 +69,7 @@ class TestAutoMapper:
         # "conversation" should partially match session (confidence 0.2)
         assert result["confidence"] == pytest.approx(0.7)  # 0.5 + 0.2
         assert "input" in result["matched_fields"]
-        assert "session_id" in result["matched_fields"]
+        assert "conversation_id" in result["matched_fields"]
 
     def test_minimal_function(self, auto_mapper, minimal_function_signature):
         """Test auto-mapping with minimal function (only one parameter)."""
@@ -101,7 +101,7 @@ class TestAutoMapper:
         # No matches should result in 0 confidence
         assert result["confidence"] == 0.0
         assert len(result["matched_fields"]) == 0
-        assert len(result["missing_fields"]) == 2  # Only REQUEST fields (input, session_id)
+        assert len(result["missing_fields"]) == 2  # Only REQUEST fields (input, conversation_id)
 
     def test_response_mapping_structure(self, auto_mapper, standard_function_signature):
         """Test that response mappings have correct structure."""
@@ -119,8 +119,8 @@ class TestAutoMapper:
         assert "metadata" in response_mapping
         assert "tool_calls" in response_mapping
 
-        # session_id is a REQUEST field, not a RESPONSE field
-        assert "session_id" not in response_mapping
+        # conversation_id is a REQUEST field, not a RESPONSE field
+        assert "conversation_id" not in response_mapping
 
         # Should use Jinja2 'or' syntax for fallbacks
         assert "or" in response_mapping["output"]
@@ -137,23 +137,23 @@ class TestAutoMapper:
         )
         assert result["confidence"] == 0.5
 
-        # Input + session_id (all REQUEST fields)
+        # Input + conversation_id (all REQUEST fields)
         result = auto_mapper.generate_mappings(
             function_name="test",
             parameters={
                 "input": {"type": "string"},
-                "session_id": {"type": "string"},
+                "conversation_id": {"type": "string"},
             },
             return_type="string",
         )
         assert result["confidence"] == pytest.approx(0.7)
 
-        # Input + session_id + context (context is RESPONSE field, doesn't affect confidence)
+        # Input + conversation_id + context (context is RESPONSE field, doesn't affect confidence)
         result = auto_mapper.generate_mappings(
             function_name="test",
             parameters={
                 "input": {"type": "string"},
-                "session_id": {"type": "string"},
+                "conversation_id": {"type": "string"},
                 "context": {"type": "list"},
             },
             return_type="string",
@@ -166,14 +166,14 @@ class TestAutoMapper:
             function_name="test",
             parameters={
                 "input": {"type": "string"},
-                "session_id": {"type": "string"},
+                "conversation_id": {"type": "string"},
                 "context": {"type": "list"},
                 "metadata": {"type": "dict"},
                 "tool_calls": {"type": "list"},
             },
             return_type="string",
         )
-        # Confidence is 0.7 because only REQUEST fields (input, session_id) count
+        # Confidence is 0.7 because only REQUEST fields (input, conversation_id) count
         # context, metadata, tool_calls are RESPONSE fields
         assert result["confidence"] == pytest.approx(0.7)
 
@@ -190,7 +190,7 @@ class TestAutoMapper:
 
         assert result["confidence"] == 0.7
         assert "input" in result["matched_fields"]
-        assert "session_id" in result["matched_fields"]
+        assert "conversation_id" in result["matched_fields"]
 
     def test_matched_fields_tracking(self, auto_mapper, standard_function_signature):
         """Test that matched and missing REQUEST fields are correctly tracked."""
@@ -203,7 +203,7 @@ class TestAutoMapper:
         # Check matched REQUEST fields
         assert isinstance(result["matched_fields"], list)
         assert "input" in result["matched_fields"]
-        assert "session_id" in result["matched_fields"]
+        assert "conversation_id" in result["matched_fields"]
         # context is a RESPONSE field, not tracked in matched_fields
         assert "context" not in result["matched_fields"]
 

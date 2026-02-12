@@ -773,28 +773,28 @@ class TestTraceOutput:
 class TestMultiTurnTraceOutput:
     """Tests for the MultiTurnTraceOutput placeholder."""
 
-    def test_stores_session_id_and_project_id(self):
-        """Constructor stores session_id and project_id."""
-        provider = MultiTurnTraceOutput(session_id="sess-abc", project_id="proj-1")
-        assert provider.session_id == "sess-abc"
+    def test_stores_conversation_id_and_project_id(self):
+        """Constructor stores conversation_id and project_id."""
+        provider = MultiTurnTraceOutput(conversation_id="sess-abc", project_id="proj-1")
+        assert provider.conversation_id == "sess-abc"
         assert provider.project_id == "proj-1"
 
     def test_project_id_defaults_to_none(self):
         """project_id is optional and defaults to None."""
-        provider = MultiTurnTraceOutput(session_id="sess-1")
+        provider = MultiTurnTraceOutput(conversation_id="sess-1")
         assert provider.project_id is None
 
     @pytest.mark.asyncio
     async def test_raises_not_implemented(self):
         """get_output raises NotImplementedError (placeholder)."""
-        provider = MultiTurnTraceOutput(session_id="sess-abc")
+        provider = MultiTurnTraceOutput(conversation_id="sess-abc")
         with pytest.raises(NotImplementedError, match="not yet implemented"):
             await provider.get_output(db=MagicMock(), organization_id="org-1")
 
     @pytest.mark.asyncio
-    async def test_error_message_includes_session_id(self):
-        """NotImplementedError message includes the session_id."""
-        provider = MultiTurnTraceOutput(session_id="sess-xyz")
+    async def test_error_message_includes_conversation_id(self):
+        """NotImplementedError message includes the conversation_id."""
+        provider = MultiTurnTraceOutput(conversation_id="sess-xyz")
         with pytest.raises(NotImplementedError, match="sess-xyz"):
             await provider.get_output(db=MagicMock(), organization_id="org-1")
 
@@ -851,20 +851,20 @@ class TestGetProviderMetadata:
         assert meta["project_id"] == "proj-99"
 
     def test_multi_turn_trace_metadata(self):
-        """MultiTurnTraceOutput returns source='multi_turn_trace' and session_id."""
-        provider = MultiTurnTraceOutput(session_id="sess-abc")
+        """MultiTurnTraceOutput returns source='multi_turn_trace' and conversation_id."""
+        provider = MultiTurnTraceOutput(conversation_id="sess-abc")
         meta = get_provider_metadata(provider)
 
         assert meta is not None
         assert meta["source"] == "multi_turn_trace"
-        assert meta["session_id"] == "sess-abc"
+        assert meta["conversation_id"] == "sess-abc"
         assert "project_id" not in meta
 
     def test_multi_turn_trace_metadata_with_project_id(self):
         """MultiTurnTraceOutput includes project_id when set."""
-        provider = MultiTurnTraceOutput(session_id="sess-1", project_id="proj-1")
+        provider = MultiTurnTraceOutput(conversation_id="sess-1", project_id="proj-1")
         meta = get_provider_metadata(provider)
 
         assert meta["source"] == "multi_turn_trace"
-        assert meta["session_id"] == "sess-1"
+        assert meta["conversation_id"] == "sess-1"
         assert meta["project_id"] == "proj-1"

@@ -37,7 +37,7 @@ class TestUnmappableScenarios:
         # Should have 0 confidence (no parameters to match)
         assert result["confidence"] == 0.0
         assert len(result["matched_fields"]) == 0
-        assert len(result["missing_fields"]) == 2  # Only REQUEST fields (input, session_id)
+        assert len(result["missing_fields"]) == 2  # Only REQUEST fields (input, conversation_id)
         assert result["request_mapping"] == {}
 
     def test_function_with_only_unrelated_parameters(self, auto_mapper):
@@ -56,7 +56,7 @@ class TestUnmappableScenarios:
         # Should have 0 confidence
         assert result["confidence"] == 0.0
         assert len(result["matched_fields"]) == 0
-        assert len(result["missing_fields"]) == 2  # Only REQUEST fields (input, session_id)
+        assert len(result["missing_fields"]) == 2  # Only REQUEST fields (input, conversation_id)
         assert result["request_mapping"] == {}
 
     def test_fallback_when_all_parameters_unmatchable(
@@ -191,8 +191,8 @@ class TestPartialMappingScenarios:
         # Should have 0.5 confidence (only input matched)
         assert result["confidence"] == 0.5
         assert "input" in result["matched_fields"]
-        assert "session_id" not in result["matched_fields"]
-        assert len(result["missing_fields"]) == 1  # Only missing session_id (REQUEST field)
+        assert "conversation_id" not in result["matched_fields"]
+        assert len(result["missing_fields"]) == 1  # Only missing conversation_id (REQUEST field)
 
     def test_very_weak_partial_matches(self, auto_mapper):
         """Test with parameters that barely match patterns."""
@@ -208,7 +208,7 @@ class TestPartialMappingScenarios:
         # Both should match via partial patterns (0.5 + 0.2)
         assert result["confidence"] == pytest.approx(0.7)
         assert "input" in result["matched_fields"]
-        assert "session_id" in result["matched_fields"]
+        assert "conversation_id" in result["matched_fields"]
 
 
 class TestMinimalFallbackMappings:
@@ -301,8 +301,8 @@ class TestResponseMappingEdgeCases:
         assert "output" in result["response_mapping"]
         assert "context" in result["response_mapping"]  # RESPONSE field
         assert "metadata" in result["response_mapping"]  # RESPONSE field
-        # session_id is a REQUEST field, not RESPONSE
-        assert "session_id" not in result["response_mapping"]
+        # conversation_id is a REQUEST field, not RESPONSE
+        assert "conversation_id" not in result["response_mapping"]
         # Should have 'or' for fallback patterns
         assert "or" in result["response_mapping"]["output"]
 
