@@ -49,20 +49,9 @@ const nextConfig = {
   // Source maps: enable in prod for debugging, faster option in dev
   productionBrowserSourceMaps: isProd,
 
-  // Experimental features
-  experimental: {
-    // Enable optimized package imports for MUI and other heavy libraries
-    optimizePackageImports: [
-      '@mui/material',
-      '@mui/icons-material',
-      '@mui/x-data-grid',
-      '@mui/x-date-pickers',
-      '@toolpad/core',
-      'lucide-react',
-      'date-fns',
-      'lodash',
-    ],
-  },
+  // Note: optimizePackageImports is no longer needed here because the heavy
+  // barrel-export libraries (@mui/material, @mui/icons-material, lucide-react,
+  // date-fns, recharts, etc.) are already optimized by Next.js by default.
 
   // Environment variables available to the client
   env: {
