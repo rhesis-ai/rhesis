@@ -488,7 +488,7 @@ export function combineTaskFiltersToOData(
  */
 export function combineFiltersToOData(
   filterModel: GridFilterModel,
-  quickFilterValues?: any[],
+  quickFilterValues?: unknown[],
   searchFields?: string[]
 ): string {
   const regularFilter = convertGridFilterModelToOData(filterModel);

@@ -12,7 +12,7 @@ interface TestPrompt {
 
 interface TestMetadata {
   generated_by: string;
-  additional_info?: Record<string, any>;
+  additional_info?: Record<string, unknown>;
   sources?: Array<{
     source: string;
     name: string;
@@ -112,7 +112,7 @@ export interface TestMCPConnectionRequest {
   tool_id?: string;
   provider_type_id?: string;
   credentials?: Record<string, string>;
-  tool_metadata?: Record<string, any>;
+  tool_metadata?: Record<string, unknown>;
 }
 
 export interface TestMCPConnectionResponse {
@@ -120,7 +120,8 @@ export interface TestMCPConnectionResponse {
   message: string;
   additional_metadata?: {
     projects?: Array<{ key: string; name: string }>;
-    [key: string]: any;
+    spaces?: Array<{ key: string; name: string }>;
+    [key: string]: unknown;
   };
 }
 
@@ -142,8 +143,8 @@ export class ServicesClient extends BaseApiClient {
     );
   }
 
-  async getOpenAIJson(prompt: string) {
-    return this.fetch<any>(`${API_ENDPOINTS.services}/openai/json`, {
+  async getOpenAIJson(prompt: string): Promise<Record<string, unknown>> {
+    return this.fetch<Record<string, unknown>>(`${API_ENDPOINTS.services}/openai/json`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

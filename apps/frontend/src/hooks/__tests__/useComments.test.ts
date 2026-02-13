@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { renderHook, waitFor } from '@testing-library/react';
 import { useComments } from '../useComments';
 import { ApiClientFactory } from '../../utils/api-client/client-factory';

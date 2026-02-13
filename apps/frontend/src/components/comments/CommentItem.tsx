@@ -118,7 +118,7 @@ export function CommentItem({
     setShowDeleteModal(false);
   };
 
-  const handleEmojiClick = (emojiData: any) => {
+  const handleEmojiClick = (emojiData: { emoji: string }) => {
     onReact(comment.id, emojiData.emoji);
     setEmojiAnchorEl(null);
   };

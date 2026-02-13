@@ -22,8 +22,8 @@ interface MetricTimelineChartsGridProps {
 const extractUniqueMetrics = (
   timeline?: Array<{
     date: string;
-    overall: any;
-    metrics?: Record<string, any>;
+    overall: unknown;
+    metrics?: Record<string, unknown>;
   }>
 ) => {
   if (!timeline || timeline.length === 0) return [];

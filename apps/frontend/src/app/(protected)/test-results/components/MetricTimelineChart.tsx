@@ -3,7 +3,7 @@
 import React from 'react';
 import { useTheme } from '@mui/material';
 import BaseTimelineChart from './BaseTimelineChart';
-import { TimelineDataItem, createMetricExtractor } from './timelineUtils';
+import { TimelineDataItem, ChartDataPoint, createMetricExtractor } from './timelineUtils';
 
 interface MetricTimelineChartProps {
   metricName: string;
@@ -15,7 +15,7 @@ export default function MetricTimelineChart({
   timelineData,
 }: MetricTimelineChartProps) {
   const theme = useTheme();
-  const contextInfo = (data: any[]) => {
+  const contextInfo = (data: ChartDataPoint[]) => {
     if (data.length === 0) {
       return 'No data available for this metric in the selected period';
     }

@@ -6,6 +6,7 @@ import ListIcon from '@mui/icons-material/List';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
   GridColDef,
+  GridRowParams,
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
@@ -323,7 +324,7 @@ export default function TestsTable({
 
   // Event handlers
   const handleRowClick = useCallback(
-    (params: any) => {
+    (params: GridRowParams) => {
       const testId = params.id;
       router.push(`/tests/${testId}`);
     },

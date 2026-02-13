@@ -10,6 +10,36 @@ import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { UUID } from 'crypto';
 import { joinUrl } from '../url';
 
+/** Validation error detail shape from API error responses */
+interface ValidationErrorDetail {
+  loc?: (string | number)[];
+  msg: string;
+  type?: string;
+}
+
+/** Extract human-readable message from API error response data */
+function getErrorMessageFromErrorData(errorData: unknown): string {
+  if (typeof errorData !== 'object' || errorData === null) {
+    return String(errorData);
+  }
+  const data = errorData as Record<string, unknown>;
+  if (data.detail !== undefined) {
+    if (Array.isArray(data.detail)) {
+      return data.detail
+        .map(
+          (err: unknown) =>
+            `${(err as ValidationErrorDetail).loc?.join('.') || 'field'}: ${(err as ValidationErrorDetail).msg}`
+        )
+        .join(', ');
+    }
+    return String(data.detail);
+  }
+  if (data.message !== undefined) {
+    return String(data.message);
+  }
+  return JSON.stringify(errorData, null, 2);
+}
+
 // Default pagination settings
 const DEFAULT_PAGINATION: PaginationParams = {
   skip: 0,
@@ -120,24 +150,12 @@ export class SourcesClient extends BaseApiClient {
 
     if (!response.ok) {
       let errorMessage = '';
-      let errorData: any;
+      let errorData: unknown;
       try {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           errorData = await response.json();
-          if (errorData.detail) {
-            errorMessage = Array.isArray(errorData.detail)
-              ? errorData.detail
-                  .map(
-                    (err: any) => `${err.loc?.join('.') || 'field'}: ${err.msg}`
-                  )
-                  .join(', ')
-              : errorData.detail;
-          } else if (errorData.message) {
-            errorMessage = errorData.message;
-          } else {
-            errorMessage = JSON.stringify(errorData, null, 2);
-          }
+          errorMessage = getErrorMessageFromErrorData(errorData);
         } else {
           errorMessage = await response.text();
         }
@@ -149,7 +167,7 @@ export class SourcesClient extends BaseApiClient {
         `API error: ${response.status} - ${errorMessage}`
       ) as Error & {
         status?: number;
-        data?: any;
+        data?: unknown;
       };
       error.status = response.status;
       error.data = errorData;
@@ -193,25 +211,13 @@ export class SourcesClient extends BaseApiClient {
 
     if (!response.ok) {
       let errorMessage = '';
-      let errorData: any;
+      let errorData: unknown;
 
       try {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           errorData = await response.json();
-          if (errorData.detail) {
-            errorMessage = Array.isArray(errorData.detail)
-              ? errorData.detail
-                  .map(
-                    (err: any) => `${err.loc?.join('.') || 'field'}: ${err.msg}`
-                  )
-                  .join(', ')
-              : errorData.detail;
-          } else if (errorData.message) {
-            errorMessage = errorData.message;
-          } else {
-            errorMessage = JSON.stringify(errorData, null, 2);
-          }
+          errorMessage = getErrorMessageFromErrorData(errorData);
         } else {
           errorMessage = await response.text();
         }
@@ -223,7 +229,7 @@ export class SourcesClient extends BaseApiClient {
         `API error: ${response.status} - ${errorMessage}`
       ) as Error & {
         status?: number;
-        data?: any;
+        data?: unknown;
       };
       error.status = response.status;
       error.data = errorData;
@@ -253,25 +259,13 @@ export class SourcesClient extends BaseApiClient {
 
     if (!response.ok) {
       let errorMessage = '';
-      let errorData: any;
+      let errorData: unknown;
 
       try {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           errorData = await response.json();
-          if (errorData.detail) {
-            errorMessage = Array.isArray(errorData.detail)
-              ? errorData.detail
-                  .map(
-                    (err: any) => `${err.loc?.join('.') || 'field'}: ${err.msg}`
-                  )
-                  .join(', ')
-              : errorData.detail;
-          } else if (errorData.message) {
-            errorMessage = errorData.message;
-          } else {
-            errorMessage = JSON.stringify(errorData, null, 2);
-          }
+          errorMessage = getErrorMessageFromErrorData(errorData);
         } else {
           errorMessage = await response.text();
         }
@@ -283,7 +277,7 @@ export class SourcesClient extends BaseApiClient {
         `API error: ${response.status} - ${errorMessage}`
       ) as Error & {
         status?: number;
-        data?: any;
+        data?: unknown;
       };
       error.status = response.status;
       error.data = errorData;
@@ -295,8 +289,8 @@ export class SourcesClient extends BaseApiClient {
 
   async extractSourceContent(
     id: UUID
-  ): Promise<{ content: string; metadata: any }> {
-    return this.fetch<{ content: string; metadata: any }>(
+  ): Promise<{ content: string; metadata: Record<string, unknown> }> {
+    return this.fetch<{ content: string; metadata: Record<string, unknown> }>(
       `${API_ENDPOINTS.sources}/${id}/extract`,
       {
         method: 'POST',

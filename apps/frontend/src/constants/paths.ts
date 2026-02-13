@@ -33,7 +33,7 @@ export const PUBLIC_PATHS = [
 
 export function isPublicPath(path: string): boolean {
   // Check exact matches
-  if (PUBLIC_PATHS.includes(path as any)) {
+  if ((PUBLIC_PATHS as readonly string[]).includes(path)) {
     return true;
   }
 

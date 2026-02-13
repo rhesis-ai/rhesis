@@ -61,7 +61,7 @@ export interface TestOutput {
   turns_used?: number;
   findings?: string[];
   conversation_summary?: ConversationTurn[];
-  history?: any[]; // Complex structure, keeping as any for now
+  history?: unknown[]; // Complex structure
   goal_evaluation?: GoalEvaluation;
   stats?: {
     total_turns?: number;
@@ -76,7 +76,7 @@ export interface TestOutput {
     instructions?: string;
     restrictions?: string | null;
     scenario?: string | null;
-    context?: Record<string, any>;
+    context?: Record<string, unknown>;
   };
   // Status field for multi-turn tests
   status?: 'success' | 'failure' | 'timeout' | 'error';
@@ -134,7 +134,7 @@ export interface TestSet {
   license_type_id: UUID;
   attributes: {
     topics: UUID[];
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
     behaviors: UUID[];
     use_cases: UUID[];
     categories: UUID[];
@@ -154,22 +154,22 @@ export interface Endpoint {
   description: string;
   connection_type: string;
   url: string;
-  auth?: any;
+  auth?: Record<string, string | boolean | number>;
   environment: string;
   config_source: string;
   openapi_spec_url?: string;
-  openapi_spec?: any;
-  llm_suggestions?: any;
-  endpoint_metadata?: Record<string, any>;
+  openapi_spec?: Record<string, unknown>;
+  llm_suggestions?: Record<string, unknown>;
+  endpoint_metadata?: Record<string, unknown>;
   method: string;
   endpoint_path: string;
   request_headers: Record<string, string>;
-  query_params?: any;
-  request_mapping: Record<string, any>;
-  input_mappings?: any;
+  query_params?: Record<string, string>;
+  request_mapping: Record<string, unknown>;
+  input_mappings?: Record<string, unknown>;
   response_format: string;
-  response_mapping: Record<string, any>;
-  validation_rules?: any;
+  response_mapping: Record<string, unknown>;
+  validation_rules?: Record<string, unknown>;
   project_id: UUID;
   status_id?: UUID;
   user_id?: UUID;

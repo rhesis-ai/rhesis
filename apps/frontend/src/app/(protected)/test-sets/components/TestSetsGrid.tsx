@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   GridColDef,
+  GridRowParams,
   GridRowSelectionModel,
   GridPaginationModel,
 } from '@mui/x-data-grid';
@@ -345,7 +346,7 @@ export default function TestSetsGrid({
     },
   ];
 
-  const handleRowClick = (params: any) => {
+  const handleRowClick = (params: GridRowParams) => {
     router.push(`/test-sets/${params.id}`);
   };
 

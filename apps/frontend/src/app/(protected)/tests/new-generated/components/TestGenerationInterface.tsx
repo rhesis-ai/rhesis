@@ -33,6 +33,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import {
   ConfigChips,
   AnyTestSample,
+  MultiTurnTestSample,
   ChatMessage,
   TestType,
 } from './shared/types';
@@ -173,15 +174,16 @@ export default function TestGenerationInterface({
           existingSample.testType === 'multi_turn' &&
           newSample.testType === 'multi_turn'
         ) {
+          const mergedMultiTurn = merged as MultiTurnTestSample;
           if (existingSample.conversation) {
-            (merged as any).conversation = existingSample.conversation;
+            mergedMultiTurn.conversation = existingSample.conversation;
           }
           if (existingSample.isLoadingConversation) {
-            (merged as any).isLoadingConversation =
+            mergedMultiTurn.isLoadingConversation =
               existingSample.isLoadingConversation;
           }
           if (existingSample.conversationError) {
-            (merged as any).conversationError =
+            mergedMultiTurn.conversationError =
               existingSample.conversationError;
           }
         }
@@ -339,14 +341,14 @@ export default function TestGenerationInterface({
               let responseText = '';
               if (typeof response === 'string') {
                 responseText = response;
-              } else if (response?.output) {
-                responseText = response.output;
-              } else if (response?.text) {
-                responseText = response.text;
-              } else if (response?.response) {
-                responseText = response.response;
-              } else if (response?.content) {
-                responseText = response.content;
+              } else if (response?.output != null) {
+                responseText = String(response.output);
+              } else if (response?.text != null) {
+                responseText = String(response.text);
+              } else if (response?.response != null) {
+                responseText = String(response.response);
+              } else if (response?.content != null) {
+                responseText = String(response.content);
               } else {
                 responseText = JSON.stringify(response);
               }
@@ -560,14 +562,14 @@ export default function TestGenerationInterface({
           let responseText = '';
           if (typeof response === 'string') {
             responseText = response;
-          } else if (response?.output) {
-            responseText = response.output;
-          } else if (response?.text) {
-            responseText = response.text;
-          } else if (response?.response) {
-            responseText = response.response;
-          } else if (response?.content) {
-            responseText = response.content;
+          } else if (response?.output != null) {
+            responseText = String(response.output);
+          } else if (response?.text != null) {
+            responseText = String(response.text);
+          } else if (response?.response != null) {
+            responseText = String(response.response);
+          } else if (response?.content != null) {
+            responseText = String(response.content);
           } else {
             responseText = JSON.stringify(response);
           }

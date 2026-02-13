@@ -95,10 +95,7 @@ export function useTestRunData({
       const behaviorsWithMetrics = await Promise.all(
         behaviorsData.map(async behavior => {
           try {
-            // Type assertion needed due to type definition mismatch
-            const behaviorMetrics = await (
-              behaviorClient as any
-            ).getBehaviorMetrics(behavior.id as UUID);
+            const behaviorMetrics = await behaviorClient.getBehaviorMetrics(behavior.id as UUID);
             return {
               ...behavior,
               metrics: behaviorMetrics,

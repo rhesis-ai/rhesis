@@ -6,6 +6,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  type SelectChangeEvent,
   MenuItem,
   Typography,
   CircularProgress,
@@ -111,7 +112,7 @@ export default function EndpointSelector({
     loadEndpoints();
   }, [loadEndpoints]);
 
-  const handleChange = (event: any) => {
+  const handleChange = (event: SelectChangeEvent<string>) => {
     const value = event.target.value;
     onEndpointChange(value === '' ? null : value);
   };

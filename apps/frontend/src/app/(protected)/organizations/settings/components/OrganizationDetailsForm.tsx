@@ -134,8 +134,8 @@ export default function OrganizationDetailsForm({
       // Refresh to update navigation with new organization name
       router.refresh();
       onUpdate();
-    } catch (err: any) {
-      setError(err.message || 'Failed to update organization details');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update organization details');
     } finally {
       setSaving(false);
     }

@@ -42,6 +42,7 @@ import { Behavior } from '@/utils/api-client/interfaces/behavior';
 import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Category } from '@/utils/api-client/interfaces/category';
 import { TestBulkCreate } from '@/utils/api-client/interfaces/tests';
+import { UUID } from 'crypto';
 import { MultiTurnTestConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
 
 type TestType = 'single_turn' | 'multi_turn';
@@ -364,7 +365,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             behavior: tc.behavior,
             category: tc.category,
             topic: tc.topic,
-            test_configuration: config,
+            test_configuration: config as unknown as Record<string, unknown>,
           };
         }
       });
@@ -372,7 +373,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
       const testsClient = apiFactory.getTestsClient();
       await testsClient.createTestsBulk({
         tests: testsToCreate,
-        test_set_id: testSetId as any,
+        test_set_id: testSetId as UUID,
       });
 
       notifications.show(

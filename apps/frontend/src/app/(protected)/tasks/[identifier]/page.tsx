@@ -27,6 +27,7 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 import { useTasks } from '@/hooks/useTasks';
 import { Task, TaskUpdate } from '@/types/tasks';
 import { getStatusesForTask, getPrioritiesForTask } from '@/utils/task-lookup';
+import type { Status, Priority } from '@/utils/api-client/interfaces/task';
 import { getEntityUrlMap } from '@/utils/entity-helpers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -66,8 +67,8 @@ export default function TaskDetailPage({ params }: PageProps) {
     hasInitialLoadRef.current = hasInitialLoad;
   }, [hasInitialLoad]);
 
-  const [statuses, setStatuses] = useState<any[]>([]);
-  const [priorities, setPriorities] = useState<any[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [priorities, setPriorities] = useState<Priority[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -447,7 +448,7 @@ export default function TaskDetailPage({ params }: PageProps) {
 
   const handleChange =
     (field: keyof Task) =>
-    (event: React.ChangeEvent<HTMLInputElement> | any) => {
+    (event: { target: { value: string } }) => {
       if (!editedTask) return;
 
       const value = event.target.value;

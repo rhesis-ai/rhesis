@@ -9,8 +9,8 @@ import BaseWorkflowSection from '@/components/common/BaseWorkflowSection';
 interface TestSetWorkflowSectionProps {
   status?: string;
   priority?: number;
-  assignee?: any | null;
-  owner?: any | null;
+  assignee?: User | null;
+  owner?: User | null;
   sessionToken: string;
   testSetId: string;
   onStatusChange?: (newStatus: string) => void;

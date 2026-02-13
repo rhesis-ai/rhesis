@@ -334,7 +334,7 @@ export default function EndpointForm() {
 
       // Handle auth_token: only include if it has a value
       if (!transformedData.auth_token || transformedData.auth_token === '') {
-        delete (transformedData as any).auth_token;
+        delete (transformedData as Record<string, unknown>).auth_token;
       }
 
       // Ensure we're sending a single object, not an array
@@ -909,7 +909,7 @@ export default function EndpointForm() {
 
                     // Parse JSON fields
                     let requestHeaders: Record<string, string> = {};
-                    let requestMapping: Record<string, any> = {};
+                    let requestMapping: Record<string, unknown> = {};
                     let responseMapping: Record<string, string> = {};
 
                     try {

@@ -120,8 +120,8 @@ export default function TestSetDetailsSection({
       const garakClient = clientFactory.getGarakClient();
       const preview = await garakClient.previewSync(testSet.id);
       setSyncPreview(preview);
-    } catch (error: any) {
-      setSyncError(error.message || 'Failed to get sync preview');
+    } catch (error: unknown) {
+      setSyncError(error instanceof Error ? error.message : 'Failed to get sync preview');
     }
   };
 
@@ -136,8 +136,8 @@ export default function TestSetDetailsSection({
       await garakClient.syncTestSet(testSet.id);
       // Refresh the page to show updated data
       window.location.reload();
-    } catch (error: any) {
-      setSyncError(error.message || 'Failed to sync test set');
+    } catch (error: unknown) {
+      setSyncError(error instanceof Error ? error.message : 'Failed to sync test set');
     } finally {
       setIsSyncing(false);
     }
@@ -642,7 +642,7 @@ export default function TestSetDetailsSection({
             Sources
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {sources.map((source: any, index: number) => (
+            {sources.map((source: { document?: string; name?: string; description?: string }, index: number) => (
               <Box
                 key={index}
                 sx={{

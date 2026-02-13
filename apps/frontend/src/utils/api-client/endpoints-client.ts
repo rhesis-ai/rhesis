@@ -54,8 +54,13 @@ export class EndpointsClient extends BaseApiClient {
     });
   }
 
-  async invokeEndpoint(id: string, inputData: any): Promise<any> {
-    return this.fetch<any>(`${API_ENDPOINTS.endpoints}/${id}/invoke`, {
+  async invokeEndpoint(
+    id: string,
+    inputData: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    return this.fetch<Record<string, unknown>>(
+      `${API_ENDPOINTS.endpoints}/${id}/invoke`,
+      {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -64,8 +69,12 @@ export class EndpointsClient extends BaseApiClient {
     });
   }
 
-  async testEndpoint(testConfig: EndpointTestRequest): Promise<any> {
-    return this.fetch<any>(`${API_ENDPOINTS.endpoints}/test`, {
+  async testEndpoint(
+    testConfig: EndpointTestRequest
+  ): Promise<Record<string, unknown>> {
+    return this.fetch<Record<string, unknown>>(
+      `${API_ENDPOINTS.endpoints}/test`,
+      {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -74,7 +83,10 @@ export class EndpointsClient extends BaseApiClient {
     });
   }
 
-  async executeTestSet(endpointId: string, testSetId: string): Promise<any> {
+  async executeTestSet(
+    endpointId: string,
+    testSetId: string
+  ): Promise<Record<string, unknown>> {
     const response = await fetch(
       `${this.baseUrl}/endpoints/${endpointId}/test-sets/${testSetId}/execute`,
       {
@@ -90,11 +102,16 @@ export class EndpointsClient extends BaseApiClient {
       throw new Error('Failed to execute test set');
     }
 
-    return response.json();
+    return response.json() as Promise<Record<string, unknown>>;
   }
 
-  async executeEndpoint(id: string, test_set_ids: string[]): Promise<any> {
-    return this.fetch<any>(`${API_ENDPOINTS.endpoints}/${id}/execute`, {
+  async executeEndpoint(
+    id: string,
+    test_set_ids: string[]
+  ): Promise<Record<string, unknown>> {
+    return this.fetch<Record<string, unknown>>(
+      `${API_ENDPOINTS.endpoints}/${id}/execute`,
+      {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

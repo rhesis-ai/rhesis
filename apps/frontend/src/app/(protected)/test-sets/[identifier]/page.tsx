@@ -36,7 +36,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function TestSetPage({ params }: { params: any }) {
+export default async function TestSetPage({ params }: { params: Promise<{ identifier: string }> }) {
   // Ensure params is properly awaited
   const resolvedParams = await Promise.resolve(params);
   const identifier = resolvedParams.identifier;

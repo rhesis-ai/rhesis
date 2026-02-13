@@ -64,7 +64,17 @@ interface Activity {
   title: string;
   subtitle?: string;
   timestamp: string;
-  metadata?: any;
+  metadata?: {
+    behavior?: string;
+    project?: string;
+    testSet?: string;
+    status?: string;
+    entityType?: string;
+    entityId?: string;
+    taskId?: string;
+    assignee?: string;
+    [key: string]: unknown;
+  };
   isBulk?: boolean;
   count?: number;
   entityType?: string; // Add entity type for icon mapping
@@ -73,7 +83,12 @@ interface Activity {
     start: string;
     end: string;
   };
-  sampleEntities?: Record<string, any>[];
+  sampleEntities?: Array<{
+    name?: string;
+    title?: string;
+    test_metadata?: { prompt?: string; [key: string]: unknown };
+    [key: string]: unknown;
+  }>;
   user?: {
     id: string;
     email: string;
@@ -207,13 +222,28 @@ export default function ActivityTimeline({
     // Map individual activities based on entity type and operation
     const entityType = item.entity_type;
     const operation = item.operation;
-    const entityData = item.entity_data;
+    // Cast entity_data for property access (shape varies by entity type)
+    const entityData = item.entity_data as {
+      test_metadata?: { prompt?: string };
+      behavior?: { name?: string };
+      category?: string;
+      topic?: string;
+      project?: { name?: string };
+      test_set?: { name?: string };
+      name?: string;
+      status?: { name?: string };
+      completed_at?: string;
+      title?: string;
+      assignee?: { name?: string; email?: string };
+      content?: string;
+      description?: string;
+    } | null;
 
     // Map to appropriate activity type and create title/subtitle
     let type: ActivityType = 'other';
     let title = '';
     let subtitle = '';
-    let metadata: any = {};
+    let metadata: Record<string, unknown> = {};
 
     if (entityType === 'Test') {
       if (operation === ActivityOperation.CREATE) {

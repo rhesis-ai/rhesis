@@ -11,7 +11,7 @@ export class RecycleClient extends BaseApiClient {
    * @param itemId - The UUID of the item to restore
    * @returns Promise with the restored item
    */
-  async restoreItem(tableName: string, itemId: string): Promise<any> {
+  async restoreItem(tableName: string, itemId: string): Promise<Record<string, unknown>> {
     return this.fetch(`/recycle/${tableName}/${itemId}/restore`, {
       method: 'POST',
     });
@@ -32,7 +32,7 @@ export class RecycleClient extends BaseApiClient {
   ): Promise<{
     model: string;
     count: number;
-    items: any[];
+    items: Record<string, unknown>[];
     has_more: boolean;
   }> {
     return this.fetch(`/recycle/${tableName}?skip=${skip}&limit=${limit}`, {

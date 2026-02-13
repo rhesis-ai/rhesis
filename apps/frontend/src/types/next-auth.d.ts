@@ -44,5 +44,5 @@ export interface SessionCallbackParams {
   session: Session;
   token: NextAuthJWT;
   trigger?: 'update';
-  newSession?: any;
+  newSession?: Session | null;
 }

@@ -58,8 +58,8 @@ export default function TestResultTab({
         trace.test_result.id
       );
       setTestResult(result);
-    } catch (err: any) {
-      const errorMsg = err.message || 'Failed to fetch test result details';
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to fetch test result details';
       setError(errorMsg);
       console.error('Failed to fetch test result:', err);
     } finally {

@@ -8,7 +8,7 @@ import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
 
 let telemetryEnabled = false;
 const _provider: WebTracerProvider | null = null;
-const tracer: any = null;
+const tracer: import('@opentelemetry/api').Tracer | null = null;
 
 /**
  * Hash a string for privacy using SHA-256 (matches backend implementation).

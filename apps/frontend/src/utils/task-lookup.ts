@@ -7,7 +7,7 @@ import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
  * Proper cache class with TTL (Time To Live) support
  */
 class TaskDataCache {
-  private cache = new Map<string, { data: any; timestamp: number }>();
+  private cache = new Map<string, { data: unknown; timestamp: number }>();
   private readonly TTL = 5 * 60 * 1000; // 5 minutes
 
   get<T>(key: string): T | null {
@@ -16,7 +16,7 @@ class TaskDataCache {
       this.cache.delete(key);
       return null;
     }
-    return item.data;
+    return item.data as T;
   }
 
   set<T>(key: string, data: T): void {

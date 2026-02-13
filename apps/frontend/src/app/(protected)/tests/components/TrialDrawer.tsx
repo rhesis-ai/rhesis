@@ -27,6 +27,7 @@ import {
   isMultiTurnConfig,
   MultiTurnTestConfig,
 } from '@/utils/api-client/interfaces/multi-turn-test-config';
+import { ConversationTurn } from '@/utils/api-client/interfaces/test-results';
 
 interface ProjectOption {
   id: UUID;
@@ -66,7 +67,14 @@ export default function TrialDrawer({
   const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>(
     []
   );
-  const [trialResponse, setTrialResponse] = useState<any>(null);
+  const [trialResponse, setTrialResponse] = useState<{
+    type: 'single_turn' | 'multi_turn';
+    output?: unknown;
+    conversation?: ConversationTurn[];
+    execution_time?: number;
+    status?: string;
+    raw_response?: unknown;
+  } | null>(null);
   const [trialInProgress, setTrialInProgress] = useState(false);
   const [_trialCompleted, setTrialCompleted] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -273,7 +281,9 @@ export default function TrialDrawer({
       if (isMultiTurn) {
         // Multi-turn test execution
         const testsClient = clientFactory.getTestsClient();
-        const config = testData.test_configuration as MultiTurnTestConfig;
+        const config = isMultiTurnConfig(testData.test_configuration)
+          ? testData.test_configuration
+          : (testData.test_configuration as unknown as MultiTurnTestConfig);
 
         const executeRequest = {
           endpoint_id:

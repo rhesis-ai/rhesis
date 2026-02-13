@@ -5,6 +5,18 @@ import { Status } from './status';
 import { PaginationParams } from './pagination';
 import { Tag } from './tag';
 
+/** Known fields in source_metadata - extensible via index signature */
+export interface SourceMetadata {
+  source_type?: string;
+  provider?: string;
+  original_filename?: string;
+  file_size?: number;
+  url?: string;
+  mcp_tool_id?: string;
+  mcp_id?: string;
+  [key: string]: unknown;
+}
+
 export interface Source {
   id: UUID;
   title: string;
@@ -15,7 +27,7 @@ export interface Source {
   url?: string;
   citation?: string;
   language_code?: string;
-  source_metadata?: Record<string, any>;
+  source_metadata?: SourceMetadata;
   tags?: Tag[];
   created_at?: string;
   updated_at?: string;
@@ -40,7 +52,7 @@ export interface SourceCreate {
   url?: string;
   citation?: string;
   language_code?: string;
-  source_metadata?: Record<string, any>;
+  source_metadata?: SourceMetadata;
   tags?: Tag[];
 }
 
@@ -52,7 +64,7 @@ export interface SourceUpdate {
   url?: string;
   citation?: string;
   language_code?: string;
-  source_metadata?: Record<string, any>;
+  source_metadata?: SourceMetadata;
   tags?: Tag[];
 }
 

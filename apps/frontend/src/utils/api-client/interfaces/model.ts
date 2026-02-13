@@ -12,7 +12,7 @@ export interface Model {
   model_name: string;
   endpoint: string;
   key: string;
-  request_headers?: Record<string, any>;
+  request_headers?: Record<string, string>;
   is_protected?: boolean;
   tags: string[];
   created_at: string;
@@ -33,7 +33,7 @@ export interface ModelCreate {
   model_name: string;
   endpoint?: string;
   key: string;
-  request_headers?: Record<string, any>;
+  request_headers?: Record<string, string>;
   is_protected?: boolean;
   tags: string[];
   provider_type_id?: UUID;
@@ -49,7 +49,7 @@ export interface ModelUpdate {
   model_name?: string;
   endpoint?: string;
   key?: string;
-  request_headers?: Record<string, any>;
+  request_headers?: Record<string, string>;
   is_protected?: boolean;
   tags?: string[];
   provider_type_id?: UUID;
@@ -77,6 +77,7 @@ export interface TestModelConnectionRequest {
   model_name: string;
   api_key: string;
   endpoint?: string;
+  model_id?: string;
 }
 
 export interface TestModelConnectionResponse {

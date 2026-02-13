@@ -30,11 +30,11 @@ export interface MonthDataPoint {
   passed: number;
   total: number;
   monthKey: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface BaseLineChartProps {
-  data: Record<string, any>[];
+  data: object[];
   title?: string;
   series: LineDataSeries[];
   colorPalette?: 'line' | 'pie' | 'status';
@@ -42,8 +42,8 @@ export interface BaseLineChartProps {
   height?: number;
   xAxisDataKey?: string;
   showGrid?: boolean;
-  legendProps?: Record<string, any>;
-  tooltipProps?: Record<string, any>;
+  legendProps?: Record<string, unknown>;
+  tooltipProps?: Record<string, unknown>;
   elevation?: number;
   preventLegendOverflow?: boolean;
   variant?: 'dashboard' | 'test-results';
@@ -126,7 +126,7 @@ export const chartUtils = {
    * Calculates optimal Y-axis width based on data values and series configuration
    */
   calculateYAxisWidth: (
-    data: Record<string, any>[],
+    data: object[],
     series: LineDataSeries[],
     yAxisConfig?: { tickFormatter?: (value: number) => string }
   ): number => {
@@ -137,7 +137,7 @@ export const chartUtils = {
 
     data.forEach(item => {
       series.forEach(s => {
-        const value = item[s.dataKey];
+        const value = (item as Record<string, unknown>)[s.dataKey];
         if (typeof value === 'number' && !isNaN(value)) {
           allValues.push(value);
         }
@@ -202,10 +202,14 @@ export default function BaseLineChart({
   };
   const themedLegendProps = {
     ...defaultLegendProps,
-    ...legendProps,
+    ...(legendProps && typeof legendProps === 'object' ? legendProps : {}),
     wrapperStyle: {
       ...defaultLegendProps.wrapperStyle,
-      ...legendProps?.wrapperStyle,
+      ...(legendProps &&
+      typeof legendProps === 'object' &&
+      legendProps.wrapperStyle
+        ? legendProps.wrapperStyle
+        : {}),
       fontSize: theme.typography.chartTick.fontSize,
     },
   };

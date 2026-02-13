@@ -54,8 +54,8 @@ export default function DangerZone({
       await signOut({
         callbackUrl: `/auth/signin?message=${encodeURIComponent(`You have successfully left ${organization.name}. You can now create a new organization or accept an invitation.`)}`,
       });
-    } catch (err: any) {
-      notifications.show(err.message || 'Failed to leave organization', {
+    } catch (err: unknown) {
+      notifications.show(err instanceof Error ? err.message : 'Failed to leave organization', {
         severity: 'error',
       });
       setIsLeaving(false);

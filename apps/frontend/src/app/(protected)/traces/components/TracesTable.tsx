@@ -166,7 +166,7 @@ export default function TracesTable({
     []
   );
 
-  const handleRowClick = (params: any) => {
+  const handleRowClick = (params: { row: { trace_id: string; project_id: string } }) => {
     onRowClick(params.row.trace_id, params.row.project_id);
   };
 

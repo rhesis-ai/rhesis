@@ -24,17 +24,17 @@ interface _AddButtonProps {
   onClick?: () => void;
 }
 
-interface Column {
+interface Column<T = object> {
   id: string;
   label: string;
-  render: (row: any, index: number) => React.ReactNode;
+  render: (row: T, index: number) => React.ReactNode;
 }
 
-interface BaseTableProps {
-  columns: Column[];
-  data: any[];
+interface BaseTableProps<T = object> {
+  columns: Column<T>[];
+  data: T[];
   title?: string;
-  onRowClick?: (row: any) => void;
+  onRowClick?: (row: T) => void;
   actionButtons?: {
     href?: string;
     label: string;
@@ -48,11 +48,11 @@ interface BaseTableProps {
     };
   };
   expandedRow?: number | null;
-  renderExpanded?: (row: any, index: number) => React.ReactNode;
+  renderExpanded?: (row: T, index: number) => React.ReactNode;
   loading?: boolean;
 }
 
-export default function BaseTable({
+export default function BaseTable<T = object>({
   columns,
   data,
   title,
@@ -62,9 +62,9 @@ export default function BaseTable({
   expandedRow,
   renderExpanded,
   loading = false,
-}: BaseTableProps) {
+}: BaseTableProps<T>) {
   const theme = useTheme();
-  const handleRowClick = (row: any) => {
+  const handleRowClick = (row: T) => {
     if (onRowClick) {
       onRowClick(row);
     }

@@ -237,10 +237,11 @@ export default function SourcePreviewClientWrapper({
         severity: 'success',
         autoHideDuration: 2000,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle errors (404 for deleted tool, or other failures)
-      const is404Error = error?.status === 404;
-      const backendMessage = error?.data?.detail || '';
+      const errObj = error as { status?: number; data?: { detail?: string }; message?: string };
+      const is404Error = errObj?.status === 404;
+      const backendMessage = errObj?.data?.detail || '';
       const isDeletedToolError =
         is404Error && backendMessage.includes('has been deleted');
 
@@ -260,7 +261,7 @@ export default function SourcePreviewClientWrapper({
         // Use error.data.detail (backend message) instead of error.message
         // (which includes "API error: 503 -" prefix)
         const errorMessage =
-          error?.data?.detail ||
+          errObj?.data?.detail ||
           (error instanceof Error
             ? error.message
             : 'Failed to update source from MCP');

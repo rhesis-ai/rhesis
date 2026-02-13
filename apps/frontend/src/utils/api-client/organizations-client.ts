@@ -33,15 +33,19 @@ export class OrganizationsClient extends BaseApiClient {
         method: 'POST',
         body: JSON.stringify(organization),
       });
-    } catch (error: any) {
-      // Extract useful error message or use a default
-      const errorMessage =
-        error.data?.detail ||
-        error.data?.message ||
-        (error.message
-          ? error.message.replace(/^API error: \d+ - /, '')
-          : 'Failed to create organization');
-
+    } catch (error: unknown) {
+      let errorMessage = 'Failed to create organization';
+      if (error && typeof error === 'object') {
+        const err = error as Record<string, unknown>;
+        const data = err.data as Record<string, unknown> | undefined;
+        if (typeof data?.detail === 'string') {
+          errorMessage = data.detail;
+        } else if (typeof data?.message === 'string') {
+          errorMessage = data.message;
+        } else if (typeof err.message === 'string') {
+          errorMessage = err.message.replace(/^API error: \d+ - /, '');
+        }
+      }
       throw new Error(errorMessage);
     }
   }

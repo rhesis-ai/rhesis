@@ -21,7 +21,7 @@ const TestRunMainView = dynamic(() => import('./TestRunMainView'), {
   ),
 });
 
-function TestRunMainViewWrapper(props: any) {
+function TestRunMainViewWrapper(props: React.ComponentProps<typeof TestRunMainView>) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {

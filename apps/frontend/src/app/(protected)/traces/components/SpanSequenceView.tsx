@@ -44,12 +44,12 @@ function getSpanDisplayName(span: SpanNode): string {
 
   // Tool invocations: show tool name
   if (span.span_name === 'ai.tool.invoke' && attrs?.['ai.tool.name']) {
-    return attrs['ai.tool.name'];
+    return String(attrs['ai.tool.name']);
   }
 
   // Agent invocations: show agent name
   if (span.span_name === 'ai.agent.invoke' && attrs?.['ai.agent.name']) {
-    return attrs['ai.agent.name'];
+    return String(attrs['ai.agent.name']);
   }
 
   // Agent handoffs: show from -> to
@@ -72,12 +72,12 @@ function getParticipantLabel(span: SpanNode): string {
 
   // Tool invocations: show tool name
   if (span.span_name === 'ai.tool.invoke' && attrs?.['ai.tool.name']) {
-    return attrs['ai.tool.name'];
+    return String(attrs['ai.tool.name']);
   }
 
   // Agent invocations: show agent name
   if (span.span_name === 'ai.agent.invoke' && attrs?.['ai.agent.name']) {
-    return attrs['ai.agent.name'];
+    return String(attrs['ai.agent.name']);
   }
 
   // Agent handoffs: show from -> to
@@ -366,11 +366,11 @@ export default function SpanSequenceView({
                         const parts = colorPath.split('.');
                         if (parts.length === 2) {
                           const [category, shade] = parts;
-                          return `${(theme.palette as any)[category]?.[shade] || colorPath} !important`;
-                        }
-                        return `${colorPath} !important`;
-                      },
-                      mb: 0.5,
+                      return `${(theme.palette as unknown as Record<string, Record<string, string>>)[category]?.[shade] || colorPath} !important`;
+                      }
+                      return `${colorPath} !important`;
+                    },
+                    mb: 0.5,
                     }}
                   />
                 )}
@@ -428,7 +428,7 @@ export default function SpanSequenceView({
             const parts = colorPath.split('.');
             if (parts.length === 2) {
               const [category, shade] = parts;
-              return (theme.palette as any)[category]?.[shade] || colorPath;
+              return (theme.palette as unknown as Record<string, Record<string, string>>)[category]?.[shade] || colorPath;
             }
             return colorPath;
           };

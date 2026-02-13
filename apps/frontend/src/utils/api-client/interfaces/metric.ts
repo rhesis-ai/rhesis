@@ -121,7 +121,7 @@ export interface MetricDetail extends Metric {
   model?: Model; // Include the full model object when available
   user?: User; // Include the creating user
   organization?: Organization; // Include the organization
-  comments?: any; // Comments data (can be null)
+  comments?: unknown; // Comments data (can be null)
 }
 
 export interface MetricsResponse {

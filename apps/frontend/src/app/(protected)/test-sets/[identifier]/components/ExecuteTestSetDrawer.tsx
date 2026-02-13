@@ -267,7 +267,7 @@ export default function ExecuteTestSetDrawer({
       const testSetsClient = apiFactory.getTestSetsClient();
 
       // Prepare test configuration attributes
-      const testConfigurationAttributes: Record<string, any> = {
+      const testConfigurationAttributes: Record<string, unknown> = {
         execution_mode: executionMode,
       };
 
@@ -297,8 +297,9 @@ export default function ExecuteTestSetDrawer({
           const organizationId = endpoint.organization_id as UUID;
 
           // Get the test configuration ID from result and get the test run
-          if ((result as any).test_configuration_id) {
-            const testConfigurationId = (result as any).test_configuration_id;
+          const resultRecord = result as unknown as Record<string, unknown>;
+          if (resultRecord.test_configuration_id) {
+            const testConfigurationId = resultRecord.test_configuration_id as string;
             const testRunsClient = apiFactory.getTestRunsClient();
             const tagsClient = new TagsClient(sessionToken);
 

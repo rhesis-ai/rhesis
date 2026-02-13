@@ -66,7 +66,7 @@ const createCustomTick = (
     return remValue * 16;
   };
 
-  const CustomTick = ({ payload, x, y, textAnchor, cx, cy, ..._rest }: any) => {
+  const CustomTick = ({ payload, x = 0, y = 0, textAnchor, cx, cy, ..._rest }: { payload?: { value: string }; x?: number; y?: number; textAnchor?: string; cx?: number; cy?: number; [key: string]: unknown }) => {
     const maxLineLength = 14; // Max characters per line (increased for pass rate)
     const lines = [];
 
@@ -107,7 +107,7 @@ const createCustomTick = (
     const adjustedY = y + directionY * totalOffset;
 
     // Adjust text anchor based on position relative to center
-    let adjustedTextAnchor = textAnchor;
+    let adjustedTextAnchor: 'inherit' | 'end' | 'start' | 'middle' | undefined = textAnchor as 'inherit' | 'end' | 'start' | 'middle' | undefined;
     if (adjustedX < centerX - 10) {
       adjustedTextAnchor = 'end';
     } else if (adjustedX > centerX + 10) {

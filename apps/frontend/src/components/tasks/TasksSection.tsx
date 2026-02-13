@@ -6,7 +6,11 @@ import { AddIcon } from '@/components/icons';
 import { Task, EntityType } from '@/types/tasks';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
+import {
+  GridColDef,
+  GridPaginationModel,
+  GridRowParams,
+} from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { TaskErrorBoundary } from './TaskErrorBoundary';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
@@ -17,7 +21,7 @@ interface TasksSectionProps {
   entityType: EntityType;
   entityId: string;
   sessionToken: string;
-  onCreateTask: (taskData: any) => Promise<void>;
+  onCreateTask: (taskData: Record<string, unknown>) => Promise<void>;
   onEditTask?: (taskId: string) => void;
   onDeleteTask?: (taskId: string) => Promise<void>;
   onNavigateToCreate?: () => void;
@@ -123,7 +127,7 @@ export function TasksSection({
     }
   };
 
-  const handleRowClick = (params: any) => {
+  const handleRowClick = (params: GridRowParams) => {
     try {
       router.push(`/tasks/${params.id}`);
     } catch (_error) {}
@@ -196,7 +200,14 @@ export function TasksSection({
         return (
           <Chip
             label={params.row.status?.name || 'Unknown'}
-            color={getStatusColor(params.row.status?.name) as any}
+            color={
+              getStatusColor(params.row.status?.name) as
+                | 'warning'
+                | 'primary'
+                | 'success'
+                | 'error'
+                | 'default'
+            }
             size="small"
           />
         );

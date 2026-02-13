@@ -318,7 +318,7 @@ function SinglePointChart({
   const _displayLegendLabel = legendLabel || label;
 
   // Custom tooltip with comprehensive details
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ value: number }> }) => {
     if (active && payload && payload.length) {
       const displayValue = formatValue
         ? formatValue(payload[0].value)

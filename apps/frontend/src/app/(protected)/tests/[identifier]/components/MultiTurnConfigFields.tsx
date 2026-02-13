@@ -318,7 +318,7 @@ export default function MultiTurnConfigFields({
       };
 
       await testsClient.updateTest(testId, {
-        test_configuration: updatedConfig as any,
+        test_configuration: updatedConfig as unknown as Record<string, unknown>,
       });
 
       setConfig(updatedConfig);
@@ -334,9 +334,9 @@ export default function MultiTurnConfigFields({
       if (onUpdate) {
         onUpdate();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show(
-        `Failed to update ${String(field).replace('_', ' ')}: ${error.message || 'Unknown error'}`,
+        `Failed to update ${String(field).replace('_', ' ')}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         {
           severity: 'error',
           autoHideDuration: 6000,

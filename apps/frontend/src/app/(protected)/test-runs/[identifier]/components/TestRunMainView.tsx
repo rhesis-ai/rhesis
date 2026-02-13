@@ -342,11 +342,11 @@ export default function TestRunMainView({
       ).getTestRunsClient();
 
       // Use OData filter to get all test runs for the same test set
-      const params: any = {
+      const params = {
         limit: 50,
         skip: 0,
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        sort_by: 'created_at' as const,
+        sort_order: 'desc' as const,
         filter: `test_configuration/test_set/id eq '${testSetId}'`,
       };
 

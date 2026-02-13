@@ -18,7 +18,7 @@ export interface TestRunBase {
   user_id?: UUID;
   organization_id?: UUID;
   status_id?: UUID;
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
   test_configuration_id?: UUID;
   owner_id?: UUID;
   assignee_id?: UUID;

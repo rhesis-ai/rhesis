@@ -396,7 +396,7 @@ function TestRunsTable({
 
   // Handle row click to navigate to test run details
   const handleRowClick = useCallback(
-    (params: any) => {
+    (params: { id: string | number }) => {
       const testRunId = params.id;
       router.push(`/test-runs/${testRunId}`);
     },

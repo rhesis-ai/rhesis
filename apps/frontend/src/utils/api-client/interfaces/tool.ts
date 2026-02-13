@@ -19,6 +19,18 @@ export interface User {
   email: string;
 }
 
+/** Known fields in tool_metadata - extensible via index signature */
+export interface ToolMetadata {
+  repository?: {
+    full_name?: string;
+    owner?: string;
+    repo?: string;
+    [key: string]: unknown;
+  };
+  space_key?: string;
+  [key: string]: unknown;
+}
+
 export interface Tool {
   id: UUID;
   created_at: string;
@@ -28,7 +40,7 @@ export interface Tool {
   tool_type_id: UUID;
   tool_provider_type_id: UUID;
   status_id?: UUID;
-  tool_metadata?: Record<string, any>;
+  tool_metadata?: ToolMetadata;
   organization_id?: UUID;
   user_id?: UUID;
 
@@ -45,8 +57,8 @@ export interface ToolCreate {
   tool_type_id: UUID;
   tool_provider_type_id: UUID;
   status_id?: UUID;
-  credentials: Record<string, any>;
-  tool_metadata?: Record<string, any>;
+  credentials: Record<string, unknown>;
+  tool_metadata?: ToolMetadata;
   organization_id?: UUID;
   user_id?: UUID;
 }
@@ -57,8 +69,8 @@ export interface ToolUpdate {
   tool_type_id?: UUID;
   tool_provider_type_id?: UUID;
   status_id?: UUID;
-  credentials?: Record<string, any>;
-  tool_metadata?: Record<string, any>;
+  credentials?: Record<string, unknown>;
+  tool_metadata?: ToolMetadata;
   organization_id?: UUID;
   user_id?: UUID;
 }

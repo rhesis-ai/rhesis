@@ -150,7 +150,7 @@ export default function TestDetailData({
       const testsClient = apiFactory.getTestsClient();
 
       // Prepare the update payload based on the field
-      const updatePayload: Record<string, any> = {};
+      const updatePayload: Record<string, unknown> = {};
 
       if (typeof value === 'string') {
         // If it's a string, it's a new value that needs to be created

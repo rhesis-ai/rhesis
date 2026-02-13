@@ -22,7 +22,7 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 interface TaskCreationDrawerProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (taskData: any) => Promise<void>;
+  onSubmit: (taskData: Record<string, unknown>) => Promise<void>;
   entityType: EntityType;
   entityId: string;
   currentUserId: string;

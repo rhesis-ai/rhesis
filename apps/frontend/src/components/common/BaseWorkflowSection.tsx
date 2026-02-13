@@ -32,7 +32,10 @@ interface BaseWorkflowSectionProps {
   onPriorityChange?: (newPriority: number) => void;
   onAssigneeChange?: (newAssignee: User | null) => void;
   onOwnerChange?: (newOwner: User | null) => void;
-  onUpdateEntity: (updateData: any, fieldName: string) => Promise<void>;
+  onUpdateEntity: (
+    updateData: Record<string, unknown>,
+    fieldName: string
+  ) => Promise<void>;
   statusReadOnly?: boolean;
   showPriority?: boolean;
   // Optional pre-loaded data to avoid API calls

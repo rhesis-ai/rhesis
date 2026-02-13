@@ -153,7 +153,7 @@ export interface TestTemplate {
   id: string;
   name: string;
   description: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<Record<string, unknown>>;
   color: string;
   prompt: string;
   topics: string[];

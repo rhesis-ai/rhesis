@@ -23,6 +23,7 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 import { useTasks } from '@/hooks/useTasks';
 import { TaskCreate, EntityType } from '@/types/tasks';
 import { getStatuses, getPriorities } from '@/utils/task-lookup';
+import type { Status, Priority } from '@/utils/api-client/interfaces/task';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -41,8 +42,8 @@ export default function CreateTaskPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [statuses, setStatuses] = useState<any[]>([]);
-  const [priorities, setPriorities] = useState<any[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [priorities, setPriorities] = useState<Priority[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
   const [formData, setFormData] = useState<TaskCreate>({
@@ -138,7 +139,7 @@ export default function CreateTaskPage() {
 
     if (entityType && entityId) {
       // Build metadata object from available params
-      const metadata: Record<string, any> = {};
+      const metadata: Record<string, string> = {};
       if (commentId) metadata.comment_id = commentId;
       if (testResultId) metadata.test_result_id = testResultId;
       if (testRunId) metadata.test_run_id = testRunId;
@@ -197,10 +198,10 @@ export default function CreateTaskPage() {
 
   const handleChange =
     (field: keyof TaskCreate) =>
-    (event: React.ChangeEvent<HTMLInputElement> | any) => {
+    (event: { target: { value: string | null } }) => {
       setFormData(prev => ({
         ...prev,
-        [field]: event.target.value,
+        [field]: event.target.value ?? '',
       }));
     };
 

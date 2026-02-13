@@ -7,6 +7,7 @@ import {
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridRowParams,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
@@ -150,7 +151,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
 
   // Handle row click
   const handleRowClick = useCallback(
-    (params: any) => {
+    (params: GridRowParams) => {
       router.push(`/tasks/${params.id}`);
     },
     [router]
@@ -232,7 +233,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         headerName: 'Status',
         width: 120,
         renderCell: params => {
-          const getStatusColor = (status?: string) => {
+          const getStatusColor = (status?: string): 'warning' | 'primary' | 'success' | 'error' | 'default' => {
             switch (status) {
               case 'Open':
                 return 'warning';
@@ -250,7 +251,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
           return (
             <Chip
               label={params.row.status?.name || 'Unknown'}
-              color={getStatusColor(params.row.status?.name) as any}
+              color={getStatusColor(params.row.status?.name)}
               size="small"
             />
           );

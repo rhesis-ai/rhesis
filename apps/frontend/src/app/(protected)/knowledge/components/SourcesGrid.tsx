@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   GridColDef,
+  GridRowParams,
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
@@ -156,8 +157,8 @@ export default function SourcesGrid({
 
   // Handle row click to navigate to preview
   const handleRowClick = useCallback(
-    (params: { id: string }) => {
-      const sourceId = params.id;
+    (params: GridRowParams) => {
+      const sourceId = String(params.id);
       router.push(`/knowledge/${sourceId}`);
     },
     [router]

@@ -9,7 +9,7 @@ export interface TestSetBase {
   slug?: string;
   status_id?: UUID;
   tags?: Tag[];
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
   priority?: number;
   user_id?: UUID;
   owner_id?: UUID;
@@ -147,7 +147,7 @@ export interface TestSetCreate {
   slug?: string;
   status_id?: UUID;
   tags?: string[];
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
   priority?: number;
   test_set_type_id?: UUID;
 }
@@ -220,12 +220,12 @@ export interface TestData {
   behavior: string;
   category: string;
   topic: string;
-  test_configuration?: Record<string, any>;
+  test_configuration?: Record<string, unknown>;
   assignee_id?: UUID;
   owner_id?: UUID;
   status?: string;
   priority?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Bulk test set creation request
@@ -250,7 +250,7 @@ export interface TestSetBulkResponse {
   user_id?: UUID;
   organization_id?: UUID;
   visibility?: string;
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
 }
 
 // Test set association request
@@ -319,7 +319,7 @@ export interface GenerateTestsRequest {
  * Response for sampling (synchronous)
  */
 export interface GenerateTestsResponse {
-  tests: any[]; // Test objects
+  tests: unknown[]; // Test objects
 }
 
 /**

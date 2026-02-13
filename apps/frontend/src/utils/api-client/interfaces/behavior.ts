@@ -4,6 +4,7 @@ import { Status } from './status';
 import { User } from './user';
 import { Tag } from './tag';
 import { MetricScope } from './metric';
+import { Model } from './model';
 
 export interface BehaviorBase {
   name: string;
@@ -82,7 +83,7 @@ export interface MetricWithBehaviors {
   status?: Status | null;
   assignee?: User | null;
   owner?: User | null;
-  model?: any | null;
+  model?: Model | null;
   backend_type: TypeLookup;
   behaviors: BehaviorReference[];
   user?: User | null;
@@ -146,7 +147,7 @@ export interface MetricWithRelationships {
   status?: Status | null;
   assignee?: User | null;
   owner?: User | null;
-  model?: any | null;
+  model?: Model | null;
 }
 
 export interface BehaviorsQueryParams {

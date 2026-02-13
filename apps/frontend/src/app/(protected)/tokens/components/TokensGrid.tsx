@@ -12,6 +12,7 @@ import {
   useTheme,
   CircularProgress,
 } from '@mui/material';
+import { GridPaginationModel, type GridRenderCellParams } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Token } from '@/utils/api-client/interfaces/token';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -19,7 +20,6 @@ import { DeleteIcon, VpnKeyIcon } from '@/components/icons';
 import { formatDistanceToNow } from 'date-fns';
 import RefreshTokenModal from './RefreshTokenModal';
 import AddIcon from '@mui/icons-material/Add';
-import { GridPaginationModel } from '@mui/x-data-grid';
 
 interface TokensGridProps {
   tokens: Token[];
@@ -81,7 +81,7 @@ export default function TokensGrid({
       field: 'name',
       headerName: 'Name',
       flex: 1,
-      renderCell: (params: any) => (
+      renderCell: (params: GridRenderCellParams) => (
         <span style={{ fontWeight: 'medium' }}>{params.row.name}</span>
       ),
     },
@@ -89,13 +89,13 @@ export default function TokensGrid({
       field: 'token',
       headerName: 'Token',
       flex: 1.5,
-      renderCell: (params: any) => params.row.token_obfuscated,
+      renderCell: (params: GridRenderCellParams) => params.row.token_obfuscated,
     },
     {
       field: 'last_used',
       headerName: 'Last Used',
       flex: 1,
-      renderCell: (params: any) =>
+      renderCell: (params: GridRenderCellParams) =>
         params.row.last_used_at
           ? formatDistanceToNow(new Date(params.row.last_used_at), {
               addSuffix: true,
@@ -106,7 +106,7 @@ export default function TokensGrid({
       field: 'expires',
       headerName: 'Expires',
       flex: 1,
-      renderCell: (params: any) =>
+      renderCell: (params: GridRenderCellParams) =>
         params.row.expires_at ? (
           <Chip
             label={formatDistanceToNow(new Date(params.row.expires_at), {
@@ -144,7 +144,7 @@ export default function TokensGrid({
       headerName: 'Actions',
       flex: 0.5,
       sortable: false,
-      renderCell: (params: any) => (
+      renderCell: (params: GridRenderCellParams) => (
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Tooltip title="Invalidate and refresh">
             <IconButton
@@ -271,7 +271,7 @@ export default function TokensGrid({
             columns={columns}
             rows={tokens}
             loading={loading}
-            getRowId={(row: Token) => row.id}
+            getRowId={row => (row as Token).id}
             density="standard"
             paginationModel={paginationModel}
             onPaginationModelChange={onPaginationModelChange}

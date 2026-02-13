@@ -330,7 +330,7 @@ export default function EndpointDetail({
     }
   };
 
-  const handleChange = (field: keyof EndpointEditData, value: any) => {
+  const handleChange = (field: keyof EndpointEditData, value: unknown) => {
     autoEnableEditMode();
     setEditedValues(prev => ({ ...prev, [field]: value }));
   };
@@ -793,7 +793,9 @@ export default function EndpointDetail({
                               {Object.entries(
                                 endpoint.endpoint_metadata.function_schema
                                   .parameters
-                              ).map(([param, info]: [string, any]) => (
+                              ).map(([param, info]: [string, unknown]) => {
+                                const paramInfo = info as { type?: string; default?: unknown };
+                                return (
                                 <Box
                                   component="tr"
                                   key={param}
@@ -816,8 +818,8 @@ export default function EndpointDetail({
                                       sx={{ fontFamily: 'monospace' }}
                                       color="text.secondary"
                                     >
-                                      {info.type
-                                        ? info.type
+                                      {paramInfo.type
+                                        ? paramInfo.type
                                             .replace(/<class '(.+?)'>/g, '$1')
                                             .replace(/typing\./g, '')
                                             .replace(/builtins\./g, '')
@@ -830,13 +832,14 @@ export default function EndpointDetail({
                                       sx={{ fontFamily: 'monospace' }}
                                       color="text.secondary"
                                     >
-                                      {info.default !== null
-                                        ? info.default
+                                      {paramInfo.default !== null
+                                        ? String(paramInfo.default)
                                         : '—'}
                                     </Typography>
                                   </Box>
                                 </Box>
-                              ))}
+                                );
+                              })}
                             </Box>
                           </Box>
                         )}
@@ -870,7 +873,7 @@ export default function EndpointDetail({
                               {(() => {
                                 const source =
                                   endpoint.endpoint_metadata.mapping_info
-                                    .source;
+                                    .source ?? 'unknown';
                                 const sourceConfig: Record<
                                   string,
                                   {

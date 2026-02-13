@@ -360,7 +360,7 @@ export default function BaseTag({
     }
 
     if (textFieldProps.onBlur) {
-      textFieldProps.onBlur(event as any);
+      textFieldProps.onBlur(event);
     }
   };
 
@@ -368,7 +368,7 @@ export default function BaseTag({
     setFocused(true);
 
     if (textFieldProps.onFocus) {
-      textFieldProps.onFocus(event as any);
+      textFieldProps.onFocus(event);
     }
   };
 

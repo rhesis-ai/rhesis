@@ -72,7 +72,7 @@ export default function GenerateTestsPage() {
     router.push('/tests/new');
   };
 
-  const handleSelectTemplate = (template: any) => {
+  const handleSelectTemplate = (template: { id: string }) => {
     // Store template ID, close modal, and start flow
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('selectedTemplateId', template.id);

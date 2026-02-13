@@ -3,6 +3,14 @@
  * from apps/backend/src/rhesis/backend/app/schemas/telemetry.py
  */
 
+/** Span event with known structure from OpenTelemetry */
+export interface SpanEvent {
+  name: string;
+  timestamp?: string;
+  attributes?: Record<string, string | number | boolean>;
+  [key: string]: unknown;
+}
+
 /**
  * Span node in trace tree with hierarchical children
  */
@@ -15,8 +23,8 @@ export interface SpanNode {
   duration_ms: number;
   status_code: string;
   status_message?: string;
-  attributes: Record<string, any>;
-  events: Array<Record<string, any>>;
+  attributes: Record<string, string | number | boolean>;
+  events: SpanEvent[];
   children: SpanNode[];
   tags?: Array<{ id: string; name: string }>;
   comments?: Array<{ id: string; content: string }>;
@@ -96,7 +104,7 @@ export interface TraceDetailResponse {
   test?: {
     id: string;
     nano_id?: string;
-    test_configuration?: Record<string, any>;
+    test_configuration?: Record<string, unknown>;
   };
 }
 

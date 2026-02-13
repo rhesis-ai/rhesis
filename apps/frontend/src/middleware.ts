@@ -199,8 +199,8 @@ export async function middleware(request: NextRequest) {
     }
 
     return NextResponse.next();
-  } catch (error: any) {
-    const err = error as Error;
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
 
     if (err.message?.includes('UntrustedHost')) {
       // For untrusted host errors, redirect to home page with session clearing

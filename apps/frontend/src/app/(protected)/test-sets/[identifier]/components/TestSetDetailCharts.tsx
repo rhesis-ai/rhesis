@@ -261,7 +261,7 @@ export default function TestSetDetailCharts({
             labelStyle: {
               color: theme.palette.text.primary,
             },
-            formatter: (value: number, name: string, props: any) => {
+            formatter: (value: number, name: string, props: { payload: { percentage: string; fullName?: string } }) => {
               const item = props.payload;
               return [`${value} (${item.percentage})`, item.fullName || name];
             },

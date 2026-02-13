@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { renderHook } from '@testing-library/react';
 import { useTasks } from '../useTasks';
 import { ApiClientFactory } from '../../utils/api-client/client-factory';

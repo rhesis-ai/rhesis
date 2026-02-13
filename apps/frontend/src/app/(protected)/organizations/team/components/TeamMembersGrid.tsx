@@ -137,11 +137,12 @@ export default function TeamMembersGrid({
       // Refresh the users list
       const skip = paginationModel.page * paginationModel.pageSize;
       fetchUsers(skip, paginationModel.pageSize);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle specific error cases
       const errorMessage =
-        error?.message ||
-        'Failed to remove user from organization. Please try again.';
+        error instanceof Error
+          ? error.message
+          : 'Failed to remove user from organization. Please try again.';
 
       notifications.show(errorMessage, {
         severity: 'error',

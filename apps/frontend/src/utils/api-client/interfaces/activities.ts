@@ -27,7 +27,7 @@ export interface ActivityItem {
   operation: ActivityOperation;
   timestamp: string; // ISO datetime string
   user: User | null;
-  entity_data: Record<string, any> | null; // Null for bulk operations
+  entity_data: Record<string, unknown> | null; // Null for bulk operations
 
   // Bulk operation fields
   is_bulk: boolean;
@@ -35,7 +35,7 @@ export interface ActivityItem {
   time_range?: TimeRange; // Time span of bulk operation
   summary?: string; // Human-readable summary (e.g., "50 Tests created by Harry Cruz")
   entity_ids?: UUID[]; // All entity IDs in bulk
-  sample_entities?: Record<string, any>[]; // First few entities as preview
+  sample_entities?: Record<string, unknown>[]; // First few entities as preview
 }
 
 /**

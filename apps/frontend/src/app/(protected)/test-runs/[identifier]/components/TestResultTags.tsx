@@ -26,7 +26,7 @@ export default function TestResultTags({
     // TestResult now has tags property via TagsMixin
     const tags = testResult.tags;
     if (tags && Array.isArray(tags)) {
-      setTagNames(tags.map((tag: any) => tag.name));
+      setTagNames(tags.map((tag: { name: string }) => tag.name));
     } else {
       setTagNames([]);
     }

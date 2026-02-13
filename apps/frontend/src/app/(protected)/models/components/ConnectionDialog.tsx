@@ -25,7 +25,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { DeleteIcon, AddIcon } from '@/components/icons';
 import { useSession } from 'next-auth/react';
-import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
+import { Model, ModelCreate, type TestModelConnectionRequest } from '@/utils/api-client/interfaces/model';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { UUID } from 'crypto';
@@ -228,7 +228,7 @@ export function ConnectionDialog({
     try {
       const apiFactory = new ApiClientFactory(session.session_token);
       const usersClient = apiFactory.getUsersClient();
-      const updates: any = {
+      const updates: { models: Record<string, { model_id: string | null }> } = {
         models: {},
       };
 
@@ -310,7 +310,7 @@ export function ConnectionDialog({
       const apiFactory = new ApiClientFactory(session.session_token);
       const modelsClient = apiFactory.getModelsClient();
 
-      const requestBody: any = {
+      const requestBody: TestModelConnectionRequest = {
         provider: currentProvider.type_value,
         model_name: modelName,
         api_key: hasApiKey ? apiKey : '',
