@@ -1,9 +1,250 @@
 ---
-description: TypeScript/ESLint rules for frontend development to avoid lint errors and warnings. Apply when working on apps/frontend/**/*.ts or apps/frontend/**/*.tsx files.
-alwaysApply: true
+description: TypeScript and ESLint rules that MUST be followed when creating, modifying, or reviewing any file under apps/frontend/, including .ts, .tsx, .js, and .jsx files. Also apply when discussing frontend linting, type safety, or ESLint configuration.
+alwaysApply: false
 ---
 
 # Frontend TypeScript Linting Rules
+
+## No Explicit `any`
+
+The codebase enforces `@typescript-eslint/no-explicit-any` as a warning. **Never use `any` in new code.** Use `unknown` and narrow, or use the correct library/domain type.
+
+### 1. Metadata and Generic Objects - Use `Record<string, unknown>`
+
+```typescript
+// BAD
+interface MyEntity {
+  metadata?: Record<string, any>;
+  attributes: Record<string, any>;
+}
+
+// GOOD
+interface MyEntity {
+  metadata?: Record<string, unknown>;
+  attributes: Record<string, unknown>;
+}
+```
+
+Special cases where narrower types are appropriate:
+
+```typescript
+// HTTP headers are always strings
+request_headers?: Record<string, string>;
+
+// OpenTelemetry attributes
+attributes: Record<string, string | number | boolean>;
+
+// Known key-value config
+auth?: Record<string, string | boolean | number>;
+```
+
+### 2. Catch Blocks - Use `unknown` with Type Narrowing
+
+```typescript
+// BAD
+try {
+  await api.fetch();
+} catch (error: any) {
+  setError(error.message);
+}
+
+// GOOD
+try {
+  await api.fetch();
+} catch (error: unknown) {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  setError(message);
+}
+```
+
+For accessing non-standard properties like `.status` or `.response`:
+
+```typescript
+} catch (error: unknown) {
+  const errObj = error as Error & { status?: number; response?: { data?: { detail?: string } } };
+  if (errObj.status === 404) {
+    // handle not found
+  }
+  const message = errObj instanceof Error ? errObj.message : String(error);
+}
+```
+
+### 3. MUI DataGrid Callbacks - Use Library Types
+
+```typescript
+import type { GridRenderCellParams, GridRowParams, GridCellParams, GridRowModel, GridColDef } from '@mui/x-data-grid';
+import type { SxProps, Theme } from '@mui/material';
+
+// BAD
+columns: any[];
+rows: any[];
+onRowClick?: (params: any) => void;
+getRowId?: (row: any) => string;
+sx?: any;
+
+// GOOD
+columns: GridColDef[];
+rows: GridRowModel[];
+onRowClick?: (params: GridRowParams) => void;
+getRowId?: (row: GridRowModel) => string;
+sx?: SxProps<Theme>;
+```
+
+### 4. Type Assertions - Avoid `as any`
+
+```typescript
+// BAD
+const result = response as any;
+(theme.palette as any)[color];
+
+// GOOD - use intermediate unknown when needed
+const result = response as unknown as MyResponseType;
+(theme.palette as unknown as Record<string, Record<string, string>>)[color];
+```
+
+When accessing window globals:
+
+```typescript
+// BAD
+(window as any).myGlobal = value;
+
+// GOOD
+(window as Window & { myGlobal?: string }).myGlobal = value;
+```
+
+### 5. Function Return Types - Use Typed Promises
+
+```typescript
+// BAD
+async function fetchData(): Promise<any> { ... }
+
+// GOOD
+async function fetchData(): Promise<Record<string, unknown>> { ... }
+
+// BETTER - define a response interface
+interface FetchResponse {
+  data: MyEntity[];
+  total: number;
+}
+async function fetchData(): Promise<FetchResponse> { ... }
+```
+
+### 6. Recharts and Chart Formatters
+
+```typescript
+// BAD
+tickFormatter?: (value: any) => string;
+tooltipFormatter?: (value: any, name: any) => string;
+
+// GOOD
+tickFormatter?: (value: string | number) => string;
+tooltipFormatter?: (value: string | number, name: string) => string;
+```
+
+### 7. Test Files - Disable Per-File
+
+Using `any` in test files for mocks and partial objects is acceptable. Add a file-level disable:
+
+```typescript
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { render } from '@testing-library/react';
+// ... test code using any for mocks
+```
+
+## Handling `unknown` in JSX
+
+When using `Record<string, unknown>` types, `unknown` values can leak into JSX children through `&&` short-circuit operators, causing `TS2769: Type 'unknown' is not assignable to type 'ReactNode'`.
+
+### 1. Extract and Narrow Before JSX
+
+```typescript
+// BAD - unknown leaks into JSX via &&
+{test.metadata?.sources && Array.isArray(test.metadata.sources) && (
+  <Grid>{/* TS error: unknown is not ReactNode */}</Grid>
+)}
+
+// GOOD - extract and narrow before JSX
+const sources: Array<Record<string, string>> = Array.isArray(test.metadata?.sources)
+  ? test.metadata.sources
+  : [];
+
+// Then in JSX:
+{sources.length > 0 && (
+  <Grid>{/* works fine */}</Grid>
+)}
+```
+
+### 2. Guard Against Empty Objects `{}`
+
+API responses typed as `Record<string, unknown>` may return `{}` where you expect a string or array. Always guard:
+
+```typescript
+// BAD - created_at might be {} not string
+<span>{new Date(item.created_at).toLocaleDateString()}</span>
+
+// GOOD
+{typeof item.created_at === 'string' && (
+  <span>{new Date(item.created_at).toLocaleDateString()}</span>
+)}
+```
+
+### 3. Explicitly Type Boolean Conditions
+
+```typescript
+// BAD - isMultiTurn could be unknown, leaks into JSX children
+{test.metadata?.is_multi_turn && <MultiTurnView />}
+
+// GOOD - explicitly typed boolean
+const isMultiTurn: boolean = Boolean(test.metadata?.is_multi_turn);
+{isMultiTurn && <MultiTurnView />}
+```
+
+## Non-Null Assertions
+
+The codebase enforces `@typescript-eslint/no-non-null-assertion` as a warning. Do not use the `!` postfix operator.
+
+```typescript
+// BAD
+const name = user!.name;
+const provider = providers.find(p => p.id === id)!;
+
+// GOOD - use optional chaining or explicit checks
+const name = user?.name;
+const provider = providers.find(p => p.id === id);
+if (provider) {
+  // use provider safely
+}
+```
+
+## React Hooks Exhaustive Dependencies
+
+The codebase enforces `react-hooks/exhaustive-deps` as a warning. All reactive values used inside `useEffect`, `useCallback`, and `useMemo` must be listed in the dependency array.
+
+### 1. Add Missing Dependencies When Safe
+
+```typescript
+// BAD
+useEffect(() => {
+  fetchData(userId);
+}, []); // missing userId
+
+// GOOD
+useEffect(() => {
+  fetchData(userId);
+}, [userId]);
+```
+
+### 2. Disable with Justification When Dependencies Cause Loops
+
+When adding a dependency would cause an infinite re-render loop (e.g., a function that is recreated each render, or a state setter that triggers the effect), use an inline disable with a clear reason:
+
+```typescript
+useEffect(() => {
+  loadInitialData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount
+}, []);
+```
 
 ## Avoiding Unused Variable Warnings
 
@@ -211,23 +452,30 @@ if (logLevel === 'error') {
 
 ## Verification Commands
 
-Before committing frontend changes, run:
+Before committing frontend changes, always run all three checks:
 
 ```bash
 # Format code with Prettier
 npm run format
 
-# TypeScript type checking
+# TypeScript type checking (catches type errors that ESLint misses)
 npx tsc --noEmit
 
-# ESLint
+# ESLint (catches style and quality warnings)
 npm run lint
 ```
 
+Both `tsc` and `lint` must pass with zero errors and zero warnings before committing.
+
 ## Best Practices
 
-1. **Prefer removal over underscore prefix** - If a variable is truly not needed, remove it entirely
-2. **Consider if the variable should be used** - Before prefixing, check if it should actually be used (e.g., error logging)
-3. **Use unique IDs for dynamic lists** - Add `id` field to data structures used in `.map()` with add/remove functionality
-4. **Run formatter before committing** - Always run `npm run format` to avoid formatting errors in pre-commit hooks
-5. **Combine imports** - Keep all imports from the same module in a single import statement
+1. **Never use `any` in new code** - Use `unknown` and narrow with `instanceof`, `typeof`, or `Array.isArray()`. If stuck, use `as unknown as TargetType` as a last resort.
+2. **Use proper library types** - Import and use MUI types (`GridRowParams`, `SxProps<Theme>`) and Recharts types instead of `any` for callbacks and props.
+3. **Prefer removal over underscore prefix** - If a variable is truly not needed, remove it entirely.
+4. **Consider if the variable should be used** - Before prefixing with `_`, check if it should actually be used (e.g., error logging).
+5. **Use unique IDs for dynamic lists** - Add `id` field to data structures used in `.map()` with add/remove functionality.
+6. **Run all three checks before committing** - `npm run format`, `npx tsc --noEmit`, and `npm run lint` must all pass cleanly.
+7. **Combine imports** - Keep all imports from the same module in a single import statement.
+8. **Extract unknown values before JSX** - Never let `Record<string, unknown>` values flow into JSX conditionals. Extract, narrow, and type them first.
+9. **Guard API values before use** - Values from API responses typed as `Record<string, unknown>` may be `{}`. Use `typeof` checks before passing to `new Date()`, `String.prototype` methods, or JSX children.
+10. **Test files may use `any`** - Add `/* eslint-disable @typescript-eslint/no-explicit-any */` at the top of test files where mocking requires `any`.
