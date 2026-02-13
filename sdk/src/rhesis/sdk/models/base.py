@@ -7,6 +7,9 @@ if TYPE_CHECKING:
 # Type alias for embeddings
 Embedding = List[float]
 
+# Type alias for embeddings
+Embedding = List[float]
+
 
 class BaseLLM(ABC):
     PROVIDER: str = ""  # Subclasses should override this
@@ -35,7 +38,7 @@ class BaseLLM(ABC):
 
     @abstractmethod
     def generate_batch(self, *args, **kwargs) -> List[Union[str, Dict[str, Any]]]:
-        """Run model on multiple prompts to output LLM responses.
+        """Runs the model on multiple prompts to output LLM responses.
 
         Returns:
             A list of strings or dicts (if schema provided).

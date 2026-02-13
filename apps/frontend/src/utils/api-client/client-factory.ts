@@ -1,3 +1,4 @@
+import { AdaptiveTestingClient } from './adaptive-testing-client';
 import { TestSetsClient } from './test-sets-client';
 import { TokensClient } from './tokens-client';
 import { ServicesClient } from './services-client';
@@ -29,6 +30,7 @@ import { ImportClient } from './import-client';
 
 export class ApiClientFactory {
   private sessionToken: string;
+  private adaptiveTestingClient: AdaptiveTestingClient | null = null;
   private metricsClient: MetricsClient | null = null;
   private modelsClient: ModelsClient | null = null;
   private tagsClient: TagsClient | null = null;
@@ -43,6 +45,13 @@ export class ApiClientFactory {
 
   constructor(sessionToken: string) {
     this.sessionToken = sessionToken;
+  }
+
+  getAdaptiveTestingClient(): AdaptiveTestingClient {
+    if (!this.adaptiveTestingClient) {
+      this.adaptiveTestingClient = new AdaptiveTestingClient(this.sessionToken);
+    }
+    return this.adaptiveTestingClient;
   }
 
   getTestSetsClient(): TestSetsClient {

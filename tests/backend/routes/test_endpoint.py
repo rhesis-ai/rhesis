@@ -10,7 +10,7 @@ Run with: python -m pytest tests/backend/routes/test_endpoint.py -v
 
 import uuid
 from typing import Any, Dict
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from faker import Faker
@@ -140,20 +140,34 @@ class TestEndpointInvocation(EndpointTestMixin, BaseEntityTests):
 
     def test_invoke_endpoint_success(self, authenticated_client: TestClient, working_endpoint):
         """Test successful endpoint invocation with proper mocking"""
-        # Mock the requests library that the REST invoker actually uses
-        with patch("requests.post") as mock_requests_post:
-            # Configure the mock HTTP response
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {
-                "data": {"response": "Successfully processed the input", "confidence": 0.95},
-                "metadata": {"timestamp": fake.iso8601(), "model_version": "v1.0"},
-            }
-            mock_response.raise_for_status.return_value = None
-            mock_requests_post.return_value = mock_response
+        # REST invoker uses httpx.AsyncClient, not requests
+        mock_httpx_response = Mock()
+        mock_httpx_response.status_code = 200
+        mock_httpx_response.json.return_value = {
+            "data": {"response": "Successfully processed the input", "confidence": 0.95},
+            "metadata": {"timestamp": fake.iso8601(), "model_version": "v1.0"},
+        }
+        mock_httpx_response.raise_for_status = Mock()
+        mock_httpx_response.text = "{}"
+        mock_httpx_response.headers = {}
+        mock_httpx_response.reason_phrase = "OK"
 
+        mock_client = Mock()
+        mock_client.post = AsyncMock(return_value=mock_httpx_response)
+
+        mock_async_client = Mock()
+        mock_async_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_async_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch(
+            "rhesis.backend.app.services.invokers.rest_invoker.httpx.AsyncClient",
+            return_value=mock_async_client,
+        ):
             # Prepare input data
-            input_data = {"input": "Test query for the endpoint", "session_id": str(uuid.uuid4())}
+            input_data = {
+                "input": "Test query for the endpoint",
+                "session_id": str(uuid.uuid4()),
+            }
 
             # Invoke the endpoint
             response = authenticated_client.post(
@@ -164,12 +178,11 @@ class TestEndpointInvocation(EndpointTestMixin, BaseEntityTests):
             data = response.json()
 
             # Verify the response contains the expected data
-            # The exact structure depends on how the endpoint service processes the response
             assert isinstance(data, dict)
 
             # Verify HTTP call was made to the external endpoint
-            mock_requests_post.assert_called_once()
-            call_args = mock_requests_post.call_args
+            mock_client.post.assert_called_once()
+            call_args = mock_client.post.call_args
             assert "https://api.example.com/v1/process" in str(call_args)
 
     def test_invoke_endpoint_missing_input_field(
@@ -208,10 +221,19 @@ class TestEndpointInvocation(EndpointTestMixin, BaseEntityTests):
         self, authenticated_client: TestClient, working_endpoint
     ):
         """Test endpoint invocation when external service throws exception"""
-        # Mock requests library to throw exception
-        with patch("requests.post") as mock_requests_post:
-            mock_requests_post.side_effect = Exception("External API connection failed")
+        # REST invoker uses httpx.AsyncClient
+        mock_client = Mock()
+        mock_client.post = AsyncMock(
+            side_effect=Exception("External API connection failed")
+        )
+        mock_async_client = Mock()
+        mock_async_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_async_client.__aexit__ = AsyncMock(return_value=None)
 
+        with patch(
+            "rhesis.backend.app.services.invokers.rest_invoker.httpx.AsyncClient",
+            return_value=mock_async_client,
+        ):
             input_data = {"input": "Test query"}
 
             response = authenticated_client.post(
@@ -503,15 +525,26 @@ class TestEndpointHealthChecks(EndpointTestMixin, BaseEntityTests):
         response = authenticated_client.get(self.endpoints.get(sample_endpoint["id"]))
         assert response.status_code == status.HTTP_200_OK
 
-        # Test invoke endpoint with valid data and proper mocking
-        with patch("requests.post") as mock_requests_post:
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"result": "health check passed"}
-            mock_response.raise_for_status.return_value = None
-            mock_requests_post.return_value = mock_response
+        # Test invoke endpoint with valid data and proper mocking (REST uses httpx)
+        mock_httpx_response = Mock()
+        mock_httpx_response.status_code = 200
+        mock_httpx_response.json.return_value = {"result": "health check passed"}
+        mock_httpx_response.raise_for_status = Mock()
+        mock_httpx_response.text = "{}"
+        mock_httpx_response.headers = {}
+        mock_httpx_response.reason_phrase = "OK"
+        mock_client = Mock()
+        mock_client.post = AsyncMock(return_value=mock_httpx_response)
+        mock_async_client = Mock()
+        mock_async_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_async_client.__aexit__ = AsyncMock(return_value=None)
 
+        with patch(
+            "rhesis.backend.app.services.invokers.rest_invoker.httpx.AsyncClient",
+            return_value=mock_async_client,
+        ):
             response = authenticated_client.post(
-                self.endpoints.invoke(sample_endpoint["id"]), json={"input": "health check"}
+                self.endpoints.invoke(sample_endpoint["id"]),
+                json={"input": "health check"},
             )
             assert response.status_code == status.HTTP_200_OK

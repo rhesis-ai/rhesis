@@ -1,7 +1,7 @@
 import json
 from typing import Any, Dict, Optional, Union
 
-import requests
+import httpx
 from fastapi import HTTPException
 from jinja2 import Template
 from sqlalchemy.orm import Session
@@ -29,12 +29,6 @@ class RestEndpointInvoker(BaseEndpointInvoker):
 
     def __init__(self):
         super().__init__()
-        self.request_handlers = {
-            "POST": self._handle_post_request,
-            "GET": self._handle_get_request,
-            "PUT": self._handle_put_request,
-            "DELETE": self._handle_delete_request,
-        }
         self.template_renderer = TemplateRenderer()
         self.response_mapper = ResponseMapper()
 
@@ -61,10 +55,8 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 db, endpoint, input_data
             )
 
-            # Make request and handle response
-            response = self._make_request_without_raise(
-                self.request_handlers[method], url, headers, request_body
-            )
+            # Make async request and handle response
+            response = await self._async_request(method, url, headers, request_body)
 
             # Log response summary
             logger.debug(f"Response received: {response.status_code}")
@@ -74,10 +66,16 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 return self._handle_http_error(response, method, url, headers, request_body)
 
             return self._handle_successful_response(
-                response, endpoint, method, url, headers, request_body, conversation_id
+                response,
+                endpoint,
+                method,
+                url,
+                headers,
+                request_body,
+                conversation_id,
             )
 
-        except requests.exceptions.RequestException as e:
+        except httpx.HTTPError as e:
             return self._create_error_response(
                 error_type="network_error",
                 output_message=f"Network/connection error: {str(e)}",
@@ -89,12 +87,12 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             logger.error(f"JSON parsing error: {str(e)}")
             return self._create_error_response(
                 error_type="json_parsing_error",
-                output_message=f"Failed to parse JSON response: {str(e)}",
+                output_message=(f"Failed to parse JSON response: {str(e)}"),
                 message=f"Failed to parse JSON response: {str(e)}",
                 request_details=self._safe_request_details(locals(), "REST"),
             )
         except HTTPException:
-            # Re-raise HTTPExceptions (configuration errors that should still fail)
+            # Re-raise HTTPExceptions (configuration errors)
             raise
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}", exc_info=True)
@@ -113,8 +111,12 @@ class RestEndpointInvoker(BaseEndpointInvoker):
 
         # Get method and validate
         method = (endpoint.method or "POST").upper()
-        if method not in self.request_handlers:
-            raise HTTPException(status_code=400, detail=f"Unsupported HTTP method: {method}")
+        supported_methods = {"GET", "POST", "PUT", "DELETE"}
+        if method not in supported_methods:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported HTTP method: {method}",
+            )
 
         # Prepare template context with conversation tracking
         template_context, conversation_field = self._prepare_conversation_context(
@@ -164,12 +166,18 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         }
 
     def _handle_http_error(
-        self, response: requests.Response, method: str, url: str, headers: Dict, request_body: Any
+        self,
+        response: httpx.Response,
+        method: str,
+        url: str,
+        headers: Dict,
+        request_body: Any,
     ) -> Dict:
         """Handle HTTP error responses."""
-        logger.error(f"HTTP {response.status_code} error from {url}: {response.reason}")
+        reason = response.reason_phrase
+        logger.error(f"HTTP {response.status_code} error from {url}: {reason}")
 
-        error_output = f"HTTP {response.status_code} error from endpoint: {response.reason}"
+        error_output = f"HTTP {response.status_code} error from endpoint: {reason}"
         if response.text:
             error_output += f". Response content: {response.text}"
 
@@ -179,14 +187,14 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             message=f"HTTP {response.status_code} error from endpoint",
             request_details=self._create_request_details(method, url, headers, request_body),
             status_code=response.status_code,
-            reason=response.reason,
+            reason=reason,
             response_headers=dict(response.headers),
             response_content=response.text,
         )
 
     def _handle_successful_response(
         self,
-        response: requests.Response,
+        response: httpx.Response,
         endpoint: Endpoint,
         method: str,
         url: str,
@@ -222,7 +230,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                     logger.debug(f"Preserved unmapped field '{field}': {response_data[field]}")
 
             return mapped_response
-        except (json.JSONDecodeError, requests.exceptions.JSONDecodeError) as json_error:
+        except json.JSONDecodeError as json_error:
             logger.error(f"JSON parsing error from {url}: {str(json_error)}")
 
             # Create error response
@@ -288,43 +296,27 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         return headers
 
     @retry(
-        retry=retry_if_exception_type(requests.exceptions.RequestException),
+        retry=retry_if_exception_type(httpx.HTTPError),
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         reraise=True,
     )
-    def _make_request(
-        self, handler, url: str, headers: Dict[str, str], body: Any
-    ) -> requests.Response:
-        """Make HTTP request with retry logic for transient failures."""
-        response = handler(url, headers, body)
-        response.raise_for_status()
-        return response
-
-    def _make_request_without_raise(
-        self, handler, url: str, headers: Dict[str, str], body: Any
-    ) -> requests.Response:
-        """Make HTTP request without raising for HTTP errors."""
-        response = handler(url, headers, body)
-        # Don't raise for status - let the caller handle HTTP errors gracefully
-        return response
-
-    def _handle_post_request(
-        self, url: str, headers: Dict[str, str], body: Any
-    ) -> requests.Response:
-        return requests.post(url, headers=headers, json=body)
-
-    def _handle_get_request(
-        self, url: str, headers: Dict[str, str], body: Any
-    ) -> requests.Response:
-        return requests.get(url, headers=headers, params=body)
-
-    def _handle_put_request(
-        self, url: str, headers: Dict[str, str], body: Any
-    ) -> requests.Response:
-        return requests.put(url, headers=headers, json=body)
-
-    def _handle_delete_request(
-        self, url: str, headers: Dict[str, str], body: Any
-    ) -> requests.Response:
-        return requests.delete(url, headers=headers, json=body)
+    async def _async_request(
+        self,
+        method: str,
+        url: str,
+        headers: Dict[str, str],
+        body: Any,
+    ) -> httpx.Response:
+        """Make an async HTTP request. Retried on transient failures."""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            if method == "GET":
+                return await client.get(url, headers=headers, params=body)
+            elif method == "POST":
+                return await client.post(url, headers=headers, json=body)
+            elif method == "PUT":
+                return await client.put(url, headers=headers, json=body)
+            elif method == "DELETE":
+                return await client.delete(url, headers=headers, json=body)
+            else:
+                raise ValueError(f"Unsupported HTTP method: {method}")

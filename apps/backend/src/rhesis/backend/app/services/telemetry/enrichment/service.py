@@ -4,6 +4,7 @@ Handles the coordination between async and sync enrichment strategies.
 """
 
 import logging
+import time
 from typing import TYPE_CHECKING, List, Set
 
 from sqlalchemy.orm import Session
@@ -15,6 +16,12 @@ if TYPE_CHECKING:
     from rhesis.sdk.telemetry.schemas import OTELSpanCreate
 
 logger = logging.getLogger(__name__)
+
+# Module-level cache for worker availability to avoid repeated ~3s Celery pings.
+# Each inspect.ping() call takes ~3s even when workers are available. Caching the
+# result avoids paying that cost on every single endpoint invocation.
+_worker_cache: dict = {"available": None, "checked_at": 0.0}
+_WORKER_CACHE_TTL = 300.0  # seconds
 
 
 class EnrichmentService:
@@ -28,9 +35,19 @@ class EnrichmentService:
         """
         Check if Celery workers are available to process telemetry tasks.
 
+        Uses a module-level cache (TTL=60s) to avoid the ~3s Celery
+        inspect.ping() cost on every endpoint invocation.
+
         Returns:
             True if workers are available, False otherwise
         """
+        now = time.monotonic()
+        age = now - _worker_cache["checked_at"]
+
+        # Return cached result if still fresh
+        if _worker_cache["available"] is not None and age < _WORKER_CACHE_TTL:
+            return _worker_cache["available"]
+
         try:
             from rhesis.backend.worker import app as celery_app
 
@@ -43,16 +60,22 @@ class EnrichmentService:
             ping_result = inspect.ping()
 
             if not ping_result:
+                _worker_cache["available"] = False
+                _worker_cache["checked_at"] = time.monotonic()
                 return False
 
             # If we can ping workers, they're available
             logger.debug(
                 f"Found {len(ping_result)} available worker(s): {list(ping_result.keys())}"
             )
+            _worker_cache["available"] = True
+            _worker_cache["checked_at"] = time.monotonic()
             return True
 
         except Exception as e:
             logger.debug(f"Worker availability check failed: {e}")
+            _worker_cache["available"] = False
+            _worker_cache["checked_at"] = time.monotonic()
             return False
 
     def enqueue_enrichment(

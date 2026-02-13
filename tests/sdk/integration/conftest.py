@@ -28,6 +28,17 @@ PROVIDER_TYPE_LOOKUPS = [
     {"type_name": "ProviderType", "type_value": "gemini", "description": "Google Gemini provider"},
 ]
 
+# Dimensions - mirrors seed data from ./rh start
+DIMENSIONS = [
+    {"name": "Ethnicity", "description": "Ethnic background dimension"},
+    {"name": "Gender", "description": "Gender identity dimension"},
+]
+
+# Demographics - mirrors seed data from ./rh start
+DEMOGRAPHICS = [
+    {"name": "Caucasian", "dimension": "Ethnicity"},
+]
+
 
 @pytest.fixture(scope="session", autouse=True)
 def set_env():
@@ -119,6 +130,85 @@ def populate_type_lookups(organization_id: str, user_id: str) -> None:
             conn.rollback()
             conn.close()
         print(f"⚠️  Warning: Could not populate type_lookups: {e}")
+
+
+def populate_dimensions_and_demographics(organization_id: str, user_id: str) -> None:
+    """Populate the dimension and demographic tables with seed data."""
+    print(f"{BLUE}📋 Populating dimensions and demographics...{NC}")
+
+    conn = None
+    try:
+        conn = psycopg2.connect(
+            host="localhost",
+            database="rhesis-db",
+            user="rhesis-user",
+            password="your-secured-password",
+            port=DATABASE_PORT,
+        )
+        conn.autocommit = False
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Insert dimensions first
+        dimension_ids = {}
+        for dim in DIMENSIONS:
+            cur.execute(
+                """
+                INSERT INTO dimension (name, description, organization_id, user_id)
+                VALUES (%(name)s, %(description)s, %(organization_id)s, %(user_id)s)
+                ON CONFLICT DO NOTHING
+                RETURNING id, name;
+                """,
+                {
+                    "name": dim["name"],
+                    "description": dim["description"],
+                    "organization_id": organization_id,
+                    "user_id": user_id,
+                },
+            )
+            result = cur.fetchone()
+            if result:
+                dimension_ids[result["name"]] = result["id"]
+
+        # If dimensions already existed, fetch their IDs
+        if len(dimension_ids) < len(DIMENSIONS):
+            cur.execute(
+                "SELECT id, name FROM dimension WHERE organization_id = %s",
+                (organization_id,),
+            )
+            for row in cur.fetchall():
+                dimension_ids[row["name"]] = row["id"]
+
+        # Insert demographics with dimension references
+        for demo in DEMOGRAPHICS:
+            dimension_id = dimension_ids.get(demo["dimension"])
+            if dimension_id:
+                cur.execute(
+                    """
+                    INSERT INTO demographic (name, dimension_id, organization_id, user_id)
+                    VALUES (%(name)s, %(dimension_id)s, %(organization_id)s, %(user_id)s)
+                    ON CONFLICT DO NOTHING;
+                    """,
+                    {
+                        "name": demo["name"],
+                        "dimension_id": dimension_id,
+                        "organization_id": organization_id,
+                        "user_id": user_id,
+                    },
+                )
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        print(
+            f"{GREEN}✅ Populated {len(DIMENSIONS)} dimensions "
+            f"and {len(DEMOGRAPHICS)} demographics{NC}"
+        )
+
+    except psycopg2.Error as e:
+        if conn is not None:
+            conn.rollback()
+            conn.close()
+        print(f"⚠️  Warning: Could not populate dimensions/demographics: {e}")
 
 
 def setup_test_data() -> None:
@@ -225,6 +315,9 @@ def setup_test_data() -> None:
 
         # Populate type_lookups with provider types
         populate_type_lookups(organization_id, user_id)
+
+        # Populate dimensions and demographics (required for bulk test set creation)
+        populate_dimensions_and_demographics(organization_id, user_id)
 
         print(f"{GREEN}✅ Test data setup completed{NC}")
 

@@ -30,6 +30,7 @@ class TestSetProperties(BaseModel):
 
 class TestSet(BaseEntity):
     endpoint: ClassVar[Endpoints] = ENDPOINT
+    _push_required_fields: ClassVar[tuple[str, ...]] = ("name", "tests")
 
     id: Optional[str] = None
     tests: Optional[list[Test]] = None
@@ -37,11 +38,11 @@ class TestSet(BaseEntity):
     topics: Optional[list[str]] = None
     behaviors: Optional[list[str]] = None
     test_count: Optional[int] = None
-    name: str
-    description: str
-    short_description: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+    short_description: Optional[str] = None
     test_set_type: Optional[TestType] = None
-    metadata: dict = {}
+    metadata: Optional[dict] = None
 
     @field_validator("test_set_type", mode="before")
     @classmethod
@@ -63,6 +64,65 @@ class TestSet(BaseEntity):
         if isinstance(v, dict):
             return v.get("type_value")
         return v
+
+    @handle_http_errors
+    def fetch_tests(self, skip: int = 0, limit: int = 100) -> List[Test]:
+        """Fetch tests associated with this test set from the API.
+
+        Args:
+            skip: Number of tests to skip (for pagination). Defaults to 0.
+            limit: Maximum number of tests to fetch. Defaults to 100.
+
+        Returns:
+            List of Test objects associated with this test set.
+
+        Raises:
+            ValueError: If test set ID is not set.
+
+        Example:
+            >>> test_set = TestSet(id='test-set-123')
+            >>> tests = test_set.fetch_tests()
+            >>> print(f"Fetched {len(tests)} tests")
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before fetching tests")
+
+        client = APIClient()
+        response = client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/tests",
+            params={"skip": skip, "limit": limit},
+        )
+
+        if response:
+            self.tests = [Test.model_validate(t) for t in response]
+            self.test_count = len(self.tests)
+            return self.tests
+        return []
+
+    def pull(self, include_tests: bool = True) -> "TestSet":
+        """Pull the test set from the database and update this instance.
+
+        Args:
+            include_tests: If True (default), also fetches associated tests.
+
+        Returns:
+            TestSet: Returns self for method chaining.
+
+        Example:
+            >>> test_set = TestSet(id='test-set-123')
+            >>> test_set.pull()  # Fetches test set metadata and tests
+            >>> print(f"Test set has {len(test_set.tests)} tests")
+        """
+        # Call parent pull() to get test set metadata
+        super().pull()
+
+        # Fetch tests if requested
+        if include_tests:
+            self.fetch_tests()
+
+        return self
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -491,31 +551,6 @@ class TestSet(BaseEntity):
         else:
             raise ValueError("LLM response was not in the expected format")
 
-    @classmethod
-    def _create(cls, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a test set using the bulk endpoint.
-
-        Args:
-            data: Dictionary containing test set data including tests
-
-        Returns:
-            Dict containing the created test set data from the API
-
-        Raises:
-            ValueError: If tests are not provided
-        """
-        if not data.get("tests"):
-            raise ValueError("Test set must have at least one test before creating")
-
-        client = APIClient()
-        response = client.send_request(
-            endpoint=cls.endpoint,
-            method=Methods.POST,
-            url_params="bulk",
-            data=data,
-        )
-        return response
-
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the test set to the database.
 
@@ -523,6 +558,9 @@ class TestSet(BaseEntity):
 
         Returns:
             Dict containing the response from the API, or None if error occurred.
+
+        Raises:
+            ValueError: If required fields are missing or tests lack category/behavior.
 
         Example:
             >>> test_set = TestSet(
@@ -534,11 +572,37 @@ class TestSet(BaseEntity):
             >>> result = test_set.push()
             >>> print(f"Created test set with ID: {test_set.id}")
         """
+        # Validate required fields
+        missing_fields = [
+            field for field in self._push_required_fields if getattr(self, field, None) is None
+        ]
+        if missing_fields:
+            raise ValueError(f"Required fields for push: {', '.join(missing_fields)}")
+
+        # Validate that each test has required fields set (from Test._push_required_fields)
+        if self.tests:
+            for i, test in enumerate(self.tests):
+                missing_test_fields = [
+                    field for field in Test._push_required_fields if not getattr(test, field, None)
+                ]
+                if missing_test_fields:
+                    raise ValueError(
+                        f"Test at index {i} is missing required fields: "
+                        f"{', '.join(missing_test_fields)}"
+                    )
+
         # mode="json": Ensures enums are serialized as strings instead of enum objects
         # exclude_none=True: Excludes None values so backend uses defaults
         data = self.model_dump(mode="json", exclude_none=True)
 
-        response = self._create(data)
+        client = APIClient()
+        response = client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            url_params="bulk",
+            data=data,
+        )
+
         if response and "id" in response:
             self.id = response["id"]
 
