@@ -30,6 +30,19 @@ export default function DashboardPage() {
     []
   );
 
+  const handleKpisLoad = React.useCallback(
+    () => handleComponentLoad('kpis'),
+    [handleComponentLoad]
+  );
+  const handleTestRunsLoad = React.useCallback(
+    () => handleComponentLoad('testRuns'),
+    [handleComponentLoad]
+  );
+  const handleActivitiesLoad = React.useCallback(
+    () => handleComponentLoad('activities'),
+    [handleComponentLoad]
+  );
+
   // Trigger immediate sync to database when dashboard loads
   React.useEffect(() => {
     if (session?.session_token) {
@@ -56,7 +69,7 @@ export default function DashboardPage() {
         {/* Hero KPI Section */}
         <DashboardKPIs
           sessionToken={session?.session_token || ''}
-          onLoadComplete={() => handleComponentLoad('kpis')}
+          onLoadComplete={handleKpisLoad}
         />
 
         {/* Main Content Grid - 2 Column Layout */}
@@ -65,7 +78,7 @@ export default function DashboardPage() {
           <Grid size={{ xs: 12, md: 6 }}>
             <TestRunPerformance
               sessionToken={session?.session_token || ''}
-              onLoadComplete={() => handleComponentLoad('testRuns')}
+              onLoadComplete={handleTestRunsLoad}
               limit={7}
             />
           </Grid>
@@ -74,7 +87,7 @@ export default function DashboardPage() {
           <Grid size={{ xs: 12, md: 6 }}>
             <ActivityTimeline
               sessionToken={session?.session_token || ''}
-              onLoadComplete={() => handleComponentLoad('activities')}
+              onLoadComplete={handleActivitiesLoad}
             />
           </Grid>
         </Grid>
