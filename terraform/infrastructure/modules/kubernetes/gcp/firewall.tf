@@ -69,3 +69,25 @@ resource "google_compute_firewall" "gke_internal" {
 
   source_ranges = [var.node_cidr, var.pod_cidr, var.service_cidr]
 }
+
+# WireGuard to nodes and ILB (for debugging, node SSH, etc.)
+resource "google_compute_firewall" "gke_wireguard_to_nodes" {
+  name     = "gke-wireguard-to-nodes-${var.environment}"
+  network  = var.vpc_name
+  project  = var.project_id
+  priority = 100
+
+  allow {
+    protocol = "tcp"
+  }
+
+  allow {
+    protocol = "udp"
+  }
+
+  allow {
+    protocol = "icmp"
+  }
+
+  source_ranges = [var.wireguard_cidr]
+}

@@ -20,6 +20,8 @@ resource "google_container_cluster" "cluster" {
       cidr_block   = var.wireguard_cidr
       display_name = "wireguard-vpn"
     }
+    # Allow peered VPCs to access the private endpoint
+    gcp_public_cidrs_access_enabled = false
   }
 
   workload_identity_config {

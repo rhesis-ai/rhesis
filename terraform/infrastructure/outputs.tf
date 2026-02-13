@@ -44,3 +44,14 @@ output "gke_prd_cluster_endpoint" {
   value     = module.gke_prd.cluster_endpoint
   sensitive = true
 }
+
+output "wireguard_server_ip" {
+  description = "WireGuard server public IP"
+  value       = module.wireguard_server.server_external_ip
+}
+
+output "wireguard_peer_configs" {
+  description = "WireGuard client configurations (sensitive)"
+  value       = module.wireguard_server.peer_configs
+  sensitive   = true
+}
