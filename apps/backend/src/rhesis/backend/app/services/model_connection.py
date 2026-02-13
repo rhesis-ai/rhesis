@@ -1,8 +1,8 @@
 """
 Service for testing model connections.
 
-This module provides functionality to test connections to various LLM and embedding
-model providers before saving them to the database.
+This module provides functionality to test connections to various language models
+and embedding model providers before saving them to the database.
 """
 
 from typing import Literal
@@ -29,7 +29,7 @@ class ModelConnectionService:
         model_name: str,
         api_key: str,
         endpoint: str | None = None,
-        model_type: Literal["llm", "embedding"] = "llm",
+        model_type: Literal["language_model", "embedding"] = "language_model",
     ) -> ModelConnectionTestResult:
         """
         Test a model connection by attempting to initialize and use the model.
@@ -38,14 +38,14 @@ class ModelConnectionService:
         1. The provider is supported by the SDK
         2. The API key is valid
         3. The model can be initialized successfully
-        4. A test call works (generation for LLMs, embedding for embedding models)
+        4. A test call works (generation for language models, embedding for embedding models)
 
         Args:
             provider: The provider name (e.g., "openai", "gemini", "ollama")
             model_name: The specific model name
             api_key: The API key for authentication
             endpoint: Optional endpoint URL for self-hosted providers
-            model_type: Type of model - "llm" or "embedding"
+            model_type: Type of model - "language_model" or "embedding"
 
         Returns:
             ModelConnectionTestResult: Result of the connection test
@@ -73,8 +73,8 @@ class ModelConnectionService:
                     model_name=model_name,
                 )
 
-            if model_type == "llm":
-                return ModelConnectionService._test_llm_connection(
+            if model_type == "language_model":
+                return ModelConnectionService._test_language_model_connection(
                     provider, model_name, api_key, endpoint
                 )
             elif model_type == "embedding":
@@ -84,7 +84,9 @@ class ModelConnectionService:
             else:
                 return ModelConnectionTestResult(
                     success=False,
-                    message=f"Invalid model type: {model_type}. Must be 'llm' or 'embedding'",
+                    message=(
+                        f"Invalid model type: {model_type}. Must be 'language_model' or 'embedding'"
+                    ),
                     provider=provider,
                     model_name=model_name,
                 )
@@ -99,7 +101,7 @@ class ModelConnectionService:
             )
 
     @staticmethod
-    def _test_llm_connection(
+    def _test_language_model_connection(
         provider: str, model_name: str, api_key: str, endpoint: str | None = None
     ) -> ModelConnectionTestResult:
         """Test a language model connection."""
