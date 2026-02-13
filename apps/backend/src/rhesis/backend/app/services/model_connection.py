@@ -179,23 +179,17 @@ class ModelConnectionService:
 
     @staticmethod
     def _test_embedding_connection(
-        provider: str, model_name: str, api_key: str, endpoint: str | None = None
+        provider: str, model_name: str, api_key: str | None = None
     ) -> ModelConnectionTestResult:
         """Test an embedding model connection."""
         try:
             from rhesis.sdk.models.factory import EmbeddingModelConfig, get_embedding_model
-
-            # Build extra params for providers that need them
-            extra_params = {}
-            if endpoint:
-                extra_params["base_url"] = endpoint
 
             # Create embedder config
             config = EmbeddingModelConfig(
                 provider=provider,
                 model_name=model_name,
                 api_key=api_key,
-                extra_params=extra_params,
             )
 
             # Try to create the embedder instance
