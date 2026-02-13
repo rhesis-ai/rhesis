@@ -129,7 +129,7 @@ async function createSessionClearingResponse(
   return response;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // At the top of the middleware function, after pathname declaration
