@@ -1,0 +1,32 @@
+# Example Terraform variables configuration
+# Copy this file to terraform.tfvars and customize the values
+
+project_id = "example-project-id"
+region     = "gcp-region"
+
+# WireGuard VPN peers configuration
+# Each peer gets a unique IP within the WireGuard network (10.0.0.0/24)
+# and access to specific environment subnets
+wireguard_peers = [
+  {
+    identifier = "admin-alice"
+    ip         = "10.0.0.2"
+    subnets    = ["dev", "stg", "prd"] # Full access
+  },
+  {
+    identifier = "dev-bob"
+    ip         = "10.0.0.3"
+    subnets    = ["dev", "stg"] # Dev and staging only
+  },
+  {
+    identifier = "dev-charlie"
+    ip         = "10.0.0.4"
+    subnets    = ["dev"] # Dev only
+  }
+]
+
+# SSH public keys for WireGuard server access
+# Format: "username:ssh-rsa AAAA... user@host"
+ssh_keys = [
+  "admin:ssh-rsa AAAAB3Nza... admin@example.com"
+]
