@@ -41,7 +41,10 @@ export default function ProtectedLayout({
   const renderPageItem = React.useCallback(
     (item: NavigationPageItem, _options: { mini: boolean }) => {
       // Check if this is an external link (has metadata from NavigationProvider)
-      const extItem = item as NavigationPageItem & { __isExternalLink?: boolean; __href?: string };
+      const extItem = item as NavigationPageItem & {
+        __isExternalLink?: boolean;
+        __href?: string;
+      };
       if (extItem.__isExternalLink && extItem.__href) {
         return <DashboardSidebarPageItem item={item} href={extItem.__href} />;
       }
@@ -76,7 +79,8 @@ export default function ProtectedLayout({
               margin: 0,
               '& .MuiTypography-root': {
                 fontSize: (theme: Theme) =>
-                  (theme.typography as Record<string, { fontSize?: string }>)?.body2?.fontSize || '0.875rem',
+                  (theme.typography as Record<string, { fontSize?: string }>)
+                    ?.body2?.fontSize || '0.875rem',
                 lineHeight: '1.2',
               },
             },

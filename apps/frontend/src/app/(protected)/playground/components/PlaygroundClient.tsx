@@ -242,7 +242,9 @@ export default function PlaygroundClient() {
     loadEndpoints();
   }, [loadEndpoints]);
 
-  const handleEndpointChange = (event: React.ChangeEvent<HTMLInputElement> | { target: { value: string } }) => {
+  const handleEndpointChange = (
+    event: React.ChangeEvent<HTMLInputElement> | { target: { value: string } }
+  ) => {
     const value = event.target.value;
     setSelectedEndpointId(value === '' ? null : value);
 

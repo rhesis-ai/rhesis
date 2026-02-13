@@ -234,7 +234,9 @@ export default function MetricsDirectoryTab({
             if (typeof behaviors[0] === 'string') {
               return (behaviors as string[]).includes(behaviorId);
             } else {
-              return behaviors.some((b: { id?: string }) => b.id === behaviorId);
+              return behaviors.some(
+                (b: { id?: string }) => b.id === behaviorId
+              );
             }
           }));
 
@@ -343,7 +345,10 @@ export default function MetricsDirectoryTab({
             behavior.id === behaviorId
               ? {
                   ...behavior,
-                  metrics: [...(behavior.metrics || []), targetMetric as MetricDetail],
+                  metrics: [
+                    ...(behavior.metrics || []),
+                    targetMetric as MetricDetail,
+                  ],
                 }
               : behavior
           )

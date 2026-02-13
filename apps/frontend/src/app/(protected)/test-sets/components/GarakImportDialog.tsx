@@ -87,7 +87,9 @@ export default function GarakImportDialog({
       setModules(response.modules);
       setGarakVersion(response.garak_version);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load Garak modules');
+      setError(
+        err instanceof Error ? err.message : 'Failed to load Garak modules'
+      );
     } finally {
       setLoadingModules(false);
     }
@@ -222,7 +224,9 @@ export default function GarakImportDialog({
         });
         setPreview(previewData);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to get import preview');
+        setError(
+          err instanceof Error ? err.message : 'Failed to get import preview'
+        );
         setPreparingImport(false);
         return;
       } finally {
@@ -317,7 +321,9 @@ export default function GarakImportDialog({
       onSuccess?.(response.test_sets.map(ts => ts.test_set_id));
       handleClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to import Garak probes');
+      setError(
+        err instanceof Error ? err.message : 'Failed to import Garak probes'
+      );
       setImportProgress(null);
     } finally {
       setImporting(false);

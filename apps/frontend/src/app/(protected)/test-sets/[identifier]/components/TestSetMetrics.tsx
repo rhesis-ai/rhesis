@@ -109,10 +109,13 @@ export default function TestSetMetrics({
         autoHideDuration: 4000,
       });
     } catch (err: unknown) {
-      notifications.show(err instanceof Error ? err.message : 'Failed to add metric to test set', {
-        severity: 'error',
-        autoHideDuration: 4000,
-      });
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to add metric to test set',
+        {
+          severity: 'error',
+          autoHideDuration: 4000,
+        }
+      );
     }
   };
 
@@ -133,7 +136,9 @@ export default function TestSetMetrics({
       });
     } catch (err: unknown) {
       notifications.show(
-        err instanceof Error ? err.message : 'Failed to remove metric from test set',
+        err instanceof Error
+          ? err.message
+          : 'Failed to remove metric from test set',
         {
           severity: 'error',
           autoHideDuration: 4000,

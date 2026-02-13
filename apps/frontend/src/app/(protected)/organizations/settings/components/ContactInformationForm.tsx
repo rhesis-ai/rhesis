@@ -117,7 +117,11 @@ export default function ContactInformationForm({
       resetChanges();
       onUpdate();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update contact information');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to update contact information'
+      );
     } finally {
       setSaving(false);
     }

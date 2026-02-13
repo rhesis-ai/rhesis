@@ -135,7 +135,11 @@ export default function OrganizationDetailsForm({
       router.refresh();
       onUpdate();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update organization details');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to update organization details'
+      );
     } finally {
       setSaving(false);
     }

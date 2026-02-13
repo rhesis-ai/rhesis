@@ -54,7 +54,10 @@ export default function TraceFilters({
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
 
-  const handleFilterChange = (key: keyof TraceQueryParams, value: TraceQueryParams[keyof TraceQueryParams]) => {
+  const handleFilterChange = (
+    key: keyof TraceQueryParams,
+    value: TraceQueryParams[keyof TraceQueryParams]
+  ) => {
     const newFilters = { ...filters, [key]: value, offset: 0 };
 
     // If project changes, clear endpoint_id if the selected endpoint doesn't belong to the new project
@@ -245,7 +248,11 @@ export default function TraceFilters({
 
   // Get active filter labels for chips
   const getActiveFilterChips = () => {
-    const chips: Array<{ key: string; label: string; value: string | undefined }> = [];
+    const chips: Array<{
+      key: string;
+      label: string;
+      value: string | undefined;
+    }> = [];
 
     // Project filter
     if (filters.project_id) {

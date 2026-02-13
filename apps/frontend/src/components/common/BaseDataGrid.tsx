@@ -398,13 +398,15 @@ export default function BaseDataGrid({
         const currentValue = filterValues[filter.name];
         if (currentValue === 'all') return true;
 
-        const rowValue = filter.filterField.split('.').reduce(
-          (obj: unknown, key: string) =>
-            obj && typeof obj === 'object' && key in obj
-              ? (obj as Record<string, unknown>)[key]
-              : undefined,
-          row
-        );
+        const rowValue = filter.filterField
+          .split('.')
+          .reduce(
+            (obj: unknown, key: string) =>
+              obj && typeof obj === 'object' && key in obj
+                ? (obj as Record<string, unknown>)[key]
+                : undefined,
+            row
+          );
 
         return rowValue === currentValue;
       });

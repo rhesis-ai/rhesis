@@ -366,11 +366,11 @@ export default function SpanSequenceView({
                         const parts = colorPath.split('.');
                         if (parts.length === 2) {
                           const [category, shade] = parts;
-                      return `${(theme.palette as unknown as Record<string, Record<string, string>>)[category]?.[shade] || colorPath} !important`;
-                      }
-                      return `${colorPath} !important`;
-                    },
-                    mb: 0.5,
+                          return `${(theme.palette as unknown as Record<string, Record<string, string>>)[category]?.[shade] || colorPath} !important`;
+                        }
+                        return `${colorPath} !important`;
+                      },
+                      mb: 0.5,
                     }}
                   />
                 )}
@@ -428,7 +428,14 @@ export default function SpanSequenceView({
             const parts = colorPath.split('.');
             if (parts.length === 2) {
               const [category, shade] = parts;
-              return (theme.palette as unknown as Record<string, Record<string, string>>)[category]?.[shade] || colorPath;
+              return (
+                (
+                  theme.palette as unknown as Record<
+                    string,
+                    Record<string, string>
+                  >
+                )[category]?.[shade] || colorPath
+              );
             }
             return colorPath;
           };

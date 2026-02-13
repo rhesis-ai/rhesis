@@ -13,7 +13,9 @@ import {
 import BaseFreesoloAutocomplete, {
   AutocompleteOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
-import BaseDrawer, { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
+import BaseDrawer, {
+  filterUniqueValidOptions,
+} from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ConversationTestExtractionResponse,

@@ -51,7 +51,10 @@ export class TestRunsClient extends BaseApiClient {
 
     return this.fetchPaginated<TestRunDetail>(
       API_ENDPOINTS.testRuns,
-      fetchParams as PaginationParams & { $filter?: string } & Record<string, unknown>,
+      fetchParams as PaginationParams & { $filter?: string } & Record<
+          string,
+          unknown
+        >,
       { cache: 'no-store' }
     );
   }

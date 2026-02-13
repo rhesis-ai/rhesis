@@ -197,7 +197,10 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
           // Add completion tracking to steps marked with __markComplete
           const stepWithCompletion = {
             ...step,
-            onHighlighted: (element: Element | undefined, stepObj: DriveStep) => {
+            onHighlighted: (
+              element: Element | undefined,
+              stepObj: DriveStep
+            ) => {
               // Mark step complete if it has __markComplete property
               const stepWithMark = stepObj as DriveStep & {
                 __markComplete?: keyof Omit<

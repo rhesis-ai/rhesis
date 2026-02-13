@@ -11,7 +11,10 @@ export class RecycleClient extends BaseApiClient {
    * @param itemId - The UUID of the item to restore
    * @returns Promise with the restored item
    */
-  async restoreItem(tableName: string, itemId: string): Promise<Record<string, unknown>> {
+  async restoreItem(
+    tableName: string,
+    itemId: string
+  ): Promise<Record<string, unknown>> {
     return this.fetch(`/recycle/${tableName}/${itemId}/restore`, {
       method: 'POST',
     });

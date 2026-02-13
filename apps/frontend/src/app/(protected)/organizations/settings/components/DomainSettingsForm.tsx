@@ -63,7 +63,9 @@ export default function DomainSettingsForm({
       });
       onUpdate();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update domain settings');
+      setError(
+        err instanceof Error ? err.message : 'Failed to update domain settings'
+      );
     } finally {
       setSaving(false);
     }

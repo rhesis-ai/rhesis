@@ -230,9 +230,7 @@ export function isDeletedEntityError(error: unknown): boolean {
  * @param error - The error object from the API
  * @returns Deleted entity data or null if not applicable
  */
-export function getDeletedEntityData(
-  error: unknown
-): DeletedEntityData | null {
+export function getDeletedEntityData(error: unknown): DeletedEntityData | null {
   if (!isDeletedEntityError(error)) {
     return null;
   }
@@ -328,9 +326,7 @@ export function getErrorMessage(error: unknown): string {
   const e = error as ErrorLike | null | undefined;
   // Check if it's a deleted entity (410)
   if (isDeletedEntityError(error)) {
-    return (
-      e?.data?.message || e?.data?.detail || 'This item has been deleted.'
-    );
+    return e?.data?.message || e?.data?.detail || 'This item has been deleted.';
   }
 
   // Check if it's a not found error (404)

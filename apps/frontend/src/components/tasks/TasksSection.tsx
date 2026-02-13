@@ -117,7 +117,14 @@ export function TasksSection({
     return () => {
       abortController.abort();
     };
-  }, [currentPage, currentPageSize, entityType, entityId, sessionToken, notifications]);
+  }, [
+    currentPage,
+    currentPageSize,
+    entityType,
+    entityId,
+    sessionToken,
+    notifications,
+  ]);
 
   const _handleDeleteTask = async (taskId: string) => {
     if (onDeleteTask) {

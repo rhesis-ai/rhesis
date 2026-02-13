@@ -23,7 +23,11 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useSession } from 'next-auth/react';
-import { Model, ModelCreate, type TestModelConnectionRequest } from '@/utils/api-client/interfaces/model';
+import {
+  Model,
+  ModelCreate,
+  type TestModelConnectionRequest,
+} from '@/utils/api-client/interfaces/model';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { UUID } from 'crypto';

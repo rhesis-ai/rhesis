@@ -28,7 +28,11 @@ import {
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { TestResultDetail, MetricResult, CriterionEvaluation } from '@/utils/api-client/interfaces/test-results';
+import {
+  TestResultDetail,
+  MetricResult,
+  CriterionEvaluation,
+} from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
 import {
   MetricsSource,
@@ -237,7 +241,11 @@ export default function TestDetailMetricsTab({
         (lowerName.includes('achievement') || lowerName.includes('evaluation'))
       );
     });
-    const goalMetric = goalMetricEntry?.[1] as MetricResult & { criteria_met?: number; criteria_total?: number; confidence?: number };
+    const goalMetric = goalMetricEntry?.[1] as MetricResult & {
+      criteria_met?: number;
+      criteria_total?: number;
+      confidence?: number;
+    };
 
     if (!goalMetric) return null;
 

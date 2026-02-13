@@ -78,7 +78,8 @@ export default function TraceDrawer({
         setSelectedSpan(data.root_spans[0]);
       }
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to fetch trace details';
+      const errorMsg =
+        err instanceof Error ? err.message : 'Failed to fetch trace details';
       setError(errorMsg);
       console.error('Failed to fetch trace:', err);
     } finally {

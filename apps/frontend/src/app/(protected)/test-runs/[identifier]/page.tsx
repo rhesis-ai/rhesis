@@ -104,22 +104,41 @@ export default async function TestRunPage({
       }
       return acc;
     },
-    {} as Record<string, { id: string; content: string; expected_response?: string; nano_id?: string; counts?: unknown }>
+    {} as Record<
+      string,
+      {
+        id: string;
+        content: string;
+        expected_response?: string;
+        nano_id?: string;
+        counts?: unknown;
+      }
+    >
   );
 
   // Fetch behaviors with metrics for this test run
-  let behaviors: Array<{ id: string; name: string; description?: string; metrics: Array<{ name: string; description?: string }> }> = [];
+  let behaviors: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    metrics: Array<{ name: string; description?: string }>;
+  }> = [];
   try {
     const behaviorsData = await testRunsClient.getTestRunBehaviors(identifier);
     const behaviorsWithMetrics = await Promise.all(
       behaviorsData.map(async behavior => {
         try {
-          const behaviorMetrics = await behaviorClient.getBehaviorMetrics(behavior.id as UUID);
+          const behaviorMetrics = await behaviorClient.getBehaviorMetrics(
+            behavior.id as UUID
+          );
           return {
             id: behavior.id as string,
             name: behavior.name,
             description: behavior.description ?? undefined,
-            metrics: behaviorMetrics.map(m => ({ name: m.name, description: m.description ?? undefined })),
+            metrics: behaviorMetrics.map(m => ({
+              name: m.name,
+              description: m.description ?? undefined,
+            })),
           };
         } catch (_error) {
           return {
@@ -157,7 +176,11 @@ export default async function TestRunPage({
             id: testRun.id,
             name: testRun.name,
             created_at:
-              (typeof testRun.attributes?.started_at === 'string' ? testRun.attributes.started_at : null) || testRun.created_at || '',
+              (typeof testRun.attributes?.started_at === 'string'
+                ? testRun.attributes.started_at
+                : null) ||
+              testRun.created_at ||
+              '',
             test_configuration_id: testRun.test_configuration_id,
           }}
           testRun={testRun}
@@ -168,7 +191,9 @@ export default async function TestRunPage({
           currentUserId={session.user?.id || ''}
           currentUserName={session.user?.name || ''}
           currentUserPicture={session.user?.picture || undefined}
-          initialSelectedTestId={typeof selectedResult === 'string' ? selectedResult : undefined}
+          initialSelectedTestId={
+            typeof selectedResult === 'string' ? selectedResult : undefined
+          }
         />
       </Box>
     </PageContainer>

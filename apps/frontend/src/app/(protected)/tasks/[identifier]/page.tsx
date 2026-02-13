@@ -447,8 +447,7 @@ export default function TaskDetailPage({ params }: PageProps) {
   };
 
   const handleChange =
-    (field: keyof Task) =>
-    (event: { target: { value: string } }) => {
+    (field: keyof Task) => (event: { target: { value: string } }) => {
       if (!editedTask) return;
 
       const value = event.target.value;

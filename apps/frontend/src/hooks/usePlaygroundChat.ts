@@ -123,7 +123,6 @@ export function usePlaygroundChat(
           allPayloadKeys: payload ? Object.keys(payload) : [],
         });
 
-
         // Only process if this is the response we're waiting for
         if (correlationId && correlationId === pendingCorrelationRef.current) {
           pendingCorrelationRef.current = null;

@@ -215,7 +215,8 @@ export default function CreateTestRun({
             // We need to get the test run from the test configuration
             const resultRecord = result as unknown as Record<string, unknown>;
             if (resultRecord.test_configuration_id) {
-              const testConfigurationId = resultRecord.test_configuration_id as string;
+              const testConfigurationId =
+                resultRecord.test_configuration_id as string;
 
               const testRun = await pollForTestRun(
                 testRunsClient,

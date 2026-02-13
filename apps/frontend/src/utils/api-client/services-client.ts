@@ -144,15 +144,18 @@ export class ServicesClient extends BaseApiClient {
   }
 
   async getOpenAIJson(prompt: string): Promise<Record<string, unknown>> {
-    return this.fetch<Record<string, unknown>>(`${API_ENDPOINTS.services}/openai/json`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: typeof prompt === 'string' ? prompt : JSON.stringify(prompt),
-      }),
-    });
+    return this.fetch<Record<string, unknown>>(
+      `${API_ENDPOINTS.services}/openai/json`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: typeof prompt === 'string' ? prompt : JSON.stringify(prompt),
+        }),
+      }
+    );
   }
 
   async getOpenAIChat(messages: Array<{ role: string; content: string }>) {

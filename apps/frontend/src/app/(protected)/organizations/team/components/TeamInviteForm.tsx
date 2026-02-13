@@ -198,7 +198,11 @@ export default function TeamInviteForm({
             } else {
               errorMessage = error.message;
             }
-          } else if (typeof error === 'object' && error !== null && 'detail' in error) {
+          } else if (
+            typeof error === 'object' &&
+            error !== null &&
+            'detail' in error
+          ) {
             errorMessage = String((error as { detail: unknown }).detail);
           } else if (typeof error === 'string') {
             errorMessage = error;

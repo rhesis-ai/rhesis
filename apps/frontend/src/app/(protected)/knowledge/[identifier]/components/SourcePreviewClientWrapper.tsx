@@ -239,7 +239,11 @@ export default function SourcePreviewClientWrapper({
       });
     } catch (error: unknown) {
       // Handle errors (404 for deleted tool, or other failures)
-      const errObj = error as { status?: number; data?: { detail?: string }; message?: string };
+      const errObj = error as {
+        status?: number;
+        data?: { detail?: string };
+        message?: string;
+      };
       const is404Error = errObj?.status === 404;
       const backendMessage = errObj?.data?.detail || '';
       const isDeletedToolError =

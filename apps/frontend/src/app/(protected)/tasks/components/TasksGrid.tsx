@@ -233,7 +233,9 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         headerName: 'Status',
         width: 120,
         renderCell: params => {
-          const getStatusColor = (status?: string): 'warning' | 'primary' | 'success' | 'error' | 'default' => {
+          const getStatusColor = (
+            status?: string
+          ): 'warning' | 'primary' | 'success' | 'error' | 'default' => {
             switch (status) {
               case 'Open':
                 return 'warning';

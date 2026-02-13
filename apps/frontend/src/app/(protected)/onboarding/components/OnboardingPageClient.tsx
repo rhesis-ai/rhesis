@@ -134,7 +134,8 @@ export default function OnboardingPageClient({
         // Use NextAuth to set the httpOnly session cookie server-side.
         const signInResult = await signIn('credentials', {
           session_token: response.session_token,
-          refresh_token: (response as { refresh_token?: string }).refresh_token || '',
+          refresh_token:
+            (response as { refresh_token?: string }).refresh_token || '',
           redirect: false,
         });
 
@@ -173,7 +174,11 @@ export default function OnboardingPageClient({
                 // Extract meaningful error messages
                 if (error instanceof Error) {
                   errorMessage = error.message;
-                } else if (typeof error === 'object' && error !== null && 'detail' in error) {
+                } else if (
+                  typeof error === 'object' &&
+                  error !== null &&
+                  'detail' in error
+                ) {
                   errorMessage = String((error as { detail: unknown }).detail);
                 } else if (typeof error === 'string') {
                   errorMessage = error;

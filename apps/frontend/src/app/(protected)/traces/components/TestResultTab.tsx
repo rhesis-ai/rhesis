@@ -59,7 +59,10 @@ export default function TestResultTab({
       );
       setTestResult(result);
     } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to fetch test result details';
+      const errorMsg =
+        err instanceof Error
+          ? err.message
+          : 'Failed to fetch test result details';
       setError(errorMsg);
       console.error('Failed to fetch test result:', err);
     } finally {

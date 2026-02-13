@@ -79,8 +79,9 @@ export function TasksWrapper({
         currentUserId={currentUserId}
         currentUserName={currentUserName}
         isLoading={false}
-        commentId={(window as Window & { pendingCommentId?: string })
-          .pendingCommentId}
+        commentId={
+          (window as Window & { pendingCommentId?: string }).pendingCommentId
+        }
       />
     </>
   );

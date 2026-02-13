@@ -36,7 +36,9 @@ export interface MultiTurnTestConfig {
  * Type guard to check if a test_configuration is a multi-turn config
  * Validates both presence and types of fields
  */
-export function isMultiTurnConfig(config: unknown): config is MultiTurnTestConfig {
+export function isMultiTurnConfig(
+  config: unknown
+): config is MultiTurnTestConfig {
   if (config === null || typeof config !== 'object' || !('goal' in config)) {
     return false;
   }

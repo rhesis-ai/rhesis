@@ -95,7 +95,9 @@ export function useTestRunData({
       const behaviorsWithMetrics = await Promise.all(
         behaviorsData.map(async behavior => {
           try {
-            const behaviorMetrics = await behaviorClient.getBehaviorMetrics(behavior.id as UUID);
+            const behaviorMetrics = await behaviorClient.getBehaviorMetrics(
+              behavior.id as UUID
+            );
             return {
               ...behavior,
               metrics: behaviorMetrics,

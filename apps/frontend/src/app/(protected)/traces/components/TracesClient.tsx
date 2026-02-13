@@ -55,7 +55,8 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
         setTraces(response.traces);
         setTotalCount(response.total);
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to fetch traces';
+        const errorMsg =
+          err instanceof Error ? err.message : 'Failed to fetch traces';
         setError(errorMsg);
         notifications.show(errorMsg, { severity: 'error' });
         setTraces([]);

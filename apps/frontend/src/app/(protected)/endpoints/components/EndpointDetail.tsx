@@ -794,50 +794,56 @@ export default function EndpointDetail({
                                 endpoint.endpoint_metadata.function_schema
                                   .parameters
                               ).map(([param, info]: [string, unknown]) => {
-                                const paramInfo = info as { type?: string; default?: unknown };
+                                const paramInfo = info as {
+                                  type?: string;
+                                  default?: unknown;
+                                };
                                 return (
-                                <Box
-                                  component="tr"
-                                  key={param}
-                                  sx={{ borderTop: 1, borderColor: 'divider' }}
-                                >
-                                  <Box component="td" sx={{ py: 1, pr: 2 }}>
-                                    <Typography
-                                      variant="body2"
-                                      sx={{
-                                        fontFamily: 'monospace',
-                                        fontWeight: 500,
-                                      }}
-                                    >
-                                      {param}
-                                    </Typography>
+                                  <Box
+                                    component="tr"
+                                    key={param}
+                                    sx={{
+                                      borderTop: 1,
+                                      borderColor: 'divider',
+                                    }}
+                                  >
+                                    <Box component="td" sx={{ py: 1, pr: 2 }}>
+                                      <Typography
+                                        variant="body2"
+                                        sx={{
+                                          fontFamily: 'monospace',
+                                          fontWeight: 500,
+                                        }}
+                                      >
+                                        {param}
+                                      </Typography>
+                                    </Box>
+                                    <Box component="td" sx={{ py: 1, pr: 2 }}>
+                                      <Typography
+                                        variant="caption"
+                                        sx={{ fontFamily: 'monospace' }}
+                                        color="text.secondary"
+                                      >
+                                        {paramInfo.type
+                                          ? paramInfo.type
+                                              .replace(/<class '(.+?)'>/g, '$1')
+                                              .replace(/typing\./g, '')
+                                              .replace(/builtins\./g, '')
+                                          : '—'}
+                                      </Typography>
+                                    </Box>
+                                    <Box component="td" sx={{ py: 1 }}>
+                                      <Typography
+                                        variant="caption"
+                                        sx={{ fontFamily: 'monospace' }}
+                                        color="text.secondary"
+                                      >
+                                        {paramInfo.default !== null
+                                          ? String(paramInfo.default)
+                                          : '—'}
+                                      </Typography>
+                                    </Box>
                                   </Box>
-                                  <Box component="td" sx={{ py: 1, pr: 2 }}>
-                                    <Typography
-                                      variant="caption"
-                                      sx={{ fontFamily: 'monospace' }}
-                                      color="text.secondary"
-                                    >
-                                      {paramInfo.type
-                                        ? paramInfo.type
-                                            .replace(/<class '(.+?)'>/g, '$1')
-                                            .replace(/typing\./g, '')
-                                            .replace(/builtins\./g, '')
-                                        : '—'}
-                                    </Typography>
-                                  </Box>
-                                  <Box component="td" sx={{ py: 1 }}>
-                                    <Typography
-                                      variant="caption"
-                                      sx={{ fontFamily: 'monospace' }}
-                                      color="text.secondary"
-                                    >
-                                      {paramInfo.default !== null
-                                        ? String(paramInfo.default)
-                                        : '—'}
-                                    </Typography>
-                                  </Box>
-                                </Box>
                                 );
                               })}
                             </Box>

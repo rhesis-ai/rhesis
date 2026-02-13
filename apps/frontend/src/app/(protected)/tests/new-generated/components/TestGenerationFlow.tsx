@@ -164,28 +164,26 @@ const generateSamplesForTestType = async (
     });
 
     if (response.tests?.length) {
-      return response.tests.map(
-        (test: unknown, index: number): TestSample => {
-          const t = test as GeneratedSingleTurnTest;
-          return {
-            id: `sample-${Date.now()}-${index}`,
-            testType: 'single_turn',
-            prompt: t.prompt.content,
-            response: t.prompt.expected_response,
-            behavior: t.behavior,
-            topic: t.topic,
-            rating: null,
-            feedback: '',
-            context: t.metadata?.sources
-              ?.map((source) => ({
-                name: source.name || source.source || source.title || '',
-                description: source.description || '',
-                content: source.content || '',
-              }))
-              .filter((src) => src.name && src.name.trim().length > 0),
-          };
-        }
-      );
+      return response.tests.map((test: unknown, index: number): TestSample => {
+        const t = test as GeneratedSingleTurnTest;
+        return {
+          id: `sample-${Date.now()}-${index}`,
+          testType: 'single_turn',
+          prompt: t.prompt.content,
+          response: t.prompt.expected_response,
+          behavior: t.behavior,
+          topic: t.topic,
+          rating: null,
+          feedback: '',
+          context: t.metadata?.sources
+            ?.map(source => ({
+              name: source.name || source.source || source.title || '',
+              description: source.description || '',
+              content: source.content || '',
+            }))
+            .filter(src => src.name && src.name.trim().length > 0),
+        };
+      });
     }
   }
 
@@ -613,12 +611,12 @@ export default function TestGenerationFlow({
               rating: null,
               feedback: '',
               context: t?.metadata?.sources
-                ?.map((source) => ({
+                ?.map(source => ({
                   name: source.name || source.source || source.title || '',
                   description: source.description || '',
                   content: source.content || '',
                 }))
-                .filter((src) => src.name && src.name.trim().length > 0),
+                .filter(src => src.name && src.name.trim().length > 0),
             };
 
             setTestSamples(prev =>

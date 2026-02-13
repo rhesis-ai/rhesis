@@ -12,7 +12,10 @@ import {
   useTheme,
   CircularProgress,
 } from '@mui/material';
-import { GridPaginationModel, type GridRenderCellParams } from '@mui/x-data-grid';
+import {
+  GridPaginationModel,
+  type GridRenderCellParams,
+} from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { Token } from '@/utils/api-client/interfaces/token';
 import RefreshIcon from '@mui/icons-material/Refresh';

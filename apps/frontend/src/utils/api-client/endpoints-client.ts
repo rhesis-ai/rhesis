@@ -61,12 +61,13 @@ export class EndpointsClient extends BaseApiClient {
     return this.fetch<Record<string, unknown>>(
       `${API_ENDPOINTS.endpoints}/${id}/invoke`,
       {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(inputData),
-    });
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(inputData),
+      }
+    );
   }
 
   async testEndpoint(
@@ -75,12 +76,13 @@ export class EndpointsClient extends BaseApiClient {
     return this.fetch<Record<string, unknown>>(
       `${API_ENDPOINTS.endpoints}/test`,
       {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(testConfig),
-    });
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testConfig),
+      }
+    );
   }
 
   async executeTestSet(
@@ -112,11 +114,12 @@ export class EndpointsClient extends BaseApiClient {
     return this.fetch<Record<string, unknown>>(
       `${API_ENDPOINTS.endpoints}/${id}/execute`,
       {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ test_set_ids }),
-    });
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ test_set_ids }),
+      }
+    );
   }
 }

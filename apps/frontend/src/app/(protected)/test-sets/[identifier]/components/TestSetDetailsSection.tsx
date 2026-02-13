@@ -119,7 +119,9 @@ export default function TestSetDetailsSection({
       const preview = await garakClient.previewSync(testSet.id);
       setSyncPreview(preview);
     } catch (error: unknown) {
-      setSyncError(error instanceof Error ? error.message : 'Failed to get sync preview');
+      setSyncError(
+        error instanceof Error ? error.message : 'Failed to get sync preview'
+      );
     }
   };
 
@@ -135,7 +137,9 @@ export default function TestSetDetailsSection({
       // Refresh the page to show updated data
       window.location.reload();
     } catch (error: unknown) {
-      setSyncError(error instanceof Error ? error.message : 'Failed to sync test set');
+      setSyncError(
+        error instanceof Error ? error.message : 'Failed to sync test set'
+      );
     } finally {
       setIsSyncing(false);
     }
@@ -640,45 +644,54 @@ export default function TestSetDetailsSection({
             Sources
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {sources.map((source: { document?: string; name?: string; description?: string }, index: number) => {
-              // Create stable key from source name/document
-              const sourceKey = `source-${source.name || source.document || index}`;
-              return (
-                <Box
-                  key={sourceKey}
-                  sx={{
-                    p: 2,
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: theme => theme.shape.borderRadius * 0.25,
-                    backgroundColor: 'background.paper',
-                  }}
-                >
-                  <Typography
-                    variant="subtitle1"
+            {sources.map(
+              (
+                source: {
+                  document?: string;
+                  name?: string;
+                  description?: string;
+                },
+                index: number
+              ) => {
+                // Create stable key from source name/document
+                const sourceKey = `source-${source.name || source.document || index}`;
+                return (
+                  <Box
+                    key={sourceKey}
                     sx={{
-                      fontWeight: 'bold',
-                      mb: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
+                      p: 2,
+                      border: 1,
+                      borderColor: 'divider',
+                      borderRadius: theme => theme.shape.borderRadius * 0.25,
+                      backgroundColor: 'background.paper',
                     }}
                   >
-                    <DocumentIcon sx={{ fontSize: 'inherit' }} />
-                    {source.name || source.document || 'Unknown Source'}
-                  </Typography>
-                  {source.document && source.document !== source.name && (
                     <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ display: 'block', mt: 0.5 }}
+                      variant="subtitle1"
+                      sx={{
+                        fontWeight: 'bold',
+                        mb: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                      }}
                     >
-                      File: {source.document}
+                      <DocumentIcon sx={{ fontSize: 'inherit' }} />
+                      {source.name || source.document || 'Unknown Source'}
                     </Typography>
-                  )}
-                </Box>
-              );
-            })}
+                    {source.document && source.document !== source.name && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: 'block', mt: 0.5 }}
+                      >
+                        File: {source.document}
+                      </Typography>
+                    )}
+                  </Box>
+                );
+              }
+            )}
           </Box>
         </Box>
       )}

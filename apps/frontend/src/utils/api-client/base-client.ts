@@ -402,7 +402,10 @@ export class BaseApiClient {
    */
   protected async fetchPaginated<T>(
     endpoint: keyof typeof API_ENDPOINTS | string,
-    params: PaginationParams & { $filter?: string } & Record<string, unknown> = {
+    params: PaginationParams & { $filter?: string } & Record<
+        string,
+        unknown
+      > = {
       skip: 0,
       limit: 10,
     },

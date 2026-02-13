@@ -14,9 +14,10 @@ jest.mock('next-auth/react', () => ({
     status: 'authenticated',
   }),
 }));
+const mockShow = jest.fn();
 jest.mock('../../components/common/NotificationContext', () => ({
   useNotifications: () => ({
-    show: jest.fn(),
+    show: mockShow,
   }),
 }));
 
