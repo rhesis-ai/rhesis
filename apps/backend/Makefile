@@ -1,10 +1,10 @@
-.PHONY: all format lint lint_diff format_diff type-check test docs
+.PHONY: all format lint lint_diff format_diff type-check test test-lf docs docker-up docker-down docker-clean
 
 all: format_diff lint_diff type-check test docs
 
 
 ALL_FILES := .
-DIFF_FILES := $(shell git diff --relative=apps/backend --name-only --diff-filter=d origin/main...HEAD | grep -E '\.py')
+DIFF_FILES := $(shell git diff --relative=apps/backend --name-only --diff-filter=d origin/main...HEAD 2>/dev/null | grep -E '\.py' || true)
 
 
 lint:
@@ -36,8 +36,20 @@ type-check:
 	PYTHONPATH=src mypy --install-types --non-interactive
 	PYTHONPATH=src mypy --package rhesis.backend
 
-test:
-	pytest
+# Tests (starts docker automatically)
+test: docker-up
+	uv run --extra cpu pytest ../../tests/backend --ignore=../../tests/backend/integration
 
-docs:
-	cd ../../docs/backend && make clean && make html
+# Re-run only failed tests (starts docker automatically)
+test-lf: docker-up
+	uv run --extra cpu pytest ../../tests/backend --lf --ignore=../../tests/backend/integration
+
+# Docker management for integration tests
+docker-up:
+	docker compose -f ../../tests/docker-compose.test.yml --profile backend up -d --wait
+
+docker-down:
+	docker compose -f ../../tests/docker-compose.test.yml --profile backend down
+
+docker-clean:
+	docker compose -f ../../tests/docker-compose.test.yml --profile backend down -v

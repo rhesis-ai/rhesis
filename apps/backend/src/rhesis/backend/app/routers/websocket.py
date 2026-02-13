@@ -83,19 +83,17 @@ async def authenticate_websocket_token(
     ws_payload = ws_token_service.validate_ws_token(token)
     if ws_payload:
         # WebSocket token is valid - look up user
-        from rhesis.backend.app.crud import get_db
+        from rhesis.backend.app.database import get_db
         from rhesis.backend.app.models.user import User as UserModel
 
         try:
-            db = next(get_db())
-            user = db.query(UserModel).filter(UserModel.id == ws_payload["sub"]).first()
-            if user:
-                logger.debug(f"WebSocket auth via WS token for user {user.id}")
-                return user
+            with get_db() as db:
+                user = db.query(UserModel).filter(UserModel.id == ws_payload["sub"]).first()
+                if user:
+                    logger.debug(f"WebSocket auth via WS token for user {user.id}")
+                    return user
         except Exception as e:
             logger.warning(f"WebSocket token user lookup failed: {e}")
-        finally:
-            db.close()
 
     # Fall back to regular JWT/API token authentication
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)

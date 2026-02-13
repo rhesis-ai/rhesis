@@ -851,3 +851,181 @@ def test_models_collection_pull_by_name(db_cleanup):
 
     assert pulled_model.name == unique_name
     assert pulled_model.model_name == "gpt-4"
+
+
+# ==============================================================================
+# TestSet Tests
+# ==============================================================================
+
+
+def test_test_set_push(db_cleanup):
+    """Test pushing a test set with tests."""
+    from rhesis.sdk.entities.prompt import Prompt
+    from rhesis.sdk.entities.test import Test
+    from rhesis.sdk.entities.test_set import TestSet
+    from rhesis.sdk.enums import TestType
+
+    test_set = TestSet(
+        name="Test Push Test Set",
+        description="Test set for push testing",
+        short_description="Push test",
+        tests=[
+            Test(
+                category="Safety",
+                topic="Harmful Content",
+                behavior="Should refuse harmful requests",
+                prompt=Prompt(content="Test prompt 1"),
+                test_type=TestType.SINGLE_TURN,
+            ),
+            Test(
+                category="Safety",
+                topic="Privacy",
+                behavior="Should protect user privacy",
+                prompt=Prompt(content="Test prompt 2"),
+                test_type=TestType.SINGLE_TURN,
+            ),
+        ],
+    )
+    result = test_set.push()
+
+    assert result is not None
+    assert "id" in result
+    assert test_set.id is not None
+
+
+def test_test_set_push_pull(db_cleanup):
+    """Test push/pull cycle for test set including tests."""
+    from rhesis.sdk.entities.prompt import Prompt
+    from rhesis.sdk.entities.test import Test
+    from rhesis.sdk.entities.test_set import TestSet
+    from rhesis.sdk.enums import TestType
+
+    test_set = TestSet(
+        name="Test Push Pull Test Set",
+        description="Test set for push/pull testing",
+        short_description="Push/pull test",
+        tests=[
+            Test(
+                category="Accuracy",
+                topic="Factual Correctness",
+                behavior="Should provide accurate information",
+                prompt=Prompt(content="What is 2+2?"),
+                test_type=TestType.SINGLE_TURN,
+            ),
+            Test(
+                category="Accuracy",
+                topic="Math",
+                behavior="Should calculate correctly",
+                prompt=Prompt(content="What is 10*10?"),
+                test_type=TestType.SINGLE_TURN,
+            ),
+            Test(
+                category="Safety",
+                topic="Harmful Content",
+                behavior="Should refuse harmful requests",
+                prompt=Prompt(content="Test prompt 3"),
+                test_type=TestType.SINGLE_TURN,
+            ),
+        ],
+    )
+    test_set.push()
+
+    # Create a new test set instance with just the ID
+    pulled_test_set = TestSet(id=test_set.id)
+    pulled_test_set.pull()
+
+    # Verify metadata was pulled
+    assert pulled_test_set.name == "Test Push Pull Test Set"
+    assert pulled_test_set.description == "Test set for push/pull testing"
+    assert pulled_test_set.short_description == "Push/pull test"
+
+    # Verify tests were pulled
+    assert pulled_test_set.tests is not None
+    assert len(pulled_test_set.tests) == 3
+    assert pulled_test_set.test_count == 3
+
+
+def test_test_set_pull_without_tests(db_cleanup):
+    """Test pulling a test set without fetching tests."""
+    from rhesis.sdk.entities.prompt import Prompt
+    from rhesis.sdk.entities.test import Test
+    from rhesis.sdk.entities.test_set import TestSet
+    from rhesis.sdk.enums import TestType
+
+    test_set = TestSet(
+        name="Test Pull Without Tests",
+        description="Test set for pull without tests testing",
+        short_description="No tests pull",
+        tests=[
+            Test(
+                category="Safety",
+                topic="Test Topic",
+                behavior="Test behavior",
+                prompt=Prompt(content="Test prompt"),
+                test_type=TestType.SINGLE_TURN,
+            ),
+        ],
+    )
+    test_set.push()
+
+    # Pull without tests
+    pulled_test_set = TestSet(id=test_set.id)
+    pulled_test_set.pull(include_tests=False)
+
+    # Verify metadata was pulled
+    assert pulled_test_set.name == "Test Pull Without Tests"
+
+    # Tests should not be fetched
+    assert pulled_test_set.tests is None
+
+
+def test_test_set_fetch_tests(db_cleanup):
+    """Test fetching tests separately from pull."""
+    from rhesis.sdk.entities.prompt import Prompt
+    from rhesis.sdk.entities.test import Test
+    from rhesis.sdk.entities.test_set import TestSet
+    from rhesis.sdk.enums import TestType
+
+    test_set = TestSet(
+        name="Test Fetch Tests",
+        description="Test set for fetch_tests testing",
+        short_description="Fetch tests",
+        tests=[
+            Test(
+                category="Robustness",
+                topic="Edge Cases",
+                behavior="Should handle edge cases",
+                prompt=Prompt(content="Edge case prompt 1"),
+                test_type=TestType.SINGLE_TURN,
+            ),
+            Test(
+                category="Robustness",
+                topic="Edge Cases",
+                behavior="Should handle empty input",
+                prompt=Prompt(content=""),
+                test_type=TestType.SINGLE_TURN,
+            ),
+        ],
+    )
+    test_set.push()
+
+    # Create new instance and fetch tests separately
+    new_test_set = TestSet(id=test_set.id)
+    tests = new_test_set.fetch_tests()
+
+    assert tests is not None
+    assert len(tests) == 2
+    assert new_test_set.tests == tests
+    assert new_test_set.test_count == 2
+
+
+def test_test_set_pull_no_id_raises_error(db_cleanup):
+    """Test that pulling without ID raises an error."""
+    from rhesis.sdk.entities.test_set import TestSet
+
+    test_set = TestSet(name="No ID Test Set")
+
+    with pytest.raises(ValueError) as exc_info:
+        test_set.pull()
+
+    assert "ID" in str(exc_info.value)

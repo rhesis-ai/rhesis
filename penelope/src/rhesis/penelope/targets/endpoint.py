@@ -20,7 +20,7 @@ class EndpointTarget(Target):
 
     This is a thin wrapper around rhesis.sdk.entities.Endpoint that adapts
     it to Penelope's Target interface. The Rhesis platform defines what can
-    be sent (input + optional session_id) and received (structured response).
+    be sent (input + optional conversation_id) and received (structured response).
 
     All endpoint configuration, authentication, request/response mapping,
     and protocol handling is managed by the Rhesis backend via the SDK.
@@ -142,7 +142,7 @@ class EndpointTarget(Target):
             # Use SDK to invoke the endpoint
             response_data = self.endpoint.invoke(
                 input=message,
-                session_id=conversation_id,
+                conversation_id=conversation_id,
             )
 
             if response_data is None:
@@ -153,7 +153,7 @@ class EndpointTarget(Target):
                 )
 
             # Extract response content from Rhesis standard response structure
-            # Standard fields: output, session_id, metadata, context
+            # Standard fields: output, conversation_id, metadata, context
             response_text = response_data.get("output", "")
 
             # Log the raw response structure for debugging
@@ -169,7 +169,7 @@ class EndpointTarget(Target):
             # Extract conversation_id using smart field detection
             from rhesis.penelope.conversation import extract_conversation_id
 
-            # Extract session_id from endpoint response (endpoint manages session lifecycle)
+            # Extract conversation_id from endpoint response
             response_conversation_id = extract_conversation_id(response_data)
             if not response_conversation_id:
                 # Fallback to input conversation_id for subsequent turns
@@ -243,11 +243,11 @@ Interface (defined by Rhesis platform):
 
 Input:
   - input: Text message (string)
-  - session_id: Optional, for multi-turn conversations
+  - conversation_id: Optional, for multi-turn conversations
 
 Output:
   - output: The response text from the endpoint
-  - session_id: Session identifier for conversation tracking
+  - conversation_id: Identifier for conversation tracking
   - metadata: Optional endpoint-specific metadata
   - context: Optional list of context items
 

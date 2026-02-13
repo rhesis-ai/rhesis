@@ -137,7 +137,7 @@ class ConversationalJudge(
             name: Unique name for this metric. Used if config is None.
             description: Description of what this metric measures. Used if config is None.
             metric_type: Type of metric (defaults to CONVERSATIONAL). Used if config is None.
-            model: LLM model for evaluation.
+            model: Language model for evaluation.
             **kwargs: Additional keyword arguments.
 
         Note:

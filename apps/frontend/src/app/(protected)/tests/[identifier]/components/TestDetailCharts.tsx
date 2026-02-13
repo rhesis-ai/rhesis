@@ -1,7 +1,5 @@
 'use client';
 
-/* eslint-disable react/no-array-index-key -- Chart data display */
-
 import React, { useEffect, useState } from 'react';
 import {
   Box,
@@ -357,9 +355,9 @@ function SinglePointChart({
             </Typography>
           </Box>
           {tooltipDetails &&
-            tooltipDetails.map((detail, index) => (
+            tooltipDetails.map(detail => (
               <Box
-                key={index}
+                key={detail.label}
                 sx={{ mb: '4px', fontSize: theme.typography.caption.fontSize }}
               >
                 <Typography

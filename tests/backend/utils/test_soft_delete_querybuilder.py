@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.database import without_soft_delete_filter
 from rhesis.backend.app.utils import crud_utils
-from rhesis.backend.app.utils.model_utils import QueryBuilder
+from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 # Use existing data factories
 from tests.backend.routes.fixtures.data_factories import (
@@ -192,11 +192,11 @@ class TestQueryBuilderSoftDelete:
 
         deleted_behaviors = []
         base_name = f"test_sorting_behavior_{int(time.time())}"
-        
+
         for i in range(3):
             behavior_data = BehaviorDataFactory.sample_data()
             behavior_data["name"] = f"{base_name}_{i}"
-            
+
             behavior = crud_utils.create_item(
                 test_db,
                 models.Behavior,

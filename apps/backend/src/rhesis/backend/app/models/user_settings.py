@@ -52,7 +52,7 @@ class UserSettingsManager:
         """Return default settings structure."""
         return {
             "version": 1,
-            "models": {"generation": {}, "evaluation": {}},
+            "models": {"generation": {}, "evaluation": {}, "embedding": {}},
         }
 
     @property
@@ -146,6 +146,11 @@ class ModelsSettingsAccessor:
     def evaluation(self) -> "ModelSettingsAccessor":
         """Access evaluation model settings."""
         return ModelSettingsAccessor(self._data.get("evaluation", {}))
+
+    @property
+    def embedding(self) -> "ModelSettingsAccessor":
+        """Access embedding model settings."""
+        return ModelSettingsAccessor(self._data.get("embedding", {}))
 
 
 class ModelSettingsAccessor:

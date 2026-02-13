@@ -210,9 +210,9 @@ class EmailProvider(AuthProvider):
         from rhesis.backend.app.schemas import UserCreate
         from rhesis.backend.app.utils.validation import validate_and_normalize_email
 
-        # Validate and normalize email
+        # Validate, normalize, and verify the email domain can receive mail
         try:
-            normalized_email = validate_and_normalize_email(email)
+            normalized_email = validate_and_normalize_email(email, check_deliverability=True)
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

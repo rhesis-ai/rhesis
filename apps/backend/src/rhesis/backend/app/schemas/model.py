@@ -5,7 +5,7 @@ Security: API keys are write-only. They can be set via POST/PUT but are never
 returned in responses to prevent exposure through logs, caches, or clients.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
@@ -23,6 +23,9 @@ class ModelBaseFields(Base):
     description: Optional[str] = None
     icon: Optional[str] = None
     model_name: str
+    model_type: Optional[Literal["llm", "embedding"]] = Field(
+        default="llm", description="Type of model: 'llm' or 'embedding'"
+    )
     endpoint: Optional[str] = Field(
         default=None, description="API endpoint URL (optional for cloud providers)"
     )
@@ -107,13 +110,24 @@ class Model(ModelBase):
 
 
 class TestModelConnectionRequest(BaseModel):
-    """Schema for testing a model connection before creating it"""
+    """Schema for testing a model connection before creating it.
+
+    When model_id is provided (edit mode), stored API key and endpoint are used
+    so the user can test without re-entering credentials.
+    """
 
     provider: str
     model_name: str
-    api_key: str
+    api_key: str = ""
+    model_id: Optional[UUID4] = Field(
+        default=None,
+        description="When set, use stored API key and endpoint from this model",
+    )
     endpoint: Optional[str] = Field(
         default=None, description="Optional endpoint URL for self-hosted providers"
+    )
+    model_type: Optional[Literal["llm", "embedding"]] = Field(
+        default="llm", description="Type of model: 'llm' or 'embedding'"
     )
 
     @field_validator("endpoint")

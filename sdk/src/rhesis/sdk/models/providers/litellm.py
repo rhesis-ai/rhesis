@@ -266,3 +266,15 @@ class LiteLLMEmbedder(BaseEmbedder):
             **kwargs,
         )
         return [item["embedding"] for item in response["data"]]
+
+    @classmethod
+    def get_available_models(cls) -> List[str]:
+        models_list = litellm.get_valid_models(
+            custom_llm_provider=cls.PROVIDER,
+            check_provider_endpoint=False,
+        )
+        models_list = [model.replace(cls.PROVIDER + "/", "") for model in models_list]
+        # Keep ONLY embedding models (opposite of LiteLLM filtering)
+        models_list = [model for model in models_list if "embedding" in model.lower()]
+
+        return models_list

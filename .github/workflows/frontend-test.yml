@@ -34,18 +34,25 @@ jobs:
           cd apps/frontend
           npm ci --legacy-peer-deps
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
           cd apps/frontend
-          npm test -- --passWithNoTests --ci --watchAll=false
+          npm run test:ci
 
-      # Coverage collection disabled due to test-exclude compatibility issues
-      # with inflight override in package.json
-      # - name: Upload coverage reports
-      #   uses: codecov/codecov-action@v3
-      #   with:
-      #     file: apps/frontend/coverage/lcov.info
-      #     directory: apps/frontend/
-      #     token: ${{secrets.CODECOV_TOKEN}}
-      #     flags: frontend
-      #     name: frontend-coverage
+      - name: Coverage summary
+        if: always()
+        run: |
+          cd apps/frontend
+          if [ -f coverage/coverage-summary.json ]; then
+            echo "### Frontend Test Coverage" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            node -e "
+              const s = require('./coverage/coverage-summary.json').total;
+              const fmt = (m) => m.pct + '%';
+              console.log('Lines:      ' + fmt(s.lines));
+              console.log('Branches:   ' + fmt(s.branches));
+              console.log('Functions:  ' + fmt(s.functions));
+              console.log('Statements: ' + fmt(s.statements));
+            "  >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

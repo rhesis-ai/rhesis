@@ -1,7 +1,5 @@
 'use client';
 
-/* eslint-disable react/no-array-index-key -- Trace attribute display */
-
 import { useState, useEffect } from 'react';
 import {
   Box,
@@ -526,60 +524,64 @@ export default function SpanDetailsPanel({
                         Input
                       </Typography>
                       <Stack spacing={1}>
-                        {parsedLlmInput.map((msg: { role?: string | number | boolean; content?: string | number | boolean }, idx: number) => (
-                          <Box
-                            key={idx}
-                            sx={{
-                              p: 1.5,
-                              backgroundColor: theme =>
-                                theme.palette.mode === 'dark'
-                                  ? theme.palette.grey[800]
-                                  : theme.palette.grey[100],
-                              borderRadius: theme =>
-                                `${theme.shape.borderRadius}px`,
-                              borderLeft: theme =>
-                                `3px solid ${
-                                  msg.role === 'system'
-                                    ? theme.palette.warning.main
-                                    : msg.role === 'user'
-                                      ? theme.palette.primary.main
-                                      : theme.palette.success.main
-                                }`,
-                            }}
-                          >
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                fontWeight: 'bold',
-                                textTransform: 'uppercase',
-                                color: theme =>
-                                  msg.role === 'system'
-                                    ? theme.palette.warning.main
-                                    : msg.role === 'user'
-                                      ? theme.palette.primary.main
-                                      : theme.palette.success.main,
-                              }}
-                            >
-                              {msg.role || 'unknown'}
-                            </Typography>
+                        {parsedLlmInput.map((msg: { role?: string | number | boolean; content?: string | number | boolean }, idx: number) => {
+                          // Create stable key from role and content
+                          const msgKey = `${msg.role}-${idx}-${(String(msg.content || '')).substring(0, 20)}`;
+                          return (
                             <Box
-                              component="pre"
+                              key={msgKey}
                               sx={{
-                                mt: 0.5,
-                                fontSize: theme =>
-                                  theme.typography.body2.fontSize,
-                                fontFamily: 'monospace',
-                                margin: 0,
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word',
+                                p: 1.5,
+                                backgroundColor: theme =>
+                                  theme.palette.mode === 'dark'
+                                    ? theme.palette.grey[800]
+                                    : theme.palette.grey[100],
+                                borderRadius: theme =>
+                                  `${theme.shape.borderRadius}px`,
+                                borderLeft: theme =>
+                                  `3px solid ${
+                                    msg.role === 'system'
+                                      ? theme.palette.warning.main
+                                      : msg.role === 'user'
+                                        ? theme.palette.primary.main
+                                        : theme.palette.success.main
+                                  }`,
                               }}
                             >
-                              {typeof msg.content === 'string'
-                                ? msg.content
-                                : JSON.stringify(msg.content, null, 2)}
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  fontWeight: 'bold',
+                                  textTransform: 'uppercase',
+                                  color: theme =>
+                                    msg.role === 'system'
+                                      ? theme.palette.warning.main
+                                      : msg.role === 'user'
+                                        ? theme.palette.primary.main
+                                        : theme.palette.success.main,
+                                }}
+                              >
+                                {msg.role || 'unknown'}
+                              </Typography>
+                              <Box
+                                component="pre"
+                                sx={{
+                                  mt: 0.5,
+                                  fontSize: theme =>
+                                    theme.typography.body2.fontSize,
+                                  fontFamily: 'monospace',
+                                  margin: 0,
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                }}
+                              >
+                                {typeof msg.content === 'string'
+                                  ? msg.content
+                                  : JSON.stringify(msg.content, null, 2)}
+                              </Box>
                             </Box>
-                          </Box>
-                        ))}
+                          );
+                        })}
                       </Stack>
                     </Box>
                   )}
@@ -918,31 +920,35 @@ export default function SpanDetailsPanel({
                 </AccordionSummary>
                 <AccordionDetails>
                   <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
-                    {span.events.map((event, idx) => (
-                      <Card
-                        key={idx}
-                        variant="outlined"
-                        sx={{
-                          mb: 1,
-                          backgroundColor: theme =>
-                            theme.palette.background.paper,
-                        }}
-                      >
-                        <CardContent>
-                          <Box
-                            component="pre"
-                            sx={{
-                              fontSize: theme =>
-                                theme.typography.caption.fontSize,
-                              overflow: 'auto',
-                              margin: 0,
-                            }}
-                          >
-                            {JSON.stringify(event, null, 2)}
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    ))}
+                    {span.events.map((event, idx) => {
+                      // Create stable key from event name and timestamp
+                      const eventKey = `${event.name}-${event.timestamp || idx}`;
+                      return (
+                        <Card
+                          key={eventKey}
+                          variant="outlined"
+                          sx={{
+                            mb: 1,
+                            backgroundColor: theme =>
+                              theme.palette.background.paper,
+                          }}
+                        >
+                          <CardContent>
+                            <Box
+                              component="pre"
+                              sx={{
+                                fontSize: theme =>
+                                  theme.typography.caption.fontSize,
+                                overflow: 'auto',
+                                margin: 0,
+                              }}
+                            >
+                              {JSON.stringify(event, null, 2)}
+                            </Box>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </Box>
                 </AccordionDetails>
               </Accordion>

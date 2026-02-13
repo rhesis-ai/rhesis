@@ -1,8 +1,8 @@
 """
-LLM Model Utilities
+User Model Utilities
 
-Helper functions for managing user-configured LLM models for different purposes
-(generation, evaluation, etc.)
+Helper functions for managing user-configured AI models (LLMs and embeddings)
+for different purposes (generation, evaluation, embedding, etc.)
 """
 
 import logging
@@ -11,10 +11,10 @@ from typing import Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.constants import DEFAULT_EMBEDDING_MODEL, DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.models.user import User
-from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.factory import get_model
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
+from rhesis.sdk.models.factory import get_embedder, get_model
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def get_user_generation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     Get the user's configured default generation model or fall back to DEFAULT_GENERATION_MODEL.
 
     This function is used for test generation workflows where the user can specify
-    their preferred LLM model via the Models page in the UI.
+    their preferred language model via the Models page in the UI.
 
     Args:
         db: Database session
@@ -44,8 +44,8 @@ def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
     Get the user's configured default evaluation model or fall back to DEFAULT_GENERATION_MODEL.
 
-    This function is used for LLM-as-a-judge scenarios where metrics are evaluated
-    using an LLM. The user can specify their preferred model via the Models page.
+    This function is used for language-model-as-a-judge scenarios where metrics are evaluated
+    using a language model. The user can specify their preferred model via the Models page.
 
     Args:
         db: Database session
@@ -59,6 +59,27 @@ def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
         >>> # Use model for metric evaluation
     """
     return _get_user_model(db, user, "evaluation", DEFAULT_GENERATION_MODEL)
+
+
+def get_user_embedding_model(db: Session, user: User) -> Union[str, BaseLLM]:
+    """
+    Get the user's configured default embedding model or fall back to DEFAULT_EMBEDDING_MODEL.
+
+    This function is used for generating embeddings for semantic search and similarity
+    matching. The user can specify their preferred embedding model via the Models page.
+
+    Args:
+        db: Database session
+        user: Current user (organization_id is extracted from user for security)
+
+    Returns:
+        Either a string (provider name) or a configured BaseEmbedder instance
+
+    Example:
+        >>> model = get_user_embedding_model(db, current_user)
+        >>> # Use model for embedding generation
+    """
+    return _get_user_embedding_model_with_settings(db, user)
 
 
 def validate_user_evaluation_model(db: Session, user: User) -> None:
@@ -267,7 +288,7 @@ def _get_user_model(
     Args:
         db: Database session
         user: Current user
-        model_type: Type of model ("generation" or "evaluation")
+        model_type: Type of model ("generation", "evaluation", or "embedding")
         default_model: Default model to use if user hasn't configured one
 
     Returns:
@@ -300,4 +321,129 @@ def _get_user_model(
         model_id=str(model_id),
         organization_id=str(user.organization_id),
         default_model=default_model,
+    )
+
+
+def _fetch_and_configure_embedder(
+    db: Session, model_id: str, organization_id: str, default_model: str
+) -> Union[str, BaseEmbedder]:
+    """
+    Fetch a model from the database and configure it as an embedder.
+
+    Args:
+        db: Database session
+        model_id: UUID of the configured Model
+        organization_id: Organization ID (for security filtering)
+        default_model: Default embedder provider to fall back to
+
+    Returns:
+        Either a string (provider name) or a configured BaseEmbedder instance,
+        or default_model if the configured model cannot be loaded
+    """
+    # SECURITY: Always use organization_id for filtering
+    model = crud.get_model(db=db, model_id=model_id, organization_id=organization_id)
+
+    if not model or not model.provider_type:
+        logger.warning(f"[LLM_UTILS] Model with id={model_id} not found or has no provider_type")
+        return default_model
+
+    # Get provider configuration
+    provider = model.provider_type.type_value
+    model_name = model.model_name
+    api_key = model.key
+    api_key_preview = f"{model.key[:8]}..." if model.key else "None"
+
+    logger.info(
+        f"[LLM_UTILS] Found configured embedder: name={model.name}, provider={provider}, "
+        f"model_name={model_name}, api_key={api_key_preview}"
+    )
+
+    # Special handling for Rhesis system models
+    if _is_rhesis_system_model(provider, api_key):
+        logger.info(
+            "[LLM_UTILS] Rhesis system model detected - "
+            "using backend's default embedder infrastructure"
+        )
+        logger.info(f"[LLM_UTILS] ✓ Falling back to default embedder: {default_model}")
+        return default_model
+
+    # Use SDK's get_embedder to create configured instance with error handling
+    try:
+        configured_embedder = get_embedder(
+            provider=provider, model_name=model_name, api_key=api_key
+        )
+        logger.info(
+            f"[LLM_UTILS] ✓ Returning configured BaseEmbedder instance: "
+            f"{type(configured_embedder).__name__}"
+        )
+        return configured_embedder
+    except ValueError as e:
+        error_msg = str(e)
+        error_msg_lower = error_msg.lower()
+
+        # Provide specific error messages based on the type of configuration issue
+        if "api_key" in error_msg_lower or "not set" in error_msg_lower:
+            logger.error(f"[LLM_UTILS] Embedder API key not configured: {error_msg}")
+            raise ValueError(
+                f"Your configured embedding model '{model.name}' ({provider}/{model_name}) "
+                f"requires an API key that is missing or invalid. "
+                f"Please update your API key in the Models settings."
+            )
+        elif "provider" in error_msg_lower or "not supported" in error_msg_lower:
+            logger.error(f"[LLM_UTILS] Invalid provider for embedder: {error_msg}")
+            raise ValueError(
+                f"Your configured embedding model '{model.name}' uses an unsupported "
+                f"provider ({provider}). Please select a different model in the Models settings."
+            )
+        else:
+            logger.error(f"[LLM_UTILS] Failed to configure embedder: {error_msg}")
+            raise ValueError(
+                f"Failed to configure your embedding model '{model.name}': {error_msg}. "
+                f"Please check your model configuration in the Models settings."
+            )
+
+
+def _get_user_embedding_model_with_settings(db: Session, user: User):
+    """
+    Internal helper to get user's configured embedding model.
+
+    This function:
+    1. Checks user settings for a configured embedding model ID
+    2. Fetches the model from database with organization filtering
+    3. Creates a configured BaseEmbedder instance with provider, model name, and API key
+    4. Falls back to default if no configuration exists
+
+    Args:
+        db: Database session
+        user: Current user
+
+    Returns:
+        Either a string (provider name) or a configured BaseEmbedder instance
+
+    Security:
+        Always uses user.organization_id for model lookup to prevent privilege escalation.
+    """
+    logger.info(
+        f"[LLM_UTILS] Getting embedding model for user_id={user.id}, "
+        f"email={user.email}, org_id={user.organization_id}"
+    )
+
+    # Get embedding model settings
+    model_settings = user.settings.models.embedding
+    model_id = model_settings.model_id
+
+    logger.info(f"[LLM_UTILS] User settings: model_id={model_id}")
+
+    if not model_id:
+        logger.info("[LLM_UTILS] No configured embedding model found in user settings")
+        logger.info(f"[LLM_UTILS] ✓ Falling back to default embedder: {DEFAULT_EMBEDDING_MODEL}")
+        return DEFAULT_EMBEDDING_MODEL
+
+    # Fetch and configure the user's embedder
+    logger.info("[LLM_UTILS] User has configured embedding model, fetching from database...")
+    return _fetch_and_configure_embedder(
+        db=db,
+        model_id=str(model_id),
+        organization_id=str(user.organization_id),
+        default_model=DEFAULT_EMBEDDING_MODEL,
     )

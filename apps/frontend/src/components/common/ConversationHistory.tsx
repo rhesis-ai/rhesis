@@ -269,34 +269,37 @@ export default function ConversationHistory({
                   >
                     Criteria Evaluations
                   </Typography>
-                  {criteriaForTurn.map((criterion, idx) => (
-                    <Box
-                      // eslint-disable-next-line react/no-array-index-key -- Criteria list is display-only
-                      key={`${criterion.criterion}-${idx}`}
-                      sx={{ mb: idx < criteriaForTurn.length - 1 ? 2 : 0 }}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 600,
-                          mb: 0.5,
-                        }}
+                  {criteriaForTurn.map((criterion, idx) => {
+                    // Create stable key from criterion name
+                    const criterionKey = `criterion-${turn.turn}-${criterion.criterion.substring(0, 30).replace(/\s+/g, '-')}`;
+                    return (
+                      <Box
+                        key={criterionKey}
+                        sx={{ mb: idx < criteriaForTurn.length - 1 ? 2 : 0 }}
                       >
-                        {criterion.criterion}
-                      </Typography>
-                      <Box sx={{ pl: 2 }}>
                         <Typography
                           variant="body2"
-                          sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}
+                          sx={{
+                            fontWeight: 600,
+                            mb: 0.5,
+                          }}
                         >
-                          Evidence:
+                          {criterion.criterion}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {criterion.evidence}
-                        </Typography>
+                        <Box sx={{ pl: 2 }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}
+                          >
+                            Evidence:
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {criterion.evidence}
+                          </Typography>
+                        </Box>
                       </Box>
-                    </Box>
-                  ))}
+                    );
+                  })}
                 </Paper>
               </Collapse>
             )}

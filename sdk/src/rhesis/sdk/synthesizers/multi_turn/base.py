@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader, Template
 from pydantic import BaseModel
@@ -33,6 +33,22 @@ class Tests(BaseModel):
     tests: List[Test]
 
 
+# Flat schema for LLM batch generation (easier for the model to produce).
+# Repacked to nested Test structure after generation.
+class FlatTest(BaseModel):
+    test_configuration_goal: str
+    test_configuration_instructions: str
+    test_configuration_restrictions: str
+    test_configuration_scenario: str
+    behavior: str
+    category: str
+    topic: str
+
+
+class FlatTests(BaseModel):
+    tests: List[FlatTest]
+
+
 class MultiTurnSynthesizer:
     prompt_template_file: str = "base.jinja"
 
@@ -57,6 +73,20 @@ class MultiTurnSynthesizer:
         template = environment.get_template(prompt_template_file)
         return template
 
+    def _flat_test_to_nested(self, flat: Dict[str, Any]) -> Dict[str, Any]:
+        """Repack a flat test dict (LLM output) into the nested Test structure."""
+        return {
+            "test_configuration": {
+                "goal": flat["test_configuration_goal"],
+                "instructions": flat["test_configuration_instructions"],
+                "restrictions": flat["test_configuration_restrictions"],
+                "scenario": flat["test_configuration_scenario"],
+            },
+            "behavior": flat["behavior"],
+            "category": flat["category"],
+            "topic": flat["topic"],
+        }
+
     def _generate_batch(self) -> List[dict]:
         """Generate a single batch of tests."""
         prompt_template = self.load_prompt_template(self.prompt_template_file)
@@ -65,19 +95,18 @@ class MultiTurnSynthesizer:
             **self.config.model_dump(),
         }
         prompt = prompt_template.render(template_context)
-        response = self.model.generate(prompt, schema=Tests)
 
-        batch_tests = []
-        for test in response["tests"]:
-            test_dict = test if isinstance(test, dict) else test.model_dump()
+        # Use flat schema for LLM (easier to generate), then repack to nested
+        response = self.model.generate(prompt, schema=FlatTests)
+        flat_tests = response["tests"]
 
-            if "test_configuration" in test_dict and isinstance(
-                test_dict["test_configuration"], BaseModel
-            ):
-                test_dict["test_configuration"] = test_dict["test_configuration"].model_dump()
-
-            test_dict["test_type"] = TestType.MULTI_TURN.value
-            batch_tests.append(test_dict)
+        batch_tests = [
+            {
+                **self._flat_test_to_nested(flat),
+                "test_type": TestType.MULTI_TURN.value,
+            }
+            for flat in flat_tests
+        ]
 
         return batch_tests
 

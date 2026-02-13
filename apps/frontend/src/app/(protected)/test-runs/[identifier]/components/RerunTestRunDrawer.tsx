@@ -21,6 +21,10 @@ import {
   Tune as TuneIcon,
   Psychology as PsychologyIcon,
   Edit as EditIcon,
+  Bolt as BoltIcon,
+  Replay as ReplayIcon,
+  ArrowForward as ArrowForwardIcon,
+  CallSplit as CallSplitIcon,
 } from '@mui/icons-material';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -35,6 +39,7 @@ import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import type { TestSetMetric } from '@/utils/api-client/interfaces/test-set';
 
 type MetricMode = 'use_test_set' | 'use_behavior' | 'define_custom';
+type ScoringTarget = 'fresh' | 'reuse';
 
 interface SelectedMetric {
   id: UUID;
@@ -55,7 +60,8 @@ interface RerunConfig {
   endpointId: string;
   endpointName: string;
   projectName: string;
-  testRunId?: string;
+  /** ID of the current test run being viewed (used as reference for output reuse) */
+  testRunId: string;
   /** Original test configuration attributes containing metrics if custom were used */
   originalAttributes?: {
     metrics?: OriginalMetric[];
@@ -91,6 +97,12 @@ export default function RerunTestRunDrawer({
   const [metricMode, setMetricMode] = useState<MetricMode>('use_behavior');
   const [selectedMetrics, setSelectedMetrics] = useState<SelectedMetric[]>([]);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
+
+  // Execution mode state
+  const [executionMode, setExecutionMode] = useState<string>('Parallel');
+
+  // Scoring target state
+  const [scoringTarget, setScoringTarget] = useState<ScoringTarget>('fresh');
 
   // Fetch test set metrics and determine original metric source when drawer opens
   useEffect(() => {
@@ -144,8 +156,10 @@ export default function RerunTestRunDrawer({
 
     if (open) {
       fetchTestSetMetricsAndDetermineMode();
-      // Reset tags when drawer opens
+      // Reset tags, execution mode, and scoring target when drawer opens
       setTags([]);
+      setExecutionMode('Parallel');
+      setScoringTarget('fresh');
     }
   }, [
     sessionToken,
@@ -188,7 +202,7 @@ export default function RerunTestRunDrawer({
 
       // Prepare test configuration attributes
       const testConfigurationAttributes: Record<string, unknown> = {
-        execution_mode: 'Parallel',
+        execution_mode: executionMode,
       };
 
       // Add execution-time metrics if custom metrics are defined
@@ -198,6 +212,12 @@ export default function RerunTestRunDrawer({
           name: m.name,
           scope: m.scope,
         }));
+      }
+
+      // Add reference_test_run_id if reusing outputs from current run
+      if (scoringTarget === 'reuse' && rerunConfig.testRunId) {
+        testConfigurationAttributes.reference_test_run_id =
+          rerunConfig.testRunId;
       }
 
       // Execute test set against the endpoint (creates a new test configuration)
@@ -324,6 +344,84 @@ export default function RerunTestRunDrawer({
               readOnly: true,
             }}
           />
+
+          <Divider />
+
+          <Typography variant="subtitle2" color="text.secondary">
+            Configuration Options
+          </Typography>
+
+          <FormControl fullWidth>
+            <InputLabel>Execution Mode</InputLabel>
+            <Select
+              value={executionMode}
+              onChange={e => setExecutionMode(e.target.value)}
+              label="Execution Mode"
+            >
+              <MenuItem value="Parallel">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CallSplitIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Parallel</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Tests run simultaneously for faster execution (default)
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>
+              <MenuItem value="Sequential">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ArrowForwardIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Sequential</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Tests run one after another, better for rate-limited
+                      endpoints
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth>
+            <InputLabel>Scoring Target</InputLabel>
+            <Select
+              value={scoringTarget}
+              onChange={e => setScoringTarget(e.target.value as ScoringTarget)}
+              label="Scoring Target"
+            >
+              <MenuItem value="fresh">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <BoltIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Fresh Outputs</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Call the endpoint and score the new responses
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>
+              <MenuItem value="reuse">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ReplayIcon fontSize="small" />
+                  <Box>
+                    <Typography variant="body1">Reuse Outputs</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Re-score outputs from this test run
+                    </Typography>
+                  </Box>
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
+
+          {scoringTarget === 'reuse' && (
+            <Alert severity="info">
+              Outputs from this test run will be reused. Only metrics will be
+              re-evaluated.
+            </Alert>
+          )}
 
           <Divider />
 

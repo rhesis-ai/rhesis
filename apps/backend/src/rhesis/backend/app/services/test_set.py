@@ -511,6 +511,89 @@ def update_test_set_attributes(db: Session, test_set_id: str) -> None:
     # Transaction commit is handled by the session context manager
 
 
+def get_last_completed_test_run(
+    db: Session,
+    test_set_identifier: str,
+    endpoint_id: uuid.UUID,
+    organization_id: str,
+    user_id: str,
+) -> Any:
+    """Return a summary of the most recent completed test run for a
+    test set + endpoint combination.
+
+    Returns:
+        Dict with id, status, created_at, test_count, pass_rate;
+        or None if no completed run exists.
+    """
+    from rhesis.backend.app import crud
+    from rhesis.backend.app.models.status import Status
+    from rhesis.backend.app.models.test_configuration import (
+        TestConfiguration,
+    )
+    from rhesis.backend.app.models.test_run import TestRun
+    from rhesis.backend.tasks.enums import RunStatus
+
+    # Resolve test set
+    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    if db_test_set is None:
+        return None
+
+    # Find the most recent completed test run for this test set + endpoint
+    test_run = (
+        db.query(TestRun)
+        .join(
+            TestConfiguration,
+            TestRun.test_configuration_id == TestConfiguration.id,
+        )
+        .join(Status, TestRun.status_id == Status.id)
+        .filter(
+            TestConfiguration.test_set_id == db_test_set.id,
+            TestConfiguration.endpoint_id == uuid.UUID(str(endpoint_id)),
+            TestRun.organization_id == uuid.UUID(organization_id),
+            Status.name == RunStatus.COMPLETED.value,
+        )
+        .order_by(TestRun.created_at.desc())
+        .first()
+    )
+
+    if test_run is None:
+        return None
+
+    # Compute summary stats from test results
+    from rhesis.backend.app.models.test_result import TestResult
+
+    total_count = db.query(TestResult).filter(TestResult.test_run_id == test_run.id).count()
+
+    pass_count = 0
+    if total_count > 0:
+        pass_status = db.query(Status).filter(Status.name == "Passed").first()
+        if pass_status:
+            pass_count = (
+                db.query(TestResult)
+                .filter(
+                    TestResult.test_run_id == test_run.id,
+                    TestResult.status_id == pass_status.id,
+                )
+                .count()
+            )
+
+    pass_rate = round(pass_count / total_count * 100, 1) if total_count > 0 else 0.0
+
+    status_name = None
+    if test_run.status:
+        status_name = test_run.status.name
+
+    return {
+        "id": str(test_run.id),
+        "nano_id": test_run.nano_id,
+        "name": test_run.name,
+        "status": status_name,
+        "created_at": (test_run.created_at.isoformat() if test_run.created_at else None),
+        "test_count": total_count,
+        "pass_rate": pass_rate,
+    }
+
+
 def execute_test_set_on_endpoint(
     db: Session,
     test_set_identifier: str,
@@ -520,6 +603,7 @@ def execute_test_set_on_endpoint(
     organization_id: str = None,
     user_id: str = None,
     metrics: List[Dict[str, Any]] = None,
+    reference_test_run_id: uuid.UUID = None,
 ) -> Dict[str, Any]:
     """
     Execute a test set against an endpoint by creating a test configuration
@@ -535,6 +619,8 @@ def execute_test_set_on_endpoint(
         user_id: User ID for tenant context
         metrics: Optional list of execution-time metrics to override test set/behavior metrics.
                  Each metric should have: id, name, and optionally scope.
+        reference_test_run_id: Optional UUID of a previous test run whose outputs
+                 should be reused instead of calling the endpoint (re-scoring).
 
     Returns:
         Dict containing execution status and metadata
@@ -581,6 +667,11 @@ def execute_test_set_on_endpoint(
     # Check user access permissions
     _validate_user_access(current_user, db_test_set, db_endpoint)
 
+    # Validate reference test run if provided (output reuse / re-scoring)
+    if reference_test_run_id:
+        _validate_reference_test_run(db, reference_test_run_id, db_test_set, current_user)
+        logger.info(f"Output reuse enabled: reference_test_run_id={reference_test_run_id}")
+
     # Determine metrics source based on the hierarchy:
     # 1. Execution-time metrics (if provided) -> "execution_time"
     # 2. Test set metrics (if test set has metrics) -> "test_set"
@@ -608,6 +699,7 @@ def execute_test_set_on_endpoint(
         user_id,
         metrics,
         metrics_source,
+        reference_test_run_id=reference_test_run_id,
     )
 
     # Submit for execution
@@ -657,6 +749,36 @@ def _validate_user_access(
         raise PermissionError("Access denied: endpoint belongs to different organization")
 
 
+def _validate_reference_test_run(
+    db: Session,
+    reference_test_run_id: uuid.UUID,
+    db_test_set: models.TestSet,
+    current_user: models.User,
+) -> None:
+    """Validate that the reference test run exists, belongs to the same
+    organization, and is associated with the same test set.
+
+    Raises:
+        ValueError: If validation fails
+    """
+    from rhesis.backend.app import crud
+
+    db_ref_run = crud.get_test_run(
+        db,
+        test_run_id=reference_test_run_id,
+        organization_id=str(current_user.organization_id),
+        user_id=str(current_user.id),
+    )
+    if not db_ref_run:
+        raise ValueError(f"Reference test run not found: {reference_test_run_id}")
+
+    # Verify the reference run is for the same test set
+    if db_ref_run.test_configuration:
+        ref_test_set_id = str(db_ref_run.test_configuration.test_set_id)
+        if ref_test_set_id != str(db_test_set.id):
+            raise ValueError("Reference test run belongs to a different test set")
+
+
 def _create_test_configuration(
     db: Session,
     endpoint_id: uuid.UUID,
@@ -667,6 +789,7 @@ def _create_test_configuration(
     user_id: str = None,
     metrics: List[Dict[str, Any]] = None,
     metrics_source: str = None,
+    reference_test_run_id: uuid.UUID = None,
 ) -> str:
     """Create test configuration and return its ID as string.
 
@@ -675,14 +798,15 @@ def _create_test_configuration(
         endpoint_id: Endpoint UUID
         test_set_id: Test set UUID
         current_user: Current authenticated user
-        test_configuration_attributes: Optional attributes for test configuration
+        test_configuration_attributes: Optional attributes for test config
         organization_id: Organization ID for tenant context
         user_id: User ID for tenant context
-        metrics: Optional list of execution-time metrics. When provided, these
-                 override test set metrics and behavior metrics during execution.
-                 Each metric should have: id, name, and optionally scope.
+        metrics: Optional list of execution-time metrics. When provided,
+                 these override test set and behavior metrics.
         metrics_source: Source of metrics used for this execution.
                        One of: "behavior", "test_set", "execution_time"
+        reference_test_run_id: Optional UUID of a previous test run whose
+                 outputs should be reused (re-scoring).
 
     Returns:
         Test configuration ID as string
@@ -711,6 +835,12 @@ def _create_test_configuration(
     if metrics_source:
         attributes["metrics_source"] = metrics_source
         logger.debug(f"Metrics source set to: {metrics_source}")
+
+    # Store reference_test_run_id for output reuse (re-scoring)
+    if reference_test_run_id:
+        attributes["reference_test_run_id"] = str(reference_test_run_id)
+        attributes["is_rescore"] = True
+        logger.debug(f"Output reuse enabled: reference_test_run_id={reference_test_run_id}")
 
     test_config = schemas.TestConfigurationCreate(
         endpoint_id=endpoint_id,

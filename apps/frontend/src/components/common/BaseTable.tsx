@@ -1,5 +1,3 @@
-/* eslint-disable react/no-array-index-key -- Table row and cell rendering */
-
 import React from 'react';
 import {
   Table,
@@ -88,10 +86,10 @@ export default function BaseTable<T = object>({
           )}
           {actionButtons && (
             <Box sx={{ display: 'flex', gap: 2 }}>
-              {actionButtons.map((button, index) =>
+              {actionButtons.map(button =>
                 button.href ? (
                   <Link
-                    key={index}
+                    key={button.label}
                     href={button.href}
                     style={{ textDecoration: 'none' }}
                   >
@@ -104,7 +102,7 @@ export default function BaseTable<T = object>({
                   </Link>
                 ) : (
                   <Button
-                    key={index}
+                    key={button.label}
                     variant={button.variant || 'contained'}
                     startIcon={button.icon}
                     onClick={button.onClick}
@@ -166,47 +164,57 @@ export default function BaseTable<T = object>({
               </TableRow>
             </TableHead>
             <TableBody>
-              {data.map((row, index) => (
-                <React.Fragment key={index}>
-                  <TableRow
-                    sx={{
-                      '&:nth-of-type(odd)': { backgroundColor: 'grey.50' },
-                      '&:hover': {
-                        backgroundColor: 'grey.100',
-                        cursor: onRowClick ? 'pointer' : 'default',
-                      },
-                      transition: 'background-color 0.2s',
-                      ...(rowHighlight?.[index] && {
-                        outline: `2px solid ${rowHighlight[index].color}`,
-                        outlineOffset: '-1px',
-                      }),
-                    }}
-                    onClick={() => handleRowClick(row)}
-                  >
-                    {columns.map(column => (
-                      <TableCell key={column.id}>
-                        {column.render(row, index)}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                  {renderExpanded && (
-                    <TableRow>
-                      <TableCell
-                        style={{ paddingBottom: 0, paddingTop: 0 }}
-                        colSpan={columns.length}
-                      >
-                        <Collapse
-                          in={expandedRow === index}
-                          timeout="auto"
-                          unmountOnExit
-                        >
-                          <Box sx={{ py: 2 }}>{renderExpanded(row, index)}</Box>
-                        </Collapse>
-                      </TableCell>
+              {data.map((row, index) => {
+                // Create stable key from row id or first column value
+                const rowKey = String(
+                  (row as Record<string, unknown>).id ||
+                    (row as Record<string, unknown>)[columns[0]?.id] ||
+                    `row-${index}`
+                );
+                return (
+                  <React.Fragment key={rowKey}>
+                    <TableRow
+                      sx={{
+                        '&:nth-of-type(odd)': { backgroundColor: 'grey.50' },
+                        '&:hover': {
+                          backgroundColor: 'grey.100',
+                          cursor: onRowClick ? 'pointer' : 'default',
+                        },
+                        transition: 'background-color 0.2s',
+                        ...(rowHighlight?.[index] && {
+                          outline: `2px solid ${rowHighlight[index].color}`,
+                          outlineOffset: '-1px',
+                        }),
+                      }}
+                      onClick={() => handleRowClick(row)}
+                    >
+                      {columns.map(column => (
+                        <TableCell key={column.id}>
+                          {column.render(row, index)}
+                        </TableCell>
+                      ))}
                     </TableRow>
-                  )}
-                </React.Fragment>
-              ))}
+                    {renderExpanded && (
+                      <TableRow>
+                        <TableCell
+                          style={{ paddingBottom: 0, paddingTop: 0 }}
+                          colSpan={columns.length}
+                        >
+                          <Collapse
+                            in={expandedRow === index}
+                            timeout="auto"
+                            unmountOnExit
+                          >
+                            <Box sx={{ py: 2 }}>
+                              {renderExpanded(row, index)}
+                            </Box>
+                          </Collapse>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         )}

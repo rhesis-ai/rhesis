@@ -127,7 +127,12 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             logger.warning(f"No request_mapping configured for {function_name}, using passthrough")
             return filtered_context
 
-        return self.template_renderer.render(request_mapping, filtered_context)
+        rendered = self.template_renderer.render(request_mapping, filtered_context)
+
+        # Strip reserved meta keys (e.g. system_prompt) from the wire body
+        self._strip_meta_keys(rendered)
+
+        return rendered
 
     async def _execute_via_rpc(
         self,
@@ -300,19 +305,35 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         return self.response_mapper.map_response(raw_output, response_mapping)
 
-    def _extract_conversation_id(
-        self, mapped_response: Dict[str, Any], conversation_field: str
+    def _ensure_conversation_field(
+        self,
+        mapped_response: Dict[str, Any],
+        conversation_field: Optional[str],
+        input_data: Dict[str, Any],
     ) -> None:
-        """
-        Extract and log conversation ID if present.
+        """Ensure the conversation tracking field is present in the response.
+
+        If the response_mapping already extracted a value, keep it.
+        Otherwise fall back to the value from the request so the
+        caller can continue the conversation on the next turn.
 
         Args:
-            mapped_response: Mapped response dictionary
-            conversation_field: Field name containing conversation ID
+            mapped_response: Mapped response dictionary (mutated in place)
+            conversation_field: Field name for conversation tracking
+            input_data: Original input data (may contain conversation_id)
         """
-        if conversation_field and conversation_field in mapped_response:
-            conversation_id = mapped_response[conversation_field]
-            logger.info(f"Extracted {conversation_field}: {conversation_id}")
+        if not conversation_field:
+            return
+
+        if conversation_field in mapped_response:
+            logger.info(f"Extracted {conversation_field}: {mapped_response[conversation_field]}")
+            return
+
+        # Fall back to request value so the chain isn't broken
+        fallback = input_data.get(conversation_field)
+        if fallback:
+            mapped_response[conversation_field] = fallback
+            logger.debug(f"Echoed {conversation_field} from request: {fallback}")
 
     async def invoke(
         self,
@@ -327,7 +348,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         Args:
             db: Database session
             endpoint: The SDK endpoint to invoke
-            input_data: Standardized input data (input, session_id, context, metadata, tool_calls)
+            input_data: Standardized input data
+                (input, conversation_id, context, metadata, tool_calls)
             test_execution_context: Optional dict with test_run_id, test_result_id, test_id
                                    for linking traces to test executions
 
@@ -392,8 +414,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Step 6: Map SDK response to standardized format
             mapped_response = self._map_sdk_response(result, endpoint, function_name)
 
-            # Step 7: Extract conversation ID if present
-            self._extract_conversation_id(mapped_response, conversation_field)
+            # Step 7: Ensure conversation ID in response
+            self._ensure_conversation_field(mapped_response, conversation_field, input_data)
 
             # Step 8: Include trace_id from SDK result for trace linking
             if result.get("trace_id"):

@@ -1,3 +1,4 @@
+import { AdaptiveTestingClient } from './adaptive-testing-client';
 import { TestSetsClient } from './test-sets-client';
 import { TokensClient } from './tokens-client';
 import { ServicesClient } from './services-client';
@@ -25,9 +26,11 @@ import { RecycleClient } from './recycle-client';
 import { ToolsClient } from './tools-client';
 import { TelemetryClient } from './telemetry-client';
 import { GarakClient } from './garak-client';
+import { ImportClient } from './import-client';
 
 export class ApiClientFactory {
   private sessionToken: string;
+  private adaptiveTestingClient: AdaptiveTestingClient | null = null;
   private metricsClient: MetricsClient | null = null;
   private modelsClient: ModelsClient | null = null;
   private tagsClient: TagsClient | null = null;
@@ -38,9 +41,17 @@ export class ApiClientFactory {
   private toolsClient: ToolsClient | null = null;
   private telemetryClient: TelemetryClient | null = null;
   private garakClient: GarakClient | null = null;
+  private importClient: ImportClient | null = null;
 
   constructor(sessionToken: string) {
     this.sessionToken = sessionToken;
+  }
+
+  getAdaptiveTestingClient(): AdaptiveTestingClient {
+    if (!this.adaptiveTestingClient) {
+      this.adaptiveTestingClient = new AdaptiveTestingClient(this.sessionToken);
+    }
+    return this.adaptiveTestingClient;
   }
 
   getTestSetsClient(): TestSetsClient {
@@ -179,5 +190,12 @@ export class ApiClientFactory {
       this.garakClient = new GarakClient(this.sessionToken);
     }
     return this.garakClient;
+  }
+
+  getImportClient(): ImportClient {
+    if (!this.importClient) {
+      this.importClient = new ImportClient(this.sessionToken);
+    }
+    return this.importClient;
   }
 }

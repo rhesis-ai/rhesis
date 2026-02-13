@@ -1,5 +1,3 @@
-/* eslint-disable react/no-array-index-key -- Chart series rendering */
-
 import React from 'react';
 import {
   LineChart,
@@ -295,7 +293,7 @@ export default function BaseLineChart({
             />
             {series.map((s, index) => (
               <Line
-                key={index}
+                key={s.dataKey}
                 type="monotone"
                 dataKey={s.dataKey}
                 name={s.name || s.dataKey}

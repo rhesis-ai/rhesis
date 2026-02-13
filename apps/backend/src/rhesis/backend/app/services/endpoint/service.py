@@ -18,6 +18,11 @@ from rhesis.backend.app.models.enums import (
 )
 from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
+from rhesis.backend.app.services.invokers.conversation import (
+    CONVERSATION_FIELD_NAMES,
+    ConversationTracker,
+    get_conversation_store,
+)
 
 # Import sdk_sync at module level to avoid circular imports
 from . import sdk_sync
@@ -87,6 +92,68 @@ class EndpointService:
             if user_id:
                 enriched_input_data["user_id"] = user_id
 
+            # -------------------------------------------------------
+            # Stateless conversation management
+            # -------------------------------------------------------
+            # For stateless endpoints (detected via {{ messages }} in
+            # request_mapping) the backend manages conversation history
+            # server-side.  Callers use ``conversation_id`` exactly like
+            # they would for stateful endpoints -- the difference is
+            # transparent.
+            #
+            # Two-phase commit: the user message is appended to a
+            # *temporary* messages list for the request body, but is
+            # only committed to the store after a successful invocation.
+            # This avoids leaving the conversation in an inconsistent
+            # state when the external endpoint returns an error.
+            is_stateless = ConversationTracker.detect_stateless_mode(endpoint)
+            stateless_conversation_id = None
+            stateless_user_input = None
+
+            if is_stateless and "messages" not in enriched_input_data:
+                store = get_conversation_store()
+                incoming_cid = enriched_input_data.get("conversation_id")
+                stateless_user_input = enriched_input_data.get("input", "")
+
+                if incoming_cid and store.exists(incoming_cid):
+                    # Continue existing conversation
+                    stateless_conversation_id = incoming_cid
+                else:
+                    # New conversation (or expired -- start fresh)
+                    system_prompt = ConversationTracker.extract_system_prompt(endpoint)
+                    stateless_conversation_id = store.create(
+                        system_prompt=system_prompt,
+                    )
+                    if incoming_cid:
+                        logger.warning(
+                            f"Conversation {incoming_cid} not found, "
+                            f"created new: {stateless_conversation_id}"
+                        )
+
+                # Build the messages array WITHOUT committing to the
+                # store yet.  get_messages() returns a deep copy, so
+                # appending to it is safe.
+                messages = store.get_messages(
+                    stateless_conversation_id,
+                )
+                if stateless_user_input:
+                    messages.append({"role": "user", "content": stateless_user_input})
+                enriched_input_data["messages"] = messages
+
+                # Remove conversation_id from the data that goes to the
+                # template renderer -- it's an internal tracking field,
+                # not a value to render into the external request body.
+                # Without this, the renderer's alias propagation would
+                # fill {{ session_id }} (or similar) in the request
+                # mapping and leak the internal ID to the external API.
+                enriched_input_data.pop("conversation_id", None)
+
+                logger.debug(
+                    "Stateless conversation %s: %d message(s)",
+                    stateless_conversation_id,
+                    len(messages),
+                )
+
             # Preprocess prompt placeholders (e.g., Garak's {TARGET_MODEL})
             # This substitutes placeholders with runtime context like project name
             if "input" in enriched_input_data and isinstance(enriched_input_data["input"], str):
@@ -119,6 +186,50 @@ class EndpointService:
                 result = await invoker.invoke(
                     db, endpoint, enriched_input_data, test_execution_context
                 )
+
+            # -------------------------------------------------------
+            # Post-invocation: commit messages for stateless on success
+            # -------------------------------------------------------
+            if is_stateless and stateless_conversation_id and result:
+                result_dict = result if isinstance(result, dict) else None
+                if result_dict is not None:
+                    store = get_conversation_store()
+                    # Phase 2: commit the user turn now that we know
+                    # the invocation succeeded.
+                    if stateless_user_input:
+                        store.add_user_message(
+                            stateless_conversation_id,
+                            stateless_user_input,
+                        )
+                    # Commit the assistant turn.
+                    output = result_dict.get("output", "")
+                    if output:
+                        store.add_assistant_message(
+                            stateless_conversation_id,
+                            str(output),
+                        )
+                    # Surface conversation_id so callers can continue
+                    # the conversation -- same field stateful endpoints
+                    # use.
+                    result_dict["conversation_id"] = stateless_conversation_id
+
+            # -------------------------------------------------------
+            # Guarantee conversation_id in every dict response
+            # -------------------------------------------------------
+            # For stateful endpoints the invoker may have already
+            # placed a conversation field in the result (extracted
+            # from the external API via response_mapping, or echoed
+            # from the request).  If no recognised field is present,
+            # we echo back the caller's conversation_id so the chain
+            # is never broken.
+            if (
+                not is_stateless
+                and isinstance(result, dict)
+                and not any(f in result for f in CONVERSATION_FIELD_NAMES)
+            ):
+                incoming_cid = input_data.get("conversation_id")
+                if incoming_cid:
+                    result["conversation_id"] = incoming_cid
 
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")
             return result

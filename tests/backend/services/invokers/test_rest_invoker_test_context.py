@@ -1,11 +1,24 @@
 """Tests for REST endpoint invoker with test execution context."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
+import httpx
 import pytest
 
 from rhesis.backend.app.services.invokers.rest_invoker import RestEndpointInvoker
+
+
+def _mock_httpx_response(status_code=200, json_data=None):
+    """Create a mock httpx.Response."""
+    resp = Mock(spec=httpx.Response)
+    resp.status_code = status_code
+    resp.reason_phrase = "OK"
+    resp.text = ""
+    resp.headers = {}
+    if json_data is not None:
+        resp.json.return_value = json_data
+    return resp
 
 
 class TestRestInvokerTestContext:
@@ -32,20 +45,17 @@ class TestRestInvokerTestContext:
             "test_configuration_id": str(uuid4()),
         }
 
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "response": {"text": "Success"},
-        }
+        mock_response = _mock_httpx_response(json_data={"response": {"text": "Success"}})
 
-        with patch("requests.post", return_value=mock_response):
-            # Should not raise error when test_execution_context is provided
-            result = await invoker.invoke(
-                mock_db,
-                sample_endpoint_rest,
-                sample_input_data,
-                test_execution_context=test_execution_context,
-            )
+        invoker._async_request = AsyncMock(return_value=mock_response)
+
+        # Should not raise error when test_execution_context is provided
+        result = await invoker.invoke(
+            mock_db,
+            sample_endpoint_rest,
+            sample_input_data,
+            test_execution_context=test_execution_context,
+        )
 
         assert result["output"] == "Success"
 
@@ -56,26 +66,23 @@ class TestRestInvokerTestContext:
         """Test that invoke works when test_execution_context is None or omitted."""
         invoker = RestEndpointInvoker()
 
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "response": {"text": "Success"},
-        }
+        mock_response = _mock_httpx_response(json_data={"response": {"text": "Success"}})
 
-        with patch("requests.post", return_value=mock_response):
-            # Test with None
-            result = await invoker.invoke(
-                mock_db,
-                sample_endpoint_rest,
-                sample_input_data,
-                test_execution_context=None,
-            )
-            assert result["output"] == "Success"
+        invoker._async_request = AsyncMock(return_value=mock_response)
 
-            # Test without the parameter (backward compatibility)
-            result = await invoker.invoke(
-                mock_db,
-                sample_endpoint_rest,
-                sample_input_data,
-            )
-            assert result["output"] == "Success"
+        # Test with None
+        result = await invoker.invoke(
+            mock_db,
+            sample_endpoint_rest,
+            sample_input_data,
+            test_execution_context=None,
+        )
+        assert result["output"] == "Success"
+
+        # Test without the parameter (backward compatibility)
+        result = await invoker.invoke(
+            mock_db,
+            sample_endpoint_rest,
+            sample_input_data,
+        )
+        assert result["output"] == "Success"

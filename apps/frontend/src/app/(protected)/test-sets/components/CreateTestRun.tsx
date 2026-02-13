@@ -223,11 +223,12 @@ export default function CreateTestRun({
               );
 
               if (testRun) {
-                // Assign each tag to the test run
                 for (const tagName of tags) {
                   const tagPayload: TagCreate = {
                     name: tagName,
-                    ...(organizationId && { organization_id: organizationId }),
+                    ...(organizationId && {
+                      organization_id: organizationId,
+                    }),
                   };
 
                   await tagsClient.assignTagToEntity(

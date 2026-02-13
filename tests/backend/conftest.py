@@ -1,30 +1,121 @@
 import os
 
-import pytest
-from cryptography.fernet import Fernet
-from dotenv import load_dotenv
+# =============================================================================
+# Environment Setup - MUST be done BEFORE any backend imports
+# =============================================================================
+# Single source of truth for test environment variables.
+# The CI workflow (backend-test.yml) only sets PYTHONPATH; everything else
+# is configured here so there is no duplication to keep in sync.
 
-# Load environment variables from test directory first, then backend
-load_dotenv()  # Try current directory first
-load_dotenv("tests/.env")  # Load from test directory where RHESIS_API_KEY should be
-load_dotenv("apps/backend/.env")  # Then backend directory for other vars
+# Port constants (must match tests/docker-compose.test.yml --profile backend)
+DATABASE_PORT = 12001
+REDIS_PORT = 12002
 
-# Set test mode environment variable BEFORE importing any backend modules
+# Test mode
 os.environ["SQLALCHEMY_DB_MODE"] = "test"
+os.environ["ENVIRONMENT"] = "test"
+os.environ["LOG_LEVEL"] = "WARNING"
 
-# Set up encryption key for tests if not already set
-# This ensures tests can run even if no encryption key is configured in .env files
-if "DB_ENCRYPTION_KEY" not in os.environ or not os.environ.get("DB_ENCRYPTION_KEY"):
-    # Generate a test-specific encryption key that won't conflict with production
-    test_encryption_key = Fernet.generate_key().decode()
-    os.environ["DB_ENCRYPTION_KEY"] = test_encryption_key
-    print("🔐 Generated test encryption key for test session")
+# Reduce log noise during tests (default is INFO)
+os.environ["LOG_LEVEL"] = "WARNING"
+
+# Disable the Rhesis connector/SDK integration for tests
+os.environ["RHESIS_CONNECTOR_DISABLED"] = "true"
+os.environ["RHESIS_PROJECT_ID"] = "12340000-0000-4000-8000-000000001234"
+
+# Database configuration for docker-compose integration tests
+# These are set directly (not setdefault) to override any .env file values
+os.environ["SQLALCHEMY_DB_HOST"] = "localhost"
+os.environ["SQLALCHEMY_DB_PORT"] = str(DATABASE_PORT)
+os.environ["SQLALCHEMY_DB_NAME"] = "rhesis-test-db"
+os.environ["SQLALCHEMY_DB_USER"] = "rhesis-user"
+os.environ["SQLALCHEMY_DB_PASS"] = "your-secured-password"
+os.environ["SQLALCHEMY_DB_DRIVER"] = "postgresql"
+# Don't set SQLALCHEMY_DATABASE_URL - let the isolation check distinguish test from prod
+os.environ["SQLALCHEMY_DATABASE_TEST_URL"] = (
+    f"postgresql://rhesis-user:your-secured-password@localhost:{DATABASE_PORT}/rhesis-test-db"
+)
+
+# Redis configuration
+os.environ["REDIS_URL"] = f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0"
+os.environ["BROKER_URL"] = f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0"
+os.environ["CELERY_RESULT_BACKEND"] = f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/1"
+
+# JWT configuration
+os.environ["JWT_SECRET_KEY"] = "test-jwt-secret-key-for-backend-tests"
+os.environ["JWT_ALGORITHM"] = "HS256"
+os.environ["JWT_ACCESS_TOKEN_EXPIRE_MINUTES"] = "10080"
+
+# Encryption key
+os.environ["DB_ENCRYPTION_KEY"] = "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="
+
+# Auth0 configuration (required for auth endpoints to not return 500)
+os.environ["AUTH0_DOMAIN"] = "test.auth0.com"
+
+# =============================================================================
+# Database migrations (pytest fixture - runs before tests that need DB)
+# =============================================================================
+
+import subprocess  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+import pytest  # noqa: E402
 
 # Import all modular fixtures
-from tests.backend.fixtures import *
+from tests.backend.fixtures import *  # noqa: E402, F403
 
 # Import all entity fixtures to make them available to tests
-from tests.backend.routes.fixtures.entities import *
+from tests.backend.routes.fixtures.entities import *  # noqa: E402, F403
+
+# =============================================================================
+# Session-scoped database migrations
+# =============================================================================
+
+
+@pytest.fixture(scope="session", autouse=True)
+def run_migrations_once():
+    """
+    Run Alembic migrations once per test session. Fails hard if migrations fail.
+
+    Set RHESIS_SKIP_MIGRATIONS=1 to skip (e.g. for unit-only runs without DB).
+    """
+    if os.environ.get("RHESIS_SKIP_MIGRATIONS", "").lower() in ("1", "true", "yes"):
+        yield
+        return
+
+    print("🔄 Running database migrations...")
+    backend_dir = (
+        Path(__file__).parent.parent.parent / "apps" / "backend" / "src" / "rhesis" / "backend"
+    )
+
+    env = os.environ.copy()
+    env["SQLALCHEMY_DB_MODE"] = "test"
+    env["SQLALCHEMY_DATABASE_TEST_URL"] = os.environ.get(
+        "SQLALCHEMY_DATABASE_TEST_URL",
+        f"postgresql://rhesis-user:your-secured-password@localhost:{DATABASE_PORT}/rhesis-test-db",
+    )
+    env["DB_ENCRYPTION_KEY"] = os.environ.get(
+        "DB_ENCRYPTION_KEY", "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="
+    )
+
+    result = subprocess.run(
+        ["uv", "run", "alembic", "upgrade", "head"],
+        cwd=backend_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode != 0:
+        pytest.fail(
+            f"Database migrations failed (returncode={result.returncode}):\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}\n"
+            "Set RHESIS_SKIP_MIGRATIONS=1 to skip migrations for unit-only runs."
+        )
+
+    print("✅ Migrations completed")
+    yield
+
 
 # Simple fixtures for testing markers functionality
 

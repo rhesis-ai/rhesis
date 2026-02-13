@@ -7,7 +7,7 @@ invoking endpoints and returning responses with trace information.
 import logging
 from typing import TYPE_CHECKING
 
-from rhesis.backend.app.database import get_db
+from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.websocket import (
     ConnectionTarget,
@@ -41,7 +41,7 @@ async def handle_chat_message(
         {
             "endpoint_id": "uuid-of-endpoint",
             "message": "User's message to the endpoint",
-            "session_id": "optional-session-id"  # Also accepts: conversation_id, thread_id, chat_id
+            "conversation_id": "optional-id"  # Also accepts: session_id, thread_id, chat_id
         }
 
     Response payload (CHAT_RESPONSE):
@@ -49,7 +49,7 @@ async def handle_chat_message(
             "output": "Endpoint's response",
             "trace_id": "uuid-of-trace",
             "endpoint_id": "uuid-of-endpoint",
-            "session_id": "session-id-from-endpoint"  # Canonical name for session tracking
+            "conversation_id": "id-from-endpoint"  # Canonical name for tracking
         }
 
     Error payload (CHAT_ERROR):
@@ -84,8 +84,8 @@ async def handle_chat_message(
     )
 
     try:
-        # Get database session
-        with get_db() as db:
+        # Get database session with tenant variables for RLS policies
+        with get_db_with_tenant_variables(str(user.organization_id), str(user.id)) as db:
             # Create endpoint service and invoke
             endpoint_service = EndpointService()
 
@@ -94,20 +94,21 @@ async def handle_chat_message(
                 "input": user_message,
             }
 
-            # Extract session tracking ID from any recognized field name
+            # Extract conversation ID from any recognized field name
             # (conversation_id, session_id, thread_id, chat_id, etc.)
             # This makes the API flexible for different client conventions.
-            session_id = None
+            conversation_id = None
             for field in CONVERSATION_FIELD_NAMES:
                 if payload.get(field):
-                    session_id = payload.get(field)
-                    logger.debug(f"Extracted session ID from payload field '{field}': {session_id}")
+                    conversation_id = payload.get(field)
+                    logger.debug(
+                        f"Extracted conversation ID from payload field '{field}': {conversation_id}"
+                    )
                     break
 
-            if session_id:
-                # Use session_id as the canonical internal name
-                # The endpoint's request_mapping should use {{ session_id }}
-                input_data["session_id"] = session_id
+            if conversation_id:
+                # Use conversation_id as the canonical internal name
+                input_data["conversation_id"] = conversation_id
 
             # Invoke the endpoint
             result = await endpoint_service.invoke_endpoint(
@@ -146,26 +147,23 @@ async def handle_chat_message(
                 "endpoint_id": endpoint_id,
             }
 
-            # Extract session ID from response
-            # Primary: Use canonical session_id from response_mapping
-            # Fallback: Check other recognized field names for backward compatibility
-            response_session_id = result.get("session_id")
-            if not response_session_id:
-                # Fallback for endpoints without proper response_mapping
-                for field in CONVERSATION_FIELD_NAMES:
-                    if result.get(field):
-                        response_session_id = result.get(field)
-                        logger.debug(
-                            f"Fallback: extracted session ID from response field '{field}'"
-                        )
-                        break
+            # Extract conversation ID from response
+            # Primary: Use canonical conversation_id from result
+            # Fallback: Check other recognized field names
+            response_conversation_id = None
+            for field in CONVERSATION_FIELD_NAMES:
+                if result.get(field):
+                    response_conversation_id = result.get(field)
+                    if field != "conversation_id":
+                        logger.debug(f"Extracted conversation ID from response field '{field}'")
+                    break
 
-            # Include session_id in response (canonical name)
-            # Use response value if found, otherwise echo back input session_id
-            if response_session_id:
-                response_payload["session_id"] = response_session_id
-            elif session_id:
-                response_payload["session_id"] = session_id
+            # Include conversation_id in response (canonical name)
+            # Use response value, otherwise echo back input value
+            if response_conversation_id:
+                response_payload["conversation_id"] = response_conversation_id
+            elif conversation_id:
+                response_payload["conversation_id"] = conversation_id
 
             # Send successful response
             await manager.broadcast(
@@ -179,7 +177,9 @@ async def handle_chat_message(
 
             logger.info(
                 f"Chat response sent to conn={conn_id}, "
-                f"trace_id={trace_id}, session_id={response_payload.get('session_id')}"
+                f"trace_id={trace_id}, "
+                f"conversation_id="
+                f"{response_payload.get('conversation_id')}"
             )
 
     except Exception as e:

@@ -126,57 +126,61 @@ export default function EntityCard({
             </Typography>
           )}
 
-          {chipSections.map((section, sectionIndex) => (
-            <React.Fragment
-              key={section.chips[0]?.key ?? `section-${sectionIndex}`}
-            >
-              {sectionIndex > 0 && (
-                <Box
-                  sx={{
-                    width: '100%',
-                    height: '1px',
-                    bgcolor: 'divider',
-                    my: 1,
-                  }}
-                />
-              )}
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: 0.5,
-                  mb: sectionIndex < chipSections.length - 1 ? 1 : 0,
-                  '& .MuiChip-root': {
-                    height: theme.spacing(3),
-                    fontSize: theme.typography.caption.fontSize,
-                    ...chipStyles,
-                  },
-                }}
-              >
-                {section.chips.map(chip => (
-                  <Chip
-                    key={chip.key}
-                    {...(chip.icon && {
-                      icon: chip.icon as React.ReactElement,
-                    })}
-                    label={chip.label}
-                    size="small"
-                    variant={chip.variant || 'outlined'}
+          {chipSections.map((section, sectionIndex) => {
+            // Generate a stable key for the section based on its chips
+            const sectionKey =
+              section.chips.map(c => c.key).join('-') ||
+              `section-${sectionIndex}`;
+            return (
+              <React.Fragment key={sectionKey}>
+                {sectionIndex > 0 && (
+                  <Box
                     sx={{
-                      ...(chip.maxWidth && {
-                        maxWidth: chip.maxWidth,
-                        '& .MuiChip-label': {
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        },
-                      }),
+                      width: '100%',
+                      height: '1px',
+                      bgcolor: 'divider',
+                      my: 1,
                     }}
                   />
-                ))}
-              </Box>
-            </React.Fragment>
-          ))}
+                )}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 0.5,
+                    mb: sectionIndex < chipSections.length - 1 ? 1 : 0,
+                    '& .MuiChip-root': {
+                      height: theme.spacing(3),
+                      fontSize: theme.typography.caption.fontSize,
+                      ...chipStyles,
+                    },
+                  }}
+                >
+                  {section.chips.map(chip => (
+                    <Chip
+                      key={chip.key}
+                      {...(chip.icon && {
+                        icon: chip.icon as React.ReactElement,
+                      })}
+                      label={chip.label}
+                      size="small"
+                      variant={chip.variant || 'outlined'}
+                      sx={{
+                        ...(chip.maxWidth && {
+                          maxWidth: chip.maxWidth,
+                          '& .MuiChip-label': {
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          },
+                        }),
+                      }}
+                    />
+                  ))}
+                </Box>
+              </React.Fragment>
+            );
+          })}
         </Box>
       </CardContent>
     </Card>

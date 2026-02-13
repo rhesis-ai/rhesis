@@ -11,7 +11,7 @@ from rhesis.sdk.decorators import (
     endpoint,
     observe,
 )
-from rhesis.sdk.enums import TestType
+from rhesis.sdk.enums import ExecutionMode, TestType
 
 try:
     __version__ = version("rhesis-sdk")
@@ -23,6 +23,7 @@ __all__ = [
     "api_key",
     "base_url",
     "__version__",
+    "ExecutionMode",
     "TestType",
     "RhesisClient",
     "DisabledClient",

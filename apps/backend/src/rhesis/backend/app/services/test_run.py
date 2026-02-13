@@ -1,11 +1,12 @@
 import csv
 import uuid
 from io import StringIO
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app import crud, models, schemas
+from rhesis.backend.logging.rhesis_logger import logger
 
 
 def get_test_results_for_test_run(
@@ -162,3 +163,102 @@ def test_run_results_to_csv(test_results_data: List[Dict[str, Any]]) -> str:
         writer.writerow(row)
 
     return output.getvalue()
+
+
+def rescore_test_run(
+    db: Session,
+    reference_test_run_id: str,
+    current_user: models.User,
+    metrics: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Create a new test run that re-scores an existing one.
+
+    No endpoints are invoked -- only metric evaluation on stored outputs.
+
+    Args:
+        db: Database session
+        reference_test_run_id: UUID string of the test run to re-score
+        current_user: Current authenticated user
+        metrics: Optional list of execution-time metrics to use.
+            Each dict should have: id, name, and optionally scope.
+            If None, re-uses the original test run's metrics.
+
+    Returns:
+        Dict containing new test_run_id and status
+
+    Raises:
+        ValueError: If the reference test run is not found
+    """
+    org_id = str(current_user.organization_id)
+    uid = str(current_user.id)
+
+    # 1. Load the reference test run
+    ref_run = crud.get_test_run(
+        db,
+        test_run_id=uuid.UUID(reference_test_run_id),
+        organization_id=org_id,
+        user_id=uid,
+    )
+    if not ref_run:
+        raise ValueError(f"Test run {reference_test_run_id} not found")
+
+    ref_config = ref_run.test_configuration
+    if not ref_config:
+        raise ValueError(f"Test run {reference_test_run_id} has no test configuration")
+
+    # 2. Build attributes for the new test configuration
+    attributes = {
+        "reference_test_run_id": reference_test_run_id,
+        "is_rescore": True,
+        "execution_mode": "Parallel",
+    }
+
+    # Add metrics override if provided
+    if metrics:
+        attributes["metrics"] = metrics
+        from rhesis.backend.app.schemas.test_set import MetricsSource
+
+        attributes["metrics_source"] = MetricsSource.EXECUTION_TIME.value
+        logger.debug(f"Rescore using {len(metrics)} execution-time metrics")
+
+    # 3. Create new TestConfiguration pointing to same endpoint/test_set
+    new_config = schemas.TestConfigurationCreate(
+        endpoint_id=ref_config.endpoint_id,
+        test_set_id=ref_config.test_set_id,
+        user_id=current_user.id,
+        organization_id=current_user.organization_id,
+        attributes=attributes,
+    )
+    db_new_config = crud.create_test_configuration(
+        db=db,
+        test_configuration=new_config,
+        organization_id=org_id,
+        user_id=uid,
+    )
+    new_config_id = str(db_new_config.id)
+    logger.info(
+        f"Created rescore test configuration {new_config_id} "
+        f"for reference run {reference_test_run_id}"
+    )
+
+    # 4. Submit for execution via the task launcher
+    from rhesis.backend.tasks import task_launcher
+    from rhesis.backend.tasks.test_configuration import (
+        execute_test_configuration,
+    )
+
+    result = task_launcher(
+        execute_test_configuration,
+        new_config_id,
+        current_user=current_user,
+    )
+
+    logger.info(f"Rescore submitted for reference run {reference_test_run_id}, task {result.id}")
+
+    return {
+        "status": "submitted",
+        "message": (f"Re-scoring test run {reference_test_run_id} with new metrics"),
+        "test_configuration_id": new_config_id,
+        "reference_test_run_id": reference_test_run_id,
+        "task_id": result.id,
+    }

@@ -1,5 +1,7 @@
 import csv
 import json
+import logging
+import uuid as uuid_mod
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
@@ -12,8 +14,10 @@ from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import handle_http_errors
 from rhesis.sdk.entities.prompt import Prompt
 from rhesis.sdk.entities.test import Test
-from rhesis.sdk.enums import TestType
+from rhesis.sdk.enums import ExecutionMode, TestType
 from rhesis.sdk.models.base import BaseLLM
+
+logger = logging.getLogger(__name__)
 
 ENDPOINT = Endpoints.TEST_SETS
 
@@ -26,6 +30,7 @@ class TestSetProperties(BaseModel):
 
 class TestSet(BaseEntity):
     endpoint: ClassVar[Endpoints] = ENDPOINT
+    _push_required_fields: ClassVar[tuple[str, ...]] = ("name", "tests")
 
     id: Optional[str] = None
     tests: Optional[list[Test]] = None
@@ -33,11 +38,11 @@ class TestSet(BaseEntity):
     topics: Optional[list[str]] = None
     behaviors: Optional[list[str]] = None
     test_count: Optional[int] = None
-    name: str
-    description: str
-    short_description: str
+    name: Optional[str] = None
+    description: Optional[str] = None
+    short_description: Optional[str] = None
     test_set_type: Optional[TestType] = None
-    metadata: dict = {}
+    metadata: Optional[dict] = None
 
     @field_validator("test_set_type", mode="before")
     @classmethod
@@ -61,38 +66,435 @@ class TestSet(BaseEntity):
         return v
 
     @handle_http_errors
-    def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:
-        """Execute the test set against the given endpoint.
-
-        This method sends a request to the Rhesis backend to execute all tests
-        in the test set against the specified endpoint.
+    def fetch_tests(self, skip: int = 0, limit: int = 100) -> List[Test]:
+        """Fetch tests associated with this test set from the API.
 
         Args:
-            endpoint: The endpoint to execute tests against
+            skip: Number of tests to skip (for pagination). Defaults to 0.
+            limit: Maximum number of tests to fetch. Defaults to 100.
 
         Returns:
-            Dict containing the execution results, or None if error occurred.
+            List of Test objects associated with this test set.
 
         Raises:
-            ValueError: If test set ID is not set
-            requests.exceptions.HTTPError: If the API request fails
+            ValueError: If test set ID is not set.
 
         Example:
             >>> test_set = TestSet(id='test-set-123')
-            >>> test_set.fetch()
-            >>> result = test_set.execute(endpoint=Endpoint.TESTS)
-            >>> print(result)
+            >>> tests = test_set.fetch_tests()
+            >>> print(f"Fetched {len(tests)} tests")
         """
         if not self.id:
-            raise ValueError("Test set ID must be set before executing")
+            raise ValueError("Test set ID must be set before fetching tests")
 
         client = APIClient()
         response = client.send_request(
             endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/tests",
+            params={"skip": skip, "limit": limit},
+        )
+
+        if response:
+            self.tests = [Test.model_validate(t) for t in response]
+            self.test_count = len(self.tests)
+            return self.tests
+        return []
+
+    def pull(self, include_tests: bool = True) -> "TestSet":
+        """Pull the test set from the database and update this instance.
+
+        Args:
+            include_tests: If True (default), also fetches associated tests.
+
+        Returns:
+            TestSet: Returns self for method chaining.
+
+        Example:
+            >>> test_set = TestSet(id='test-set-123')
+            >>> test_set.pull()  # Fetches test set metadata and tests
+            >>> print(f"Test set has {len(test_set.tests)} tests")
+        """
+        # Call parent pull() to get test set metadata
+        super().pull()
+
+        # Fetch tests if requested
+        if include_tests:
+            self.fetch_tests()
+
+        return self
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _resolve_metric_id(
+        self,
+        metric: Union[Dict[str, Any], str],
+        client: Optional[APIClient] = None,
+    ) -> str:
+        """Resolve a single metric reference to an ID.
+
+        Accepts:
+            - A dict with an ``"id"`` key
+            - A UUID string (used directly)
+            - A metric name string (looked up via ``GET /metrics``)
+
+        Args:
+            metric: Metric reference (dict, UUID string, or name).
+            client: Optional shared APIClient instance.
+        """
+        if isinstance(metric, dict):
+            mid = metric.get("id")
+            if not mid:
+                raise ValueError("Metric dict must contain an 'id' key")
+            return str(mid)
+
+        metric_str = str(metric)
+
+        # Check if it looks like a UUID
+        try:
+            uuid_mod.UUID(metric_str)
+            return metric_str
+        except ValueError:
+            pass
+
+        # Treat as a name – look up via the metrics endpoint
+        if client is None:
+            client = APIClient()
+        results = client.send_request(
+            endpoint=Endpoints.METRICS,
+            method=Methods.GET,
+            params={"$filter": f"name eq '{metric_str}'"},
+        )
+        if not results:
+            raise ValueError(f"Metric not found: {metric_str}")
+
+        items = results if isinstance(results, list) else [results]
+        if not items:
+            raise ValueError(f"Metric not found: {metric_str}")
+
+        return str(items[0]["id"])
+
+    def _resolve_metrics(self, metrics: List[Union[Dict[str, Any], str]]) -> List[Dict[str, Any]]:
+        """Resolve a mixed list of metric dicts / name strings."""
+        client = APIClient()
+        resolved: List[Dict[str, Any]] = []
+        for m in metrics:
+            if isinstance(m, dict):
+                resolved.append(m)
+            else:
+                metric_id = self._resolve_metric_id(m, client=client)
+                resolved.append({"id": metric_id, "name": str(m)})
+        return resolved
+
+    def _resolve_run_id(self, run: Union[str, Any]) -> str:
+        """Resolve a test run reference to an ID.
+
+        Accepts a TestRun instance, a UUID string, or a test run name.
+        """
+        if hasattr(run, "id") and run.id:
+            return str(run.id)
+
+        run_str = str(run)
+
+        try:
+            uuid_mod.UUID(run_str)
+            return run_str
+        except ValueError:
+            pass
+
+        # Treat as a name
+        from rhesis.sdk.entities.test_run import TestRuns
+
+        resolved = TestRuns.pull(name=run_str)
+        if resolved is None or not getattr(resolved, "id", None):
+            raise ValueError(f"Test run not found: {run_str}")
+        return str(resolved.id)
+
+    def _build_execution_body(
+        self,
+        *,
+        mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
+        metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
+        reference_test_run_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Build the request body for the execute endpoint."""
+        resolved_mode = ExecutionMode.from_string(mode)
+        body: Dict[str, Any] = {
+            "execution_options": {
+                "execution_mode": resolved_mode.value,
+            },
+        }
+        if metrics:
+            body["metrics"] = self._resolve_metrics(metrics)
+        if reference_test_run_id:
+            body["reference_test_run_id"] = reference_test_run_id
+        return body
+
+    # ------------------------------------------------------------------
+    # Execution
+    # ------------------------------------------------------------------
+
+    @handle_http_errors
+    def execute(
+        self,
+        endpoint: Endpoint,
+        *,
+        mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
+        metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Execute the test set against the given endpoint.
+
+        Args:
+            endpoint: The endpoint to execute tests against.
+            mode: Execution mode – ``ExecutionMode.PARALLEL`` (default),
+                ``ExecutionMode.SEQUENTIAL``, or ``"parallel"`` / ``"sequential"``.
+            metrics: Optional list of metrics for this execution.
+                Overrides test set and behavior metrics.  Each item
+                can be a dict with ``"id"``, ``"name"``, and optional
+                ``"scope"``; or a metric name string (resolved via
+                the ``/metrics`` API).
+
+        Returns:
+            Dict containing the execution submission response, or
+            ``None`` if an error occurred.
+
+        Raises:
+            ValueError: If test set ID is not set.
+
+        Example:
+            >>> test_set = TestSets.pull(name="Safety Tests")
+            >>> endpoint = Endpoints.pull(name="GPT-4o")
+            >>> result = test_set.execute(endpoint)
+            >>> result = test_set.execute(endpoint, mode=ExecutionMode.SEQUENTIAL)
+            >>> result = test_set.execute(endpoint, mode="sequential")
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before executing")
+
+        body = self._build_execution_body(mode=mode, metrics=metrics)
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
             method=Methods.POST,
             url_params=f"{self.id}/execute/{endpoint.id}",
+            data=body,
         )
-        return response
+
+    @handle_http_errors
+    def rescore(
+        self,
+        endpoint: Endpoint,
+        run: Optional[Union[str, Any]] = None,
+        *,
+        mode: Union[str, ExecutionMode] = ExecutionMode.PARALLEL,
+        metrics: Optional[List[Union[Dict[str, Any], str]]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Re-score outputs from an existing test run.
+
+        Re-evaluates metrics on stored outputs without calling the
+        endpoint again.
+
+        Args:
+            endpoint: The endpoint the original run was executed
+                against.
+            run: The test run whose outputs to re-score.  Accepts:
+
+                - A ``TestRun`` instance
+                - A string test run ID (UUID)
+                - A string test run name (resolved via
+                  ``TestRuns`` collection)
+                - ``None`` (default) – uses the latest completed run
+
+            mode: Execution mode – ``ExecutionMode.PARALLEL`` (default),
+                ``ExecutionMode.SEQUENTIAL``, or ``"parallel"`` / ``"sequential"``.
+            metrics: Optional list of metrics for re-scoring.
+
+        Returns:
+            Dict containing the execution submission response, or
+            ``None`` if an error occurred.
+
+        Raises:
+            ValueError: If test set ID is not set or no completed
+                run is found when *run* is ``None``.
+
+        Example:
+            >>> test_set.rescore(endpoint)
+            >>> test_set.rescore(endpoint, run="Safety - Run 42")
+            >>> test_set.rescore(endpoint, metrics=["Accuracy"])
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before rescoring")
+
+        if run is None:
+            last = self.last_run(endpoint)
+            if not last:
+                raise ValueError("No completed test run found for this test set and endpoint")
+            run_id = str(last["id"])
+        else:
+            run_id = self._resolve_run_id(run)
+
+        body = self._build_execution_body(
+            mode=mode,
+            metrics=metrics,
+            reference_test_run_id=run_id,
+        )
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            url_params=f"{self.id}/execute/{endpoint.id}",
+            data=body,
+        )
+
+    @handle_http_errors
+    def last_run(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:
+        """Get the most recent completed test run.
+
+        Returns a summary dict for the latest completed run of this
+        test set against the given endpoint, or ``None`` if no
+        completed run exists.
+
+        The dict contains: ``id``, ``nano_id``, ``name``, ``status``,
+        ``created_at``, ``test_count``, and ``pass_rate``.
+
+        Args:
+            endpoint: The endpoint to look up the last run for.
+
+        Raises:
+            ValueError: If test set ID is not set.
+
+        Example:
+            >>> last = test_set.last_run(endpoint)
+            >>> if last:
+            ...     print(last["pass_rate"])
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before fetching last run")
+
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/last-run/{endpoint.id}",
+        )
+
+    # ------------------------------------------------------------------
+    # Test set metric management
+    # ------------------------------------------------------------------
+
+    @handle_http_errors
+    def get_metrics(self) -> Optional[List[Dict[str, Any]]]:
+        """Get metrics associated with this test set.
+
+        Returns:
+            A list of metric dicts, or an empty list if none are
+            assigned.
+
+        Raises:
+            ValueError: If test set ID is not set.
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before fetching metrics")
+
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/metrics",
+        )
+
+    @handle_http_errors
+    def add_metric(self, metric: Union[Dict[str, Any], str]) -> Optional[List[Dict[str, Any]]]:
+        """Add a metric to this test set.
+
+        Args:
+            metric: The metric to add.  Accepts a dict with an
+                ``"id"`` key, a UUID string, or a metric name string
+                (resolved via the ``/metrics`` API).
+
+        Returns:
+            The updated list of metrics on this test set.
+
+        Raises:
+            ValueError: If test set ID is not set or the metric
+                cannot be resolved.
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before adding metrics")
+
+        metric_id = self._resolve_metric_id(metric)
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            url_params=f"{self.id}/metrics/{metric_id}",
+        )
+
+    def add_metrics(
+        self, metrics: List[Union[Dict[str, Any], str]]
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Add multiple metrics to this test set.
+
+        Args:
+            metrics: A list where each item can be a dict, UUID
+                string, or metric name string.
+
+        Returns:
+            The updated list of metrics on this test set after all
+            additions.
+        """
+        result = None
+        for metric in metrics:
+            result = self.add_metric(metric)
+        return result
+
+    @handle_http_errors
+    def remove_metric(self, metric: Union[Dict[str, Any], str]) -> Optional[List[Dict[str, Any]]]:
+        """Remove a metric from this test set.
+
+        Accepts the same input types as :meth:`add_metric`.
+
+        Returns:
+            The updated list of metrics on this test set.
+
+        Raises:
+            ValueError: If test set ID is not set or the metric
+                cannot be resolved.
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before removing metrics")
+
+        metric_id = self._resolve_metric_id(metric)
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.DELETE,
+            url_params=f"{self.id}/metrics/{metric_id}",
+        )
+
+    def remove_metrics(
+        self, metrics: List[Union[Dict[str, Any], str]]
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Remove multiple metrics from this test set.
+
+        Args:
+            metrics: A list where each item can be a dict, UUID
+                string, or metric name string.
+
+        Returns:
+            The updated list of metrics on this test set after all
+            removals.
+        """
+        result = None
+        for metric in metrics:
+            result = self.remove_metric(metric)
+        return result
+
+    # ------------------------------------------------------------------
+    # Properties / LLM
+    # ------------------------------------------------------------------
 
     def set_properties(self, model: BaseLLM) -> None:
         """Set test set attributes using LLM based on categories and topics in tests.
@@ -149,31 +551,6 @@ class TestSet(BaseEntity):
         else:
             raise ValueError("LLM response was not in the expected format")
 
-    @classmethod
-    def _create(cls, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a test set using the bulk endpoint.
-
-        Args:
-            data: Dictionary containing test set data including tests
-
-        Returns:
-            Dict containing the created test set data from the API
-
-        Raises:
-            ValueError: If tests are not provided
-        """
-        if not data.get("tests"):
-            raise ValueError("Test set must have at least one test before creating")
-
-        client = APIClient()
-        response = client.send_request(
-            endpoint=cls.endpoint,
-            method=Methods.POST,
-            url_params="bulk",
-            data=data,
-        )
-        return response
-
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the test set to the database.
 
@@ -181,6 +558,9 @@ class TestSet(BaseEntity):
 
         Returns:
             Dict containing the response from the API, or None if error occurred.
+
+        Raises:
+            ValueError: If required fields are missing or tests lack category/behavior.
 
         Example:
             >>> test_set = TestSet(
@@ -192,11 +572,37 @@ class TestSet(BaseEntity):
             >>> result = test_set.push()
             >>> print(f"Created test set with ID: {test_set.id}")
         """
+        # Validate required fields
+        missing_fields = [
+            field for field in self._push_required_fields if getattr(self, field, None) is None
+        ]
+        if missing_fields:
+            raise ValueError(f"Required fields for push: {', '.join(missing_fields)}")
+
+        # Validate that each test has required fields set (from Test._push_required_fields)
+        if self.tests:
+            for i, test in enumerate(self.tests):
+                missing_test_fields = [
+                    field for field in Test._push_required_fields if not getattr(test, field, None)
+                ]
+                if missing_test_fields:
+                    raise ValueError(
+                        f"Test at index {i} is missing required fields: "
+                        f"{', '.join(missing_test_fields)}"
+                    )
+
         # mode="json": Ensures enums are serialized as strings instead of enum objects
         # exclude_none=True: Excludes None values so backend uses defaults
         data = self.model_dump(mode="json", exclude_none=True)
 
-        response = self._create(data)
+        client = APIClient()
+        response = client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            url_params="bulk",
+            data=data,
+        )
+
         if response and "id" in response:
             self.id = response["id"]
 
@@ -205,8 +611,15 @@ class TestSet(BaseEntity):
     def to_csv(self, filename: Union[str, Path]) -> None:
         """Save the tests from this test set to a CSV file.
 
-        Exports single-turn tests with their properties including category, topic,
-        behavior, and prompt content.
+        Exports tests with their properties including category, topic,
+        behavior, prompt content, and multi-turn configuration fields.
+
+        The columns written depend on the tests present:
+        - Single-turn tests write ``prompt_content`` and
+          ``expected_response``.
+        - Multi-turn tests write ``goal``, ``instructions``,
+          ``restrictions``, and ``scenario``.
+        - If the set is mixed, all columns are included.
 
         Args:
             filename: Path to the CSV file to create/overwrite.
@@ -221,12 +634,26 @@ class TestSet(BaseEntity):
         if not self.tests:
             raise ValueError("Test set has no tests to export")
 
-        fieldnames = [
-            "category",
-            "topic",
-            "behavior",
-            "prompt_content",
-        ]
+        # Determine which column sets are needed
+        has_single = False
+        has_multi = False
+        for test in self.tests:
+            obj = Test(**test) if isinstance(test, dict) else test
+            if obj.test_configuration and obj.test_configuration.goal:
+                has_multi = True
+            if obj.prompt and obj.prompt.content:
+                has_single = True
+
+        fieldnames = ["category", "topic", "behavior", "test_type"]
+        if has_single or not has_multi:
+            fieldnames += ["prompt_content", "expected_response"]
+        if has_multi:
+            fieldnames += [
+                "goal",
+                "instructions",
+                "restrictions",
+                "scenario",
+            ]
 
         filepath = Path(filename)
         with open(filepath, "w", newline="", encoding="utf-8") as csvfile:
@@ -234,17 +661,37 @@ class TestSet(BaseEntity):
             writer.writeheader()
 
             for test in self.tests:
-                if isinstance(test, dict):
-                    test_obj = Test(**test)
-                else:
-                    test_obj = test
+                test_obj = Test(**test) if isinstance(test, dict) else test
 
-                row = {
+                row: Dict[str, str] = {
                     "category": test_obj.category or "",
                     "topic": test_obj.topic or "",
                     "behavior": test_obj.behavior or "",
-                    "prompt_content": test_obj.prompt.content if test_obj.prompt else "",
+                    "test_type": (
+                        test_obj.test_type.value
+                        if isinstance(test_obj.test_type, TestType)
+                        else str(test_obj.test_type or "Single-Turn")
+                    ),
                 }
+
+                if "prompt_content" in fieldnames:
+                    row["prompt_content"] = test_obj.prompt.content if test_obj.prompt else ""
+                    row["expected_response"] = (
+                        test_obj.prompt.expected_response or "" if test_obj.prompt else ""
+                    )
+
+                if "goal" in fieldnames and test_obj.test_configuration:
+                    cfg = test_obj.test_configuration
+                    row["goal"] = cfg.goal or ""
+                    row["instructions"] = cfg.instructions or ""
+                    row["restrictions"] = cfg.restrictions or ""
+                    row["scenario"] = cfg.scenario or ""
+                elif "goal" in fieldnames:
+                    row["goal"] = ""
+                    row["instructions"] = ""
+                    row["restrictions"] = ""
+                    row["scenario"] = ""
+
                 writer.writerow(row)
 
     def _test_to_dict(self, test: Union[Test, Dict[str, Any]]) -> Dict[str, Any]:
@@ -305,14 +752,19 @@ class TestSet(BaseEntity):
     def _dict_to_test(cls, entry: Dict[str, Any]) -> Optional[Test]:
         """Convert a dictionary entry to a Test object.
 
+        Supports both nested and flat formats for prompts and
+        test configuration.  Flat multi-turn fields (``goal``,
+        ``instructions``, ``restrictions``, ``scenario``) are
+        forwarded to the ``Test`` constructor whose
+        ``model_validator`` builds ``test_configuration``
+        automatically.
+
         Args:
             entry: Dictionary containing test data.
 
         Returns:
             Test object, or None if the entry is empty/invalid.
         """
-        from rhesis.sdk.entities.test import TestConfiguration
-
         if not isinstance(entry, dict):
             return None
 
@@ -322,29 +774,36 @@ class TestSet(BaseEntity):
         language_code = None
 
         if "prompt" in entry and isinstance(entry["prompt"], dict):
-            # Nested format: {"prompt": {"content": "...", "expected_response": "..."}}
             prompt_content = entry["prompt"].get("content")
             expected_response = entry["prompt"].get("expected_response")
             language_code = entry["prompt"].get("language_code")
         else:
-            # Flat format: {"prompt_content": "...", "expected_response": "..."}
             prompt_content = entry.get("prompt_content")
             expected_response = entry.get("expected_response")
 
-        # Skip empty entries - check if any required field has content
+        # Extract multi-turn flat fields
+        goal = entry.get("goal", "")
+        instructions = entry.get("instructions", "")
+        restrictions = entry.get("restrictions", "")
+        scenario = entry.get("scenario", "")
+
+        # Skip empty entries - check if any meaningful field has content
         category = entry.get("category", "")
         topic = entry.get("topic", "")
         behavior = entry.get("behavior", "")
 
-        if not any(
-            [
-                str(prompt_content or "").strip(),
-                str(category).strip(),
-                str(topic).strip(),
-                str(behavior).strip(),
+        has_content = any(
+            str(v or "").strip()
+            for v in [
+                prompt_content,
+                category,
+                topic,
+                behavior,
+                goal,
             ]
-        ):
-            return None  # Empty entry
+        )
+        if not has_content:
+            return None
 
         # Build prompt if content exists
         prompt = None
@@ -362,29 +821,33 @@ class TestSet(BaseEntity):
         else:
             test_type = TestType.SINGLE_TURN
 
-        # Build test configuration if present (for multi-turn tests)
-        test_configuration = None
+        # Build test kwargs — let Test.model_validator handle
+        # building test_configuration from flat fields.
+        test_kwargs: Dict[str, Any] = {
+            "category": category or None,
+            "topic": topic or None,
+            "behavior": behavior or None,
+            "prompt": prompt,
+            "test_type": test_type,
+            "metadata": entry.get("metadata") or {},
+        }
+
+        # Pass nested test_configuration if present
         if "test_configuration" in entry and isinstance(entry["test_configuration"], dict):
-            config = entry["test_configuration"]
-            test_configuration = TestConfiguration(
-                goal=config.get("goal", ""),
-                instructions=config.get("instructions", ""),
-                restrictions=config.get("restrictions", ""),
-                scenario=config.get("scenario", ""),
-            )
+            test_kwargs["test_configuration"] = entry["test_configuration"]
+        else:
+            # Pass flat fields — Test.build_test_configuration will
+            # assemble them into test_configuration when goal is set.
+            if str(goal).strip():
+                test_kwargs["goal"] = goal
+            if str(instructions).strip():
+                test_kwargs["instructions"] = instructions
+            if str(restrictions).strip():
+                test_kwargs["restrictions"] = restrictions
+            if str(scenario).strip():
+                test_kwargs["scenario"] = scenario
 
-        # Build metadata if present
-        metadata = entry.get("metadata", {})
-
-        return Test(
-            category=category or None,
-            topic=topic or None,
-            behavior=behavior or None,
-            prompt=prompt,
-            test_type=test_type,
-            test_configuration=test_configuration,
-            metadata=metadata if metadata else {},
-        )
+        return Test(**test_kwargs)
 
     def to_json(self, filename: Union[str, Path], indent: int = 2) -> None:
         """Save the tests from this test set to a JSON file.
@@ -621,31 +1084,39 @@ class TestSet(BaseEntity):
         description: str = "",
         short_description: str = "",
     ) -> "TestSet":
-        """Load single-turn tests from a CSV file and create a new TestSet.
+        """Load tests from a CSV file and create a new TestSet.
 
         Creates a TestSet populated with Test objects from the CSV file.
+        Supports both single-turn and multi-turn test formats.
 
-        Required CSV Columns:
-            - prompt_content: The test prompt text (required for valid tests)
-            - category: Test category (required for valid tests)
-            - topic: Test topic (required for valid tests)
-            - behavior: Test behavior (required for valid tests)
+        Common CSV Columns:
+            - category: Test category
+            - topic: Test topic
+            - behavior: Test behavior
+            - test_type: "Single-Turn" or "Multi-Turn"
+              (default: "Single-Turn")
 
-        Optional CSV Columns:
-            - test_type: Test type (defaults to "Single-Turn")
+        Single-Turn Columns:
+            - prompt_content: The test prompt text
             - expected_response: Expected response text
-            - Any other columns will be ignored
+
+        Multi-Turn Columns (flat):
+            - goal: Multi-turn test goal
+            - instructions: How the agent should conduct the test
+            - restrictions: Forbidden behaviors for the target
+            - scenario: Contextual framing for the test
 
         Empty Row Handling:
-            Rows with empty or whitespace-only values for all required fields
-            (prompt_content, category, topic, behavior) will be automatically
-            skipped during import.
+            Rows with no meaningful content (no prompt, category,
+            topic, behavior, or goal) are automatically skipped.
 
         Args:
             filename: Path to the CSV file to read.
             name: Name for the test set (default: empty string).
-            description: Description for the test set (default: empty string).
-            short_description: Short description for the test set (default: empty string).
+            description: Description for the test set
+                (default: empty string).
+            short_description: Short description for the test set
+                (default: empty string).
 
         Returns:
             A new TestSet instance populated with tests from the CSV.
@@ -654,8 +1125,8 @@ class TestSet(BaseEntity):
             FileNotFoundError: If the CSV file does not exist.
 
         Example:
-            >>> test_set = TestSet.from_csv("my_tests.csv", name="Imported Tests")
-            >>> print(f"Loaded {len(test_set.tests)} tests")
+            >>> ts = TestSet.from_csv("tests.csv", name="Imported")
+            >>> print(f"Loaded {len(ts.tests)} tests")
         """
         filepath = Path(filename)
         tests: List[Test] = []
@@ -664,33 +1135,11 @@ class TestSet(BaseEntity):
             reader = csv.DictReader(csvfile)
 
             for row in reader:
-                # Skip empty rows - check if any required field has content
-                if not any(
-                    [
-                        row.get("prompt_content", "").strip(),
-                        row.get("category", "").strip(),
-                        row.get("topic", "").strip(),
-                        row.get("behavior", "").strip(),
-                    ]
-                ):
-                    continue  # Skip this empty row
-
-                # Build prompt if content exists
-                prompt = None
-                if row.get("prompt_content"):
-                    prompt = Prompt(
-                        content=row["prompt_content"],
-                        expected_response=row.get("expected_response"),
-                    )
-
-                test = Test(
-                    category=row.get("category") or None,
-                    topic=row.get("topic") or None,
-                    behavior=row.get("behavior") or None,
-                    prompt=prompt,
-                    test_type=TestType.SINGLE_TURN,
-                )
-                tests.append(test)
+                # Use _dict_to_test which handles both single-turn
+                # and multi-turn (nested + flat) formats.
+                test = cls._dict_to_test(row)
+                if test is not None:
+                    tests.append(test)
 
         return cls(
             name=name,

@@ -183,6 +183,71 @@ results = model.generate_batch(
 
 Note: Batch processing is currently available for LiteLLM-based providers (OpenAI, Gemini, and other supported providers).
 
+
+### Using models with synthesizers and metrics
+
+Models become most useful when combined with synthesizers and metrics:
+
+<CodeBlock filename="models_with_tools.py" language="python">
+{`from rhesis.sdk.models import get_model
+from rhesis.sdk.synthesizers import PromptSynthesizer
+from rhesis.sdk.metrics import RhesisPromptMetricNumeric
+
+# With synthesizers
+model = get_model("gemini")
+synthesizer = PromptSynthesizer(
+    prompt="Generate tests for the car selling chatbot",
+    model=model,
+)
+
+# With metrics
+metric = RhesisPromptMetricNumeric(
+    name="answer_quality_evaluator",
+    evaluation_prompt="Evaluate the answer for accuracy, completeness, clarity, and relevance.",
+    model="gemini",
+)`}
+
+</CodeBlock>
+
+### Saving models to the platform
+
+You can save an LLM configuration to the Rhesis platform as a [Model entity](/sdk/entities/models). This allows you to:
+
+- Store model configurations centrally for team sharing
+- Set default models for test generation and evaluation
+- Retrieve configurations across different scripts
+
+<CodeBlock filename="save_model.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+# Create an LLM instance
+llm = get_model("openai", "gpt-4", api_key="sk-...")
+
+# Save to platform as a Model entity
+model = llm.push(name="GPT-4 Production")
+
+# Set as default for generation or evaluation
+model.set_default_generation()
+model.set_default_evaluation()`}
+
+</CodeBlock>
+
+You can also retrieve saved configurations and convert them back to LLM instances:
+
+<CodeBlock filename="load_model.py" language="python">
+{`from rhesis.sdk.entities import Models
+
+# Pull saved model from platform
+model = Models.pull(name="GPT-4 Production")
+
+# Convert to LLM instance
+llm = model.get_model_instance()
+
+# Use for generation
+response = llm.generate("Hello, how are you?")`}
+
+</CodeBlock>
+
 ## Embedders
 
 Embedders generate vector representations (embeddings) of text, which are useful for semantic search, similarity comparison, and clustering tasks.
@@ -282,77 +347,6 @@ embedding = embedder.generate("Hello world", dimensions=512)
 
 </CodeBlock>
 
-
-**When to use embedders:**
-
-- Semantic similarity search
-- Clustering similar documents or test cases
-- Finding related test inputs
-- Building retrieval-augmented generation (RAG) systems
-
-### Using models with synthesizers and metrics
-
-Models become most useful when combined with synthesizers and metrics:
-
-<CodeBlock filename="models_with_tools.py" language="python">
-{`from rhesis.sdk.models import get_model
-from rhesis.sdk.synthesizers import PromptSynthesizer
-from rhesis.sdk.metrics import RhesisPromptMetricNumeric
-
-# With synthesizers
-model = get_model("gemini")
-synthesizer = PromptSynthesizer(
-    prompt="Generate tests for the car selling chatbot",
-    model=model,
-)
-
-# With metrics
-metric = RhesisPromptMetricNumeric(
-    name="answer_quality_evaluator",
-    evaluation_prompt="Evaluate the answer for accuracy, completeness, clarity, and relevance.",
-    model="gemini",
-)`}
-
-</CodeBlock>
-
-### Saving models to the platform
-
-You can save an LLM configuration to the Rhesis platform as a [Model entity](/sdk/entities/models). This allows you to:
-
-- Store model configurations centrally for team sharing
-- Set default models for test generation and evaluation
-- Retrieve configurations across different scripts
-
-<CodeBlock filename="save_model.py" language="python">
-{`from rhesis.sdk.models import get_model
-
-# Create an LLM instance
-llm = get_model("openai", "gpt-4", api_key="sk-...")
-
-# Save to platform as a Model entity
-model = llm.push(name="GPT-4 Production")
-
-# Set as default for generation or evaluation
-model.set_default_generation()
-model.set_default_evaluation()`}
-
-</CodeBlock>
-
-You can also retrieve saved configurations and convert them back to LLM instances:
-
-<CodeBlock filename="load_model.py" language="python">
-{`from rhesis.sdk.entities import Models
-
-# Pull saved model from platform
-model = Models.pull(name="GPT-4 Production")
-
-# Convert to LLM instance
-llm = model.get_model_instance()
-
-# Use for generation
-response = llm.generate("Hello, how are you?")`}
-
-</CodeBlock>
 
 <Callout type="default">
   See the [Model entity documentation](/sdk/entities/models) for more details on managing model configurations.

@@ -42,6 +42,21 @@ class Tests(BaseModel):
     tests: List[Test]
 
 
+# Flat schema for LLM batch generation (easier for the model to produce).
+# Repacked to nested Test structure after generation.
+class FlatTest(BaseModel):
+    prompt_content: str
+    prompt_expected_response: str
+    prompt_language_code: str
+    behavior: str
+    category: str
+    topic: str
+
+
+class FlatTests(BaseModel):
+    tests: List[FlatTest]
+
+
 class TestSetSynthesizer(ABC):
     """Base class for all test set synthesizers."""
 
@@ -263,6 +278,19 @@ class TestSetSynthesizer(ABC):
 
         return all_test_cases
 
+    def _flat_test_to_nested(self, flat: Dict[str, Any]) -> Dict[str, Any]:
+        """Repack a flat test dict (LLM output) into the nested Test structure."""
+        return {
+            "prompt": {
+                "content": flat["prompt_content"],
+                "expected_response": flat["prompt_expected_response"],
+                "language_code": flat["prompt_language_code"],
+            },
+            "behavior": flat["behavior"],
+            "category": flat["category"],
+            "topic": flat["topic"],
+        }
+
     def _generate_batch(
         self,
         num_tests: int,
@@ -272,20 +300,22 @@ class TestSetSynthesizer(ABC):
         template_context = {"num_tests": num_tests, **kwargs}
         prompt = self.prompt_template.render(**template_context)
 
-        # Use utility function for retry logic
-        # When schema is provided, generate() returns a Dict
-        response = cast(Dict[str, Any], self.model.generate(prompt=prompt, schema=Tests))
-        tests = response["tests"][:num_tests]
+        # Use flat schema for LLM (easier to generate), then repack to nested
+        response = cast(
+            Dict[str, Any],
+            self.model.generate(prompt=prompt, schema=FlatTests),
+        )
+        flat_tests = response["tests"][:num_tests]
 
         tests = [
             {
-                **test,
+                **self._flat_test_to_nested(flat),
                 "test_type": TestType.SINGLE_TURN.value,  # Set to Single-Turn
                 "metadata": {
                     "generated_by": self._get_synthesizer_name(),
                 },
             }
-            for test in tests
+            for flat in flat_tests
         ]
 
         return tests

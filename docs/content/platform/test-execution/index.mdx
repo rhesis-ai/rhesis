@@ -59,6 +59,27 @@ Choose how tests are processed:
 | **Parallel** | Tests run simultaneously for faster execution | Large test sets, CI/CD pipelines |
 | **Sequential** | Tests run one after another | Rate-limited APIs, debugging |
 
+### Scoring Target
+
+The scoring target controls whether the execution calls your endpoint or re-uses outputs from a previous run:
+
+| Target | Description | Best For |
+|--------|-------------|----------|
+| **Fresh Outputs** | Calls the endpoint and scores the new responses. This is the default behavior. | Standard test runs, regression testing |
+| **Reuse Outputs** | Re-scores outputs from the latest completed test run without calling the endpoint. Only metrics are re-evaluated. | Trying different metrics, metric tuning, cost-free re-evaluation |
+
+When you select **Reuse Outputs**, Rhesis looks up the most recent completed test run for the selected test set and endpoint combination. An info panel shows the referenced run's name, date, pass rate, and test count, with a link to view the original run.
+
+<Callout type="info">
+  The **Reuse Outputs** option is only available when at least one completed test run exists for the selected endpoint. If no previous run is found, the option is disabled.
+</Callout>
+
+This is particularly useful when you want to:
+
+- **Experiment with different metrics** without re-running expensive API calls
+- **Compare evaluation criteria** by re-scoring the same outputs with different metric configurations
+- **Validate metric changes** by checking how updated metrics affect existing results
+
 ## Test Run Metrics
 
 Metrics define how test responses are evaluated. Rhesis supports a flexible hierarchy that allows you to configure metrics at different levels.
@@ -137,12 +158,14 @@ You can re-run a test from the test run detail view:
 2. Click the **Re-run** button
 3. The re-run drawer opens with pre-filled settings:
    - Project, endpoint, and test set are fixed
-   - Metrics source defaults to what the original run used
-   - You can modify metrics source and tags
+   - Execution mode, scoring target, and metrics source can be configured
+   - You can modify tags for the new run
 4. Click **Re-run Test** to start a new execution
 
+When re-running with **Reuse Outputs** selected as the scoring target, the outputs from the test run you are currently viewing are reused. This lets you quickly re-evaluate the same responses with different metrics or configurations.
+
 <Callout type="default">
-  Re-running creates a new test run with the same test set and endpoint. This is useful for regression testing or validating fixes.
+  Re-running creates a new test run with the same test set and endpoint. This is useful for regression testing, validating fixes, or re-scoring existing outputs with updated metrics.
 </Callout>
 
 ## Best Practices

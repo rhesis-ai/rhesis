@@ -254,9 +254,14 @@ export class WebSocketClient {
       this.handleClose();
     };
 
-    this.ws.onerror = (error: Event) => {
-      console.error('WebSocket error:', error);
-      this.state.lastError = 'WebSocket error occurred';
+    this.ws.onerror = (_error: Event) => {
+      // WebSocket error events don't contain useful details.
+      // Actual connection failures are handled by onclose event.
+      // Only log if we're not successfully connected.
+      if (!this.state.isConnected) {
+        console.warn('WebSocket error during connection');
+        this.state.lastError = 'WebSocket error occurred';
+      }
     };
   }
 

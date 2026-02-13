@@ -1,7 +1,22 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { Box, Paper, useTheme, TablePagination } from '@mui/material';
+import {
+  Box,
+  Paper,
+  useTheme,
+  TablePagination,
+  IconButton,
+  Tooltip,
+  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+} from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
 import { useRouter } from 'next/navigation';
 import TestRunFilterBar, { FilterState } from './TestRunFilterBar';
 import TestsList from './TestsList';
@@ -66,6 +81,8 @@ export default function TestRunMainView({
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [hasInitialSelection, setHasInitialSelection] = useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
   const [availableTestRuns, setAvailableTestRuns] = useState<
     Array<{
       id: string;
@@ -320,6 +337,45 @@ export default function TestRunMainView({
     notifications,
   ]);
 
+  // Handle rename
+  const handleRenameOpen = useCallback(() => {
+    setRenameValue(testRun.name || '');
+    setRenameDialogOpen(true);
+  }, [testRun.name]);
+
+  const handleRenameClose = useCallback(() => {
+    setRenameDialogOpen(false);
+  }, []);
+
+  const handleRenameSubmit = useCallback(async () => {
+    const trimmed = renameValue.trim();
+    if (!trimmed || trimmed === testRun.name) {
+      setRenameDialogOpen(false);
+      return;
+    }
+    try {
+      const factory = new ApiClientFactory(sessionToken);
+      const testRunsClient = factory.getTestRunsClient();
+      await testRunsClient.updateTestRun(testRunId, { name: trimmed });
+      notifications.show('Test run renamed successfully', {
+        severity: 'success',
+      });
+      setRenameDialogOpen(false);
+      router.refresh();
+    } catch (_error) {
+      notifications.show('Failed to rename test run', {
+        severity: 'error',
+      });
+    }
+  }, [
+    renameValue,
+    testRun.name,
+    testRunId,
+    sessionToken,
+    notifications,
+    router,
+  ]);
+
   // Handle rerun drawer success
   const handleRerunSuccess = useCallback(() => {
     // Navigate to the test runs page to see the new test run
@@ -494,6 +550,61 @@ export default function TestRunMainView({
 
   return (
     <Box>
+      {/* Title with rename pencil icon */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          mb: 3,
+        }}
+      >
+        <Typography variant="h4">{testRun.name || `Test Run`}</Typography>
+        <Tooltip title="Rename test run">
+          <IconButton size="small" onClick={handleRenameOpen}>
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
+      {/* Rename Dialog */}
+      <Dialog
+        open={renameDialogOpen}
+        onClose={handleRenameClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Rename Test Run</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            label="Name"
+            value={renameValue}
+            onChange={e => setRenameValue(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleRenameSubmit();
+              }
+            }}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleRenameClose}>Cancel</Button>
+          <Button
+            onClick={handleRenameSubmit}
+            variant="contained"
+            disabled={
+              !renameValue.trim() || renameValue.trim() === testRun.name
+            }
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Header with Summary Cards - only show when not in comparison mode */}
       {!isComparisonMode && (
         <TestRunHeader

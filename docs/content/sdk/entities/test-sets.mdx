@@ -114,16 +114,27 @@ test_set.to_csv("exported_tests.csv")`}
 Run all tests in a set against an endpoint:
 
 <CodeBlock filename="execute_test_set.py" language="python">
-{`from rhesis.sdk.entities import TestSets, Endpoints
+{`from rhesis.sdk import ExecutionMode
+from rhesis.sdk.entities import TestSets, Endpoints
 
 # Get test set and endpoint
 test_set = TestSets.pull(name="Safety Evaluation")
 endpoint = Endpoints.pull(name="Production Chatbot")
 
-# Execute all tests
+# Execute all tests (parallel by default)
 result = test_set.execute(endpoint)
+
+# Sequential mode and custom metrics
+result = test_set.execute(endpoint, mode=ExecutionMode.SEQUENTIAL, metrics=["Accuracy", "Toxicity"])
+
+# Re-score outputs from the latest run with different metrics
+result = test_set.rescore(endpoint, metrics=["Strictness"])
+
 print(f"Execution started: {result}")`}
 </CodeBlock>
+
+For the full execution API — including re-scoring, last run inspection, and test set metric
+management — see [Test Execution](/sdk/execution).
 
 ### Auto-generating Properties
 

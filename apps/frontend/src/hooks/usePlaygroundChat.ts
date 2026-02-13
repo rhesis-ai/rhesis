@@ -114,15 +114,25 @@ export function usePlaygroundChat(
         const payload = msg.payload as unknown as ChatResponsePayload;
         const correlationId = msg.correlation_id;
 
+        // Debug: log extracted values
+        console.warn('[usePlaygroundChat] Extracted from payload:', {
+          output: payload?.output?.substring?.(0, 100) || payload?.output,
+          trace_id: payload?.trace_id,
+          conversation_id: payload?.conversation_id,
+          endpoint_id: payload?.endpoint_id,
+          allPayloadKeys: payload ? Object.keys(payload) : [],
+        });
+
+
         // Only process if this is the response we're waiting for
         if (correlationId && correlationId === pendingCorrelationRef.current) {
           pendingCorrelationRef.current = null;
           setIsLoading(false);
           setError(null);
 
-          // Update session ID if provided in response
-          if (payload?.session_id) {
-            setSessionId(payload.session_id);
+          // Update conversation ID if provided in response
+          if (payload?.conversation_id) {
+            setSessionId(payload.conversation_id);
           }
 
           // Add assistant message
@@ -216,14 +226,14 @@ export function usePlaygroundChat(
       // Set loading state
       setIsLoading(true);
 
-      // Send message via WebSocket (include session_id if we have one)
+      // Send message via WebSocket (include conversation_id if we have one)
       const sent = send({
         type: EventType.CHAT_MESSAGE,
         correlation_id: correlationId,
         payload: {
           endpoint_id: endpointId,
           message: trimmedMessage,
-          ...(sessionId && { session_id: sessionId }),
+          ...(sessionId && { conversation_id: sessionId }),
         },
       });
 

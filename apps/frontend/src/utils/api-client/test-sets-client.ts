@@ -17,6 +17,7 @@ import {
   GenerateTestsRequest,
   GenerateTestSetResponse,
   TestSetMetric,
+  LastTestRunSummary,
 } from './interfaces/test-set';
 import { TestDetail, PriorityLevel } from './interfaces/tests';
 import { StatusClient } from './status-client';
@@ -352,15 +353,17 @@ export class TestSetsClient extends BaseApiClient {
     testConfigurationAttributes?: {
       execution_mode?: string;
       metrics?: Array<{ id: string; name: string; scope?: string[] }>;
+      reference_test_run_id?: string;
       [key: string]: unknown;
     }
   ): Promise<TestSet> {
-    // Build request body with execution_options and metrics
+    // Build request body with execution_options, metrics, and reference_test_run_id
     const requestBody: Record<string, unknown> = {};
 
     if (testConfigurationAttributes) {
-      // Extract metrics if present (goes at top level)
-      const { metrics, ...executionOptions } = testConfigurationAttributes;
+      // Extract metrics and reference_test_run_id (go at top level)
+      const { metrics, reference_test_run_id, ...executionOptions } =
+        testConfigurationAttributes;
 
       // Add execution_options if there are any
       if (Object.keys(executionOptions).length > 0) {
@@ -370,6 +373,11 @@ export class TestSetsClient extends BaseApiClient {
       // Add metrics at top level if present
       if (metrics && metrics.length > 0) {
         requestBody.metrics = metrics;
+      }
+
+      // Add reference_test_run_id at top level if present (output reuse)
+      if (reference_test_run_id) {
+        requestBody.reference_test_run_id = reference_test_run_id;
       }
     }
 
@@ -383,6 +391,28 @@ export class TestSetsClient extends BaseApiClient {
         headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
       }
     );
+  }
+
+  /**
+   * Get the most recent completed test run for a test set + endpoint combination.
+   * Returns null if no completed run exists (404 from backend).
+   */
+  async getLastTestRun(
+    testSetId: string,
+    endpointId: string
+  ): Promise<LastTestRunSummary | null> {
+    try {
+      return await this.fetch<LastTestRunSummary>(
+        `${API_ENDPOINTS.testSets}/${testSetId}/last-run/${endpointId}`,
+        { cache: 'no-store' }
+      );
+    } catch (err: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((err as any)?.status === 404) {
+        return null;
+      }
+      throw err;
+    }
   }
 
   async createTestSetBulk(

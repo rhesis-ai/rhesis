@@ -42,9 +42,9 @@ class MappingPatterns:
             is_required=True,
         ),
         FieldConfig(
-            name="session_id",
+            name="conversation_id",
             pattern_type="session",
-            template_var="{{ session_id }}",
+            template_var="{{ conversation_id }}",
             confidence_weight=0.2,
             field_location="request",
             is_required=False,
@@ -279,7 +279,7 @@ class MappingPatterns:
 
         Returns:
             Dict mapping standard fields to JSONPath expressions
-            Example: {"output": "$.response.text", "session_id": "$.response.id"}
+            Example: {"output": "$.response.text", "conversation_id": "$.response.id"}
         """
         mappings = {}
 
@@ -294,10 +294,10 @@ class MappingPatterns:
                 if "output" not in mappings:  # Use first match
                     mappings["output"] = current_path
 
-            # Check if this key matches session patterns
+            # Check if this key matches session/conversation patterns
             if cls.match_parameter(key, "session")[0]:
-                if "session_id" not in mappings:  # Use first match
-                    mappings["session_id"] = current_path
+                if "conversation_id" not in mappings:  # Use first match
+                    mappings["conversation_id"] = current_path
 
             # Check if this key matches context patterns
             if cls.match_parameter(key, "context")[0]:

@@ -1,23 +1,29 @@
 """Core test execution runners - shared by executors and in-place service."""
 
 from abc import ABC, abstractmethod
-from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.execution.constants import MetricScope
-from rhesis.backend.tasks.execution.evaluation import evaluate_prompt_response
-from rhesis.backend.tasks.execution.penelope_target import BackendEndpointTarget
-from rhesis.backend.tasks.execution.response_extractor import normalize_context_to_list
+from rhesis.backend.tasks.execution.evaluation import (
+    evaluate_multi_turn_metrics,
+    evaluate_single_turn_metrics,
+)
+from rhesis.backend.tasks.execution.executors.output_providers import (
+    MultiTurnOutput,
+    OutputProvider,
+    SingleTurnOutput,
+)
+from rhesis.backend.tasks.execution.response_extractor import (
+    normalize_context_to_list,
+)
 
 from .data import get_test_metrics
 from .metrics import prepare_metric_configs
-from .results import process_endpoint_result
 
 
 class BaseRunner(ABC):
@@ -83,6 +89,7 @@ class SingleTurnRunner(BaseRunner):
         test_execution_context: Optional[Dict[str, str]] = None,
         test_set: Optional[Any] = None,
         test_configuration: Optional[Any] = None,
+        output_provider: Optional[OutputProvider] = None,
     ) -> Tuple[float, Dict[str, Any], Dict[str, Any]]:
         """
         Execute single-turn test.
@@ -97,14 +104,17 @@ class SingleTurnRunner(BaseRunner):
             user_id: User ID
             model: Optional model override for metric evaluation
             evaluate_metrics: Whether to evaluate metrics
-            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
+            test_execution_context: Optional dict with test_run_id,
+                test_result_id, test_id
             test_set: Optional TestSet model instance for metric override
-            test_configuration: Optional TestConfiguration for execution-time metric override
+            test_configuration: Optional TestConfiguration for
+                execution-time metric override
+            output_provider: Optional OutputProvider to obtain output.
+                If None, uses default SingleTurnOutput (live endpoint).
 
         Returns:
             Tuple of (execution_time_ms, processed_result, metrics_results)
         """
-        start_time = datetime.utcnow()
         test_id = str(test.id)
 
         # Prepare metrics if evaluation requested
@@ -122,28 +132,27 @@ class SingleTurnRunner(BaseRunner):
             metric_configs = prepare_metric_configs(metrics, test_id, scope=MetricScope.SINGLE_TURN)
             logger.debug(f"Prepared {len(metric_configs)} metrics for test {test_id}")
 
-        # Execute endpoint with test execution context
-        endpoint_service = get_endpoint_service()
-        result = await endpoint_service.invoke_endpoint(
+        # --- Entity 1: Get output ---
+        if output_provider is None:
+            output_provider = SingleTurnOutput()
+
+        output = await output_provider.get_output(
             db=db,
             endpoint_id=endpoint_id,
-            input_data={"input": prompt_content},
+            prompt_content=prompt_content,
             organization_id=organization_id,
             user_id=user_id,
             test_execution_context=test_execution_context,
+            test_id=test_id,
         )
 
-        # Calculate execution time
-        execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+        execution_time = output.execution_time
+        processed_result = output.response
 
-        # Process result (converts ErrorResponse to dict if needed)
-        processed_result = process_endpoint_result(result)
-
-        # Evaluate metrics if requested
+        # --- Entity 2: Evaluate metrics ---
         metrics_results = {}
         if evaluate_metrics and metric_configs:
             # Extract and normalize context to List[str]
-            # SDK functions may return context as string, JSON string, list, etc.
             raw_context = processed_result.get("context") if processed_result else None
             context = normalize_context_to_list(raw_context)
             metrics_evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
@@ -151,8 +160,7 @@ class SingleTurnRunner(BaseRunner):
             if model:
                 logger.debug(f"[SingleTurnRunner] Using model: {model}")
 
-            # Pass processed_result (dict) instead of raw result
-            metrics_results = evaluate_prompt_response(
+            metrics_results = evaluate_single_turn_metrics(
                 metrics_evaluator=metrics_evaluator,
                 prompt_content=prompt_content,
                 expected_response=expected_response,
@@ -183,6 +191,7 @@ class MultiTurnRunner(BaseRunner):
         test_execution_context: Optional[Dict[str, str]] = None,
         test_set: Optional[Any] = None,
         test_configuration: Optional[Any] = None,
+        output_provider: Optional[OutputProvider] = None,
     ) -> Tuple[float, Dict[str, Any], Dict[str, Any]]:
         """
         Execute multi-turn test with Penelope.
@@ -194,68 +203,58 @@ class MultiTurnRunner(BaseRunner):
             organization_id: Organization ID
             user_id: User ID
             model: Optional model override for Penelope
-            test_execution_context: Optional dict with test_run_id, test_result_id, test_id
-            test_set: Optional TestSet model instance for metric override (reserved for future)
-            test_configuration: Optional TestConfiguration for execution-time metric override
-                               (reserved for future Penelope integration)
+            test_execution_context: Optional dict with test_run_id,
+                test_result_id, test_id
+            test_set: Optional TestSet model instance for metric override
+            test_configuration: Optional TestConfiguration for
+                execution-time metric override
+            output_provider: Optional OutputProvider to obtain output.
+                If None, uses default MultiTurnOutput (live Penelope).
 
         Returns:
             Tuple of (execution_time_ms, penelope_trace, metrics_results)
 
         Note:
-            Currently, multi-turn metrics are evaluated by Penelope internally.
-            The test_set and test_configuration parameters are accepted for
-            consistency with SingleTurnRunner and future metric integration.
+            When output_provider is None (live execution), multi-turn
+            metrics are evaluated by Penelope internally. When a stored
+            provider is injected, metrics are evaluated externally via
+            evaluate_multi_turn_metrics().
         """
-        start_time = datetime.utcnow()
+        # --- Entity 1: Get output ---
+        if output_provider is None:
+            output_provider = MultiTurnOutput(model=model)
 
-        # Extract multi-turn configuration
-        test_config = test.test_configuration or {}
-        goal = test_config["goal"]  # Required, validated by get_test_and_prompt
-        instructions = test_config.get("instructions")
-        scenario = test_config.get("scenario")
-        restrictions = test_config.get("restrictions")
-        context = test_config.get("context")
-        max_turns = test_config.get("max_turns", 10)
-
-        logger.debug(f"[MultiTurnRunner] Config - goal: {goal[:50]}..., max_turns: {max_turns}")
-
-        # Initialize Penelope agent
-        from rhesis.penelope import PenelopeAgent
-
-        agent = PenelopeAgent(model=model) if model else PenelopeAgent()
-        logger.debug("[MultiTurnRunner] Initialized Penelope")
-
-        # Create backend target with test execution context
-        target = BackendEndpointTarget(
+        output = await output_provider.get_output(
             db=db,
+            test=test,
             endpoint_id=endpoint_id,
             organization_id=organization_id,
             user_id=user_id,
             test_execution_context=test_execution_context,
+            test_id=str(test.id),
         )
 
-        # Execute test
-        logger.info("[MultiTurnRunner] Executing Penelope test...")
-        penelope_result = agent.execute_test(
-            target=target,
-            goal=goal,
-            instructions=instructions,
-            scenario=scenario,
-            restrictions=restrictions,
-            context=context,
-            max_turns=max_turns,
-        )
+        execution_time = output.execution_time
+        penelope_trace = output.response
 
-        # Calculate execution time
-        execution_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-        logger.debug(
-            f"[MultiTurnRunner] Completed in {execution_time:.2f}ms "
-            f"({penelope_result.turns_used} turns)"
-        )
+        # --- Entity 2: Evaluate metrics ---
+        if output.metrics:
+            # Live execution: Penelope already evaluated metrics
+            metrics_results = output.metrics
+        else:
+            # Re-score / trace: evaluate externally
+            metrics_results = evaluate_multi_turn_metrics(
+                stored_output=penelope_trace,
+                test=test,
+                db=db,
+                organization_id=organization_id,
+                user_id=user_id,
+                model=model,
+                test_set=test_set,
+                test_configuration=test_configuration,
+            )
 
-        # Extract results
-        penelope_trace = penelope_result.model_dump(mode="json")
-        metrics_results = penelope_trace.pop("metrics", {})
+        if output.source == "live":
+            logger.debug(f"[MultiTurnRunner] Completed in {execution_time:.2f}ms")
 
         return execution_time, penelope_trace, metrics_results

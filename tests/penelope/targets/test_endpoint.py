@@ -115,7 +115,7 @@ def test_endpoint_target_send_message(mock_endpoint):
 
     response = target.send_message("Hello")
 
-    mock_endpoint.invoke.assert_called_once_with(input="Hello", session_id=None)
+    mock_endpoint.invoke.assert_called_once_with(input="Hello", conversation_id=None)
     assert isinstance(response, TargetResponse)
     assert response.success is True
     assert response.content == "Test response"
@@ -128,7 +128,7 @@ def test_endpoint_target_send_message_with_session(mock_endpoint):
 
     response = target.send_message("Hello", conversation_id="my-conv")
 
-    mock_endpoint.invoke.assert_called_once_with(input="Hello", session_id="my-conv")
+    mock_endpoint.invoke.assert_called_once_with(input="Hello", conversation_id="my-conv")
     assert response.success is True
 
 

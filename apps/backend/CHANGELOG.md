@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-02-12
+
+### Added
+- Added split-view playground and test creation from conversations, including endpoints, service layer, and frontend drawer with LLM-extracted pre-filled fields for both single-turn and multi-turn tests. (#1321)
+- Added file import for test sets with multi-step API (analyze, parse, preview, confirm), supporting CSV, JSON, JSONL, and Excel formats with column mapping and user-friendly error handling. (#1319)
+- Added server-side filtering to test sets grid with column filters for name, type, creator, and tags.
+- Added rescore, last_run, and metric management to TestSet in SDK. (#1316)
+- Added user-configurable embedding model settings, including a new API endpoint, user preferences, and utility functions. (#1297)
+- Added output providers and re-scoring pipeline, including a rescore API endpoint and service. (#1311)
+- Added last-run endpoint for retrieving the most recent completed test run summary. (#1311)
+- Added native authentication system to replace Auth0, including email verification, password reset, and magic link. (#1283)
+- Added multi-dimension embedding storage system with dedicated Embedding table and pgvector support. (#1237)
+- Added development environment with hot reload support. (#1269)
+
+### Changed
+- Replaced Auth0 with native authentication system. (#1283)
+- Replaced the default generation model from vertex_ai/gemini-2.0-flash to rhesis/default. (#1279)
+- Enhanced test execution with mode and metrics parameters in SDK. (#1316)
+- Enhanced embedding table with multi-dimension support and full-text search. (#1237)
+- Improved error messages for model configuration and worker issues. (#1279)
+- Improved Docker build resilience with apt-get retry logic. (#1277)
+- Refactored authentication migrations to be idempotent and comprehensive. (#1283)
+- Refactored SDK to use flat schema for batch generation and repack to nested. (#1315)
+- Unified magic link as sign-in and sign-up flow. (#1283)
+- Updated Docker images and tmpfs configurations in integration tests.
+- Updated integration test configurations to use new ports for PostgreSQL and Redis.
+
+### Fixed
+- Enforced newline-separated steps in synthesizer instructions.
+- Restored copy button on assistant messages.
+- Passed test set type through file import flow.
+- Added session ownership, thread safety, and limits to file import.
+- Eliminated mapping UI flicker on auto-advance during file import.
+- Aligned tests with bulk_create_tests return type.
+- Handled optional dimension and demographic in create_prompt.
+- Resolved pytest warnings in SDK test suite. (#1316)
+- Addressed code review issues in execution pipeline. (#1316)
+- Corrected mirror.gcr.io image paths for postgres and redis. (#1277)
+- Fixed table name and query in migration email script. (#1283)
+- Fixed open redirect via exact domain validation in authentication. (#1283)
+- Fixed bulk test creation performance for large garak imports. (#1272)
+- Fixed the issue where re-score retries were silently falling back to live execution. (#1316)
+- Fixed the issue of raising AttributeError when TestRuns.pull returns None. (#1316)
+- Fixed the issue of parameter shadowing in rescore_test_run. (#1316)
+- Fixed the issue of deprecated datetime.utcnow() with datetime.now(timezone.utc) in output providers. (#1316)
+- Fixed the issue of reusing shared APIClient in _resolve_metrics instead of per-call instantiation. (#1316)
+- Fixed the issue of using valid UUIDs for TestResultOutput construction. (#1316)
+- Fixed the issue of importing statements and mock patch paths. (#1297)
+- Fixed the issue of alembic downgrade migration. (#1310)
+- Fixed the issue of multiple head revisions in alembic migration files. (#1237)
+- Fixed the issue of using server_default and add nano_id unique index. (#1237)
+- Fixed the issue of uselist=True to embeddings relationships. (#1237)
+- Fixed the issue of adding Embedding EntityType to migration. (#1237)
+- Fixed the issue of BetterTransformer optimization and upgrade to CUDA base image. (#1279)
+- Fixed the issue of uv.lock to include optimum package dependencies. (#1279)
+- Fixed the issue of validating generation model and improve error messages for test config and MCP. (#1279)
+- Fixed the issue of including actual error details in API error responses. (#1279)
+- Fixed the issue of preventing rh delete from removing manually created containers. (#1279)
+- Fixed the issue of clearing validation warnings when models are no longer defaults. (#1279)
+- Fixed the issue of updating assertion to match detailed error messages. (#1279)
+- Fixed the issue of adding default uvicorn start for docker/integration tests. (#1273)
+- Fixed the issue of moving test-set associations outside the loop to fix O(n²) behavior. (#1272)
+- Fixed the issue of caching Status and TypeLookup entities during bulk operations. (#1272)
+
+### Removed
+- Removed Auth0 dependency. (#1283)
+- Removed embedding dimensions from user settings. (#1297)
+- Removed local-style backend test workflow file.
+
+
 ## [0.6.2] - 2026-02-05
 
 ### Added

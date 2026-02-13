@@ -1,5 +1,3 @@
-/* eslint-disable react/no-array-index-key -- Pie chart cell rendering */
-
 import React, { useMemo, useCallback } from 'react';
 import {
   PieChart,
@@ -415,7 +413,7 @@ export default function BasePieChart({
             >
               {data.map((entry, index) => (
                 <Cell
-                  key={`cell-${index}`}
+                  key={entry.name}
                   fill={chartColors[index % chartColors.length]}
                 />
               ))}

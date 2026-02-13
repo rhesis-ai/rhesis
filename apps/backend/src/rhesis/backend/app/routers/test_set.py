@@ -496,6 +496,8 @@ async def execute_test_set(
     - execution_options: Execution mode (Parallel/Sequential)
     - metrics: Optional list of execution-time metrics that override test set
                and behavior metrics. Each metric should have id, name, and scope.
+    - reference_test_run_id: Optional UUID of a previous test run whose outputs
+               should be reused (re-scoring mode).
     """
     try:
         # Extract test configuration attributes from request body, default to Parallel mode
@@ -513,6 +515,11 @@ async def execute_test_set(
                 for m in test_configuration_attributes.metrics
             ]
 
+        # Extract reference_test_run_id for output reuse (re-scoring)
+        reference_test_run_id = None
+        if test_configuration_attributes:
+            reference_test_run_id = test_configuration_attributes.reference_test_run_id
+
         organization_id, user_id = tenant_context
         result = execute_test_set_on_endpoint(
             db=db,
@@ -523,6 +530,7 @@ async def execute_test_set(
             organization_id=organization_id,
             user_id=user_id,
             metrics=metrics,
+            reference_test_run_id=reference_test_run_id,
         )
         return result
 
@@ -531,6 +539,39 @@ async def execute_test_set(
     except Exception as e:
         http_exception = handle_execution_error(e, operation="execute test set")
         raise http_exception
+
+
+@router.get("/{test_set_identifier}/last-run/{endpoint_id}")
+def get_last_test_run(
+    test_set_identifier: str,
+    endpoint_id: uuid.UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Return the most recent completed test run for a test set + endpoint.
+
+    Used by the frontend to show a hint when the user enables
+    "Reuse Last Outputs" in the execution drawer.
+    """
+    from rhesis.backend.app.services.test_set import (
+        get_last_completed_test_run,
+    )
+
+    organization_id, user_id = tenant_context
+    result = get_last_completed_test_run(
+        db=db,
+        test_set_identifier=test_set_identifier,
+        endpoint_id=endpoint_id,
+        organization_id=str(current_user.organization_id),
+        user_id=str(current_user.id),
+    )
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No completed test run found for this test set and endpoint combination",
+        )
+    return result
 
 
 @router.get("/{test_set_identifier}/stats", response_model=schemas.EntityStats)

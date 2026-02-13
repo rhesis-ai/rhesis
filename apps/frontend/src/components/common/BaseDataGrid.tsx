@@ -1,5 +1,3 @@
-/* eslint-disable react/no-array-index-key -- Grid column and cell rendering */
-
 import React, {
   useState,
   useEffect,
@@ -658,9 +656,9 @@ export default function BaseDataGrid({
 
         {filters && filters.length > 0 && (
           <Box sx={{ display: 'flex', gap: 2 }}>
-            {filters.map((filter, index) => (
+            {filters.map(filter => (
               <FormControl
-                key={index}
+                key={filter.name}
                 variant="outlined"
                 size="small"
                 sx={{ minWidth: 150 }}
@@ -675,8 +673,8 @@ export default function BaseDataGrid({
                   onChange={handleFilterChange(filter.name)}
                   label={filter.label}
                 >
-                  {filter.options.map((option, idx) => (
-                    <MenuItem key={idx} value={option.value}>
+                  {filter.options.map(option => (
+                    <MenuItem key={option.value} value={option.value}>
                       {option.label}
                     </MenuItem>
                   ))}
@@ -692,7 +690,7 @@ export default function BaseDataGrid({
               if (button.splitButton) {
                 const options = button.splitButton.options; // Extract options to satisfy TypeScript
                 return (
-                  <React.Fragment key={index}>
+                  <React.Fragment key={button.label}>
                     <ButtonGroup
                       variant={button.variant || 'contained'}
                       color={button.color || 'primary'}
@@ -746,9 +744,9 @@ export default function BaseDataGrid({
                               onClickAway={event => handleClose(event, index)}
                             >
                               <MenuList id="split-button-menu" autoFocusItem>
-                                {options.map((option, optionIndex) => (
+                                {options.map(option => (
                                   <MenuItem
-                                    key={optionIndex}
+                                    key={option.label}
                                     disabled={option.disabled}
                                     onClick={() =>
                                       handleMenuItemClick(option.onClick, index)
@@ -769,7 +767,7 @@ export default function BaseDataGrid({
 
               return button.href ? (
                 <Link
-                  key={index}
+                  key={button.label}
                   href={button.href}
                   style={{ textDecoration: 'none' }}
                 >
@@ -785,7 +783,7 @@ export default function BaseDataGrid({
                 </Link>
               ) : (
                 <Button
-                  key={index}
+                  key={button.label}
                   variant={button.variant || 'contained'}
                   color={button.color || 'primary'}
                   onClick={button.onClick}

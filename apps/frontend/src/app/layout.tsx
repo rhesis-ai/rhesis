@@ -27,6 +27,7 @@ import {
   CodeIcon,
   TimelineIcon,
   ChatIcon,
+  AccountTreeIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -171,6 +172,16 @@ async function getNavigationItems(
       title: 'Test Sets',
       icon: <CategoryIcon />,
     },
+    ...(process.env.NODE_ENV === 'development'
+      ? [
+          {
+            kind: 'page' as const,
+            segment: 'adaptive-testing',
+            title: 'Adaptive Testing',
+            icon: <AccountTreeIcon />,
+          },
+        ]
+      : []),
     // Results Section
     {
       kind: 'header',

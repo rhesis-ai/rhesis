@@ -105,7 +105,7 @@ class TestResultHandler:
             # and were recently updated (within last 30 seconds to catch recent validations)
             from rhesis.backend.app.models.endpoint import Endpoint
             from rhesis.backend.app.models.status import Status
-            from rhesis.backend.app.utils.model_utils import QueryBuilder
+            from rhesis.backend.app.utils.query_utils import QueryBuilder
 
             recent_cutoff = datetime.utcnow() - timedelta(seconds=30)
 

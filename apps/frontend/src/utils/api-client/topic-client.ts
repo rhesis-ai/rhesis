@@ -62,4 +62,38 @@ export class TopicClient extends BaseApiClient {
       method: 'DELETE',
     });
   }
+
+  /**
+   * Find a topic by exact name match.
+   * Returns the topic if found, or null if not found.
+   */
+  async findTopicByName(
+    name: string,
+    entityType: string = 'Test'
+  ): Promise<Topic | null> {
+    const topics = await this.getTopics({
+      $filter: `name eq '${name}'`,
+      entity_type: entityType,
+      limit: 1,
+    });
+    return topics.length > 0 ? topics[0] : null;
+  }
+
+  /**
+   * Get or create a topic by name.
+   * First searches for an existing topic, creates one if not found.
+   */
+  async getOrCreateTopic(
+    name: string,
+    entityType: string = 'Test'
+  ): Promise<Topic> {
+    // First try to find existing topic
+    const existing = await this.findTopicByName(name, entityType);
+    if (existing) {
+      return existing;
+    }
+
+    // Create new topic if not found
+    return this.createTopic({ name });
+  }
 }

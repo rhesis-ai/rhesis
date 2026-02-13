@@ -6,9 +6,11 @@ import {
   GridRowParams,
   GridRowSelectionModel,
   GridPaginationModel,
+  GridFilterModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
+import { combineTestSetFiltersToOData } from '@/utils/odata-filter';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { Box, Chip, Tooltip, Typography, Avatar } from '@mui/material';
@@ -21,9 +23,11 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/Delete';
 import PersonIcon from '@mui/icons-material/Person';
 import SecurityIcon from '@mui/icons-material/Security';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 import TestSetDrawer from './TestSetDrawer';
 import TestRunDrawer from './TestRunDrawer';
 import GarakImportDialog from './GarakImportDialog';
+import FileImportDialog from './FileImportDialog';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
@@ -82,12 +86,16 @@ export default function TestSetsGrid({
     page: 0,
     pageSize: 25,
   });
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: [],
+  });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [garakImportDialogOpen, setGarakImportDialogOpen] = useState(false);
+  const [fileImportDialogOpen, setFileImportDialogOpen] = useState(false);
   const notifications = useNotifications();
 
   // Set initial data from props
@@ -111,12 +119,14 @@ export default function TestSetsGrid({
 
       const skip = paginationModel.page * paginationModel.pageSize;
       const limit = paginationModel.pageSize;
+      const filterString = combineTestSetFiltersToOData(filterModel);
 
       const apiParams = {
         skip,
         limit,
         sort_by: 'created_at',
         sort_order: 'desc' as const,
+        ...(filterString && { $filter: filterString }),
       };
 
       const response = await testSetsClient.getTestSets(apiParams);
@@ -127,7 +137,7 @@ export default function TestSetsGrid({
     } finally {
       setLoading(false);
     }
-  }, [sessionToken, session, paginationModel]);
+  }, [sessionToken, session, paginationModel, filterModel]);
 
   useEffect(() => {
     // Always fetch when pagination changes
@@ -140,6 +150,11 @@ export default function TestSetsGrid({
     },
     []
   );
+
+  const handleFilterModelChange = useCallback((newModel: GridFilterModel) => {
+    setFilterModel(newModel);
+    setPaginationModel(prev => ({ ...prev, page: 0 }));
+  }, []);
 
   // Process test sets for display
   const processedTestSets = testSets.map(testSet => {
@@ -163,6 +178,7 @@ export default function TestSetsGrid({
       field: 'name',
       headerName: 'Name',
       flex: 1.5,
+      filterable: true,
     },
     {
       field: 'behaviors',
@@ -184,6 +200,8 @@ export default function TestSetsGrid({
       field: 'testSetType',
       headerName: 'Type',
       flex: 0.75,
+      filterable: true,
+      valueGetter: (_, row) => row.testSetType || '',
       renderCell: params => (
         <Chip label={params.value} size="small" variant="outlined" />
       ),
@@ -213,6 +231,7 @@ export default function TestSetsGrid({
       headerName: 'Creator',
       flex: 0.75,
       sortable: true,
+      filterable: true,
       valueGetter: (_, row) =>
         row.creator?.name ||
         `${row.creator?.given_name || ''} ${row.creator?.family_name || ''}`.trim() ||
@@ -306,6 +325,12 @@ export default function TestSetsGrid({
       flex: 1.5,
       minWidth: 140,
       sortable: false,
+      filterable: true,
+      valueGetter: (_, row) =>
+        row.tags
+          ?.filter((tag: Tag) => tag?.name)
+          .map((tag: Tag) => tag.name)
+          .join(', ') ?? '',
       renderCell: params => {
         const testSet = params.row;
         if (!testSet.tags || testSet.tags.length === 0) {
@@ -418,6 +443,13 @@ export default function TestSetsGrid({
     setDeleteModalOpen(false);
   };
 
+  const handleFileImportSuccess = (_testSetId: string) => {
+    fetchTestSets();
+    notifications.show('Test set imported successfully from file', {
+      severity: 'success',
+    });
+  };
+
   const handleGarakImportSuccess = (testSetIds: string[]) => {
     fetchTestSets();
     const count = testSetIds.length;
@@ -454,6 +486,12 @@ export default function TestSetsGrid({
         icon: <AddIcon />,
         variant: 'contained' as const,
         onClick: handleNewTestSet,
+      },
+      {
+        label: 'Import from File',
+        icon: <FileUploadIcon />,
+        variant: 'outlined' as const,
+        onClick: () => setFileImportDialogOpen(true),
       },
       {
         label: 'Import from Garak',
@@ -505,7 +543,7 @@ export default function TestSetsGrid({
         rows={processedTestSets}
         loading={loading}
         getRowId={row => row.id}
-        showToolbar={false}
+        showToolbar={true}
         onRowClick={handleRowClick}
         paginationModel={paginationModel}
         onPaginationModelChange={handlePaginationModelChange}
@@ -517,6 +555,9 @@ export default function TestSetsGrid({
         serverSidePagination={true}
         totalRows={totalCount}
         pageSizeOptions={[10, 25, 50]}
+        serverSideFiltering={true}
+        filterModel={filterModel}
+        onFilterModelChange={handleFilterModelChange}
         disablePaperWrapper={true}
         persistState
         initialState={{
@@ -542,6 +583,12 @@ export default function TestSetsGrid({
             sessionToken={sessionToken || session?.session_token || ''}
             selectedTestSetIds={selectedRows as string[]}
             onSuccess={handleTestRunSuccess}
+          />
+          <FileImportDialog
+            open={fileImportDialogOpen}
+            onClose={() => setFileImportDialogOpen(false)}
+            sessionToken={sessionToken || session?.session_token || ''}
+            onSuccess={handleFileImportSuccess}
           />
           <GarakImportDialog
             open={garakImportDialogOpen}

@@ -1,7 +1,5 @@
 'use client';
 
-/* eslint-disable react/no-array-index-key -- Metrics display lists */
-
 import React, { useMemo, useState } from 'react';
 import {
   Box,
@@ -599,9 +597,9 @@ export default function TestDetailMetricsTab({
                     >
                       <List dense disablePadding sx={{ mt: 2 }}>
                         {goalAchievementData.criteriaEvaluations.map(
-                          (criterion: CriterionEvaluation, index: number) => (
+                          (criterion: CriterionEvaluation) => (
                             <ListItem
-                              key={index}
+                              key={criterion.criterion}
                               disablePadding
                               sx={{
                                 py: 0.75,
@@ -713,9 +711,9 @@ export default function TestDetailMetricsTab({
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredMetrics.map((metric, index) => (
+                filteredMetrics.map(metric => (
                   <TableRow
-                    key={`${metric.behaviorName}-${metric.name}-${index}`}
+                    key={`${metric.behaviorName}-${metric.name}`}
                     sx={{
                       '&:hover': {
                         backgroundColor: theme.palette.action.hover,

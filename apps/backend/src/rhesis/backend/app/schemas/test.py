@@ -389,3 +389,53 @@ class TestExecuteResponse(BaseModel):
     test_configuration: Optional[Dict[str, Any]] = None  # For multi-turn tests
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Conversation-to-test schemas
+class ConversationMessage(BaseModel):
+    """A single message in a conversation."""
+
+    role: str  # "user" or "assistant"
+    content: str
+
+
+class ConversationToTestRequest(BaseModel):
+    """Request to create a test from a playground conversation.
+
+    For multi-turn: pass the full conversation (2+ messages).
+    For single-turn: pass the user message and optionally
+    the assistant response (2 messages).
+    """
+
+    messages: List[ConversationMessage]
+    endpoint_id: Optional[UUID4] = None
+    test_type: Optional[str] = "Multi-Turn"  # "Single-Turn" or "Multi-Turn"
+
+
+class SingleTurnTestExtraction(BaseModel):
+    """LLM-extracted metadata for a single-turn test."""
+
+    behavior: str
+    category: str
+    topic: str
+
+
+class ConversationTestExtractionResponse(BaseModel):
+    """Extracted test metadata from a conversation (without creating a test)."""
+
+    test_type: str  # "Single-Turn" or "Multi-Turn"
+    behavior: str
+    category: str
+    topic: str
+    # Single-turn fields
+    prompt_content: Optional[str] = None
+    expected_response: Optional[str] = None
+    # Multi-turn fields
+    test_configuration: Optional[Dict[str, Any]] = None
+
+
+class ConversationToTestResponse(BaseModel):
+    """Response after creating a test from a conversation."""
+
+    test_id: UUID4
+    message: str

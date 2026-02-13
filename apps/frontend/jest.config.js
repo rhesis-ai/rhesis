@@ -9,6 +9,8 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jsdom',
+  // Use v8 coverage provider to avoid inflight/test-exclude compatibility issue
+  coverageProvider: 'v8',
   moduleNameMapper: {
     // Handle module aliases (if you have any in your next.config.js)
     '^@/(.*)$': '<rootDir>/src/$1',
@@ -22,16 +24,16 @@ const customJestConfig = {
     '!src/auth.ts',
     '!src/middleware.ts',
   ],
-  // Temporarily disable coverage thresholds during initial testing setup
-  // TODO: Re-enable as test coverage increases
-  // coverageThreshold: {
-  //   global: {
-  //     branches: 70,
-  //     functions: 70,
-  //     lines: 70,
-  //     statements: 70,
-  //   },
-  // },
+  // Coverage thresholds act as a ratchet: prevent coverage from decreasing.
+  // Increase these values as more tests are added.
+  coverageThreshold: {
+    global: {
+      statements: 6.4,
+      branches: 53,
+      functions: 17,
+      lines: 6.4,
+    },
+  },
   testPathIgnorePatterns: [
     '<rootDir>/.next/',
     '<rootDir>/node_modules/',

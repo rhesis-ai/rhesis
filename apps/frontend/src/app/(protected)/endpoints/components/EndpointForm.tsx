@@ -749,21 +749,12 @@ export default function EndpointForm() {
             </Grid>
             <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Request Body Template defines the structure of your request with
-                placeholders for dynamic values.
+                Request Body Template (Optional)
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Example:{' '}
-                <code>{`{
-  "model": "gpt-3.5-turbo",
-  "messages": [
-    {
-      "role": "user",
-      "content": "{user_input}"
-    }
-  ],
-  "temperature": 0.7
-}`}</code>
+                Define request structure with <code>{'"{placeholder}"'}</code>{' '}
+                for dynamic values. Example:{' '}
+                <code>{`{ "messages": [{ "role": "user", "content": "{input}" }], "temperature": 0.7 }`}</code>
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
@@ -801,12 +792,12 @@ export default function EndpointForm() {
           <Grid container spacing={2}>
             <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Response Mappings define how to extract values from the API
-                response using JSONPath syntax.
+                Response Mapping (Optional)
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Example:{' '}
-                <code>{'{ "output": "$.choices[0].message.content" }'}</code>
+                Extract values using JSONPath. Example:{' '}
+                <code>{'{ "output": "$.choices[0].message.content" }'}</code>.
+                Leave empty to return full response.
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor
@@ -844,11 +835,12 @@ export default function EndpointForm() {
           <Grid container spacing={2}>
             <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Test your endpoint configuration with sample data
+                Test Endpoint
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Enter sample JSON data. It will be matched to your request
-                template and parsed using your response mappings.
+                Provide test data with required <code>"input"</code> field.
+                Values will replace <code>{'"{placeholders}"'}</code> in your
+                request template.
               </Typography>
               <Box sx={editorWrapperStyle}>
                 <Editor

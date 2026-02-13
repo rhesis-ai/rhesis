@@ -7,6 +7,9 @@ if TYPE_CHECKING:
 # Type alias for embeddings
 Embedding = List[float]
 
+# Type alias for embeddings
+Embedding = List[float]
+
 
 class BaseLLM(ABC):
     PROVIDER: str = ""  # Subclasses should override this
@@ -35,7 +38,7 @@ class BaseLLM(ABC):
 
     @abstractmethod
     def generate_batch(self, *args, **kwargs) -> List[Union[str, Dict[str, Any]]]:
-        """Run model on multiple prompts to output LLM responses.
+        """Runs the model on multiple prompts to output LLM responses.
 
         Returns:
             A list of strings or dicts (if schema provided).
@@ -94,6 +97,7 @@ class BaseLLM(ABC):
             description=description,
             provider=provider,
             model_name=model_name,
+            model_type="llm",
             key=api_key,
         )
         model.push()
@@ -134,3 +138,67 @@ class BaseEmbedder(ABC):
 
     def get_model_name(self) -> str:
         return f"Class name: {self.__class__.__name__}, model name: {self.model_name}"
+
+    def get_available_models(self) -> List[str]:
+        """Get the list of available embedding models for this provider.
+
+        Subclasses should override this method to return provider-specific embedding models.
+
+        Returns:
+            List of embedding model names
+
+        Raises:
+            NotImplementedError: If the subclass doesn't implement this method
+        """
+        raise NotImplementedError("Subclasses must implement this method")
+
+    def push(self, name: str, description: Optional[str] = None):
+        """Save this embedder configuration to the Rhesis platform as a Model entity.
+
+        Creates a Model entity with this embedder's provider, model name, and API key,
+        then saves it to the platform with model_type="embedding".
+
+        Args:
+            name: Name for the saved model configuration (required)
+            description: Optional description for the model
+
+        Returns:
+            Model: The created Model entity
+
+        Raises:
+            ValueError: If provider is not set on this embedder class
+
+        Example:
+            >>> embedder = get_embedder("openai", "text-embedding-3-small", api_key="sk-...")
+            >>> model = embedder.push(name="My OpenAI Embeddings")
+            >>> model.set_default_embedding()
+        """
+        from rhesis.sdk.entities.model import Model
+
+        provider = getattr(self, "PROVIDER", None)
+        if not provider:
+            raise ValueError(
+                "Cannot push embedder: PROVIDER class variable is not set. "
+                "This embedder implementation does not support push()."
+            )
+
+        # Extract model name (remove provider prefix if present)
+        model_name = (
+            self.model_name.split("/", 1)[-1]
+            if self.model_name and "/" in self.model_name
+            else self.model_name
+        )
+
+        # Get API key if available
+        api_key = getattr(self, "api_key", None)
+
+        model = Model(
+            name=name,
+            description=description,
+            provider=provider,
+            model_name=model_name,
+            model_type="embedding",
+            key=api_key,
+        )
+        model.push()
+        return model

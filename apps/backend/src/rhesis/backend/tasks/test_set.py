@@ -8,7 +8,7 @@ from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
 from rhesis.backend.app.services.generation import get_source_specifications
 from rhesis.backend.app.services.test_set import bulk_create_test_set
-from rhesis.backend.app.utils.llm_utils import get_user_generation_model
+from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import BaseTask, email_notification
 from rhesis.backend.worker import app

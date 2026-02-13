@@ -844,3 +844,167 @@ export function combineTestRunFiltersToOData(
   const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
   return `(${allExpressions.join(logicOperator)})`;
 }
+
+/**
+ * Converts a MUI DataGrid filter item to OData for test sets.
+ * Maps grid field names to backend OData paths (name, testSetType->test_set_type/type_value,
+ * creator->user/name, tags->_tags_relationship).
+ */
+function convertTestSetFilterItemToOData(item: GridFilterItem): string {
+  const { field, operator, value } = item;
+
+  if (
+    !field ||
+    !operator ||
+    value === undefined ||
+    value === null ||
+    value === ''
+  ) {
+    return '';
+  }
+
+  if (field === 'tags') {
+    return convertTagsFilterToOData(item);
+  }
+
+  // Map grid column fields to backend OData paths
+  let odataField: string;
+  switch (field) {
+    case 'testSetType':
+      odataField = 'test_set_type/type_value';
+      break;
+    case 'creator':
+      odataField = 'user/name';
+      break;
+    case 'name':
+      odataField = 'name';
+      break;
+    default:
+      odataField = field.replace(/\./g, '/');
+  }
+
+  switch (operator) {
+    case 'contains':
+      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
+
+    case 'startsWith':
+      return `startswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
+
+    case 'endsWith':
+      return `endswith(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
+
+    case 'equals':
+    case '=':
+    case 'is':
+      if (typeof value === 'string') {
+        return `tolower(${odataField}) eq tolower('${escapeODataValue(value)}')`;
+      }
+      return `${odataField} eq '${escapeODataValue(value)}'`;
+
+    case 'not':
+    case '!=':
+      if (typeof value === 'string') {
+        return `tolower(${odataField}) ne tolower('${escapeODataValue(value)}')`;
+      }
+      return `${odataField} ne '${escapeODataValue(value)}'`;
+
+    case 'isEmpty':
+      return `${odataField} eq null or ${odataField} eq ''`;
+
+    case 'isNotEmpty':
+      return `${odataField} ne null and ${odataField} ne ''`;
+
+    case 'isAnyOf':
+      if (Array.isArray(value) && value.length > 0) {
+        const conditions = value
+          .map(v => `${odataField} eq '${escapeODataValue(v)}'`)
+          .join(' or ');
+        return `(${conditions})`;
+      }
+      return '';
+
+    default:
+      return `contains(tolower(${odataField}), tolower('${escapeODataValue(value)}'))`;
+  }
+}
+
+/**
+ * Handles quick filter (global search) conversion to OData for test sets
+ */
+export function convertTestSetQuickFilterToOData(
+  quickFilterValues: unknown[]
+): string {
+  if (!quickFilterValues || quickFilterValues.length === 0) {
+    return '';
+  }
+
+  const searchFields = ['name', 'user/name', 'test_set_type/type_value'];
+
+  const quickFilterExpressions = quickFilterValues
+    .map(value => {
+      if (!value || value === '') return '';
+
+      const fieldConditions = searchFields.map(
+        field =>
+          `contains(tolower(${field}), tolower('${escapeODataValue(value)}'))`
+      );
+      fieldConditions.push(
+        `_tags_relationship/any(t: contains(tolower(t/tag/name), tolower('${escapeODataValue(value)}')))`
+      );
+      return `(${fieldConditions.join(' or ')})`;
+    })
+    .filter(expr => expr !== '');
+
+  if (quickFilterExpressions.length === 0) {
+    return '';
+  }
+  if (quickFilterExpressions.length === 1) {
+    return quickFilterExpressions[0];
+  }
+  return `(${quickFilterExpressions.join(' and ')})`;
+}
+
+/**
+ * Combines regular filters and quick filters into a single OData expression for test sets
+ */
+export function combineTestSetFiltersToOData(
+  filterModel: GridFilterModel
+): string {
+  if (!filterModel || !filterModel.items || filterModel.items.length === 0) {
+    return '';
+  }
+
+  const regularFilters: GridFilterItem[] = [];
+  const quickFilterValues: unknown[] = [];
+
+  filterModel.items.forEach(item => {
+    if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
+      quickFilterValues.push(item.value);
+    } else {
+      regularFilters.push(item);
+    }
+  });
+
+  const regularFilterExpressions = regularFilters
+    .map(item => convertTestSetFilterItemToOData(item))
+    .filter(expr => expr !== '');
+
+  const quickFilterExpression =
+    quickFilterValues.length > 0
+      ? convertTestSetQuickFilterToOData(quickFilterValues)
+      : '';
+
+  const allExpressions = [...regularFilterExpressions];
+  if (quickFilterExpression) {
+    allExpressions.push(quickFilterExpression);
+  }
+
+  if (allExpressions.length === 0) {
+    return '';
+  }
+  if (allExpressions.length === 1) {
+    return allExpressions[0];
+  }
+  const logicOperator = filterModel.logicOperator === 'or' ? ' or ' : ' and ';
+  return `(${allExpressions.join(logicOperator)})`;
+}

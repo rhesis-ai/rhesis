@@ -120,7 +120,7 @@ class AutoMapper:
         fallback_patterns = {
             "output": MappingPatterns.OUTPUT_EXACT
             + MappingPatterns.OUTPUT_COMPOUND[:3],  # Use first 3 compound patterns
-            "session_id": MappingPatterns.SESSION_EXACT[:5],  # Use first 5 session patterns
+            "conversation_id": MappingPatterns.SESSION_EXACT[:5],  # Use first 5 session patterns
             "context": MappingPatterns.CONTEXT_EXACT + MappingPatterns.CONTEXT_COMPOUND[:3],
             "metadata": MappingPatterns.METADATA_EXACT + MappingPatterns.METADATA_COMPOUND[:2],
             "tool_calls": MappingPatterns.TOOL_CALLS_EXACT

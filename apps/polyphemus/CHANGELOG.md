@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-02-12
+
+### Fixed
+- **Security:** Resolved multiple Python security vulnerabilities by upgrading the following packages: `cryptography`, `nbconvert`, `langsmith`, `protobuf`, `python-multipart`, `fastmcp`, `urllib3`, `aiohttp`, `FastAPI`, `starlette`, and `langchain-core`.
+- **Performance:** Enabled BetterTransformer optimization in Polyphemus, resulting in a 1.5-2x inference speedup. This was achieved by fixing the BetterTransformer implementation to use the correct optimum API and upgrading to a CUDA base image for better GPU stability.
+- **Error Handling:** Improved error messages for model configuration and worker availability. Users now receive clear, actionable error messages when model API keys are missing or invalid, model providers are unsupported, model names are incorrect, or Celery workers are unavailable.
+- **Docker:** Improved Docker build resilience with apt-get retry logic and fixed incorrect `mirror.gcr.io` image paths for Postgres and Redis. Also, prevented `rh delete` from removing manually created containers by adding Docker Compose project name isolation.
+- **Model Validation:** Fixed issues related to model validation, including showing API error details in the test generation flow, treating LLM error dicts as failures, and including actual error details in API error responses. Validation warnings are now cleared when models are no longer defaults.
+
+### Changed
+- **Default Model:** Changed the default generation model from `vertex_ai/gemini-2.0-flash` to `rhesis/default` to use the Rhesis system model by default, allowing the platform to work out of the box without requiring external API keys for basic functionality.
+- **Model Description:** Updated the description of all Rhesis Default models to "Default Rhesis-hosted model." for consistency across all organizations.
+- **PyTorch Dependency:** Made PyTorch an optional dependency via `cpu` and `gpu` extras. The default Dockerfiles now use the `--extra cpu` option.
+
+### Added
+- **Model Connection Testing:** Implemented actual model connection testing using ModelConnectionService to validate model configurations and return detailed error messages.
+- **Frontend Validation:** Added validation for all default models (not just Rhesis) and improved error message handling to show actual validation errors in the frontend.
+- **Health Check:** Added a health check endpoint to the Polyphemus Dockerfile.
+- **GPU Computation Test:** Added a GPU computation test and enhanced GPU debug logging.
+
+
 ## [0.2.4] - 2026-01-15
 
 ### Added

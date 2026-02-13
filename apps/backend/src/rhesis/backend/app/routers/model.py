@@ -20,7 +20,7 @@ from rhesis.backend.app.services.model_connection import ModelConnectionService
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.sdk.models.factory import get_available_models
+from rhesis.sdk.models.factory import get_available_embedding_models, get_available_language_models
 
 # Create the detailed schema for Model (uses ModelRead to exclude API key from responses)
 ModelDetailSchema = create_detailed_schema(ModelRead, models.Model)
@@ -59,28 +59,50 @@ def create_model(
 @router.post("/test-connection", response_model=TestModelConnectionResponse)
 async def test_model_connection_endpoint(
     request: TestModelConnectionRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
     Test a model connection before saving it.
 
+    When model_id is provided (edit mode), uses the stored API key and endpoint
+    from that model so the user can test without re-entering credentials.
+
     This endpoint validates that:
     1. The provider is supported by the SDK
     2. The API key is valid
     3. The model can be initialized successfully
-    4. A simple generation call works (for full validation)
+    4. A test call works (generation for LLMs, embedding for embedding models)
 
     Args:
-        request: Contains provider, model_name, api_key, and optional endpoint
+        request: Contains provider, model_name, api_key (or model_id), optional endpoint,
+            and model_type
 
     Returns:
         TestModelConnectionResponse: Success status and message
     """
+    api_key = request.api_key
+    endpoint = request.endpoint
+
+    # When model_id is set, the API key is taken from the backend-stored model credentials.
+    if request.model_id:
+        organization_id, user_id = tenant_context
+        db_model = crud.get_model(
+            db, model_id=request.model_id, organization_id=organization_id, user_id=user_id
+        )
+        if db_model is None:
+            raise HTTPException(status_code=404, detail="Model not found")
+        api_key = db_model.key or ""
+        if endpoint is None or (isinstance(endpoint, str) and not endpoint.strip()):
+            endpoint = db_model.endpoint
+
     result = ModelConnectionService.test_connection(
         provider=request.provider,
         model_name=request.model_name,
-        api_key=request.api_key,
-        endpoint=request.endpoint,
+        api_key=api_key,
+        endpoint=endpoint,
+        model_type=request.model_type,
     )
 
     return TestModelConnectionResponse(
@@ -200,7 +222,8 @@ async def test_model_connection(
     Test a model's connection by making an actual test call.
 
     Uses ModelConnectionService which validates the model configuration
-    and makes a test generation call to verify it works properly.
+    and makes a test call to verify it works properly (generation for LLMs,
+    embedding for embedding models).
     """
     from rhesis.backend.app.services.model_connection import ModelConnectionService
     from rhesis.backend.logging import logger
@@ -216,10 +239,11 @@ async def test_model_connection(
     provider = db_model.provider_type.type_value if db_model.provider_type else None
     model_name = db_model.model_name
     api_key = db_model.key
+    model_type = db_model.model_type or "llm"
 
     logger.info(
         f"[MODEL_TEST] Testing model: name={db_model.name}, "
-        f"provider={provider}, model_name={model_name}"
+        f"provider={provider}, model_name={model_name}, type={model_type}"
     )
 
     try:
@@ -228,6 +252,7 @@ async def test_model_connection(
             provider=provider,
             model_name=model_name,
             api_key=api_key,
+            model_type=model_type,
         )
 
         status = "success" if result.success else "error"
@@ -254,10 +279,10 @@ def get_provider_models(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """
-    Get the list of available models for a specific provider.
+    Get the list of available language models for a specific provider.
     """
     try:
-        models_list = get_available_models(provider_name)
+        models_list = get_available_language_models(provider_name)
         return models_list
     except ValueError as e:
         # ValueError is raised for unsupported providers or providers that don't support listing
@@ -267,4 +292,28 @@ def get_provider_models(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve models for provider '{provider_name}': {str(e)}",
+        )
+
+
+@router.get("/provider/{provider_name}/embeddings", response_model=List[str])
+def get_provider_embedding_models(
+    provider_name: str,
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Get the list of available embedding models for a specific provider.
+    """
+    try:
+        models_list = get_available_embedding_models(provider_name)
+        return models_list
+    except ValueError as e:
+        # ValueError is raised for unsupported providers or providers that don't support embeddings
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        # Other exceptions (network errors, API errors, etc.)
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Failed to retrieve embedding models for provider '{provider_name}': {str(e)}"
+            ),
         )
