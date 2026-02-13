@@ -803,55 +803,52 @@ Consistent, isolated test environments are crucial for reliable testing.
 
 ### 🐳 Containerized Testing
 
-```yaml
-# docker-compose.test.yml
-version: '3.8'
-services:
-  test-db:
-    image: mirror.gcr.io/pgvector/pgvector:pg16
-    environment:
-      POSTGRES_DB: rhesis_test
-      POSTGRES_USER: test
-      POSTGRES_PASSWORD: test
-    ports:
-      - "5433:5432"
+All test infrastructure lives in a single unified Compose file (`tests/docker-compose.test.yml`) that uses **profiles** to select the right services per test suite:
 
-  redis-test:
-    image: mirror.gcr.io/library/redis:7
+- `--profile sdk` — PostgreSQL (10001), Redis (10002), Backend (10003)
+- `--profile backend` — PostgreSQL (12001), Redis (12002)
+
+```yaml
+# tests/docker-compose.test.yml (simplified)
+services:
+  sdk-test-postgres:
+    image: mirror.gcr.io/pgvector/pgvector:pg16
+    profiles: ["sdk"]
     ports:
-      - "6380:6379"
+      - "10001:5432"
+
+  backend-test-postgres:
+    image: mirror.gcr.io/pgvector/pgvector:pg16
+    profiles: ["backend"]
+    ports:
+      - "12001:5432"
 ```
 
 ### ⚙️ Environment Configuration
 
-```python
-# conftest.py
-@pytest.fixture(scope="session")
-def test_environment():
-    """🌍 Set up isolated test environment"""
-    # Start test containers
-    compose_file = "docker-compose.test.yml"
-    subprocess.run(f"docker-compose -f {compose_file} up -d", shell=True)
+Use the provided **Make targets** to manage test Docker services rather than calling `docker compose` directly:
 
-    # Wait for services to be ready
-    wait_for_service("localhost:5433")
-    wait_for_service("localhost:6380")
+```bash
+# Backend tests — start services, run tests, tear down
+cd apps/backend
+make docker-up       # starts PostgreSQL + Redis for backend profile
+make test            # runs docker-up automatically, then pytest
+make docker-down     # stops services
+make docker-clean    # stops services and removes volumes
 
-    yield
+# SDK tests — start services, run tests, tear down
+cd sdk
+make docker-up       # starts PostgreSQL + Redis + Backend for sdk profile
+make test-integration # runs docker-up automatically, then pytest
+make docker-down     # stops services
+make docker-clean    # stops services and removes volumes
+```
 
-    # Cleanup
-    subprocess.run(f"docker-compose -f {compose_file} down", shell=True)
+To check SDK test backend logs:
 
-@pytest.fixture
-def clean_database():
-    """🧹 Ensure clean database state"""
-    # Run migrations
-    alembic.command.upgrade(alembic_cfg, "head")
-
-    yield
-
-    # Cleanup test data
-    alembic.command.downgrade(alembic_cfg, "base")
+```bash
+cd sdk
+docker compose -f ../tests/docker-compose.test.yml --profile sdk logs sdk-test-backend
 ```
 
 ### 🎯 Environment Best Practices

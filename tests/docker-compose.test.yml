@@ -1,0 +1,150 @@
+# Unified test infrastructure for SDK and Backend integration tests
+#
+# Usage:
+#   SDK tests:     docker compose -f tests/docker-compose.test.yml --profile sdk up -d --build
+#   Backend tests: docker compose -f tests/docker-compose.test.yml --profile backend up -d --wait
+#
+# Port allocation:
+#   SDK:     PostgreSQL 10001, Redis 10002, Backend 10003
+#   Backend: PostgreSQL 12001, Redis 12002
+
+# SDK backend environment configuration
+x-sdk-database-config: &sdk-database-config
+  SQLALCHEMY_DB_NAME: rhesis-db
+  SQLALCHEMY_DB_USER: rhesis-user
+  SQLALCHEMY_DB_PASS: your-secured-password # trufflehog:ignore
+  SQLALCHEMY_DB_PORT: 5432
+  SQLALCHEMY_DATABASE_URL: postgresql://rhesis-user:your-secured-password@sdk-test-postgres:5432/rhesis-db # trufflehog:ignore
+  SQLALCHEMY_DB_DRIVER: postgresql
+  SQLALCHEMY_DB_HOST: sdk-test-postgres
+  DB_ENCRYPTION_KEY: Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=
+
+x-sdk-redis-config: &sdk-redis-config
+  REDIS_URL: redis://:rhesis-redis-pass@sdk-test-redis:6379/0
+  BROKER_URL: redis://:rhesis-redis-pass@sdk-test-redis:6379/0
+  CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@sdk-test-redis:6379/1
+
+x-sdk-backend-config: &sdk-backend-config
+  JWT_SECRET_KEY: your-jwt-secret-key
+  LOG_LEVEL: DEBUG
+  RHESIS_CONNECTOR_DISABLED: true
+
+services:
+  # ==========================================================================
+  # SDK Integration Tests (--profile sdk)
+  # PostgreSQL: 10001, Redis: 10002, Backend: 10003
+  # ==========================================================================
+
+  sdk-test-postgres:
+    image: mirror.gcr.io/pgvector/pgvector:pg16
+    profiles: ["sdk"]
+    environment:
+      POSTGRES_DB: rhesis-db
+      POSTGRES_USER: rhesis-user
+      POSTGRES_PASSWORD: your-secured-password
+    ports:
+      - "10001:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sdk-test-network
+    env_file: []
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  sdk-test-redis:
+    image: mirror.gcr.io/redis:7-alpine
+    profiles: ["sdk"]
+    command: redis-server --requirepass rhesis-redis-pass
+    ports:
+      - "10002:6379"
+    environment:
+      - REDIS_PASSWORD=rhesis-redis-pass
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "rhesis-redis-pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sdk-test-network
+    tmpfs:
+      - /data
+
+  sdk-test-backend:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile.dev
+    profiles: ["sdk"]
+    environment:
+      <<: [*sdk-database-config, *sdk-redis-config, *sdk-backend-config]
+    ports:
+      - "10003:8080"
+    depends_on:
+      sdk-test-postgres:
+        condition: service_healthy
+      sdk-test-redis:
+        condition: service_healthy
+    networks:
+      - sdk-test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    env_file: []
+    command: ["/app/start.sh"]
+    volumes:
+      - ../apps/backend/src:/app/src
+      - ../apps/backend/start.sh:/app/start.sh
+
+  # ==========================================================================
+  # Backend Integration Tests (--profile backend)
+  # PostgreSQL: 12001, Redis: 12002
+  # ==========================================================================
+
+  backend-test-postgres:
+    image: mirror.gcr.io/pgvector/pgvector:pg16
+    profiles: ["backend"]
+    environment:
+      POSTGRES_DB: rhesis-test-db
+      POSTGRES_USER: rhesis-user
+      POSTGRES_PASSWORD: your-secured-password
+    ports:
+      - "12001:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-test-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend-test-network
+
+  backend-test-redis:
+    image: mirror.gcr.io/redis:7-alpine
+    profiles: ["backend"]
+    command: redis-server --requirepass rhesis-redis-pass
+    ports:
+      - "12002:6379"
+    environment:
+      - REDIS_PASSWORD=rhesis-redis-pass
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "rhesis-redis-pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend-test-network
+
+networks:
+  sdk-test-network:
+    driver: bridge
+  backend-test-network:
+    driver: bridge
