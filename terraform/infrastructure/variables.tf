@@ -13,3 +13,19 @@ variable "wireguard_cidr" {
   type        = string
   default     = "10.0.0.0/24"
 }
+
+variable "wireguard_peers" {
+  description = "WireGuard VPN peers with subnet access control"
+  type = list(object({
+    identifier = string
+    ip         = string
+    subnets    = list(string)
+  }))
+  default = []
+}
+
+variable "ssh_keys" {
+  description = "SSH public keys for WireGuard server (format: 'user:ssh-rsa AAAA...')"
+  type        = list(string)
+  default     = []
+}

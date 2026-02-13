@@ -80,12 +80,18 @@ resource "google_compute_network_peering" "wireguard_to_dev" {
   name         = "peering-wireguard-to-dev"
   network      = module.wireguard.vpc_self_link
   peer_network = module.dev.vpc_self_link
+
+  import_subnet_routes_with_public_ip = true
+  export_subnet_routes_with_public_ip = true
 }
 
 resource "google_compute_network_peering" "dev_to_wireguard" {
   name         = "peering-dev-to-wireguard"
   network      = module.dev.vpc_self_link
   peer_network = module.wireguard.vpc_self_link
+
+  import_subnet_routes_with_public_ip = true
+  export_subnet_routes_with_public_ip = true
 }
 
 # VPC Peering: WireGuard <-> stg (bidirectional)
@@ -93,12 +99,18 @@ resource "google_compute_network_peering" "wireguard_to_stg" {
   name         = "peering-wireguard-to-stg"
   network      = module.wireguard.vpc_self_link
   peer_network = module.stg.vpc_self_link
+
+  import_subnet_routes_with_public_ip = true
+  export_subnet_routes_with_public_ip = true
 }
 
 resource "google_compute_network_peering" "stg_to_wireguard" {
   name         = "peering-stg-to-wireguard"
   network      = module.stg.vpc_self_link
   peer_network = module.wireguard.vpc_self_link
+
+  import_subnet_routes_with_public_ip = true
+  export_subnet_routes_with_public_ip = true
 }
 
 # VPC Peering: WireGuard <-> prd (bidirectional)
@@ -106,12 +118,18 @@ resource "google_compute_network_peering" "wireguard_to_prd" {
   name         = "peering-wireguard-to-prd"
   network      = module.wireguard.vpc_self_link
   peer_network = module.prd.vpc_self_link
+
+  import_subnet_routes_with_public_ip = true
+  export_subnet_routes_with_public_ip = true
 }
 
 resource "google_compute_network_peering" "prd_to_wireguard" {
   name         = "peering-prd-to-wireguard"
   network      = module.prd.vpc_self_link
   peer_network = module.wireguard.vpc_self_link
+
+  import_subnet_routes_with_public_ip = true
+  export_subnet_routes_with_public_ip = true
 }
 
 # GKE private clusters (dev, stg, prd)
@@ -176,4 +194,37 @@ module "gke_prd" {
   deletion_protection    = true
 
   depends_on = [module.prd]
+}
+
+# WireGuard VPN server
+module "wireguard_server" {
+  source = "./modules/wireguard/gcp"
+
+  project_id       = var.project_id
+  region           = var.region
+  vpc_name         = module.wireguard.vpc_name
+  subnet_self_link = module.wireguard.subnet_self_links["main"]
+
+  wireguard_peers = var.wireguard_peers
+
+  subnet_cidrs = {
+    dev = "10.2.0.0/15"
+    stg = "10.4.0.0/15"
+    prd = "10.6.0.0/15"
+  }
+
+  master_cidrs = {
+    dev = "10.2.4.0/28"
+    stg = "10.4.4.0/28"
+    prd = "10.6.4.0/28"
+  }
+
+  ssh_keys = var.ssh_keys
+
+  depends_on = [
+    module.wireguard,
+    google_compute_network_peering.wireguard_to_dev,
+    google_compute_network_peering.wireguard_to_stg,
+    google_compute_network_peering.wireguard_to_prd
+  ]
 }
