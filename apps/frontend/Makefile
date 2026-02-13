@@ -1,7 +1,7 @@
 # Frontend Makefile
 # Mimics the validation script behavior with focus on errors only
 
-.PHONY: help lint lint-fast clean format format-check type-check eslint test test-coverage build install
+.PHONY: help lint lint-fast clean format format-check type-check eslint test test-coverage build install docker-up docker-down docker-clean test-e2e
 
 # Default target
 help:
@@ -88,3 +88,24 @@ build:
 install:
 	@echo "📦 Installing dependencies..."
 	@npm ci --legacy-peer-deps
+
+# Docker management for E2E tests
+BACKEND_E2E_PORT := 14003
+
+docker-up:
+	docker compose -f ../../tests/docker-compose.frontend.yml up -d --build --wait
+
+docker-down:
+	docker compose -f ../../tests/docker-compose.frontend.yml down
+
+docker-clean:
+	docker compose -f ../../tests/docker-compose.frontend.yml down -v
+
+# E2E tests (starts docker automatically)
+test-e2e: docker-up
+	NEXT_PUBLIC_QUICK_START=true \
+	NEXT_PUBLIC_API_BASE_URL=http://localhost:$(BACKEND_E2E_PORT) \
+	BACKEND_URL=http://localhost:$(BACKEND_E2E_PORT) \
+	NEXTAUTH_SECRET=test-secret-for-e2e-tests-only \
+	NEXTAUTH_URL=http://localhost:3000 \
+	npx playwright test --grep "@sanity"

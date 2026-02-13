@@ -1,0 +1,95 @@
+# Frontend E2E test infrastructure
+#
+# Usage:
+#   docker compose -f tests/docker-compose.frontend.yml up -d --build --wait
+#
+# Port allocation (xx001=postgres, xx002=redis, xx003=backend):
+#   PostgreSQL 14001, Redis 14002, Backend 14003
+
+# Backend environment configuration
+x-frontend-database-config: &frontend-database-config
+  SQLALCHEMY_DB_NAME: rhesis-db
+  SQLALCHEMY_DB_USER: rhesis-user
+  SQLALCHEMY_DB_PASS: rhesis-password # trufflehog:ignore
+  SQLALCHEMY_DB_PORT: 5432
+  SQLALCHEMY_DATABASE_URL: postgresql://rhesis-user:rhesis-password@frontend-test-postgres:5432/rhesis-db # trufflehog:ignore
+  SQLALCHEMY_DB_DRIVER: postgresql
+  SQLALCHEMY_DB_HOST: frontend-test-postgres
+  DB_ENCRYPTION_KEY: Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac= # trufflehog:ignore
+x-frontend-redis-config: &frontend-redis-config
+  REDIS_URL: redis://:rhesis-redis-pass@frontend-test-redis:6379/0
+  BROKER_URL: redis://:rhesis-redis-pass@frontend-test-redis:6379/0
+  CELERY_RESULT_BACKEND: redis://:rhesis-redis-pass@frontend-test-redis:6379/1
+
+x-frontend-backend-config: &frontend-backend-config
+  JWT_SECRET_KEY: test-jwt-secret-key-for-e2e-tests
+  JWT_ALGORITHM: HS256
+  JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 10080
+  SESSION_SECRET_KEY: test-session-secret-key-for-e2e
+  LOG_LEVEL: INFO
+  ENVIRONMENT: test
+  BACKEND_ENV: test
+  QUICK_START: true
+  RHESIS_CONNECTOR_DISABLED: true
+
+services:
+  frontend-test-postgres:
+    image: mirror.gcr.io/pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: rhesis-db
+      POSTGRES_USER: rhesis-user
+      POSTGRES_PASSWORD: rhesis-password
+    ports:
+      - "14001:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rhesis-user -d rhesis-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - frontend-test-network
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  frontend-test-redis:
+    image: mirror.gcr.io/redis:7-alpine
+    command: redis-server --requirepass rhesis-redis-pass
+    ports:
+      - "14002:6379"
+    environment:
+      - REDIS_PASSWORD=rhesis-redis-pass
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "rhesis-redis-pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - frontend-test-network
+    tmpfs:
+      - /data
+
+  frontend-test-backend:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile
+    environment:
+      <<: [*frontend-database-config, *frontend-redis-config, *frontend-backend-config]
+    ports:
+      - "14003:8080"
+    depends_on:
+      frontend-test-postgres:
+        condition: service_healthy
+      frontend-test-redis:
+        condition: service_healthy
+    networks:
+      - frontend-test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  frontend-test-network:
+    driver: bridge
