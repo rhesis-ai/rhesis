@@ -45,6 +45,9 @@ jobs:
         make test
       continue-on-error: false
 
+    - name: Clean uv cache
+      run: uv cache clean --force
+
     - name: Test SDK (full)
       if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
       run: |
