@@ -239,7 +239,7 @@ async def test_model_connection(
     provider = db_model.provider_type.type_value if db_model.provider_type else None
     model_name = db_model.model_name
     api_key = db_model.key
-    model_type = db_model.model_type or "llm"
+    model_type = db_model.model_type or "language_model"
 
     logger.info(
         f"[MODEL_TEST] Testing model: name={db_model.name}, "

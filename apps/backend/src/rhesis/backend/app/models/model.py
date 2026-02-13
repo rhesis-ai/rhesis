@@ -32,7 +32,7 @@ class Model(
     description = Column(Text)
     icon = Column(String)
     model_name = Column(String, nullable=False)
-    model_type = Column(String, nullable=False, server_default=ModelType.LLM.value)
+    model_type = Column(String, nullable=False, server_default=ModelType.LANGUAGE.value)
     endpoint = Column(String, nullable=True)  # Optional for cloud providers (OpenAI, Gemini, etc.)
     key = Column(
         EncryptedString(), nullable=False
