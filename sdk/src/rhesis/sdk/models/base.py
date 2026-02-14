@@ -68,8 +68,8 @@ class BaseLLM(ABC):
             ValueError: If provider is not set on this LLM class
 
         Example:
-            >>> from rhesis.sdk.models.factory import get_model
-            >>> llm = get_model("openai", "gpt-4", api_key="sk-...")
+            >>> from rhesis.sdk.models.factory import get_language_model
+            >>> llm = get_language_model("openai", "gpt-4", api_key="sk-...")
             >>> model = llm.push(name="My GPT-4 Production")
             >>> model.set_default_generation()
         """
@@ -169,7 +169,8 @@ class BaseEmbedder(ABC):
             ValueError: If provider is not set on this embedder class
 
         Example:
-            >>> embedder = get_embedder("openai", "text-embedding-3-small", api_key="sk-...")
+            >>> from rhesis.sdk.models.factory import get_embedding_model
+            >>> embedder = get_embedding_model("openai", "text-embedding-3-small", api_key="sk-...")
             >>> model = embedder.push(name="My OpenAI Embeddings")
             >>> model.set_default_embedding()
         """

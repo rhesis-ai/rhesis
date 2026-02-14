@@ -285,7 +285,7 @@ class TestTree:
         generator: Optional[Any] = None,
         endpoint: Optional[Callable[[List[str]], List[str]]] = None,
         metrics: Optional[Callable[[List[str], List[str]], List[float]]] = None,
-        embedder: Optional[BaseEmbedder] = None,
+        embedding_model: Optional[BaseEmbedder] = None,
         user: str = "anonymous",
         recompute_scores: bool = False,
         regenerate_outputs: bool = False,
@@ -311,9 +311,9 @@ class TestTree:
             The Rhesis scorer/metrics function that takes (inputs, outputs) and returns a list of
             scores. Scores should be between 0 and 1, where higher values indicate failures.
 
-        embedder : BaseEmbedder
+        embedding_model : BaseEmbedder
             The text embedding model to use for similarity-based suggestions. Should be an
-            instance of `rhesis.sdk.models.BaseEmbedder` (e.g., from `get_embedder()`).
+            instance of `rhesis.sdk.models.BaseEmbedder` (e.g., from `get_embedding_model()`).
             If not provided, defaults to OpenAI text-embedding-3-small (768 dimensions).
 
         user : str
@@ -358,7 +358,7 @@ class TestTree:
             generator=generator,
             endpoint=endpoint,
             metrics=metrics,
-            embedder=embedder,
+            embedding_model=embedding_model,
             user=user,
             recompute_scores=recompute_scores,
             regenerate_outputs=regenerate_outputs,
@@ -375,7 +375,7 @@ class TestTree:
     def _repr_html_(self):
         return self._tests._repr_html_()
 
-    def _cache_embeddings(self, ids=None, embedder=None):
+    def _cache_embeddings(self, ids=None, embedding_model=None):
         """Pre-compute the embeddings for the given test cases.
 
         This is used so we can batch the computation don't compute them one at a time later.
@@ -384,13 +384,13 @@ class TestTree:
         ----------
         ids : list, optional
             List of test IDs to cache embeddings for. If None, uses all tests.
-        embedder : object
-            The embedder to use for computing embeddings.
+        embedding_model : object
+            The embedding model adapter to use for computing embeddings.
         """
         from .embedders import embed_with_cache
 
-        if embedder is None:
-            return  # No embedder provided, skip caching
+        if embedding_model is None:
+            return  # No embedding model provided, skip caching
 
         if ids is None:
             ids = self._tests.index
@@ -409,7 +409,7 @@ class TestTree:
 
         # cache the embeddings
         if all_strings:
-            embed_with_cache(embedder, all_strings)
+            embed_with_cache(embedding_model, all_strings)
 
     def drop_topic(self, topic_path: str):
         """Remove a topic and all its direct contents from the test tree."""

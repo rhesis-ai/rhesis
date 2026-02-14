@@ -2,8 +2,10 @@ from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.factory import (
     get_available_embedding_models,
     get_available_language_models,
-    get_embedder,
-    get_model,
+    get_embedder,  # deprecated
+    get_embedding_model,
+    get_language_model,
+    get_model,  # deprecated
 )
 from rhesis.sdk.models.providers.gemini import GeminiEmbedder, GeminiLLM
 from rhesis.sdk.models.providers.litellm import LiteLLM
@@ -42,9 +44,10 @@ __all__ = [
     "VertexAILLM",
     "get_available_embedding_models",
     "get_available_language_models",
-    "get_embedder",
-    "get_model",
-    "get_embedder",
+    "get_embedder",  # deprecated
+    "get_embedding_model",
+    "get_language_model",
+    "get_model",  # deprecated
 ]
 
 if HUGGINGFACE_AVAILABLE:

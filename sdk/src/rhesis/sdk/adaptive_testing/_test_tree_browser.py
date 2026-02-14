@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from rhesis.sdk.models import BaseEmbedder
 
     from ._prompt_builder import PromptBuilder
-    from .embedders import EmbedderAdapter
+    from .embedders import EmbeddingModelAdapter
 
 log = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ class TestTreeBrowser:
         generator: Generator,
         endpoint: Callable[[list[str]], list[str]],
         metrics: Callable[[list[str], list[str]], list[float]],
-        embedder: Union["BaseEmbedder", "EmbedderAdapter", None],
+        embedding_model: Union["BaseEmbedder", "EmbeddingModelAdapter", None],
         user: str,
         recompute_scores: bool,
         regenerate_outputs: bool,
@@ -103,7 +103,7 @@ class TestTreeBrowser:
         """Initialize the TestTreeBrowser."""
         from rhesis.sdk.models import BaseEmbedder
 
-        from .embedders import EmbedderAdapter
+        from .embedders import EmbeddingModelAdapter
 
         self.test_tree = test_tree._tests
         self.topic_tree = self.test_tree.topics
@@ -123,15 +123,15 @@ class TestTreeBrowser:
         self._id = uuid.uuid4().hex
         self.mode = "tests"  # default mode: "tests" or "topics"
 
-        # Set up embedder - wrap BaseEmbedder in adapter for caching compatibility
-        if embedder is not None:
-            if isinstance(embedder, BaseEmbedder):
-                self.embedder = EmbedderAdapter(embedder)
+        # Set up embedding model - wrap BaseEmbedder in adapter for caching compatibility
+        if embedding_model is not None:
+            if isinstance(embedding_model, BaseEmbedder):
+                self.embedding_model = EmbeddingModelAdapter(embedding_model)
             else:
                 # Already an adapter or compatible object
-                self.embedder = embedder
+                self.embedding_model = embedding_model
         else:
-            raise ValueError("Embedder is required")
+            raise ValueError("Embedding model is required")
 
         # if we are recomputing the scores then we erase all the old scores
         # Reset scores if recomputing
@@ -162,16 +162,16 @@ class TestTreeBrowser:
 
         # ensure test tree based generator has embeddings calculated
         if getattr(self.generator, "gen_type", "") == "test_tree":
-            self.generator.source._cache_embeddings(embedder=self.embedder)
+            self.generator.source._cache_embeddings(embedding_model=self.embedding_model)
 
         # init a blank set of suggetions
         self._suggestions_error = ""  # tracks if we failed to generate suggestions
 
     def embed(self, strings):
-        """Embed strings using the configured embedder."""
+        """Embed strings using the configured embedding model."""
         from .embedders import embed_with_cache
 
-        return embed_with_cache(self.embedder, strings)
+        return embed_with_cache(self.embedding_model, strings)
 
     def _repr_html_(self, prefix="", environment="jupyter", websocket_server=None):
         """Returns the HTML interface for this browser.

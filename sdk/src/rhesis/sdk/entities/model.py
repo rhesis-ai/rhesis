@@ -239,17 +239,17 @@ class Model(BaseEntity):
             raise ValueError("Model name is required to create a model instance")
 
         if self.model_type == "embedding":
-            from rhesis.sdk.models.factory import get_embedder
+            from rhesis.sdk.models.factory import get_embedding_model
 
-            return get_embedder(
+            return get_embedding_model(
                 provider=self.provider,
                 model_name=self.model_name,
                 api_key=self.key,
             )
 
-        from rhesis.sdk.models.factory import get_model
+        from rhesis.sdk.models.factory import get_language_model
 
-        return get_model(
+        return get_language_model(
             provider=self.provider,
             model_name=self.model_name,
             api_key=self.key,
