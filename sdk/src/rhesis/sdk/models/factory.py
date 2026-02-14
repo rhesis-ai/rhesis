@@ -2,7 +2,7 @@
 Model Factory for Rhesis SDK
 
 This module provides a simple and intuitive way to create language model instances
-and embedder instances with smart defaults and comprehensive error handling.
+and embedding model instances with smart defaults and comprehensive error handling.
 
 """
 
@@ -34,7 +34,7 @@ DEFAULT_MODELS = {
 }
 
 # Default embedding models per provider
-DEFAULT_EMBEDDER_PROVIDER = "openai"
+DEFAULT_EMBEDDING_MODEL_PROVIDER = "openai"
 DEFAULT_EMBEDDING_MODELS = {
     "openai": "text-embedding-3-small",
     "gemini": "gemini-embedding-001",
@@ -191,8 +191,8 @@ PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
 
 
 @dataclass
-class ModelConfig:
-    """Configuration for a model instance.
+class LanguageModelConfig:
+    """Configuration for a language model instance.
 
     Args:
         provider: The provider name (e.g., "rhesis", "anthropic", "gemini", "openai", "ollama")
@@ -207,22 +207,26 @@ class ModelConfig:
     extra_params: dict = field(default_factory=dict)
 
 
-def get_model(
+# Deprecated alias for backward compatibility
+ModelConfig = LanguageModelConfig
+
+
+def get_language_model(
     provider: Optional[str] = None,
     model_name: Optional[str] = None,
     api_key: Optional[str] = None,
-    config: Optional[ModelConfig] = None,
+    config: Optional[LanguageModelConfig] = None,
     **kwargs,
 ) -> BaseLLM:
-    """Create a model instance with smart defaults and comprehensive error handling.
+    """Create a language model instance with smart defaults and comprehensive error handling.
 
-    This function provides multiple ways to create a model instance:
+    This function provides multiple ways to create a language model instance:
 
-    1. **Minimal**: `get_model()` - uses all defaults
-    2. **Provider only**: `get_model("rhesis")` - uses default model for provider
-    3. **Provider + Model**: `get_model("rhesis", "rhesis-llm-v1")`
-    4. **Shorthand**: `get_model("rhesis/rhesis-llm-v1")`
-    5. **Full config**: `get_model(config=ModelConfig(...))`
+    1. **Minimal**: `get_language_model()` - uses all defaults
+    2. **Provider only**: `get_language_model("rhesis")` - uses default model for provider
+    3. **Provider + Model**: `get_language_model("rhesis", "rhesis-llm-v1")`
+    4. **Shorthand**: `get_language_model("rhesis/rhesis-llm-v1")`
+    5. **Full config**: `get_language_model(config=LanguageModelConfig(...))`
 
     Args:
         provider: Provider name (e.g., "rhesis", "anthropic", "gemini", "openai",
@@ -230,10 +234,10 @@ def get_model(
         model_name: Specific model name
         api_key: API key for authentication
         config: Complete configuration object
-        **kwargs: Additional parameters passed to ModelConfig
+        **kwargs: Additional parameters passed to LanguageModelConfig
 
     Returns:
-        BaseLLM: Configured model instance
+        BaseLLM: Configured language model instance
 
     Raises:
         ValueError: If configuration is invalid or provider not supported
@@ -241,29 +245,29 @@ def get_model(
 
     Examples:
         >>> # Basic usage with defaults
-        >>> model = get_model()
+        >>> model = get_language_model()
 
         >>> # Specify provider and model
-        >>> model = get_model("rhesis", "rhesis-llm-v1")
+        >>> model = get_language_model("rhesis", "rhesis-llm-v1")
 
         >>> # Use provider/model shorthand
-        >>> model = get_model("rhesis/rhesis-llm-v1")
+        >>> model = get_language_model("rhesis/rhesis-llm-v1")
 
         >>> # Use different providers
-        >>> model = get_model("anthropic", "claude-4")
-        >>> model = get_model("openai", "gpt-4o")
-        >>> model = get_model("mistral/mistral-medium-latest")
+        >>> model = get_language_model("anthropic", "claude-4")
+        >>> model = get_language_model("openai", "gpt-4o")
+        >>> model = get_language_model("mistral/mistral-medium-latest")
 
         >>> # With custom configuration
-        >>> config = ModelConfig(
+        >>> config = LanguageModelConfig(
         ...     provider="gemini",
         ...     model_name="gemini-pro",
         ...     api_key="your-api-key"
         ... )
-        >>> model = get_model(config=config)
+        >>> model = get_language_model(config=config)
 
         >>> # With extra parameters
-        >>> model = get_model(
+        >>> model = get_language_model(
         ...     "rhesis",
         ...     "rhesis-llm-v1",
         ...     extra_params={"temperature": 0.5}
@@ -278,7 +282,7 @@ def get_model(
                 setattr(config, key, value)
         cfg = config
     else:
-        cfg = ModelConfig()
+        cfg = LanguageModelConfig()
     # Case: shorthand string like "provider/model"
     if provider and "/" in provider and model_name is None:
         # split only first "/" so that names like "rhesis/rhesis-default" still work
@@ -291,7 +295,7 @@ def get_model(
     model_name = model_name or cfg.model_name or DEFAULT_MODELS[provider]
     api_key = api_key or cfg.api_key
 
-    config = ModelConfig(provider=provider, model_name=model_name, api_key=api_key)
+    config = LanguageModelConfig(provider=provider, model_name=model_name, api_key=api_key)
 
     # Get the factory function for the provider
     factory_func = PROVIDER_REGISTRY.get(config.provider)
@@ -300,6 +304,21 @@ def get_model(
 
     # Use the factory function to create the model instance
     return factory_func(config.model_name, config.api_key, **kwargs)
+
+
+# Deprecated alias for backward compatibility
+def get_model(
+    provider: Optional[str] = None,
+    model_name: Optional[str] = None,
+    api_key: Optional[str] = None,
+    config: Optional[LanguageModelConfig] = None,
+    **kwargs,
+) -> BaseLLM:
+    """Deprecated: Use get_language_model() instead.
+
+    This function is kept for backward compatibility and will be removed in a future version.
+    """
+    return get_language_model(provider, model_name, api_key, config, **kwargs)
 
 
 def get_available_language_models(provider: str) -> list[str]:
@@ -393,29 +412,29 @@ def get_available_embedding_models(provider: str) -> list[str]:
         >>> # Get Vertex AI embedding models
         >>> models = get_available_embedding_models("vertex_ai")
     """
-    if provider not in EMBEDDER_REGISTRY:
-        available_providers = ", ".join(sorted(EMBEDDER_REGISTRY.keys()))
+    if provider not in EMBEDDING_MODEL_REGISTRY:
+        available_providers = ", ".join(sorted(EMBEDDING_MODEL_REGISTRY.keys()))
         raise ValueError(
             f"Embedding provider '{provider}' not supported. "
             f"Available embedding providers: {available_providers}"
         )
 
     # Map of providers that support embedding model listing
-    embedder_providers = {
+    embedding_model_providers = {
         "openai": _get_openai_embedding_models,
         "gemini": _get_gemini_embedding_models,
         "vertex_ai": _get_vertex_ai_embedding_models,
     }
 
-    if provider not in embedder_providers:
+    if provider not in embedding_model_providers:
         raise ValueError(
             f"Provider '{provider}' does not support listing available embedding models. "
             f"Only the following providers support this feature: "
-            f"{', '.join(sorted(embedder_providers.keys()))}"
+            f"{', '.join(sorted(embedding_model_providers.keys()))}"
         )
 
     # Call the provider-specific function to get embedding models
-    return embedder_providers[provider]()
+    return embedding_model_providers[provider]()
 
 
 # Provider-specific functions to get available embedding models
@@ -533,32 +552,32 @@ def _get_openrouter_models() -> list[str]:
 
 
 # =============================================================================
-# Embedder Factory
+# Embedding Model Factory
 # =============================================================================
 
 
-def _create_openai_embedder(
+def _create_openai_embedding_model(
     model_name: str, api_key: Optional[str], dimensions: Optional[int], **kwargs
 ) -> BaseEmbedder:
-    """Factory function for OpenAIEmbedder."""
+    """Factory function for OpenAI embedding model."""
     from rhesis.sdk.models.providers.openai import OpenAIEmbedder
 
     return OpenAIEmbedder(model_name=model_name, api_key=api_key, dimensions=dimensions, **kwargs)
 
 
-def _create_gemini_embedder(
+def _create_gemini_embedding_model(
     model_name: str, api_key: Optional[str], dimensions: Optional[int], **kwargs
 ) -> BaseEmbedder:
-    """Factory function for GeminiEmbedder."""
+    """Factory function for Gemini embedding model."""
     from rhesis.sdk.models.providers.gemini import GeminiEmbedder
 
     return GeminiEmbedder(model_name=model_name, api_key=api_key, dimensions=dimensions, **kwargs)
 
 
-def _create_vertex_ai_embedder(
+def _create_vertex_ai_embedding_model(
     model_name: str, api_key: Optional[str], dimensions: Optional[int], **kwargs
 ) -> BaseEmbedder:
-    """Factory function for VertexAIEmbedder.
+    """Factory function for Vertex AI embedding model.
 
     Note: api_key is ignored for Vertex AI, which uses service account credentials.
     """
@@ -579,24 +598,27 @@ def _create_vertex_ai_embedder(
     )
 
 
-# Embedder provider registry
-EMBEDDER_REGISTRY: Dict[str, Callable[..., BaseEmbedder]] = {
-    "openai": _create_openai_embedder,
-    "gemini": _create_gemini_embedder,
-    "vertex_ai": _create_vertex_ai_embedder,
+# Embedding model provider registry
+EMBEDDING_MODEL_REGISTRY: Dict[str, Callable[..., BaseEmbedder]] = {
+    "openai": _create_openai_embedding_model,
+    "gemini": _create_gemini_embedding_model,
+    "vertex_ai": _create_vertex_ai_embedding_model,
 }
+
+# Deprecated alias for backward compatibility
+EMBEDDER_REGISTRY = EMBEDDING_MODEL_REGISTRY
 
 
 @dataclass
-class EmbedderConfig:
-    """Configuration for an embedder instance.
+class EmbeddingModelConfig:
+    """Configuration for an embedding model instance.
 
     Args:
         provider: The provider name (e.g., "openai").
         model_name: Specific model name (e.g., "text-embedding-3-small").
-        api_key: The API key to use for the embedder.
+        api_key: The API key to use for the embedding model.
         dimensions: Optional embedding dimensions.
-        extra_params: Extra parameters to pass to the embedder.
+        extra_params: Extra parameters to pass to the embedding model.
     """
 
     provider: str | None = None
@@ -606,23 +628,27 @@ class EmbedderConfig:
     extra_params: dict = field(default_factory=dict)
 
 
-def get_embedder(
+# Deprecated alias for backward compatibility
+EmbedderConfig = EmbeddingModelConfig
+
+
+def get_embedding_model(
     provider: Optional[str] = None,
     model_name: Optional[str] = None,
     api_key: Optional[str] = None,
     dimensions: Optional[int] = None,
-    config: Optional[EmbedderConfig] = None,
+    config: Optional[EmbeddingModelConfig] = None,
     **kwargs,
 ) -> BaseEmbedder:
-    """Create an embedder instance with smart defaults and comprehensive error handling.
+    """Create an embedding model instance with smart defaults and comprehensive error handling.
 
-    This function provides multiple ways to create an embedder instance:
+    This function provides multiple ways to create an embedding model instance:
 
-    1. **Minimal**: `get_embedder()` - uses all defaults (OpenAI text-embedding-3-small)
-    2. **Provider only**: `get_embedder("openai")` - uses default model for provider
-    3. **Provider + Model**: `get_embedder("openai", "text-embedding-3-large")`
-    4. **Shorthand**: `get_embedder("openai/text-embedding-3-large")`
-    5. **Full config**: `get_embedder(config=EmbedderConfig(...))`
+    1. **Minimal**: `get_embedding_model()` - uses all defaults (OpenAI text-embedding-3-small)
+    2. **Provider only**: `get_embedding_model("openai")` - uses default model for provider
+    3. **Provider + Model**: `get_embedding_model("openai", "text-embedding-3-large")`
+    4. **Shorthand**: `get_embedding_model("openai/text-embedding-3-large")`
+    5. **Full config**: `get_embedding_model(config=EmbeddingModelConfig(...))`
 
     Args:
         provider: Provider name (e.g., "openai").
@@ -630,34 +656,34 @@ def get_embedder(
         api_key: API key for authentication.
         dimensions: Optional embedding dimensions (model-dependent).
         config: Complete configuration object.
-        **kwargs: Additional parameters passed to the embedder.
+        **kwargs: Additional parameters passed to the embedding model.
 
     Returns:
-        BaseEmbedder: Configured embedder instance.
+        BaseEmbedder: Configured embedding model instance.
 
     Raises:
         ValueError: If configuration is invalid or provider not supported.
 
     Examples:
         >>> # Basic usage with defaults
-        >>> embedder = get_embedder()
+        >>> embedder = get_embedding_model()
 
         >>> # Specify provider and model
-        >>> embedder = get_embedder("openai", "text-embedding-3-large")
+        >>> embedder = get_embedding_model("openai", "text-embedding-3-large")
 
         >>> # Use provider/model shorthand
-        >>> embedder = get_embedder("openai/text-embedding-3-small")
+        >>> embedder = get_embedding_model("openai/text-embedding-3-small")
 
         >>> # With dimensions
-        >>> embedder = get_embedder("openai", dimensions=256)
+        >>> embedder = get_embedding_model("openai", dimensions=256)
 
         >>> # With custom configuration
-        >>> config = EmbedderConfig(
+        >>> config = EmbeddingModelConfig(
         ...     provider="openai",
         ...     model_name="text-embedding-3-small",
         ...     dimensions=512
         ... )
-        >>> embedder = get_embedder(config=config)
+        >>> embedder = get_embedding_model(config=config)
     """
     # Create configuration
     if config:
@@ -666,25 +692,43 @@ def get_embedder(
                 setattr(config, key, value)
         cfg = config
     else:
-        cfg = EmbedderConfig()
+        cfg = EmbeddingModelConfig()
 
     # Case: shorthand string like "provider/model"
     if provider and "/" in provider and model_name is None:
         prov, model = provider.split("/", 1)
         provider, model_name = prov, model
 
-    provider = provider or cfg.provider or DEFAULT_EMBEDDER_PROVIDER
+    provider = provider or cfg.provider or DEFAULT_EMBEDDING_MODEL_PROVIDER
     if provider not in DEFAULT_EMBEDDING_MODELS:
         available = ", ".join(sorted(DEFAULT_EMBEDDING_MODELS.keys()))
-        raise ValueError(f"Embedder provider '{provider}' not supported. Available: {available}")
+        raise ValueError(
+            f"Embedding model provider '{provider}' not supported. Available: {available}"
+        )
 
     model_name = model_name or cfg.model_name or DEFAULT_EMBEDDING_MODELS[provider]
     api_key = api_key or cfg.api_key
     dimensions = dimensions or cfg.dimensions
 
     # Get the factory function for the provider
-    factory_func = EMBEDDER_REGISTRY.get(provider)
+    factory_func = EMBEDDING_MODEL_REGISTRY.get(provider)
     if factory_func is None:
-        raise ValueError(f"Embedder provider '{provider}' not supported")
+        raise ValueError(f"Embedding model provider '{provider}' not supported")
 
     return factory_func(model_name, api_key, dimensions, **kwargs)
+
+
+# Deprecated alias for backward compatibility
+def get_embedder(
+    provider: Optional[str] = None,
+    model_name: Optional[str] = None,
+    api_key: Optional[str] = None,
+    dimensions: Optional[int] = None,
+    config: Optional[EmbeddingModelConfig] = None,
+    **kwargs,
+) -> BaseEmbedder:
+    """Deprecated: Use get_embedding_model() instead.
+
+    This function is kept for backward compatibility and will be removed in a future version.
+    """
+    return get_embedding_model(provider, model_name, api_key, dimensions, config, **kwargs)
