@@ -51,7 +51,7 @@ export function useFormChangeDetection<
 
   useEffect(() => {
     setTrackedInitialData(initialData);
-  }, [initialDataString, initialData]);
+  }, [initialDataString]);
 
   const hasChanges = compareFormData(currentData, trackedInitialData);
 
