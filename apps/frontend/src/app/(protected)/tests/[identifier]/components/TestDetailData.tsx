@@ -1,12 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Grid, Typography, useTheme, TextField } from '@mui/material';
+import { Box, Grid, Typography, TextField } from '@mui/material';
 import BaseFreesoloAutocomplete, {
   AutocompleteOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { TestDetail, TypeLookup } from '@/utils/api-client/interfaces/tests';
+import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import TestExecutableField from './TestExecutableField';
 import FilePreview from '@/components/common/FilePreview';
@@ -34,10 +34,9 @@ export default function TestDetailData({
   sessionToken,
   test: initialTest,
 }: TestDetailDataProps) {
-  const theme = useTheme();
   const router = useRouter();
   const [behaviors, setBehaviors] = React.useState<TestDetailOption[]>([]);
-  const [types, setTypes] = React.useState<TestDetailOption[]>([]);
+  const [_types, setTypes] = React.useState<TestDetailOption[]>([]);
   const [topics, setTopics] = React.useState<TestDetailOption[]>([]);
   const [categories, setCategories] = React.useState<TestDetailOption[]>([]);
   const [isUpdating, setIsUpdating] = React.useState(false);
@@ -79,7 +78,7 @@ export default function TestDetailData({
             name: t.type_value,
           }))
         );
-      } catch (error) {
+      } catch (_error) {
         setTypes([]);
       }
 
@@ -136,7 +135,7 @@ export default function TestDetailData({
 
       // Refresh the server components to update the page title
       router.refresh();
-    } catch (error) {}
+    } catch (_error) {}
   }, [sessionToken, test.id, isUpdating, router]);
 
   const handleUpdate = async (
@@ -151,7 +150,7 @@ export default function TestDetailData({
       const testsClient = apiFactory.getTestsClient();
 
       // Prepare the update payload based on the field
-      const updatePayload: Record<string, any> = {};
+      const updatePayload: Record<string, unknown> = {};
 
       if (typeof value === 'string') {
         // If it's a string, it's a new value that needs to be created
@@ -193,7 +192,7 @@ export default function TestDetailData({
         // Refresh the test data
         await refreshTest();
       }
-    } catch (error) {
+    } catch (_error) {
       notifications.show(`Failed to update test ${field}`, {
         severity: 'error',
         autoHideDuration: 6000,
@@ -220,7 +219,17 @@ export default function TestDetailData({
   };
 
   // Check if test is multi-turn
-  const isMultiTurn = isMultiTurnTest(test.test_type?.type_value);
+  const isMultiTurn: boolean = Boolean(
+    isMultiTurnTest(test.test_type?.type_value)
+  );
+
+  // Extract and type-narrow sources from test_metadata (Record<string, unknown>)
+  // to avoid `unknown` leaking into JSX children via short-circuit &&
+  const testSources: Array<Record<string, string>> = Array.isArray(
+    test.test_metadata?.sources
+  )
+    ? test.test_metadata.sources
+    : [];
 
   return (
     <Grid container spacing={2}>
@@ -331,10 +340,9 @@ export default function TestDetailData({
           />
         </Box>
       </Grid>
-      {/* Conditional rendering based on test type */}
+      {/* Multi-Turn Configuration Fields */}
       {isMultiTurn ? (
-        /* Multi-Turn Configuration Fields */
-        <Grid size={12}>
+        <Grid size={12} key="multi-turn-config">
           <MultiTurnConfigFields
             sessionToken={sessionToken}
             testId={test.id}
@@ -346,64 +354,57 @@ export default function TestDetailData({
             onUpdate={refreshTest}
           />
         </Grid>
-      ) : (
-        /* Standard Test Fields */
-        <>
-          <Grid size={12}>
-            <Box sx={{ mb: 1 }}>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                gutterBottom
-              >
-                Test Prompt
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', fontStyle: 'italic' }}
-              >
-                The input prompt that will be sent to the target system
-              </Typography>
-            </Box>
-            <TestExecutableField
-              sessionToken={sessionToken}
-              testId={test.id}
-              promptId={test.prompt_id}
-              initialContent={test.prompt?.content || ''}
-              onUpdate={refreshTest}
-            />
-          </Grid>
-          <Grid size={12}>
-            <Box sx={{ mb: 1 }}>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                gutterBottom
-              >
-                Expected Response
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', fontStyle: 'italic' }}
-              >
-                The expected output or behavior from the target system
-              </Typography>
-            </Box>
-            <TestExecutableField
-              sessionToken={sessionToken}
-              testId={test.id}
-              promptId={test.prompt_id}
-              initialContent={test.prompt?.expected_response || ''}
-              onUpdate={refreshTest}
-              fieldName="expected_response"
-            />
-          </Grid>
-        </>
+      ) : null}
+      {/* Standard Test Fields */}
+      {!isMultiTurn && (
+        <Grid size={12}>
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Test Prompt
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', fontStyle: 'italic' }}
+            >
+              The input prompt that will be sent to the target system
+            </Typography>
+          </Box>
+          <TestExecutableField
+            sessionToken={sessionToken}
+            testId={test.id}
+            promptId={test.prompt_id}
+            initialContent={test.prompt?.content || ''}
+            onUpdate={refreshTest}
+          />
+        </Grid>
+      )}
+      {!isMultiTurn && (
+        <Grid size={12}>
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Expected Response
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', fontStyle: 'italic' }}
+            >
+              The expected output or behavior from the target system
+            </Typography>
+          </Box>
+          <TestExecutableField
+            sessionToken={sessionToken}
+            testId={test.id}
+            promptId={test.prompt_id}
+            initialContent={test.prompt?.expected_response || ''}
+            onUpdate={refreshTest}
+            fieldName="expected_response"
+          />
+        </Grid>
       )}
       {/* Sources Section */}
-      {test.test_metadata?.sources && test.test_metadata.sources.length > 0 && (
+      {testSources.length > 0 && (
         <Grid size={12}>
           <Box sx={{ mb: 1 }}>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -419,7 +420,7 @@ export default function TestDetailData({
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {test.test_metadata.sources.map((source: any, index: number) => {
+            {testSources.map((source, index: number) => {
               // Create stable key from source name/document
               const sourceKey =
                 source.name ||

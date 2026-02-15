@@ -7,7 +7,6 @@ import {
   Alert,
   CircularProgress,
   useTheme,
-  Paper,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';
@@ -23,8 +22,8 @@ interface MetricTimelineChartsGridProps {
 const extractUniqueMetrics = (
   timeline?: Array<{
     date: string;
-    overall: any;
-    metrics?: Record<string, any>;
+    overall: unknown;
+    metrics?: Record<string, unknown>;
   }>
 ) => {
   if (!timeline || timeline.length === 0) return [];

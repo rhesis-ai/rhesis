@@ -39,8 +39,12 @@ export default function OrganizationSettingsPage() {
           session.user.organization_id
         );
         setOrganization(orgData);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load organization details');
+      } catch (err: unknown) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to load organization details'
+        );
       } finally {
         if (showLoading) {
           setInitialLoading(false);

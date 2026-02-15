@@ -130,7 +130,7 @@ export function calculateDurationPercentage(
 /**
  * Check if span is a leaf node (no children)
  */
-export function isLeafSpan(span: SpanNode | { children?: any[] }): boolean {
+export function isLeafSpan(span: SpanNode | { children?: unknown[] }): boolean {
   return !span.children || span.children.length === 0;
 }
 

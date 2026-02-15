@@ -16,7 +16,6 @@ import {
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 import BaseTag from '@/components/common/BaseTag';
@@ -127,10 +126,10 @@ export default function CreateTestRun({
           } else {
             setEndpoints([]);
           }
-        } catch (endpointsError) {
+        } catch (_endpointsError) {
           setEndpoints([]);
         }
-      } catch (error) {
+      } catch (_error) {
         setProjects([]); // Ensure projects remains an empty array on error
         setEndpoints([]);
         onError?.('Failed to load initial data');
@@ -182,9 +181,6 @@ export default function CreateTestRun({
     try {
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
-      const testConfigurationsClient =
-        clientFactory.getTestConfigurationsClient();
-      const tagsClient = new TagsClient(sessionToken);
 
       // Prepare test configuration attributes
       const testConfigurationAttributes = {
@@ -215,8 +211,12 @@ export default function CreateTestRun({
 
           // Assign tags to each created test run
           for (const result of results) {
-            if ((result as any).test_configuration_id) {
-              const testConfigurationId = (result as any).test_configuration_id;
+            // The result should contain test_configuration_id
+            // We need to get the test run from the test configuration
+            const resultRecord = result as unknown as Record<string, unknown>;
+            if (resultRecord.test_configuration_id) {
+              const testConfigurationId =
+                resultRecord.test_configuration_id as string;
 
               const testRun = await pollForTestRun(
                 testRunsClient,
@@ -252,7 +252,7 @@ export default function CreateTestRun({
       }
 
       onSuccess?.();
-    } catch (error) {
+    } catch (_error) {
       onError?.('Failed to execute test sets');
     } finally {
       setLoading(false);
@@ -264,7 +264,7 @@ export default function CreateTestRun({
     submitRef.current = handleSubmit;
   }
 
-  const isFormValid = selectedProject && selectedEndpoint;
+  const _isFormValid = selectedProject && selectedEndpoint;
 
   return (
     <>
@@ -292,7 +292,7 @@ export default function CreateTestRun({
               }}
               getOptionLabel={option => option.name}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box component="li" key={option.id} {...otherProps}>
                     {option.name}
@@ -336,7 +336,7 @@ export default function CreateTestRun({
                 />
               )}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box
                     key={option.id}

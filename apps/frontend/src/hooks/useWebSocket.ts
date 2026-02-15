@@ -144,7 +144,7 @@ export function useWebSocket(
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
-  }, [subscribe, options?.onMessage, options?.eventHandlers]);
+  }, [subscribe, options]);
 
   // Memoized send function that wraps the context's send
   const sendMessage = useCallback(

@@ -10,7 +10,6 @@ import {
   FormHelperText,
   CircularProgress,
   Paper,
-  Divider,
   Chip,
   Autocomplete,
   TextField,
@@ -21,7 +20,6 @@ import {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Project } from '@/utils/api-client/interfaces/project';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { UUID } from 'crypto';
 import { isMultiTurnTest } from '@/constants/test-types';
@@ -29,6 +27,7 @@ import {
   isMultiTurnConfig,
   MultiTurnTestConfig,
 } from '@/utils/api-client/interfaces/multi-turn-test-config';
+import { ConversationTurn } from '@/utils/api-client/interfaces/test-results';
 
 interface ProjectOption {
   id: UUID;
@@ -55,7 +54,7 @@ export default function TrialDrawer({
   onClose,
   sessionToken,
   testIds,
-  onSuccess,
+  onSuccess: _onSuccess,
 }: TrialDrawerProps) {
   const [error, setError] = useState<string>();
   const theme = useTheme();
@@ -68,9 +67,16 @@ export default function TrialDrawer({
   const [filteredEndpoints, setFilteredEndpoints] = useState<EndpointOption[]>(
     []
   );
-  const [trialResponse, setTrialResponse] = useState<any>(null);
+  const [trialResponse, setTrialResponse] = useState<{
+    type: 'single_turn' | 'multi_turn';
+    output?: unknown;
+    conversation?: ConversationTurn[];
+    execution_time?: number;
+    status?: string;
+    raw_response?: unknown;
+  } | null>(null);
   const [trialInProgress, setTrialInProgress] = useState(false);
-  const [trialCompleted, setTrialCompleted] = useState(false);
+  const [_trialCompleted, setTrialCompleted] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedProjectData, setSelectedProjectData] =
     useState<Project | null>(null);
@@ -80,43 +86,23 @@ export default function TrialDrawer({
 
   // Fetch projects, endpoints, and test data
   useEffect(() => {
-    console.log('[TrialDrawer] useEffect triggered', {
-      open,
-      sessionToken: sessionToken ? 'present' : 'missing',
-      testIds,
-      hasLoadedRef: hasLoadedRef.current,
-    });
-
     const fetchData = async () => {
       if (!sessionToken || !open) {
-        console.log(
-          '[TrialDrawer] Skipping fetch - sessionToken or open is false'
-        );
         return;
       }
 
       // Check if testIds actually changed (not just reference)
       const testIdsKey = JSON.stringify(testIds);
       const isTestIdsChanged = testIdsRef.current !== testIdsKey;
-      console.log('[TrialDrawer] TestIds check', {
-        current: testIdsRef.current,
-        new: testIdsKey,
-        isTestIdsChanged,
-        hasLoadedRef: hasLoadedRef.current,
-      });
       testIdsRef.current = testIdsKey;
 
       // Only fetch if it's the first load or testIds actually changed
       if (!isTestIdsChanged && hasLoadedRef.current) {
-        console.log(
-          '[TrialDrawer] Skipping fetch - already loaded and testIds unchanged'
-        );
         return;
       }
 
       // Only reset state on initial open, not on subsequent re-renders
       const isInitialOpen = !hasLoadedRef.current;
-      console.log('[TrialDrawer] Starting data fetch', { isInitialOpen });
 
       try {
         setLoading(true);
@@ -130,7 +116,6 @@ export default function TrialDrawer({
         // Fetch test data (we only support single test trial for now)
         if (testIds.length > 0) {
           try {
-            console.log('[TrialDrawer] Fetching test data for:', testIds[0]);
             const testsClient = clientFactory.getTestsClient();
             const testDetail = await testsClient.getTest(testIds[0]);
 
@@ -144,14 +129,13 @@ export default function TrialDrawer({
             }
 
             setTestData(testDetail);
-          } catch (testError) {
+          } catch (_testError) {
             // Continue with projects/endpoints even if test fetch fails
           }
         }
 
         // Fetch projects with proper response handling
         try {
-          console.log('[TrialDrawer] Fetching projects...');
           const projectsClient = clientFactory.getProjectsClient();
           const projectsData = await projectsClient.getProjects({
             sort_by: 'name',
@@ -175,7 +159,7 @@ export default function TrialDrawer({
             .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
 
           setProjects(processedProjects);
-        } catch (projectsError) {
+        } catch (_projectsError) {
           setProjects([]);
           notifications.show(
             'Failed to load projects. Please refresh the page.',
@@ -185,7 +169,6 @@ export default function TrialDrawer({
 
         // Fetch all endpoints
         try {
-          console.log('[TrialDrawer] Fetching endpoints...');
           const endpointsClient = clientFactory.getEndpointsClient();
           const endpointsResponse = await endpointsClient.getEndpoints({
             sort_by: 'name',
@@ -207,7 +190,7 @@ export default function TrialDrawer({
           } else {
             setEndpoints([]);
           }
-        } catch (endpointsError) {
+        } catch (_endpointsError) {
           setEndpoints([]);
           notifications.show(
             'Failed to load endpoints. Please refresh the page.',
@@ -222,17 +205,12 @@ export default function TrialDrawer({
       } finally {
         setLoading(false);
         hasLoadedRef.current = true;
-        console.log(
-          '[TrialDrawer] Data fetch completed, hasLoadedRef set to true'
-        );
       }
     };
 
     if (open) {
-      console.log('[TrialDrawer] Drawer opened, calling fetchData');
       fetchData();
     } else {
-      console.log('[TrialDrawer] Drawer closed, resetting refs');
       // Reset the refs when drawer closes so next open will be treated as initial
       hasLoadedRef.current = false;
       testIdsRef.current = '';
@@ -269,7 +247,6 @@ export default function TrialDrawer({
   };
 
   const handleSave = async () => {
-    console.log('[TrialDrawer] handleSave called');
     if (!sessionToken || !selectedEndpoint || !testData) return;
 
     // Determine test type
@@ -304,7 +281,9 @@ export default function TrialDrawer({
       if (isMultiTurn) {
         // Multi-turn test execution
         const testsClient = clientFactory.getTestsClient();
-        const config = testData.test_configuration as MultiTurnTestConfig;
+        const config = isMultiTurnConfig(testData.test_configuration)
+          ? testData.test_configuration
+          : (testData.test_configuration as unknown as MultiTurnTestConfig);
 
         const executeRequest = {
           endpoint_id:
@@ -332,7 +311,11 @@ export default function TrialDrawer({
         ) {
           // Check for conversation_summary
           if (executeResponse.test_output.conversation_summary) {
-            conversation = executeResponse.test_output.conversation_summary;
+            conversation = Array.isArray(
+              executeResponse.test_output.conversation_summary
+            )
+              ? executeResponse.test_output.conversation_summary
+              : [];
           }
           // Also check if test_output itself is an array (alternative structure)
           else if (Array.isArray(executeResponse.test_output)) {
@@ -361,18 +344,15 @@ export default function TrialDrawer({
         });
       }
 
-      console.log('[TrialDrawer] Test execution completed successfully');
       notifications.show('Test executed successfully', { severity: 'success' });
-      console.log('[TrialDrawer] Success notification shown');
     } catch (error) {
-      console.log('[TrialDrawer] Test execution failed', error);
+      console.error('[TrialDrawer] Test execution failed', error);
       setError(
         `Failed to execute test: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
       notifications.show('Failed to execute test', { severity: 'error' });
     } finally {
       setTrialInProgress(false);
-      console.log('[TrialDrawer] handleSave completed');
     }
   };
 
@@ -408,7 +388,6 @@ export default function TrialDrawer({
             options={projects}
             value={projects.find(p => p.id === selectedProject) || null}
             onChange={async (_, newValue) => {
-              console.log('[TrialDrawer] Project selected:', newValue);
               if (!newValue) {
                 setSelectedProject(null);
                 setSelectedProjectData(null);
@@ -419,19 +398,12 @@ export default function TrialDrawer({
 
               // Fetch full project data to get icon
               try {
-                console.log(
-                  '[TrialDrawer] Fetching project details for:',
-                  newValue.id
-                );
                 const clientFactory = new ApiClientFactory(sessionToken);
                 const projectsClient = clientFactory.getProjectsClient();
                 const projectData = await projectsClient.getProject(
                   newValue.id
                 );
                 setSelectedProjectData(projectData);
-                console.log(
-                  '[TrialDrawer] Project details fetched successfully'
-                );
               } catch (error) {
                 console.error(
                   '[TrialDrawer] Failed to fetch project details:',
@@ -446,7 +418,7 @@ export default function TrialDrawer({
             }}
             getOptionLabel={option => option.name}
             renderOption={(props, option) => {
-              const { key, ...otherProps } = props;
+              const { key: _key, ...otherProps } = props;
               return (
                 <Box component="li" key={option.id} {...otherProps}>
                   {option.name}
@@ -488,7 +460,7 @@ export default function TrialDrawer({
               />
             )}
             renderOption={(props, option) => {
-              const { key, ...otherProps } = props;
+              const { key: _key, ...otherProps } = props;
               return (
                 <Box
                   key={option.id}

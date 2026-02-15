@@ -64,7 +64,7 @@ const PROJECT_ICONS = {
 };
 
 // Map of icon names to labels
-const ICON_LABELS = {
+const _ICON_LABELS = {
   SmartToy: 'AI Assistant',
   Psychology: 'AI Brain',
   Chat: 'Chatbot',
@@ -124,7 +124,7 @@ export default function FinishStep({
           const ownerData = await usersClient.getUser(formData.owner_id);
           setOwner(ownerData);
         }
-      } catch (error) {
+      } catch (_error) {
         // Fall back to a placeholder if the API call fails
         if (formData.owner_id) {
           setOwner({

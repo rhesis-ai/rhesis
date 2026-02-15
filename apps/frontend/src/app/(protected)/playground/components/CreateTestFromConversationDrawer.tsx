@@ -13,12 +13,14 @@ import {
 import BaseFreesoloAutocomplete, {
   AutocompleteOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
-import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
-import BaseDrawer from '@/components/common/BaseDrawer';
+import BaseDrawer, {
+  filterUniqueValidOptions,
+} from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   ConversationTestExtractionResponse,
   ConversationMessage,
+  TestBulkCreate,
 } from '@/utils/api-client/interfaces/tests';
 
 interface CreateTestFromConversationDrawerProps {
@@ -152,11 +154,11 @@ export default function CreateTestFromConversationDrawer({
       data.expected_response = extraction.expected_response || '';
     } else {
       const config = extraction.test_configuration || {};
-      data.goal = config.goal || '';
-      data.instructions = config.instructions || '';
-      data.restrictions = config.restrictions || '';
-      data.scenario = config.scenario || '';
-      data.max_turns = config.max_turns || 5;
+      data.goal = (config.goal as string) || '';
+      data.instructions = (config.instructions as string) || '';
+      data.restrictions = (config.restrictions as string) || '';
+      data.scenario = (config.scenario as string) || '';
+      data.max_turns = (config.max_turns as number) || 5;
     }
 
     setFormData(data);
@@ -198,7 +200,7 @@ export default function CreateTestFromConversationDrawer({
       const apiFactory = new ApiClientFactory(sessionToken);
       const testsClient = apiFactory.getTestsClient();
 
-      const testData: Record<string, any> = {
+      const testData: Record<string, unknown> = {
         behavior: formData.behavior,
         category: formData.category,
         topic: formData.topic,
@@ -228,7 +230,7 @@ export default function CreateTestFromConversationDrawer({
       }
 
       const response = await testsClient.createTestsBulk({
-        tests: [testData as any],
+        tests: [testData as unknown as TestBulkCreate],
       });
 
       if (!response.success) {

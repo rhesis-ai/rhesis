@@ -3,7 +3,6 @@ import {
   Box,
   TextField,
   Button,
-  Typography,
   IconButton,
   CircularProgress,
   Snackbar,
@@ -17,7 +16,7 @@ import { useState } from 'react';
 import StepHeader from './StepHeader';
 
 interface FormData {
-  invites: { email: string }[];
+  invites: { id: string; email: string }[];
 }
 
 interface InviteTeamStepProps {
@@ -74,7 +73,7 @@ export default function InviteTeamStep({
     const seenEmails = new Set<string>();
     const duplicateEmails = new Set<string>();
 
-    emailsToCheck.forEach(({ email, index }) => {
+    emailsToCheck.forEach(({ email, index: _index }) => {
       if (seenEmails.has(email)) {
         duplicateEmails.add(email);
       } else {
@@ -122,7 +121,7 @@ export default function InviteTeamStep({
 
       // Proceed to next step
       onNext();
-    } catch (error) {
+    } catch (_error) {
       setErrorMessage('Failed to submit form. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -131,7 +130,7 @@ export default function InviteTeamStep({
 
   const handleEmailChange = (index: number, value: string) => {
     const updatedInvites = [...formData.invites];
-    updatedInvites[index] = { email: value };
+    updatedInvites[index] = { ...updatedInvites[index], email: value };
     updateFormData({ invites: updatedInvites });
 
     // Clear error when user types
@@ -151,7 +150,7 @@ export default function InviteTeamStep({
     }
 
     updateFormData({
-      invites: [...formData.invites, { email: '' }],
+      invites: [...formData.invites, { id: crypto.randomUUID(), email: '' }],
     });
   };
 
@@ -185,38 +184,34 @@ export default function InviteTeamStep({
       <Paper variant="outlined" elevation={0}>
         <Box p={3}>
           <Stack spacing={3}>
-            {formData.invites.map((invite, index) => {
-              // Create stable key from email or index
-              const inviteKey = invite.email || `invite-${index}`;
-              return (
-                <Box
-                  key={inviteKey}
-                  display="flex"
-                  alignItems="flex-start"
-                  gap={2}
-                >
-                  <TextField
-                    fullWidth
-                    label="Email Address"
-                    value={invite.email}
-                    onChange={e => handleEmailChange(index, e.target.value)}
-                    error={Boolean(errors[index]?.hasError)}
-                    helperText={errors[index]?.message || ''}
-                    placeholder="colleague@company.com"
-                    variant="outlined"
-                  />
-                  {formData.invites.length > 1 && (
-                    <IconButton
-                      onClick={() => removeEmailField(index)}
-                      color="error"
-                      size="large"
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  )}
-                </Box>
-              );
-            })}
+            {formData.invites.map((invite, index) => (
+              <Box
+                key={invite.id}
+                display="flex"
+                alignItems="flex-start"
+                gap={2}
+              >
+                <TextField
+                  fullWidth
+                  label="Email Address"
+                  value={invite.email}
+                  onChange={e => handleEmailChange(index, e.target.value)}
+                  error={Boolean(errors[index]?.hasError)}
+                  helperText={errors[index]?.message || ''}
+                  placeholder="colleague@company.com"
+                  variant="outlined"
+                />
+                {formData.invites.length > 1 && (
+                  <IconButton
+                    onClick={() => removeEmailField(index)}
+                    color="error"
+                    size="large"
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                )}
+              </Box>
+            ))}
 
             <Box display="flex" justifyContent="flex-start">
               <Button

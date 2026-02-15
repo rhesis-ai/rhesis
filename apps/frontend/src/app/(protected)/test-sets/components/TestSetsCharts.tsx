@@ -10,7 +10,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSetStatsResponse } from '@/utils/api-client/interfaces/test-set';
 import { useSession } from 'next-auth/react';
 import { Box, CircularProgress, Typography, useTheme } from '@mui/material';
-import { useChartColors } from '@/components/layout/BaseChartColors';
 
 // Fallback data for charts when no data is available
 const FALLBACK_DATA = {
@@ -109,7 +108,7 @@ export default function TestSetsCharts() {
         setError(null);
         // Mark that we've fetched the data
         dataFetchedRef.current = true;
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to load test set statistics');
       } finally {
         setIsLoading(false);

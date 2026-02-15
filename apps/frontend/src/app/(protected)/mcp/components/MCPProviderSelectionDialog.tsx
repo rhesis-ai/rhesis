@@ -18,7 +18,6 @@ import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import {
   SUPPORTED_MCP_PROVIDERS,
   MCP_PROVIDER_ICONS,
-  type MCPProviderInfo,
 } from '@/config/mcp-providers';
 
 interface MCPProviderSelectionDialogProps {
@@ -73,7 +72,7 @@ export function MCPProviderSelectionDialog({
       <DialogContent>
         <List>
           {sortedProviders.map(provider => {
-            const isSupported = SUPPORTED_MCP_PROVIDERS.includes(
+            const _isSupported = SUPPORTED_MCP_PROVIDERS.includes(
               provider.type_value
             );
             const isCustom = provider.type_value === 'custom';

@@ -5,6 +5,7 @@ import {
   DashboardLayout,
   DashboardSidebarPageItem,
 } from '@toolpad/core/DashboardLayout';
+import type { NavigationPageItem } from '@toolpad/core/AppProvider';
 import AuthErrorBoundary from './error-boundary';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -38,10 +39,14 @@ export default function ProtectedLayout({
 
   // Custom renderer for page items to handle external links
   const renderPageItem = React.useCallback(
-    (item: any, options: { mini: boolean }) => {
+    (item: NavigationPageItem, _options: { mini: boolean }) => {
       // Check if this is an external link (has metadata from NavigationProvider)
-      if (item.__isExternalLink && item.__href) {
-        return <DashboardSidebarPageItem item={item} href={item.__href} />;
+      const extItem = item as NavigationPageItem & {
+        __isExternalLink?: boolean;
+        __href?: string;
+      };
+      if (extItem.__isExternalLink && extItem.__href) {
+        return <DashboardSidebarPageItem item={item} href={extItem.__href} />;
       }
       // Default rendering for regular page items
       return <DashboardSidebarPageItem item={item} />;
@@ -74,7 +79,8 @@ export default function ProtectedLayout({
               margin: 0,
               '& .MuiTypography-root': {
                 fontSize: (theme: Theme) =>
-                  (theme.typography as any)?.body2?.fontSize || '0.875rem',
+                  (theme.typography as Record<string, { fontSize?: string }>)
+                    ?.body2?.fontSize || '0.875rem',
                 lineHeight: '1.2',
               },
             },

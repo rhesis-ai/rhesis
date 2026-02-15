@@ -5,10 +5,8 @@ import {
   Box,
   Typography,
   TextField,
-  Button,
   CircularProgress,
   Divider,
-  Paper,
   IconButton,
   Tooltip,
 } from '@mui/material';
@@ -35,14 +33,14 @@ interface CommentsSectionProps {
 
 export function CommentsSection({
   entityType,
-  entityId,
+  entityId: _entityId,
   comments,
   onCreateComment,
   onEditComment,
   onDeleteComment,
   onReactToComment,
   onCreateTask,
-  onCreateTaskFromEntity,
+  onCreateTaskFromEntity: _onCreateTaskFromEntity,
   currentUserId,
   currentUserName,
   currentUserPicture,
@@ -88,7 +86,7 @@ export function CommentsSection({
       try {
         await onCreateComment(newComment.trim());
         setNewComment('');
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to post comment. Please try again.');
       } finally {
         setIsSubmitting(false);
@@ -130,7 +128,7 @@ export function CommentsSection({
     [onReactToComment]
   );
 
-  const getEntityDisplayName = (entityType: EntityType): string => {
+  const _getEntityDisplayName = (entityType: EntityType): string => {
     switch (entityType) {
       case 'Test':
         return 'Test';

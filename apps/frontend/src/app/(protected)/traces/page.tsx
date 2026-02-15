@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 
 import { auth } from '@/auth';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TracesClientWrapper from './components/TracesClientWrapper';
 import { Alert, Paper } from '@mui/material';
 

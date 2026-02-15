@@ -3,22 +3,17 @@ import {
   TextField,
   FormControl,
   Stack,
-  FormHelperText,
   MenuItem,
   Autocomplete,
   Box,
   Avatar,
   Typography,
-  ListItemAvatar,
-  ListItemText,
   Divider,
-  CircularProgress,
 } from '@mui/material';
 import BaseFreesoloAutocomplete, {
   AutocompleteOption as FreeSoloOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
 import {
-  TestBulkCreateRequest,
   PriorityLevel,
   TestDetail,
   TestUpdate,
@@ -73,7 +68,7 @@ export default function UpdateTest({
   submitRef,
   test,
 }: UpdateTestProps) {
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<TestFormData>({
     behavior_id: test.behavior?.id || test.behavior?.name || undefined,
     topic_id: test.topic?.name || test.topic?.id || undefined,
@@ -95,7 +90,7 @@ export default function UpdateTest({
   // Initialize form data from test when provided
   useEffect(() => {
     if (test) {
-      setFormData(prevData => {
+      setFormData(_prevData => {
         const newData = {
           behavior_id: test.behavior?.id || test.behavior?.name || undefined,
           topic_id: test.topic?.name || test.topic?.id || undefined,
@@ -538,7 +533,7 @@ export default function UpdateTest({
           />
         )}
         renderOption={(props, option) => {
-          const { key, ...otherProps } = props;
+          const { key: _key, ...otherProps } = props;
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -582,7 +577,7 @@ export default function UpdateTest({
           />
         )}
         renderOption={(props, option) => {
-          const { key, ...otherProps } = props;
+          const { key: _key, ...otherProps } = props;
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

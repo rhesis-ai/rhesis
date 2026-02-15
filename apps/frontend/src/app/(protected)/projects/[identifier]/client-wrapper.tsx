@@ -1,20 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import {
-  Box,
-  Button,
-  Breadcrumbs,
-  Typography,
-  Alert,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-} from '@mui/material';
-import Link from 'next/link';
-import { ArrowBackIcon, EditIcon, DeleteIcon } from '@/components/icons';
+import { Box, Button, Typography } from '@mui/material';
+import { EditIcon, DeleteIcon } from '@/components/icons';
 import ProjectContent from '../components/ProjectContent';
 import ProjectEditDrawer from './edit-drawer';
 import ProjectEndpoints from './components/ProjectEndpoints';
@@ -23,7 +11,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { useActivePage } from '@toolpad/core/useActivePage';
 import { PageContainer, Breadcrumb } from '@toolpad/core/PageContainer';
-import invariant from 'invariant';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useOnboardingTour } from '@/hooks/useOnboardingTour';

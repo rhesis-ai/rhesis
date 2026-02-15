@@ -27,7 +27,7 @@ export class TokensClient extends BaseApiClient {
         sort_by: params?.sort_by || 'created_at',
         sort_order: params?.sort_order || 'desc',
       });
-    } catch (error) {
+    } catch (_error) {
       return {
         data: [],
         pagination: {

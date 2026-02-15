@@ -6,9 +6,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
-  Cell,
 } from 'recharts';
 import { Typography, Box, Card, CardContent, useTheme } from '@mui/material';
 import { useChartColors } from '../layout/BaseChartColors';
@@ -19,7 +17,7 @@ export interface ScatterDataPoint {
   y: number;
   name?: string;
   isHighlighted?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface BaseScatterChartProps {
@@ -31,8 +29,8 @@ export interface BaseScatterChartProps {
   xAxisLabel?: string;
   yAxisLabel?: string;
   showGrid?: boolean;
-  legendProps?: Record<string, any>;
-  tooltipProps?: Record<string, any>;
+  legendProps?: Record<string, unknown>;
+  tooltipProps?: Record<string, unknown>;
   yAxisConfig?: {
     domain?: [number, number];
     allowDataOverflow?: boolean;
@@ -43,7 +41,7 @@ export interface BaseScatterChartProps {
     domain?: [number, number] | ['auto', 'auto'];
     allowDataOverflow?: boolean;
     tickCount?: number;
-    tickFormatter?: (value: any) => string;
+    tickFormatter?: (value: string | number) => string;
   };
   highlightedColor?: string;
   normalColor?: string;
@@ -120,12 +118,16 @@ export default function BaseScatterChart({
     wrapperStyle: { fontSize: String(theme.typography.chartTick.fontSize) },
     iconSize: 8,
   };
-  const themedLegendProps = {
+  const _themedLegendProps = {
     ...defaultLegendProps,
-    ...legendProps,
+    ...(legendProps && typeof legendProps === 'object' ? legendProps : {}),
     wrapperStyle: {
       ...defaultLegendProps.wrapperStyle,
-      ...legendProps?.wrapperStyle,
+      ...(legendProps &&
+      typeof legendProps === 'object' &&
+      legendProps.wrapperStyle
+        ? legendProps.wrapperStyle
+        : {}),
       fontSize: String(theme.typography.chartTick.fontSize),
     },
   };
@@ -165,8 +167,12 @@ export default function BaseScatterChart({
     normalColor || chartColors[1] || theme.palette.action.disabled;
 
   // Custom dot component to handle highlighting
-  const CustomDot = (props: any) => {
-    const { cx, cy, payload } = props;
+  const CustomDot = (props: Record<string, unknown>) => {
+    const { cx, cy, payload } = props as {
+      cx?: number;
+      cy?: number;
+      payload?: ScatterDataPoint;
+    };
     const isHighlighted = payload?.isHighlighted;
 
     return (
@@ -183,18 +189,26 @@ export default function BaseScatterChart({
   };
 
   // Custom tooltip formatter
-  const customTooltipFormatter = (value: any, name: string, props: any) => {
-    const { payload } = props;
+  const customTooltipFormatter = (
+    value: string | number,
+    name: string,
+    props: { payload?: unknown }
+  ) => {
+    const { payload: _payload } = props;
     if (name === 'y') {
       return [`${value}%`, 'Pass Rate'];
     }
     return [value, name];
   };
 
-  const customTooltipLabelFormatter = (label: any, payload: any) => {
+  const customTooltipLabelFormatter = (
+    label: string | number,
+    payload: Array<{ payload?: ScatterDataPoint }>
+  ) => {
     if (payload && payload.length > 0) {
-      const data = payload[0].payload;
-      return data.name || `Run ${label}`;
+      const firstPayload = payload[0];
+      const data = firstPayload?.payload;
+      return data?.name || `Run ${label}`;
     }
     return label;
   };

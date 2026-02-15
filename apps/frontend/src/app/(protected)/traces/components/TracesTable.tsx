@@ -4,9 +4,8 @@ import { useMemo } from 'react';
 import { GridColDef } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
-import { Chip, Box, Typography, Tooltip } from '@mui/material';
+import { Chip, Typography, Tooltip } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
-import Link from 'next/link';
 import { formatDuration } from '@/utils/format-duration';
 
 interface TracesTableProps {
@@ -30,7 +29,7 @@ export default function TracesTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  filters,
+  filters: _filters,
 }: TracesTableProps) {
   const columns: GridColDef[] = useMemo(
     () => [
@@ -167,7 +166,9 @@ export default function TracesTable({
     []
   );
 
-  const handleRowClick = (params: any) => {
+  const handleRowClick = (params: {
+    row: { trace_id: string; project_id: string };
+  }) => {
     onRowClick(params.row.trace_id, params.row.project_id);
   };
 

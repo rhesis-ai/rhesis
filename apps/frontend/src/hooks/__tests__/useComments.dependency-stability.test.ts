@@ -5,10 +5,10 @@ import { ApiClientFactory } from '../../utils/api-client/client-factory';
 
 // Mock dependencies
 jest.mock('../../utils/api-client/client-factory');
+const mockShow = jest.fn();
+const mockNotifications = { show: mockShow };
 jest.mock('../../components/common/NotificationContext', () => ({
-  useNotifications: () => ({
-    show: jest.fn(),
-  }),
+  useNotifications: () => mockNotifications,
 }));
 
 const mockApiClientFactory = ApiClientFactory as jest.MockedClass<

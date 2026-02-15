@@ -19,7 +19,6 @@ import {
   ListItemText,
   Chip,
   Alert,
-  Snackbar,
   IconButton,
   InputAdornment,
 } from '@mui/material';
@@ -218,15 +217,6 @@ export default function EndpointDetail({
 
   // Check if endpoint has an existing token (we assume it does if this is an existing endpoint)
   const hasExistingToken = !!endpoint.id;
-  const [notification, setNotification] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error';
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
   const [testResponse, setTestResponse] = useState<string>('');
   const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
   const [testInput, setTestInput] = useState<string>(`{
@@ -340,7 +330,7 @@ export default function EndpointDetail({
     }
   };
 
-  const handleChange = (field: keyof EndpointEditData, value: any) => {
+  const handleChange = (field: keyof EndpointEditData, value: unknown) => {
     autoEnableEditMode();
     setEditedValues(prev => ({ ...prev, [field]: value }));
   };
@@ -803,50 +793,59 @@ export default function EndpointDetail({
                               {Object.entries(
                                 endpoint.endpoint_metadata.function_schema
                                   .parameters
-                              ).map(([param, info]: [string, any]) => (
-                                <Box
-                                  component="tr"
-                                  key={param}
-                                  sx={{ borderTop: 1, borderColor: 'divider' }}
-                                >
-                                  <Box component="td" sx={{ py: 1, pr: 2 }}>
-                                    <Typography
-                                      variant="body2"
-                                      sx={{
-                                        fontFamily: 'monospace',
-                                        fontWeight: 500,
-                                      }}
-                                    >
-                                      {param}
-                                    </Typography>
+                              ).map(([param, info]: [string, unknown]) => {
+                                const paramInfo = info as {
+                                  type?: string;
+                                  default?: unknown;
+                                };
+                                return (
+                                  <Box
+                                    component="tr"
+                                    key={param}
+                                    sx={{
+                                      borderTop: 1,
+                                      borderColor: 'divider',
+                                    }}
+                                  >
+                                    <Box component="td" sx={{ py: 1, pr: 2 }}>
+                                      <Typography
+                                        variant="body2"
+                                        sx={{
+                                          fontFamily: 'monospace',
+                                          fontWeight: 500,
+                                        }}
+                                      >
+                                        {param}
+                                      </Typography>
+                                    </Box>
+                                    <Box component="td" sx={{ py: 1, pr: 2 }}>
+                                      <Typography
+                                        variant="caption"
+                                        sx={{ fontFamily: 'monospace' }}
+                                        color="text.secondary"
+                                      >
+                                        {paramInfo.type
+                                          ? paramInfo.type
+                                              .replace(/<class '(.+?)'>/g, '$1')
+                                              .replace(/typing\./g, '')
+                                              .replace(/builtins\./g, '')
+                                          : '—'}
+                                      </Typography>
+                                    </Box>
+                                    <Box component="td" sx={{ py: 1 }}>
+                                      <Typography
+                                        variant="caption"
+                                        sx={{ fontFamily: 'monospace' }}
+                                        color="text.secondary"
+                                      >
+                                        {paramInfo.default !== null
+                                          ? String(paramInfo.default)
+                                          : '—'}
+                                      </Typography>
+                                    </Box>
                                   </Box>
-                                  <Box component="td" sx={{ py: 1, pr: 2 }}>
-                                    <Typography
-                                      variant="caption"
-                                      sx={{ fontFamily: 'monospace' }}
-                                      color="text.secondary"
-                                    >
-                                      {info.type
-                                        ? info.type
-                                            .replace(/<class '(.+?)'>/g, '$1')
-                                            .replace(/typing\./g, '')
-                                            .replace(/builtins\./g, '')
-                                        : '—'}
-                                    </Typography>
-                                  </Box>
-                                  <Box component="td" sx={{ py: 1 }}>
-                                    <Typography
-                                      variant="caption"
-                                      sx={{ fontFamily: 'monospace' }}
-                                      color="text.secondary"
-                                    >
-                                      {info.default !== null
-                                        ? info.default
-                                        : '—'}
-                                    </Typography>
-                                  </Box>
-                                </Box>
-                              ))}
+                                );
+                              })}
                             </Box>
                           </Box>
                         )}
@@ -880,7 +879,7 @@ export default function EndpointDetail({
                               {(() => {
                                 const source =
                                   endpoint.endpoint_metadata.mapping_info
-                                    .source;
+                                    .source ?? 'unknown';
                                 const sourceConfig: Record<
                                   string,
                                   {
@@ -1334,7 +1333,7 @@ export default function EndpointDetail({
                     let inputData;
                     try {
                       inputData = JSON.parse(testInput);
-                    } catch (error) {
+                    } catch (_error) {
                       throw new Error('Invalid JSON input data');
                     }
 

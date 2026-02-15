@@ -3,14 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   TextField,
-  Button,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Box,
   Typography,
-  CircularProgress,
 } from '@mui/material';
 import { EntityType } from '@/types/tasks';
 import { getPriorities } from '@/utils/task-lookup';
@@ -24,7 +22,7 @@ import BaseDrawer from '@/components/common/BaseDrawer';
 interface TaskCreationDrawerProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (taskData: any) => Promise<void>;
+  onSubmit: (taskData: Record<string, unknown>) => Promise<void>;
   entityType: EntityType;
   entityId: string;
   currentUserId: string;
@@ -39,8 +37,8 @@ export function TaskCreationDrawer({
   onSubmit,
   entityType,
   entityId,
-  currentUserId,
-  currentUserName,
+  currentUserId: _currentUserId,
+  currentUserName: _currentUserName,
   isLoading = false,
   commentId,
 }: TaskCreationDrawerProps) {
@@ -56,14 +54,15 @@ export function TaskCreationDrawer({
   // Load data when modal opens
   useEffect(() => {
     const loadData = async () => {
-      if (!open || !session?.session_token) return;
+      const sessionToken = session?.session_token;
+      if (!open || !sessionToken) return;
 
       setIsLoadingData(true);
       try {
         const [fetchedPriorities, fetchedUsers] = await Promise.all([
-          getPriorities(session.session_token),
+          getPriorities(sessionToken),
           (async () => {
-            const clientFactory = new ApiClientFactory(session.session_token!);
+            const clientFactory = new ApiClientFactory(sessionToken);
             const usersClient = clientFactory.getUsersClient();
             const response = await usersClient.getUsers();
             return response.data;
@@ -72,7 +71,7 @@ export function TaskCreationDrawer({
 
         setPriorities(fetchedPriorities);
         setUsers(fetchedUsers);
-      } catch (error) {
+      } catch (_error) {
       } finally {
         setIsLoadingData(false);
       }

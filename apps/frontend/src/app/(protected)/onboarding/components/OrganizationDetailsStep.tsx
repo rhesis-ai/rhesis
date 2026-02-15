@@ -3,7 +3,6 @@ import {
   Box,
   TextField,
   Button,
-  Typography,
   CircularProgress,
   Snackbar,
   Alert,
@@ -14,7 +13,6 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import StepHeader from './StepHeader';
 import {
-  validateRequired,
   validateName,
   validateOrganizationName,
   validateUrl,
@@ -118,7 +116,7 @@ export default function OrganizationDetailsStep({
 
         // Mark that we've attempted prefilling
         setHasAttemptedPrefill(true);
-      } catch (error) {
+      } catch (_error) {
         setHasAttemptedPrefill(true);
       }
     }
@@ -182,11 +180,11 @@ export default function OrganizationDetailsStep({
           website: formData.website || '',
         };
         sessionStorage.setItem('onboardingUserData', JSON.stringify(userData));
-      } catch (storageError) {}
+      } catch (_storageError) {}
 
       // Proceed to next step without updating user profile
       onNext();
-    } catch (error) {
+    } catch (_error) {
       setErrorMessage('Failed to submit form. Please try again.');
     } finally {
       setIsSubmitting(false);

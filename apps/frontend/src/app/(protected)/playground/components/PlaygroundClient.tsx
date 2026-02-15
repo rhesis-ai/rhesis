@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -155,11 +155,6 @@ export default function PlaygroundClient() {
   const [initialEndpointApplied, setInitialEndpointApplied] = useState(false);
   const [isSplit, setIsSplit] = useState(false);
 
-  // Load endpoints on mount
-  useEffect(() => {
-    loadEndpoints();
-  }, [session]);
-
   // Apply initial endpoint from URL params after endpoints are loaded
   useEffect(() => {
     if (!initialEndpointApplied && endpointOptions.length > 0) {
@@ -177,7 +172,7 @@ export default function PlaygroundClient() {
     }
   }, [endpointOptions, searchParams, initialEndpointApplied]);
 
-  const loadEndpoints = async () => {
+  const loadEndpoints = useCallback(async () => {
     if (!session?.session_token) {
       setIsLoading(false);
       return;
@@ -213,13 +208,16 @@ export default function PlaygroundClient() {
 
       // Build endpoint options with project information
       const options: EndpointOption[] = endpoints
-        .filter((endpoint: Endpoint) => endpoint.project_id)
-        .map((endpoint: Endpoint) => {
-          const project = projectMap.get(endpoint.project_id!);
+        .filter(
+          (endpoint: Endpoint): endpoint is Endpoint & { project_id: string } =>
+            !!endpoint.project_id
+        )
+        .map(endpoint => {
+          const project = projectMap.get(endpoint.project_id);
           return {
             endpointId: endpoint.id,
             endpointName: endpoint.name,
-            projectId: endpoint.project_id!,
+            projectId: endpoint.project_id,
             projectName: project?.name || 'Unknown Project',
             environment: endpoint.environment,
           };
@@ -237,9 +235,16 @@ export default function PlaygroundClient() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session]);
 
-  const handleEndpointChange = (event: any) => {
+  // Load endpoints on mount
+  useEffect(() => {
+    loadEndpoints();
+  }, [loadEndpoints]);
+
+  const handleEndpointChange = (
+    event: React.ChangeEvent<HTMLInputElement> | { target: { value: string } }
+  ) => {
     const value = event.target.value;
     setSelectedEndpointId(value === '' ? null : value);
 

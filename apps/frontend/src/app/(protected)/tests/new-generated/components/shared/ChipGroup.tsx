@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Box, Chip, Tooltip } from '@mui/material';
+import { Box, Chip, Tooltip, type Theme } from '@mui/material';
+import type { SxProps } from '@mui/system';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { ChipConfig } from './types';
 
@@ -33,11 +34,16 @@ export default function ChipGroup({
       green: 'success',
     };
 
-    return colorMap[chip.colorVariant || 'blue'] as any;
+    return colorMap[chip.colorVariant || 'blue'] as
+      | 'primary'
+      | 'secondary'
+      | 'warning'
+      | 'success'
+      | undefined;
   };
 
   const getChipSx = (chip: ChipConfig) => {
-    const baseSx: any = {
+    const baseSx: SxProps<Theme> = {
       cursor: 'pointer',
     };
 
@@ -45,18 +51,34 @@ export default function ChipGroup({
     if (chip.active) {
       const colorVariant = chip.colorVariant || 'blue';
       if (colorVariant === 'orange') {
-        baseSx.bgcolor = 'warning.main';
-        baseSx.color = 'warning.contrastText';
-        baseSx['&:hover'] = {
-          ...baseSx['&:hover'],
-          bgcolor: 'warning.dark',
+        return {
+          ...baseSx,
+          bgcolor: 'warning.main',
+          color: 'warning.contrastText',
+          '&:hover': { bgcolor: 'warning.dark' },
+          ...(variant === 'compact'
+            ? {
+                '& .MuiChip-label': {
+                  fontSize: (theme: Theme) => theme.typography.caption.fontSize,
+                },
+                height: '24px',
+              }
+            : {}),
         };
       } else if (colorVariant === 'green') {
-        baseSx.bgcolor = 'success.main';
-        baseSx.color = 'success.contrastText';
-        baseSx['&:hover'] = {
-          ...baseSx['&:hover'],
-          bgcolor: 'success.dark',
+        return {
+          ...baseSx,
+          bgcolor: 'success.main',
+          color: 'success.contrastText',
+          '&:hover': { bgcolor: 'success.dark' },
+          ...(variant === 'compact'
+            ? {
+                '& .MuiChip-label': {
+                  fontSize: (theme: Theme) => theme.typography.caption.fontSize,
+                },
+                height: '24px',
+              }
+            : {}),
         };
       }
     }
@@ -65,7 +87,7 @@ export default function ChipGroup({
       return {
         ...baseSx,
         '& .MuiChip-label': {
-          fontSize: (theme: any) => theme.typography.caption.fontSize,
+          fontSize: (theme: Theme) => theme.typography.caption.fontSize,
         },
         height: '24px',
       };
@@ -76,6 +98,7 @@ export default function ChipGroup({
 
   // Cache the sort order (IDs only) based on initial chip structure
   // This prevents re-sorting when toggling but uses current chip data
+  const chipIdKey = chips.map(c => c.id).join(',');
   const sortedOrder = useMemo(() => {
     const sorted = [...chips].sort((a, b) => {
       // First sort by active status (active first)
@@ -86,11 +109,14 @@ export default function ChipGroup({
       return a.label.localeCompare(b.label);
     });
     return sorted.map(c => c.id);
-  }, [chips.map(c => c.id).join(',')]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chipIdKey]);
 
   // Map the current chips according to the cached order
   const chipsMap = new Map(chips.map(c => [c.id, c]));
-  const sortedChips = sortedOrder.map(id => chipsMap.get(id)!).filter(Boolean);
+  const sortedChips = sortedOrder
+    .map(id => chipsMap.get(id))
+    .filter((chip): chip is ChipConfig => chip !== undefined);
 
   return (
     <Box

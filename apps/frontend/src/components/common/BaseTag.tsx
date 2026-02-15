@@ -20,10 +20,8 @@ import {
   Chip,
   TextField,
   Autocomplete,
-  InputProps,
   StandardTextFieldProps,
   InputLabelProps,
-  FormHelperText,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TagsClient } from '@/utils/api-client/tags-client';
@@ -116,7 +114,7 @@ export default function BaseTag({
   chipClassName,
   InputProps: customInputProps,
   InputLabelProps: customInputLabelProps,
-  id,
+  id: _id,
   onTagUpdate,
   ...textFieldProps
 }: BaseTagProps) {
@@ -164,7 +162,7 @@ export default function BaseTag({
     onChange(newTagNames);
 
     try {
-      const apiFactory = new ApiClientFactory(sessionToken);
+      const _apiFactory = new ApiClientFactory(sessionToken);
       const tagsClient = new TagsClient(sessionToken);
 
       // Tags to remove (exist in current but not in new) - use the current tagObjectsMap
@@ -233,7 +231,7 @@ export default function BaseTag({
     }
   };
 
-  const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const _handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     setInputValue(event.target.value);
   };
 
@@ -362,7 +360,7 @@ export default function BaseTag({
     }
 
     if (textFieldProps.onBlur) {
-      textFieldProps.onBlur(event as any);
+      textFieldProps.onBlur(event);
     }
   };
 
@@ -370,12 +368,12 @@ export default function BaseTag({
     setFocused(true);
 
     if (textFieldProps.onFocus) {
-      textFieldProps.onFocus(event as any);
+      textFieldProps.onFocus(event);
     }
   };
 
   // Field is disabled if component is disabled or max tags is reached
-  const isTagInputDisabled =
+  const _isTagInputDisabled =
     disabled || (maxTags !== undefined && localTags.length >= maxTags);
 
   // Combine default and custom InputLabelProps

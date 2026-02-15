@@ -1,3 +1,4 @@
+import { UUID } from 'crypto';
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import { joinUrl } from '@/utils/url';
@@ -17,9 +18,6 @@ import {
   GenerateTestSetResponse,
   TestSetMetric,
   LastTestRunSummary,
-  // Legacy imports for backwards compatibility
-  TestSetGenerationRequest,
-  TestSetGenerationResponse,
 } from './interfaces/test-set';
 import { TestDetail, PriorityLevel } from './interfaces/tests';
 import { StatusClient } from './status-client';
@@ -38,16 +36,46 @@ const DEFAULT_PAGINATION: PaginationParams = {
   sort_order: 'desc',
 };
 
+/** Validation error detail shape from API error responses */
+interface ValidationErrorDetail {
+  loc?: (string | number)[];
+  msg: string;
+  type?: string;
+}
+
+/** Extract human-readable message from API error response data */
+function getErrorMessageFromErrorData(errorData: unknown): string {
+  if (typeof errorData !== 'object' || errorData === null) {
+    return String(errorData);
+  }
+  const data = errorData as Record<string, unknown>;
+  if (data.detail !== undefined) {
+    if (Array.isArray(data.detail)) {
+      return data.detail
+        .map(
+          (err: unknown) =>
+            `${(err as ValidationErrorDetail).loc?.join('.') || 'field'}: ${(err as ValidationErrorDetail).msg}`
+        )
+        .join(', ');
+    }
+    return String(data.detail);
+  }
+  if (data.message !== undefined) {
+    return String(data.message);
+  }
+  return JSON.stringify(errorData, null, 2);
+}
+
 /**
  * Utility function to build query parameters
  */
-function buildQueryParams(params: Record<string, any>): string {
+function buildQueryParams(params: Record<string, unknown>): string {
   const queryParams = new URLSearchParams();
 
   // Add all non-undefined parameters to the query string
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined) {
-      queryParams.append(key, value.toString());
+      queryParams.append(key, String(value));
     }
   });
 
@@ -98,7 +126,7 @@ export class TestSetsClient extends BaseApiClient {
   private convertTestSetPriority(testSet: TestSet): TestSet {
     const result = { ...testSet };
     if (result.priority !== undefined) {
-      // @ts-ignore - We're adding a string priority property
+      // @ts-expect-error - We're adding a string priority property
       result.priorityLevel = this.numericToPriorityString(result.priority);
     }
     return result;
@@ -171,20 +199,21 @@ export class TestSetsClient extends BaseApiClient {
 
       if (!rawResponse.ok) {
         let errorMessage = '';
-        let errorData: any;
+        let errorData: unknown;
 
         try {
           const contentType = rawResponse.headers.get('content-type');
           if (contentType && contentType.includes('application/json')) {
             errorData = await rawResponse.json();
+            const data = errorData as Record<string, unknown>;
             errorMessage =
-              errorData.detail ||
-              errorData.message ||
+              (data.detail !== undefined ? String(data.detail) : undefined) ||
+              (data.message !== undefined ? String(data.message) : undefined) ||
               JSON.stringify(errorData);
           } else {
             errorMessage = await rawResponse.text();
           }
-        } catch (parseError) {
+        } catch (_parseError) {
           errorMessage = await rawResponse.text();
         }
 
@@ -192,7 +221,7 @@ export class TestSetsClient extends BaseApiClient {
           `API error: ${rawResponse.status} - ${errorMessage}`
         ) as Error & {
           status?: number;
-          data?: any;
+          data?: unknown;
         };
         error.status = rawResponse.status;
         error.data = errorData;
@@ -325,11 +354,11 @@ export class TestSetsClient extends BaseApiClient {
       execution_mode?: string;
       metrics?: Array<{ id: string; name: string; scope?: string[] }>;
       reference_test_run_id?: string;
-      [key: string]: any;
+      [key: string]: unknown;
     }
   ): Promise<TestSet> {
     // Build request body with execution_options, metrics, and reference_test_run_id
-    const requestBody: Record<string, any> = {};
+    const requestBody: Record<string, unknown> = {};
 
     if (testConfigurationAttributes) {
       // Extract metrics and reference_test_run_id (go at top level)
@@ -400,7 +429,7 @@ export class TestSetsClient extends BaseApiClient {
     testIds: string[]
   ): Promise<TestSetBulkAssociateResponse> {
     const request: TestSetBulkAssociateRequest = {
-      test_ids: testIds as any[], // Type conversion from string[] to UUID[]
+      test_ids: testIds as UUID[],
     };
 
     return this.fetch<TestSetBulkAssociateResponse>(
@@ -417,7 +446,7 @@ export class TestSetsClient extends BaseApiClient {
     testIds: string[]
   ): Promise<TestSetBulkDisassociateResponse> {
     const request: TestSetBulkDisassociateRequest = {
-      test_ids: testIds as any[], // Type conversion from string[] to UUID[]
+      test_ids: testIds as UUID[],
     };
 
     return this.fetch<TestSetBulkDisassociateResponse>(
@@ -525,29 +554,17 @@ export class TestSetsClient extends BaseApiClient {
 
     if (!response.ok) {
       let errorMessage = '';
-      let errorData: any;
+      let errorData: unknown;
 
       try {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           errorData = await response.json();
-          if (errorData.detail) {
-            errorMessage = Array.isArray(errorData.detail)
-              ? errorData.detail
-                  .map(
-                    (err: any) => `${err.loc?.join('.') || 'field'}: ${err.msg}`
-                  )
-                  .join(', ')
-              : errorData.detail;
-          } else if (errorData.message) {
-            errorMessage = errorData.message;
-          } else {
-            errorMessage = JSON.stringify(errorData, null, 2);
-          }
+          errorMessage = getErrorMessageFromErrorData(errorData);
         } else {
           errorMessage = await response.text();
         }
-      } catch (parseError) {
+      } catch (_parseError) {
         errorMessage = await response.text();
       }
 
@@ -555,7 +572,7 @@ export class TestSetsClient extends BaseApiClient {
         `API error: ${response.status} - ${errorMessage}`
       ) as Error & {
         status?: number;
-        data?: any;
+        data?: unknown;
       };
       error.status = response.status;
       error.data = errorData;

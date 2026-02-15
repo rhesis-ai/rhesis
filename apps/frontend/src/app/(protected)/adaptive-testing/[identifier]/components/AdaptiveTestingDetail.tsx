@@ -31,7 +31,11 @@ import {
   Checkbox,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
+import {
+  GridColDef,
+  GridPaginationModel,
+  GridRenderCellParams,
+} from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -174,7 +178,8 @@ function buildTopicTree(topics: Topic[], tests: TestNode[]): TopicTreeNode[] {
       ? path.substring(0, path.lastIndexOf('/'))
       : null;
     if (parentPath && nodeMap.has(parentPath)) {
-      const parent = nodeMap.get(parentPath)!;
+      const parent = nodeMap.get(parentPath);
+      if (!parent) continue;
       if (!parent.children.find(c => c.path === path)) {
         parent.children.push(node);
       }
@@ -1329,7 +1334,7 @@ function TestsList({
             sortable: false,
             filterable: false,
             disableColumnMenu: true,
-            renderCell: (params: any) => (
+            renderCell: (params: GridRenderCellParams) => (
               <Box
                 sx={{
                   display: 'flex',
@@ -1421,7 +1426,7 @@ function TestsList({
 export default function AdaptiveTestingDetail({
   tests: initialTests,
   topics: initialTopics,
-  testSetName,
+  testSetName: _testSetName,
   testSetId,
   sessionToken,
 }: AdaptiveTestingDetailProps) {

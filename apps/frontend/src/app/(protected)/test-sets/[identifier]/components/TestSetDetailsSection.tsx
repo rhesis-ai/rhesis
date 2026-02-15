@@ -8,7 +8,6 @@ import {
   Tooltip,
   Chip,
   useTheme,
-  Grid,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -119,8 +118,10 @@ export default function TestSetDetailsSection({
       const garakClient = clientFactory.getGarakClient();
       const preview = await garakClient.previewSync(testSet.id);
       setSyncPreview(preview);
-    } catch (error: any) {
-      setSyncError(error.message || 'Failed to get sync preview');
+    } catch (error: unknown) {
+      setSyncError(
+        error instanceof Error ? error.message : 'Failed to get sync preview'
+      );
     }
   };
 
@@ -135,8 +136,10 @@ export default function TestSetDetailsSection({
       await garakClient.syncTestSet(testSet.id);
       // Refresh the page to show updated data
       window.location.reload();
-    } catch (error: any) {
-      setSyncError(error.message || 'Failed to sync test set');
+    } catch (error: unknown) {
+      setSyncError(
+        error instanceof Error ? error.message : 'Failed to sync test set'
+      );
     } finally {
       setIsSyncing(false);
     }
@@ -177,7 +180,7 @@ export default function TestSetDetailsSection({
       // Update the testSet object to reflect the new description
       testSet.description = editedDescription;
       setIsEditingDescription(false);
-    } catch (error) {
+    } catch (_error) {
       // Reset the edited description to the original value on error
       setEditedDescription(testSet.description || '');
     } finally {
@@ -211,7 +214,7 @@ export default function TestSetDetailsSection({
 
       // Refresh the page to update breadcrumbs and title
       window.location.reload();
-    } catch (error) {
+    } catch (_error) {
       // Reset the edited title to the original value on error
       setEditedTitle(testSet.name || '');
     } finally {
@@ -240,7 +243,7 @@ export default function TestSetDetailsSection({
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
+    } catch (_error) {
       // You might want to show a user-friendly error message here
     } finally {
       setIsDownloading(false);
@@ -641,45 +644,54 @@ export default function TestSetDetailsSection({
             Sources
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {sources.map((source: any, index: number) => {
-              // Create stable key from source name/document
-              const sourceKey = `source-${source.name || source.document || index}`;
-              return (
-                <Box
-                  key={sourceKey}
-                  sx={{
-                    p: 2,
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: theme => theme.shape.borderRadius * 0.25,
-                    backgroundColor: 'background.paper',
-                  }}
-                >
-                  <Typography
-                    variant="subtitle1"
+            {sources.map(
+              (
+                source: {
+                  document?: string;
+                  name?: string;
+                  description?: string;
+                },
+                index: number
+              ) => {
+                // Create stable key from source name/document
+                const sourceKey = `source-${source.name || source.document || index}`;
+                return (
+                  <Box
+                    key={sourceKey}
                     sx={{
-                      fontWeight: 'bold',
-                      mb: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
+                      p: 2,
+                      border: 1,
+                      borderColor: 'divider',
+                      borderRadius: theme => theme.shape.borderRadius * 0.25,
+                      backgroundColor: 'background.paper',
                     }}
                   >
-                    <DocumentIcon sx={{ fontSize: 'inherit' }} />
-                    {source.name || source.document || 'Unknown Source'}
-                  </Typography>
-                  {source.document && source.document !== source.name && (
                     <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ display: 'block', mt: 0.5 }}
+                      variant="subtitle1"
+                      sx={{
+                        fontWeight: 'bold',
+                        mb: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                      }}
                     >
-                      File: {source.document}
+                      <DocumentIcon sx={{ fontSize: 'inherit' }} />
+                      {source.name || source.document || 'Unknown Source'}
                     </Typography>
-                  )}
-                </Box>
-              );
-            })}
+                    {source.document && source.document !== source.name && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: 'block', mt: 0.5 }}
+                      >
+                        File: {source.document}
+                      </Typography>
+                    )}
+                  </Box>
+                );
+              }
+            )}
           </Box>
         </Box>
       )}

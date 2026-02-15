@@ -25,12 +25,10 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
   Pagination,
   useTheme,
 } from '@mui/material';
 import {
-  CloudUpload as CloudUploadIcon,
   AutoFixHigh as AutoFixHighIcon,
   CheckCircle as CheckCircleIcon,
   ErrorOutline as ErrorOutlineIcon,
@@ -47,7 +45,6 @@ import type {
   ParseResponse,
   PreviewPage,
   PreviewRow,
-  ValidationSummary,
   ConfirmResponse,
 } from '@/utils/api-client/interfaces/import';
 
@@ -217,8 +214,8 @@ export default function FileImportDialog({
         setAnalyzeResult(result);
         setMapping(result.suggested_mapping);
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError(getImportErrorMessage(err, 'Failed to analyze file'));
     } finally {
       setAnalyzing(false);
@@ -260,8 +257,8 @@ export default function FileImportDialog({
       } else {
         setMapping(result.mapping);
       }
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError(getImportErrorMessage(err, 'Failed to remap with AI'));
     } finally {
       setAnalyzing(false);
@@ -289,8 +286,8 @@ export default function FileImportDialog({
       setPreviewPage(result.preview);
       setCurrentPage(1);
       setActiveStep(1);
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError(getImportErrorMessage(err, 'Failed to parse file'));
     } finally {
       setParsing(false);
@@ -343,8 +340,8 @@ export default function FileImportDialog({
       if (signal.aborted) return;
       setPreviewPage(result);
       setCurrentPage(page);
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError(getImportErrorMessage(err, 'Failed to load page'));
     } finally {
       setLoadingPage(false);
@@ -370,8 +367,8 @@ export default function FileImportDialog({
       if (signal.aborted) return;
       setImportResult(result);
       onSuccess?.(result.id);
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       setError(getImportErrorMessage(err, 'Failed to create test set'));
     } finally {
       setImporting(false);

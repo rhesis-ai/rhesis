@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ProjectsClientWrapper from './components/ProjectsClientWrapper';
-import { Box, Typography, Alert, Paper } from '@mui/material';
+import { Alert, Paper } from '@mui/material';
 
 /**
  * Server component for the Projects page

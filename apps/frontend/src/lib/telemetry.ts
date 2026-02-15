@@ -4,20 +4,11 @@
  * This module provides conditional telemetry export based on user preferences.
  */
 
-import {
-  WebTracerProvider,
-  BatchSpanProcessor,
-} from '@opentelemetry/sdk-trace-web';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { resourceFromAttributes } from '@opentelemetry/resources';
-import {
-  ATTR_SERVICE_NAME,
-  ATTR_SERVICE_VERSION,
-} from '@opentelemetry/semantic-conventions';
+import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
 
 let telemetryEnabled = false;
-const provider: WebTracerProvider | null = null;
-const tracer: any = null;
+const _provider: WebTracerProvider | null = null;
+const tracer: import('@opentelemetry/api').Tracer | null = null;
 
 /**
  * Hash a string for privacy using SHA-256 (matches backend implementation).
@@ -57,9 +48,7 @@ async function hashString(str: string): Promise<string> {
 
 export function initTelemetry() {
   // Client-side telemetry is intentionally disabled
-  console.log(
-    'Frontend telemetry is disabled (client-side tracking not configured)'
-  );
+  // No-op: frontend telemetry not configured
 }
 
 /**

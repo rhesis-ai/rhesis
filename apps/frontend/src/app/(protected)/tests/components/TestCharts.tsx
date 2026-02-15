@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { BasePieChart, BaseChartsGrid } from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestStats } from '@/utils/api-client/interfaces/tests';
-import { Box, CircularProgress, Typography, Alert } from '@mui/material';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
 // Fallback mock data in case the API fails
 const fallbackData = [{ name: 'Loading...', value: 100 }];
@@ -75,7 +75,7 @@ export default function TestCharts({
           setTestStats(stats);
           setError(null);
         }
-      } catch (err) {
+      } catch (_err) {
         if (isMountedRef.current) {
           setError('Failed to load test statistics');
         }
@@ -106,7 +106,7 @@ export default function TestCharts({
           value,
           fullName: name,
         }));
-    } catch (error) {
+    } catch (_error) {
       return fallbackData;
     }
   };
@@ -123,7 +123,7 @@ export default function TestCharts({
           value,
           fullName: name,
         }));
-    } catch (error) {
+    } catch (_error) {
       return fallbackData;
     }
   };
@@ -140,7 +140,7 @@ export default function TestCharts({
           value,
           fullName: name,
         }));
-    } catch (error) {
+    } catch (_error) {
       return fallbackData;
     }
   };
@@ -157,7 +157,7 @@ export default function TestCharts({
           value,
           fullName: name,
         }));
-    } catch (error) {
+    } catch (_error) {
       return fallbackData;
     }
   };

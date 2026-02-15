@@ -12,9 +12,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Alert,
-  AlertTitle,
-  Divider,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -113,7 +110,7 @@ export default function ComparisonView({
       setLoading(true);
       onLoadBaseline(selectedBaselineId)
         .then(setBaselineTestResults)
-        .catch(error => {
+        .catch(_error => {
           setBaselineTestResults([]);
         })
         .finally(() => setLoading(false));
@@ -140,7 +137,7 @@ export default function ComparisonView({
   }, [baselineTestResults]);
 
   // Helper to get pass rate
-  const getPassRate = (test: TestResultDetail) => {
+  const _getPassRate = (test: TestResultDetail) => {
     const metrics = test.test_metrics?.metrics || {};
     const metricValues = Object.values(metrics);
     const totalMetrics = metricValues.length;
@@ -259,7 +256,7 @@ export default function ComparisonView({
     });
   };
 
-  const getPromptSnippet = (
+  const _getPromptSnippet = (
     test: TestResultDetail,
     maxLength: number = 80
   ): string => {
@@ -680,7 +677,7 @@ export default function ComparisonView({
                 overflow: 'auto',
               }}
             >
-              {comparisonTests.map((test, index) => {
+              {comparisonTests.map((test, _index) => {
                 const baselinePassed = test.baseline
                   ? isTestPassed(test.baseline)
                   : null;
@@ -713,7 +710,7 @@ export default function ComparisonView({
                     : 'No prompt available';
 
                 // Get responses/evaluations based on test type
-                const responseLabel = isMultiTurn
+                const _responseLabel = isMultiTurn
                   ? 'Overall Evaluation'
                   : 'Response';
                 const baselineResponse = isMultiTurn
@@ -1425,32 +1422,36 @@ export default function ComparisonView({
                                                         metric.baselineResult
                                                           .score
                                                       ).toFixed(2)}
-                                                      {hasScoreChange && (
-                                                        <Typography
-                                                          component="span"
-                                                          variant="caption"
-                                                          sx={{
-                                                            ml: 0.5,
-                                                            color:
-                                                              scoreDiff! > 0
-                                                                ? theme.palette
-                                                                    .success
-                                                                    .main
-                                                                : theme.palette
-                                                                    .error.main,
-                                                            fontWeight: 500,
-                                                          }}
-                                                        >
-                                                          (
-                                                          {scoreDiff! > 0
-                                                            ? '+'
-                                                            : ''}
-                                                          {scoreDiff!.toFixed(
-                                                            2
-                                                          )}
-                                                          )
-                                                        </Typography>
-                                                      )}
+                                                      {hasScoreChange &&
+                                                        scoreDiff !== null && (
+                                                          <Typography
+                                                            component="span"
+                                                            variant="caption"
+                                                            sx={{
+                                                              ml: 0.5,
+                                                              color:
+                                                                scoreDiff > 0
+                                                                  ? theme
+                                                                      .palette
+                                                                      .success
+                                                                      .main
+                                                                  : theme
+                                                                      .palette
+                                                                      .error
+                                                                      .main,
+                                                              fontWeight: 500,
+                                                            }}
+                                                          >
+                                                            (
+                                                            {scoreDiff > 0
+                                                              ? '+'
+                                                              : ''}
+                                                            {scoreDiff.toFixed(
+                                                              2
+                                                            )}
+                                                            )
+                                                          </Typography>
+                                                        )}
                                                     </Typography>
                                                     {metric.baselineResult
                                                       .threshold != null && (
@@ -1822,28 +1823,29 @@ export default function ComparisonView({
                                                   {Number(
                                                     metric.currentResult.score
                                                   ).toFixed(2)}
-                                                  {hasScoreChange && (
-                                                    <Typography
-                                                      component="span"
-                                                      variant="caption"
-                                                      sx={{
-                                                        ml: 0.5,
-                                                        color:
-                                                          scoreDiff! > 0
-                                                            ? theme.palette
-                                                                .success.main
-                                                            : theme.palette
-                                                                .error.main,
-                                                        fontWeight: 500,
-                                                      }}
-                                                    >
-                                                      (
-                                                      {scoreDiff! > 0
-                                                        ? '+'
-                                                        : ''}
-                                                      {scoreDiff!.toFixed(2)})
-                                                    </Typography>
-                                                  )}
+                                                  {hasScoreChange &&
+                                                    scoreDiff !== null && (
+                                                      <Typography
+                                                        component="span"
+                                                        variant="caption"
+                                                        sx={{
+                                                          ml: 0.5,
+                                                          color:
+                                                            scoreDiff > 0
+                                                              ? theme.palette
+                                                                  .success.main
+                                                              : theme.palette
+                                                                  .error.main,
+                                                          fontWeight: 500,
+                                                        }}
+                                                      >
+                                                        (
+                                                        {scoreDiff > 0
+                                                          ? '+'
+                                                          : ''}
+                                                        {scoreDiff.toFixed(2)})
+                                                      </Typography>
+                                                    )}
                                                 </Typography>
                                                 {metric.currentResult
                                                   .threshold != null && (

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   FormControl,
   InputLabel,
   Select,
+  type SelectChangeEvent,
   MenuItem,
   Typography,
   CircularProgress,
@@ -43,11 +44,7 @@ export default function EndpointSelector({
   const [error, setError] = useState<string | null>(null);
   const { data: session } = useSession();
 
-  useEffect(() => {
-    loadEndpoints();
-  }, [session]);
-
-  const loadEndpoints = async () => {
+  const loadEndpoints = useCallback(async () => {
     if (!session?.session_token) {
       setIsLoading(false);
       return;
@@ -85,13 +82,15 @@ export default function EndpointSelector({
 
       // Build endpoint options with project information
       const options: EndpointOption[] = endpoints
-        .filter((endpoint: Endpoint) => endpoint.project_id) // Only include endpoints with projects
-        .map((endpoint: Endpoint) => ({
+        .filter(
+          (endpoint: Endpoint): endpoint is Endpoint & { project_id: string } =>
+            !!endpoint.project_id
+        ) // Only include endpoints with projects
+        .map(endpoint => ({
           endpointId: endpoint.id,
           endpointName: endpoint.name,
-          projectId: endpoint.project_id!,
-          projectName:
-            projectMap.get(endpoint.project_id!) || 'Unknown Project',
+          projectId: endpoint.project_id,
+          projectName: projectMap.get(endpoint.project_id) || 'Unknown Project',
           environment: endpoint.environment,
         }))
         .sort((a, b) => {
@@ -102,14 +101,18 @@ export default function EndpointSelector({
         });
 
       setEndpointOptions(options);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to load endpoints. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session]);
 
-  const handleChange = (event: any) => {
+  useEffect(() => {
+    loadEndpoints();
+  }, [loadEndpoints]);
+
+  const handleChange = (event: SelectChangeEvent<string>) => {
     const value = event.target.value;
     onEndpointChange(value === '' ? null : value);
   };

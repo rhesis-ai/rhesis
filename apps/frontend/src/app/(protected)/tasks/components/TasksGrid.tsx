@@ -7,11 +7,12 @@ import {
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
+  GridRowParams,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import { Task } from '@/utils/api-client/interfaces/task';
-import { Typography, Box, Alert, Chip, Button, Avatar } from '@mui/material';
+import { Typography, Box, Alert, Chip, Avatar } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -75,7 +76,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       setTotalCount(response.totalCount || 0);
 
       setError(null);
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to load tasks');
       setTasks([]);
     } finally {
@@ -121,7 +122,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         fetchTasks();
       }
     },
-    [sessionToken, onRefresh, fetchTasks]
+    [sessionToken, onRefresh, fetchTasks, notifications]
   );
 
   // Delete selected tasks
@@ -137,7 +138,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
       setIsDeleting(true);
       await Promise.all(selectedRows.map(id => deleteTask(id as string)));
       setSelectedRows([]);
-    } catch (err) {
+    } catch (_err) {
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
@@ -150,7 +151,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
 
   // Handle row click
   const handleRowClick = useCallback(
-    (params: any) => {
+    (params: GridRowParams) => {
       router.push(`/tasks/${params.id}`);
     },
     [router]
@@ -232,7 +233,9 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
         headerName: 'Status',
         width: 120,
         renderCell: params => {
-          const getStatusColor = (status?: string) => {
+          const getStatusColor = (
+            status?: string
+          ): 'warning' | 'primary' | 'success' | 'error' | 'default' => {
             switch (status) {
               case 'Open':
                 return 'warning';
@@ -250,7 +253,7 @@ export default function TasksGrid({ sessionToken, onRefresh }: TasksGridProps) {
           return (
             <Chip
               label={params.row.status?.name || 'Unknown'}
-              color={getStatusColor(params.row.status?.name) as any}
+              color={getStatusColor(params.row.status?.name)}
               size="small"
             />
           );

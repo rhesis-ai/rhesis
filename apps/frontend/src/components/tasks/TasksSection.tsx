@@ -1,15 +1,7 @@
 'use client';
 
-import React, { useState, useCallback, useRef } from 'react';
-import {
-  Box,
-  Typography,
-  CircularProgress,
-  Paper,
-  Button,
-  Chip,
-  Avatar,
-} from '@mui/material';
+import React, { useState, useCallback } from 'react';
+import { Box, Typography, Button, Chip, Avatar } from '@mui/material';
 import { AddIcon } from '@/components/icons';
 import { Task, EntityType } from '@/types/tasks';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
@@ -17,20 +9,19 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import {
   GridColDef,
   GridPaginationModel,
-  GridRowSelectionModel,
+  GridRowParams,
 } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { TaskErrorBoundary } from './TaskErrorBoundary';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { useSession } from 'next-auth/react';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 interface TasksSectionProps {
   entityType: EntityType;
   entityId: string;
   sessionToken: string;
-  onCreateTask: (taskData: any) => Promise<void>;
+  onCreateTask: (taskData: Record<string, unknown>) => Promise<void>;
   onEditTask?: (taskId: string) => void;
   onDeleteTask?: (taskId: string) => Promise<void>;
   onNavigateToCreate?: () => void;
@@ -42,12 +33,12 @@ export function TasksSection({
   entityType,
   entityId,
   sessionToken,
-  onCreateTask,
-  onEditTask,
+  onCreateTask: _onCreateTask,
+  onEditTask: _onEditTask,
   onDeleteTask,
   onNavigateToCreate,
-  currentUserId,
-  currentUserName,
+  currentUserId: _currentUserId,
+  currentUserName: _currentUserName,
 }: TasksSectionProps) {
   const router = useRouter();
   const notifications = useNotifications();
@@ -126,20 +117,27 @@ export function TasksSection({
     return () => {
       abortController.abort();
     };
-  }, [currentPage, currentPageSize, entityType, entityId, sessionToken]);
+  }, [
+    currentPage,
+    currentPageSize,
+    entityType,
+    entityId,
+    sessionToken,
+    notifications,
+  ]);
 
-  const handleDeleteTask = async (taskId: string) => {
+  const _handleDeleteTask = async (taskId: string) => {
     if (onDeleteTask) {
       try {
         await onDeleteTask(taskId);
-      } catch (error) {}
+      } catch (_error) {}
     }
   };
 
-  const handleRowClick = (params: any) => {
+  const handleRowClick = (params: GridRowParams) => {
     try {
       router.push(`/tasks/${params.id}`);
-    } catch (error) {}
+    } catch (_error) {}
   };
 
   const handleCreateTask = () => {
@@ -209,7 +207,14 @@ export function TasksSection({
         return (
           <Chip
             label={params.row.status?.name || 'Unknown'}
-            color={getStatusColor(params.row.status?.name) as any}
+            color={
+              getStatusColor(params.row.status?.name) as
+                | 'warning'
+                | 'primary'
+                | 'success'
+                | 'error'
+                | 'default'
+            }
             size="small"
           />
         );

@@ -34,7 +34,7 @@ export async function getSession(): Promise<Session | null> {
     ) {
       token = sessionData.session_token;
     }
-  } catch (error) {
+  } catch (_error) {
     // If JSON parsing fails, treat as direct token
   }
 
@@ -60,7 +60,7 @@ export async function getSession(): Promise<Session | null> {
     return {
       user: data.user,
     };
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -92,7 +92,7 @@ export async function clearAllSessionData() {
         sessionToken = decodeURIComponent(cookieValue);
       }
     }
-  } catch (error) {}
+  } catch (_error) {}
 
   // Call backend logout with retry logic
   const maxRetries = 2;
@@ -119,7 +119,7 @@ export async function clearAllSessionData() {
         // Wait before retrying (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
       }
-    } catch (error) {
+    } catch (_error) {
       if (attempt === maxRetries) {
       }
     }

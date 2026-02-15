@@ -14,7 +14,7 @@ export interface AnalyzeResponse {
   import_id: string;
   file_info: FileInfo;
   headers: string[];
-  sample_rows: Record<string, any>[];
+  sample_rows: Record<string, unknown>[];
   suggested_mapping: Record<string, string>;
   confidence: number;
   llm_available: boolean;
@@ -43,7 +43,7 @@ export interface ValidationError {
 
 export interface PreviewRow {
   index: number;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   errors: ValidationError[];
   warnings: ValidationError[];
 }

@@ -11,7 +11,6 @@ import {
   StepLabel,
   Typography,
   Container,
-  Stack,
 } from '@mui/material';
 import OrganizationDetailsStep from './OrganizationDetailsStep';
 import InviteTeamStep from './InviteTeamStep';
@@ -19,7 +18,7 @@ import FinishStep from './FinishStep';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { OrganizationCreate } from '@/utils/api-client/organizations-client';
 import { UUID } from 'crypto';
-import { UserUpdate, UserCreate } from '@/utils/api-client/interfaces/user';
+import { UserUpdate } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 
 type OnboardingStatus =
@@ -34,7 +33,7 @@ interface FormData {
   lastName: string;
   organizationName: string;
   website: string;
-  invites: { email: string }[];
+  invites: { id: string; email: string }[];
 }
 
 interface OnboardingPageClientProps {
@@ -48,8 +47,8 @@ export default function OnboardingPageClient({
   sessionToken,
   userId,
 }: OnboardingPageClientProps) {
-  const router = useRouter();
-  const { data: session, update } = useSession();
+  const _router = useRouter();
+  const { data: _session, update: _update } = useSession();
   const notifications = useNotifications();
   const [activeStep, setActiveStep] = React.useState(0);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -60,7 +59,7 @@ export default function OnboardingPageClient({
     lastName: '',
     organizationName: '',
     website: '',
-    invites: [{ email: '' }],
+    invites: [{ id: crypto.randomUUID(), email: '' }],
   });
 
   const organizationsClient = new ApiClientFactory(
@@ -98,11 +97,12 @@ export default function OnboardingPageClient({
       try {
         organization =
           await organizationsClient.createOrganization(organizationData);
-      } catch (orgError: any) {
+      } catch (orgError: unknown) {
         setIsSubmitting(false);
         notifications.show(
-          orgError?.message ||
-            'Failed to create organization. Please try again.',
+          orgError instanceof Error
+            ? orgError.message
+            : 'Failed to create organization. Please try again.',
           { severity: 'error' }
         );
         return;
@@ -119,10 +119,12 @@ export default function OnboardingPageClient({
       let response;
       try {
         response = await usersClient.updateUser(userId, userUpdate);
-      } catch (userError: any) {
+      } catch (userError: unknown) {
         setIsSubmitting(false);
         notifications.show(
-          userError?.message || 'Failed to update user. Please try again.',
+          userError instanceof Error
+            ? userError.message
+            : 'Failed to update user. Please try again.',
           { severity: 'error' }
         );
         return;
@@ -132,7 +134,8 @@ export default function OnboardingPageClient({
         // Use NextAuth to set the httpOnly session cookie server-side.
         const signInResult = await signIn('credentials', {
           session_token: response.session_token,
-          refresh_token: (response as any).refresh_token || '',
+          refresh_token:
+            (response as { refresh_token?: string }).refresh_token || '',
           redirect: false,
         });
 
@@ -165,14 +168,18 @@ export default function OnboardingPageClient({
                 const user = await usersClient.createUser(userData);
                 invitationResults.push({ email, success: true });
                 return user;
-              } catch (error: any) {
+              } catch (error: unknown) {
                 let errorMessage = 'Unknown error';
 
                 // Extract meaningful error messages
-                if (error?.message) {
+                if (error instanceof Error) {
                   errorMessage = error.message;
-                } else if (error?.detail) {
-                  errorMessage = error.detail;
+                } else if (
+                  typeof error === 'object' &&
+                  error !== null &&
+                  'detail' in error
+                ) {
+                  errorMessage = String((error as { detail: unknown }).detail);
                 } else if (typeof error === 'string') {
                   errorMessage = error;
                 }
@@ -224,12 +231,12 @@ export default function OnboardingPageClient({
               );
             }
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           setIsSubmitting(false);
           const errorMessage =
-            error?.message ||
-            error?.detail ||
-            'Unknown error occurred while sending invitations';
+            error instanceof Error
+              ? error.message
+              : 'Unknown error occurred while sending invitations';
           notifications.show(`Warning: ${errorMessage}`, {
             severity: 'warning',
           });
@@ -253,12 +260,13 @@ export default function OnboardingPageClient({
           } else {
             throw new Error('Failed to initialize organization data');
           }
-        } catch (initError: any) {
+        } catch (initError: unknown) {
           setIsSubmitting(false);
           setOnboardingStatus('idle');
           notifications.show(
-            initError?.message ||
-              'Failed to set up organization. Please contact support.',
+            initError instanceof Error
+              ? initError.message
+              : 'Failed to set up organization. Please contact support.',
             { severity: 'error' }
           );
           return;
@@ -266,11 +274,13 @@ export default function OnboardingPageClient({
       } else {
         throw new Error('Invalid response from user update');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setIsSubmitting(false);
       setOnboardingStatus('idle');
       notifications.show(
-        error?.message || 'Failed to complete onboarding. Please try again.',
+        error instanceof Error
+          ? error.message
+          : 'Failed to complete onboarding. Please try again.',
         { severity: 'error' }
       );
     }

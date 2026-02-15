@@ -8,7 +8,6 @@ import React, {
   useMemo,
 } from 'react';
 import AddIcon from '@mui/icons-material/Add';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
   getTestRunStatusColor,
@@ -22,21 +21,12 @@ import {
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
-import {
-  Typography,
-  Box,
-  CircularProgress,
-  Alert,
-  Avatar,
-  Button,
-  Chip,
-} from '@mui/material';
+import { Typography, Box, Alert, Avatar, Chip } from '@mui/material';
 import { ChatIcon, DescriptionIcon } from '@/components/icons';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import PersonIcon from '@mui/icons-material/Person';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
-import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -65,7 +55,7 @@ function TestRunsTable({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [projectNames, setProjectNames] = useState<ProjectCache>({});
+  const [_projectNames, setProjectNames] = useState<ProjectCache>({});
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -133,7 +123,7 @@ function TestRunsTable({
                       const project =
                         await projectsClient.getProject(projectId);
                       return { projectId, name: project.name };
-                    } catch (err) {
+                    } catch (_err) {
                       return null;
                     }
                   })
@@ -169,7 +159,7 @@ function TestRunsTable({
             });
           }
         }
-      } catch (error) {
+      } catch (_error) {
         if (isMounted.current) {
           setError('Failed to load test runs');
           setTestRuns([]);
@@ -199,26 +189,6 @@ function TestRunsTable({
       isMounted.current = false;
     };
   }, [sessionToken, paginationModel, fetchTestRuns]);
-
-  // Memoized helper function to format execution time in a user-friendly way
-  const formatExecutionTime = useMemo(
-    () =>
-      (timeMs: number): string => {
-        const seconds = timeMs / 1000;
-
-        if (seconds < 60) {
-          return `${Math.round(seconds)}s`;
-        } else if (seconds < 3600) {
-          // Less than 1 hour
-          const minutes = seconds / 60;
-          return `${Math.round(minutes * 10) / 10}m`; // Round to 1 decimal place
-        } else {
-          const hours = seconds / 3600;
-          return `${Math.round(hours * 10) / 10}h`; // Round to 1 decimal place
-        }
-      },
-    []
-  );
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -421,12 +391,12 @@ function TestRunsTable({
         },
       },
     ],
-    [formatExecutionTime]
+    []
   );
 
   // Handle row click to navigate to test run details
   const handleRowClick = useCallback(
-    (params: any) => {
+    (params: { id: string | number }) => {
       const testRunId = params.id;
       router.push(`/test-runs/${testRunId}`);
     },
@@ -498,7 +468,7 @@ function TestRunsTable({
 
       // Clear selection
       setSelectedRows([]);
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to delete test runs', { severity: 'error' });
     } finally {
       setIsDeleting(false);

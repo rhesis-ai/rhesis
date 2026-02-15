@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Paper, Divider } from '@mui/material';
 import { EntityType } from '@/types/tasks';
+import type { TaskCreate } from '@/utils/api-client/interfaces/task';
 import { useTasks } from '@/hooks/useTasks';
 import { TasksSection } from './TasksSection';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
@@ -17,7 +18,7 @@ interface TasksAndCommentsWrapperProps {
   currentUserPicture?: string;
   elevation?: number;
   onCountsChange?: () => void;
-  additionalMetadata?: Record<string, any>;
+  additionalMetadata?: Record<string, unknown>;
 }
 
 export function TasksAndCommentsWrapper({
@@ -40,20 +41,25 @@ export function TasksAndCommentsWrapper({
   });
 
   const handleCreateTask = useCallback(
-    async (taskData: any) => {
+    async (taskData: Record<string, unknown>) => {
       try {
         // Merge additional metadata into task_metadata if available
-        const enrichedTaskData = { ...taskData };
-        if (additionalMetadata && Object.keys(additionalMetadata).length > 0) {
-          enrichedTaskData.task_metadata = {
-            ...taskData.task_metadata,
-            ...additionalMetadata,
-          };
-        }
+        const baseTask = taskData as unknown as TaskCreate;
+        const enrichedTaskData: TaskCreate = {
+          ...baseTask,
+          ...(additionalMetadata && Object.keys(additionalMetadata).length > 0
+            ? {
+                task_metadata: {
+                  ...(baseTask.task_metadata || {}),
+                  ...additionalMetadata,
+                },
+              }
+            : {}),
+        };
         await createTask(enrichedTaskData);
         // Notify parent that counts have changed
         await onCountsChange?.();
-      } catch (error) {}
+      } catch (_error) {}
     },
     [createTask, onCountsChange, additionalMetadata]
   );
@@ -69,7 +75,7 @@ export function TasksAndCommentsWrapper({
         await deleteTask(taskId);
         // Notify parent that counts have changed
         await onCountsChange?.();
-      } catch (error) {}
+      } catch (_error) {}
     },
     [deleteTask, onCountsChange]
   );

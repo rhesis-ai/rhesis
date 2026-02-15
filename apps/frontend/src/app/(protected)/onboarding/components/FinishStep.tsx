@@ -18,7 +18,7 @@ interface FormData {
   lastName: string;
   organizationName: string;
   website: string;
-  invites: { email: string }[];
+  invites: { id: string; email: string }[];
 }
 
 type OnboardingStatus =
@@ -139,7 +139,7 @@ export default function FinishStep({
 
               <List disablePadding>
                 {validInvites.map((invite, index) => (
-                  <React.Fragment key={invite.email}>
+                  <React.Fragment key={invite.id}>
                     {index > 0 && <Divider component="li" />}
                     <ListItem>
                       <ListItemText

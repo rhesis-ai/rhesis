@@ -14,11 +14,11 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
 }));
+const mockShow = jest.fn();
+const mockClose = jest.fn();
+const mockNotifications = { show: mockShow, close: mockClose };
 jest.mock('../../../components/common/NotificationContext', () => ({
-  useNotifications: () => ({
-    show: jest.fn(),
-    close: jest.fn(),
-  }),
+  useNotifications: () => mockNotifications,
 }));
 
 const mockApiClientFactory = ApiClientFactory as jest.MockedClass<

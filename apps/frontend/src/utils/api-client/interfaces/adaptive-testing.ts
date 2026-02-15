@@ -16,7 +16,7 @@ export interface AdaptiveTestSet {
   status_id?: string;
   status?: string;
   test_set_type_id?: string;
-  attributes?: Record<string, any>;
+  attributes?: Record<string, unknown>;
   created_at?: string;
   updated_at?: string;
 }

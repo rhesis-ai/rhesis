@@ -23,7 +23,7 @@ export async function handleClientSignOut() {
       redirect: true,
       callbackUrl: '/?session_expired=true&force_logout=true',
     });
-  } catch (error) {
+  } catch (_error) {
     // Ultimate fallback: force redirect with session expired flags
     window.location.href = '/?session_expired=true&force_logout=true';
   } finally {

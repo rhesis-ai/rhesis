@@ -13,7 +13,7 @@ interface TestSetsQueryParams extends Partial<PaginationParams> {
   $filter?: string;
 }
 
-interface PageProps {
+interface _PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
@@ -36,7 +36,11 @@ export async function generateMetadata({
   };
 }
 
-export default async function TestSetPage({ params }: { params: any }) {
+export default async function TestSetPage({
+  params,
+}: {
+  params: Promise<{ identifier: string }>;
+}) {
   // Ensure params is properly awaited
   const resolvedParams = await Promise.resolve(params);
   const identifier = resolvedParams.identifier;
@@ -70,7 +74,7 @@ export default async function TestSetPage({ params }: { params: any }) {
         ...testSet,
         test_set_type: testSetType,
       };
-    } catch (error) {
+    } catch (_error) {
       // Keep original testSet if test set type fetch fails
     }
   }

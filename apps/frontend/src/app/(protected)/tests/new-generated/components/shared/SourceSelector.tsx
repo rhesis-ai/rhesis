@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   FormControl,
@@ -40,11 +40,7 @@ export default function SourceSelector({
   const [error, setError] = useState<string | null>(null);
   const { data: session } = useSession();
 
-  useEffect(() => {
-    loadSources();
-  }, [session]);
-
-  const loadSources = async () => {
+  const loadSources = useCallback(async () => {
     if (!session?.session_token) {
       setIsLoading(false);
       return;
@@ -69,12 +65,16 @@ export default function SourceSelector({
         : sourcesResponse?.data || [];
 
       setSources(sourcesData);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to load sources. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session]);
+
+  useEffect(() => {
+    loadSources();
+  }, [loadSources]);
 
   const handleChange = (event: SelectChangeEvent<string>) => {
     const value = event.target.value;

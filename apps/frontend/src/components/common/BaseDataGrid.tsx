@@ -18,7 +18,6 @@ import {
   MenuItem,
   SelectChangeEvent,
   ButtonGroup,
-  Menu,
   Popper,
   Grow,
   ClickAwayListener,
@@ -32,9 +31,9 @@ import ClearIcon from '@mui/icons-material/Clear';
 import IconButton from '@mui/material/IconButton';
 import {
   DataGrid,
+  GridColDef,
   GridPaginationModel,
   GridRowModel,
-  GridRowId,
   GridEditMode,
   GridDensity,
   GridRowSelectionModel,
@@ -44,7 +43,10 @@ import {
   GridFilterModel,
   GridSortModel,
   GridInitialState,
+  GridRowParams,
+  GridCellParams,
 } from '@mui/x-data-grid';
+import type { SxProps, Theme } from '@mui/material/styles';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -64,15 +66,15 @@ interface FilterConfig {
 }
 
 interface BaseDataGridProps {
-  columns: any[];
-  rows: any[];
+  columns: GridColDef[];
+  rows: GridRowModel[];
   title?: string;
   loading?: boolean;
-  getRowId?: (row: any) => string | number;
+  getRowId?: (row: GridRowModel) => string | number;
   showToolbar?: boolean;
-  onRowClick?: (params: any) => void;
+  onRowClick?: (params: GridRowParams) => void;
   density?: GridDensity;
-  sx?: any;
+  sx?: SxProps<Theme>;
   disableMultipleRowSelection?: boolean;
   actionButtons?: {
     href?: string;
@@ -105,8 +107,8 @@ interface BaseDataGridProps {
     newRow: GridRowModel,
     oldRow: GridRowModel
   ) => Promise<GridRowModel> | GridRowModel;
-  onProcessRowUpdateError?: (error: any) => void;
-  isCellEditable?: (params: any) => boolean;
+  onProcessRowUpdateError?: (error: unknown) => void;
+  isCellEditable?: (params: GridCellParams) => boolean;
   // Selection related props
   checkboxSelection?: boolean;
   disableRowSelectionOnClick?: boolean;
@@ -114,7 +116,7 @@ interface BaseDataGridProps {
   rowSelectionModel?: GridRowSelectionModel;
   // Filter related props
   filters?: FilterConfig[];
-  filterHandler?: (filteredRows: any[]) => void;
+  filterHandler?: (filteredRows: GridRowModel[]) => void;
   customToolbarContent?: ReactNode;
   // Server-side filtering props
   serverSideFiltering?: boolean;
@@ -178,10 +180,10 @@ export default function BaseDataGrid({
   title,
   loading = false,
   getRowId,
-  showToolbar = true,
+  showToolbar: _showToolbar = true,
   onRowClick,
   density,
-  sx,
+  sx: _sx,
   disableMultipleRowSelection,
   actionButtons,
   enableEditing = false,
@@ -215,7 +217,7 @@ export default function BaseDataGrid({
   persistState = false,
   storageKey,
 }: BaseDataGridProps) {
-  const theme = useTheme();
+  const _theme = useTheme();
   const router = useRouter();
   const apiRef = useGridApiRef();
 
@@ -353,7 +355,7 @@ export default function BaseDataGrid({
   }, [persistState, isInitialized, apiRef, handleStateChange]);
 
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
-  const [filteredRows, setFilteredRows] = useState<any[]>(rows);
+  const [filteredRows, setFilteredRows] = useState<GridRowModel[]>(rows);
 
   // Create refs and state for action buttons
   const buttonRefs = React.useRef<
@@ -396,9 +398,15 @@ export default function BaseDataGrid({
         const currentValue = filterValues[filter.name];
         if (currentValue === 'all') return true;
 
-        const rowValue = filter.filterField.split('.').reduce((obj, key) => {
-          return obj && obj[key] !== undefined ? obj[key] : undefined;
-        }, row);
+        const rowValue = filter.filterField
+          .split('.')
+          .reduce(
+            (obj: unknown, key: string) =>
+              obj && typeof obj === 'object' && key in obj
+                ? (obj as Record<string, unknown>)[key]
+                : undefined,
+            row
+          );
 
         return rowValue === currentValue;
       });
@@ -419,7 +427,7 @@ export default function BaseDataGrid({
       }));
     };
 
-  const handleRowClickWithLink = (params: any) => {
+  const handleRowClickWithLink = (params: GridRowParams) => {
     if (onRowClick) {
       onRowClick(params);
       return;

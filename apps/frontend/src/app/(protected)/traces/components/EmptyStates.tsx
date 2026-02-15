@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, Typography, Paper } from '@mui/material';
+import { Typography, Paper } from '@mui/material';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 
 /**

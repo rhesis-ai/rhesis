@@ -14,8 +14,6 @@ import {
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import ReplayIcon from '@mui/icons-material/Replay';
-import FastForwardIcon from '@mui/icons-material/FastForward';
-import FastRewindIcon from '@mui/icons-material/FastRewind';
 import ReactFlow, {
   Node,
   Edge,
@@ -631,7 +629,7 @@ function TransitionEdge({
     );
   }
 
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const [edgePath, _labelX, _labelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -822,7 +820,7 @@ function applyDagreLayout(nodes: Node[], edges: Edge[]): Node[] {
 
 export default function SpanGraphView({
   spans,
-  selectedSpan,
+  selectedSpan: _selectedSpan,
   onSpanSelect,
 }: SpanGraphViewProps) {
   const theme = useTheme();
@@ -1038,7 +1036,8 @@ export default function SpanGraphView({
           // Only animate if this is the last transition AND this specific self-loop index
           const shouldAnimate = Boolean(
             isLastTransition &&
-            edge.data.selfLoopIndex === lastTransition!.index
+            lastTransition &&
+            edge.data.selfLoopIndex === lastTransition.index
           );
           return {
             ...edge,

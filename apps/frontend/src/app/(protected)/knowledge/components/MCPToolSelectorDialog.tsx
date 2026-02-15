@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
   Box,
   Typography,
   Alert,
@@ -44,13 +42,7 @@ export default function MCPToolSelectorDialog({
   const [error, setError] = useState<string | null>(null);
   // No need to keep selection state – click selects and proceeds immediately
 
-  useEffect(() => {
-    if (open) {
-      loadMCPTools();
-    }
-  }, [open, sessionToken]);
-
-  const loadMCPTools = async () => {
+  const loadMCPTools = useCallback(async () => {
     if (!sessionToken) return;
 
     try {
@@ -98,7 +90,13 @@ export default function MCPToolSelectorDialog({
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionToken]);
+
+  useEffect(() => {
+    if (open) {
+      loadMCPTools();
+    }
+  }, [open, loadMCPTools]);
 
   const handleSelectTool = (tool: Tool) => {
     onSelectTool(tool);

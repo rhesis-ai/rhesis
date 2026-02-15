@@ -99,8 +99,7 @@ export default function SignIn() {
           homeUrl.searchParams.set('return_to', returnTo);
         }
         window.location.replace(homeUrl.toString());
-      } catch (error) {
-        const err = error as Error;
+      } catch (_error) {
         setError('Authentication error. Please try again.');
       }
     };

@@ -25,7 +25,10 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import {
+  TestResultDetail,
+  Review,
+} from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -63,7 +66,7 @@ export default function TestDetailReviewsTab({
 
   // Delete confirmation state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [reviewToDelete, setReviewToDelete] = useState<any>(null);
+  const [reviewToDelete, setReviewToDelete] = useState<Review | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   // Handle initial comment and status from turn review
@@ -138,7 +141,7 @@ export default function TestDetailReviewsTab({
       // Reset form
       setReason('');
       setShowReviewForm(false);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to save review. Please try again.');
     } finally {
       setSubmitting(false);
@@ -152,7 +155,7 @@ export default function TestDetailReviewsTab({
   };
 
   // Handle delete review
-  const handleDeleteReview = (review: any) => {
+  const handleDeleteReview = (review: Review) => {
     setReviewToDelete(review);
     setDeleteDialogOpen(true);
   };
@@ -176,7 +179,7 @@ export default function TestDetailReviewsTab({
       // Close dialog
       setDeleteDialogOpen(false);
       setReviewToDelete(null);
-    } catch (err) {
+    } catch (_err) {
       // Could add error handling here
     } finally {
       setDeleting(false);
@@ -366,10 +369,10 @@ export default function TestDetailReviewsTab({
           Review History
         </Typography>
 
-        {hasReviews ? (
+        {hasReviews && test.test_reviews?.reviews ? (
           <Stack spacing={2}>
-            {test
-              .test_reviews!.reviews.sort(
+            {test.test_reviews.reviews
+              .sort(
                 (a, b) =>
                   new Date(b.updated_at).getTime() -
                   new Date(a.updated_at).getTime()

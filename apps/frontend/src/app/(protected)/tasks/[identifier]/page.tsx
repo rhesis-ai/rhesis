@@ -27,6 +27,7 @@ import { PageContainer } from '@toolpad/core/PageContainer';
 import { useTasks } from '@/hooks/useTasks';
 import { Task, TaskUpdate } from '@/types/tasks';
 import { getStatusesForTask, getPrioritiesForTask } from '@/utils/task-lookup';
+import type { Status, Priority } from '@/utils/api-client/interfaces/task';
 import { getEntityUrlMap } from '@/utils/entity-helpers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -66,8 +67,8 @@ export default function TaskDetailPage({ params }: PageProps) {
     hasInitialLoadRef.current = hasInitialLoad;
   }, [hasInitialLoad]);
 
-  const [statuses, setStatuses] = useState<any[]>([]);
-  const [priorities, setPriorities] = useState<any[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [priorities, setPriorities] = useState<Priority[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [editedTask, setEditedTask] = useState<Task | null>(null);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -152,7 +153,7 @@ export default function TaskDetailPage({ params }: PageProps) {
         setIsRetrying(false);
       }
     },
-    [taskId, getTask, session?.session_token, show]
+    [taskId, getTask, session?.session_token, show, hasInitialLoad]
   );
 
   // Initial load effect - only depends on essential values
@@ -446,8 +447,7 @@ export default function TaskDetailPage({ params }: PageProps) {
   };
 
   const handleChange =
-    (field: keyof Task) =>
-    (event: React.ChangeEvent<HTMLInputElement> | any) => {
+    (field: keyof Task) => (event: { target: { value: string } }) => {
       if (!editedTask) return;
 
       const value = event.target.value;
@@ -475,7 +475,7 @@ export default function TaskDetailPage({ params }: PageProps) {
 
     try {
       await handleSave(updatedTask);
-    } catch (error) {
+    } catch (_error) {
       // Revert on error
       setEditTitle(editedTask.title || '');
       setIsEditingTitle(true);
@@ -532,7 +532,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                   if (task.task_metadata?.test_result_id) {
                     queryParams.append(
                       'selectedresult',
-                      task.task_metadata.test_result_id
+                      String(task.task_metadata.test_result_id)
                     );
                   }
                   const queryString = queryParams.toString()
@@ -546,7 +546,7 @@ export default function TaskDetailPage({ params }: PageProps) {
 
                   const finalUrl = `${baseUrl}${queryString}${commentHash}`;
                   router.push(finalUrl);
-                } catch (error) {}
+                } catch (_error) {}
               }
             }}
             sx={{
@@ -885,7 +885,7 @@ export default function TaskDetailPage({ params }: PageProps) {
                           gap: 1,
                         },
                       }}
-                      renderValue={value => {
+                      renderValue={_value => {
                         return (
                           <Box
                             sx={{

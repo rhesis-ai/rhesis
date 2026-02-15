@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useMemo } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Test } from '@/utils/api-client/interfaces/tests';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -10,8 +10,8 @@ import BaseWorkflowSection from '@/components/common/BaseWorkflowSection';
 interface TestWorkflowSectionProps {
   status?: string;
   priority?: number;
-  assignee?: any | null;
-  owner?: any | null;
+  assignee?: User | null;
+  owner?: User | null;
   sessionToken: string;
   testId: string;
   onStatusChange?: (newStatus: string) => void;

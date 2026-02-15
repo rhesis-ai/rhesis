@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   GridColDef,
+  GridRowParams,
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
@@ -26,9 +27,6 @@ import styles from '@/styles/Knowledge.module.css';
 import { combineSourceFiltersToOData } from '@/utils/odata-filter';
 import { ChatIcon } from '@/components/icons';
 import {
-  FILE_SIZE_CONSTANTS,
-  FILE_TYPE_CONSTANTS,
-  TEXT_CONSTANTS,
   formatFileSize,
   formatDate,
   getFileExtension,
@@ -159,8 +157,8 @@ export default function SourcesGrid({
 
   // Handle row click to navigate to preview
   const handleRowClick = useCallback(
-    (params: { id: string }) => {
-      const sourceId = params.id;
+    (params: GridRowParams) => {
+      const sourceId = String(params.id);
       router.push(`/knowledge/${sourceId}`);
     },
     [router]
@@ -472,7 +470,7 @@ export default function SourcesGrid({
                 overflow: 'hidden',
               }}
             >
-              {source.tags.slice(0, 2).map((tag, index) => (
+              {source.tags.slice(0, 2).map((tag, _index) => (
                 <Chip
                   key={tag.id}
                   label={tag.name}

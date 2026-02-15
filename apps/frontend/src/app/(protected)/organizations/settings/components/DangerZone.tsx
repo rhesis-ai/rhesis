@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import { Typography, Button } from '@mui/material';
 import { useState } from 'react';
 import { signOut } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -54,10 +54,13 @@ export default function DangerZone({
       await signOut({
         callbackUrl: `/auth/signin?message=${encodeURIComponent(`You have successfully left ${organization.name}. You can now create a new organization or accept an invitation.`)}`,
       });
-    } catch (err: any) {
-      notifications.show(err.message || 'Failed to leave organization', {
-        severity: 'error',
-      });
+    } catch (err: unknown) {
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to leave organization',
+        {
+          severity: 'error',
+        }
+      );
       setIsLeaving(false);
     }
   };

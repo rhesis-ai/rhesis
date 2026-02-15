@@ -1,14 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import {
-  Box,
-  Grid,
-  TextField,
-  Typography,
-  Button,
-  useTheme,
-} from '@mui/material';
+import { Box, Grid, TextField, Typography, Button } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
@@ -54,7 +47,6 @@ function EditableField({
   onRemove,
   maxLength,
 }: EditableFieldProps) {
-  const theme = useTheme();
   const [isEditing, setIsEditing] = React.useState(false);
   const [editedValue, setEditedValue] = React.useState(value);
   const [isUpdating, setIsUpdating] = React.useState(false);
@@ -87,7 +79,7 @@ function EditableField({
     try {
       await onSave(editedValue);
       setIsEditing(false);
-    } catch (error) {
+    } catch (_error) {
       // Error notification is shown by parent
       // Revert to original value and exit edit mode
       setEditedValue(value);
@@ -326,22 +318,25 @@ export default function MultiTurnConfigFields({
       };
 
       await testsClient.updateTest(testId, {
-        test_configuration: updatedConfig as any,
+        test_configuration: updatedConfig as unknown as Record<string, unknown>,
       });
 
       setConfig(updatedConfig);
 
-      notifications.show(`Successfully updated ${field.replace('_', ' ')}`, {
-        severity: 'success',
-        autoHideDuration: 3000,
-      });
+      notifications.show(
+        `Successfully updated ${String(field).replace('_', ' ')}`,
+        {
+          severity: 'success',
+          autoHideDuration: 3000,
+        }
+      );
 
       if (onUpdate) {
         onUpdate();
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       notifications.show(
-        `Failed to update ${field.replace('_', ' ')}: ${error.message || 'Unknown error'}`,
+        `Failed to update ${String(field).replace('_', ' ')}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         {
           severity: 'error',
           autoHideDuration: 6000,
@@ -369,7 +364,7 @@ export default function MultiTurnConfigFields({
 
       // Hide the field after successful update
       setShowFunction(false);
-    } catch (error) {
+    } catch (_error) {
       // Error is already handled in updateField
     }
   };

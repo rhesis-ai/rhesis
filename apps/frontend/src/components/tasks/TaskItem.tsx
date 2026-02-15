@@ -6,14 +6,12 @@ import {
   Typography,
   Chip,
   IconButton,
-  Link,
   Tooltip,
   useTheme,
 } from '@mui/material';
 import { EditIcon, DeleteIcon, AssignmentIcon } from '@/components/icons';
-import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import { Task, TaskStatus, TaskPriority, EntityType } from '@/types/tasks';
+import { Task, EntityType } from '@/types/tasks';
 import { getEntityDisplayName } from '@/utils/entity-helpers';
 import { UserAvatar } from '@/components/common/UserAvatar';
 
@@ -76,7 +74,7 @@ export function TaskItem({
 
     try {
       router.push(`/tasks/${task.id}`);
-    } catch (error) {
+    } catch (_error) {
       // Could show notification or handle gracefully
     }
   };

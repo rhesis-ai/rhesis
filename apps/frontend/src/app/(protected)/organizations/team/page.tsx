@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Typography, Paper, Container } from '@mui/material';
+import { Paper } from '@mui/material';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
@@ -30,7 +30,7 @@ export default function TeamPage() {
         const usersClient = apiFactory.getUsersClient();
         const response = await usersClient.getUsers({ skip: 0, limit: 1 });
         setUserCount(response.total || 0);
-      } catch (error) {
+      } catch (_error) {
         // Silently fail
       }
     };

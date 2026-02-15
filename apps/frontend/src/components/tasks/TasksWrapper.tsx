@@ -2,6 +2,7 @@
 
 import React, { useCallback } from 'react';
 import { EntityType } from '@/types/tasks';
+import type { TaskCreate } from '@/utils/api-client/interfaces/task';
 import { useTasks } from '@/hooks/useTasks';
 import { TasksSection } from './TasksSection';
 import { TaskCreationDrawer } from './TaskCreationDrawer';
@@ -21,7 +22,7 @@ export function TasksWrapper({
   sessionToken,
   currentUserId,
   currentUserName,
-  currentUserPicture,
+  currentUserPicture: _currentUserPicture,
 }: TasksWrapperProps) {
   const { createTask, deleteTask } = useTasks({
     entityType,
@@ -30,10 +31,10 @@ export function TasksWrapper({
   });
 
   const handleCreateTask = useCallback(
-    async (taskData: any) => {
+    async (taskData: Record<string, unknown>) => {
       try {
-        await createTask(taskData);
-      } catch (error) {}
+        await createTask(taskData as unknown as TaskCreate);
+      } catch (_error) {}
     },
     [createTask]
   );
@@ -47,7 +48,7 @@ export function TasksWrapper({
     async (taskId: string) => {
       try {
         await deleteTask(taskId);
-      } catch (error) {}
+      } catch (_error) {}
     },
     [deleteTask]
   );
@@ -69,7 +70,8 @@ export function TasksWrapper({
       <TaskCreationDrawer
         open={false} // This will be controlled by the TasksSection component
         onClose={() => {
-          (window as any).pendingCommentId = undefined;
+          (window as Window & { pendingCommentId?: string }).pendingCommentId =
+            undefined;
         }}
         onSubmit={handleCreateTask}
         entityType={entityType}
@@ -77,7 +79,9 @@ export function TasksWrapper({
         currentUserId={currentUserId}
         currentUserName={currentUserName}
         isLoading={false}
-        commentId={(window as any).pendingCommentId}
+        commentId={
+          (window as Window & { pendingCommentId?: string }).pendingCommentId
+        }
       />
     </>
   );

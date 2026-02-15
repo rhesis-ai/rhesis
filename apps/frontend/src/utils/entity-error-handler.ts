@@ -62,25 +62,45 @@ function urlSegmentToTableName(urlSegment: string): string {
 // 404 Not Found Error Handling
 // ============================================================================
 
+/** Error shape with optional status, data, message, digest */
+interface ErrorLike {
+  status?: number;
+  data?: {
+    model_name?: string;
+    model_name_display?: string;
+    item_id?: string;
+    table_name?: string;
+    list_url?: string;
+    message?: string;
+    detail?: string;
+    item_name?: string;
+    restore_url?: string;
+    can_restore?: boolean;
+  };
+  message?: string;
+  digest?: string;
+}
+
 /**
  * Check if an error is a 404 Not Found response.
  *
  * @param error - The error object to check
  * @returns True if the error is a not found error
  */
-export function isNotFoundError(error: any): boolean {
+export function isNotFoundError(error: unknown): boolean {
+  const e = error as ErrorLike | null | undefined;
   // Check if error has status 404
-  if (error?.status === 404 && error?.data?.model_name) {
+  if (e?.status === 404 && e?.data?.model_name) {
     return true;
   }
 
   // Fallback: Check error message for 404 status
-  if (error?.message?.includes('API error: 404')) {
+  if (e?.message?.includes('API error: 404')) {
     return true;
   }
 
   // Check digest for Next.js serialized errors
-  if (error?.digest && error?.message?.includes('404')) {
+  if (e?.digest && e?.message?.includes('404')) {
     return true;
   }
 
@@ -93,28 +113,33 @@ export function isNotFoundError(error: any): boolean {
  * @param error - The error object from the API
  * @returns Not found entity data or null if not applicable
  */
-export function getNotFoundEntityData(error: any): NotFoundEntityData | null {
+export function getNotFoundEntityData(
+  error: unknown
+): NotFoundEntityData | null {
   if (!isNotFoundError(error)) {
     return null;
   }
 
+  const e = error as ErrorLike;
   // If we have the full data object (server-side before serialization), use it
-  if (error.data?.model_name) {
-    const data = error.data;
+  if (e?.data?.model_name) {
+    const data = e.data;
     return {
-      model_name: data.model_name,
+      model_name: data.model_name ?? '',
       model_name_display: data.model_name_display,
-      item_id: data.item_id,
-      table_name: data.table_name,
-      list_url: data.list_url,
-      message: data.message || data.detail,
+      item_id: data.item_id ?? '',
+      table_name: data.table_name ?? '',
+      list_url: data.list_url ?? '',
+      message: data.message || data.detail || '',
     };
   }
 
   // Fallback: Parse from error message (after serialization across boundary)
   // New format: "API error: 404 - table:test_run|id:abc-123|Test Run not found"
   // Old format: "API error: 404 - Test Run not found"
-  const message = error.message || '';
+  const message =
+    (e?.message as string | undefined) ??
+    (error instanceof Error ? error.message : String(error ?? ''));
 
   // Try to extract encoded data first (new format)
   const encodedMatch = message.match(
@@ -128,7 +153,7 @@ export function getNotFoundEntityData(error: any): NotFoundEntityData | null {
     // Parse encoded data
     const tableMatch = encodedParts.match(/table:([^|]+)/);
     const idMatch = encodedParts.match(/id:([^|]+)/);
-    const nameMatch = encodedParts.match(/name:([^|]+)/);
+    const _nameMatch = encodedParts.match(/name:([^|]+)/);
 
     const tableName = tableMatch ? tableMatch[1] : '';
     const itemId = idMatch ? idMatch[1] : '';
@@ -179,19 +204,20 @@ export function getNotFoundEntityData(error: any): NotFoundEntityData | null {
  * @param error - The error object to check
  * @returns True if the error is a deleted entity error
  */
-export function isDeletedEntityError(error: any): boolean {
+export function isDeletedEntityError(error: unknown): boolean {
+  const e = error as ErrorLike | null | undefined;
   // Check if error has status and data (client-side error)
-  if (error?.status === 410 && error?.data?.can_restore === true) {
+  if (e?.status === 410 && e?.data?.can_restore === true) {
     return true;
   }
 
   // Fallback: Check error message for 410 status (server-side error that crossed boundary)
-  if (error?.message?.includes('API error: 410')) {
+  if (e?.message?.includes('API error: 410')) {
     return true;
   }
 
   // Check digest for Next.js serialized errors
-  if (error?.digest && error?.message?.includes('410')) {
+  if (e?.digest && e?.message?.includes('410')) {
     return true;
   }
 
@@ -204,29 +230,33 @@ export function isDeletedEntityError(error: any): boolean {
  * @param error - The error object from the API
  * @returns Deleted entity data or null if not applicable
  */
-export function getDeletedEntityData(error: any): DeletedEntityData | null {
+export function getDeletedEntityData(error: unknown): DeletedEntityData | null {
   if (!isDeletedEntityError(error)) {
     return null;
   }
 
+  const e = error as ErrorLike;
   // If we have the full data object (client-side error), use it
-  if (error.data?.model_name) {
-    const data = error.data;
+  if (e?.data?.model_name) {
+    const data = e.data;
     return {
-      model_name: data.model_name,
+      model_name: data.model_name ?? '',
       model_name_display: data.model_name_display,
       item_name: data.item_name,
-      item_id: data.item_id,
-      table_name: data.table_name,
-      restore_url: data.restore_url,
-      message: data.message || data.detail,
+      item_id: data.item_id ?? '',
+      table_name: data.table_name ?? '',
+      restore_url: data.restore_url ?? '',
+      message: data.message || data.detail || '',
     };
   }
 
   // Fallback: Parse from error message (server-side error that crossed boundary)
   // New format: "API error: 410 - table:test_run|id:abc-123|name:My Test|Test Run has been deleted"
   // Old format: "API error: 410 - Test Run has been deleted"
-  const message = error.message || '';
+  const message =
+    (e?.message as string | undefined) ??
+    (error instanceof Error ? error.message : String(error ?? '')) ??
+    '';
 
   // Try to extract encoded data first (new format)
   const encodedMatch = message.match(
@@ -292,28 +322,27 @@ export function getDeletedEntityData(error: any): DeletedEntityData | null {
  * @param error - The error object
  * @returns User-friendly error message
  */
-export function getErrorMessage(error: any): string {
+export function getErrorMessage(error: unknown): string {
+  const e = error as ErrorLike | null | undefined;
   // Check if it's a deleted entity (410)
   if (isDeletedEntityError(error)) {
-    return (
-      error.data?.message || error.data?.detail || 'This item has been deleted.'
-    );
+    return e?.data?.message || e?.data?.detail || 'This item has been deleted.';
   }
 
   // Check if it's a not found error (404)
   if (isNotFoundError(error)) {
     return (
-      error.data?.message ||
-      error.data?.detail ||
+      e?.data?.message ||
+      e?.data?.detail ||
       "The item you're looking for was not found."
     );
   }
 
   // Check for API error with detail
-  if (error?.data?.detail) {
-    return typeof error.data.detail === 'string'
-      ? error.data.detail
-      : JSON.stringify(error.data.detail);
+  if (e?.data?.detail) {
+    return typeof e.data.detail === 'string'
+      ? e.data.detail
+      : JSON.stringify(e.data.detail);
   }
 
   // Check for standard Error object

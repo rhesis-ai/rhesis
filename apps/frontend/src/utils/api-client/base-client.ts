@@ -1,11 +1,24 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
-import {
-  PaginationParams,
-  PaginatedResponse,
-  PaginationMetadata,
-} from './interfaces/pagination';
+import { PaginationParams, PaginatedResponse } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
 import { clearAllSessionData } from '../session';
+
+/** API error response structure from backend */
+export interface ApiErrorData {
+  detail?: string | ValidationErrorDetail[];
+  message?: string;
+  table_name?: string;
+  item_id?: string;
+  item_name?: string;
+  [key: string]: unknown;
+}
+
+/** Validation error detail for array-form detail (e.g. Pydantic validation) */
+export interface ValidationErrorDetail {
+  loc?: (string | number)[];
+  msg?: string;
+  [key: string]: unknown;
+}
 
 interface RetryConfig {
   maxAttempts: number;
@@ -56,10 +69,11 @@ export class BaseApiClient {
     return Math.min(backoffMs, this.retryConfig.maxDelayMs);
   }
 
-  private isRetryableError(error: any): boolean {
+  private isRetryableError(error: unknown): boolean {
     // Check if error has a status code
     if (error instanceof Error && 'status' in error) {
-      const status = (error as any).status;
+      const status = (error as Error & { status?: number }).status;
+      if (status === undefined) return false;
 
       // Don't retry client errors (4xx) - these indicate problems that won't be fixed by retrying
       // This includes: 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found, etc.
@@ -136,7 +150,7 @@ export class BaseApiClient {
 
       // This line should never be reached as clearAllSessionData redirects
       throw createUnauthorizedError('Unauthorized - session cleared');
-    } catch (error) {
+    } catch (_error) {
       // Throw clean error instead of re-throwing complex error
       throw createUnauthorizedError('Unauthorized');
     } finally {
@@ -165,7 +179,7 @@ export class BaseApiClient {
 
       const parsed = parseInt(totalCount, 10);
       return isNaN(parsed) ? defaultValue : parsed;
-    } catch (error) {
+    } catch (_error) {
       return defaultValue;
     }
   }
@@ -208,27 +222,35 @@ export class BaseApiClient {
           );
 
           if (shouldLog) {
-            console[logLevel](`${logPrefix} [DEBUG] API Response Error:`, {
+            const logData = {
               url,
               status: response.status,
               statusText: response.statusText,
               headers: Object.fromEntries(response.headers.entries()),
-            });
+            };
+            if (logLevel === 'error') {
+              console.error(
+                `${logPrefix} [DEBUG] API Response Error:`,
+                logData
+              );
+            } else {
+              console.warn(`${logPrefix} [DEBUG] API Response Error:`, logData);
+            }
           }
 
           let errorMessage = '';
-          let errorData: any;
+          let errorData: ApiErrorData | undefined;
 
           try {
             const contentType = response.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
-              errorData = await response.json();
+              errorData = (await response.json()) as ApiErrorData;
               if (errorData.detail) {
                 errorMessage = Array.isArray(errorData.detail)
                   ? errorData.detail
                       .map(
-                        (err: any) =>
-                          `${err.loc?.join('.') || 'field'}: ${err.msg}`
+                        (err: ValidationErrorDetail) =>
+                          `${err.loc?.join('.') || 'field'}: ${err.msg ?? ''}`
                       )
                       .join(', ')
                   : errorData.detail;
@@ -240,15 +262,26 @@ export class BaseApiClient {
             } else {
               errorMessage = await response.text();
             }
-          } catch (parseError) {
+          } catch (_parseError) {
             errorMessage = await response.text();
           }
 
           if (shouldLog) {
-            console[logLevel](`${logPrefix} [DEBUG] Full error details:`, {
+            const errorDetails = {
               errorMessage,
               errorData,
-            });
+            };
+            if (logLevel === 'error') {
+              console.error(
+                `${logPrefix} [DEBUG] Full error details:`,
+                errorDetails
+              );
+            } else {
+              console.warn(
+                `${logPrefix} [DEBUG] Full error details:`,
+                errorDetails
+              );
+            }
           }
 
           // Provide user-friendly messages for rate limiting
@@ -288,7 +321,7 @@ export class BaseApiClient {
             `API error: ${response.status} - ${enhancedMessage}`
           ) as Error & {
             status?: number;
-            data?: any;
+            data?: ApiErrorData;
           };
           error.status = response.status;
           error.data = errorData;
@@ -311,16 +344,17 @@ export class BaseApiClient {
 
         const result = await response.json();
         return result;
-      } catch (error: any) {
-        lastError = error;
+      } catch (error: unknown) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        const errWithStatus = error as Error & { status?: number };
 
         // Handle authentication errors immediately without retrying
-        if (error.status === 401 || error.status === 403) {
-          return await this.handleUnauthorizedError(error.status);
+        if (errWithStatus.status === 401 || errWithStatus.status === 403) {
+          return await this.handleUnauthorizedError(errWithStatus.status);
         }
 
         // Handle deleted entities (410 Gone) immediately without retrying
-        if (error.status === 410) {
+        if (errWithStatus.status === 410) {
           throw error;
         }
 
@@ -341,7 +375,8 @@ export class BaseApiClient {
           // Use appropriate log level based on error status
           // 410 Gone is included as it's an expected state for soft-deleted items
           const isClientError =
-            error.status && [400, 409, 410, 422, 429].includes(error.status);
+            errWithStatus.status &&
+            [400, 409, 410, 422, 429].includes(errWithStatus.status);
           if (isClientError) {
           } else {
           }
@@ -367,7 +402,10 @@ export class BaseApiClient {
    */
   protected async fetchPaginated<T>(
     endpoint: keyof typeof API_ENDPOINTS | string,
-    params: PaginationParams & { $filter?: string } & Record<string, any> = {
+    params: PaginationParams & { $filter?: string } & Record<
+        string,
+        unknown
+      > = {
       skip: 0,
       limit: 10,
     },
@@ -392,7 +430,7 @@ export class BaseApiClient {
     ];
     Object.keys(params).forEach(key => {
       if (!excludedParams.includes(key) && params[key] !== undefined) {
-        queryParams.append(key, params[key].toString());
+        queryParams.append(key, String(params[key]));
       }
     });
 
@@ -415,18 +453,20 @@ export class BaseApiClient {
 
     if (!response.ok) {
       let errorMessage = '';
-      let errorData: any;
+      let errorData: ApiErrorData | undefined;
 
       try {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
-          errorData = await response.json();
+          errorData = (await response.json()) as ApiErrorData;
           errorMessage =
-            errorData.detail || errorData.message || JSON.stringify(errorData);
+            (typeof errorData.detail === 'string' ? errorData.detail : null) ??
+            errorData.message ??
+            JSON.stringify(errorData);
         } else {
           errorMessage = await response.text();
         }
-      } catch (parseError) {
+      } catch (_parseError) {
         errorMessage = await response.text();
       }
 
@@ -434,7 +474,7 @@ export class BaseApiClient {
         `API error: ${response.status} - ${errorMessage}`
       ) as Error & {
         status?: number;
-        data?: any;
+        data?: ApiErrorData;
       };
       error.status = response.status;
       error.data = errorData;

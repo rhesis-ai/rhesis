@@ -23,13 +23,16 @@ import {
   TableBody,
   TableRow,
   TableCell,
-  Chip,
   Tooltip,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import {
+  TestResultDetail,
+  MetricResult,
+  CriterionEvaluation,
+} from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
 import {
   MetricsSource,
@@ -87,7 +90,7 @@ export default function TestDetailMetricsTab({
       name: string;
       description?: string;
       passed: boolean;
-      fullMetricData: any;
+      fullMetricData: MetricResult;
       behaviorName: string;
     }> = [];
 
@@ -143,7 +146,7 @@ export default function TestDetailMetricsTab({
       }
 
       Object.entries(testMetrics).forEach(
-        ([metricName, metricResult]: [string, any]) => {
+        ([metricName, metricResult]: [string, MetricResult]) => {
           // Skip if already added via behaviors
           const alreadyAdded = allMetrics.some(m => m.name === metricName);
           if (
@@ -238,12 +241,16 @@ export default function TestDetailMetricsTab({
         (lowerName.includes('achievement') || lowerName.includes('evaluation'))
       );
     });
-    const goalMetric = goalMetricEntry?.[1] as any;
+    const goalMetric = goalMetricEntry?.[1] as MetricResult & {
+      criteria_met?: number;
+      criteria_total?: number;
+      confidence?: number;
+    };
 
     if (!goalMetric) return null;
 
     // Criteria evaluations are in test_output.goal_evaluation, not in the metric itself
-    const goalEvaluation = test.test_output?.goal_evaluation as any;
+    const goalEvaluation = test.test_output?.goal_evaluation;
 
     return {
       criteriaMet: goalMetric.criteria_met || 0,
@@ -598,7 +605,7 @@ export default function TestDetailMetricsTab({
                     >
                       <List dense disablePadding sx={{ mt: 2 }}>
                         {goalAchievementData.criteriaEvaluations.map(
-                          (criterion: any) => (
+                          (criterion: CriterionEvaluation) => (
                             <ListItem
                               key={criterion.criterion}
                               disablePadding

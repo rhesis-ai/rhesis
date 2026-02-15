@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box } from '@mui/material';
 import BaseTag from '@/components/common/BaseTag';
-import { EntityType, Tag } from '@/utils/api-client/interfaces/tag';
+import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
@@ -26,11 +26,11 @@ export default function TestResultTags({
     // TestResult now has tags property via TagsMixin
     const tags = testResult.tags;
     if (tags && Array.isArray(tags)) {
-      setTagNames(tags.map((tag: any) => tag.name));
+      setTagNames(tags.map((tag: { name: string }) => tag.name));
     } else {
       setTagNames([]);
     }
-  }, [testResult.id]);
+  }, [testResult.id, testResult.tags]);
 
   // Handle tag changes and update parent state
   const handleTagChange = async (newTagNames: string[]) => {
@@ -49,7 +49,7 @@ export default function TestResultTags({
 
         // Notify parent of the update
         onUpdate(updatedTestResult);
-      } catch (error) {}
+      } catch (_error) {}
     }, 500);
   };
 

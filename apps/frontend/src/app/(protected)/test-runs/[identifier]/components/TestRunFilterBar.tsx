@@ -17,13 +17,6 @@ import {
   useTheme,
   Chip,
   Stack,
-  Switch,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  IconButton,
-  Tooltip,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -36,7 +29,6 @@ import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import TableRowsIcon from '@mui/icons-material/TableRows';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
-import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import ReplayIcon from '@mui/icons-material/Replay';
 
@@ -77,8 +69,8 @@ export default function TestRunFilterBar({
   onDownload,
   onCompare,
   isDownloading = false,
-  totalTests,
-  filteredTests,
+  totalTests: _totalTests,
+  filteredTests: _filteredTests,
   viewMode = 'split',
   onViewModeChange,
   onRerun,
@@ -120,7 +112,7 @@ export default function TestRunFilterBar({
     });
   };
 
-  const handleClearBehaviors = () => {
+  const _handleClearBehaviors = () => {
     onFilterChange({
       ...filter,
       selectedBehaviors: [],
@@ -156,7 +148,7 @@ export default function TestRunFilterBar({
     });
   };
 
-  const handleCommentRangeChange = (range: { min: number; max: number }) => {
+  const _handleCommentRangeChange = (range: { min: number; max: number }) => {
     onFilterChange({
       ...filter,
       commentCountRange: range,
@@ -172,7 +164,7 @@ export default function TestRunFilterBar({
     });
   };
 
-  const handleTaskRangeChange = (range: { min: number; max: number }) => {
+  const _handleTaskRangeChange = (range: { min: number; max: number }) => {
     onFilterChange({
       ...filter,
       taskCountRange: range,

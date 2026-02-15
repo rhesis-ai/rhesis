@@ -1,10 +1,9 @@
 import * as React from 'react';
-import { Typography, Box, Paper, Grid, Divider, Button } from '@mui/material';
+import { Box, Paper, Grid, Divider, Button } from '@mui/material';
 import { Metadata } from 'next';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import Link from 'next/link';
-import ArrowBackIcon from '@mui/icons-material/ArrowBackOutlined';
 
 import { PageContainer } from '@toolpad/core/PageContainer';
 
@@ -12,7 +11,6 @@ import TestDetailCharts from './components/TestDetailCharts';
 import TestDetailData from './components/TestDetailData';
 import TestToTestSet from './components/TestToTestSet';
 import TestTags from './components/TestTags';
-import CommentsWrapper from '@/components/comments/CommentsWrapper'; // Updated import
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 import { isMultiTurnTest } from '@/constants/test-types';

@@ -19,15 +19,15 @@ function TestConsumer() {
         onClick={() => {
           const key = show('Closeable', { key: 'test-key' });
           // Store key for closing
-          (window as any).__notifKey = key;
+          (window as unknown as Record<string, unknown>).__notifKey = key;
         }}
       >
         Show Closeable
       </button>
       <button
         onClick={() => {
-          const key = (window as any).__notifKey;
-          if (key) close(key);
+          const key = (window as unknown as Record<string, unknown>).__notifKey;
+          if (key) close(key as string);
         }}
       >
         Close Notification

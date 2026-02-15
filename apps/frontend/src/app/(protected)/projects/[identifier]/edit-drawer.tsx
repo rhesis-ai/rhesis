@@ -17,9 +17,6 @@ import {
   FormHelperText,
   FormControlLabel,
   Switch,
-  ToggleButton,
-  ToggleButtonGroup,
-  Paper,
 } from '@mui/material';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -184,7 +181,7 @@ export default function EditDrawer({
         if (isMounted) {
           setUsers(fetchedUsers.data);
         }
-      } catch (error) {}
+      } catch (_error) {}
     };
 
     if (open) {
@@ -318,7 +315,7 @@ export default function EditDrawer({
 
       await onSave(projectUpdate);
       onClose();
-    } catch (error) {
+    } catch (_error) {
       // Show generic error if backend doesn't provide specific ones
       setErrors(prev => ({
         ...prev,

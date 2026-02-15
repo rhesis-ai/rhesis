@@ -32,7 +32,6 @@ import {
 import Link from 'next/link';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { UUID } from 'crypto';
@@ -109,7 +108,7 @@ export default function ExecuteTestSetDrawer({
   const [lastTestRun, setLastTestRun] = useState<LastTestRunSummary | null>(
     null
   );
-  const [loadingLastRun, setLoadingLastRun] = useState(false);
+  const [_loadingLastRun, setLoadingLastRun] = useState(false);
 
   // Fetch projects, endpoints, and test set info when drawer opens
   useEffect(() => {
@@ -171,7 +170,7 @@ export default function ExecuteTestSetDrawer({
             .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
 
           setProjects(processedProjects);
-        } catch (projectsError) {
+        } catch (_projectsError) {
           setProjects([]);
         }
 
@@ -198,10 +197,10 @@ export default function ExecuteTestSetDrawer({
           } else {
             setEndpoints([]);
           }
-        } catch (endpointsError) {
+        } catch (_endpointsError) {
           setEndpoints([]);
         }
-      } catch (error) {
+      } catch (_error) {
         setError(
           'Failed to load data. Please check your connection and try again.'
         );
@@ -313,10 +312,9 @@ export default function ExecuteTestSetDrawer({
     try {
       const apiFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = apiFactory.getTestSetsClient();
-      const tagsClient = new TagsClient(sessionToken);
 
       // Prepare test configuration attributes
-      const testConfigurationAttributes: Record<string, any> = {
+      const testConfigurationAttributes: Record<string, unknown> = {
         execution_mode: executionMode,
       };
 
@@ -351,8 +349,10 @@ export default function ExecuteTestSetDrawer({
           const organizationId = endpoint.organization_id as UUID;
 
           // Get the test configuration ID from result and get the test run
-          if ((result as any).test_configuration_id) {
-            const testConfigurationId = (result as any).test_configuration_id;
+          const resultRecord = result as unknown as Record<string, unknown>;
+          if (resultRecord.test_configuration_id) {
+            const testConfigurationId =
+              resultRecord.test_configuration_id as string;
             const testRunsClient = apiFactory.getTestRunsClient();
             const tagsClient = new TagsClient(sessionToken);
 
@@ -441,7 +441,7 @@ export default function ExecuteTestSetDrawer({
               }}
               getOptionLabel={option => option.name}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box component="li" key={option.id} {...otherProps}>
                     {option.name}
@@ -485,7 +485,7 @@ export default function ExecuteTestSetDrawer({
                 />
               )}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box
                     key={option.id}

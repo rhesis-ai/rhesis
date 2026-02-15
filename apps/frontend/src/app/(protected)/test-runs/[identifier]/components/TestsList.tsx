@@ -18,9 +18,11 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ChatIcon from '@mui/icons-material/Chat';
 import TaskIcon from '@mui/icons-material/Task';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import {
-  getTestResultStatus,
+  TestResultDetail,
+  ConversationTurn,
+} from '@/utils/api-client/interfaces/test-results';
+import {
   getTestResultStatusWithReview,
   hasConflictingReview,
   type TestResultStatus,
@@ -98,7 +100,7 @@ function TestListItem({
 
   // Check if there's a conflicting review
   const conflictingReview = hasConflictingReview(test);
-  const hasHumanReview = !!test.last_review;
+  const _hasHumanReview = !!test.last_review;
 
   // Truncate prompt content for display
   const truncatedPrompt =
@@ -317,7 +319,8 @@ export default function TestsList({
       // Get actual conversation turn count (excluding internal analysis turns)
       const conversationTurnCount =
         test.test_output?.conversation_summary?.filter(
-          (turn: any) => turn.penelope_message || turn.target_response
+          (turn: ConversationTurn) =>
+            turn.penelope_message || turn.target_response
         ).length || null;
 
       // For multi-turn tests, show goal; for single-turn, show prompt

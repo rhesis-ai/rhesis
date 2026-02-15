@@ -114,7 +114,7 @@ export default function ModelsPage() {
       const usersClient = apiFactory.getUsersClient();
       const settings = await usersClient.getUserSettings();
       setUserSettings(settings);
-    } catch (err) {}
+    } catch (_err) {}
   };
 
   const validateModel = useCallback(
@@ -132,8 +132,6 @@ export default function ModelsPage() {
         const apiFactory = new ApiClientFactory(session.session_token);
         const modelsClient = apiFactory.getModelsClient();
         const result = await modelsClient.testModelConnection(modelId);
-
-        console.log('[MODEL_VALIDATION] Result:', result);
 
         setModelValidationStatus(prev =>
           new Map(prev).set(modelId, {

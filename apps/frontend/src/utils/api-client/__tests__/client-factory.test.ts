@@ -7,8 +7,6 @@ import { TasksClient } from '../tasks-client';
 import { TestsClient } from '../tests-client';
 import { ProjectsClient } from '../projects-client';
 import { TestRunsClient } from '../test-runs-client';
-import { OrganizationsClient } from '../organizations-client';
-import { UsersClient } from '../users-client';
 
 // Mock all the client classes
 jest.mock('../metrics-client');

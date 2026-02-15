@@ -14,7 +14,6 @@ import {
   Paper,
   CircularProgress,
   Tooltip,
-  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -34,6 +33,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import {
   ConfigChips,
   AnyTestSample,
+  MultiTurnTestSample,
   ChatMessage,
   TestType,
 } from './shared/types';
@@ -80,8 +80,8 @@ export default function TestGenerationInterface({
   testType,
   configChips,
   testSamples,
-  chatMessages,
-  description,
+  chatMessages: _chatMessages,
+  description: _description,
   selectedSources,
   selectedEndpointId,
   onChipToggle,
@@ -174,15 +174,16 @@ export default function TestGenerationInterface({
           existingSample.testType === 'multi_turn' &&
           newSample.testType === 'multi_turn'
         ) {
+          const mergedMultiTurn = merged as MultiTurnTestSample;
           if (existingSample.conversation) {
-            (merged as any).conversation = existingSample.conversation;
+            mergedMultiTurn.conversation = existingSample.conversation;
           }
           if (existingSample.isLoadingConversation) {
-            (merged as any).isLoadingConversation =
+            mergedMultiTurn.isLoadingConversation =
               existingSample.isLoadingConversation;
           }
           if (existingSample.conversationError) {
-            (merged as any).conversationError =
+            mergedMultiTurn.conversationError =
               existingSample.conversationError;
           }
         }
@@ -195,6 +196,8 @@ export default function TestGenerationInterface({
     });
 
     setLocalTestSamples(mergedSamples);
+    // localTestSamples intentionally excluded - adding would cause infinite loop (effect sets it)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testSamples]);
 
   // Load endpoint information when selectedEndpointId changes
@@ -223,7 +226,7 @@ export default function TestGenerationInterface({
             );
             projectName = project.name;
             projectIcon = project.icon;
-          } catch (err) {}
+          } catch (_err) {}
         }
 
         setEndpointInfo({
@@ -232,7 +235,7 @@ export default function TestGenerationInterface({
           environment: endpoint.environment,
           projectIcon,
         });
-      } catch (error) {
+      } catch (_error) {
         setEndpointInfo(null);
       }
     };
@@ -338,14 +341,14 @@ export default function TestGenerationInterface({
               let responseText = '';
               if (typeof response === 'string') {
                 responseText = response;
-              } else if (response?.output) {
-                responseText = response.output;
-              } else if (response?.text) {
-                responseText = response.text;
-              } else if (response?.response) {
-                responseText = response.response;
-              } else if (response?.content) {
-                responseText = response.content;
+              } else if (response?.output != null) {
+                responseText = String(response.output);
+              } else if (response?.text != null) {
+                responseText = String(response.text);
+              } else if (response?.response != null) {
+                responseText = String(response.response);
+              } else if (response?.content != null) {
+                responseText = String(response.content);
               } else {
                 responseText = JSON.stringify(response);
               }
@@ -382,8 +385,11 @@ export default function TestGenerationInterface({
                 executeResponse.test_output &&
                 typeof executeResponse.test_output === 'object'
               ) {
-                conversation =
-                  executeResponse.test_output.conversation_summary || [];
+                conversation = Array.isArray(
+                  executeResponse.test_output.conversation_summary
+                )
+                  ? executeResponse.test_output.conversation_summary
+                  : [];
               }
 
               if (sample.testType === 'multi_turn') {
@@ -556,14 +562,14 @@ export default function TestGenerationInterface({
           let responseText = '';
           if (typeof response === 'string') {
             responseText = response;
-          } else if (response?.output) {
-            responseText = response.output;
-          } else if (response?.text) {
-            responseText = response.text;
-          } else if (response?.response) {
-            responseText = response.response;
-          } else if (response?.content) {
-            responseText = response.content;
+          } else if (response?.output != null) {
+            responseText = String(response.output);
+          } else if (response?.text != null) {
+            responseText = String(response.text);
+          } else if (response?.response != null) {
+            responseText = String(response.response);
+          } else if (response?.content != null) {
+            responseText = String(response.content);
           } else {
             responseText = JSON.stringify(response);
           }
@@ -600,8 +606,11 @@ export default function TestGenerationInterface({
             executeResponse.test_output &&
             typeof executeResponse.test_output === 'object'
           ) {
-            conversation =
-              executeResponse.test_output.conversation_summary || [];
+            conversation = Array.isArray(
+              executeResponse.test_output.conversation_summary
+            )
+              ? executeResponse.test_output.conversation_summary
+              : [];
           }
 
           const newSample = {

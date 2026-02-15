@@ -9,7 +9,7 @@ import React, {
   useRef,
 } from 'react';
 import { useSession } from 'next-auth/react';
-import { driver, Driver } from 'driver.js';
+import { driver, type Driver, type DriveStep } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { OnboardingContextValue, OnboardingProgress } from '@/types/onboarding';
 import {
@@ -197,10 +197,19 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
           // Add completion tracking to steps marked with __markComplete
           const stepWithCompletion = {
             ...step,
-            onHighlighted: (element: Element | undefined, stepObj: any) => {
+            onHighlighted: (
+              element: Element | undefined,
+              stepObj: DriveStep
+            ) => {
               // Mark step complete if it has __markComplete property
-              if ((stepObj as any).__markComplete) {
-                const stepId = (stepObj as any).__markComplete;
+              const stepWithMark = stepObj as DriveStep & {
+                __markComplete?: keyof Omit<
+                  OnboardingProgress,
+                  'dismissed' | 'lastUpdated'
+                >;
+              };
+              if (stepWithMark.__markComplete) {
+                const stepId = stepWithMark.__markComplete;
                 setProgress(prev => {
                   const updated = {
                     ...prev,
@@ -230,7 +239,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
                 ...stepWithCompletion,
                 popover: {
                   ...stepWithCompletion.popover,
-                  onNextClick: (element: Element | undefined) => {
+                  onNextClick: (_element: Element | undefined) => {
                     // Dispatch custom event to open modal (more reliable than clicking disabled button)
                     window.dispatchEvent(new Event('tour-open-test-modal'));
                     setTimeout(() => {
@@ -238,7 +247,10 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
                     }, 400);
                   },
                 },
-                onHighlighted: (element: Element | undefined, stepObj: any) => {
+                onHighlighted: (
+                  element: Element | undefined,
+                  stepObj: DriveStep
+                ) => {
                   // Disable scrolling during first step
                   document.body.style.overflow = 'hidden';
                   // Call original onHighlighted if it exists

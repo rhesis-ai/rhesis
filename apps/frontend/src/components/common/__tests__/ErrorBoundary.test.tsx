@@ -11,7 +11,7 @@ const testTheme = createTheme({
     helperText: {
       fontSize: '0.875rem',
     },
-  } as any,
+  } as unknown as Record<string, unknown>,
 });
 
 // Wrapper with ThemeProvider for components that use custom theme properties

@@ -20,7 +20,7 @@ export class BehaviorClient extends BaseApiClient {
       sort_by = 'created_at',
       sort_order = 'desc',
       $filter,
-      include,
+      include: _include,
     } = params;
 
     // Build query string

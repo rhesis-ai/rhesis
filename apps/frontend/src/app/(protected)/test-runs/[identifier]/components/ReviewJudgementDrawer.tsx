@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -53,7 +53,7 @@ export default function ReviewJudgementDrawer({
   const [submitting, setSubmitting] = useState(false);
 
   // Calculate original test status
-  const getOriginalStatus = (): 'passed' | 'failed' => {
+  const getOriginalStatus = useCallback((): 'passed' | 'failed' => {
     if (!test) return 'failed';
     const metrics = test.test_metrics?.metrics || {};
     const metricValues = Object.values(metrics);
@@ -62,7 +62,7 @@ export default function ReviewJudgementDrawer({
     return totalMetrics > 0 && passedMetrics === totalMetrics
       ? 'passed'
       : 'failed';
-  };
+  }, [test]);
 
   const originalStatus = getOriginalStatus();
 
@@ -79,7 +79,7 @@ export default function ReviewJudgementDrawer({
           entity_type: 'TestResult',
         });
         setStatuses(fetchedStatuses);
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to load status options');
       } finally {
         setLoadingStatuses(false);
@@ -98,7 +98,7 @@ export default function ReviewJudgementDrawer({
       setReason('');
       setError('');
     }
-  }, [open, test]);
+  }, [open, test, getOriginalStatus]);
 
   const handleStatusChange = (
     _event: React.MouseEvent<HTMLElement>,
@@ -171,7 +171,7 @@ export default function ReviewJudgementDrawer({
 
       await onSave(test.id, reviewData);
       onClose();
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to save review. Please try again.');
     } finally {
       setSubmitting(false);

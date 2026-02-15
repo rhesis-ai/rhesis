@@ -52,15 +52,7 @@ export default function SelectMetricsDialog({
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Fetch metrics when dialog opens
-  React.useEffect(() => {
-    if (open) {
-      fetchMetrics();
-      setSearchQuery('');
-    }
-  }, [open]);
-
-  const fetchMetrics = async () => {
+  const fetchMetrics = React.useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -91,7 +83,15 @@ export default function SelectMetricsDialog({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [sessionToken, excludeMetricIds, scopeFilter]);
+
+  // Fetch metrics when dialog opens
+  React.useEffect(() => {
+    if (open) {
+      fetchMetrics();
+      setSearchQuery('');
+    }
+  }, [open, fetchMetrics]);
 
   // Filter metrics based on search query
   React.useEffect(() => {

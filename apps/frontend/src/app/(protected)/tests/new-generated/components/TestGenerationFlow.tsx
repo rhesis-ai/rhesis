@@ -4,6 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { ServicesClient } from '@/utils/api-client/services-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import {
   FlowStep,
@@ -14,7 +15,6 @@ import {
   AnyTestSample,
   ChatMessage,
   TestSetSize,
-  TestTemplate,
   ChipConfig,
   TestType,
 } from './shared/types';
@@ -68,9 +68,37 @@ const singularizeCategoryName = (category: keyof ConfigChips): string => {
   }
 };
 
+// API response types for generated tests
+interface GeneratedMultiTurnTest {
+  test_configuration: {
+    goal: string;
+    instructions: string;
+    restrictions: string;
+    scenario: string;
+  };
+  behavior: string;
+  topic: string;
+  category: string;
+}
+
+interface GeneratedSingleTurnTest {
+  prompt: { content: string; expected_response?: string };
+  behavior: string;
+  topic: string;
+  metadata?: {
+    sources?: Array<{
+      name?: string;
+      source?: string;
+      title?: string;
+      description?: string;
+      content?: string;
+    }>;
+  };
+}
+
 // Helper function to generate samples based on test type
 const generateSamplesForTestType = async (
-  servicesClient: any,
+  servicesClient: ServicesClient,
   testType: TestType,
   activeBehaviors: string[],
   activeTopics: string[],
@@ -92,22 +120,25 @@ const generateSamplesForTestType = async (
 
     if (response.tests?.length) {
       return response.tests.map(
-        (test: any, index: number): MultiTurnTestSample => ({
-          id: `sample-${Date.now()}-${index}`,
-          testType: 'multi_turn',
-          prompt: {
-            goal: test.test_configuration.goal,
-            instructions: test.test_configuration.instructions,
-            restrictions: test.test_configuration.restrictions,
-            scenario: test.test_configuration.scenario,
-          },
-          behavior: test.behavior,
-          topic: test.topic,
-          category: test.category,
-          rating: null,
-          feedback: '',
-          context: [],
-        })
+        (test: unknown, index: number): MultiTurnTestSample => {
+          const t = test as GeneratedMultiTurnTest;
+          return {
+            id: `sample-${Date.now()}-${index}`,
+            testType: 'multi_turn',
+            prompt: {
+              goal: t.test_configuration.goal,
+              instructions: t.test_configuration.instructions,
+              restrictions: t.test_configuration.restrictions,
+              scenario: t.test_configuration.scenario,
+            },
+            behavior: t.behavior,
+            topic: t.topic,
+            category: t.category,
+            rating: null,
+            feedback: '',
+            context: [],
+          };
+        }
       );
     }
   } else {
@@ -133,25 +164,26 @@ const generateSamplesForTestType = async (
     });
 
     if (response.tests?.length) {
-      return response.tests.map(
-        (test: any, index: number): TestSample => ({
+      return response.tests.map((test: unknown, index: number): TestSample => {
+        const t = test as GeneratedSingleTurnTest;
+        return {
           id: `sample-${Date.now()}-${index}`,
           testType: 'single_turn',
-          prompt: test.prompt.content,
-          response: test.prompt.expected_response,
-          behavior: test.behavior,
-          topic: test.topic,
+          prompt: t.prompt.content,
+          response: t.prompt.expected_response,
+          behavior: t.behavior,
+          topic: t.topic,
           rating: null,
           feedback: '',
-          context: test.metadata?.sources
-            ?.map((source: any) => ({
+          context: t.metadata?.sources
+            ?.map(source => ({
               name: source.name || source.source || source.title || '',
               description: source.description || '',
               content: source.content || '',
             }))
-            .filter((src: any) => src.name && src.name.trim().length > 0),
-        })
-      );
+            .filter(src => src.name && src.name.trim().length > 0),
+        };
+      });
     }
   }
 
@@ -186,7 +218,7 @@ export default function TestGenerationFlow({
   const [mode, setMode] = useState<GenerationMode | null>(
     hasTemplate ? 'template' : 'ai'
   );
-  const [testType, setTestType] = useState<TestType>(
+  const [testType, _setTestType] = useState<TestType>(
     storedTestType || 'single_turn'
   );
 
@@ -255,7 +287,7 @@ export default function TestGenerationFlow({
               if (!items || !Array.isArray(items)) {
                 return [];
               }
-              return items.map((item, index) => ({
+              return items.map((item, _index) => ({
                 id: item.name.toLowerCase().replace(/\s+/g, '-'),
                 label: item.name,
                 description: item.description,
@@ -322,6 +354,8 @@ export default function TestGenerationFlow({
     };
 
     initializeFromTemplate();
+    // selectedProjectId, selectedSources, testType intentionally excluded - template init runs once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionToken, show, project]);
 
   // Input Screen Handler
@@ -344,7 +378,7 @@ export default function TestGenerationFlow({
       try {
         apiFactory = new ApiClientFactory(sessionToken);
         servicesClient = apiFactory.getServicesClient();
-      } catch (error) {
+      } catch (_error) {
         setIsLoadingConfig(false);
         setIsLoadingSamples(false);
         show('Failed to initialize services', { severity: 'error' });
@@ -368,7 +402,7 @@ export default function TestGenerationFlow({
           const fetchedProject = await projectsClient.getProject(projectId);
           setProject(fetchedProject);
           latestProject = fetchedProject;
-        } catch (error) {
+        } catch (_error) {
           show(`Failed to load project`, { severity: 'warning' });
         }
       } else {
@@ -446,8 +480,8 @@ export default function TestGenerationFlow({
           );
 
           setTestSamples(newSamples);
-        } catch (error) {
-          show(getApiErrorMessage(error, 'Failed to generate test samples'), {
+        } catch (_error) {
+          show(getApiErrorMessage(_error, 'Failed to generate test samples'), {
             severity: 'error',
           });
         } finally {
@@ -461,7 +495,7 @@ export default function TestGenerationFlow({
         setIsLoadingSamples(false);
       }
     },
-    [sessionToken, project, show]
+    [sessionToken, project, show, testType]
   );
 
   // Generate test samples
@@ -496,7 +530,7 @@ export default function TestGenerationFlow({
 
       setTestSamples(newSamples);
       show('Samples regenerated successfully', { severity: 'success' });
-    } catch (error) {
+    } catch (_error) {
       show('Failed to regenerate samples', { severity: 'error' });
     } finally {
       setIsLoadingSamples(false);
@@ -566,22 +600,23 @@ export default function TestGenerationFlow({
           });
 
           if (response.tests?.length) {
+            const t = response.tests[0] as GeneratedSingleTurnTest;
             const newSample: TestSample = {
               id: `sample-${Date.now()}-regenerated`,
               testType: 'single_turn',
-              prompt: response.tests[0].prompt.content,
-              response: response.tests[0].prompt.expected_response,
-              behavior: response.tests[0].behavior,
-              topic: response.tests[0].topic,
+              prompt: t?.prompt?.content || '',
+              response: t?.prompt?.expected_response || '',
+              behavior: t?.behavior || '',
+              topic: t?.topic || '',
               rating: null,
               feedback: '',
-              context: response.tests[0].metadata?.sources
-                ?.map((source: any) => ({
+              context: t?.metadata?.sources
+                ?.map(source => ({
                   name: source.name || source.source || source.title || '',
                   description: source.description || '',
                   content: source.content || '',
                 }))
-                .filter((src: any) => src.name && src.name.trim().length > 0),
+                .filter(src => src.name && src.name.trim().length > 0),
             };
 
             setTestSamples(prev =>
@@ -610,7 +645,7 @@ export default function TestGenerationFlow({
         }
 
         show('Sample regenerated successfully', { severity: 'success' });
-      } catch (error) {
+      } catch (_error) {
         show('Failed to regenerate sample', { severity: 'error' });
       } finally {
         setRegeneratingSampleId(null);
@@ -705,7 +740,7 @@ export default function TestGenerationFlow({
         // Build complete iteration context
 
         // 1. Collect all rated samples with feedback
-        const ratedSamples = testSamples
+        const _ratedSamples = testSamples
           .filter(sample => sample.rating !== null)
           .map(sample => ({
             prompt: sample.prompt,
@@ -813,8 +848,8 @@ export default function TestGenerationFlow({
 
           show('Test generation refined successfully', { severity: 'success' });
         }
-      } catch (error) {
-        show(getApiErrorMessage(error, 'Failed to refine test generation'), {
+      } catch (_error) {
+        show(getApiErrorMessage(_error, 'Failed to refine test generation'), {
           severity: 'error',
         });
       } finally {
@@ -824,12 +859,14 @@ export default function TestGenerationFlow({
     [
       sessionToken,
       description,
-      selectedSourceIds,
+      selectedProjectId,
+      selectedSources,
       project,
       show,
       configChips,
       testSamples,
       chatMessages,
+      testType,
     ]
   );
 
@@ -881,7 +918,7 @@ export default function TestGenerationFlow({
       );
 
       setTestSamples(prev => [...prev, ...newSamples]);
-    } catch (error) {
+    } catch (_error) {
       show('Failed to load more samples', { severity: 'error' });
     } finally {
       setIsLoadingMore(false);
@@ -970,7 +1007,7 @@ export default function TestGenerationFlow({
       }
 
       setTimeout(() => router.push('/tests'), 2000);
-    } catch (error) {
+    } catch (_error) {
       show('Failed to start test generation. Please try again.', {
         severity: 'error',
       });

@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Box,
-  Grid,
   Paper,
   useTheme,
   TablePagination,
@@ -302,7 +301,7 @@ export default function TestRunMainView({
       notifications.show('Test run results downloaded successfully', {
         severity: 'success',
       });
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to download test run results', {
         severity: 'error',
       });
@@ -363,7 +362,7 @@ export default function TestRunMainView({
       });
       setRenameDialogOpen(false);
       router.refresh();
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to rename test run', {
         severity: 'error',
       });
@@ -399,11 +398,11 @@ export default function TestRunMainView({
       ).getTestRunsClient();
 
       // Use OData filter to get all test runs for the same test set
-      const params: any = {
+      const params = {
         limit: 50,
         skip: 0,
-        sort_by: 'created_at',
-        sort_order: 'desc',
+        sort_by: 'created_at' as const,
+        sort_order: 'desc' as const,
         filter: `test_configuration/test_set/id eq '${testSetId}'`,
       };
 
@@ -415,13 +414,18 @@ export default function TestRunMainView({
         .map(run => ({
           id: run.id,
           name: run.name,
-          created_at: run.attributes?.started_at || run.created_at || '',
+          created_at:
+            (typeof run.attributes?.started_at === 'string'
+              ? run.attributes.started_at
+              : null) ||
+            (typeof run.created_at === 'string' ? run.created_at : '') ||
+            '',
           pass_rate: undefined, // Will be calculated from test results if needed
         }));
 
       setAvailableTestRuns(runs);
       return runs;
-    } catch (error) {
+    } catch (_error) {
       setAvailableTestRuns([]);
       return [];
     }
@@ -474,7 +478,7 @@ export default function TestRunMainView({
         }
 
         return testResults;
-      } catch (error) {
+      } catch (_error) {
         notifications.show('Failed to load baseline test results', {
           severity: 'error',
         });

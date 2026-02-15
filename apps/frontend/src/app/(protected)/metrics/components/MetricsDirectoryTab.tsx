@@ -26,11 +26,6 @@ import ClearAllIcon from '@mui/icons-material/ClearAll';
 import ListIcon from '@mui/icons-material/List';
 import TuneIcon from '@mui/icons-material/Tune';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogActions from '@mui/material/DialogActions';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
@@ -68,7 +63,7 @@ interface FilterOptions {
 
 interface BehaviorMetrics {
   [behaviorId: string]: {
-    metrics: MetricDetail[] | any[];
+    metrics: MetricDetail[];
     isLoading: boolean;
     error: string | null;
   };
@@ -109,14 +104,14 @@ function isValidMetricType(
 
 export default function MetricsDirectoryTab({
   sessionToken,
-  organizationId,
+  organizationId: _organizationId,
   behaviors,
   metrics,
   filters,
   filterOptions,
   isLoading,
   error,
-  onRefresh,
+  onRefresh: _onRefresh,
   setFilters,
   setMetrics,
   setBehaviorMetrics,
@@ -227,18 +222,21 @@ export default function MetricsDirectoryTab({
           ));
 
       // Behavior filter
+      const behaviors = metric.behaviors;
       const behaviorMatch =
         !filters.behavior ||
         filters.behavior.length === 0 ||
-        (metric.behaviors &&
-          Array.isArray(metric.behaviors) &&
-          metric.behaviors.length > 0 &&
+        (behaviors &&
+          Array.isArray(behaviors) &&
+          behaviors.length > 0 &&
           filters.behavior.some(behaviorId => {
             // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
-            if (typeof metric.behaviors![0] === 'string') {
-              return (metric.behaviors as string[]).includes(behaviorId);
+            if (typeof behaviors[0] === 'string') {
+              return (behaviors as string[]).includes(behaviorId);
             } else {
-              return metric.behaviors!.some((b: any) => b.id === behaviorId);
+              return behaviors.some(
+                (b: { id?: string }) => b.id === behaviorId
+              );
             }
           }));
 
@@ -347,7 +345,10 @@ export default function MetricsDirectoryTab({
             behavior.id === behaviorId
               ? {
                   ...behavior,
-                  metrics: [...(behavior.metrics || []), targetMetric as any],
+                  metrics: [
+                    ...(behavior.metrics || []),
+                    targetMetric as MetricDetail,
+                  ],
                 }
               : behavior
           )
@@ -358,7 +359,7 @@ export default function MetricsDirectoryTab({
         severity: 'success',
         autoHideDuration: 4000,
       });
-    } catch (err) {
+    } catch (_err) {
       notifications.show('Failed to assign metric to behavior', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -367,7 +368,7 @@ export default function MetricsDirectoryTab({
   };
 
   // Function to remove a metric from a behavior
-  const handleRemoveMetricFromBehavior = async (
+  const _handleRemoveMetricFromBehavior = async (
     behaviorId: string,
     metricId: string
   ) => {
@@ -430,7 +431,7 @@ export default function MetricsDirectoryTab({
         severity: 'success',
         autoHideDuration: 4000,
       });
-    } catch (err) {
+    } catch (_err) {
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',
         autoHideDuration: 4000,
@@ -476,7 +477,7 @@ export default function MetricsDirectoryTab({
         severity: 'success',
         autoHideDuration: 4000,
       });
-    } catch (err) {
+    } catch (_err) {
       notifications.show('Failed to delete metric', {
         severity: 'error',
         autoHideDuration: 4000,

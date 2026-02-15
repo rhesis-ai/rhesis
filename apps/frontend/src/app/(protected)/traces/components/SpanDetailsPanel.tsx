@@ -84,10 +84,10 @@ export default function SpanDetailsPanel({
   }
 
   // Categorize attributes
-  const llmAttributes: Record<string, any> = {};
-  const functionAttributes: Record<string, any> = {};
-  const testAttributes: Record<string, any> = {};
-  const otherAttributes: Record<string, any> = {};
+  const llmAttributes: Record<string, unknown> = {};
+  const functionAttributes: Record<string, unknown> = {};
+  const testAttributes: Record<string, unknown> = {};
+  const otherAttributes: Record<string, unknown> = {};
 
   Object.entries(span.attributes).forEach(([key, value]) => {
     if (key.startsWith('ai.') || key.startsWith('llm.')) {
@@ -109,7 +109,7 @@ export default function SpanDetailsPanel({
     functionAttributes['function.result_preview'];
 
   // Parse JSON if needed
-  const parseIfJSON = (value: any) => {
+  const parseIfJSON = (value: unknown) => {
     if (
       typeof value === 'string' &&
       (value.startsWith('[') || value.startsWith('{'))
@@ -137,17 +137,13 @@ export default function SpanDetailsPanel({
   } = functionAttributes;
 
   // Extract LLM input/output from events (ai.prompt and ai.completion)
-  const llmPromptEvents = span.events?.filter(
-    (e: any) => e.name === 'ai.prompt'
-  );
-  const llmCompletionEvent = span.events?.find(
-    (e: any) => e.name === 'ai.completion'
-  );
+  const llmPromptEvents = span.events?.filter(e => e.name === 'ai.prompt');
+  const llmCompletionEvent = span.events?.find(e => e.name === 'ai.completion');
 
   // Build LLM input from prompt events (can have multiple messages)
   const llmInput =
     llmPromptEvents && llmPromptEvents.length > 0
-      ? llmPromptEvents.map((e: any) => ({
+      ? llmPromptEvents.map(e => ({
           role: e.attributes?.['ai.prompt.role'],
           content: e.attributes?.['ai.prompt.content'],
         }))
@@ -156,33 +152,25 @@ export default function SpanDetailsPanel({
     llmCompletionEvent?.attributes?.['ai.completion.content'] || null;
 
   const parsedLlmInput = llmInput;
-  const parsedLlmOutput = llmOutput ? parseIfJSON(llmOutput) : null;
+  const parsedLlmOutput = llmOutput ? parseIfJSON(String(llmOutput)) : null;
 
   // Extract tool input/output from events (ai.tool.input and ai.tool.output)
-  const toolInputEvent = span.events?.find(
-    (e: any) => e.name === 'ai.tool.input'
-  );
-  const toolOutputEvent = span.events?.find(
-    (e: any) => e.name === 'ai.tool.output'
-  );
+  const toolInputEvent = span.events?.find(e => e.name === 'ai.tool.input');
+  const toolOutputEvent = span.events?.find(e => e.name === 'ai.tool.output');
 
   const toolInput = toolInputEvent?.attributes?.['ai.tool.input'] || null;
   const toolOutput = toolOutputEvent?.attributes?.['ai.tool.output'] || null;
 
-  const parsedToolInput = toolInput ? parseIfJSON(toolInput) : null;
-  const parsedToolOutput = toolOutput ? parseIfJSON(toolOutput) : null;
+  const parsedToolInput = toolInput ? parseIfJSON(String(toolInput)) : null;
+  const parsedToolOutput = toolOutput ? parseIfJSON(String(toolOutput)) : null;
 
   // Extract agent input/output from attributes
   const agentInputAttr = llmAttributes['ai.agent.input'];
   const agentOutputAttr = llmAttributes['ai.agent.output'];
 
   // Extract agent input/output from events
-  const agentInputEvent = span.events?.find(
-    (e: any) => e.name === 'ai.agent.input'
-  );
-  const agentOutputEvent = span.events?.find(
-    (e: any) => e.name === 'ai.agent.output'
-  );
+  const agentInputEvent = span.events?.find(e => e.name === 'ai.agent.input');
+  const agentOutputEvent = span.events?.find(e => e.name === 'ai.agent.output');
 
   // Get agent input/output values (prefer attributes, fallback to events)
   const agentInput =
@@ -192,8 +180,10 @@ export default function SpanDetailsPanel({
     agentOutputEvent?.attributes?.['ai.agent.output'] ||
     null;
 
-  const parsedAgentInput = agentInput ? parseIfJSON(agentInput) : null;
-  const parsedAgentOutput = agentOutput ? parseIfJSON(agentOutput) : null;
+  const parsedAgentInput = agentInput ? parseIfJSON(String(agentInput)) : null;
+  const parsedAgentOutput = agentOutput
+    ? parseIfJSON(String(agentOutput))
+    : null;
 
   // Filter out agent I/O from LLM attributes (displayed separately)
   const {
@@ -530,64 +520,72 @@ export default function SpanDetailsPanel({
                         Input
                       </Typography>
                       <Stack spacing={1}>
-                        {parsedLlmInput.map((msg: any, idx: number) => {
-                          // Create stable key from role and content
-                          const msgKey = `${msg.role}-${idx}-${(msg.content || '').substring(0, 20)}`;
-                          return (
-                            <Box
-                              key={msgKey}
-                              sx={{
-                                p: 1.5,
-                                backgroundColor: theme =>
-                                  theme.palette.mode === 'dark'
-                                    ? theme.palette.grey[800]
-                                    : theme.palette.grey[100],
-                                borderRadius: theme =>
-                                  `${theme.shape.borderRadius}px`,
-                                borderLeft: theme =>
-                                  `3px solid ${
-                                    msg.role === 'system'
-                                      ? theme.palette.warning.main
-                                      : msg.role === 'user'
-                                        ? theme.palette.primary.main
-                                        : theme.palette.success.main
-                                  }`,
-                              }}
-                            >
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  fontWeight: 'bold',
-                                  textTransform: 'uppercase',
-                                  color: theme =>
-                                    msg.role === 'system'
-                                      ? theme.palette.warning.main
-                                      : msg.role === 'user'
-                                        ? theme.palette.primary.main
-                                        : theme.palette.success.main,
-                                }}
-                              >
-                                {msg.role || 'unknown'}
-                              </Typography>
+                        {parsedLlmInput.map(
+                          (
+                            msg: {
+                              role?: string | number | boolean;
+                              content?: string | number | boolean;
+                            },
+                            idx: number
+                          ) => {
+                            // Create stable key from role and content
+                            const msgKey = `${msg.role}-${idx}-${String(msg.content || '').substring(0, 20)}`;
+                            return (
                               <Box
-                                component="pre"
+                                key={msgKey}
                                 sx={{
-                                  mt: 0.5,
-                                  fontSize: theme =>
-                                    theme.typography.body2.fontSize,
-                                  fontFamily: 'monospace',
-                                  margin: 0,
-                                  whiteSpace: 'pre-wrap',
-                                  wordBreak: 'break-word',
+                                  p: 1.5,
+                                  backgroundColor: theme =>
+                                    theme.palette.mode === 'dark'
+                                      ? theme.palette.grey[800]
+                                      : theme.palette.grey[100],
+                                  borderRadius: theme =>
+                                    `${theme.shape.borderRadius}px`,
+                                  borderLeft: theme =>
+                                    `3px solid ${
+                                      msg.role === 'system'
+                                        ? theme.palette.warning.main
+                                        : msg.role === 'user'
+                                          ? theme.palette.primary.main
+                                          : theme.palette.success.main
+                                    }`,
                                 }}
                               >
-                                {typeof msg.content === 'string'
-                                  ? msg.content
-                                  : JSON.stringify(msg.content, null, 2)}
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    fontWeight: 'bold',
+                                    textTransform: 'uppercase',
+                                    color: theme =>
+                                      msg.role === 'system'
+                                        ? theme.palette.warning.main
+                                        : msg.role === 'user'
+                                          ? theme.palette.primary.main
+                                          : theme.palette.success.main,
+                                  }}
+                                >
+                                  {msg.role || 'unknown'}
+                                </Typography>
+                                <Box
+                                  component="pre"
+                                  sx={{
+                                    mt: 0.5,
+                                    fontSize: theme =>
+                                      theme.typography.body2.fontSize,
+                                    fontFamily: 'monospace',
+                                    margin: 0,
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                  }}
+                                >
+                                  {typeof msg.content === 'string'
+                                    ? msg.content
+                                    : JSON.stringify(msg.content, null, 2)}
+                                </Box>
                               </Box>
-                            </Box>
-                          );
-                        })}
+                            );
+                          }
+                        )}
                       </Stack>
                     </Box>
                   )}
@@ -973,7 +971,11 @@ export default function SpanDetailsPanel({
   );
 }
 
-function AttributesTable({ attributes }: { attributes: Record<string, any> }) {
+function AttributesTable({
+  attributes,
+}: {
+  attributes: Record<string, unknown>;
+}) {
   return (
     <Table size="small">
       <TableBody>

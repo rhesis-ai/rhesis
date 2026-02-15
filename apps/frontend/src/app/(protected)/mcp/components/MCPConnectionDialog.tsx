@@ -125,7 +125,7 @@ export function MCPConnectionDialog({
 }: MCPConnectionDialogProps) {
   const theme = useTheme();
   const { data: session } = useSession();
-  const notifications = useNotifications();
+  const _notifications = useNotifications();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [authToken, setAuthToken] = useState('');
@@ -141,7 +141,7 @@ export function MCPConnectionDialog({
     message: string;
     additional_metadata?: {
       spaces?: Array<{ key: string; name: string }>;
-      [key: string]: any;
+      [key: string]: unknown;
     };
   } | null>(null);
   const [connectionTested, setConnectionTested] = useState(false);
@@ -303,7 +303,7 @@ export function MCPConnectionDialog({
 
   const validateToolMetadata = (
     jsonString: string
-  ): Record<string, any> | null => {
+  ): Record<string, unknown> | null => {
     if (!jsonString.trim()) {
       return null; // Empty is valid (optional field)
     }
@@ -401,13 +401,13 @@ export function MCPConnectionDialog({
         tool_id?: string;
         provider_type_id?: string;
         credentials?: Record<string, string>;
-        tool_metadata?: Record<string, any>;
+        tool_metadata?: Record<string, unknown>;
       };
 
-      if (isEditMode) {
+      if (isEditMode && tool?.id) {
         // In edit mode, use existing tool ID
         testRequest = {
-          tool_id: tool!.id,
+          tool_id: tool.id,
         };
       } else {
         // In create mode, use direct parameters
@@ -419,7 +419,7 @@ export function MCPConnectionDialog({
 
         const credentialKey = getCredentialKey(provider.type_value);
         let credentials: Record<string, string> = {};
-        let parsedMetadata: Record<string, any> | undefined = undefined;
+        let parsedMetadata: Record<string, unknown> | undefined = undefined;
 
         // Handle Jira credentials
         if (provider.type_value === 'jira') {
@@ -604,7 +604,7 @@ export function MCPConnectionDialog({
         }
 
         // Include tool_metadata if it was provided
-        let metadataToUpdate: Record<string, any> | undefined = undefined;
+        let metadataToUpdate: Record<string, unknown> | undefined = undefined;
 
         // For non-Jira/Confluence providers, handle metadata
         if (toolMetadata.trim()) {
@@ -713,7 +713,7 @@ export function MCPConnectionDialog({
 
           // Build credentials based on provider type
           let credentials: Record<string, string> = {};
-          let parsedMetadata: Record<string, any> | undefined = undefined;
+          let parsedMetadata: Record<string, unknown> | undefined = undefined;
 
           // Handle Jira credentials
           if (provider.type_value === 'jira') {
@@ -905,7 +905,7 @@ export function MCPConnectionDialog({
                       required={!isEditMode}
                       value={instanceUrl}
                       onChange={e => setInstanceUrl(e.target.value)}
-                      onFocus={e => {
+                      onFocus={_e => {
                         // Clear placeholder when user clicks on field in edit mode
                         if (isEditMode && instanceUrl === '************') {
                           setInstanceUrl('');
@@ -930,7 +930,7 @@ export function MCPConnectionDialog({
                       required={!isEditMode}
                       value={username}
                       onChange={e => setUsername(e.target.value)}
-                      onFocus={e => {
+                      onFocus={_e => {
                         // Clear placeholder when user clicks on field in edit mode
                         if (isEditMode && username === '************') {
                           setUsername('');
@@ -958,7 +958,7 @@ export function MCPConnectionDialog({
                   type={showAuthToken ? 'text' : 'password'}
                   value={authToken}
                   onChange={e => setAuthToken(e.target.value)}
-                  onFocus={e => {
+                  onFocus={_e => {
                     // Clear placeholder when user clicks on field in edit mode
                     if (isEditMode && authToken === '************') {
                       setAuthToken('');

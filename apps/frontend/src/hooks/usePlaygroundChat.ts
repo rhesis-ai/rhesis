@@ -111,19 +111,11 @@ export function usePlaygroundChat(
     const unsubscribeResponse = subscribe(
       EventType.CHAT_RESPONSE,
       (msg: WebSocketMessage) => {
-        // Debug logging for chat response
-        console.log('[usePlaygroundChat] Received CHAT_RESPONSE:', {
-          fullMessage: msg,
-          payload: msg.payload,
-          correlationId: msg.correlation_id,
-          pendingCorrelation: pendingCorrelationRef.current,
-        });
-
         const payload = msg.payload as unknown as ChatResponsePayload;
         const correlationId = msg.correlation_id;
 
         // Debug: log extracted values
-        console.log('[usePlaygroundChat] Extracted from payload:', {
+        console.warn('[usePlaygroundChat] Extracted from payload:', {
           output: payload?.output?.substring?.(0, 100) || payload?.output,
           trace_id: payload?.trace_id,
           conversation_id: payload?.conversation_id,
@@ -150,12 +142,6 @@ export function usePlaygroundChat(
             traceId: payload?.trace_id,
             timestamp: new Date(),
           };
-
-          console.log('[usePlaygroundChat] Created assistant message:', {
-            id: assistantMessage.id,
-            hasTraceId: !!assistantMessage.traceId,
-            traceId: assistantMessage.traceId,
-          });
 
           setMessages(prev => [...prev, assistantMessage]);
         }

@@ -1,13 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import {
   Box,
   Button,
   TextField,
   Typography,
   IconButton,
-  Paper,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -39,7 +37,7 @@ export default function TokenDisplay({
           severity: 'success',
         });
       }
-    } catch (err) {
+    } catch (_err) {
       notifications.show('Failed to copy token to clipboard', {
         severity: 'error',
       });

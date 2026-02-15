@@ -6,7 +6,7 @@ import { Box, Typography, CircularProgress } from '@mui/material';
 import { handleClientSignOut } from '@/utils/client-auth';
 
 export default function SignOut() {
-  const searchParams = useSearchParams();
+  const _searchParams = useSearchParams();
 
   useEffect(() => {
     handleClientSignOut();

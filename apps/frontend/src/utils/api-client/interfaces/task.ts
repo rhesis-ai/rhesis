@@ -1,3 +1,9 @@
+/** Known fields in task_metadata - extensible via index signature */
+export interface TaskMetadata {
+  space_key?: string;
+  [key: string]: unknown;
+}
+
 export interface Task {
   id: string;
   nano_id?: string;
@@ -10,7 +16,7 @@ export interface Task {
   entity_id?: string;
   entity_type?: string;
   completed_at?: string;
-  task_metadata?: Record<string, any>;
+  task_metadata?: TaskMetadata;
   total_comments?: number;
   organization_id?: string;
   tags?: Tag[];
@@ -33,7 +39,7 @@ export interface TaskCreate {
   entity_id?: string;
   entity_type?: string;
   completed_at?: string;
-  task_metadata?: Record<string, any>;
+  task_metadata?: TaskMetadata;
 }
 
 export interface TaskUpdate {
@@ -45,7 +51,7 @@ export interface TaskUpdate {
   entity_id?: string;
   entity_type?: string;
   completed_at?: string;
-  task_metadata?: Record<string, any>;
+  task_metadata?: TaskMetadata;
 }
 
 export interface TasksQueryParams {

@@ -78,11 +78,11 @@ interface TracesClientWrapperProps {
 export default function TracesClientWrapper({
   sessionToken,
 }: TracesClientWrapperProps) {
-  const [refreshKey, setRefreshKey] = useState(0);
-  const notifications = useNotifications();
+  const [refreshKey, _setRefreshKey] = useState(0);
+  const _notifications = useNotifications();
 
-  const handleRefresh = React.useCallback(() => {
-    setRefreshKey(prev => prev + 1);
+  const _handleRefresh = React.useCallback(() => {
+    _setRefreshKey(prev => prev + 1);
   }, []);
 
   // Show error state if no session token

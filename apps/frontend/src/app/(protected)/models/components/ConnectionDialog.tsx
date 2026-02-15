@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Paper,
   Typography,
   Button,
   Dialog,
@@ -23,9 +22,12 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import { DeleteIcon, AddIcon } from '@/components/icons';
 import { useSession } from 'next-auth/react';
-import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
+import {
+  Model,
+  ModelCreate,
+  type TestModelConnectionRequest,
+} from '@/utils/api-client/interfaces/model';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { UUID } from 'crypto';
@@ -197,7 +199,7 @@ export function ConnectionDialog({
           );
         }
         setAvailableModels(models);
-      } catch (err) {
+      } catch (_err) {
         // Silently fail - user can still manually enter model name
         setAvailableModels([]);
       } finally {
@@ -217,7 +219,7 @@ export function ConnectionDialog({
     try {
       const apiFactory = new ApiClientFactory(session.session_token);
       const usersClient = apiFactory.getUsersClient();
-      const updates: any = {
+      const updates: { models: Record<string, { model_id: string | null }> } = {
         models: {},
       };
 
@@ -253,7 +255,7 @@ export function ConnectionDialog({
           await onUserSettingsUpdate();
         }
       }
-    } catch (err) {
+    } catch (_err) {
       // Don't throw - we don't want to block model creation/update if settings fail
     }
   };
@@ -307,7 +309,7 @@ export function ConnectionDialog({
       const apiFactory = new ApiClientFactory(session.session_token);
       const modelsClient = apiFactory.getModelsClient();
 
-      const requestBody: any = {
+      const requestBody: TestModelConnectionRequest = {
         provider: currentProvider.type_value,
         model_name: modelName,
         api_key: apiKey && apiKey !== '************' ? apiKey : '', // Always include api_key field, empty string for local providers
@@ -431,19 +433,19 @@ export function ConnectionDialog({
         (isLocalProvider || apiKey) &&
         (!requiresEndpoint || endpoint);
 
-      if (isValid && onConnect) {
+      if (isValid && onConnect && provider) {
         setLoading(true);
         setError(null);
         try {
           const modelData: ModelCreate = {
             name,
-            description: `${isCustomProvider ? providerName : provider!.description} Connection`,
-            icon: provider!.type_value,
+            description: `${isCustomProvider ? providerName : provider.description} Connection`,
+            icon: provider.type_value,
             model_name: modelName,
             model_type: modelType,
             key: apiKey || '', // Empty string for local providers without API key
-            tags: [provider!.type_value],
-            provider_type_id: provider!.id,
+            tags: [provider.type_value],
+            provider_type_id: provider.id,
           };
 
           // Only include endpoint if it's required and has a value
@@ -451,7 +453,7 @@ export function ConnectionDialog({
             modelData.endpoint = endpoint.trim();
           }
 
-          const createdModel = await onConnect(provider!.type_value, modelData);
+          const createdModel = await onConnect(provider.type_value, modelData);
           // Update user settings for default models
           await updateUserSettingsDefaults(createdModel.id);
           // Don't reset loading state - let dialog close with "Connecting..." text
@@ -636,7 +638,7 @@ export function ConnectionDialog({
                       type={showApiKey ? 'text' : 'password'}
                       value={apiKey}
                       onChange={e => setApiKey(e.target.value)}
-                      onFocus={e => {
+                      onFocus={_e => {
                         // Clear placeholder when user clicks on field in edit mode
                         if (isEditMode && apiKey === '************') {
                           setApiKey('');

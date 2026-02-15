@@ -3,10 +3,11 @@ import { Metadata } from 'next';
 import { PageContainer } from '@toolpad/core/PageContainer';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { UUID } from 'crypto';
 import TestRunMainView from './components/TestRunMainViewClient';
 
-interface PageProps {
+interface _PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
@@ -33,8 +34,8 @@ export default async function TestRunPage({
   params,
   searchParams,
 }: {
-  params: any;
-  searchParams: any;
+  params: Promise<{ identifier: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   // Ensure params and searchParams are properly awaited
   const resolvedParams = await Promise.resolve(params);
@@ -60,7 +61,7 @@ export default async function TestRunPage({
 
   // Fetch all test results for this test run in batches (API limit is 100)
   // The backend now includes nested prompt and behavior objects, eliminating the need for separate API calls
-  let testResults: any[] = [];
+  let testResults: TestResultDetail[] = [];
   let skip = 0;
   const batchSize = 100;
   let hasMore = true;
@@ -103,27 +104,48 @@ export default async function TestRunPage({
       }
       return acc;
     },
-    {} as Record<string, any>
+    {} as Record<
+      string,
+      {
+        id: string;
+        content: string;
+        expected_response?: string;
+        nano_id?: string;
+        counts?: unknown;
+      }
+    >
   );
 
   // Fetch behaviors with metrics for this test run
-  let behaviors: any[] = [];
+  let behaviors: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    metrics: Array<{ name: string; description?: string }>;
+  }> = [];
   try {
     const behaviorsData = await testRunsClient.getTestRunBehaviors(identifier);
     const behaviorsWithMetrics = await Promise.all(
       behaviorsData.map(async behavior => {
         try {
-          const behaviorMetrics = await (
-            behaviorClient as any
-          ).getBehaviorMetrics(behavior.id as UUID);
+          const behaviorMetrics = await behaviorClient.getBehaviorMetrics(
+            behavior.id as UUID
+          );
           return {
-            ...behavior,
-            metrics: behaviorMetrics,
+            id: behavior.id as string,
+            name: behavior.name,
+            description: behavior.description ?? undefined,
+            metrics: behaviorMetrics.map(m => ({
+              name: m.name,
+              description: m.description ?? undefined,
+            })),
           };
-        } catch (error) {
+        } catch (_error) {
           return {
-            ...behavior,
-            metrics: [],
+            id: behavior.id as string,
+            name: behavior.name,
+            description: behavior.description ?? undefined,
+            metrics: [] as Array<{ name: string; description?: string }>,
           };
         }
       })
@@ -132,7 +154,7 @@ export default async function TestRunPage({
     behaviors = behaviorsWithMetrics.filter(
       behavior => behavior.metrics.length > 0
     );
-  } catch (error) {
+  } catch (_error) {
     behaviors = [];
   }
 
@@ -154,7 +176,11 @@ export default async function TestRunPage({
             id: testRun.id,
             name: testRun.name,
             created_at:
-              testRun.attributes?.started_at || testRun.created_at || '',
+              (typeof testRun.attributes?.started_at === 'string'
+                ? testRun.attributes.started_at
+                : null) ||
+              testRun.created_at ||
+              '',
             test_configuration_id: testRun.test_configuration_id,
           }}
           testRun={testRun}
@@ -165,7 +191,9 @@ export default async function TestRunPage({
           currentUserId={session.user?.id || ''}
           currentUserName={session.user?.name || ''}
           currentUserPicture={session.user?.picture || undefined}
-          initialSelectedTestId={selectedResult}
+          initialSelectedTestId={
+            typeof selectedResult === 'string' ? selectedResult : undefined
+          }
         />
       </Box>
     </PageContainer>

@@ -134,7 +134,7 @@ export class ErrorBoundary extends React.Component<
 // Hook version for functional components
 export function useErrorHandler() {
   return React.useCallback(
-    (error: Error, errorInfo?: { componentStack?: string }) => {},
+    (_error: Error, _errorInfo?: { componentStack?: string }) => {},
     []
   );
 }

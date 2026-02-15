@@ -72,7 +72,11 @@ export default function TestDetailHistoryTab({
         // Get unique test run IDs to fetch their names
         const testRunIds = [
           ...new Set(
-            results.data.filter(r => r.test_run_id).map(r => r.test_run_id!)
+            results.data
+              .filter(
+                (r): r is typeof r & { test_run_id: string } => !!r.test_run_id
+              )
+              .map(r => r.test_run_id)
           ),
         ];
 
@@ -144,7 +148,7 @@ export default function TestDetailHistoryTab({
 
         setHistory(dedupedHistory);
         setError(null);
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to load test history');
       } finally {
         setLoading(false);

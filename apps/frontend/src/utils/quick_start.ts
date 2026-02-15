@@ -36,10 +36,6 @@ export function isQuickStartEnabled(hostname?: string): boolean {
     return false;
   }
 
-  console.debug(
-    "QUICK START MODE environment variable set to 'true', validating deployment signals..."
-  );
-
   // 2. HOSTNAME/DOMAIN CHECKS - Fail if cloud domain detected
   const checkHostname =
     hostname || (typeof window !== 'undefined' ? window.location.hostname : '');
@@ -69,8 +65,5 @@ export function isQuickStartEnabled(hostname?: string): boolean {
   }
 
   // All checks passed - QUICK START MODE is enabled
-  console.info(
-    ' QUICK START MODE enabled - all signals confirm QUICK START MODE'
-  );
   return true;
 }

@@ -26,7 +26,7 @@ export default function TestRunDrawer({
       setLoading(true);
       await submitRef.current?.();
       onClose();
-    } catch (err) {
+    } catch (_err) {
     } finally {
       setLoading(false);
     }

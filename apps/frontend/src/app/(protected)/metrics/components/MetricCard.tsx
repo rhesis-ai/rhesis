@@ -49,7 +49,7 @@ interface MetricCardProps {
   showUsage?: boolean;
 }
 
-const getMetricIcon = (type: string) => {
+const _getMetricIcon = (_type: string) => {
   // Use the same icon as in the navbar for consistency
   return <AutoGraphIcon />;
 };
@@ -72,8 +72,8 @@ const getBackendIcon = (backend: string) => {
   }
 };
 
-const getMetricTypeDisplay = (metricType: string): string => {
-  if (!metricType) return 'Unknown';
+const _getMetricTypeDisplay = (_metricType: string): string => {
+  if (!_metricType) return 'Unknown';
 
   const mapping: Record<string, string> = {
     'custom-prompt': 'LLM Judge',
@@ -85,13 +85,13 @@ const getMetricTypeDisplay = (metricType: string): string => {
 
   // If we have a specific mapping, use it; otherwise capitalize the first letter
   return (
-    mapping[metricType] ||
-    metricType.charAt(0).toUpperCase() + metricType.slice(1).toLowerCase()
+    mapping[_metricType] ||
+    _metricType.charAt(0).toUpperCase() + _metricType.slice(1).toLowerCase()
   );
 };
 
-const getMetricTypeIcon = (metricType: string) => {
-  switch (metricType.toLowerCase()) {
+const _getMetricTypeIcon = (_metricType: string) => {
+  switch (_metricType.toLowerCase()) {
     case 'custom-prompt':
       return <SmartToyIcon fontSize="small" />;
     case 'api-call':
@@ -143,10 +143,10 @@ export default function MetricCard({
   title,
   description,
   backend,
-  metricType,
+  metricType: _metricType,
   scoreType,
   metricScope,
-  type,
+  type: _type,
   usedIn,
   showUsage = false,
 }: MetricCardProps) {

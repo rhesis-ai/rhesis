@@ -24,13 +24,18 @@ export default function TestsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [refreshKey, setRefreshKey] = React.useState(0);
-  const [testCount, setTestCount] = React.useState(0);
+  const [_testCount, setTestCount] = React.useState(0);
   const [showTestTypeModal, setShowTestTypeModal] = React.useState(false);
   const [selectedTestType, setSelectedTestType] =
     React.useState<TestType | null>(null);
   const [chartsLoaded, setChartsLoaded] = React.useState(false);
-  const { markStepComplete, progress, activeTour, startTour, isComplete } =
-    useOnboarding();
+  const {
+    markStepComplete: _markStepComplete,
+    progress: _progress,
+    activeTour,
+    startTour,
+    isComplete: _isComplete,
+  } = useOnboarding();
 
   // Set document title
   useDocumentTitle('Tests');
@@ -80,7 +85,7 @@ export default function TestsPage() {
         const testsClient = apiFactory.getTestsClient();
         const response = await testsClient.getTests({ skip: 0, limit: 1 });
         setTestCount(response.pagination?.totalCount || 0);
-      } catch (error) {
+      } catch (_error) {
         // Silently fail
       }
     };

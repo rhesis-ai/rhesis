@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   IconButton,
-  Link,
   Popover,
   Button,
   TextField,
@@ -58,7 +57,7 @@ export function CommentItem({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [associatedTasks, setAssociatedTasks] = useState<Task[]>([]);
-  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  const [_isLoadingTasks, setIsLoadingTasks] = useState(false);
 
   const { fetchTasksByCommentId } = useTasks({ autoFetch: false });
 
@@ -73,7 +72,7 @@ export function CommentItem({
       try {
         const tasks = await fetchTasksByCommentId(comment.id);
         setAssociatedTasks(tasks);
-      } catch (error) {
+      } catch (_error) {
       } finally {
         setIsLoadingTasks(false);
       }
@@ -89,7 +88,7 @@ export function CommentItem({
     try {
       await onEdit(comment.id, editText.trim());
       setIsEditing(false);
-    } catch (error) {
+    } catch (_error) {
     } finally {
       setIsSubmitting(false);
     }
@@ -109,7 +108,7 @@ export function CommentItem({
     try {
       await onDelete(comment.id);
       setShowDeleteModal(false);
-    } catch (error) {
+    } catch (_error) {
     } finally {
       setIsDeleting(false);
     }
@@ -119,7 +118,7 @@ export function CommentItem({
     setShowDeleteModal(false);
   };
 
-  const handleEmojiClick = (emojiData: any) => {
+  const handleEmojiClick = (emojiData: { emoji: string }) => {
     onReact(comment.id, emojiData.emoji);
     setEmojiAnchorEl(null);
   };

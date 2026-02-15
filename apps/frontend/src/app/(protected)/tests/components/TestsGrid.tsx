@@ -6,6 +6,7 @@ import ListIcon from '@mui/icons-material/List';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
   GridColDef,
+  GridRowParams,
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
@@ -25,7 +26,6 @@ import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestFiltersToOData } from '@/utils/odata-filter';
-import { isMultiTurnTest } from '@/constants/test-types';
 import {
   getTestContentValue,
   renderTestContentCell,
@@ -101,7 +101,7 @@ export default function TestsTable({
       setTotalCount(response.pagination.totalCount);
 
       setError(null);
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to load tests');
       setTests([]);
     } finally {
@@ -324,7 +324,7 @@ export default function TestsTable({
 
   // Event handlers
   const handleRowClick = useCallback(
-    (params: any) => {
+    (params: GridRowParams) => {
       const testId = params.id;
       router.push(`/tests/${testId}`);
     },
@@ -366,7 +366,7 @@ export default function TestsTable({
 
           setTestSetDialogOpen(false);
         }
-      } catch (error) {
+      } catch (_error) {
         notifications.show('Failed to associate tests with test set', {
           severity: 'error',
           autoHideDuration: 6000,
@@ -405,7 +405,7 @@ export default function TestsTable({
       setSelectedRows([]);
       fetchTests();
       onRefresh?.();
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to delete tests', {
         severity: 'error',
         autoHideDuration: 6000,
@@ -420,7 +420,7 @@ export default function TestsTable({
     setDeleteModalOpen(false);
   }, []);
 
-  const handleNewTest = useCallback(() => {
+  const _handleNewTest = useCallback(() => {
     setSelectedTest(undefined);
     setDrawerOpen(true);
   }, []);
@@ -478,7 +478,7 @@ export default function TestsTable({
         }
 
         onRefresh?.();
-      } catch (error) {
+      } catch (_error) {
         // Fallback to full refresh
         fetchTests();
         onRefresh?.();

@@ -7,9 +7,6 @@ import {
   Grid,
   CircularProgress,
   Avatar,
-  Paper,
-  ToggleButton,
-  ToggleButtonGroup,
   FormControl,
   InputLabel,
   Select,
@@ -140,8 +137,8 @@ export default function ProjectDetailsStep({
   formData,
   updateFormData,
   onNext,
-  userName,
-  userImage,
+  userName: _userName,
+  userImage: _userImage,
   sessionToken,
   userId,
 }: ProjectDetailsStepProps) {
@@ -170,7 +167,7 @@ export default function ProjectDetailsStep({
         const usersClient = new UsersClient(sessionToken);
         const fetchedUsers = await usersClient.getUsers();
         setUsers(fetchedUsers.data);
-      } catch (error) {
+      } catch (_error) {
       } finally {
         setLoadingUsers(false);
       }
@@ -199,7 +196,7 @@ export default function ProjectDetailsStep({
         setLoading(true);
         // Proceed to next step
         onNext();
-      } catch (error) {
+      } catch (_error) {
       } finally {
         setLoading(false);
       }

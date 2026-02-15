@@ -11,7 +11,6 @@ import {
   Alert,
   Chip,
   LinearProgress,
-  Avatar,
   Tooltip,
   Paper,
   Button,
@@ -32,7 +31,6 @@ interface TestRunWithStats extends TestRunDetail {
 }
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import ScheduleIcon from '@mui/icons-material/Schedule';
-import PersonIcon from '@mui/icons-material/Person';
 import { CategoryIcon } from '@/components/icons';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import Link from 'next/link';
@@ -128,14 +126,14 @@ export default function TestRunPerformance({
 
       setTestRuns(testRunsWithStats);
       setError(null);
-    } catch (err) {
+    } catch (_err) {
       setError('Unable to load test run data');
       setTestRuns([]);
     } finally {
       setLoading(false);
       onLoadComplete?.();
     }
-  }, [sessionToken, calculateLimit, propLimit]);
+  }, [sessionToken, calculateLimit, propLimit, onLoadComplete]);
 
   useEffect(() => {
     // Set viewport height once on mount
@@ -258,7 +256,7 @@ export default function TestRunPerformance({
                   return formatDistanceToNow(parsedDate, {
                     addSuffix: true,
                   }).replace('about ', '~');
-                } catch (error) {
+                } catch (_error) {
                   return null;
                 }
               };

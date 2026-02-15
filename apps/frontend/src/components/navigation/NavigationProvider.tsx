@@ -12,8 +12,9 @@ type NavigationProviderProps = NavigationContextProps & {
   children: React.ReactNode;
 };
 
-// Transform navigation items to convert links to page items with metadata
-function transformNavigationItems(items: NavigationItem[]): any[] {
+// Transform navigation items to convert links to page items with metadata.
+type ToolpadNav = Parameters<typeof NextAppProvider>[0]['navigation'];
+function transformNavigationItems(items: NavigationItem[]): ToolpadNav {
   return items.map(item => {
     if (item.kind === 'link') {
       // Transform link to a page item with metadata for rendering
@@ -36,7 +37,7 @@ function transformNavigationItems(items: NavigationItem[]): any[] {
       };
     }
     return item;
-  });
+  }) as ToolpadNav;
 }
 
 export function NavigationProvider({
@@ -52,9 +53,10 @@ export function NavigationProvider({
   }, []);
 
   // Transform navigation to handle link items
-  const transformedNavigation = useMemo(() => {
-    return transformNavigationItems(navigation);
-  }, [navigation]);
+  const transformedNavigation = useMemo(
+    () => transformNavigationItems(navigation),
+    [navigation]
+  );
 
   // Use robust multi-factor detection to determine if Quick Start mode is enabled
   // Pass null authentication when Quick Start is enabled to hide account menu

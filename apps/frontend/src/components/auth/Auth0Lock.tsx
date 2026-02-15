@@ -12,7 +12,6 @@ import {
 // Brand icons - keeping filled versions as outlined variants may not exist for all brands
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
-import DeveloperModeIcon from '@mui/icons-material/DeveloperMode';
 import { useState, useEffect } from 'react';
 import { getClientApiBaseUrl } from '../../utils/url-resolver';
 
@@ -21,7 +20,10 @@ interface Props {
   domain: string;
 }
 
-export default function CustomAuthForm({ clientId, domain }: Props) {
+export default function CustomAuthForm({
+  clientId: _clientId,
+  domain: _domain,
+}: Props) {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsWarning, setShowTermsWarning] = useState(false);
   const [previouslyAccepted, setPreviouslyAccepted] = useState(false);

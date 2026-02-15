@@ -22,10 +22,7 @@ import {
 } from '@mui/icons-material';
 import { TestResultsStatsOptions } from '@/utils/api-client/interfaces/common';
 import { TestResultsClient } from '@/utils/api-client/test-results-client';
-import {
-  TestResultsStats,
-  TestRunSummaryItem,
-} from '@/utils/api-client/interfaces/test-results';
+import { TestResultsStats } from '@/utils/api-client/interfaces/test-results';
 
 interface TestResultsSummaryProps {
   sessionToken: string;
@@ -148,11 +145,14 @@ export default function TestResultsSummary({
   const recentTestRuns =
     test_run_summary && test_run_summary.length > 0
       ? test_run_summary
-          .filter(run => run.created_at) // Filter out runs without created_at
+          .filter(
+            (run): run is typeof run & { created_at: string } =>
+              !!run.created_at
+          )
           .sort(
             (a, b) =>
-              new Date(b.created_at!).getTime() -
-              new Date(a.created_at!).getTime()
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime()
           )
       : [];
 

@@ -29,7 +29,7 @@ export async function generateMetadata({
       title: project.name || `Project ${identifier}`,
       description: `Project details for: ${project.name || identifier}`,
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       title: 'Project Details',
     };

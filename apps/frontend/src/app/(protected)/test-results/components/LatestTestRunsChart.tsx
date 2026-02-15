@@ -288,11 +288,11 @@ export default function LatestTestRunsChart({
               labelStyle={{
                 color: theme.palette.text.primary,
               }}
-              formatter={(value: any, name: string, props: any) => {
+              formatter={(value: string | number) => {
                 // The value here is the pass_rate from the data
                 return [`${value}%`, 'Pass Rate'];
               }}
-              labelFormatter={(label: string, payload: any) => {
+              labelFormatter={(label: string) => {
                 // The label is the test run name
                 return label || 'Test Run';
               }}

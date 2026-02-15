@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   GridColDef,
+  GridRowParams,
   GridRowSelectionModel,
   GridPaginationModel,
   GridFilterModel,
@@ -112,7 +113,8 @@ export default function TestSetsGrid({
       setLoading(true);
 
       const token = sessionToken || session?.session_token;
-      const clientFactory = new ApiClientFactory(token!);
+      if (!token) return;
+      const clientFactory = new ApiClientFactory(token);
       const testSetsClient = clientFactory.getTestSetsClient();
 
       const skip = paginationModel.page * paginationModel.pageSize;
@@ -131,7 +133,7 @@ export default function TestSetsGrid({
 
       setTestSets(response.data);
       setTotalCount(response.pagination.totalCount);
-    } catch (error) {
+    } catch (_error) {
     } finally {
       setLoading(false);
     }
@@ -369,7 +371,7 @@ export default function TestSetsGrid({
     },
   ];
 
-  const handleRowClick = (params: any) => {
+  const handleRowClick = (params: GridRowParams) => {
     router.push(`/test-sets/${params.id}`);
   };
 
@@ -408,7 +410,8 @@ export default function TestSetsGrid({
     try {
       setIsDeleting(true);
       const token = sessionToken || session?.session_token;
-      const clientFactory = new ApiClientFactory(token!);
+      if (!token) return;
+      const clientFactory = new ApiClientFactory(token);
       const testSetsClient = clientFactory.getTestSetsClient();
 
       // Delete all selected test sets
@@ -425,7 +428,7 @@ export default function TestSetsGrid({
       // Clear selection and refresh data
       setSelectedRows([]);
       fetchTestSets();
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to delete test sets', {
         severity: 'error',
         autoHideDuration: 6000,
@@ -440,7 +443,7 @@ export default function TestSetsGrid({
     setDeleteModalOpen(false);
   };
 
-  const handleFileImportSuccess = (testSetId: string) => {
+  const handleFileImportSuccess = (_testSetId: string) => {
     fetchTestSets();
     notifications.show('Test set imported successfully from file', {
       severity: 'success',

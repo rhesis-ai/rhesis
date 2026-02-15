@@ -7,7 +7,6 @@ import {
   Avatar,
   Autocomplete,
   TextField,
-  MenuItem,
 } from '@mui/material';
 import {
   UserReference,
@@ -33,7 +32,10 @@ interface BaseWorkflowSectionProps {
   onPriorityChange?: (newPriority: number) => void;
   onAssigneeChange?: (newAssignee: User | null) => void;
   onOwnerChange?: (newOwner: User | null) => void;
-  onUpdateEntity: (updateData: any, fieldName: string) => Promise<void>;
+  onUpdateEntity: (
+    updateData: Record<string, unknown>,
+    fieldName: string
+  ) => Promise<void>;
   statusReadOnly?: boolean;
   showPriority?: boolean;
   // Optional pre-loaded data to avoid API calls
@@ -70,14 +72,14 @@ export default function BaseWorkflowSection({
   assignee,
   owner,
   clientFactory,
-  entityId,
+  entityId: _entityId,
   entityType,
   onStatusChange,
   onPriorityChange,
   onAssigneeChange,
   onOwnerChange,
   onUpdateEntity,
-  statusReadOnly = false,
+  statusReadOnly: _statusReadOnly = false,
   showPriority = true,
   preloadedStatuses,
   preloadedUsers,
@@ -138,19 +140,20 @@ export default function BaseWorkflowSection({
     }
 
     // Otherwise fetch from API
-    if (!clients.statusClient) return;
+    const statusClient = clients.statusClient;
+    if (!statusClient) return;
 
     const fetchStatuses = async () => {
       try {
         setLoadingStatuses(true);
-        const fetchedStatuses = await clients.statusClient!.getStatuses({
+        const fetchedStatuses = await statusClient.getStatuses({
           entity_type: entityType,
           sort_by: 'name',
           sort_order: 'asc',
         });
         setStatuses(fetchedStatuses);
         setStatusesLoaded(true);
-      } catch (error) {
+      } catch (_error) {
         notifications.show('Failed to load status data', { severity: 'error' });
       } finally {
         setLoadingStatuses(false);
@@ -187,12 +190,13 @@ export default function BaseWorkflowSection({
     }
 
     // Otherwise fetch from API
-    if (!clients.usersClient) return;
+    const usersClient = clients.usersClient;
+    if (!usersClient) return;
 
     const fetchUsers = async () => {
       try {
         setLoadingUsers(true);
-        const fetchedUsers = await clients.usersClient!.getUsers({
+        const fetchedUsers = await usersClient.getUsers({
           limit: 100,
         });
 
@@ -208,7 +212,7 @@ export default function BaseWorkflowSection({
           }));
         setUsers(transformedUsers);
         setUsersLoaded(true);
-      } catch (error) {
+      } catch (_error) {
         notifications.show('Failed to load user data', { severity: 'error' });
       } finally {
         setLoadingUsers(false);
@@ -235,7 +239,7 @@ export default function BaseWorkflowSection({
     setCurrentPriority(reversePriorityMap[priority] || 'Medium');
   }, [priority]);
 
-  const InfoRow = ({
+  const _InfoRow = ({
     label,
     children,
   }: {
@@ -281,7 +285,7 @@ export default function BaseWorkflowSection({
           // If newStatus is null, clear the status
           await onUpdateEntity({ status_id: null }, 'Status');
         }
-      } catch (error) {
+      } catch (_error) {
         // Revert on error
         setCurrentStatus(status || null);
         onStatusChange?.(status || '');
@@ -301,7 +305,7 @@ export default function BaseWorkflowSection({
       // Then update backend
       try {
         await onUpdateEntity({ priority: numericPriority }, 'Priority');
-      } catch (error) {
+      } catch (_error) {
         // Revert on error
         setCurrentPriority(reversePriorityMap[priority] || 'Medium');
         onPriorityChange?.(priority);
@@ -322,7 +326,7 @@ export default function BaseWorkflowSection({
         );
         // Only call onAssigneeChange after successful API update
         onAssigneeChange?.(newAssignee);
-      } catch (error) {
+      } catch (_error) {
         // Revert on error
         const originalAssignee = findUserById(
           assignee?.id
@@ -349,7 +353,7 @@ export default function BaseWorkflowSection({
       // Then update backend
       try {
         await onUpdateEntity({ owner_id: newOwner?.id || null }, 'Owner');
-      } catch (error) {
+      } catch (_error) {
         // Revert on error
         const originalOwner = findUserById(owner?.id) as UserOption | null;
         setCurrentOwner(originalOwner);
@@ -443,7 +447,7 @@ export default function BaseWorkflowSection({
           />
         )}
         renderOption={(props, option) => {
-          const { key, ...otherProps } = props;
+          const { key: _key, ...otherProps } = props;
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -495,7 +499,7 @@ export default function BaseWorkflowSection({
           />
         )}
         renderOption={(props, option) => {
-          const { key, ...otherProps } = props;
+          const { key: _key, ...otherProps } = props;
           return (
             <li key={option.id} {...otherProps}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

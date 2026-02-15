@@ -321,7 +321,7 @@ function convertTaskFilterItemToOData(item: GridFilterItem): string {
 /**
  * Escapes special characters in OData filter values
  */
-function escapeODataValue(value: any): string {
+function escapeODataValue(value: unknown): string {
   if (typeof value !== 'string') {
     return String(value);
   }
@@ -392,7 +392,7 @@ export function convertGridFilterModelToOData(
  * Handles quick filter (global search) conversion to OData
  */
 export function convertQuickFilterToOData(
-  quickFilterValues: any[],
+  quickFilterValues: unknown[],
   searchFields: string[]
 ): string {
   if (
@@ -443,7 +443,7 @@ export function combineTaskFiltersToOData(
 
   // Separate regular filters from quick filters
   const regularFilters: GridFilterItem[] = [];
-  const quickFilterValues: any[] = [];
+  const quickFilterValues: unknown[] = [];
 
   filterModel.items.forEach(item => {
     if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
@@ -488,7 +488,7 @@ export function combineTaskFiltersToOData(
  */
 export function combineFiltersToOData(
   filterModel: GridFilterModel,
-  quickFilterValues?: any[],
+  quickFilterValues?: unknown[],
   searchFields?: string[]
 ): string {
   const regularFilter = convertGridFilterModelToOData(filterModel);
@@ -508,7 +508,7 @@ export function combineFiltersToOData(
  * Handles quick filter (global search) conversion to OData for tasks
  */
 export function convertTaskQuickFilterToOData(
-  quickFilterValues: any[]
+  quickFilterValues: unknown[]
 ): string {
   if (!quickFilterValues || quickFilterValues.length === 0) {
     return '';
@@ -548,7 +548,7 @@ export function convertTaskQuickFilterToOData(
  * Handles quick filter (global search) conversion to OData for tests
  */
 export function convertTestQuickFilterToOData(
-  quickFilterValues: any[]
+  quickFilterValues: unknown[]
 ): string {
   if (!quickFilterValues || quickFilterValues.length === 0) {
     return '';
@@ -606,7 +606,7 @@ export function combineTestFiltersToOData(
 
   // Separate regular filters from quick filters
   const regularFilters: GridFilterItem[] = [];
-  const quickFilterValues: any[] = [];
+  const quickFilterValues: unknown[] = [];
 
   filterModel.items.forEach(item => {
     if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
@@ -650,7 +650,7 @@ export function combineTestFiltersToOData(
  * Handles quick filter (global search) conversion to OData for sources
  */
 export function convertSourceQuickFilterToOData(
-  quickFilterValues: any[]
+  quickFilterValues: unknown[]
 ): string {
   if (!quickFilterValues || quickFilterValues.length === 0) {
     return '';
@@ -703,7 +703,7 @@ export function combineSourceFiltersToOData(
 
   // Separate regular filters from quick filters
   const regularFilters: GridFilterItem[] = [];
-  const quickFilterValues: any[] = [];
+  const quickFilterValues: unknown[] = [];
 
   filterModel.items.forEach(item => {
     if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
@@ -747,7 +747,7 @@ export function combineSourceFiltersToOData(
  * Handles quick filter (global search) conversion to OData for test runs
  */
 export function convertTestRunQuickFilterToOData(
-  quickFilterValues: any[]
+  quickFilterValues: unknown[]
 ): string {
   if (!quickFilterValues || quickFilterValues.length === 0) {
     return '';
@@ -805,7 +805,7 @@ export function combineTestRunFiltersToOData(
 
   // Separate regular filters from quick filters
   const regularFilters: GridFilterItem[] = [];
-  const quickFilterValues: any[] = [];
+  const quickFilterValues: unknown[] = [];
 
   filterModel.items.forEach(item => {
     if (item.field === '__quickFilter__' || item.field === 'quickFilter') {
@@ -932,7 +932,7 @@ function convertTestSetFilterItemToOData(item: GridFilterItem): string {
  * Handles quick filter (global search) conversion to OData for test sets
  */
 export function convertTestSetQuickFilterToOData(
-  quickFilterValues: any[]
+  quickFilterValues: unknown[]
 ): string {
   if (!quickFilterValues || quickFilterValues.length === 0) {
     return '';
@@ -975,7 +975,7 @@ export function combineTestSetFiltersToOData(
   }
 
   const regularFilters: GridFilterItem[] = [];
-  const quickFilterValues: any[] = [];
+  const quickFilterValues: unknown[] = [];
 
   filterModel.items.forEach(item => {
     if (item.field === '__quickFilter__' || item.field === 'quickFilter') {

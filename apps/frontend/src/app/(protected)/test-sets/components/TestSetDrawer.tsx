@@ -138,7 +138,7 @@ export default function TestSetDrawer({
 
       onSuccess?.();
       onClose();
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to save test set');
     } finally {
       setLoading(false);

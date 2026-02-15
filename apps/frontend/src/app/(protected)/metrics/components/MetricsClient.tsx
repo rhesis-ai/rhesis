@@ -81,7 +81,7 @@ export default function MetricsClientComponent({
 
   // Data state
   const [behaviors, setBehaviors] = React.useState<ApiBehavior[]>([]);
-  const [behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<
+  const [_behaviorsWithMetrics, setBehaviorsWithMetrics] = React.useState<
     BehaviorWithMetrics[]
   >([]);
   const [metrics, setMetrics] = React.useState<MetricDetail[]>([]);
@@ -94,9 +94,8 @@ export default function MetricsClientComponent({
   const [filters, setFilters] = React.useState<FilterState>(initialFilterState);
   const [filterOptions, setFilterOptions] =
     React.useState<FilterOptions>(initialFilterOptions);
-  const [behaviorMetrics, setBehaviorMetrics] = React.useState<BehaviorMetrics>(
-    {}
-  );
+  const [_behaviorMetrics, setBehaviorMetrics] =
+    React.useState<BehaviorMetrics>({});
 
   // Refresh key for manual refresh
   const [refreshKey, setRefreshKey] = React.useState(0);

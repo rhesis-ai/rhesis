@@ -5,17 +5,10 @@ import {
   BasePieChart,
   BaseLineChart,
   BaseChartsGrid,
-  useChartColors,
 } from '@/components/common/BaseCharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSetDetailStatsResponse } from '@/utils/api-client/interfaces/test-set';
-import {
-  Box,
-  CircularProgress,
-  Typography,
-  Alert,
-  useTheme,
-} from '@mui/material';
+import { Box, CircularProgress, Alert, useTheme } from '@mui/material';
 import { pieChartUtils } from '@/components/common/BasePieChart';
 
 // Fallback mock data in case the API fails
@@ -55,11 +48,6 @@ const calculateDomain = (data: LineChartDataItem[]): [number, number] => {
   const upperBound = Math.ceil((maxValue * multiplier) / 10) * 10;
 
   return [0, upperBound];
-};
-
-// Helper function to truncate long names for legends
-const truncateName = (name: string): string => {
-  return pieChartUtils.truncateName(name);
 };
 
 // Helper function to generate a title for a dimension
@@ -273,7 +261,11 @@ export default function TestSetDetailCharts({
             labelStyle: {
               color: theme.palette.text.primary,
             },
-            formatter: (value: number, name: string, props: any) => {
+            formatter: (
+              value: number,
+              name: string,
+              props: { payload: { percentage: string; fullName?: string } }
+            ) => {
               const item = props.payload;
               return [`${value} (${item.percentage})`, item.fullName || name];
             },

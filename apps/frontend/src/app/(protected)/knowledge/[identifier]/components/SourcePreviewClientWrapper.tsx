@@ -21,13 +21,10 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import DownloadIcon from '@mui/icons-material/Download';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
-import InfoIcon from '@mui/icons-material/Info';
-import ArticleIcon from '@mui/icons-material/Article';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
@@ -128,7 +125,7 @@ export default function SourcePreviewClientWrapper({
         severity: 'success',
         autoHideDuration: 2000,
       });
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to copy content', {
         severity: 'error',
         autoHideDuration: 2000,
@@ -159,7 +156,7 @@ export default function SourcePreviewClientWrapper({
         severity: 'success',
         autoHideDuration: 2000,
       });
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to download file', {
         severity: 'error',
         autoHideDuration: 2000,
@@ -240,10 +237,15 @@ export default function SourcePreviewClientWrapper({
         severity: 'success',
         autoHideDuration: 2000,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle errors (404 for deleted tool, or other failures)
-      const is404Error = error?.status === 404;
-      const backendMessage = error?.data?.detail || '';
+      const errObj = error as {
+        status?: number;
+        data?: { detail?: string };
+        message?: string;
+      };
+      const is404Error = errObj?.status === 404;
+      const backendMessage = errObj?.data?.detail || '';
       const isDeletedToolError =
         is404Error && backendMessage.includes('has been deleted');
 
@@ -263,7 +265,7 @@ export default function SourcePreviewClientWrapper({
         // Use error.data.detail (backend message) instead of error.message
         // (which includes "API error: 503 -" prefix)
         const errorMessage =
-          error?.data?.detail ||
+          errObj?.data?.detail ||
           (error instanceof Error
             ? error.message
             : 'Failed to update source from MCP');
@@ -349,7 +351,7 @@ export default function SourcePreviewClientWrapper({
   const EditableSection = React.memo(
     ({
       title,
-      icon,
+      icon: _icon,
       section,
       children,
       isEditing,

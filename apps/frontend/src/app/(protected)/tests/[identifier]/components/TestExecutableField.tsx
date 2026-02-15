@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  Box,
-  Button,
-  TextField,
-  Paper,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Box, Button, TextField, Typography, useTheme } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
@@ -26,13 +19,13 @@ interface TestExecutableFieldProps {
 
 export default function TestExecutableField({
   sessionToken,
-  testId,
+  testId: _testId,
   promptId,
   initialContent,
   onUpdate,
   fieldName = 'content',
 }: TestExecutableFieldProps) {
-  const theme = useTheme();
+  const _theme = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(initialContent);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -79,7 +72,7 @@ export default function TestExecutableField({
         { severity: 'success' }
       );
       onUpdate?.();
-    } catch (error) {
+    } catch (_error) {
       showNotification(`Failed to update test ${fieldName.replace('_', ' ')}`, {
         severity: 'error',
       });

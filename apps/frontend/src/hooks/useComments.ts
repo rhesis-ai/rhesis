@@ -1,10 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import {
-  Comment,
-  CreateCommentRequest,
-  UpdateCommentRequest,
-  EntityType,
-} from '@/types/comments';
+import { Comment, EntityType } from '@/types/comments';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 
@@ -48,7 +43,7 @@ export function useComments({
         entityId
       );
       setComments(fetchedComments);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to fetch comments');
       notifications.show('Failed to fetch comments', {
         severity: 'error',
@@ -57,7 +52,7 @@ export function useComments({
     } finally {
       setIsLoading(false);
     }
-  }, [entityType, entityId, sessionToken]);
+  }, [entityType, entityId, sessionToken, notifications]);
 
   const createComment = useCallback(
     async (text: string) => {
@@ -180,7 +175,7 @@ export function useComments({
         throw err;
       }
     },
-    [sessionToken]
+    [sessionToken, notifications]
   );
 
   const reactToComment = useCallback(

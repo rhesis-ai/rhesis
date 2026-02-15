@@ -76,7 +76,7 @@ export default function TeamInviteForm({
     const seenEmails = new Set<string>();
     const duplicateEmails = new Set<string>();
 
-    emailsToCheck.forEach(({ email, index }) => {
+    emailsToCheck.forEach(({ email, index: _index }) => {
       if (seenEmails.has(email)) {
         duplicateEmails.add(email);
       } else {
@@ -164,12 +164,12 @@ export default function TeamInviteForm({
           const user = await usersClient.createUser(userData);
           invitationResults.push({ email, success: true });
           return user;
-        } catch (error: any) {
+        } catch (error: unknown) {
           let errorMessage = 'Unknown error';
           let isExpectedError = false;
 
           // Extract meaningful error messages from different error formats
-          if (error?.message) {
+          if (error instanceof Error) {
             // Handle API error messages that might contain JSON
             if (error.message.includes('API error:')) {
               // Extract the status code and message
@@ -198,8 +198,12 @@ export default function TeamInviteForm({
             } else {
               errorMessage = error.message;
             }
-          } else if (error?.detail) {
-            errorMessage = error.detail;
+          } else if (
+            typeof error === 'object' &&
+            error !== null &&
+            'detail' in error
+          ) {
+            errorMessage = String((error as { detail: unknown }).detail);
           } else if (typeof error === 'string') {
             errorMessage = error;
           }
@@ -319,7 +323,7 @@ export default function TeamInviteForm({
           onInvitesSent(successfulEmails);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       notifications.show('Failed to send invitations. Please try again.', {
         severity: 'error',
       });

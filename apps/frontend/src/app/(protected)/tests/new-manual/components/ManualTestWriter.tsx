@@ -23,15 +23,12 @@ import {
   Autocomplete,
   createFilterOptions,
   Breadcrumbs,
-  ToggleButtonGroup,
-  ToggleButton,
 } from '@mui/material';
 import {
   Add as AddIcon,
   Delete as DeleteIcon,
   Save as SaveIcon,
   Download as DownloadIcon,
-  Upload as UploadIcon,
   ArrowBack as ArrowBackIcon,
   NavigateNext as NavigateNextIcon,
 } from '@mui/icons-material';
@@ -45,6 +42,7 @@ import { Behavior } from '@/utils/api-client/interfaces/behavior';
 import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Category } from '@/utils/api-client/interfaces/category';
 import { TestBulkCreate } from '@/utils/api-client/interfaces/tests';
+import { UUID } from 'crypto';
 import { MultiTurnTestConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
 
 type TestType = 'single_turn' | 'multi_turn';
@@ -86,7 +84,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
   const notifications = useNotifications();
 
   // Get test type from sessionStorage (set by the test creation flow)
-  const [testType, setTestType] = useState<TestType>(() => {
+  const [testType, _setTestType] = useState<TestType>(() => {
     if (typeof window !== 'undefined') {
       const storedType = sessionStorage.getItem('testType') as TestType | null;
       return storedType || 'single_turn';
@@ -171,7 +169,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
           sort_order: 'asc',
         });
         setCategories(categoriesData);
-      } catch (error) {
+      } catch (_error) {
         notifications.show('Failed to load test dimensions', {
           severity: 'error',
         });
@@ -367,7 +365,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             behavior: tc.behavior,
             category: tc.category,
             topic: tc.topic,
-            test_configuration: config,
+            test_configuration: config as unknown as Record<string, unknown>,
           };
         }
       });
@@ -375,7 +373,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
       const testsClient = apiFactory.getTestsClient();
       await testsClient.createTestsBulk({
         tests: testsToCreate,
-        test_set_id: testSetId as any,
+        test_set_id: testSetId as UUID,
       });
 
       notifications.show(
@@ -424,7 +422,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
     });
   };
 
-  const handleImport = () => {
+  const _handleImport = () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/json';
@@ -443,7 +441,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             } else {
               notifications.show('Invalid file format', { severity: 'error' });
             }
-          } catch (error) {
+          } catch (_error) {
             notifications.show('Failed to parse file', { severity: 'error' });
           }
         };

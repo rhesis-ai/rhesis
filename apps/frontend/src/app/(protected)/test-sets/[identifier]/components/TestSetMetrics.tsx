@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -72,7 +72,7 @@ export default function TestSetMetrics({
 
   const notifications = useNotifications();
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     if (!sessionToken) return;
 
     try {
@@ -82,17 +82,17 @@ export default function TestSetMetrics({
       const testSetsClient = clientFactory.getTestSetsClient();
       const fetchedMetrics = await testSetsClient.getTestSetMetrics(testSetId);
       setMetrics(fetchedMetrics);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch test set metrics:', err);
-      setError(err.message || 'Failed to load metrics');
+      setError(err instanceof Error ? err.message : 'Failed to load metrics');
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionToken, testSetId]);
 
   useEffect(() => {
     fetchMetrics();
-  }, [testSetId, sessionToken]);
+  }, [fetchMetrics]);
 
   const handleAddMetric = async (metricId: UUID) => {
     try {
@@ -108,11 +108,14 @@ export default function TestSetMetrics({
         severity: 'success',
         autoHideDuration: 4000,
       });
-    } catch (err: any) {
-      notifications.show(err.message || 'Failed to add metric to test set', {
-        severity: 'error',
-        autoHideDuration: 4000,
-      });
+    } catch (err: unknown) {
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to add metric to test set',
+        {
+          severity: 'error',
+          autoHideDuration: 4000,
+        }
+      );
     }
   };
 
@@ -131,9 +134,11 @@ export default function TestSetMetrics({
         severity: 'success',
         autoHideDuration: 4000,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       notifications.show(
-        err.message || 'Failed to remove metric from test set',
+        err instanceof Error
+          ? err.message
+          : 'Failed to remove metric from test set',
         {
           severity: 'error',
           autoHideDuration: 4000,

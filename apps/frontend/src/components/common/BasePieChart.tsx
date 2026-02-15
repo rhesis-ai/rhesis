@@ -64,8 +64,8 @@ export interface BasePieChartProps {
   innerRadius?: number;
   outerRadius?: number;
   showPercentage?: boolean;
-  legendProps?: Record<string, any>;
-  tooltipProps?: Record<string, any>;
+  legendProps?: Record<string, unknown>;
+  tooltipProps?: Record<string, unknown>;
   elevation?: number;
   preventLegendOverflow?: boolean;
   variant?: 'dashboard' | 'test-results';
@@ -163,10 +163,10 @@ const createCustomizedLabel = (
     cx,
     cy,
     midAngle,
-    innerRadius,
+    innerRadius: _innerRadius,
     outerRadius,
     percent,
-    index,
+    index: _index,
     name,
   }: LabelProps) => {
     // Only show labels for segments with significant percentage (helps prevent overlap)
@@ -244,7 +244,7 @@ export default function BasePieChart({
   tooltipProps,
   elevation = 2,
   preventLegendOverflow = false,
-  variant = 'dashboard',
+  variant: _variant = 'dashboard',
 }: BasePieChartProps) {
   // Validate props in development
   if (process.env.FRONTEND_ENV === 'development') {
@@ -326,10 +326,14 @@ export default function BasePieChart({
 
     return {
       ...defaultLegendProps,
-      ...legendProps,
+      ...(legendProps && typeof legendProps === 'object' ? legendProps : {}),
       wrapperStyle: {
         ...defaultLegendProps.wrapperStyle,
-        ...legendProps?.wrapperStyle,
+        ...(legendProps &&
+        typeof legendProps === 'object' &&
+        legendProps.wrapperStyle
+          ? legendProps.wrapperStyle
+          : {}),
         marginTop: theme.spacing(0.625),
         marginBottom: theme.spacing(0),
         paddingBottom: '2px',
@@ -354,7 +358,7 @@ export default function BasePieChart({
 
   // Optimized tooltip formatter
   const tooltipFormatter = useCallback(
-    (value: any, name: any) => {
+    (value: string | number, name: string) => {
       const item = dataLookup.get(name);
       return [value, item?.fullName || name];
     },

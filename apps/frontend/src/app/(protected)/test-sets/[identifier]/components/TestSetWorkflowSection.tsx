@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestSet, TestSetCreate } from '@/utils/api-client/interfaces/test-set';
 import { User } from '@/utils/api-client/interfaces/user';
@@ -10,8 +9,8 @@ import BaseWorkflowSection from '@/components/common/BaseWorkflowSection';
 interface TestSetWorkflowSectionProps {
   status?: string;
   priority?: number;
-  assignee?: any | null;
-  owner?: any | null;
+  assignee?: User | null;
+  owner?: User | null;
   sessionToken: string;
   testSetId: string;
   onStatusChange?: (newStatus: string) => void;
@@ -42,12 +41,12 @@ export default function TestSetWorkflowSection({
       const clientFactory = new ApiClientFactory(sessionToken);
       const testSetsClient = clientFactory.getTestSetsClient();
       const {
-        id,
-        status_details,
-        user,
-        owner,
-        assignee,
-        organization,
+        id: _id,
+        status_details: _status_details,
+        user: _user,
+        owner: _owner,
+        assignee: _assignee,
+        organization: _organization,
         ...rest
       } = updateData;
       const processedData: Partial<TestSetCreate> = {

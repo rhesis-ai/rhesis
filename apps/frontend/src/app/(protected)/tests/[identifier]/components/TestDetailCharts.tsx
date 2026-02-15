@@ -9,7 +9,6 @@ import {
   Card,
   CardContent,
   useTheme,
-  Grid,
   Chip,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -25,7 +24,6 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  Legend,
 } from 'recharts';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { formatDuration } from '@/utils/format-duration';
@@ -315,10 +313,16 @@ function SinglePointChart({
   const chartColor = color || palettes.line[0];
 
   // Legend display name
-  const displayLegendLabel = legendLabel || label;
+  const _displayLegendLabel = legendLabel || label;
 
   // Custom tooltip with comprehensive details
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({
+    active,
+    payload,
+  }: {
+    active?: boolean;
+    payload?: Array<{ value: number }>;
+  }) => {
     if (active && payload && payload.length) {
       const displayValue = formatValue
         ? formatValue(payload[0].value)
@@ -475,7 +479,7 @@ export default function TestDetailCharts({
   testId,
   sessionToken,
 }: TestDetailChartsProps) {
-  const theme = useTheme();
+  const _theme = useTheme();
   const [stats, setStats] = useState<IndividualTestStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -7,12 +7,6 @@ import {
   Typography,
   Alert,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Button,
 } from '@mui/material';
 import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
@@ -68,7 +62,7 @@ export default function TeamMembersGrid({
 
         setUsers(response.data || []);
         setTotalCount(response.total || 0);
-      } catch (error) {
+      } catch (_error) {
         setError('Failed to load team members. Please try again.');
       } finally {
         setLoading(false);
@@ -143,11 +137,12 @@ export default function TeamMembersGrid({
       // Refresh the users list
       const skip = paginationModel.page * paginationModel.pageSize;
       fetchUsers(skip, paginationModel.pageSize);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle specific error cases
       const errorMessage =
-        error?.message ||
-        'Failed to remove user from organization. Please try again.';
+        error instanceof Error
+          ? error.message
+          : 'Failed to remove user from organization. Please try again.';
 
       notifications.show(errorMessage, {
         severity: 'error',
@@ -196,7 +191,6 @@ export default function TeamMembersGrid({
       renderCell: params => {
         const user = params.row as User;
         const displayName = getDisplayName(user);
-        const status = getUserStatus(user);
 
         return (
           <Typography variant="body2" fontWeight="medium">

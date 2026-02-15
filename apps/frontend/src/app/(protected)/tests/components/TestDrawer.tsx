@@ -38,7 +38,7 @@ export default function TestDrawer({
         Buffer.from(paddedBase64, 'base64').toString('utf-8')
       );
       return payload.user?.id;
-    } catch (err) {
+    } catch (_err) {
       return undefined;
     }
   };
@@ -48,7 +48,7 @@ export default function TestDrawer({
       setLoading(true);
       await submitRef.current?.();
       onClose();
-    } catch (err) {
+    } catch (_err) {
     } finally {
       setLoading(false);
     }

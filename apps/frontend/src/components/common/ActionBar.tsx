@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Box, Button } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 
 interface ActionButton {
   label: string;
@@ -18,7 +19,7 @@ interface ActionButton {
     | 'error'
     | 'info'
     | 'warning';
-  sx?: any;
+  sx?: SxProps<Theme>;
 }
 
 interface ActionBarProps {

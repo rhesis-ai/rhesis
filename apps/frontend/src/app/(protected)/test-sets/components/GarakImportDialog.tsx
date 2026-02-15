@@ -75,14 +75,7 @@ export default function GarakImportDialog({
     isComplete: boolean;
   } | null>(null);
 
-  // Fetch available modules when dialog opens
-  React.useEffect(() => {
-    if (open && modules.length === 0) {
-      fetchModules();
-    }
-  }, [open]);
-
-  const fetchModules = async () => {
+  const fetchModules = React.useCallback(async () => {
     try {
       setLoadingModules(true);
       setError(undefined);
@@ -93,12 +86,21 @@ export default function GarakImportDialog({
       const response = await garakClient.listProbeModules();
       setModules(response.modules);
       setGarakVersion(response.garak_version);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load Garak modules');
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to load Garak modules'
+      );
     } finally {
       setLoadingModules(false);
     }
-  };
+  }, [sessionToken]);
+
+  // Fetch available modules when dialog opens
+  React.useEffect(() => {
+    if (open && modules.length === 0) {
+      fetchModules();
+    }
+  }, [open, fetchModules, modules.length]);
 
   // Get all probes from a module
   const getModuleProbes = (module: GarakProbeModule): GarakProbeClass[] => {
@@ -196,8 +198,8 @@ export default function GarakImportDialog({
       });
 
       setPreview(previewResponse);
-    } catch (err: any) {
-      setError(err.message || 'Failed to preview import');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to preview import');
     } finally {
       setLoading(false);
     }
@@ -221,8 +223,10 @@ export default function GarakImportDialog({
           name_prefix: 'Garak',
         });
         setPreview(previewData);
-      } catch (err: any) {
-        setError(err.message || 'Failed to get import preview');
+      } catch (err: unknown) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to get import preview'
+        );
         setPreparingImport(false);
         return;
       } finally {
@@ -316,8 +320,10 @@ export default function GarakImportDialog({
       // Pass all created test set IDs
       onSuccess?.(response.test_sets.map(ts => ts.test_set_id));
       handleClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to import Garak probes');
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to import Garak probes'
+      );
       setImportProgress(null);
     } finally {
       setImporting(false);

@@ -21,7 +21,7 @@ async function verifySessionWithBackend(sessionToken: string) {
 
     const data = await response.json();
     return data.authenticated && data.user;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
@@ -44,7 +44,7 @@ function getSessionTokenFromRequest(request: NextRequest): string | null {
     ) {
       return sessionData.session_token;
     }
-  } catch (error) {
+  } catch (_error) {
     // If JSON parsing fails, it might be a direct JWT token
   }
 
@@ -75,7 +75,7 @@ async function createSessionClearingResponse(
           Accept: 'application/json',
         },
       });
-    } catch (error) {
+    } catch (_error) {
       // Continue with frontend cleanup even if backend fails
     }
   }
@@ -129,13 +129,13 @@ async function createSessionClearingResponse(
   return response;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // At the top of the middleware function, after pathname declaration
   const isPostLogout =
     request.nextUrl.searchParams.get('post_logout') === 'true';
-  const isSessionExpired =
+  const _isSessionExpired =
     request.nextUrl.searchParams.get('session_expired') === 'true';
 
   // Prevent redirect loops by always allowing access to signin page
@@ -199,8 +199,8 @@ export async function middleware(request: NextRequest) {
     }
 
     return NextResponse.next();
-  } catch (error: any) {
-    const err = error as Error;
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
 
     if (err.message?.includes('UntrustedHost')) {
       // For untrusted host errors, redirect to home page with session clearing

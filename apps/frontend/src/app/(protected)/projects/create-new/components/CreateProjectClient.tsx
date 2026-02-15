@@ -105,7 +105,7 @@ export default function CreateProjectClient({
       };
 
       try {
-        const project = await projectsClient.createProject(projectData);
+        const _project = await projectsClient.createProject(projectData);
 
         // Navigate to the projects page
         router.push('/projects');
@@ -128,7 +128,7 @@ export default function CreateProjectClient({
           setError('An unknown error occurred while creating the project.');
         }
       }
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to complete project creation. Please try again.');
     } finally {
       setIsSubmitting(false);

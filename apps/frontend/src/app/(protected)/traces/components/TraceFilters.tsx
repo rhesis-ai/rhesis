@@ -24,14 +24,11 @@ import ClearAllIcon from '@mui/icons-material/ClearAll';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ListIcon from '@mui/icons-material/List';
-import TimelineIcon from '@mui/icons-material/Timeline';
 import ScienceIcon from '@mui/icons-material/Science';
 import PublicIcon from '@mui/icons-material/Public';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import SpeedIcon from '@mui/icons-material/Speed';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import DataUsageIcon from '@mui/icons-material/DataUsage';
 import CloseIcon from '@mui/icons-material/Close';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import Chip from '@mui/material/Chip';
@@ -57,7 +54,10 @@ export default function TraceFilters({
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
 
-  const handleFilterChange = (key: keyof TraceQueryParams, value: any) => {
+  const handleFilterChange = (
+    key: keyof TraceQueryParams,
+    value: TraceQueryParams[keyof TraceQueryParams]
+  ) => {
     const newFilters = { ...filters, [key]: value, offset: 0 };
 
     // If project changes, clear endpoint_id if the selected endpoint doesn't belong to the new project
@@ -248,7 +248,11 @@ export default function TraceFilters({
 
   // Get active filter labels for chips
   const getActiveFilterChips = () => {
-    const chips: Array<{ key: string; label: string; value: any }> = [];
+    const chips: Array<{
+      key: string;
+      label: string;
+      value: string | undefined;
+    }> = [];
 
     // Project filter
     if (filters.project_id) {

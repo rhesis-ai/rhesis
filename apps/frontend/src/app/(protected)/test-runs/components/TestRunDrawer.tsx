@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import {
@@ -71,7 +71,7 @@ export default function TestRunDrawer({
         Buffer.from(paddedBase64, 'base64').toString('utf-8')
       );
       return payload.user?.id;
-    } catch (err) {
+    } catch (_err) {
       return undefined;
     }
   }, [sessionToken]);
@@ -161,7 +161,7 @@ export default function TestRunDrawer({
             // Reset tags for new test runs
             setTags([]);
           }
-        } catch (fetchError) {
+        } catch (_fetchError) {
           setError('Failed to load required data');
           // Ensure state remains as empty arrays even on error
           setUsers([]);
@@ -170,7 +170,7 @@ export default function TestRunDrawer({
           setEndpoints([]);
           setFilteredEndpoints([]);
         }
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to load required data');
       } finally {
         setLoading(false);
@@ -278,7 +278,7 @@ export default function TestRunDrawer({
 
       onSuccess?.();
       onClose();
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to execute test run');
     } finally {
       setLoading(false);
@@ -410,7 +410,7 @@ export default function TestRunDrawer({
               getOptionLabel={option => option.name || 'Unnamed Test Set'}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box component="li" key={option.id} {...otherProps}>
                     {option.name || 'Unnamed Test Set'}
@@ -430,7 +430,7 @@ export default function TestRunDrawer({
               getOptionLabel={option => option.name}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
+                const { key: _key, ...otherProps } = props;
                 return (
                   <Box component="li" key={option.id} {...otherProps}>
                     {option.name}

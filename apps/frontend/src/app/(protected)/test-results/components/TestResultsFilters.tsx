@@ -72,7 +72,7 @@ export default function TestResultsFilters({
         sort_order: 'desc', // Sort by most recent first
       });
       setTestSets(response.data);
-    } catch (error) {
+    } catch (_error) {
     } finally {
       setIsLoadingTestSets(false);
     }

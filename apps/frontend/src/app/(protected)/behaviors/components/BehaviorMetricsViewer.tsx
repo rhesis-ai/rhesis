@@ -71,7 +71,7 @@ export default function BehaviorMetricsViewer({
       });
 
       onRefresh(metricId); // Pass the removed metric ID for dynamic update
-    } catch (err) {
+    } catch (_err) {
       notifications.show('Failed to remove metric from behavior', {
         severity: 'error',
         autoHideDuration: 4000,

@@ -1,7 +1,11 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
+import {
+  GridColDef,
+  GridPaginationModel,
+  GridRowParams,
+} from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { useRouter } from 'next/navigation';
 import {
@@ -98,7 +102,7 @@ export default function AdaptiveTestingGrid({
     },
   ];
 
-  const handleRowClick = (params: any) => {
+  const handleRowClick = (params: GridRowParams) => {
     router.push(`/adaptive-testing/${params.id}`);
   };
 
