@@ -223,9 +223,7 @@ class TestEndpointInvocation(EndpointTestMixin, BaseEntityTests):
         """Test endpoint invocation when external service throws exception"""
         # REST invoker uses httpx.AsyncClient
         mock_client = Mock()
-        mock_client.post = AsyncMock(
-            side_effect=Exception("External API connection failed")
-        )
+        mock_client.post = AsyncMock(side_effect=Exception("External API connection failed"))
         mock_async_client = Mock()
         mock_async_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_async_client.__aexit__ = AsyncMock(return_value=None)
@@ -385,6 +383,77 @@ class TestEndpointConfiguration(EndpointTestMixin, BaseEntityTests):
         assert "input_mappings" in data  # Use correct field name
         assert "response_mapping" in data  # Use correct field name
         assert data["input_mappings"]["user_query"] == "$.input"
+
+
+@pytest.mark.integration
+class TestEndpointStatusAssignment(EndpointTestMixin, BaseEntityTests):
+    """Test that endpoints are automatically assigned Active status on creation"""
+
+    def test_create_endpoint_auto_assigns_active_status(
+        self, authenticated_client: TestClient, db_project
+    ):
+        """Endpoints created without an explicit status_id get Active status"""
+        endpoint_data = {
+            "name": "Auto Status Endpoint",
+            "connection_type": "REST",
+            "url": f"https://api.{fake.domain_name()}/v1/test",
+            "environment": "development",
+            "project_id": str(db_project.id),
+        }
+
+        response = authenticated_client.post(self.endpoints.create, json=endpoint_data)
+        assert response.status_code == status.HTTP_200_OK
+        created = response.json()
+
+        # Create response has status_id but not the nested status object
+        assert created["status_id"] is not None
+
+        # Fetch via GET to verify the nested status name
+        get_response = authenticated_client.get(self.endpoints.get(created["id"]))
+        assert get_response.status_code == status.HTTP_200_OK
+        data = get_response.json()
+        assert data["status"]["name"] == "Active"
+
+    def test_create_endpoint_preserves_explicit_status(
+        self, authenticated_client: TestClient, db_project, db_status
+    ):
+        """Endpoints created with an explicit status_id keep that status"""
+        endpoint_data = {
+            "name": "Explicit Status Endpoint",
+            "connection_type": "REST",
+            "url": f"https://api.{fake.domain_name()}/v1/test",
+            "environment": "development",
+            "project_id": str(db_project.id),
+            "status_id": str(db_status.id),
+        }
+
+        response = authenticated_client.post(self.endpoints.create, json=endpoint_data)
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        assert data["status_id"] == str(db_status.id)
+
+    def test_sample_endpoint_has_active_status(
+        self, authenticated_client: TestClient, sample_endpoint
+    ):
+        """Verify the sample_endpoint fixture receives Active status"""
+        assert sample_endpoint["status_id"] is not None
+
+        get_response = authenticated_client.get(self.endpoints.get(sample_endpoint["id"]))
+        assert get_response.status_code == status.HTTP_200_OK
+        data = get_response.json()
+        assert data["status"]["name"] == "Active"
+
+    def test_working_endpoint_has_active_status(
+        self, authenticated_client: TestClient, working_endpoint
+    ):
+        """Verify the working_endpoint fixture receives Active status"""
+        assert working_endpoint["status_id"] is not None
+
+        get_response = authenticated_client.get(self.endpoints.get(working_endpoint["id"]))
+        assert get_response.status_code == status.HTTP_200_OK
+        data = get_response.json()
+        assert data["status"]["name"] == "Active"
 
 
 @pytest.mark.unit

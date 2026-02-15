@@ -363,6 +363,23 @@ class EndpointService:
             if user_id:
                 enriched_input_data["user_id"] = user_id
 
+            # -------------------------------------------------------
+            # Stateless endpoint handling (one-shot, no session)
+            # -------------------------------------------------------
+            if (
+                ConversationTracker.detect_stateless_mode(endpoint)
+                and "messages" not in enriched_input_data
+            ):
+                messages: list = []
+                system_prompt = ConversationTracker.extract_system_prompt(endpoint)
+                if system_prompt:
+                    messages.append({"role": "system", "content": system_prompt})
+                user_input = enriched_input_data.get("input", "")
+                if user_input:
+                    messages.append({"role": "user", "content": user_input})
+                enriched_input_data["messages"] = messages
+                enriched_input_data.pop("conversation_id", None)
+
             # Invoke the endpoint
             result = await invoker.invoke(db, endpoint, enriched_input_data)
             logger.debug("Endpoint test invocation completed")

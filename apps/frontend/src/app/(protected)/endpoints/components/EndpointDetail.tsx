@@ -57,9 +57,14 @@ import {
   VisibilityIcon,
   VisibilityOffIcon,
   LockIcon,
+  ContentCopyIcon,
 } from '@/components/icons';
 import { LoadingButton } from '@mui/lab';
-import { updateEndpoint, invokeEndpoint } from '@/actions/endpoints';
+import {
+  updateEndpoint,
+  invokeEndpoint,
+  createEndpoint,
+} from '@/actions/endpoints';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { getStatusColor } from '@/utils/status-colors';
 import { useSession } from 'next-auth/react';
@@ -181,6 +186,7 @@ export default function EndpointDetail({
   const [isEditing, setIsEditing] = useState(false);
   const [editedValues, setEditedValues] = useState<EndpointEditData>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [showAuthToken, setShowAuthToken] = useState(false);
   const [tokenFieldFocused, setTokenFieldFocused] = useState(false);
 
@@ -335,6 +341,61 @@ export default function EndpointDetail({
     setEditedValues(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleDuplicate = async () => {
+    try {
+      setIsDuplicating(true);
+      const {
+        id: _id,
+        status: _status,
+        status_id: _statusId,
+        user_id: _userId,
+        organization_id: _orgId,
+        nano_id: _nanoId,
+        created_at: _createdAt,
+        updated_at: _updatedAt,
+        ...rest
+      } = endpoint as Endpoint & Record<string, unknown>;
+
+      // Determine the next copy name:
+      //   "Foo"           → "Foo (Copy)"
+      //   "Foo (Copy)"    → "Foo (Copy 2)"
+      //   "Foo (Copy 3)"  → "Foo (Copy 4)"
+      const copyMatch = endpoint.name.match(
+        /^(.*?)\s*\(Copy(?:\s+(\d+))?\)\s*$/
+      );
+      let newName: string;
+      if (copyMatch) {
+        const base = copyMatch[1];
+        const currentNum = copyMatch[2] ? parseInt(copyMatch[2], 10) : 1;
+        newName = `${base} (Copy ${currentNum + 1})`;
+      } else {
+        newName = `${endpoint.name} (Copy)`;
+      }
+
+      const duplicateData = {
+        ...rest,
+        name: newName,
+      } as Omit<Endpoint, 'id'>;
+
+      const result = await createEndpoint(duplicateData);
+      if (result.success && result.data) {
+        notifications.show('Endpoint duplicated successfully', {
+          severity: 'success',
+        });
+        router.push(`/endpoints/${result.data.id}`);
+      } else {
+        throw new Error(result.error || 'Failed to duplicate endpoint');
+      }
+    } catch (error) {
+      notifications.show(
+        `Failed to duplicate endpoint: ${(error as Error).message}`,
+        { severity: 'error' }
+      );
+    } finally {
+      setIsDuplicating(false);
+    }
+  };
+
   const handleJsonChange = (field: keyof EndpointEditData, value: string) => {
     autoEnableEditMode();
 
@@ -412,6 +473,15 @@ export default function EndpointDetail({
               >
                 Playground
               </Button>
+              <LoadingButton
+                startIcon={<ContentCopyIcon />}
+                variant="outlined"
+                onClick={handleDuplicate}
+                loading={isDuplicating}
+                loadingPosition="start"
+              >
+                Duplicate
+              </LoadingButton>
               <Button
                 startIcon={<EditIcon />}
                 variant="outlined"

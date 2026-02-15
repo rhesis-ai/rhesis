@@ -112,4 +112,38 @@ describe('useFormChangeDetection', () => {
     rerender({ initialData: initial2, currentData: current });
     expect(result.current.hasChanges).toBe(false);
   });
+
+  it('does not cause infinite updates when initialData is a new reference with same content', () => {
+    // This reproduces the "Maximum update depth exceeded" bug where
+    // a parent component creates a new initialData object on every render.
+    let renderCount = 0;
+
+    const { result, rerender } = renderHook(
+      ({ initialData, currentData }) => {
+        renderCount++;
+        return useFormChangeDetection({ initialData, currentData });
+      },
+      {
+        initialProps: {
+          initialData: { name: 'Alice' },
+          currentData: { name: 'Alice' },
+        },
+      }
+    );
+
+    const countAfterMount = renderCount;
+
+    // Re-render multiple times with a NEW object reference but identical content
+    for (let i = 0; i < 5; i++) {
+      rerender({
+        initialData: { name: 'Alice' },
+        currentData: { name: 'Alice' },
+      });
+    }
+
+    // Render count should only increase by 5 (one per rerender call),
+    // NOT spiral out of control from state update loops.
+    expect(renderCount).toBeLessThanOrEqual(countAfterMount + 10);
+    expect(result.current.hasChanges).toBe(false);
+  });
 });

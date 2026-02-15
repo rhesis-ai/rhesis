@@ -16,6 +16,7 @@ from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+from rhesis.backend.app.utils.status import get_or_create_status
 
 # Use rhesis logger
 from rhesis.backend.logging import logger
@@ -45,15 +46,22 @@ def create_endpoint(
     """
     Create endpoint with optimized approach - no session variables needed.
 
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
+    If no status_id is provided, the endpoint is automatically assigned
+    the "Active" status.
     """
     organization_id, user_id = tenant_context
+
+    # Auto-assign Active status when none is provided
+    if not endpoint.status_id:
+        active_status = get_or_create_status(db, "Active", "General", organization_id, user_id)
+        if active_status:
+            endpoint.status_id = active_status.id
+
     return crud.create_endpoint(
-        db=db, endpoint=endpoint, organization_id=organization_id, user_id=user_id
+        db=db,
+        endpoint=endpoint,
+        organization_id=organization_id,
+        user_id=user_id,
     )
 
 
