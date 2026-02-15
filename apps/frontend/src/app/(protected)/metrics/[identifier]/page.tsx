@@ -20,6 +20,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import SettingsIcon from '@mui/icons-material/Settings';
 import EditIcon from '@mui/icons-material/Edit';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
 import AddIcon from '@mui/icons-material/Add';
@@ -40,6 +41,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { generateCopyName } from '@/utils/entity-helpers';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 
@@ -585,6 +587,55 @@ export default function MetricDetailPage() {
     setTextFieldsTouched(true);
   }, []);
 
+  const [isDuplicating, setIsDuplicating] = React.useState(false);
+
+  const handleDuplicate = React.useCallback(async () => {
+    if (!session?.session_token || !metric) return;
+
+    setIsDuplicating(true);
+    try {
+      const clientFactory = new ApiClientFactory(session.session_token);
+      const metricsClient = clientFactory.getMetricsClient();
+
+      const created = await metricsClient.createMetric({
+        name: generateCopyName(metric.name),
+        description: metric.description || undefined,
+        tags: metric.tags?.map(t => t.name) || [],
+        evaluation_prompt: metric.evaluation_prompt || '',
+        evaluation_steps: metric.evaluation_steps || undefined,
+        evaluation_examples: metric.evaluation_examples || undefined,
+        reasoning: metric.reasoning || undefined,
+        score_type: metric.score_type || 'numeric',
+        min_score: metric.min_score,
+        max_score: metric.max_score,
+        categories: metric.categories,
+        passing_categories: metric.passing_categories,
+        threshold: metric.threshold,
+        threshold_operator: metric.threshold_operator,
+        explanation: metric.explanation || '',
+        ground_truth_required: metric.ground_truth_required,
+        metric_scope: metric.metric_scope,
+        metric_type_id: metric.metric_type?.id as UUID,
+        backend_type_id: metric.backend_type?.id as UUID,
+        model_id: metric.model_id,
+      });
+
+      notifications.show('Metric duplicated successfully', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
+
+      router.push(`/metrics/${created.id}`);
+    } catch (_error) {
+      notifications.show('Failed to duplicate metric', {
+        severity: 'error',
+        autoHideDuration: 4000,
+      });
+    } finally {
+      setIsDuplicating(false);
+    }
+  }, [session?.session_token, metric, notifications, router]);
+
   const EditableSection = React.memo(
     ({
       title,
@@ -844,8 +895,20 @@ export default function MetricDetailPage() {
         { title: metric.name, path: `/metrics/${identifier}` },
       ]}
     >
-      {/* Memoize the entire content to prevent unnecessary re-renders */}
       <Stack direction="column" spacing={3}>
+        {/* Action buttons */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            variant="outlined"
+            startIcon={<ContentCopyIcon />}
+            onClick={handleDuplicate}
+            disabled={isDuplicating || !!isEditing}
+            size="small"
+          >
+            {isDuplicating ? 'Duplicating...' : 'Duplicate'}
+          </Button>
+        </Box>
+
         {/* Main content */}
         <Box sx={{ flex: 1 }}>
           <Stack spacing={3}>

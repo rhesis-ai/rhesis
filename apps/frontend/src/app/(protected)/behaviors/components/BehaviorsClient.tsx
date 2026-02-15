@@ -21,6 +21,7 @@ import BehaviorCard from './BehaviorCard';
 import BehaviorDrawer from './BehaviorDrawer';
 import BehaviorMetricsViewer from './BehaviorMetricsViewer';
 import SearchAndFilterBar from '@/components/common/SearchAndFilterBar';
+import { generateCopyName } from '@/utils/entity-helpers';
 
 interface BehaviorsClientProps {
   sessionToken: string;
@@ -181,6 +182,48 @@ export default function BehaviorsClient({
       setDrawerError(
         err instanceof Error ? err.message : 'Failed to save behavior'
       );
+    } finally {
+      setDrawerLoading(false);
+    }
+  };
+
+  const handleDuplicateBehavior = async (
+    id: UUID,
+    name: string,
+    description: string
+  ) => {
+    try {
+      setDrawerLoading(true);
+      setDrawerError(undefined);
+
+      const behaviorClient = new BehaviorClient(sessionToken);
+
+      const created = await behaviorClient.createBehavior({
+        name: generateCopyName(name),
+        description: description || null,
+        organization_id: organizationId,
+      });
+
+      const createdWithMetrics = await behaviorClient.getBehaviorWithMetrics(
+        created.id
+      );
+
+      setBehaviors(prev => [...prev, createdWithMetrics]);
+
+      notifications.show('Behavior duplicated successfully', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
+
+      setDrawerOpen(false);
+    } catch (err) {
+      setDrawerError(
+        err instanceof Error ? err.message : 'Failed to duplicate behavior'
+      );
+      notifications.show('Failed to duplicate behavior', {
+        severity: 'error',
+        autoHideDuration: 4000,
+      });
     } finally {
       setDrawerLoading(false);
     }
@@ -449,6 +492,13 @@ export default function BehaviorsClient({
                     behavior.description || ''
                   )
                 }
+                onDuplicate={() =>
+                  handleDuplicateBehavior(
+                    behavior.id,
+                    behavior.name,
+                    behavior.description || ''
+                  )
+                }
                 onViewMetrics={() => handleViewMetrics(behavior)}
                 onRefresh={handleRefresh}
                 sessionToken={sessionToken}
@@ -499,6 +549,16 @@ export default function BehaviorsClient({
           name={editingBehavior.name}
           description={editingBehavior.description}
           onSave={handleSaveBehavior}
+          onDuplicate={
+            !isNewBehavior && editingBehavior.id
+              ? () =>
+                  handleDuplicateBehavior(
+                    editingBehavior.id!,
+                    editingBehavior.name,
+                    editingBehavior.description
+                  )
+              : undefined
+          }
           onDelete={
             !isNewBehavior &&
             editingBehavior.id &&

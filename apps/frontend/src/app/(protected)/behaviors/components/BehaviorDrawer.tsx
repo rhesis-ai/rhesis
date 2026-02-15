@@ -1,6 +1,7 @@
 import React from 'react';
 import { Typography, TextField, Button, Stack, Divider } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { useFormChangeDetection } from '@/hooks/useFormChangeDetection';
 
@@ -10,6 +11,7 @@ interface BehaviorDrawerProps {
   name: string;
   description: string;
   onSave: (name: string, description: string) => void;
+  onDuplicate?: () => void;
   onDelete?: () => void;
   isNew?: boolean;
   loading?: boolean;
@@ -22,6 +24,7 @@ const BehaviorDrawer = ({
   name: initialName,
   description: initialDescription,
   onSave,
+  onDuplicate,
   onDelete,
   isNew = false,
   loading = false,
@@ -90,7 +93,7 @@ const BehaviorDrawer = ({
     >
       <Stack
         spacing={{ xs: 2, sm: 3 }}
-        divider={!isNew && onDelete ? <Divider /> : null}
+        divider={!isNew && (onDelete || onDuplicate) ? <Divider /> : null}
         useFlexGap
       >
         {/* Main Section */}
@@ -124,6 +127,24 @@ const BehaviorDrawer = ({
             helperText="Describe what this behavior measures and why it matters"
           />
         </Stack>
+
+        {/* Duplicate Section */}
+        {!isNew && onDuplicate && (
+          <Stack spacing={1.5}>
+            <Typography variant="body2" color="text.secondary">
+              Create a copy of this behavior
+            </Typography>
+            <Button
+              variant="outlined"
+              startIcon={<ContentCopyIcon />}
+              onClick={onDuplicate}
+              fullWidth
+              disabled={loading}
+            >
+              Duplicate Behavior
+            </Button>
+          </Stack>
+        )}
 
         {/* Delete Section */}
         {!isNew && onDelete && (

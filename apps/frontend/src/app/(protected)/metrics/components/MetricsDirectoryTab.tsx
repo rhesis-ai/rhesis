@@ -10,6 +10,7 @@ import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ButtonGroup from '@mui/material/ButtonGroup';
 import Badge from '@mui/material/Badge';
@@ -43,6 +44,7 @@ import type {
   BehaviorWithMetrics,
 } from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
+import { generateCopyName } from '@/utils/entity-helpers';
 
 interface FilterState {
   search: string;
@@ -494,6 +496,51 @@ export default function MetricsDirectoryTab({
     setMetricToDeleteCompletely(null);
   };
 
+  const handleDuplicateMetric = async (metric: MetricDetail) => {
+    if (!sessionToken) return;
+
+    try {
+      const metricClient = new MetricsClient(sessionToken);
+
+      const created = await metricClient.createMetric({
+        name: generateCopyName(metric.name),
+        description: metric.description || undefined,
+        tags: metric.tags?.map(t => t.name) || [],
+        evaluation_prompt: metric.evaluation_prompt || '',
+        evaluation_steps: metric.evaluation_steps || undefined,
+        evaluation_examples: metric.evaluation_examples || undefined,
+        reasoning: metric.reasoning || undefined,
+        score_type: metric.score_type || 'numeric',
+        min_score: metric.min_score,
+        max_score: metric.max_score,
+        categories: metric.categories,
+        passing_categories: metric.passing_categories,
+        threshold: metric.threshold,
+        threshold_operator: metric.threshold_operator,
+        explanation: metric.explanation || '',
+        ground_truth_required: metric.ground_truth_required,
+        metric_scope: metric.metric_scope,
+        metric_type_id: metric.metric_type?.id as UUID,
+        backend_type_id: metric.backend_type?.id as UUID,
+        model_id: metric.model_id,
+      });
+
+      // Fetch the created metric with full details
+      const createdDetail = await metricClient.getMetric(created.id);
+      setMetrics(prev => [createdDetail as MetricDetail, ...prev]);
+
+      notifications.show('Metric duplicated successfully', {
+        severity: 'success',
+        autoHideDuration: 4000,
+      });
+    } catch (_err) {
+      notifications.show('Failed to duplicate metric', {
+        severity: 'error',
+        autoHideDuration: 4000,
+      });
+    }
+  };
+
   const filteredMetrics = getFilteredMetrics();
   const activeBehaviors = behaviors.filter(b => b.name && b.name.trim() !== '');
 
@@ -899,6 +946,27 @@ export default function MetricsDirectoryTab({
                 >
                   <AddIcon fontSize="inherit" />
                 </IconButton>
+                {/* Duplicate button for rhesis and custom metrics */}
+                {(metric.backend_type?.type_value?.toLowerCase() === 'rhesis' ||
+                  metric.backend_type?.type_value?.toLowerCase() ===
+                    'custom') && (
+                  <IconButton
+                    size="small"
+                    onClick={e => {
+                      e.stopPropagation();
+                      handleDuplicateMetric(metric);
+                    }}
+                    sx={{
+                      padding: theme.spacing(0.25),
+                      '& .MuiSvgIcon-root': {
+                        fontSize:
+                          theme?.typography?.helperText?.fontSize || '0.75rem',
+                      },
+                    }}
+                  >
+                    <ContentCopyIcon fontSize="inherit" />
+                  </IconButton>
+                )}
                 {/* Only show delete button for unassigned custom metrics */}
                 {assignedBehaviors.length === 0 &&
                   metric.backend_type?.type_value?.toLowerCase() ===

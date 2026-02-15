@@ -84,3 +84,22 @@ export const isValidEntityType = (
   ];
   return validTypes.includes(entityType as EntityType);
 };
+
+/**
+ * Generate a duplicate name with an incrementing "(Copy N)" suffix.
+ * - "Foo"          → "Foo (Copy)"
+ * - "Foo (Copy)"   → "Foo (Copy 2)"
+ * - "Foo (Copy 2)" → "Foo (Copy 3)"
+ */
+export const generateCopyName = (name: string): string => {
+  const copyPattern = /^(.*) \(Copy(?: (\d+))?\)$/;
+  const match = name.match(copyPattern);
+
+  if (match) {
+    const baseName = match[1];
+    const currentNumber = match[2] ? parseInt(match[2], 10) : 1;
+    return `${baseName} (Copy ${currentNumber + 1})`;
+  }
+
+  return `${name} (Copy)`;
+};
