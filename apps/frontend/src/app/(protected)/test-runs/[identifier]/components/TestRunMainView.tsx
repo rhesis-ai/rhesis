@@ -170,6 +170,17 @@ export default function TestRunMainView({
       });
     }
 
+    // Apply failed metrics filter
+    if (filter.selectedFailedMetrics.length > 0) {
+      filtered = filtered.filter(test => {
+        const metrics = test.test_metrics?.metrics || {};
+        return filter.selectedFailedMetrics.some(metricName => {
+          const metric = metrics[metricName];
+          return metric && !metric.is_successful;
+        });
+      });
+    }
+
     // Apply review status filter
     if (filter.overruleFilter !== 'all') {
       filtered = filtered.filter(test => {
@@ -621,7 +632,15 @@ export default function TestRunMainView({
             filter={filter}
             onFilterChange={handleFilterChange}
             availableBehaviors={behaviors}
-            availableMetrics={behaviors?.flatMap(b => b.metrics) || []}
+            availableMetrics={
+              behaviors
+                ? Array.from(
+                    new Map(
+                      behaviors.flatMap(b => b.metrics).map(m => [m.name, m])
+                    ).values()
+                  )
+                : []
+            }
             onDownload={handleDownload}
             onCompare={handleCompare}
             isDownloading={isDownloading}

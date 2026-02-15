@@ -4,6 +4,7 @@ import * as React from 'react';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import EditIcon from '@mui/icons-material/Edit';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -21,6 +22,7 @@ import type { UUID } from 'crypto';
 interface BehaviorCardProps {
   behavior: BehaviorWithMetrics;
   onEdit: () => void;
+  onDuplicate: () => void;
   onViewMetrics: () => void;
   onRefresh: () => void;
   sessionToken: string;
@@ -29,6 +31,7 @@ interface BehaviorCardProps {
 export default function BehaviorCard({
   behavior,
   onEdit,
+  onDuplicate,
   onViewMetrics,
   onRefresh,
   sessionToken,
@@ -193,6 +196,24 @@ export default function BehaviorCard({
           </IconButton>
         </Tooltip>
       )}
+      <Tooltip title="Duplicate behavior">
+        <IconButton
+          size="small"
+          onClick={e => {
+            e.stopPropagation();
+            onDuplicate();
+          }}
+          sx={{
+            padding: theme.spacing(0.25),
+            '& .MuiSvgIcon-root': {
+              fontSize: theme?.typography?.helperText?.fontSize || '0.75rem',
+              color: 'currentColor',
+            },
+          }}
+        >
+          <ContentCopyIcon fontSize="inherit" />
+        </IconButton>
+      </Tooltip>
     </>
   );
 
