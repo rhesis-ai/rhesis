@@ -281,9 +281,7 @@ describe('convertSourceQuickFilterToOData', () => {
   it('searches title and description fields', () => {
     const result = convertSourceQuickFilterToOData(['docs']);
     expect(result).toContain("contains(tolower(title), tolower('docs'))");
-    expect(result).toContain(
-      "contains(tolower(description), tolower('docs'))"
-    );
+    expect(result).toContain("contains(tolower(description), tolower('docs'))");
   });
 
   it('includes tags relationship search', () => {
@@ -318,9 +316,7 @@ describe('convertTestSetQuickFilterToOData', () => {
 
   it('searches test set fields', () => {
     const result = convertTestSetQuickFilterToOData(['regression']);
-    expect(result).toContain(
-      "contains(tolower(name), tolower('regression'))"
-    );
+    expect(result).toContain("contains(tolower(name), tolower('regression'))");
     expect(result).toContain('user/name');
     expect(result).toContain('test_set_type/type_value');
   });
@@ -340,9 +336,7 @@ describe('combineTaskFiltersToOData', () => {
 
   it('converts regular task filter items', () => {
     const result = combineTaskFiltersToOData({
-      items: [
-        { field: 'title', operator: 'contains', value: 'bug', id: 1 },
-      ],
+      items: [{ field: 'title', operator: 'contains', value: 'bug', id: 1 }],
     });
     expect(result).toContain("contains(tolower(title), tolower('bug'))");
   });
@@ -351,7 +345,12 @@ describe('combineTaskFiltersToOData', () => {
     const result = combineTaskFiltersToOData({
       items: [
         { field: 'title', operator: 'contains', value: 'bug', id: 1 },
-        { field: '__quickFilter__', operator: 'contains', value: 'search', id: 2 },
+        {
+          field: '__quickFilter__',
+          operator: 'contains',
+          value: 'search',
+          id: 2,
+        },
       ],
     });
     expect(result).toContain('bug');
@@ -367,9 +366,7 @@ describe('combineTestFiltersToOData', () => {
 
   it('converts a single regular filter', () => {
     const result = combineTestFiltersToOData({
-      items: [
-        { field: 'name', operator: 'contains', value: 'bias', id: 1 },
-      ],
+      items: [{ field: 'name', operator: 'contains', value: 'bias', id: 1 }],
     });
     expect(result).toContain('bias');
   });
@@ -378,7 +375,12 @@ describe('combineTestFiltersToOData', () => {
     const result = combineTestFiltersToOData({
       items: [
         { field: 'name', operator: 'contains', value: 'test', id: 1 },
-        { field: '__quickFilter__', operator: 'contains', value: 'search', id: 2 },
+        {
+          field: '__quickFilter__',
+          operator: 'contains',
+          value: 'search',
+          id: 2,
+        },
       ],
     });
     expect(result).toContain('test');
@@ -393,9 +395,7 @@ describe('combineSourceFiltersToOData', () => {
 
   it('converts a single regular filter', () => {
     const result = combineSourceFiltersToOData({
-      items: [
-        { field: 'title', operator: 'contains', value: 'readme', id: 1 },
-      ],
+      items: [{ field: 'title', operator: 'contains', value: 'readme', id: 1 }],
     });
     expect(result).toContain('readme');
   });
@@ -417,9 +417,7 @@ describe('combineTestRunFiltersToOData', () => {
 
   it('converts regular filters', () => {
     const result = combineTestRunFiltersToOData({
-      items: [
-        { field: 'name', operator: 'contains', value: 'run-1', id: 1 },
-      ],
+      items: [{ field: 'name', operator: 'contains', value: 'run-1', id: 1 }],
     });
     expect(result).toContain('run-1');
   });
@@ -428,7 +426,12 @@ describe('combineTestRunFiltersToOData', () => {
     const result = combineTestRunFiltersToOData({
       items: [
         { field: 'name', operator: 'contains', value: 'run', id: 1 },
-        { field: '__quickFilter__', operator: 'contains', value: 'nightly', id: 2 },
+        {
+          field: '__quickFilter__',
+          operator: 'contains',
+          value: 'nightly',
+          id: 2,
+        },
       ],
     });
     expect(result).toContain('run');
@@ -443,9 +446,7 @@ describe('combineTestSetFiltersToOData', () => {
 
   it('converts regular test set filters with field mapping', () => {
     const result = combineTestSetFiltersToOData({
-      items: [
-        { field: 'name', operator: 'contains', value: 'safety', id: 1 },
-      ],
+      items: [{ field: 'name', operator: 'contains', value: 'safety', id: 1 }],
     });
     expect(result).toContain('safety');
   });
@@ -471,7 +472,12 @@ describe('combineTestSetFiltersToOData', () => {
   it('handles quick filter items', () => {
     const result = combineTestSetFiltersToOData({
       items: [
-        { field: '__quickFilter__', operator: 'contains', value: 'regression', id: 1 },
+        {
+          field: '__quickFilter__',
+          operator: 'contains',
+          value: 'regression',
+          id: 1,
+        },
       ],
     });
     expect(result).toContain('regression');

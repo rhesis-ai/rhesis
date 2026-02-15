@@ -11,10 +11,8 @@ jest.mock('@/utils/git-utils', () => ({
     commit: 'abc1234',
     isProduction: true,
   }),
-  formatVersionDisplay: (
-    info: { version: string },
-    prefix: string
-  ) => `${prefix}${info.version}`,
+  formatVersionDisplay: (info: { version: string }, prefix: string) =>
+    `${prefix}${info.version}`,
 }));
 
 describe('AppVersion', () => {

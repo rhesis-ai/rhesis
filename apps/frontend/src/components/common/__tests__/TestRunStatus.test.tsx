@@ -1,10 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import {
-  getTestRunStatusColor,
-  getTestRunStatusIcon,
-} from '../TestRunStatus';
+import { getTestRunStatusColor, getTestRunStatusIcon } from '../TestRunStatus';
 
 describe('getTestRunStatusColor', () => {
   it('returns "default" for undefined status', () => {

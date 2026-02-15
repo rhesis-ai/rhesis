@@ -3,7 +3,11 @@
 import React from 'react';
 import { useTheme } from '@mui/material';
 import BaseTimelineChart from './BaseTimelineChart';
-import { TimelineDataItem, ChartDataPoint, createMetricExtractor } from './timelineUtils';
+import {
+  TimelineDataItem,
+  ChartDataPoint,
+  createMetricExtractor,
+} from './timelineUtils';
 
 interface MetricTimelineChartProps {
   metricName: string;
