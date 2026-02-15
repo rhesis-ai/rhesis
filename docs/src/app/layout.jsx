@@ -135,7 +135,7 @@ export default async function RootLayout({ children }) {
           feedback={{
             content: 'Questions, feedbacks? Contact us!',
             labels: 'feedback',
-            link: 'https://www.rhesis.ai/contact-us',
+            link: 'https://www.rhesis.ai/talk-to-us',
           }}
         >
           {children}

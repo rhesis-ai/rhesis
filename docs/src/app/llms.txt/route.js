@@ -77,7 +77,7 @@ Full SDK reference: https://rhesis-sdk.readthedocs.io/en/latest/
 - GitHub: https://github.com/rhesis-ai/rhesis
 - Discord: https://discord.rhesis.ai
 - Website: https://www.rhesis.ai
-- Contact: https://www.rhesis.ai/contact-us
+- Contact: https://www.rhesis.ai/talk-to-us
 `
 
   return new Response(content, {

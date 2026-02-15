@@ -71,7 +71,7 @@ export default {
   feedback: {
     content: 'Any question or feedback? Contact us',
     labels: 'feedback',
-    link: 'https://www.rhesis.ai/contact-us',
+    link: 'https://www.rhesis.ai/talk-to-us',
   },
 
   // Footer configuration
