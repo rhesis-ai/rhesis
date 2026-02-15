@@ -1,0 +1,213 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# SDK Endpoints
+
+Register Python functions as testable endpoints using the Rhesis SDK. Instead of
+configuring endpoints manually in the dashboard, you decorate your functions and
+the SDK handles registration, mapping, and synchronization automatically.
+
+<Callout type="default">
+  **Code-first approach**: Decorate your functions with `@endpoint` and they
+  become testable endpoints in Rhesis. No manual URL configuration, request
+  templates, or response mappings needed.
+</Callout>
+
+<Callout type="info">
+  This page provides a summary of SDK endpoint capabilities. For the complete
+  reference including advanced patterns, parameter binding, serializers, and
+  working examples, see the [SDK Connector documentation](/sdk/connector).
+</Callout>
+
+## How It Works
+
+The SDK connector establishes a WebSocket connection to the Rhesis backend. When
+your application starts, the SDK:
+
+1. Discovers all functions decorated with `@endpoint`
+2. Registers them as endpoints in your Rhesis project
+3. Keeps the connection alive for remote invocation during tests
+
+When Rhesis runs tests against an SDK endpoint, it sends the test input over the
+WebSocket connection, the SDK calls your function locally, and returns the result
+to the platform for evaluation.
+
+## Quick Start
+
+<Steps>
+### Initialize the Client
+
+<CodeBlock filename="setup.py" language="python">
+{`from rhesis.sdk import RhesisClient
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development"
+)`}
+</CodeBlock>
+
+### Decorate Your Function
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import endpoint
+
+@endpoint()
+def chat(input: str, session_id: str = None) -> dict:
+    """Handle chat messages."""
+    response = generate_response(input)
+    return {
+        "output": response,
+        "session_id": session_id or generate_session_id(),
+    }`}
+</CodeBlock>
+
+### View in Dashboard
+
+Registered endpoints appear under **Projects** > **Your Project** > **Endpoints**
+with connection type `SDK` and status `Active`.
+
+</Steps>
+
+## Auto-Mapping
+
+When your function uses standard field names, the SDK automatically maps them
+to platform variables. No manual mapping configuration is needed.
+
+**Standard request fields**: `input`, `session_id` (or `conversation_id`),
+`context`, `metadata`, `tool_calls`
+
+**Standard response fields**: `output`, `context`, `metadata`, `tool_calls`,
+`session_id` (or `conversation_id`)
+
+<CodeBlock filename="auto_mapped.py" language="python">
+{`@endpoint()
+def chat(input: str, session_id: str = None) -> dict:
+    """Standard names are auto-detected."""
+    return {
+        "output": process_message(input),
+        "session_id": session_id,
+    }`}
+</CodeBlock>
+
+## Manual Mapping
+
+For functions with custom parameter names or complex structures, provide explicit
+mappings using the same Jinja2 and JSONPath syntax as
+[REST endpoint mappings](/platform/endpoints/single-turn):
+
+<CodeBlock filename="manual_mapped.py" language="python">
+{`@endpoint(
+    request_mapping={
+        "user_query": "{{ input }}",
+        "conv_id": "{{ conversation_id }}",
+    },
+    response_mapping={
+        "output": "$.result.text",
+        "conversation_id": "$.conv_id",
+    },
+)
+def chat(user_query: str, conv_id: str = None) -> dict:
+    """Custom names require manual mapping."""
+    return {
+        "result": {"text": process(user_query)},
+        "conv_id": conv_id,
+    }`}
+</CodeBlock>
+
+## Multiple Functions
+
+Register multiple endpoints from a single application. Each decorated function
+becomes its own endpoint:
+
+<CodeBlock filename="multi_function.py" language="python">
+{`@endpoint()
+def handle_chat(input: str, session_id: str = None) -> dict:
+    """Process chat messages."""
+    return {"output": generate_response(input), "session_id": session_id}
+
+@endpoint()
+def search_documents(input: str) -> dict:
+    """Search documents."""
+    results = perform_search(input)
+    return {"output": format_results(results), "context": results}
+
+@endpoint()
+def summarize(input: str) -> dict:
+    """Summarize text."""
+    return {"output": generate_summary(input)}`}
+</CodeBlock>
+
+## Parameter Binding
+
+Inject infrastructure dependencies (database connections, configuration, auth
+context) without exposing them in the remote function signature:
+
+<CodeBlock filename="bound_endpoint.py" language="python">
+{`@endpoint(
+    bind={
+        "db": lambda: get_db_session(),
+        "config": AppConfig(),
+    }
+)
+def query_data(db, config, input: str) -> dict:
+    """
+    db and config are injected automatically.
+    Remote signature: query_data(input: str)
+    """
+    results = db.query(config.table, input)
+    return {"output": format_results(results)}`}
+</CodeBlock>
+
+For full details on binding patterns, see
+[Parameter Binding](/sdk/connector/binding).
+
+## SDK vs. REST Endpoints
+
+| Aspect | SDK Endpoints | REST Endpoints |
+|---|---|---|
+| **Setup** | Decorate Python functions | Configure URL, headers, templates in dashboard |
+| **Connection** | WebSocket (bidirectional) | HTTP requests |
+| **Mapping** | Auto-detected or via decorator | Jinja2 templates and JSONPath |
+| **Best for** | Functions in your codebase | External APIs and third-party services |
+| **Dependencies** | Supports parameter binding | N/A (API manages its own state) |
+| **Requires** | Running application with SDK | Accessible API URL |
+
+<Callout type="info">
+  **When to use which?**
+  - Use **SDK endpoints** when your AI logic lives in Python functions you
+    control and you want a code-first testing workflow.
+  - Use **REST endpoints** when testing external APIs, third-party LLM
+    providers, or services deployed outside your codebase.
+  - You can use both in the same project.
+</Callout>
+
+## Connection Management
+
+- **Auto-reconnect**: The SDK reconnects automatically with exponential backoff
+  if the connection is lost.
+- **Re-registration**: Functions are re-registered on reconnect.
+- **Status sync**: Adding or modifying functions updates endpoints automatically.
+  Removing a function marks its endpoint as `Inactive`.
+
+## Disabling the Connector
+
+To disable all connector functionality (useful for CI/CD or testing), set the
+environment variable:
+
+<CodeBlock filename="terminal" language="bash">
+{`export RHESIS_CONNECTOR_DISABLED=true`}
+</CodeBlock>
+
+When disabled, `@endpoint` decorators return functions unmodified and no
+WebSocket connection is established.
+
+---
+
+<Callout type="default">
+  **Learn More**
+  - [SDK Connector](/sdk/connector) — Full reference with advanced patterns
+  - [Input/Output Mapping](/sdk/connector/mapping) — Detailed mapping guide
+  - [Parameter Binding](/sdk/connector/binding) — Dependency injection patterns
+  - [Advanced Mapping](/sdk/connector/serializers) — Complex type serialization
+  - [Examples](/sdk/connector/examples) — Complete working examples
+</Callout>

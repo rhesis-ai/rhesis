@@ -1,0 +1,253 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Single-Turn Endpoints
+
+Configure request and response mappings for endpoints that handle one exchange at a time.
+
+<Callout type="default">
+  **Single-turn** endpoints process one request-response pair per invocation.
+  This is the most common pattern: you send a prompt, the API returns a
+  response, and Rhesis evaluates it. For conversational endpoints that maintain
+  context across multiple turns, see
+  [Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations).
+</Callout>
+
+## Request Body Templates
+
+Request body templates define how Rhesis transforms its
+[platform-managed variables](/platform/endpoints#platform-managed-variables)
+into the JSON structure your API expects. Templates use Jinja2 syntax for
+dynamic values.
+
+### Basic Template
+
+Place the `input` variable wherever your API expects the user query:
+
+<CodeBlock filename="simple-request.json" language="json">
+  {`{
+  "prompt": "{{ input }}",
+  "max_tokens": 500
+}`}
+</CodeBlock>
+
+### Nested Structures
+
+For APIs that use nested message formats, embed `input` within the appropriate
+structure:
+
+<CodeBlock filename="openai-style-request.json" language="json">
+  {`{
+  "model": "gpt-4",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{{ input }}"
+    }
+  ],
+  "temperature": 0.7
+}`}
+</CodeBlock>
+
+<Callout type="info">
+  **Note**: The example above hardcodes a single user message in the `messages`
+  array. If your endpoint is stateless and you need Rhesis to manage the full
+  conversation history across multiple turns, use `"messages": "{{ messages }}"`
+  instead. Rhesis detects this and automatically builds the messages array
+  with the complete conversation history. See
+  [Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations#stateless-endpoints-message-history)
+  for details.
+</Callout>
+
+### The `tojson` Filter
+
+Use the `tojson` filter when a variable might be `null` or when you need proper
+JSON serialization. This is especially useful for optional fields:
+
+<CodeBlock filename="tojson-example.json" language="json">
+  {`{
+  "query": "{{ input }}",
+  "conversation_id": {{ conversation_id | tojson }},
+  "metadata": {{ metadata | tojson }}
+}`}
+</CodeBlock>
+
+The `tojson` filter ensures values are properly formatted as JSON:
+- Python `None` becomes JSON `null`
+- Strings are properly quoted
+- Objects and arrays are serialized correctly
+
+### Custom Static Fields
+
+You can include any static values alongside platform variables. These are sent
+as-is with every request:
+
+<CodeBlock filename="custom-fields-request.json" language="json">
+  {`{
+  "model": "claude-3-sonnet",
+  "prompt": "{{ input }}",
+  "temperature": 0.3,
+  "max_tokens": 1024,
+  "stream": false
+}`}
+</CodeBlock>
+
+## Response Mappings
+
+Response mappings tell Rhesis how to extract
+[platform-managed variables](/platform/endpoints#platform-managed-variables)
+from your API's response. You can use JSONPath expressions, Jinja2 templates,
+or a combination of both.
+
+### JSONPath Expressions
+
+JSONPath is the simplest approach. Expressions starting with `$` are evaluated
+as JSONPath against the response body:
+
+<CodeBlock filename="jsonpath-response.json" language="json">
+  {`{
+  "output": "$.choices[0].message.content",
+  "model_used": "$.model",
+  "tokens": "$.usage.total_tokens"
+}`}
+</CodeBlock>
+
+Common JSONPath patterns:
+
+| Pattern | Description |
+|---|---|
+| `$.field` | Top-level field |
+| `$.nested.field` | Nested field |
+| `$.array[0]` | First element of an array |
+| `$.array[0].field` | Field from the first array element |
+| `$.data[*].text` | `text` field from all array elements |
+
+### Jinja2 Templates with `jsonpath()`
+
+For conditional logic or fallback values, use Jinja2 templates with the
+`jsonpath()` function:
+
+<CodeBlock filename="jinja2-response.json" language="json">
+  {`{
+  "output": "{{ jsonpath('$.text_response') or jsonpath('$.result.content') }}",
+  "conversation_id": "$.conversation_id"
+}`}
+</CodeBlock>
+
+The first value evaluates as a Jinja2 template and returns the first non-empty
+field. Pure JSONPath expressions (starting with `$`) work without any wrapping.
+
+### Mixing Approaches
+
+You can mix JSONPath and Jinja2 in the same response mapping. Each field is
+evaluated independently:
+
+<CodeBlock filename="mixed-response.json" language="json">
+  {`{
+  "output": "$.response.text",
+  "context": "{{ jsonpath('$.sources') or jsonpath('$.references') }}",
+  "metadata": "$.usage"
+}`}
+</CodeBlock>
+
+## Platform-Managed Fields
+
+Rhesis actively uses certain mapped response fields for evaluation and
+tracking. Other fields are stored but not actively used by the platform.
+
+<Callout type="info">
+  **Required field**: The `output` field must always be mapped. Without it,
+  Rhesis cannot evaluate your endpoint's responses against metrics.
+</Callout>
+
+**Actively used fields**:
+- `output`: The main response text, used for metric evaluation
+- `context`: Additional context, used by context-dependent metrics
+- Conversation tracking fields (`conversation_id`, `session_id`, etc.): Used for
+  [multi-turn conversation](/platform/endpoints/multi-turn-conversations) management
+
+**Stored fields**:
+- `metadata`: Stored with the test result for reference
+- `tool_calls`: Stored with the test result for reference
+- Any custom fields you define in the response mapping
+
+## Testing Your Endpoint
+
+Before running full test suites, verify your endpoint configuration works
+correctly.
+
+1. Navigate to the **Test Connection** tab on the endpoint details page
+2. Enter sample input data in the text field
+3. Click **Test Endpoint**
+4. Review the response to ensure it returns expected data
+
+![Test Connection](/screenshots/rhesis-ai-endpoint-test-connection.png)
+
+The test connection sends a single request using your configured template and
+displays the raw API response alongside the mapped result. This helps you verify
+that your JSONPath expressions and Jinja2 templates extract the correct values.
+
+<Callout type="info">
+  **Stateless endpoints**: If your endpoint uses the `messages` template
+  variable, the test connection automatically builds a one-shot messages array
+  from your input and system prompt. You do not need to provide the messages
+  array manually.
+</Callout>
+
+## Example: Complete REST Endpoint
+
+Here is a complete configuration for a typical REST endpoint calling an
+LLM API.
+
+**Request headers**:
+
+<CodeBlock filename="example-headers.json" language="json">
+  {`{
+  "Authorization": "Bearer {{ auth_token }}",
+  "Content-Type": "application/json"
+}`}
+</CodeBlock>
+
+The `auth_token` placeholder is automatically replaced with the token configured
+in the endpoint settings. See the
+[Endpoints Overview](/platform/endpoints#creating-an-endpoint) for details.
+
+**Request body template**:
+
+<CodeBlock filename="example-request.json" language="json">
+  {`{
+  "model": "gpt-4",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{{ input }}"
+    }
+  ],
+  "temperature": 0.7,
+  "max_tokens": 1024
+}`}
+</CodeBlock>
+
+**Response mapping**:
+
+<CodeBlock filename="example-response.json" language="json">
+  {`{
+  "output": "$.choices[0].message.content",
+  "metadata": "$.usage"
+}`}
+</CodeBlock>
+
+With this configuration, when Rhesis sends a test prompt like "What is machine
+learning?", it formats the request, sends it to your API, extracts the response
+text from `choices[0].message.content`, and evaluates it against your configured
+metrics.
+
+---
+
+<Callout type="default">
+  **Next Steps**
+  - Configure [Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations)
+    for conversational AI testing
+  - Return to the [Endpoints Overview](/platform/endpoints) for general
+    endpoint management
+  - Generate [Tests](/platform/tests-generation) to validate your endpoint
+</Callout>

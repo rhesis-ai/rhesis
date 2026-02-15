@@ -32,6 +32,69 @@ An endpoint in Rhesis is a complete configuration for calling an external API. W
 
 Think of endpoints as the bridge between your tests and the AI system you're evaluating.
 
+## Platform-Managed Variables
+
+Rhesis uses a set of platform-managed variables to standardize communication between your tests and your API. You map these variables to the fields your endpoint expects (in request templates) and the fields your endpoint returns (in response mappings). This abstraction lets Rhesis work with any API regardless of its specific field names.
+
+### Request Variables
+
+These variables are available in your request body templates using Jinja2 syntax (`\{\{ variable \}\}`). Rhesis populates them automatically when running tests.
+
+| Variable | Required | Description |
+|---|---|---|
+| `input` | Yes | The user query or test prompt. This is the primary text sent to your AI endpoint. |
+| `conversation_id` | No | Conversation tracking identifier for multi-turn stateful endpoints. Rhesis passes this back on subsequent turns. |
+| `messages` | No | Full conversation history as an array of message objects. Used for stateless endpoints that require the entire history with every request. |
+| `system_prompt` | No | System prompt text. Rhesis prepends it to the `messages` array and strips it from the final request body before sending. |
+
+### Response Variables
+
+These variables are extracted from your API response using JSONPath or Jinja2 expressions in the response mapping. Rhesis uses them for evaluation, display, and conversation tracking.
+
+| Variable | Required | Description |
+|---|---|---|
+| `output` | Yes | The main response text from your API. This is what Rhesis evaluates against your metrics. |
+| `context` | No | Additional context or reasoning provided by the response (e.g., retrieved documents, sources). |
+| `metadata` | No | Arbitrary metadata about the response (e.g., model version, token counts). Stored but not actively evaluated. |
+| `tool_calls` | No | Tool or function call results returned by the API. |
+| Conversation ID fields | No | Any of the recognized conversation identifiers: `conversation_id`, `session_id`, `thread_id`, `chat_id`, `dialog_id`, `dialogue_id`, `context_id`, `interaction_id`. Rhesis auto-detects these for multi-turn tracking. |
+
+<Callout type="info">
+  You can include additional custom fields in both request templates and response
+  mappings. Custom fields are passed through and stored, but Rhesis does not
+  actively use them for evaluation or conversation management.
+</Callout>
+
+### How Mapping Works
+
+Request and response mappings tell Rhesis how to translate between its standard variables and your API's specific field names.
+
+**Request mapping** uses Jinja2 templates to place platform variables into your API's expected request body structure:
+
+<CodeBlock filename="request-mapping-example.json" language="json">
+  {`{
+  "model": "gpt-4",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{{ input }}"
+    }
+  ],
+  "temperature": 0.7
+}`}
+</CodeBlock>
+
+**Response mapping** uses JSONPath expressions to extract values from your API's response into platform variables:
+
+<CodeBlock filename="response-mapping-example.json" language="json">
+  {`{
+  "output": "$.choices[0].message.content",
+  "metadata": "$.usage"
+}`}
+</CodeBlock>
+
+For full details on template syntax, filters, and advanced mapping techniques, see [Single-Turn Endpoints](/platform/endpoints/single-turn).
+
 ## Creating an Endpoint
 
 ### Manual Configuration
@@ -46,183 +109,36 @@ Define authentication and other required headers in JSON format:
 
 <CodeBlock filename="headers.json" language="json">
   {`{
-  "Authorization": "Bearer {API_KEY}",
+  "Authorization": "Bearer {{ auth_token }}",
   "Content-Type": "application/json"
 }`}
 </CodeBlock>
 
-**Request Body Template**
+The `auth_token` variable is a platform-managed placeholder that Rhesis
+automatically replaces with the authentication token you configure in the
+endpoint settings UI. You can reference it using Jinja2 syntax
+(`\{\{ auth_token \}\}`) or the legacy `\{API_KEY\}` / `\{auth_token\}`
+placeholders with single braces.
 
-Templates use Jinja2 syntax for dynamic values. Use the `tojson` filter for proper JSON formatting:
+If you configure an authentication token in the UI but do not include an
+`Authorization` header explicitly, Rhesis automatically adds
+`Authorization: Bearer <token>` to the request headers.
 
-<CodeBlock filename="request-body.json" language="json">
-  {`{
-  "model": "gpt-4",
-  "messages": [
-    {
-      "role": "user",
-      "content": "{{ input }}"
-    }
-  ],
-  "temperature": 0.7,
-  "conversation_id": {{ conversation_id | tojson }}
-}`}
-</CodeBlock>
+**Request and Response Mappings**
 
-The `tojson` filter ensures values are properly formatted as JSON (e.g., `null` instead of `None`, properly quoted strings).
+Configure your request body template and response mappings to bridge platform variables with your API's fields. Rhesis supports two endpoint patterns depending on how your API handles conversations:
 
-**Response Mappings**
+- **[Single-Turn Endpoints](/platform/endpoints/single-turn)**: Standard request/response mapping with Jinja2 templates and JSONPath. Covers most use cases including simple query-response APIs.
+- **[Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations)**: Conversation tracking for stateful endpoints (your API manages session state) and message history for stateless endpoints (Rhesis manages conversation state).
+- **[Mapping Examples](/platform/endpoints/mapping-examples)**: Practical examples for OpenAI, Anthropic, Google Gemini, RAG pipelines, WebSocket endpoints, and more.
 
-Extract values using JSONPath or Jinja2 templates with conditional logic:
+### SDK Endpoints
 
-<CodeBlock filename="response-mappings.json" language="json">
-  {`{
-  "output": "$.choices[0].message.content",
-  "model_used": "$.model",
-  "tokens": "$.usage.total_tokens"
-}`}
-</CodeBlock>
-
-For conditional logic or nested fields, use Jinja2 templates with the `jsonpath()` function:
-
-<CodeBlock filename="response-mappings-advanced.json" language="json">
-  {`{
-  "output": "{{ jsonpath('$.text_response') or jsonpath('$.result.content') }}",
-  "conversation_id": "$.conversation_id"
-}`}
-</CodeBlock>
-
-The first value evaluates as a Jinja2 template (returns first non-empty field), while pure JSONPath expressions (starting with `$`) work as before.
-
-<Callout type="info">
-  **Platform-Managed Fields**: Rhesis actively uses certain mapped fields:
-  - `output`: The main response text from your API (required)
-  - `context`: Additional context or reasoning from the response
-  - Conversation tracking fields (see below) for multi-turn conversations
-
-  Other fields like `model_used` or `tokens` are stored but not actively used by the platform.
-</Callout>
-
-**Conversation Tracking for Multi-Turn Conversations**
-
-Rhesis automatically tracks conversation state across multiple turns when you include a conversation identifier in your response mappings. This enables testing of conversational AI systems that maintain context across interactions.
-
-To enable conversation tracking, simply map the conversation field from your API response:
-
-<CodeBlock filename="response-mappings-with-conversation.json" language="json">
-  {`{
-  "output": "$.choices[0].message.content",
-  "conversation_id": "$.conversation_id"
-}`}
-</CodeBlock>
-
-Rhesis automatically detects and handles the following conversation field names:
-
-**Most Common (Tier 1)**:
-- `conversation_id`
-- `session_id`
-- `thread_id`
-- `chat_id`
-
-**Common Variants (Tier 2)**:
-- `dialog_id`
-- `dialogue_id`
-- `context_id`
-- `interaction_id`
-
-When a conversation field is mapped, Rhesis will:
-1. Extract the conversation ID from each API response
-2. Automatically include it in subsequent requests for the same conversation
-3. Maintain conversation context across multiple test turns
-
-This works for both REST and WebSocket endpoints without any additional configuration.
-
-<CodeBlock filename="multi-turn-example.json" language="json">
-  {`// First request - no conversation_id
-{
-  "query": "What is the capital of France?"
-}
-
-// API returns: { "output": "Paris", "conversation_id": "abc-123" }
-
-// Second request - conversation_id automatically included
-{
-  "query": "What is its population?",
-  "conversation_id": "abc-123"
-}
-
-// API maintains context and responds about Paris`}
-</CodeBlock>
-
-![Request Settings](/screenshots/rhesis-ai-endpoint-request-settings.png)
-
-**Stateless Endpoints (Message History)**
-
-Some AI endpoints are stateless: they do not maintain conversation context on
-the server side. Instead, the caller must send the entire conversation history
-with every request. Rhesis supports this pattern natively.
-
-To configure a stateless endpoint, use the `messages` template variable in your
-request body template. Rhesis detects this and manages the conversation history
-internally:
-
-<CodeBlock filename="stateless-request-body.json" language="json">
-  {`{
-  "messages": "{{ messages }}",
-  "model": "my-model",
-  "temperature": 0.7,
-  "system_prompt": "You are a helpful assistant."
-}`}
-</CodeBlock>
-
-How it works:
-
-- **Automatic detection**: Rhesis identifies a stateless endpoint when the
-  request body template contains `\{\{ messages \}\}`.
-- **History management**: During multi-turn test execution, Rhesis accumulates
-  the full conversation history (user messages and assistant responses) and sends
-  it as the `messages` array with each request.
-- **System prompt**: If you include a `system_prompt` field in the request body
-  template, Rhesis prepends it to the messages array as the first entry with the
-  `system` role. The `system_prompt` field itself is stripped from the final
-  request before sending.
-- **Single-turn auto-population**: For single test runs (outside multi-turn
-  conversations), Rhesis automatically builds the messages array from the test
-  input and system prompt so you do not need to provide it manually.
-
-The messages array follows the standard chat completion format used by most LLM
-providers:
-
-<CodeBlock filename="messages-format.json" language="json">
-  {`[
-  { "role": "system", "content": "You are a helpful assistant." },
-  { "role": "user", "content": "What is the capital of France?" },
-  { "role": "assistant", "content": "The capital of France is Paris." },
-  { "role": "user", "content": "What is its population?" }
-]`}
-</CodeBlock>
-
-The response mapping for stateless endpoints works the same way as for any other
-endpoint. Map the `output` field to the response path where the assistant's reply
-is returned:
-
-<CodeBlock filename="stateless-response-mapping.json" language="json">
-  {`{
-  "output": "$.choices[0].message.content"
-}`}
-</CodeBlock>
-
-<Callout type="info">
-  **Stateless vs. Stateful**: Use stateless configuration when your endpoint
-  expects the full conversation history in every request. Use stateful
-  configuration (with conversation tracking fields like `conversation_id`) when
-  your endpoint maintains server-side session state. Rhesis detects which mode to
-  use based on your request body template.
-</Callout>
-
-### Importing from Swagger/OpenAPI
-
-Click **Import Swagger**, enter your Swagger/OpenAPI specification URL, and click **Import**. This automatically populates request templates and response structures from your API documentation. You'll still need to fill in authentication details and select which operations to configure.
+If your AI logic lives in Python functions, you can register them as endpoints
+directly from code using the Rhesis SDK. Decorate your functions with `@endpoint`
+and the SDK handles registration and mapping automatically. See
+[SDK Endpoints](/platform/endpoints/sdk-endpoints) for details, or the full
+[SDK Connector reference](/sdk/connector) for advanced patterns.
 
 ## Testing Your Endpoint
 
@@ -239,6 +155,10 @@ The Endpoints page displays all your configured endpoints organized by project. 
 ### Editing Endpoints
 
 Open the endpoint details page, click **Edit**, modify any configuration fields, and click **Save**. Changes take effect immediately for new test runs.
+
+### Duplicating Endpoints
+
+To create a copy of an existing endpoint, open the endpoint details page and click **Duplicate**. Rhesis creates a new endpoint with the same configuration and appends "(Copy)" to the name. You can also select multiple endpoints from the grid and duplicate them in bulk.
 
 ### Deleting Endpoints
 
@@ -275,9 +195,15 @@ Environment tags help you quickly identify which endpoints are production-critic
 ---
 
 <Callout type="default">
-  **Next Steps** - Test your endpoint configuration using the Test Connection
-  tab - Generate [Tests](/platform/tests-generation) with AI to create
-  comprehensive coverage - Create multiple endpoints to compare models or
-  environments - Define [Metrics](/platform/metrics) to evaluate response
-  quality
+  **Next Steps**
+  - Learn about [Single-Turn Endpoints](/platform/endpoints/single-turn) for
+    request/response mapping details
+  - Configure [Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations)
+    for conversational AI testing
+  - Register Python functions with [SDK Endpoints](/platform/endpoints/sdk-endpoints)
+  - Browse [Mapping Examples](/platform/endpoints/mapping-examples) for
+    real-world configuration patterns
+  - Generate [Tests](/platform/tests-generation) with AI to create
+    comprehensive coverage
+  - Define [Metrics](/platform/metrics) to evaluate response quality
 </Callout>

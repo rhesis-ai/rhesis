@@ -1,0 +1,388 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Mapping Examples
+
+Practical examples showing how to configure request and response mappings for
+different API patterns. Each example includes the request body template, response
+mapping, and a description of how Rhesis translates between
+[platform-managed variables](/platform/endpoints#platform-managed-variables) and
+your API.
+
+## Simple Query-Response API
+
+The most basic pattern: a single input field and a top-level output field.
+
+**API contract**: Your API expects `\{"prompt": "..."\}` and returns `\{"text": "..."\}`.
+
+**Request body template**:
+
+<CodeBlock filename="simple-request.json" language="json">
+  {`{
+  "prompt": "{{ input }}"
+}`}
+</CodeBlock>
+
+**Response mapping**:
+
+<CodeBlock filename="simple-response.json" language="json">
+  {`{
+  "output": "$.text"
+}`}
+</CodeBlock>
+
+Rhesis maps its `input` variable to your API's `prompt` field, and extracts
+your API's `text` field into the platform's `output` variable.
+
+## OpenAI-Compatible API
+
+For APIs that follow the OpenAI chat completions format.
+
+**Request body template**:
+
+<CodeBlock filename="openai-request.json" language="json">
+  {`{
+  "model": "gpt-4",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{{ input }}"
+    }
+  ],
+  "temperature": 0.7,
+  "max_tokens": 1024
+}`}
+</CodeBlock>
+
+**Response mapping**:
+
+<CodeBlock filename="openai-response.json" language="json">
+  {`{
+  "output": "$.choices[0].message.content",
+  "metadata": "$.usage"
+}`}
+</CodeBlock>
+
+The response text is nested inside `choices[0].message.content`. The `metadata`
+field captures token usage statistics for reference.
+
+<Callout type="info">
+  **Multi-turn conversations**: This example sends a single user message. Since
+  OpenAI-compatible APIs are stateless, you can use `"messages": "{{ messages }}"`
+  instead to let Rhesis manage the full conversation history automatically. The
+  response mapping stays the same. See the
+  [Stateless Endpoint example](#stateless-conversation-endpoint) below or
+  [Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations#stateless-endpoints-message-history)
+  for details.
+</Callout>
+
+## Anthropic Claude API
+
+For APIs following Anthropic's message format.
+
+**Request body template**:
+
+<CodeBlock filename="anthropic-request.json" language="json">
+  {`{
+  "model": "claude-3-sonnet-20240229",
+  "max_tokens": 1024,
+  "system": "You are a helpful assistant.",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{{ input }}"
+    }
+  ]
+}`}
+</CodeBlock>
+
+**Response mapping**:
+
+<CodeBlock filename="anthropic-response.json" language="json">
+  {`{
+  "output": "$.content[0].text",
+  "metadata": "$.usage"
+}`}
+</CodeBlock>
+
+Anthropic returns the response in `content[0].text` rather than
+`choices[0].message.content`.
+
+<Callout type="info">
+  **Multi-turn conversations**: Like OpenAI, the Anthropic API is stateless.
+  Replace the hardcoded `messages` array with `"messages": "{{ messages }}"` to
+  let Rhesis manage conversation history across multiple turns. See
+  [Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations#stateless-endpoints-message-history)
+  for details.
+</Callout>
+
+## Google Gemini API
+
+For the Google Gemini (Vertex AI) chat format.
+
+**Request body template**:
+
+<CodeBlock filename="gemini-request.json" language="json">
+  {`{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "{{ input }}"
+        }
+      ]
+    }
+  ],
+  "generationConfig": {
+    "temperature": 0.7,
+    "maxOutputTokens": 1024
+  }
+}`}
+</CodeBlock>
+
+**Response mapping**:
+
+<CodeBlock filename="gemini-response.json" language="json">
+  {`{
+  "output": "$.candidates[0].content.parts[0].text",
+  "metadata": "$.usageMetadata"
+}`}
+</CodeBlock>
+
+Gemini uses a deeply nested structure with `candidates`, `content`, and `parts`.
+
+<Callout type="info">
+  **Multi-turn conversations**: The Gemini API is also stateless. For
+  multi-turn testing, replace the hardcoded `contents` array with
+  `"contents": "{{ messages }}"` to let Rhesis manage the conversation
+  history. See
+  [Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations#stateless-endpoints-message-history)
+  for details.
+</Callout>
+
+## RAG Endpoint with Context
+
+For retrieval-augmented generation APIs that return source documents alongside
+the answer.
+
+**API contract**: Your API expects a query and returns an answer with sources.
+
+**Request body template**:
+
+<CodeBlock filename="rag-request.json" language="json">
+  {`{
+  "query": "{{ input }}",
+  "num_sources": 5,
+  "include_metadata": true
+}`}
+</CodeBlock>
+
+**Response mapping**:
+
+<CodeBlock filename="rag-response.json" language="json">
+  {`{
+  "output": "$.answer",
+  "context": "$.sources",
+  "metadata": "$.metadata"
+}`}
+</CodeBlock>
+
+The `context` variable captures the retrieved sources, which Rhesis can use for
+context-dependent metrics like faithfulness and relevance.
+
+## Fallback Response Paths
+
+When your API might return the response in different locations depending on the
+request type, use Jinja2 templates with `jsonpath()` for fallback logic.
+
+**Response mapping**:
+
+<CodeBlock filename="fallback-response.json" language="json">
+  {`{
+  "output": "{{ jsonpath('$.result.text') or jsonpath('$.message') or jsonpath('$.output') }}",
+  "metadata": "$.debug_info"
+}`}
+</CodeBlock>
+
+Rhesis tries each JSONPath expression in order and uses the first non-empty
+result. This is useful for APIs that have different response shapes for different
+endpoints or error conditions.
+
+## Stateful Conversation Endpoint
+
+For APIs that manage their own session state and return a conversation
+identifier.
+
+**Request body template**:
+
+<CodeBlock filename="stateful-request.json" language="json">
+  {`{
+  "message": "{{ input }}",
+  "conversation_id": {{ conversation_id | tojson }}
+}`}
+</CodeBlock>
+
+**Response mapping**:
+
+<CodeBlock filename="stateful-response.json" language="json">
+  {`{
+  "output": "$.response",
+  "conversation_id": "$.conversation_id",
+  "context": "$.sources"
+}`}
+</CodeBlock>
+
+On the first turn, `conversation_id` renders as `null`. The API returns a new
+conversation ID, which Rhesis automatically includes in subsequent requests.
+See [Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations)
+for details.
+
+## Stateless Conversation Endpoint
+
+For APIs that expect the full message history with every request (e.g., direct
+LLM provider APIs).
+
+**Request body template**:
+
+<CodeBlock filename="stateless-request.json" language="json">
+  {`{
+  "model": "gpt-4",
+  "messages": "{{ messages }}",
+  "temperature": 0.7,
+  "system_prompt": "You are a knowledgeable insurance advisor."
+}`}
+</CodeBlock>
+
+**Response mapping**:
+
+<CodeBlock filename="stateless-response.json" language="json">
+  {`{
+  "output": "$.choices[0].message.content"
+}`}
+</CodeBlock>
+
+Rhesis detects the `messages` variable and manages conversation history
+internally. The `system_prompt` is prepended to the messages array and removed
+from the request body before sending. See
+[Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations) for
+details.
+
+## Custom Business Fields
+
+For APIs that require domain-specific fields beyond the standard platform
+variables. Custom fields are passed through from the test input.
+
+**Request body template**:
+
+<CodeBlock filename="custom-fields-request.json" language="json">
+  {`{
+  "question": "{{ input }}",
+  "policy_number": "{{ policy_number }}",
+  "customer_tier": "{{ tier | default('standard') }}",
+  "language": "{{ language | default('en') }}"
+}`}
+</CodeBlock>
+
+**Response mapping**:
+
+<CodeBlock filename="custom-fields-response.json" language="json">
+  {`{
+  "output": "$.answer",
+  "context": "$.relevant_clauses",
+  "metadata": "$.claim_info"
+}`}
+</CodeBlock>
+
+Custom fields like `policy_number` and `tier` must be included in the test input
+or API request body when invoking the endpoint. Use the `default` filter to
+provide fallback values for optional fields.
+
+## API with Authentication in the Body
+
+Some APIs require authentication tokens or API keys in the request body rather
+than in headers.
+
+**Request body template**:
+
+<CodeBlock filename="auth-body-request.json" language="json">
+  {`{
+  "api_key": "sk-your-api-key",
+  "input": {
+    "text": "{{ input }}",
+    "options": {
+      "temperature": 0.5,
+      "format": "text"
+    }
+  }
+}`}
+</CodeBlock>
+
+**Response mapping**:
+
+<CodeBlock filename="auth-body-response.json" language="json">
+  {`{
+  "output": "$.result.generated_text",
+  "metadata": "$.result.statistics"
+}`}
+</CodeBlock>
+
+Static values like `api_key` are included as-is in every request.
+
+## Deeply Nested Response
+
+For APIs with complex, deeply nested response structures.
+
+**Response mapping**:
+
+<CodeBlock filename="nested-response.json" language="json">
+  {`{
+  "output": "$.data.completion.choices[0].message.content",
+  "context": "$.data.retrieval.documents[*].text",
+  "metadata": "{{ {'model': jsonpath('$.data.model_info.name'), 'latency_ms': jsonpath('$.data.timing.total_ms')} }}"
+}`}
+</CodeBlock>
+
+The `metadata` field uses a Jinja2 template to construct a custom object from
+multiple response paths. This is useful when you want to aggregate data from
+different parts of the response.
+
+## WebSocket Endpoint
+
+WebSocket endpoints use the same mapping syntax. The request template defines the
+message format sent over the WebSocket connection.
+
+**Request body template**:
+
+<CodeBlock filename="websocket-request.json" language="json">
+  {`{
+  "type": "chat_message",
+  "payload": {
+    "text": "{{ input }}",
+    "session_id": {{ conversation_id | tojson }}
+  }
+}`}
+</CodeBlock>
+
+**Response mapping**:
+
+<CodeBlock filename="websocket-response.json" language="json">
+  {`{
+  "output": "$.payload.response",
+  "conversation_id": "$.payload.session_id",
+  "metadata": "$.payload.metadata"
+}`}
+</CodeBlock>
+
+The mapping works the same regardless of transport protocol (REST or WebSocket).
+
+---
+
+<Callout type="default">
+  **Next Steps**
+  - Learn about [Single-Turn Endpoints](/platform/endpoints/single-turn) for
+    template syntax details
+  - Configure [Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations)
+    for conversational testing
+  - Explore [SDK Endpoints](/platform/endpoints/sdk-endpoints) for code-first
+    endpoint definition
+</Callout>
