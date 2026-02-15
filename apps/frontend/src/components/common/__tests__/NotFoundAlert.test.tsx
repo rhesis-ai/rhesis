@@ -7,7 +7,8 @@ describe('NotFoundAlert', () => {
   const defaultEntityData = {
     model_name: 'TestRun',
     model_name_display: 'Test Run',
-    identifier: 'abc-123',
+    item_id: 'abc-123',
+    table_name: 'test_runs',
     list_url: '/test-runs',
     message: 'The requested Test Run was not found.',
   };
