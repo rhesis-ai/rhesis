@@ -51,7 +51,9 @@ export function useFormChangeDetection<
 
   useEffect(() => {
     setTrackedInitialData(initialData);
-  }, [initialDataString, initialData]);
+    // Only re-run when the serialized value changes, not the object reference
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDataString]);
 
   const hasChanges = compareFormData(currentData, trackedInitialData);
 
