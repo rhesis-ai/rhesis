@@ -8,6 +8,7 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import {
   AddIcon,
   DeleteIcon,
+  ContentCopyIcon,
   SmartToyIcon,
   DevicesIcon,
   WebIcon,
@@ -23,6 +24,8 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { createEndpoint } from '@/actions/endpoints';
+import { useNotifications } from '@/components/common/NotificationContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useSearchParams } from 'next/navigation';
 import { getStatusColor } from '@/utils/status-colors';
@@ -111,7 +114,9 @@ export default function EndpointGrid({
   const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const { data: session } = useSession();
+  const notifications = useNotifications();
   const {
     progress: _progress,
     isComplete: _isComplete,
@@ -202,6 +207,71 @@ export default function EndpointGrid({
     }
   };
 
+  // Handle duplicate endpoints
+  const handleDuplicateEndpoints = async () => {
+    if (selectedRows.length === 0) return;
+
+    try {
+      setDuplicating(true);
+      let successCount = 0;
+
+      for (const rowId of selectedRows) {
+        const source = endpoints.find(ep => ep.id === rowId);
+        if (!source) continue;
+
+        // Strip server-managed fields
+        const {
+          id: _id,
+          status: _status,
+          status_id: _statusId,
+          user_id: _userId,
+          organization_id: _orgId,
+          nano_id: _nanoId,
+          created_at: _createdAt,
+          updated_at: _updatedAt,
+          ...rest
+        } = source as Endpoint & Record<string, unknown>;
+
+        // Determine the next copy name
+        const copyMatch = source.name.match(
+          /^(.*?)\s*\(Copy(?:\s+(\d+))?\)\s*$/
+        );
+        let newName: string;
+        if (copyMatch) {
+          const base = copyMatch[1];
+          const currentNum = copyMatch[2] ? parseInt(copyMatch[2], 10) : 1;
+          newName = `${base} (Copy ${currentNum + 1})`;
+        } else {
+          newName = `${source.name} (Copy)`;
+        }
+
+        const result = await createEndpoint({
+          ...rest,
+          name: newName,
+        } as Omit<Endpoint, 'id'>);
+
+        if (result.success) {
+          successCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        notifications.show(
+          `${successCount} endpoint${successCount > 1 ? 's' : ''} duplicated`,
+          { severity: 'success' }
+        );
+        setSelectedRows([]);
+        onEndpointDeleted?.(); // reuse the refresh callback
+      }
+    } catch {
+      notifications.show('Failed to duplicate endpoints', {
+        severity: 'error',
+      });
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
   // Custom toolbar with right-aligned buttons
   const customToolbar = (
     <Box
@@ -212,18 +282,30 @@ export default function EndpointGrid({
         gap: 2,
       }}
     >
-      {/* Delete button - shown when rows are selected */}
+      {/* Action buttons - shown when rows are selected */}
       {selectedRows.length > 0 && (
-        <Button
-          variant="outlined"
-          color="error"
-          startIcon={<DeleteIcon />}
-          onClick={() => setDeleteDialogOpen(true)}
-          disabled={deleting}
-        >
-          Delete {selectedRows.length} endpoint
-          {selectedRows.length > 1 ? 's' : ''}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<ContentCopyIcon />}
+            onClick={handleDuplicateEndpoints}
+            disabled={duplicating}
+          >
+            {duplicating
+              ? 'Duplicating...'
+              : `Duplicate ${selectedRows.length} endpoint${selectedRows.length > 1 ? 's' : ''}`}
+          </Button>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setDeleteDialogOpen(true)}
+            disabled={deleting}
+          >
+            Delete {selectedRows.length} endpoint
+            {selectedRows.length > 1 ? 's' : ''}
+          </Button>
+        </Box>
       )}
 
       {/* Spacer to push buttons to the right when no selection */}

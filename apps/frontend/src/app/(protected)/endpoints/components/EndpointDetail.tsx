@@ -350,12 +350,33 @@ export default function EndpointDetail({
         status_id: _statusId,
         user_id: _userId,
         organization_id: _orgId,
+        nano_id: _nanoId,
+        created_at: _createdAt,
+        updated_at: _updatedAt,
         ...rest
-      } = endpoint;
+      } = endpoint as Endpoint & Record<string, unknown>;
+
+      // Determine the next copy name:
+      //   "Foo"           → "Foo (Copy)"
+      //   "Foo (Copy)"    → "Foo (Copy 2)"
+      //   "Foo (Copy 3)"  → "Foo (Copy 4)"
+      const copyMatch = endpoint.name.match(
+        /^(.*?)\s*\(Copy(?:\s+(\d+))?\)\s*$/
+      );
+      let newName: string;
+      if (copyMatch) {
+        const base = copyMatch[1];
+        const currentNum = copyMatch[2] ? parseInt(copyMatch[2], 10) : 1;
+        newName = `${base} (Copy ${currentNum + 1})`;
+      } else {
+        newName = `${endpoint.name} (Copy)`;
+      }
+
       const duplicateData = {
         ...rest,
-        name: `${endpoint.name} (copy)`,
+        name: newName,
       } as Omit<Endpoint, 'id'>;
+
       const result = await createEndpoint(duplicateData);
       if (result.success && result.data) {
         notifications.show('Endpoint duplicated successfully', {

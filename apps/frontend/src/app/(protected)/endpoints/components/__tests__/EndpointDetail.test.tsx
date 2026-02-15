@@ -78,7 +78,12 @@ const baseEndpoint: Endpoint = {
   user_id: 'user-1',
   organization_id: 'org-1',
   project_id: 'proj-1',
-  status: { id: 'status-1', name: 'Active' },
+  status: {
+    id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    name: 'Active',
+    entity_type: 'endpoint',
+    organization_id: 'a1b2c3d4-0000-0000-0000-000000000001',
+  },
 };
 
 // ---- Tests ----
@@ -119,11 +124,11 @@ describe('EndpointDetail', () => {
   });
 
   describe('Duplicate endpoint', () => {
-    it('calls createEndpoint with copied data and "(copy)" suffix on success', async () => {
+    it('calls createEndpoint with "(Copy)" suffix on success', async () => {
       const duplicatedEndpoint = {
         ...baseEndpoint,
         id: 'ep-2',
-        name: 'My Endpoint (copy)',
+        name: 'My Endpoint (Copy)',
       };
       mockCreateEndpoint.mockResolvedValue({
         success: true,
@@ -141,13 +146,16 @@ describe('EndpointDetail', () => {
 
       // Verify the payload sent to createEndpoint
       const payload = mockCreateEndpoint.mock.calls[0][0];
-      expect(payload.name).toBe('My Endpoint (copy)');
+      expect(payload.name).toBe('My Endpoint (Copy)');
       // Server-managed fields must be stripped
       expect(payload).not.toHaveProperty('id');
       expect(payload).not.toHaveProperty('status');
       expect(payload).not.toHaveProperty('status_id');
       expect(payload).not.toHaveProperty('user_id');
       expect(payload).not.toHaveProperty('organization_id');
+      expect(payload).not.toHaveProperty('nano_id');
+      expect(payload).not.toHaveProperty('created_at');
+      expect(payload).not.toHaveProperty('updated_at');
       // Configuration fields must be preserved
       expect(payload.url).toBe('https://api.example.com/chat');
       expect(payload.method).toBe('POST');
@@ -155,6 +163,50 @@ describe('EndpointDetail', () => {
       expect(payload.environment).toBe('production');
       expect(payload.request_mapping).toEqual({ input: '{{ input }}' });
       expect(payload.response_mapping).toEqual({ output: '{{ message }}' });
+    });
+
+    it('increments to "(Copy 2)" when duplicating a "(Copy)" endpoint', async () => {
+      const alreadyCopied = {
+        ...baseEndpoint,
+        name: 'My Endpoint (Copy)',
+      };
+      mockCreateEndpoint.mockResolvedValue({
+        success: true,
+        data: { ...alreadyCopied, id: 'ep-4', name: 'My Endpoint (Copy 2)' },
+      });
+
+      render(<EndpointDetail endpoint={alreadyCopied} />);
+
+      await userEvent.click(screen.getByRole('button', { name: /duplicate/i }));
+
+      await waitFor(() => {
+        expect(mockCreateEndpoint).toHaveBeenCalledTimes(1);
+      });
+
+      // Should produce "(Copy 2)", not "(Copy) (Copy)" or "(Copy)" again
+      expect(mockCreateEndpoint.mock.calls[0][0].name).toBe(
+        'My Endpoint (Copy 2)'
+      );
+    });
+
+    it('increments to "(Copy 4)" when duplicating a "(Copy 3)" endpoint', async () => {
+      const copy3 = { ...baseEndpoint, name: 'My Endpoint (Copy 3)' };
+      mockCreateEndpoint.mockResolvedValue({
+        success: true,
+        data: { ...copy3, id: 'ep-5', name: 'My Endpoint (Copy 4)' },
+      });
+
+      render(<EndpointDetail endpoint={copy3} />);
+
+      await userEvent.click(screen.getByRole('button', { name: /duplicate/i }));
+
+      await waitFor(() => {
+        expect(mockCreateEndpoint).toHaveBeenCalledTimes(1);
+      });
+
+      expect(mockCreateEndpoint.mock.calls[0][0].name).toBe(
+        'My Endpoint (Copy 4)'
+      );
     });
 
     it('navigates to the new endpoint on success', async () => {
