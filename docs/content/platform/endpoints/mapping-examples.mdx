@@ -306,7 +306,7 @@ than in headers.
 
 <CodeBlock filename="auth-body-request.json" language="json">
   {`{
-  "api_key": "sk-your-api-key",
+  "api_key": "{{ auth_token }}",
   "input": {
     "text": "{{ input }}",
     "options": {
@@ -326,7 +326,10 @@ than in headers.
 }`}
 </CodeBlock>
 
-Static values like `api_key` are included as-is in every request.
+The `auth_token` variable is automatically populated from the authentication
+token configured in your endpoint settings. See
+[Platform-Managed Variables](/platform/endpoints#platform-managed-variables)
+for details.
 
 ## Deeply Nested Response
 
