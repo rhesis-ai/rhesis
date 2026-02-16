@@ -33,7 +33,11 @@ def get_client():
 
 def _get_model_name(client):
     """Get the appropriate model name based on environment variables."""
+<<<<<<< HEAD
     return os.getenv("GEMINI_MODEL_NAME", "gemini-2.0-flash")
+=======
+    return os.getenv("GEMINI_MODEL_NAME", DEFAULT_LANGUAGE_MODEL_NAME)
+>>>>>>> dbfc97381 (fix: import)
 
 
 def _with_retries(func, *args, **kwargs):
