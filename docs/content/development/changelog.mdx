@@ -8,6 +8,174 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.6.4] - 2026-02-12
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.3**
+- **Frontend 0.6.4**
+- **SDK 0.6.4**
+- **Polyphemus 0.2.5**
+
+### Video Overview
+
+<div style=\{\{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' \}\}>
+  <iframe
+    style=\{\{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' \}\}
+    src="https://www.youtube.com/embed/vdbWfqhQpZs"
+    title="Now live: Metrics per Run + Output re-runs | Rhesis AI"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+<div style=\{\{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' \}\}>
+  <iframe
+    style=\{\{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' \}\}
+    src="https://www.youtube.com/embed/OH7e_7q7_oU"
+    title="Multi-Agent Workflow Testing & Observability | Rhesis AI v0.6.4"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+### Summary
+
+This release introduces **split-view playground with test creation**, **file import for test sets**, **test output reuse and re-scoring**, and a **native authentication system** replacing Auth0. The platform now supports CSV, JSON, JSONL, and Excel file imports with intelligent column mapping, while the new re-scoring capability enables metric evaluation on stored outputs without re-invoking endpoints.
+
+### Featured Capabilities
+
+**Split-View Playground with Test Creation**
+
+Create tests directly from playground conversations:
+
+- **Interactive Testing**: Test endpoints in real-time with a split-view interface
+- **Automatic Test Generation**: Convert playground conversations into tests with LLM-extracted pre-filled fields
+- **Single & Multi-Turn Support**: Create both single-turn and multi-turn tests from conversations
+- **Streamlined Workflow**: Go from testing to test creation in a single interface
+
+**File Import for Test Sets**
+
+Import test sets from various file formats:
+
+- **Multiple Format Support**: CSV, JSON, JSONL, and Excel formats
+- **Intelligent Column Mapping**: Automatically map file columns to test fields
+- **User-Friendly Error Handling**: Clear error messages and validation feedback
+- **Bulk Test Creation**: Quickly create large test sets from existing data
+
+**Test Output Reuse & Re-Scoring**
+
+Evaluate metrics without re-invoking endpoints:
+
+- **Output Reuse**: Re-run tests using stored outputs from previous executions
+- **Cost Optimization**: Add new metrics without paying for new generations
+- **Flexible Evaluation**: Experiment with different metric configurations
+- **Scoring Target Selection**: Choose whether to use stored outputs or invoke endpoints
+
+**Native Authentication System**
+
+Replaced Auth0 with a comprehensive native authentication solution:
+
+- **Email Verification**: Secure account verification via email
+- **Password Reset**: Self-service password reset functionality
+- **Magic Link Login**: Passwordless authentication option
+- **OAuth Support**: Integration with third-party OAuth providers
+- **Refresh Token Rotation**: Enhanced security with automatic token rotation
+
+### Backend Highlights
+- Added split-view playground with test creation from conversations
+- Implemented file import for test sets with support for CSV, JSON, JSONL, and Excel formats
+- Enhanced test set execution with rescoring, last run retrieval, and metric management
+- Introduced user-configurable embedding model settings and connection testing
+- Replaced Auth0 with native authentication system including email verification, password reset, and magic link
+
+### Frontend Highlights
+- Added split-view playground with test creation from conversations, including drawer with LLM-extracted pre-filled fields
+- Implemented file import for test sets with column mapping and user-friendly error handling
+- Added user-configurable embedding model settings with connection testing
+- Introduced test output reuse and re-scoring capabilities with "Scoring Target" dropdown
+- Replaced Auth0 with native authentication system including email verification, password reset, magic link, and OAuth support
+
+### SDK Highlights
+- Introduced split-view playground with test creation from conversations
+- Added file import for test sets and flat convenience fields for multi-turn test configurations
+- Added rescore, last_run, and metric management capabilities to TestSet
+- Implemented user-configurable embedding model settings and improved model connection testing
+- Implemented native authentication system replacing Auth0 with email verification, password reset, and magic link login
+
+### Polyphemus Highlights
+- Enabled BetterTransformer optimization resulting in 1.5-2x inference speedup
+- Improved error messages for model configuration and worker availability
+- Enhanced model connection testing with actual API call validation
+- Updated dependencies to address security vulnerabilities (CVEs)
+
+## [0.6.3] - 2026-02-05
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.2**
+- **Frontend 0.6.3**
+- **SDK 0.6.3**
+
+### Summary
+
+This release introduces the **Interactive Playground** for testing conversational endpoints with real-time WebSocket communication, **Jira ticket creation** directly from tasks via MCP integration, and **enhanced trace visualization** with a new Graph View and improved agent tracing. The platform receives significant improvements to test generation, WebSocket reliability, and overall user experience.
+
+### Featured Capabilities
+
+**Interactive Playground**
+
+The platform now includes an interactive playground for testing conversational endpoints:
+
+- **Real-Time Testing**: Test conversational endpoints with live WebSocket communication
+- **Trace Linking**: View execution traces directly from playground sessions
+- **Message Management**: Copy messages and responses for documentation or debugging
+- **Endpoint Pre-Selection**: Quickly switch between different endpoints for testing
+- **WebSocket Robustness**: Enhanced retry mechanism with increased reconnect attempts and visibility detection
+
+**Jira Integration**
+
+Create Jira tickets directly from tasks within the platform:
+
+- **Direct Task Integration**: Convert platform tasks into Jira tickets with a single click
+- **MCP Integration**: Seamless connection to Jira via Model Context Protocol
+- **Optional Space Selection**: Choose Jira space during tool connection setup
+- **Streamlined Workflow**: Bridge the gap between testing and project management
+
+**Enhanced Trace Visualization**
+
+Improved observability with new visualization capabilities:
+
+- **Graph View**: New graph-based visualization for understanding trace relationships
+- **Agent Tracing**: Comprehensive agent execution tracking with I/O capture
+- **Handoff Tracking**: Visualize agent handoffs and state transitions
+- **Token Extraction**: Improved token usage tracking and analysis
+
+### Backend Highlights
+- Added interactive playground for testing endpoints with real-time WebSocket communication
+- Implemented Jira ticket creation from tasks via MCP with optional space selection
+- Enhanced WebSocket retry mechanism with increased reconnect attempts and visibility detection
+- Added creation dates to tests and test sets
+- Improved trace visualization infrastructure
+
+### Frontend Highlights
+- Added interactive playground with real-time WebSocket communication and trace linking
+- Implemented Jira ticket creation from tasks via MCP integration
+- Enhanced trace visualization with Graph View and improved agent tracing
+- Added `./rh dev` command for simplified local development setup
+- Improved UI/UX with validation improvements and dark mode adjustments
+
+### SDK Highlights
+- Added interactive playground support with WebSocket communication
+- Enhanced trace visualization with Graph View and agent tracing support
+- Introduced JSON and JSONL import/export methods for TestSets
+- Improved WebSocket robustness with enhanced retry mechanism
+- Fixed several SDK test issues for improved reliability
+
 ## [0.6.2] - 2026-01-29
 
 ### Platform Release
