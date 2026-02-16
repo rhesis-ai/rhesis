@@ -238,15 +238,15 @@ def test_generate_without_sources_invalid_num_tests():
         synthesizer._generate_without_sources(num_tests="5")  # type: ignore
 
 
-@patch("rhesis.sdk.synthesizers.base.get_model")
-def test_model_initialization_with_none(mock_get_model):
-    """Test that model is initialized with None (default model)."""
+@patch("rhesis.sdk.synthesizers.base.get_language_model")
+def test_model_initialization_with_none(mock_get_language_model):
+    """Test that language model is initialized with None (default)."""
     mock_model = Mock(spec=BaseLLM)
-    mock_get_model.return_value = mock_model
+    mock_get_language_model.return_value = mock_model
 
     synthesizer = PromptSynthesizer(prompt="Test")
 
-    mock_get_model.assert_called_once_with(None)
+    mock_get_language_model.assert_called_once_with(None)
     assert synthesizer.model == mock_model
 
 

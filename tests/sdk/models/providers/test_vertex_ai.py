@@ -8,7 +8,7 @@ import pytest
 from pydantic import BaseModel
 
 from rhesis.sdk.models.providers.vertex_ai import (
-    DEFAULT_MODEL_NAME,
+    DEFAULT_LANGUAGE_MODEL_NAME,
     VertexAILLM,
 )
 
@@ -16,7 +16,7 @@ from rhesis.sdk.models.providers.vertex_ai import (
 def test_vertex_ai_defaults():
     """Test default constants."""
     assert VertexAILLM.PROVIDER == "vertex_ai"
-    assert DEFAULT_MODEL_NAME == "gemini-2.0-flash"
+    assert DEFAULT_LANGUAGE_MODEL_NAME == "gemini-2.0-flash"
 
 
 class TestVertexAILLMInitialization:
@@ -39,7 +39,7 @@ class TestVertexAILLMInitialization:
             clear=True,
         ):
             llm = VertexAILLM()
-            assert llm.model_name == f"{VertexAILLM.PROVIDER}/{DEFAULT_MODEL_NAME}"
+            assert llm.model_name == f"{VertexAILLM.PROVIDER}/{DEFAULT_LANGUAGE_MODEL_NAME}"
             assert llm.model["project"] == "test-project"
             assert llm.model["location"] == "europe-west3"
 
