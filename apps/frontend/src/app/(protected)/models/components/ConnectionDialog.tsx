@@ -42,7 +42,7 @@ interface ConnectionDialogProps {
   provider: TypeLookup | null;
   model?: Model | null; // For edit mode
   mode?: 'create' | 'edit';
-  modelType?: 'llm' | 'embedding'; // Pre-selected model type from page section
+  modelType?: 'language' | 'embedding'; // Pre-selected model type from page section
   userSettings?: UserSettings | null; // Current user settings
   onClose: () => void;
   onConnect?: (providerId: string, modelData: ModelCreate) => Promise<Model>;
@@ -55,7 +55,7 @@ export function ConnectionDialog({
   provider,
   model,
   mode = 'create',
-  modelType: initialModelType = 'llm',
+  modelType: initialModelType = 'language',
   userSettings,
   onClose,
   onConnect,
@@ -65,7 +65,9 @@ export function ConnectionDialog({
   const [name, setName] = useState('');
   const [providerName, setProviderName] = useState('');
   const [modelName, setModelName] = useState('');
-  const [modelType, setModelType] = useState<'llm' | 'embedding'>('llm');
+  const [modelType, setModelType] = useState<'language' | 'embedding'>(
+    'language'
+  );
   const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);
@@ -111,7 +113,7 @@ export function ConnectionDialog({
         // Edit mode: populate with existing model data
         setName(model.name || '');
         setModelName(model.model_name || '');
-        setModelType(model.model_type || 'llm');
+        setModelType(model.model_type || 'language');
         setEndpoint(model.endpoint || '');
         setApiKey('************'); // Show placeholder for existing key
         setProviderName('');
@@ -820,7 +822,7 @@ export function ConnectionDialog({
               </Typography>
               <Stack spacing={1}>
                 {/* Show generation and evaluation toggles for language models */}
-                {modelType === 'llm' && (
+                {modelType === 'language' && (
                   <>
                     <FormControlLabel
                       control={
