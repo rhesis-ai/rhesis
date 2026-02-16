@@ -23,6 +23,12 @@ This release includes the following component versions:
 - **SDK 0.6.4**
 - **Polyphemus 0.2.5**
 
+### Video Overview
+
+Watch the overview of this release:
+- Metrics per Run + Output re-runs: https://youtu.be/vdbWfqhQpZs
+- Multi-Agent Workflow Testing & Observability: https://youtu.be/OH7e_7q7_oU
+
 ### Summary of Changes
 
 **Backend v0.6.3:**
