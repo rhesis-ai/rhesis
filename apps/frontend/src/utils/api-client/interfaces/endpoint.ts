@@ -83,6 +83,35 @@ export interface EndpointEditData extends Partial<Endpoint> {
   client_secret?: string;
 }
 
+// Type for auto-configure request
+export interface AutoConfigureRequest {
+  input_text: string;
+  url?: string;
+  auth_token?: string;
+  method?: string;
+  probe?: boolean;
+}
+
+// Type for auto-configure result
+export interface AutoConfigureResult {
+  status: 'success' | 'partial' | 'failed';
+  error?: string;
+  request_mapping?: Record<string, unknown>;
+  response_mapping?: Record<string, unknown>;
+  request_headers?: Record<string, string>;
+  url?: string;
+  method: string;
+  conversation_mode: 'single_turn' | 'stateless' | 'stateful';
+  confidence: number;
+  reasoning: string;
+  warnings: string[];
+  probe_response?: Record<string, unknown>;
+  probe_success: boolean;
+  probe_attempts: number;
+  probe_error?: string;
+  probe_status_code?: number;
+}
+
 // Type for testing endpoints without saving to database
 export interface EndpointTestRequest {
   connection_type: 'REST' | 'WEBSOCKET' | 'GRPC' | 'SDK';

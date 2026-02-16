@@ -14,6 +14,7 @@ import {
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
   Alert,
   ToggleButton,
@@ -28,10 +29,14 @@ import {
 import dynamic from 'next/dynamic';
 import { useTheme } from '@mui/material/styles';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import {
+  AutoConfigureResult,
+  Endpoint,
+} from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { createEndpoint } from '@/actions/endpoints';
 import { LoadingButton } from '@mui/lab';
+import AutoConfigureModal from './AutoConfigureModal';
 import {
   PlayArrowIcon,
   SmartToyIcon,
@@ -177,6 +182,7 @@ export default function EndpointForm() {
   const [loadingProjects, setLoadingProjects] = useState<boolean>(true);
   const [showAuthToken, setShowAuthToken] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [autoConfigureOpen, setAutoConfigureOpen] = useState(false);
   const { data: session } = useSession();
   const notifications = useNotifications();
   const { markStepComplete } = useOnboarding();
@@ -286,6 +292,33 @@ export default function EndpointForm() {
     }
   };
 
+  const isAutoConfigureEnabled =
+    Boolean(formData.name) &&
+    Boolean(formData.url) &&
+    Boolean(formData.auth_token);
+
+  const handleAutoConfigureApply = (result: AutoConfigureResult) => {
+    setFormData(prev => ({
+      ...prev,
+      request_mapping: result.request_mapping
+        ? JSON.stringify(result.request_mapping, null, 2)
+        : prev.request_mapping,
+      response_mapping: result.response_mapping
+        ? JSON.stringify(result.response_mapping, null, 2)
+        : prev.response_mapping,
+      request_headers: result.request_headers
+        ? JSON.stringify(result.request_headers, null, 2)
+        : prev.request_headers,
+      url: result.url || prev.url,
+      method: result.method || prev.method,
+    }));
+    setAutoConfigureOpen(false);
+    setCurrentTab(1); // Switch to Request Settings tab
+    notifications.show('Auto-configure mappings applied!', {
+      severity: 'success',
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -348,7 +381,9 @@ export default function EndpointForm() {
       notifications.show('Endpoint created successfully!', {
         severity: 'success',
       });
-      router.push('/endpoints');
+      router.push(
+        projectIdFromUrl ? `/projects/${projectIdFromUrl}` : '/endpoints'
+      );
     } catch (error) {
       setError((error as Error).message);
     } finally {
@@ -370,11 +405,35 @@ export default function EndpointForm() {
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
-              onClick={() => router.push('/projects/endpoints')}
+              onClick={() =>
+                router.push(
+                  projectIdFromUrl
+                    ? `/projects/${projectIdFromUrl}`
+                    : '/endpoints'
+                )
+              }
               disabled={isSubmitting}
             >
               Cancel
             </Button>
+            <Tooltip
+              title={
+                isAutoConfigureEnabled
+                  ? 'Use AI to generate request and response mappings'
+                  : 'Fill in name, URL, and auth token first'
+              }
+            >
+              <span>
+                <Button
+                  variant="outlined"
+                  startIcon={<AutoFixHighIcon />}
+                  onClick={() => setAutoConfigureOpen(true)}
+                  disabled={!isAutoConfigureEnabled || isSubmitting}
+                >
+                  Auto-configure
+                </Button>
+              </span>
+            </Tooltip>
             <LoadingButton
               type="submit"
               variant="contained"
@@ -485,9 +544,6 @@ export default function EndpointForm() {
                     >
                       <MenuItem value="REST">REST</MenuItem>
                     </Select>
-                    <FormHelperText>
-                      Only REST endpoints are supported at this time
-                    </FormHelperText>
                   </FormControl>
                 </Grid>
                 <Grid
@@ -511,6 +567,53 @@ export default function EndpointForm() {
                       ))}
                     </Select>
                   </FormControl>
+                </Grid>
+              </Grid>
+            </Grid>
+
+            {/* Authentication */}
+            <Grid size={12}>
+              <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                Authentication
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Token will be encrypted and automatically included as{' '}
+                <code>Authorization: Bearer {'<token>'}</code>. Use{' '}
+                <code>{'{{ auth_token }}'}</code> placeholder in custom headers.
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid size={12}>
+                  <TextField
+                    fullWidth
+                    label="API Token"
+                    type={showAuthToken ? 'text' : 'password'}
+                    value={formData.auth_token}
+                    onChange={e => handleChange('auth_token', e.target.value)}
+                    placeholder="sk-..."
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LockIcon color="action" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label="toggle token visibility"
+                            onClick={() => setShowAuthToken(!showAuthToken)}
+                            edge="end"
+                          >
+                            {showAuthToken ? (
+                              <VisibilityOffIcon />
+                            ) : (
+                              <VisibilityIcon />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    helperText="Token will be encrypted and stored securely"
+                  />
                 </Grid>
               </Grid>
             </Grid>
@@ -663,50 +766,6 @@ export default function EndpointForm() {
         {/* Request Settings Tab */}
         <TabPanel value={currentTab} index={1}>
           <Grid container spacing={2}>
-            {/* Authentication Token Section */}
-            <Grid size={12}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Authorization (Optional)
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Token will be encrypted and automatically included as{' '}
-                <code>Authorization: Bearer {'<token>'}</code>. Use{' '}
-                <code>{'{{ auth_token }}'}</code> placeholder in custom headers.
-              </Typography>
-
-              <TextField
-                fullWidth
-                label="API Token"
-                type={showAuthToken ? 'text' : 'password'}
-                value={formData.auth_token}
-                onChange={e => handleChange('auth_token', e.target.value)}
-                placeholder="sk-..."
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LockIcon color="action" />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="toggle token visibility"
-                        onClick={() => setShowAuthToken(!showAuthToken)}
-                        edge="end"
-                      >
-                        {showAuthToken ? (
-                          <VisibilityOffIcon />
-                        ) : (
-                          <VisibilityIcon />
-                        )}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-                helperText="Token will be encrypted and stored securely"
-              />
-            </Grid>
-
             <Grid size={12}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Request Headers (Optional)
@@ -1024,6 +1083,14 @@ export default function EndpointForm() {
           <Alert severity="error">{error}</Alert>
         </Box>
       )}
+      <AutoConfigureModal
+        open={autoConfigureOpen}
+        onClose={() => setAutoConfigureOpen(false)}
+        onApply={handleAutoConfigureApply}
+        url={formData.url || ''}
+        authToken={formData.auth_token || ''}
+        method={formData.method || 'POST'}
+      />
     </form>
   );
 }

@@ -634,6 +634,108 @@ export default function EndpointDetail({
               </Grid>
             </Grid>
 
+            {/* Authentication - Hidden for SDK */}
+            {endpoint.connection_type !== 'SDK' && (
+              <Grid size={12}>
+                <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                  Authentication
+                </Typography>
+                {isEditing ? (
+                  <>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mb: 2 }}
+                    >
+                      Token will be encrypted and automatically included as{' '}
+                      <code>Authorization: Bearer {'<token>'}</code>. Use{' '}
+                      <code>{'{{ auth_token }}'}</code> placeholder in custom
+                      headers.
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      label="API Token"
+                      type={showAuthToken ? 'text' : 'password'}
+                      value={
+                        editedValues.auth_token !== undefined
+                          ? editedValues.auth_token
+                          : hasExistingToken && !tokenFieldFocused
+                            ? '••••••••••••••••••••••••'
+                            : ''
+                      }
+                      onChange={e => {
+                        autoEnableEditMode();
+                        setEditedValues({
+                          ...editedValues,
+                          auth_token: e.target.value,
+                        });
+                      }}
+                      onFocus={() => {
+                        setTokenFieldFocused(true);
+                        if (editedValues.auth_token === undefined) {
+                          setEditedValues({
+                            ...editedValues,
+                            auth_token: '',
+                          });
+                        }
+                      }}
+                      onBlur={() => {
+                        if (editedValues.auth_token === '') {
+                          setTokenFieldFocused(false);
+                          const newEditedValues = { ...editedValues };
+                          delete newEditedValues.auth_token;
+                          setEditedValues(newEditedValues);
+                        }
+                      }}
+                      placeholder={
+                        hasExistingToken
+                          ? 'Enter new token or leave empty to keep existing'
+                          : 'sk-...'
+                      }
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <LockIcon color="action" />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              aria-label="toggle token visibility"
+                              onClick={() => setShowAuthToken(!showAuthToken)}
+                              edge="end"
+                            >
+                              {showAuthToken ? (
+                                <VisibilityOffIcon />
+                              ) : (
+                                <VisibilityIcon />
+                              )}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                      helperText={
+                        hasExistingToken
+                          ? 'Token is encrypted and stored securely. Enter a new token to update, or leave empty to keep existing.'
+                          : 'Token will be encrypted and stored securely.'
+                      }
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      API Token
+                    </Typography>
+                    <Typography variant="body1">
+                      {hasExistingToken
+                        ? '••••••••••••••••••••••••'
+                        : 'No token configured'}
+                    </Typography>
+                  </>
+                )}
+              </Grid>
+            )}
+
             {/* Project Selection */}
             <Grid size={12}>
               <Typography variant="subtitle1" sx={{ mb: 2 }}>
@@ -1163,92 +1265,6 @@ export default function EndpointDetail({
           index={endpoint.connection_type === 'SDK' ? 2 : 1}
         >
           <Grid container spacing={2}>
-            {/* Authorization Section - Hidden for SDK */}
-            {endpoint.connection_type !== 'SDK' && (
-              <Grid size={12}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Authorization (Optional)
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
-                >
-                  Token will be encrypted and automatically included as{' '}
-                  <code>Authorization: Bearer {'<token>'}</code>. Use{' '}
-                  <code>{'{{ auth_token }}'}</code> placeholder in custom
-                  headers.
-                </Typography>
-
-                <TextField
-                  fullWidth
-                  label="API Token"
-                  type={showAuthToken ? 'text' : 'password'}
-                  value={
-                    editedValues.auth_token !== undefined
-                      ? editedValues.auth_token
-                      : hasExistingToken && !tokenFieldFocused
-                        ? '••••••••••••••••••••••••'
-                        : ''
-                  }
-                  onChange={e => {
-                    autoEnableEditMode();
-                    setEditedValues({
-                      ...editedValues,
-                      auth_token: e.target.value,
-                    });
-                  }}
-                  onFocus={() => {
-                    setTokenFieldFocused(true);
-                    if (editedValues.auth_token === undefined) {
-                      setEditedValues({ ...editedValues, auth_token: '' });
-                    }
-                  }}
-                  onBlur={() => {
-                    // If user didn't enter anything, revert to showing existing token indicator
-                    if (editedValues.auth_token === '') {
-                      setTokenFieldFocused(false);
-                      const newEditedValues = { ...editedValues };
-                      delete newEditedValues.auth_token;
-                      setEditedValues(newEditedValues);
-                    }
-                  }}
-                  placeholder={
-                    hasExistingToken
-                      ? 'Enter new token or leave empty to keep existing'
-                      : 'sk-...'
-                  }
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <LockIcon color="action" />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="toggle token visibility"
-                          onClick={() => setShowAuthToken(!showAuthToken)}
-                          edge="end"
-                        >
-                          {showAuthToken ? (
-                            <VisibilityOffIcon />
-                          ) : (
-                            <VisibilityIcon />
-                          )}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                  helperText={
-                    hasExistingToken
-                      ? 'Token is encrypted and stored securely. Enter a new token to update, or leave empty to keep existing.'
-                      : 'Token will be encrypted and stored securely.'
-                  }
-                />
-              </Grid>
-            )}
-
             {/* Request Headers Section - Hidden for SDK */}
             {endpoint.connection_type !== 'SDK' && (
               <Grid size={12}>
