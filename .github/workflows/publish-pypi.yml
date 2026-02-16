@@ -20,6 +20,9 @@ jobs:
       id-token: write  # Required for trusted publishing
     
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
     - name: Setup Python build environment
       uses: ./.github/actions/setup-python-build
     
@@ -42,6 +45,9 @@ jobs:
       id-token: write  # Required for trusted publishing
     
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
     - name: Setup Python build environment
       uses: ./.github/actions/setup-python-build
     
