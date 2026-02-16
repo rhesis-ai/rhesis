@@ -2,8 +2,15 @@
 
 set -e
 
+# === USAGE ===
+if [[ -z "$1" ]]; then
+  echo "Usage: $0 <PROJECT_ID>"
+  echo "Example: $0 playground-437609"
+  exit 1
+fi
+
 # === CONFIGURATION ===
-PROJECT_ID="playground-437609"  # Target project for deployments
+PROJECT_ID="$1"  # Target project for deployments
 SA_PROJECT_ID="rhesis-platform-admin"  # Project where service account lives
 SA_NAME="terraform-deployer"
 SA_DISPLAY_NAME="Terraform Deployer Service Account"
@@ -43,6 +50,7 @@ REQUIRED_APIS=(
   "cloudresourcemanager.googleapis.com"  # For project management
   "iam.googleapis.com"                   # For IAM permissions
   "serviceusage.googleapis.com"          # For enabling other APIs
+  "aiplatform.googleapis.com"            # For Vertex AI endpoints
 )
 
 for api in "${REQUIRED_APIS[@]}"; do
@@ -78,6 +86,7 @@ REQUIRED_ROLES=(
   "roles/iam.serviceAccountUser"    # Service Account User - for GKE nodes to use service accounts  
   "roles/compute.networkAdmin"      # Compute Network Admin - for VPC networking
   "roles/compute.viewer"            # Compute Viewer - for viewing network resources
+  "roles/aiplatform.user"           # Vertex AI User - for creating Vertex AI endpoints
 )
 
 for role in "${REQUIRED_ROLES[@]}"; do
