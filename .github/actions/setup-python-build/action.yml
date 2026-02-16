@@ -4,9 +4,6 @@ description: Set up Python environment and build tools for PyPI publishing
 runs:
   using: composite
   steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
