@@ -1,19 +1,13 @@
-"""Update model_type from 'llm' to 'language'
-
-Revision ID: update_model_type_llm_to_language
-Revises: fe5d9ca98fca
-Create Date: 2026-02-13
-
-"""
-
-from typing import Sequence, Union
-
-import sqlalchemy as sa
 from alembic import op
+import sqlalchemy as sa
+from typing import Union, Sequence
+import rhesis
+
+
 
 # revision identifiers, used by Alembic.
-revision: str = "update_model_type_llm_to_language"
-down_revision: Union[str, None] = "fe5d9ca98fca"
+revision: str = 'ae4f01064490'
+down_revision: Union[str, None] = 'a1b2c3d4e5f7'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -36,7 +30,6 @@ def upgrade() -> None:
         existing_type=sa.String(),
         existing_nullable=False,
     )
-
 
 def downgrade() -> None:
     # Revert 'language' values back to 'llm'
