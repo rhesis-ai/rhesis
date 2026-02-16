@@ -21,11 +21,11 @@ class TestGenerateContentEndpoint:
 
         expected_response = {"code": "def test_function():\n    return True"}
 
-        # Mock the get_model factory function to return a mock model
-        with patch("rhesis.sdk.models.factory.get_model") as mock_get_model:
+        # Mock the get_language_model factory function to return a mock model
+        with patch("rhesis.sdk.models.factory.get_language_model") as mock_get_language_model:
             mock_model = MagicMock()
             mock_model.generate.return_value = expected_response
-            mock_get_model.return_value = mock_model
+            mock_get_language_model.return_value = mock_model
 
             # Act
             result = await generate_content_endpoint(mock_request)
@@ -46,9 +46,9 @@ class TestGenerateContentEndpoint:
             schema={"type": "object"},
         )
 
-        # Mock the get_model factory function to raise an exception
-        with patch("rhesis.sdk.models.factory.get_model") as mock_get_model:
-            mock_get_model.side_effect = Exception("Model initialization failed")
+        # Mock the get_language_model factory function to raise an exception
+        with patch("rhesis.sdk.models.factory.get_language_model") as mock_get_language_model:
+            mock_get_language_model.side_effect = Exception("Model initialization failed")
 
             # Act & Assert
             with pytest.raises(HTTPException) as exc_info:
