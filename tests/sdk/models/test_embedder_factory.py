@@ -6,17 +6,17 @@ from rhesis.sdk.models.base import BaseEmbedder
 from rhesis.sdk.models.factory import (
     DEFAULT_EMBEDDER_PROVIDER,
     DEFAULT_EMBEDDING_MODELS,
-    EmbedderConfig,
+    EmbeddingModelConfig,
     get_embedder,
 )
 
 
-class TestEmbedderConfig:
-    """Test the EmbedderConfig dataclass."""
+class TestEmbeddingModelConfig:
+    """Test the EmbeddingModelConfig dataclass."""
 
     def test_embedder_config_defaults(self):
-        """Test EmbedderConfig with default values."""
-        config = EmbedderConfig()
+        """Test EmbeddingModelConfig with default values."""
+        config = EmbeddingModelConfig()
         assert config.provider is None
         assert config.model_name is None
         assert config.api_key is None
@@ -24,8 +24,8 @@ class TestEmbedderConfig:
         assert config.extra_params == {}
 
     def test_embedder_config_with_values(self):
-        """Test EmbedderConfig with provided values."""
-        config = EmbedderConfig(
+        """Test EmbeddingModelConfig with provided values."""
+        config = EmbeddingModelConfig(
             provider="openai",
             model_name="text-embedding-3-small",
             api_key="test-key",
@@ -125,11 +125,11 @@ class TestGetEmbedder:
 
     @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
     def test_get_embedder_with_config_object(self, mock_embedder_class):
-        """Test get_embedder(config=EmbedderConfig(...))."""
+        """Test get_embedder(config=EmbeddingModelConfig(...))."""
         mock_instance = Mock(spec=BaseEmbedder)
         mock_embedder_class.return_value = mock_instance
 
-        config = EmbedderConfig(
+        config = EmbeddingModelConfig(
             provider="openai",
             model_name="text-embedding-ada-002",
             api_key="config-key",

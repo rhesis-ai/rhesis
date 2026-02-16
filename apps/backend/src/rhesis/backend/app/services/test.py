@@ -25,7 +25,7 @@ from rhesis.backend.app.utils.uuid_utils import (
     validate_uuid_parameters,
 )
 from rhesis.backend.logging import logger
-from rhesis.sdk.models.factory import get_model
+from rhesis.sdk.models.factory import get_language_model
 
 
 class _BulkEntityCache:
@@ -1032,7 +1032,7 @@ def _get_user_llm(db: Session, user: User):
     """Get a configured BaseLLM instance for the user."""
     model_or_provider = get_user_generation_model(db, user)
     if isinstance(model_or_provider, str):
-        return get_model(provider=model_or_provider)
+        return get_language_model(provider=model_or_provider)
     return model_or_provider
 
 
