@@ -7,7 +7,7 @@ from typing import Generator, List
 from dotenv import load_dotenv
 
 from rhesis.sdk import RhesisClient, endpoint
-from rhesis.sdk.models.factory import get_model
+from rhesis.sdk.models.factory import get_language_model
 
 # Configure logging
 logging.basicConfig(
@@ -27,14 +27,16 @@ INITIAL_RETRY_DELAY = 1  # seconds
 MAX_RETRY_DELAY = 10  # seconds
 
 # Model configuration - uses SDK providers approach
-DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "vertex_ai")
-DEFAULT_MODEL_NAME = os.getenv("DEFAULT_MODEL_NAME", "gemini-2.5-flash")
+DEFAULT_LANGUAGE_MODEL_PROVIDER = os.getenv("DEFAULT_LANGUAGE_MODEL_PROVIDER", "vertex_ai")
+DEFAULT_LANGUAGE_MODEL_NAME = os.getenv("DEFAULT_LANGUAGE_MODEL_NAME", "gemini-2.5-flash")
 
 
 def get_llm_model():
     """Get the configured language model using SDK factory."""
     try:
-        return get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
+        return get_language_model(
+            provider=DEFAULT_LANGUAGE_MODEL_PROVIDER, model_name=DEFAULT_LANGUAGE_MODEL_NAME
+        )
     except Exception as e:
         logger.error(f"Failed to initialize language model: {str(e)}")
         raise ValueError(f"Could not initialize language model: {str(e)}")
