@@ -282,7 +282,7 @@ def _fetch_and_configure_model(
 
 
 def _get_user_model(
-    db: Session, user: User, model_type: str, default_model: str
+    db: Session, user: User, purpose: str, default_model: str
 ) -> Union[str, BaseLLM]:
     """
     Internal helper to get user's configured model for a specific purpose.
@@ -296,7 +296,7 @@ def _get_user_model(
     Args:
         db: Database session
         user: Current user
-        model_type: Type of model ("generation", "evaluation", or "embedding")
+        purpose: What the model is used for ("generation", "evaluation", or "embedding")
         default_model: Default model to use if user hasn't configured one
 
     Returns:
@@ -307,12 +307,12 @@ def _get_user_model(
         Never accepts organization_id as a parameter that could be manipulated.
     """
     logger.info(
-        f"[LLM_UTILS] Getting {model_type} model for user_id={user.id}, "
+        f"[LLM_UTILS] Getting {purpose} model for user_id={user.id}, "
         f"email={user.email}, org_id={user.organization_id}"
     )
 
     # Get the appropriate model settings based on type
-    model_settings = getattr(user.settings.models, model_type)
+    model_settings = getattr(user.settings.models, purpose)
     model_id = model_settings.model_id
 
     logger.info(f"[LLM_UTILS] User settings: model_id={model_id}")
