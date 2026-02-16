@@ -106,7 +106,7 @@ class ModelConnectionService:
     ) -> ModelConnectionTestResult:
         """Test a language model connection."""
         try:
-            from rhesis.sdk.models.factory import ModelConfig, get_model
+            from rhesis.sdk.models.factory import LanguageModelConfig, get_language_model
 
             # Build extra params for providers that need them
             extra_params = {}
@@ -114,7 +114,7 @@ class ModelConnectionService:
                 extra_params["base_url"] = endpoint
 
             # Create model config
-            config = ModelConfig(
+            config = LanguageModelConfig(
                 provider=provider,
                 model_name=model_name,
                 api_key=api_key,
@@ -123,7 +123,7 @@ class ModelConnectionService:
 
             # Try to create the model instance
             try:
-                model = get_model(config=config)
+                model = get_language_model(config=config)
             except ValueError as e:
                 # Provider not supported or invalid configuration
                 logger.warning(f"Language model configuration error: {str(e)}")
@@ -175,7 +175,7 @@ class ModelConnectionService:
     ) -> ModelConnectionTestResult:
         """Test an embedding model connection."""
         try:
-            from rhesis.sdk.models.factory import EmbedderConfig, get_embedder
+            from rhesis.sdk.models.factory import EmbeddingModelConfig, get_embedding_model
 
             # Build extra params for providers that need them
             extra_params = {}
@@ -183,7 +183,7 @@ class ModelConnectionService:
                 extra_params["base_url"] = endpoint
 
             # Create embedder config
-            config = EmbedderConfig(
+            config = EmbeddingModelConfig(
                 provider=provider,
                 model_name=model_name,
                 api_key=api_key,
@@ -192,7 +192,7 @@ class ModelConnectionService:
 
             # Try to create the embedder instance
             try:
-                embedder = get_embedder(config=config)
+                embedder = get_embedding_model(config=config)
             except ValueError as e:
                 # Provider not supported or invalid configuration
                 logger.warning(f"Embedding model configuration error: {str(e)}")

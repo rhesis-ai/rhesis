@@ -242,12 +242,12 @@ def is_llm_available(
         from rhesis.backend.app.utils.user_model_utils import (
             get_user_generation_model,
         )
-        from rhesis.sdk.models.factory import get_model
+        from rhesis.sdk.models.factory import get_language_model
 
         model_or_provider = get_user_generation_model(db, user)
         if isinstance(model_or_provider, str):
             # Verify the default provider can actually be instantiated
-            get_model(provider=model_or_provider)
+            get_language_model(provider=model_or_provider)
         return True
     except Exception:
         return False
@@ -273,11 +273,11 @@ def llm_map_columns(
         from rhesis.backend.app.utils.user_model_utils import (
             get_user_generation_model,
         )
-        from rhesis.sdk.models.factory import get_model
+        from rhesis.sdk.models.factory import get_language_model
 
         model_or_provider = get_user_generation_model(db, user)
         if isinstance(model_or_provider, str):
-            model = get_model(provider=model_or_provider)
+            model = get_language_model(provider=model_or_provider)
         else:
             model = model_or_provider
 

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.backend.logging import logger
-from rhesis.sdk.models.factory import get_model
+from rhesis.sdk.models.factory import get_language_model
 
 
 class MappingGenerationOutput(BaseModel):
@@ -85,7 +85,7 @@ class LLMMapper:
             # If it's a string (provider name), convert to model instance
             if isinstance(model_or_provider, str):
                 logger.debug(f"Converting provider '{model_or_provider}' to model instance")
-                model = get_model(provider=model_or_provider)
+                model = get_language_model(provider=model_or_provider)
             else:
                 model = model_or_provider
 

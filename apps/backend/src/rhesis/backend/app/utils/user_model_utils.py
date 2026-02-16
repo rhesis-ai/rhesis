@@ -14,7 +14,7 @@ from rhesis.backend.app import crud
 from rhesis.backend.app.constants import DEFAULT_EMBEDDING_MODEL, DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.models.user import User
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
-from rhesis.sdk.models.factory import get_embedder, get_model
+from rhesis.sdk.models.factory import get_embedding_model, get_language_model
 
 logger = logging.getLogger(__name__)
 
@@ -231,9 +231,11 @@ def _fetch_and_configure_model(
         logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
         return default_model
 
-    # Use SDK's get_model to create configured instance with error handling
+    # Use SDK's get_language_model to create configured instance with error handling
     try:
-        configured_model = get_model(provider=provider, model_name=model_name, api_key=api_key)
+        configured_model = get_language_model(
+            provider=provider, model_name=model_name, api_key=api_key
+        )
         logger.info(
             f"[LLM_UTILS] ✓ Returning configured BaseLLM instance: "
             f"{type(configured_model).__name__}"
@@ -367,9 +369,9 @@ def _fetch_and_configure_embedder(
         logger.info(f"[LLM_UTILS] ✓ Falling back to default embedder: {default_model}")
         return default_model
 
-    # Use SDK's get_embedder to create configured instance with error handling
+    # Use SDK's get_embedding_model to create configured instance with error handling
     try:
-        configured_embedder = get_embedder(
+        configured_embedder = get_embedding_model(
             provider=provider, model_name=model_name, api_key=api_key
         )
         logger.info(

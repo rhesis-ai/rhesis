@@ -6,7 +6,7 @@ from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import (
     DEFAULT_MODELS,
     DEFAULT_PROVIDER,
-    ModelConfig,
+    LanguageModelConfig,
     get_available_embedding_models,
     get_available_language_models,
     get_model,
@@ -14,19 +14,19 @@ from rhesis.sdk.models.factory import (
 
 
 class TestModelConfig:
-    """Test the ModelConfig dataclass."""
+    """Test the LanguageModelConfig dataclass."""
 
     def test_model_config_defaults(self):
-        """Test ModelConfig with default values."""
-        config = ModelConfig()
+        """Test LanguageModelConfig with default values."""
+        config = LanguageModelConfig()
         assert config.provider is None
         assert config.model_name is None
         assert config.api_key is None
         assert config.extra_params == {}
 
     def test_model_config_with_values(self):
-        """Test ModelConfig with provided values."""
-        config = ModelConfig(
+        """Test LanguageModelConfig with provided values."""
+        config = LanguageModelConfig(
             provider="test-provider",
             model_name="test-model",
             api_key="test-key",
@@ -39,8 +39,8 @@ class TestModelConfig:
 
     def test_model_config_extra_params_default_factory(self):
         """Test that extra_params uses default_factory correctly."""
-        config1 = ModelConfig()
-        config2 = ModelConfig()
+        config1 = LanguageModelConfig()
+        config2 = LanguageModelConfig()
 
         # Modify one config's extra_params
         config1.extra_params["test"] = "value"
@@ -116,7 +116,7 @@ class TestGetModel:
         mock_instance = Mock(spec=BaseLLM)
         mock_rhesis_class.return_value = mock_instance
 
-        config = ModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
+        config = LanguageModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
 
         result = get_model(config=config)
 
@@ -129,7 +129,7 @@ class TestGetModel:
         mock_instance = Mock(spec=BaseLLM)
         mock_rhesis_class.return_value = mock_instance
 
-        config = ModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
+        config = LanguageModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
 
         result = get_model(config=config, model_name="override-model")
 
@@ -237,7 +237,7 @@ class TestGetModel:
 
     def test_get_model_unsupported_provider_from_config(self):
         """Test get_model with unsupported provider from config raises ValueError."""
-        config = ModelConfig(provider="unsupported-provider")
+        config = LanguageModelConfig(provider="unsupported-provider")
 
         with pytest.raises(ValueError, match="Provider unsupported-provider not supported"):
             get_model(config=config)
@@ -248,7 +248,7 @@ class TestGetModel:
         mock_instance = Mock(spec=BaseLLM)
         mock_rhesis_class.return_value = mock_instance
 
-        config = ModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
+        config = LanguageModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
 
         # kwargs should override config
         result = get_model(
@@ -316,7 +316,7 @@ class TestModelFactoryIntegration:
             get_model("rhesis"),  # provider only
             get_model("rhesis", "custom-model"),  # provider + model
             get_model("rhesis/custom-model"),  # shorthand
-            get_model(config=ModelConfig(provider="rhesis", model_name="custom-model")),  # config
+            get_model(config= LanguageModelConfig(provider="rhesis", model_name="custom-model")),  # config
         ]
 
         assert all(isinstance(model, Mock) for model in models)
@@ -333,7 +333,7 @@ class TestModelFactoryIntegration:
             get_model("gemini"),  # provider only
             get_model("gemini", "custom-model"),  # provider + model
             get_model("gemini/custom-model"),  # shorthand
-            get_model(config=ModelConfig(provider="gemini", model_name="custom-model")),  # config
+            get_model(config= LanguageModelConfig(provider="gemini", model_name="custom-model")),  # config
         ]
 
         assert all(isinstance(model, Mock) for model in models)
@@ -351,7 +351,7 @@ class TestModelFactoryIntegration:
             get_model("openrouter", "anthropic/claude-3.5-sonnet"),  # provider + model
             get_model("openrouter/anthropic/claude-3.5-sonnet"),  # shorthand
             get_model(
-                config=ModelConfig(provider="openrouter", model_name="anthropic/claude-3.5-sonnet")
+                config= LanguageModelConfig(provider="openrouter", model_name="anthropic/claude-3.5-sonnet")
             ),  # config
         ]
 
@@ -370,7 +370,7 @@ class TestModelFactoryIntegration:
             get_model("vertex_ai", "custom-model"),  # provider + model
             get_model("vertex_ai/custom-model"),  # shorthand
             get_model(
-                config=ModelConfig(provider="vertex_ai", model_name="custom-model")
+                config= LanguageModelConfig(provider="vertex_ai", model_name="custom-model")
             ),  # config
         ]
 

@@ -329,7 +329,7 @@ class MetricEvaluator:
                 if model_id and self.db:
                     try:
                         from rhesis.backend.app import crud
-                        from rhesis.sdk.models.factory import get_model
+                        from rhesis.sdk.models.factory import get_language_model
 
                         # Fetch metric's preferred model from database
                         model_record = crud.get_model(
@@ -340,7 +340,7 @@ class MetricEvaluator:
 
                         if model_record and model_record.provider_type:
                             # Create BaseLLM instance for this specific metric
-                            metric_model = get_model(
+                            metric_model = get_language_model(
                                 provider=model_record.provider_type.type_value,
                                 model_name=model_record.model_name,
                                 api_key=model_record.key,
