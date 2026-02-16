@@ -6,7 +6,7 @@ import requests
 from pydantic import BaseModel
 
 from rhesis.sdk.models.providers.native import (
-    DEFAULT_MODEL_NAME,
+    DEFAULT_LANGUAGE_MODEL_NAME,
     RhesisLLM,
 )
 
@@ -56,7 +56,7 @@ class TestRhesisLLM:
         service = RhesisLLM()
         assert service.api_key == "test_api_key"
         assert service.base_url == "https://test.example.com"
-        assert service.model_name == DEFAULT_MODEL_NAME
+        assert service.model_name == DEFAULT_LANGUAGE_MODEL_NAME
 
     def test_init_with_explicit_params(self, mock_client):
         """Test initialization with explicit parameters."""
@@ -172,7 +172,7 @@ class TestRhesisLLM:
 
     def test_default_parameters(self, service, mock_client):
         """Test default parameter values."""
-        assert service.model_name == DEFAULT_MODEL_NAME
+        assert service.model_name == DEFAULT_LANGUAGE_MODEL_NAME
 
     @patch("requests.post")
     def test_create_completion_default_params(self, mock_post, service, mock_client):
