@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
@@ -105,6 +106,16 @@ class Embedding(Base, ActivityTrackableMixin, OrganizationAndUserMixin):
             "(embedding_1024 IS NOT NULL)::int + "
             "(embedding_1536 IS NOT NULL)::int = 1",
             name="ck_embedding_exactly_one_embedding",
+        ),
+        # Unique constraint: one embedding per entity/text/config/status combination
+        UniqueConstraint(
+            "organization_id",
+            "entity_id",
+            "entity_type",
+            "config_hash",
+            "text_hash",
+            "status",
+            name="uq_embedding_dedup",
         ),
         # Cross-entity-type search: model_id, config_hash, and status
         Index(

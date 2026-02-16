@@ -38,7 +38,7 @@ class EndpointAuthType(str, Enum):
 class ModelType(str, Enum):
     """Type of AI model configuration."""
 
-    LLM = "llm"
+    LANGUAGE = "language"
     EMBEDDING = "embedding"
 
 

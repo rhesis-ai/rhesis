@@ -39,8 +39,8 @@ export default function ModelsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [modelToDelete, setModelToDelete] = useState<Model | null>(null);
   const [selectedModelType, setSelectedModelType] = useState<
-    'llm' | 'embedding'
-  >('llm');
+    'language' | 'embedding'
+  >('language');
 
   useEffect(() => {
     async function loadData() {
@@ -91,7 +91,7 @@ export default function ModelsPage() {
   }, [session]);
 
   const handleAddLLM = () => {
-    setSelectedModelType('llm');
+    setSelectedModelType('language');
     setProviderSelectionOpen(true);
   };
 
@@ -241,7 +241,7 @@ export default function ModelsPage() {
     event.stopPropagation();
     setModelToEdit(model);
     setSelectedProvider(model.provider_type || null);
-    setSelectedModelType(model.model_type || 'llm');
+    setSelectedModelType(model.model_type || 'language');
     setConnectionDialogOpen(true);
   };
 
@@ -294,8 +294,8 @@ export default function ModelsPage() {
   };
 
   // Separate models by type
-  const llmModels = connectedModels.filter(
-    model => !model.model_type || model.model_type === 'llm'
+  const languageModels = connectedModels.filter(
+    model => !model.model_type || model.model_type === 'language'
   );
   const embeddingModels = connectedModels.filter(
     model => model.model_type === 'embedding'
@@ -341,7 +341,7 @@ export default function ModelsPage() {
               }}
             >
               {/* Connected Language Model Cards */}
-              {llmModels.map(model => (
+              {languageModels.map(model => (
                 <ConnectedModelCard
                   key={model.id}
                   model={model}

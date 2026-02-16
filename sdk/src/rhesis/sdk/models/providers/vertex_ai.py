@@ -30,7 +30,7 @@ from rhesis.sdk.models.providers.litellm import LiteLLM, LiteLLMEmbedder
 # Track temp files created by this process for cleanup
 _temp_credential_files: Set[str] = set()
 
-DEFAULT_MODEL_NAME = "gemini-2.0-flash"
+DEFAULT_LANGUAGE_MODEL_NAME = "gemini-2.0-flash"
 DEFAULT_EMBEDDING_MODEL = "text-embedding-005"
 
 
@@ -282,7 +282,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
 
     def __init__(
         self,
-        model_name: str = DEFAULT_MODEL_NAME,
+        model_name: str = DEFAULT_LANGUAGE_MODEL_NAME,
         credentials: Optional[str] = None,
         location: Optional[str] = None,
         project: Optional[str] = None,

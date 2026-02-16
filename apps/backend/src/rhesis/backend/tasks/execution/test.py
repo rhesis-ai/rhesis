@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.constants import DEFAULT_LANGUAGE_MODEL_PROVIDER
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
 from rhesis.backend.logging.rhesis_logger import logger
@@ -66,15 +66,15 @@ def get_evaluation_model(db: Session, user_id: str) -> Any:
         else:
             logger.warning(
                 f"[MODEL_SELECTION] User {user_id} not found, using default: "
-                f"{DEFAULT_GENERATION_MODEL}"
+                f"{DEFAULT_LANGUAGE_MODEL_PROVIDER}"
             )
-            return DEFAULT_GENERATION_MODEL
+            return DEFAULT_LANGUAGE_MODEL_PROVIDER
     except Exception as e:
         logger.warning(
             f"[MODEL_SELECTION] Error fetching user model: {str(e)}, "
-            f"using default: {DEFAULT_GENERATION_MODEL}"
+            f"using default: {DEFAULT_LANGUAGE_MODEL_PROVIDER}"
         )
-        return DEFAULT_GENERATION_MODEL
+        return DEFAULT_LANGUAGE_MODEL_PROVIDER
 
 
 def validate_and_normalize_result(result: Any, test_id: str) -> Dict[str, Any]:

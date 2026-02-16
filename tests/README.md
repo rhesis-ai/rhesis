@@ -811,9 +811,12 @@ All test infrastructure lives in a single unified Compose file (`tests/docker-co
 ```yaml
 # tests/docker-compose.test.yml (simplified)
 services:
-  sdk-test-postgres:
-    image: mirror.gcr.io/pgvector/pgvector:pg16
-    profiles: ["sdk"]
+  test-db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: rhesis_test
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
     ports:
       - "10001:5432"
 

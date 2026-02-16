@@ -2,13 +2,13 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-DEFAULT_MODEL_NAME = "Llama-3.3-70B-Instruct"
+DEFAULT_LANGUAGE_MODEL_NAME = "Llama-3.3-70B-Instruct"
 
 
 class MetaLlamaLLM(LiteLLM):
     PROVIDER = "meta_llama"
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
+    def __init__(self, model_name: str = DEFAULT_LANGUAGE_MODEL_NAME, api_key=None, **kwargs):
         """
         MetaLlamaLLM: Meta Llama LLM Provider
 

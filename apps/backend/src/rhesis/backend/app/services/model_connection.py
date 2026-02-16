@@ -1,8 +1,8 @@
 """
 Service for testing model connections.
 
-This module provides functionality to test connections to various LLM and embedding
-model providers before saving them to the database.
+This module provides functionality to test connections to various language models
+and embedding model providers before saving them to the database.
 """
 
 from typing import Literal
@@ -13,11 +13,19 @@ from rhesis.backend.logging import logger
 class ModelConnectionTestResult:
     """Result of a model connection test."""
 
-    def __init__(self, success: bool, message: str, provider: str, model_name: str):
+    def __init__(
+        self,
+        success: bool,
+        message: str,
+        provider: str,
+        model_name: str,
+        dimension: int | None = None,
+    ):
         self.success = success
         self.message = message
         self.provider = provider
         self.model_name = model_name
+        self.dimension = dimension  # Embedding dimension (only for embedding models)
 
 
 class ModelConnectionService:
@@ -29,7 +37,7 @@ class ModelConnectionService:
         model_name: str,
         api_key: str,
         endpoint: str | None = None,
-        model_type: Literal["llm", "embedding"] = "llm",
+        model_type: Literal["language", "embedding"] = "language",
     ) -> ModelConnectionTestResult:
         """
         Test a model connection by attempting to initialize and use the model.
@@ -38,14 +46,14 @@ class ModelConnectionService:
         1. The provider is supported by the SDK
         2. The API key is valid
         3. The model can be initialized successfully
-        4. A test call works (generation for LLMs, embedding for embedding models)
+        4. A test call works (generation for language models, embedding for embedding models)
 
         Args:
             provider: The provider name (e.g., "openai", "gemini", "ollama")
             model_name: The specific model name
             api_key: The API key for authentication
             endpoint: Optional endpoint URL for self-hosted providers
-            model_type: Type of model - "llm" or "embedding"
+            model_type: Type of model - "language" or "embedding"
 
         Returns:
             ModelConnectionTestResult: Result of the connection test
@@ -73,8 +81,8 @@ class ModelConnectionService:
                     model_name=model_name,
                 )
 
-            if model_type == "llm":
-                return ModelConnectionService._test_llm_connection(
+            if model_type == "language":
+                return ModelConnectionService._test_language_model_connection(
                     provider, model_name, api_key, endpoint
                 )
             elif model_type == "embedding":
@@ -84,7 +92,9 @@ class ModelConnectionService:
             else:
                 return ModelConnectionTestResult(
                     success=False,
-                    message=f"Invalid model type: {model_type}. Must be 'llm' or 'embedding'",
+                    message=(
+                        f"Invalid model type: {model_type}. Must be 'language' or 'embedding'"
+                    ),
                     provider=provider,
                     model_name=model_name,
                 )
@@ -99,12 +109,12 @@ class ModelConnectionService:
             )
 
     @staticmethod
-    def _test_llm_connection(
+    def _test_language_model_connection(
         provider: str, model_name: str, api_key: str, endpoint: str | None = None
     ) -> ModelConnectionTestResult:
         """Test a language model connection."""
         try:
-            from rhesis.sdk.models.factory import ModelConfig, get_model
+            from rhesis.sdk.models.factory import LanguageModelConfig, get_language_model
 
             # Build extra params for providers that need them
             extra_params = {}
@@ -112,7 +122,7 @@ class ModelConnectionService:
                 extra_params["base_url"] = endpoint
 
             # Create model config
-            config = ModelConfig(
+            config = LanguageModelConfig(
                 provider=provider,
                 model_name=model_name,
                 api_key=api_key,
@@ -121,7 +131,7 @@ class ModelConnectionService:
 
             # Try to create the model instance
             try:
-                model = get_model(config=config)
+                model = get_language_model(config=config)
             except ValueError as e:
                 # Provider not supported or invalid configuration
                 logger.warning(f"Language model configuration error: {str(e)}")
@@ -169,28 +179,22 @@ class ModelConnectionService:
 
     @staticmethod
     def _test_embedding_connection(
-        provider: str, model_name: str, api_key: str, endpoint: str | None = None
+        provider: str, model_name: str, api_key: str | None = None
     ) -> ModelConnectionTestResult:
         """Test an embedding model connection."""
         try:
-            from rhesis.sdk.models.factory import EmbedderConfig, get_embedder
-
-            # Build extra params for providers that need them
-            extra_params = {}
-            if endpoint:
-                extra_params["base_url"] = endpoint
+            from rhesis.sdk.models.factory import EmbeddingModelConfig, get_embedding_model
 
             # Create embedder config
-            config = EmbedderConfig(
+            config = EmbeddingModelConfig(
                 provider=provider,
                 model_name=model_name,
                 api_key=api_key,
-                extra_params=extra_params,
             )
 
             # Try to create the embedder instance
             try:
-                embedder = get_embedder(config=config)
+                embedder = get_embedding_model(config=config)
             except ValueError as e:
                 # Provider not supported or invalid configuration
                 logger.warning(f"Embedding model configuration error: {str(e)}")
@@ -210,18 +214,20 @@ class ModelConnectionService:
                 if not isinstance(embedding, (list, tuple)) or len(embedding) == 0:
                     raise ValueError("Invalid embedding response: expected non-empty vector")
 
+                dimension = len(embedding)
                 logger.info(
                     f"Embedding connection test successful for {provider}/{model_name}, "
-                    f"vector size: {len(embedding)}"
+                    f"vector size: {dimension}"
                 )
                 return ModelConnectionTestResult(
                     success=True,
                     message=(
                         f"Successfully connected to {provider}. "
-                        f"Embedding model is responding correctly (vector size: {len(embedding)})."
+                        f"Embedding model is responding correctly (vector size: {dimension})."
                     ),
                     provider=provider,
                     model_name=model_name,
+                    dimension=dimension,
                 )
             except Exception as e:
                 # API call failed - likely authentication or network issue

@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
-from rhesis.sdk.models import get_model
+from rhesis.sdk.models import get_language_model
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.services.chunker import (
     ChunkingService,
@@ -84,7 +84,7 @@ class TestSetSynthesizer(ABC):
         self.chunker = chunking_strategy
 
         if isinstance(model, str) or model is None:
-            self.model = get_model(model)
+            self.model = get_language_model(model)
         else:
             self.model = model
 

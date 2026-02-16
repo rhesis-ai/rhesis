@@ -10,13 +10,13 @@ responses.
 https://docs.litellm.ai/docs/providers/ollama#using-ollama-apichat
 """
 
-DEFAULT_MODEL_NAME = "llama3.1"
+DEFAULT_LANGUAGE_MODEL_NAME = "llama3.1"
 
 
 class OllamaLLM(LiteLLM):
     PROVIDER = "ollama_chat"
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, **kwargs):
+    def __init__(self, model_name: str = DEFAULT_LANGUAGE_MODEL_NAME, **kwargs):
         """
         OllamaLLM: Ollama LLM Provider
 

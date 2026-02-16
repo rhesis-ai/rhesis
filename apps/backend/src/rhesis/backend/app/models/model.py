@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Boolean, Column, ForeignKey, String, Text
+from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from rhesis.backend.app.models.enums import ModelType
@@ -32,13 +32,14 @@ class Model(
     description = Column(Text)
     icon = Column(String)
     model_name = Column(String, nullable=False)
-    model_type = Column(String, nullable=False, server_default=ModelType.LLM.value)
+    model_type = Column(String, nullable=False, server_default=ModelType.LANGUAGE.value)
     endpoint = Column(String, nullable=True)  # Optional for cloud providers (OpenAI, Gemini, etc.)
     key = Column(
         EncryptedString(), nullable=False
     )  # Encrypted for security (LLM provider API keys)
     request_headers = Column(JSON)
     is_protected = Column(Boolean, default=False, nullable=False)  # System models cannot be deleted
+    dimension = Column(Integer, nullable=True, doc="Only applicable for embedding models.")
 
     # Provider type relationship
     provider_type_id = Column(GUID(), ForeignKey("type_lookup.id"))

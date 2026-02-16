@@ -239,7 +239,7 @@ async def test_model_connection(
     provider = db_model.provider_type.type_value if db_model.provider_type else None
     model_name = db_model.model_name
     api_key = db_model.key
-    model_type = db_model.model_type or "llm"
+    model_type = db_model.model_type or "language"
 
     logger.info(
         f"[MODEL_TEST] Testing model: name={db_model.name}, "
@@ -255,13 +255,26 @@ async def test_model_connection(
             model_type=model_type,
         )
 
+        # If this is an embedding model and test was successful, save the dimension
+        if result.success and model_type == "embedding" and result.dimension:
+            logger.info(f"[MODEL_TEST] Auto-detected dimension: {result.dimension}")
+            db_model.dimension = result.dimension
+            db.commit()
+            db.refresh(db_model)
+
         status = "success" if result.success else "error"
         logger.info(f"[MODEL_TEST] Test result: status={status}, message={result.message}")
 
-        return {
+        response_data = {
             "status": status,
             "message": result.message,
         }
+
+        # Include dimension in response if available
+        if result.dimension:
+            response_data["dimension"] = result.dimension
+
+        return response_data
 
     except Exception as e:
         # Catch any unexpected errors

@@ -131,12 +131,12 @@ class LLMGenerator(TextCompletionGenerator):
     This allows users to use any LLM provider (OpenAI, Anthropic, etc.) for test generation.
 
     Example:
-        >>> from rhesis.sdk.models import get_model
+        >>> from rhesis.sdk.models import get_language_model
         >>> from rhesis.sdk.adaptive_testing import generators
         >>>
         >>> # Create any BaseLLM instance
-        >>> llm = get_model("openai", model_name="gpt-4o-mini")
-        >>> # Or: llm = get_model("anthropic", model_name="claude-3-sonnet")
+        >>> llm = get_language_model("openai", model_name="gpt-4o-mini")
+        >>> # Or: llm = get_language_model("anthropic", model_name="claude-3-sonnet")
         >>>
         >>> # Use it as a generator
         >>> gen = generators.LLMGenerator(llm, temperature=2.0)
@@ -155,7 +155,7 @@ class LLMGenerator(TextCompletionGenerator):
         """Create a new LLMGenerator with a BaseLLM instance.
 
         Args:
-            llm: A BaseLLM instance from get_model() or any compatible implementation.
+            llm: A BaseLLM instance from get_language_model() or any compatible implementation.
             sep: Separator between prompt entries (default: newline).
             subsep: Sub-separator within entries (default: space).
             quote: Quote character for prompt formatting (default: double quote).
@@ -169,7 +169,7 @@ class LLMGenerator(TextCompletionGenerator):
         if not isinstance(llm, BaseLLM):
             raise TypeError(
                 f"Expected a BaseLLM instance, got {type(llm).__name__}. "
-                "Use get_model() to create an LLM instance."
+                "Use get_language_model() to create an LLM instance."
             )
 
         super().__init__(llm.model_name, sep, subsep, quote, filter)

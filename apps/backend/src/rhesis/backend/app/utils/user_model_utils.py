@@ -11,17 +11,21 @@ from typing import Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_EMBEDDING_MODEL, DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.constants import (
+    DEFAULT_EMBEDDING_MODEL_PROVIDER,
+    DEFAULT_LANGUAGE_MODEL_PROVIDER,
+)
 from rhesis.backend.app.models.user import User
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
-from rhesis.sdk.models.factory import get_embedder, get_model
+from rhesis.sdk.models.factory import get_embedding_model, get_language_model
 
 logger = logging.getLogger(__name__)
 
 
 def get_user_generation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
-    Get the user's configured default generation model or fall back to DEFAULT_GENERATION_MODEL.
+    Get the user's configured default generation model or fall back to
+    DEFAULT_LANGUAGE_MODEL_PROVIDER.
 
     This function is used for test generation workflows where the user can specify
     their preferred language model via the Models page in the UI.
@@ -37,12 +41,13 @@ def get_user_generation_model(db: Session, user: User) -> Union[str, BaseLLM]:
         >>> model = get_user_generation_model(db, current_user)
         >>> synthesizer = ConfigSynthesizer(config=config, model=model)
     """
-    return _get_user_model(db, user, "generation", DEFAULT_GENERATION_MODEL)
+    return _get_user_model(db, user, "generation", DEFAULT_LANGUAGE_MODEL_PROVIDER)
 
 
 def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
-    Get the user's configured default evaluation model or fall back to DEFAULT_GENERATION_MODEL.
+    Get the user's configured default evaluation model or fall back to
+    DEFAULT_LANGUAGE_MODEL_PROVIDER.
 
     This function is used for language-model-as-a-judge scenarios where metrics are evaluated
     using a language model. The user can specify their preferred model via the Models page.
@@ -58,12 +63,13 @@ def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
         >>> model = get_user_evaluation_model(db, current_user)
         >>> # Use model for metric evaluation
     """
-    return _get_user_model(db, user, "evaluation", DEFAULT_GENERATION_MODEL)
+    return _get_user_model(db, user, "evaluation", DEFAULT_LANGUAGE_MODEL_PROVIDER)
 
 
 def get_user_embedding_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
-    Get the user's configured default embedding model or fall back to DEFAULT_EMBEDDING_MODEL.
+    Get the user's configured default embedding model or fall back to
+    DEFAULT_EMBEDDING_MODEL_PROVIDER.
 
     This function is used for generating embeddings for semantic search and similarity
     matching. The user can specify their preferred embedding model via the Models page.
@@ -119,7 +125,7 @@ def validate_user_evaluation_model(db: Session, user: User) -> None:
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),
-            default_model=DEFAULT_GENERATION_MODEL,
+            default_model=DEFAULT_LANGUAGE_MODEL_PROVIDER,
         )
         logger.info("[LLM_UTILS] ✓ Evaluation model validation successful")
     except ValueError:
@@ -164,7 +170,7 @@ def validate_user_generation_model(db: Session, user: User) -> None:
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),
-            default_model=DEFAULT_GENERATION_MODEL,
+            default_model=DEFAULT_LANGUAGE_MODEL_PROVIDER,
         )
         logger.info("[LLM_UTILS] ✓ Generation model validation successful")
     except ValueError:
@@ -231,9 +237,11 @@ def _fetch_and_configure_model(
         logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
         return default_model
 
-    # Use SDK's get_model to create configured instance with error handling
+    # Use SDK's get_language_model to create configured instance with error handling
     try:
-        configured_model = get_model(provider=provider, model_name=model_name, api_key=api_key)
+        configured_model = get_language_model(
+            provider=provider, model_name=model_name, api_key=api_key
+        )
         logger.info(
             f"[LLM_UTILS] ✓ Returning configured BaseLLM instance: "
             f"{type(configured_model).__name__}"
@@ -274,7 +282,7 @@ def _fetch_and_configure_model(
 
 
 def _get_user_model(
-    db: Session, user: User, model_type: str, default_model: str
+    db: Session, user: User, purpose: str, default_model: str
 ) -> Union[str, BaseLLM]:
     """
     Internal helper to get user's configured model for a specific purpose.
@@ -288,7 +296,7 @@ def _get_user_model(
     Args:
         db: Database session
         user: Current user
-        model_type: Type of model ("generation", "evaluation", or "embedding")
+        purpose: What the model is used for ("generation", "evaluation", or "embedding")
         default_model: Default model to use if user hasn't configured one
 
     Returns:
@@ -299,12 +307,12 @@ def _get_user_model(
         Never accepts organization_id as a parameter that could be manipulated.
     """
     logger.info(
-        f"[LLM_UTILS] Getting {model_type} model for user_id={user.id}, "
+        f"[LLM_UTILS] Getting {purpose} model for user_id={user.id}, "
         f"email={user.email}, org_id={user.organization_id}"
     )
 
     # Get the appropriate model settings based on type
-    model_settings = getattr(user.settings.models, model_type)
+    model_settings = getattr(user.settings.models, purpose)
     model_id = model_settings.model_id
 
     logger.info(f"[LLM_UTILS] User settings: model_id={model_id}")
@@ -367,9 +375,9 @@ def _fetch_and_configure_embedder(
         logger.info(f"[LLM_UTILS] ✓ Falling back to default embedder: {default_model}")
         return default_model
 
-    # Use SDK's get_embedder to create configured instance with error handling
+    # Use SDK's get_embedding_model to create configured instance with error handling
     try:
-        configured_embedder = get_embedder(
+        configured_embedder = get_embedding_model(
             provider=provider, model_name=model_name, api_key=api_key
         )
         logger.info(
@@ -436,8 +444,10 @@ def _get_user_embedding_model_with_settings(db: Session, user: User):
 
     if not model_id:
         logger.info("[LLM_UTILS] No configured embedding model found in user settings")
-        logger.info(f"[LLM_UTILS] ✓ Falling back to default embedder: {DEFAULT_EMBEDDING_MODEL}")
-        return DEFAULT_EMBEDDING_MODEL
+        logger.info(
+            f"[LLM_UTILS] ✓ Falling back to default embedder: {DEFAULT_EMBEDDING_MODEL_PROVIDER}"
+        )
+        return DEFAULT_EMBEDDING_MODEL_PROVIDER
 
     # Fetch and configure the user's embedder
     logger.info("[LLM_UTILS] User has configured embedding model, fetching from database...")
@@ -445,5 +455,5 @@ def _get_user_embedding_model_with_settings(db: Session, user: User):
         db=db,
         model_id=str(model_id),
         organization_id=str(user.organization_id),
-        default_model=DEFAULT_EMBEDDING_MODEL,
+        default_model=DEFAULT_EMBEDDING_MODEL_PROVIDER,
     )

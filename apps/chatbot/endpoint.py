@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from rhesis.sdk import RhesisClient, endpoint, observe
-from rhesis.sdk.models.factory import get_model
+from rhesis.sdk.models.factory import get_language_model
 
 # Configure logging
 logging.basicConfig(
@@ -35,8 +35,8 @@ INITIAL_RETRY_DELAY = 1  # seconds
 MAX_RETRY_DELAY = 10  # seconds
 
 # Model configuration - uses SDK providers approach
-DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "vertex_ai")
-DEFAULT_MODEL_NAME = os.getenv("DEFAULT_MODEL_NAME", "gemini-2.5-flash")
+DEFAULT_LANGUAGE_MODEL_PROVIDER = os.getenv("DEFAULT_LANGUAGE_MODEL_PROVIDER", "vertex_ai")
+DEFAULT_LANGUAGE_MODEL_NAME = os.getenv("DEFAULT_LANGUAGE_MODEL_NAME", "gemini-2.5-flash")
 
 
 class IntentClassification(BaseModel):
@@ -53,7 +53,9 @@ class IntentClassification(BaseModel):
 def get_llm_model():
     """Get the configured language model using SDK factory."""
     try:
-        return get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
+        return get_language_model(
+            provider=DEFAULT_LANGUAGE_MODEL_PROVIDER, model_name=DEFAULT_LANGUAGE_MODEL_NAME
+        )
     except Exception as e:
         logger.error(f"Failed to initialize language model: {str(e)}")
         raise ValueError(f"Could not initialize language model: {str(e)}")
@@ -113,8 +115,8 @@ class ResponseGenerator:
         return full_prompt
 
     @observe.llm(
-        provider=DEFAULT_GENERATION_MODEL,
-        model=DEFAULT_MODEL_NAME,
+        provider=DEFAULT_LANGUAGE_MODEL_PROVIDER,
+        model=DEFAULT_LANGUAGE_MODEL_NAME,
     )
     def _invoke_llm(self, full_prompt: str) -> str:
         """Invoke the language model to generate a response."""
@@ -197,8 +199,8 @@ class ResponseGenerator:
         return full_prompt
 
     @observe.llm(
-        provider=DEFAULT_GENERATION_MODEL,
-        model=DEFAULT_MODEL_NAME,
+        provider=DEFAULT_LANGUAGE_MODEL_PROVIDER,
+        model=DEFAULT_LANGUAGE_MODEL_NAME,
         purpose="context_generation",
     )
     def _generate_context_fragments_llm(self, full_prompt: str) -> str:
@@ -345,8 +347,8 @@ into one of four categories.
         return full_prompt
 
     @observe.llm(
-        provider=DEFAULT_GENERATION_MODEL,
-        model=DEFAULT_MODEL_NAME,
+        provider=DEFAULT_LANGUAGE_MODEL_PROVIDER,
+        model=DEFAULT_LANGUAGE_MODEL_NAME,
         purpose="intent_classification",
     )
     def _classify_intent_llm(self, full_prompt: str) -> IntentClassification:

@@ -2,13 +2,13 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-DEFAULT_MODEL_NAME = "togethercomputer/llama-2-70b-chat"
+DEFAULT_LANGUAGE_MODEL_NAME = "togethercomputer/llama-2-70b-chat"
 
 
 class TogetherAILLM(LiteLLM):
     PROVIDER = "together_ai"
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
+    def __init__(self, model_name: str = DEFAULT_LANGUAGE_MODEL_NAME, api_key=None, **kwargs):
         """
         TogetherAILLM: Together AI LLM Provider
 

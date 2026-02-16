@@ -14,6 +14,7 @@ from rhesis.backend.app.schemas.services import (
     ExtractMCPRequest,
     ExtractMCPResponse,
     GenerateContentRequest,
+    GenerateEmbeddingRequest,
     GenerateMultiTurnTestsRequest,
     GenerateMultiTurnTestsResponse,
     GenerateTestsRequest,
@@ -232,15 +233,21 @@ async def generate_content_endpoint(request: GenerateContentRequest):
     "type": "json_schema" wrapper with name, schema, and strict fields.
     """
     try:
-        from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, DEFAULT_MODEL_NAME
-        from rhesis.sdk.models.factory import get_model
+        from rhesis.backend.app.constants import (
+            DEFAULT_LANGUAGE_MODEL_NAME,
+            DEFAULT_LANGUAGE_MODEL_PROVIDER,
+        )
+        from rhesis.sdk.models.factory import get_language_model
 
         prompt = request.prompt
         schema = request.schema_
 
         # Use the default generation model from constants
         # This respects the global configuration (currently vertex_ai)
-        model = get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
+        model = get_language_model(
+            provider=DEFAULT_LANGUAGE_MODEL_PROVIDER,
+            model_name=DEFAULT_LANGUAGE_MODEL_NAME,
+        )
 
         # Pass schema directly to the model - SDK handles provider-specific conversion
         response = model.generate(prompt, schema=schema)
@@ -250,6 +257,33 @@ async def generate_content_endpoint(request: GenerateContentRequest):
         error_msg = str(e) if str(e) else "Unknown error"
         logger.error(f"Failed to generate content: {error_msg}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Failed to generate content: {error_msg}")
+
+
+@router.post("/generate/embedding")
+async def generate_embedding_endpoint(request: GenerateEmbeddingRequest):
+    """
+    Generate an embedding for a given text.
+    """
+    try:
+        from rhesis.backend.app.constants import (
+            DEFAULT_EMBEDDING_MODEL_NAME,
+            DEFAULT_EMBEDDING_MODEL_PROVIDER,
+        )
+        from rhesis.sdk.models.factory import get_embedding_model
+
+        text = request.text
+
+        embedder = get_embedding_model(
+            provider=DEFAULT_EMBEDDING_MODEL_PROVIDER,
+            model_name=DEFAULT_EMBEDDING_MODEL_NAME,
+        )
+        embedding = embedder.generate(text=text)
+
+        return embedding
+    except Exception as e:
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to generate embedding: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to generate embedding: {error_msg}")
 
 
 @router.post("/generate/tests", response_model=GenerateTestsResponse)

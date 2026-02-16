@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 # Import models and utilities
 from rhesis.backend.app import models
-from rhesis.backend.app.constants import DEFAULT_MODEL_NAME, EntityType
+from rhesis.backend.app.constants import DEFAULT_LANGUAGE_MODEL_NAME, EntityType
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_entity,
     get_or_create_status,
@@ -149,7 +149,7 @@ def upgrade() -> None:
                 # Create the default Rhesis model
                 default_model_data = {
                     "name": "Rhesis Default",
-                    "model_name": DEFAULT_MODEL_NAME,
+                    "model_name": DEFAULT_LANGUAGE_MODEL_NAME,
                     "description": "Default Rhesis-hosted model.",
                     "icon": "rhesis",
                     "provider_type_id": rhesis_provider_type.id,

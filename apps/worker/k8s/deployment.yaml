@@ -109,16 +109,16 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: GEMINI_MODEL_NAME
-        - name: DEFAULT_GENERATION_MODEL
+        - name: DEFAULT_LANGUAGE_MODEL_PROVIDER
           valueFrom:
             secretKeyRef:
               name: rhesis-worker-secrets
-              key: DEFAULT_GENERATION_MODEL
-        - name: DEFAULT_MODEL_NAME
+              key: DEFAULT_LANGUAGE_MODEL_PROVIDER
+        - name: DEFAULT_LANGUAGE_MODEL_NAME
           valueFrom:
             secretKeyRef:
               name: rhesis-worker-secrets
-              key: DEFAULT_MODEL_NAME
+              key: DEFAULT_LANGUAGE_MODEL_NAME
         - name: GOOGLE_APPLICATION_CREDENTIALS
           valueFrom:
             secretKeyRef:

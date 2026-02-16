@@ -95,8 +95,8 @@ uv sync
 
 ```bash
 # Model Configuration (uses SDK providers)
-export DEFAULT_GENERATION_MODEL="vertex_ai"  # Or "gemini", "openai", etc.
-export DEFAULT_MODEL_NAME="gemini-2.0-flash"  # Recommended - faster than 2.5
+export DEFAULT_LANGUAGE_MODEL_PROVIDER="vertex_ai"  # Or "gemini", "openai", etc.
+export DEFAULT_LANGUAGE_MODEL_NAME="gemini-2.0-flash"  # Recommended - faster than 2.5
 
 # Vertex AI Configuration (if using vertex_ai provider)
 export GOOGLE_APPLICATION_CREDENTIALS="base64-encoded-json-or-file-path"
@@ -151,8 +151,8 @@ docker build -t rhesis-chatbot -f apps/chatbot/Dockerfile .
 
 # Run the container with Vertex AI (recommended)
 docker run -p 8080:8080 \
-  -e DEFAULT_GENERATION_MODEL="vertex_ai" \
-  -e DEFAULT_MODEL_NAME="gemini-2.0-flash" \
+  -e DEFAULT_LANGUAGE_MODEL_PROVIDER="vertex_ai" \
+  -e DEFAULT_LANGUAGE_MODEL_NAME="gemini-2.0-flash" \
   -e GOOGLE_APPLICATION_CREDENTIALS="base64-encoded-credentials" \
   -e VERTEX_AI_LOCATION="europe-west4" \
   -e CHATBOT_RATE_LIMIT="1000" \
@@ -160,8 +160,8 @@ docker run -p 8080:8080 \
 
 # Or with Gemini API (alternative)
 docker run -p 8080:8080 \
-  -e DEFAULT_GENERATION_MODEL="gemini" \
-  -e DEFAULT_MODEL_NAME="gemini-2.0-flash-001" \
+  -e DEFAULT_LANGUAGE_MODEL_PROVIDER="gemini" \
+  -e DEFAULT_LANGUAGE_MODEL_NAME="gemini-2.0-flash-001" \
   -e GEMINI_API_KEY="your-api-key" \
   -e CHATBOT_RATE_LIMIT="1000" \
   rhesis-chatbot
@@ -245,8 +245,8 @@ List available use cases (currently only "insurance").
 ### Environment Variables
 
 #### Model Configuration
-- `DEFAULT_GENERATION_MODEL` (optional): Model provider to use, defaults to "vertex_ai"
-- `DEFAULT_MODEL_NAME` (optional): Model name, defaults to "gemini-2.5-flash"
+- `DEFAULT_LANGUAGE_MODEL_PROVIDER` (optional): Model provider to use, defaults to "vertex_ai"
+- `DEFAULT_LANGUAGE_MODEL_NAME` (optional): Model name, defaults to "gemini-2.5-flash"
 - `GEMINI_API_KEY` (optional): Google Gemini API key (if using gemini provider)
 - `GOOGLE_APPLICATION_CREDENTIALS` (optional): Vertex AI credentials (if using vertex_ai provider)
 - `VERTEX_AI_LOCATION` (optional): Vertex AI region, defaults to "europe-west4"

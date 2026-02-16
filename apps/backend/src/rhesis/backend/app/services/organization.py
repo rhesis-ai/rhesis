@@ -7,6 +7,7 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
+from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.test_set import execute_test_set_on_endpoint
@@ -21,7 +22,7 @@ from rhesis.backend.app.utils.crud_utils import (
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 
-def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
+def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[str, str]:
     """
     Load initial data from the JSON file into the database using optimized approach.
 
@@ -37,6 +38,13 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
         db: Database session to use for all operations
         organization_id: Organization ID to associate with all entities
         user_id: User ID to associate with all entities
+
+    Returns:
+        Dict containing default model IDs:
+        {
+            "language_model_id": str,   # ID of default language model for generation/evaluation
+            "embedding_model_id": str   # ID of default embedding model
+        }
     """
     script_directory = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(script_directory, "initial_data.json"), "r") as file:
@@ -641,8 +649,8 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
                     db.execute(behavior_metric_association.insert().values(**association_values))
                     db.flush()
 
-        # Process default Rhesis model
-        print("Processing default Rhesis model...")
+        # Process default Rhesis language model
+        print("Processing default Rhesis language model...")
         # Get the Rhesis provider type
         rhesis_provider_type = get_or_create_type_lookup(
             db=db,
@@ -663,11 +671,12 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             commit=False,
         )
 
-        # Create the default Rhesis model
-        default_model_data = {
+        # Create the default Rhesis language model
+        default_language_model_data = {
             "name": "Rhesis Default",
             "model_name": "default",
-            "description": "Default Rhesis-hosted model.",
+            "model_type": ModelType.LANGUAGE.value,
+            "description": "Default Rhesis-hosted language model.",
             "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
             "provider_type_id": rhesis_provider_type.id,
             "status_id": available_status.id,
@@ -678,22 +687,57 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> None:
             "owner_id": uuid.UUID(user_id),
         }
 
-        default_model = get_or_create_entity(
+        default_language_model = get_or_create_entity(
             db=db,
             model=models.Model,
-            entity_data=default_model_data,
+            entity_data=default_language_model_data,
             organization_id=organization_id,
             user_id=user_id,
             commit=False,
         )
 
-        print(f"Created default Rhesis model with ID: {default_model.id}")
+        print(f"Created default Rhesis language model with ID: {default_language_model.id}")
+
+        # Process default Rhesis embedding model
+        print("Processing default Rhesis embedding model...")
+        # Use the same Rhesis provider type for embedding model
+        # Note: rhesis_provider_type was already created above for language model
+
+        # Create the default Rhesis embedding model
+        default_embedding_model_data = {
+            "name": "Rhesis Default Embedding",
+            "model_name": "default",
+            "model_type": ModelType.EMBEDDING.value,
+            "description": "Default Rhesis-hosted embedding model for semantic search.",
+            "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
+            "provider_type_id": rhesis_provider_type.id,
+            "status_id": available_status.id,
+            "key": "",  # Empty string for system model - backend uses its own key
+            "endpoint": None,  # Uses internal infrastructure
+            "is_protected": True,  # System model - cannot be deleted
+            "user_id": uuid.UUID(user_id),
+            "owner_id": uuid.UUID(user_id),
+        }
+
+        default_embedding_model = get_or_create_entity(
+            db=db,
+            model=models.Model,
+            entity_data=default_embedding_model_data,
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=False,
+        )
+
+        print(f"Created default Rhesis embedding model with ID: {default_embedding_model.id}")
 
         # Flush all changes to ensure they're persisted
         db.flush()
 
-        # Return the default model ID so it can be set in user settings
-        return str(default_model.id)
+        # Return both model IDs as a dict so they can be set in user settings
+        return {
+            "language_model_id": str(default_language_model.id),
+            "embedding_model_id": str(default_embedding_model.id),
+        }
 
     except Exception:
         # Let the calling code handle transaction rollback

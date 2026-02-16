@@ -5,15 +5,15 @@ import pytest
 from pydantic import BaseModel
 
 from rhesis.sdk.models.providers.openrouter import (
-    DEFAULT_MODEL_NAME,
+    DEFAULT_LANGUAGE_MODEL_NAME,
     OpenRouterLLM,
 )
 
 
 def test_openrouter_defaults():
     assert OpenRouterLLM.PROVIDER == "openrouter"
-    assert DEFAULT_MODEL_NAME is not None
-    assert DEFAULT_MODEL_NAME != ""
+    assert DEFAULT_LANGUAGE_MODEL_NAME is not None
+    assert DEFAULT_LANGUAGE_MODEL_NAME != ""
 
 
 class TestOpenRouterLLM:
@@ -22,7 +22,7 @@ class TestOpenRouterLLM:
         api_key = "test_api_key"
         llm = OpenRouterLLM(api_key=api_key)
         assert llm.api_key == api_key
-        assert llm.model_name == OpenRouterLLM.PROVIDER + "/" + DEFAULT_MODEL_NAME
+        assert llm.model_name == OpenRouterLLM.PROVIDER + "/" + DEFAULT_LANGUAGE_MODEL_NAME
 
     def test_init_with_env_api_key(self):
         """Test initialization with environment variable API key"""
@@ -58,7 +58,7 @@ class TestOpenRouterLLM:
 
         assert result == "Hello, this is a test response"
         mock_completion.assert_called_once_with(
-            model=f"openrouter/{DEFAULT_MODEL_NAME}",
+            model=f"openrouter/{DEFAULT_LANGUAGE_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key="test_key",
@@ -91,7 +91,7 @@ class TestOpenRouterLLM:
         assert result["city"] == "New York"
 
         mock_completion.assert_called_once_with(
-            model=f"openrouter/{DEFAULT_MODEL_NAME}",
+            model=f"openrouter/{DEFAULT_LANGUAGE_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=TestSchema,
             api_key="test_key",
@@ -132,7 +132,7 @@ class TestOpenRouterLLM:
         llm.generate(prompt, temperature=0.7, max_tokens=100)
 
         mock_completion.assert_called_once_with(
-            model=f"openrouter/{DEFAULT_MODEL_NAME}",
+            model=f"openrouter/{DEFAULT_LANGUAGE_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key="test_key",
@@ -176,7 +176,7 @@ class TestOpenRouterLLM:
         llm.generate(prompt, system_prompt=system_prompt)
 
         mock_completion.assert_called_once_with(
-            model=f"openrouter/{DEFAULT_MODEL_NAME}",
+            model=f"openrouter/{DEFAULT_LANGUAGE_MODEL_NAME}",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt},
