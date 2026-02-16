@@ -17,19 +17,74 @@ Pre-filled endpoint URL: {{ url }}
 Pre-filled HTTP method: {{ method }}
 {% endif %}
 
+# Endpoint Taxonomy
+
+Every endpoint falls into one of two categories based on whether it supports conversations:
+
+```
+Endpoints
+├── Single-turn ─── one question, one answer, no memory
+└── Multi-turn ──── conversation with memory across turns
+        ├── Stateless ─── Rhesis manages conversation history (messages array)
+        └── Stateful ──── the API manages conversation state (session ID)
+```
+
+## How to classify
+
+### Step 1 — Is this a multi-turn endpoint?
+
+Look for **conversation markers** in the request or response:
+
+| Signal | Where | Means |
+|--------|-------|-------|
+| A `messages` field with `[{role, content}]` array | Request body | Multi-turn **stateless** |
+| A `session_id`, `thread_id`, `conversation_id`, `chat_id`, or similar identifier | Request AND/OR response | Multi-turn **stateful** |
+| The description/comments mention "session", "thread", "conversation", "history" | Anywhere | Likely multi-turn (check which sub-type) |
+
+If **none** of these signals are present → **single-turn**.
+
+### Step 2 — If multi-turn, stateless or stateful?
+
+| Sub-type | Key signal | Who manages history | Input variable |
+|----------|-----------|-------------------|---------------|
+| **Stateless** | Request has a `messages` field with `[{role, content}]` objects | Rhesis sends the full message history each turn | `{{ "{{" }} messages {{ "}}" }}` |
+| **Stateful** | Request/response has a session identifier (session_id, thread_id, etc.) | The API stores history server-side; Rhesis sends an ID | `{{ "{{" }} input {{ "}}" }}` + session field mapped to `{{ "{{" }} conversation_id {{ "}}" }}` |
+
+**CRITICAL**: Base your decision on the **actual fields in the request body**, not on the provider name or URL. For example:
+- OpenAI `/v1/chat/completions` has `messages` → **stateless**
+- OpenAI `/v1/responses` has `input` (string) → **single-turn**
+- A custom chatbot with `session_id` in request/response → **stateful**
+- Gemini uses `contents` (not `messages`) → **single-turn**
+
+### Detection examples
+
+**Stateless** (has `messages` array):
+- `{"messages": [{"role": "user", "content": "Hello"}], "model": "gpt-4"}`
+- `{"messages": [{"role": "system", "content": "..."}, {"role": "user", "content": "..."}]}`
+
+**Stateful** (has session identifier):
+- `{"message": "Hi", "session_id": "abc"}` with response `{"reply": "...", "session_id": "abc"}`
+- `{"input": "Help me", "thread_id": "t-123"}` — API manages state via thread_id
+
+**Single-turn** (plain text input, no conversation markers):
+- `{"input": "Hello", "model": "gpt-4.1"}` — string input, no session ID
+- `{"prompt": "Summarize this", "max_tokens": 100}`
+- `{"query": "What is the capital of France?"}`
+- `{"contents": [{"role": "user", "parts": [{"text": "..."}]}]}` — Gemini uses `contents`, not `messages`
+
 # Rhesis Platform Variables
 
-Rhesis uses template variables in request mappings via Jinja2 syntax (`{{ "{{" }} variable {{ "}}" }}`). You MUST use the appropriate variables in the mappings.
+Rhesis uses template variables in request mappings via Jinja2 syntax (`{{ "{{" }} variable {{ "}}" }}`). Which variables apply depends on the endpoint category.
 
 ## Request variables (used in `request_mapping`)
 
-| Variable | Description | When to use |
+| Variable | Description | Used in |
 |---|---|---|
-| `input` | The user's test prompt (string) | Single-turn endpoints with a plain text input field (e.g., `prompt`, `query`, `input`, `question`) |
-| `messages` | Full conversation history as `[{role, content}]` | Any endpoint accepting a messages array (OpenAI, Anthropic, Azure, etc.). When using `messages`, do NOT also use `input`. |
-| `system_prompt` | System instructions prepended to messages | Stateless (messages-based) endpoints. This is a **reserved meta key** — Rhesis strips it from the wire request and uses it to prepend a system message to the conversation history. Include it in `request_mapping` whenever the user's input contains a system prompt/instruction. |
-| `conversation_id` | Conversation tracking ID (string) | **All conversational endpoints** (both stateless and stateful). Rhesis uses this to track which conversation a request belongs to. For stateful endpoints, map it to the API's session field (e.g., `"session_id": "{{ "{{" }} conversation_id {{ "}}" }}"`). For stateless endpoints, include it if the API accepts any form of session/thread identifier. |
-| `auth_token` | Auth token placeholder | Rhesis replaces this with the user's configured token at runtime |
+| `input` | The user's test prompt (string) | **Single-turn** and **multi-turn stateful** — mapped to the API's text input field (`prompt`, `query`, `input`, `text`, `message`, etc.) |
+| `messages` | Full conversation history as `[{role, content}]` | **Multi-turn stateless** only — mapped to the API's messages field |
+| `system_prompt` | System instructions prepended to messages | **Multi-turn stateless** — reserved meta key; Rhesis strips it from the wire request and prepends it as a system message. Include when the input contains a system prompt. |
+| `conversation_id` | Conversation tracking ID | **All multi-turn** (both stateless and stateful). For stateful, map to the API's session field. |
+| `auth_token` | Auth token placeholder | Any endpoint — Rhesis replaces it at runtime |
 
 ## Response variables (used in `response_mapping`)
 
@@ -37,69 +92,56 @@ Map Rhesis variable names to JSONPath expressions (`$.path.to.field`) that extra
 
 | Variable | Required | Description | Common paths |
 |---|---|---|---|
-| `output` | **Yes** | The primary text response | `$.choices[0].message.content`, `$.content[0].text`, `$.response`, `$.result`, `$.output`, `$.text`, `$.message`, `$.answer` |
-| `conversation_id` | **Yes** (conversational) | Conversation/session ID returned by the API. Rhesis uses this to track conversations across turns. Only map when the API returns a true conversation or session identifier. | `$.conversation_id`, `$.session_id`, `$.thread_id`, `$.chat_id`, `$.dialog_id`, `$.interaction_id` |
-| `context` | If available | Supporting context, source documents, RAG references | `$.context`, `$.references`, `$.sources`, `$.documents`, `$.citations`, `$.rag_context` |
-| `metadata` | If available | Usage stats, model info, token counts, or other metadata | `$.usage`, `$.model`, `$.metadata`, `$.meta`, `$.info` |
-| `tool_calls` | If available | Tool/function call data returned by the API | `$.choices[0].message.tool_calls`, `$.tool_calls`, `$.function_calls` |
+| `output` | **Always** | The primary text response | `$.choices[0].message.content`, `$.content[0].text`, `$.response`, `$.result`, `$.output`, `$.text`, `$.message`, `$.answer` |
+| `conversation_id` | **Multi-turn only** | Session/conversation ID returned by the API. Only map when the API returns a true conversation or session identifier (not a request/completion ID). | `$.conversation_id`, `$.session_id`, `$.thread_id`, `$.chat_id` |
+| `context` | If available | Supporting context, source documents, RAG references | `$.context`, `$.references`, `$.sources`, `$.documents`, `$.citations` |
+| `metadata` | If available | Usage stats, model info, token counts | `$.usage`, `$.model`, `$.metadata`, `$.meta` |
+| `tool_calls` | If available | Tool/function call data returned by the API | `$.choices[0].message.tool_calls`, `$.tool_calls` |
 
-# Conversation Mode Detection
+# What each category requires
 
-Carefully analyze the **actual request fields** in the user's input to determine the correct `conversation_mode`. Base your decision strictly on the request structure you see — not on the provider name or URL alone.
+## Single-turn
 
-**CRITICAL**: Look at the actual field names and values in the request body. Do NOT assume a conversation mode based on the provider (e.g., "OpenAI" does not automatically mean `stateless`). Different APIs from the same provider can use completely different request formats.
+No conversation tracking. One request → one response.
 
-## `stateless`
-The request body **explicitly contains** a `messages` field with an array of `{role, content}` objects.
+**Request mapping:**
+- Map the API's input field to `{{ "{{" }} input {{ "}}" }}`
+- Include config fields (model, temperature, etc.) with exact values
+- Do NOT include `conversation_id` or `messages`
 
-**Required signal**: The request body has a field called `messages` whose value is an array like `[{"role": "user", "content": "..."}]`. Without this exact structure, do NOT classify as stateless.
-
-**Examples that ARE stateless**:
-- `{"messages": [{"role": "user", "content": "Hello"}], "model": "gpt-4"}` — has `messages` array
-- `{"messages": [{"role": "system", "content": "..."}, {"role": "user", "content": "..."}]}` — has `messages` array
-
-**Examples that are NOT stateless**:
-- `{"input": "Hello", "model": "gpt-4.1"}` — uses `input` as a string, NOT a messages array
-- `{"prompt": "Hello", "max_tokens": 100}` — uses `prompt` as a string
-- `{"contents": [{"role": "user", "parts": [...]}]}` — uses `contents`, not `messages` (Gemini format)
-
-**Request mapping must include**:
-- The messages field mapped to `{{ "{{" }} messages {{ "}}" }}`
-- `"conversation_id": "{{ "{{" }} conversation_id {{ "}}" }}"` — Rhesis uses this to track the conversation
-- `system_prompt` if a system instruction is present (e.g., `role: 'system'` message or a `system` parameter)
-- Config fields (model, temperature, etc.) with their exact values
-
-**Response mapping must include**:
+**Response mapping:**
 - `output` (required)
-- `conversation_id` mapped to the conversation/session ID field in the API response, if the API returns one (e.g., `"conversation_id": "$.conversation_id"`, `"conversation_id": "$.session_id"`)
-- `metadata` (e.g., `"metadata": "$.usage"` for OpenAI-compatible)
-- `tool_calls` if applicable
-
-## `stateful`
-The API manages conversation state server-side and returns a session/conversation identifier. Subsequent requests include this identifier to continue the conversation.
-
-**Signals**: Response contains `conversation_id`, `session_id`, `thread_id`, `chat_id`, or similar identifier. Request may accept such an identifier for follow-up turns. The API may have separate create/continue conversation endpoints.
-
-**Request mapping must include**:
-- The input field mapped to `{{ "{{" }} input {{ "}}" }}` (or `{{ "{{" }} messages {{ "}}" }}` if it also uses messages)
-- The session field mapped to `{{ "{{" }} conversation_id {{ "}}" }}` (e.g., `"session_id": "{{ "{{" }} conversation_id {{ "}}" }}"`)
-- Config fields with their exact values
-
-**Response mapping must include**:
-- `output` (required)
-- `conversation_id` mapped to the JSONPath of the session/thread ID in the response (e.g., `"conversation_id": "$.session_id"`, `"conversation_id": "$.thread_id"`)
 - `context`, `metadata`, `tool_calls` if available
 
-## `single_turn`
-The request uses a simple text field for input. No `messages` array. No session identifiers.
+## Multi-turn stateless
 
-**Signals**: A plain text input field like `input`, `prompt`, `query`, `question`, `text`. The value is a string, not an array of message objects.
+Rhesis manages conversation history by sending the full `messages` array each turn.
 
-**Request mapping must include**:
-- The input field mapped to `{{ "{{" }} input {{ "}}" }}`
-- Config fields with their exact values
+**Request mapping:**
+- Map the API's messages field to `{{ "{{" }} messages {{ "}}" }}`
+- Include `"conversation_id": "{{ "{{" }} conversation_id {{ "}}" }}"` — Rhesis uses this to track the conversation
+- Include `system_prompt` if the input contains system instructions
+- Include config fields with exact values
+- Do NOT use `{{ "{{" }} input {{ "}}" }}` — messages replaces it
 
-**Response mapping should include**: `output` (required), plus `conversation_id`, `context`, `metadata` if available.
+**Response mapping:**
+- `output` (required)
+- `conversation_id` — map to the API's session/conversation ID field if it returns one
+- `metadata`, `tool_calls` if available
+
+## Multi-turn stateful
+
+The API manages conversation state server-side via a session identifier.
+
+**Request mapping:**
+- Map the API's input field to `{{ "{{" }} input {{ "}}" }}`
+- Map the API's session field to `{{ "{{" }} conversation_id {{ "}}" }}` (e.g., `"session_id": "{{ "{{" }} conversation_id {{ "}}" }}"`)
+- Include config fields with exact values
+
+**Response mapping:**
+- `output` (required)
+- `conversation_id` — map to the JSONPath of the session ID in the response (e.g., `"conversation_id": "$.session_id"`)
+- `context`, `metadata`, `tool_calls` if available
 
 # Instructions
 
@@ -107,28 +149,22 @@ Analyze the user's input and produce a complete `AutoConfigureResult`:
 
 1. **url**: The endpoint URL. Extract from the input or use the pre-filled value.
 2. **method**: The HTTP method. Default to `POST` if unclear.
-3. **conversation_mode**: Apply the detection rules above. Only use `stateless` when the request body actually contains a `messages` field with `[{role, content}]` objects. Use `single_turn` when the input is a plain string field.
+3. **conversation_mode**: Follow the taxonomy above. First decide single-turn vs multi-turn, then if multi-turn, decide stateless vs stateful.
 4. **request_mapping**: A flat JSON object (`Dict[str, str]`) mapping the API's field names to values:
    - Use the **same field names** as the original request. Do NOT rename, restructure, or rewrite fields.
-   - For the input/messages field: replace the value with the appropriate Rhesis template variable (`{{ "{{" }} input {{ "}}" }}` or `{{ "{{" }} messages {{ "}}" }}`), but keep the original field name (e.g., if the API uses `input`, map `"input": "{{ "{{" }} input {{ "}}" }}"`; if it uses `prompt`, map `"prompt": "{{ "{{" }} input {{ "}}" }}"`).
-   - For conversational endpoints (stateless or stateful): include `"conversation_id": "{{ "{{" }} conversation_id {{ "}}" }}"` so Rhesis can track conversations.
-   - For config fields (model, temperature, max_tokens, etc.): use the EXACT value from the user's input. Never substitute.
-   - For complex/nested config values (e.g., `response_format` with a JSON schema): serialize the exact nested object as a JSON string. Preserve all details — do NOT simplify or omit nested structures.
+   - For the input/messages field: replace the value with the appropriate Rhesis template variable, but keep the original field name.
+   - For config fields: use the EXACT value from the user's input.
+   - For complex/nested config values: serialize the exact nested object as a JSON string.
    - For auth fields in the body: use `{{ "{{" }} auth_token {{ "}}" }}`.
-   - If a system prompt/instruction is present, include `"system_prompt": "the exact system prompt text"`.
-   - For stateful endpoints with a named session field (e.g., `session_id`), map it to `{{ "{{" }} conversation_id {{ "}}" }}`.
-   - All values MUST be strings (flat dict, no nested objects). Serialize any nested values as JSON strings.
+   - All values MUST be strings (flat dict, no nested objects).
 5. **response_mapping**: A flat JSON object mapping Rhesis variable names to JSONPath expressions:
-   - Always map `output` (required).
-   - For conversational endpoints (stateless or stateful), ALWAYS map `conversation_id` to the JSONPath of the ID field in the response.
-   - Map `context` if the API returns source documents, references, RAG context, or supporting material.
-   - Map `metadata` if the API returns usage statistics (tokens, costs), model info, or other metadata.
-   - Map `tool_calls` if the API supports function/tool calling.
-   - Be proactive about mapping well-known response fields, but base JSONPath expressions on the actual API's response structure — different APIs from the same provider return different formats.
+   - Always map `output`.
+   - For multi-turn: map `conversation_id` to the session/thread ID field.
+   - Map `context`, `metadata`, `tool_calls` if available.
 6. **request_headers**: HTTP headers as `Dict[str, str]`. Always include `Content-Type: application/json`. For Bearer auth use `Bearer {{ "{{" }} auth_token {{ "}}" }}`.
-7. **probe_request**: A concrete JSON body (with real values, not templates) to test the endpoint. Replicate the **exact structure** of the original request, replacing only the user content with a test message. Preserve all config fields, nested objects, and parameters exactly. Do NOT include auth fields in the body.
+7. **probe_request**: A concrete JSON body (with real values, not templates) to test the endpoint. Replicate the **exact structure** of the original request, replacing only the user content with a test message. Do NOT include auth fields in the body.
 8. **confidence**: Float 0.0–1.0 for your confidence in the mappings.
-9. **reasoning**: Brief explanation of your decisions, including why you chose the conversation mode and which platform variables you mapped.
+9. **reasoning**: Brief explanation of your decisions. State which category you chose (single-turn / multi-turn stateless / multi-turn stateful) and why.
 10. **warnings**: List of any concerns or fields needing manual review.
 
 # Output
@@ -136,11 +172,11 @@ Analyze the user's input and produce a complete `AutoConfigureResult`:
 Return JSON matching the `AutoConfigureResult` schema with `status: "success"`.
 
 CRITICAL RULES:
-- **Preserve the original request structure.** Use the same field names as the user's input. Do NOT rename fields, convert `input` to `messages`, or restructure the request body. If the API uses `input` as a string, keep `input`. If it uses `messages` as an array, keep `messages`.
-- **Detect conversation mode from the actual request body**, not from the provider name or URL. Only classify as `stateless` when the body has a `messages` field with `[{role, content}]` objects. An `input` string field means `single_turn`.
-- Use EXACT values from the user's input for config fields. If they wrote `model: 'gpt-4.1'`, the request_mapping must have `"model": "gpt-4.1"` and the probe_request must have `"model": "gpt-4.1"`. Never substitute.
-- Preserve complex nested config values (e.g., `response_format` with JSON schemas) exactly — serialize them as JSON strings in the flat mapping, do NOT simplify.
-- If the user's input contains a system message (e.g., `role: 'system'`), extract it into the `system_prompt` field in request_mapping.
-- For ALL conversational endpoints (both stateless AND stateful), ALWAYS map `conversation_id` in both request_mapping AND response_mapping.
-- Only for `single_turn` mode should `conversation_id` be omitted.
+- **Classify first, then map.** Follow the two-step taxonomy: single-turn vs multi-turn, then stateless vs stateful.
+- **Preserve the original request structure.** Use the same field names as the user's input. Do NOT rename fields, convert `input` to `messages`, or restructure the request body.
+- **Detect from actual fields**, not from provider name or URL. Only `messages` with `[{role, content}]` triggers stateless. Only session identifiers trigger stateful. Everything else is single-turn.
+- Use EXACT values from the user's input for config fields. Never substitute.
+- Preserve complex nested config values exactly — serialize them as JSON strings in the flat mapping.
+- **Multi-turn = conversation_id is MANDATORY.** If you classified the endpoint as multi-turn (stateless or stateful), you MUST include `"conversation_id": "{{ "{{" }} conversation_id {{ "}}" }}"` in `request_mapping`. This applies regardless of input format — curl, Python SDK, JavaScript, documentation, or any other format.
+- For single-turn endpoints, do NOT include `conversation_id`.
 - Map ALL recognizable platform variables (output, conversation_id, context, metadata, tool_calls) — not just the obvious ones.

@@ -38,22 +38,37 @@ The probe request failed with:
 {{ error_body }}
 ```
 
+# Endpoint Taxonomy (for reference)
+
+```
+Endpoints
+├── Single-turn ─── one question, one answer, no memory
+└── Multi-turn ──── conversation with memory across turns
+        ├── Stateless ─── Rhesis manages conversation history (messages array)
+        └── Stateful ──── the API manages conversation state (session ID)
+```
+
+**Classify from actual fields:**
+- `messages` with `[{role, content}]` → multi-turn **stateless**
+- Session/thread ID in request/response → multi-turn **stateful**
+- Plain text input, no conversation markers → **single-turn**
+
 # Rhesis Platform Variables (for reference)
 
 ## Request variables
-| Variable | Template syntax | Purpose |
+| Variable | Template syntax | Used in |
 |---|---|---|
-| `input` | `{{ "{{" }} input {{ "}}" }}` | User's test prompt (single_turn) |
-| `messages` | `{{ "{{" }} messages {{ "}}" }}` | Full conversation history as `[{role, content}]` (stateless) |
-| `system_prompt` | Plain string value | System instructions — reserved meta key, stripped from wire request |
-| `conversation_id` | `{{ "{{" }} conversation_id {{ "}}" }}` | Conversation tracking ID (all conversational endpoints — stateless and stateful) |
-| `auth_token` | `{{ "{{" }} auth_token {{ "}}" }}` | Auth token placeholder |
+| `input` | `{{ "{{" }} input {{ "}}" }}` | Single-turn and multi-turn stateful |
+| `messages` | `{{ "{{" }} messages {{ "}}" }}` | Multi-turn stateless only |
+| `system_prompt` | Plain string value | Multi-turn stateless — reserved meta key, stripped from wire request |
+| `conversation_id` | `{{ "{{" }} conversation_id {{ "}}" }}` | All multi-turn endpoints (stateless and stateful) |
+| `auth_token` | `{{ "{{" }} auth_token {{ "}}" }}` | Any endpoint |
 
 ## Response variables
 | Variable | Required | Purpose |
 |---|---|---|
-| `output` | Yes | Primary text response (JSONPath) |
-| `conversation_id` | Yes (conversational) | Conversation/session ID from response (JSONPath). Required for both stateless and stateful. |
+| `output` | Always | Primary text response (JSONPath) |
+| `conversation_id` | Multi-turn only | Session/conversation ID from response (JSONPath). Do NOT map `$.id` — request/completion IDs are not conversation IDs. |
 | `context` | If available | Source documents, references, RAG context (JSONPath) |
 | `metadata` | If available | Usage stats, model info, token counts (JSONPath) |
 | `tool_calls` | If available | Tool/function call data (JSONPath) |
@@ -67,21 +82,17 @@ The probe request failed with:
    - Invalid config values (wrong model name, etc.)
    - Wrong URL path or method
 
-2. Produce a corrected `AutoConfigureResult` with:
-   - Fixed `request_mapping` (if the mapping was wrong). Ensure platform variables are correctly used.
-   - Fixed `response_mapping` (if needed). Map all recognizable fields: `output`, `conversation_id` (all conversational), `context`, `metadata`, `tool_calls`.
-   - Fixed `request_headers` (if needed)
+2. Re-evaluate the conversation mode if needed:
+   - **Single-turn**: plain text input, no conversation markers → use `input`, omit `conversation_id`
+   - **Multi-turn stateless**: has `messages` array → use `messages`, include `conversation_id`
+   - **Multi-turn stateful**: has session ID field → use `input` + session mapped to `conversation_id`
+
+3. Produce a corrected `AutoConfigureResult` with:
+   - Fixed `request_mapping`, `response_mapping`, `request_headers`
    - A new `probe_request` body that addresses the error
-   - Correct `conversation_mode` (re-evaluate if the error suggests a different mode)
-   - Updated `reasoning` explaining what you changed and why
-   - Updated `warnings` noting any remaining concerns
+   - Updated `reasoning` and `warnings`
 
-3. Preserve fields that were not the cause of the error.
-
-4. Conversation mode rules:
-   - `stateless`: uses `messages` array. Map `conversation_id` in BOTH request_mapping AND response_mapping when the API returns a conversation/session identifier. Do NOT map `$.id` as `conversation_id` — request IDs are not conversation IDs.
-   - `stateful`: uses a server-side session. ALWAYS map `conversation_id` in BOTH request_mapping AND response_mapping.
-   - `single_turn`: uses `input`, no conversation tracking needed — omit `conversation_id`.
+4. Preserve fields that were not the cause of the error.
 
 # Output
 
