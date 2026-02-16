@@ -882,6 +882,10 @@ export function ConnectionDialog({
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
                           Default Embedding Model
                         </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Use this model for semantic search and similarity
+                          tasks
+                        </Typography>
                       </Box>
                     }
                   />
