@@ -65,14 +65,14 @@ class TestMCPAgent:
 
     def test_agent_initialization_with_string_model(self, mock_mcp_client):
         """Test agent initialization with string model name"""
-        with patch("rhesis.sdk.services.mcp.agent.get_model") as mock_get_model:
+        with patch("rhesis.sdk.services.mcp.agent.get_language_model") as mock_get_language_model:
             mock_model = Mock()
-            mock_get_model.return_value = mock_model
+            mock_get_language_model.return_value = mock_model
 
             agent = MCPAgent(model="gpt-4", mcp_client=mock_mcp_client)
 
             assert agent.model == mock_model
-            mock_get_model.assert_called_once_with("gpt-4")
+            mock_get_language_model.assert_called_once_with("gpt-4")
 
     def test_agent_loads_default_system_prompt(self, mock_mcp_client, mock_model):
         """Test agent loads default system prompt"""

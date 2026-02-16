@@ -96,9 +96,9 @@ class TestMetricWithScope:
 
     def test_numeric_judge_with_metric_scope(self):
         """Test NumericJudge with metric_scope."""
-        with patch("rhesis.sdk.models.factory.get_model") as mock_get_model:
+        with patch("rhesis.sdk.models.factory.get_language_model") as mock_get_language_model:
             mock_model = Mock()
-            mock_get_model.return_value = mock_model
+            mock_get_language_model.return_value = mock_model
 
             metric = NumericJudge(
                 name="test_numeric",
@@ -112,9 +112,9 @@ class TestMetricWithScope:
 
     def test_numeric_judge_to_config_includes_metric_scope(self):
         """Test that NumericJudge.to_config() includes metric_scope."""
-        with patch("rhesis.sdk.models.factory.get_model") as mock_get_model:
+        with patch("rhesis.sdk.models.factory.get_language_model") as mock_get_language_model:
             mock_model = Mock()
-            mock_get_model.return_value = mock_model
+            mock_get_language_model.return_value = mock_model
 
             metric = NumericJudge(
                 name="test_numeric",
@@ -138,9 +138,9 @@ class TestMetricScopePushPull:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        with patch("rhesis.sdk.models.factory.get_model") as mock_get_model:
+        with patch("rhesis.sdk.models.factory.get_language_model") as mock_get_language_model:
             mock_model = Mock()
-            mock_get_model.return_value = mock_model
+            mock_get_language_model.return_value = mock_model
 
             metric = NumericJudge(
                 name="test_metric",
@@ -182,9 +182,9 @@ class TestMetricScopePushPull:
         ]
         mock_client.send_request.return_value = backend_response
 
-        with patch("rhesis.sdk.models.factory.get_model") as mock_get_model:
+        with patch("rhesis.sdk.models.factory.get_language_model") as mock_get_language_model:
             mock_model = Mock()
-            mock_get_model.return_value = mock_model
+            mock_get_language_model.return_value = mock_model
 
             # Mock the from_config method to avoid actual instantiation issues
             with patch.object(NumericJudge, "from_config") as mock_from_config:
