@@ -94,3 +94,9 @@ variable "ssh_keys" {
   type        = list(string)
   default     = []
 }
+
+variable "deletion_protection" {
+  description = "Enable deletion protection for WireGuard server"
+  type        = bool
+  default     = true
+}

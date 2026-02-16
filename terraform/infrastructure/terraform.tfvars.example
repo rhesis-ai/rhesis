@@ -1,8 +1,12 @@
 # Example Terraform variables configuration
 # Copy this file to terraform.tfvars and customize the values
 
-project_id = "example-project-id"
-region     = "gcp-region"
+project_id              = "example-project-id"
+region                  = "gcp-region"
+terraform_state_bucket  = "example-terraform-state-bucket"
+
+# WireGuard server deletion protection (recommended: true for production)
+wireguard_deletion_protection = true
 
 # WireGuard VPN peers configuration
 # Each peer gets a unique IP within the WireGuard network (10.0.0.0/24)
