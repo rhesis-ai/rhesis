@@ -442,7 +442,9 @@ def _get_user_embedding_model_with_settings(db: Session, user: User):
 
     if not model_id:
         logger.info("[LLM_UTILS] No configured embedding model found in user settings")
-        logger.info(f"[LLM_UTILS] ✓ Falling back to default embedder: {DEFAULT_EMBEDDING_MODEL}")
+        logger.info(
+            f"[LLM_UTILS] ✓ Falling back to default embedder: {DEFAULT_EMBEDDING_MODEL}"
+        )
         return DEFAULT_EMBEDDING_MODEL
 
     # Fetch and configure the user's embedder
