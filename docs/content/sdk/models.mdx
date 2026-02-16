@@ -4,24 +4,24 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 Models are core components of the SDK that enable you to create and manage test sets for Gen AI applications. Models also play a crucial role in the evaluation process, serving as LLM judges to assess and validate outputs.
 
-### Using the `get_model` function
+### Using the `get_language_model` function
 
-The easiest way to use models is through the `get_model` function. When called without any arguments, this function returns the default Rhesis model.
+The easiest way to use models is through the `get_language_model` function. When called without any arguments, this function returns the default Rhesis language model.
 
 <CodeBlock filename="default_model.py" language="python">
-{`from rhesis.sdk.models import get_model
+{`from rhesis.sdk.models import get_language_model
 
-model = get_model()`}
+model = get_language_model()`}
 
 </CodeBlock>
 
 To use a different provider, you can pass the provider name as an argument. This will use the default model for that provider.
 
 <CodeBlock filename="provider_model.py" language="python">
-{`from rhesis.sdk.models import get_model
+{`from rhesis.sdk.models import get_language_model
 
 # Use default Gemini model
-model = get_model("gemini")`}
+model = get_language_model("gemini")`}
 
 </CodeBlock>
 
@@ -36,18 +36,18 @@ model = get_model("gemini")`}
 To use a specific model, provide its name in the format `provider/model_name`:
 
 <CodeBlock filename="specific_model.py" language="python">
-{`from rhesis.sdk.models import get_model
+{`from rhesis.sdk.models import get_language_model
 
-model = get_model("gemini/gemini-2.0-flash")`}
+model = get_language_model("gemini/gemini-2.0-flash")`}
 
 </CodeBlock>
 
 The above code is equivalent to:
 
 <CodeBlock filename="specific_model_alt.py" language="python">
-{`from rhesis.sdk.models import get_model
+{`from rhesis.sdk.models import get_language_model
 
-model = get_model(provider="gemini", model_name="gemini-2.0-flash")`}
+model = get_language_model(provider="gemini", model_name="gemini-2.0-flash")`}
 
 </CodeBlock>
 
@@ -77,7 +77,7 @@ All models share a consistent interface. The primary function is `generate`, whi
 
 <CodeBlock filename="generate_text.py" language="python">
 {`# Use default Rhesis model
-model = get_model()
+model = get_language_model()
 output = model.generate(prompt="What is the capital of France?")
 # Output: "The capital of France is Paris."`}
 
@@ -87,7 +87,7 @@ output = model.generate(prompt="What is the capital of France?")
 
 <CodeBlock filename="generate_structured.py" language="python">
 {`from pydantic import BaseModel
-from rhesis.sdk.models import get_model
+from rhesis.sdk.models import get_language_model
 
 class City(BaseModel):
     name: str
@@ -97,7 +97,7 @@ class CityResponse(BaseModel):
     biggest_cities: list[City]
 
 # Use default Rhesis model
-model = get_model()
+model = get_language_model()
 output = model.generate(
     prompt="The list of 5 biggest cities in Germany?",
     schema=CityResponse
@@ -112,9 +112,9 @@ For improved performance when processing multiple prompts, use the `generate_bat
 **Basic batch generation:**
 
 <CodeBlock filename="batch_basic.py" language="python">
-{`from rhesis.sdk.models import get_model
+{`from rhesis.sdk.models import get_language_model
 
-model = get_model("openai/gpt-4o-mini")
+model = get_language_model("openai/gpt-4o-mini")
 
 # Process multiple prompts in a single batch call
 prompts = [
@@ -133,14 +133,14 @@ results = model.generate_batch(prompts=prompts)
 
 <CodeBlock filename="batch_structured.py" language="python">
 {`from pydantic import BaseModel
-from rhesis.sdk.models import get_model
+from rhesis.sdk.models import get_language_model
 
 class CityInfo(BaseModel):
     name: str
     country: str
     population: int
 
-model = get_model("openai/gpt-4o-mini")
+model = get_language_model("openai/gpt-4o-mini")
 
 prompts = [
     "Provide info about Paris",
@@ -159,9 +159,9 @@ results = model.generate_batch(
 **Generate multiple completions per prompt:**
 
 <CodeBlock filename="batch_multiple.py" language="python">
-{`from rhesis.sdk.models import get_model
+{`from rhesis.sdk.models import get_language_model
 
-model = get_model("openai/gpt-4o-mini")
+model = get_language_model("openai/gpt-4o-mini")
 
 prompts = ["Generate a creative product name for a coffee brand"]
 
@@ -189,12 +189,12 @@ Note: Batch processing is currently available for LiteLLM-based providers (OpenA
 Models become most useful when combined with synthesizers and metrics:
 
 <CodeBlock filename="models_with_tools.py" language="python">
-{`from rhesis.sdk.models import get_model
+{`from rhesis.sdk.models import get_language_model
 from rhesis.sdk.synthesizers import PromptSynthesizer
 from rhesis.sdk.metrics import RhesisPromptMetricNumeric
 
 # With synthesizers
-model = get_model("gemini")
+model = get_language_model("gemini")
 synthesizer = PromptSynthesizer(
     prompt="Generate tests for the car selling chatbot",
     model=model,
@@ -218,10 +218,10 @@ You can save an LLM configuration to the Rhesis platform as a [Model entity](/sd
 - Retrieve configurations across different scripts
 
 <CodeBlock filename="save_model.py" language="python">
-{`from rhesis.sdk.models import get_model
+{`from rhesis.sdk.models import get_language_model
 
 # Create an LLM instance
-llm = get_model("openai", "gpt-4", api_key="sk-...")
+llm = get_language_model("openai", "gpt-4", api_key="sk-...")
 
 # Save to platform as a Model entity
 model = llm.push(name="GPT-4 Production")
@@ -252,33 +252,33 @@ response = llm.generate("Hello, how are you?")`}
 
 Embedders generate vector representations (embeddings) of text, which are useful for semantic search, similarity comparison, and clustering tasks.
 
-### Using the `get_embedder` function
+### Using the `get_embedding_model` function
 
-The easiest way to use embedders is through the `get_embedder` function. When called without arguments, it returns the default OpenAI embedder.
+The easiest way to use embedders is through the `get_embedding_model` function. When called without arguments, it returns the default Rhesis embedding model.
 
 <CodeBlock filename="default_embedder.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_embedding_model
 
-embedder = get_embedder()`}
+embedder = get_embedding_model()`}
 
 </CodeBlock>
 
 To use a specific model, provide the model name:
 
 <CodeBlock filename="specific_embedder.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_embedding_model
 
 # Use a specific embedding model
-embedder = get_embedder("openai/text-embedding-3-large")`}
+embedder = get_embedding_model("openai/text-embedding-3-large")`}
 
 </CodeBlock>
 
 The above code is equivalent to:
 
 <CodeBlock filename="specific_embedder_alt.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_embedding_model
 
-embedder = get_embedder(provider="openai", model_name="text-embedding-3-large")`}
+embedder = get_embedding_model(provider="openai", model_name="text-embedding-3-large")`}
 
 </CodeBlock>
 
@@ -304,9 +304,9 @@ All embedders share a consistent interface with two main methods:
 **Generate embedding for a single text:**
 
 <CodeBlock filename="generate_embedding.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_embedding_model
 
-embedder = get_embedder()
+embedder = get_embedding_model()
 embedding = embedder.generate("What is machine learning?")
 # Returns: [0.0123, -0.0456, 0.0789, ...]  (list of floats)`}
 
@@ -315,9 +315,9 @@ embedding = embedder.generate("What is machine learning?")
 **Generate embeddings for multiple texts:**
 
 <CodeBlock filename="generate_embeddings_batch.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_embedding_model
 
-embedder = get_embedder()
+embedder = get_embedding_model()
 texts = [
     "What is machine learning?",
     "How does deep learning work?",
@@ -334,10 +334,10 @@ embeddings = embedder.generate_batch(texts)
 Some embedding models (like OpenAI's text-embedding-3 family) support configurable output dimensions. Smaller dimensions reduce storage and computation costs while maintaining most of the semantic information.
 
 <CodeBlock filename="embedder_dimensions.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_embedding_model
 
 # Set dimensions at initialization
-embedder = get_embedder("openai", dimensions=256)
+embedder = get_embedding_model("openai", dimensions=256)
 embedding = embedder.generate("Hello world")
 # Returns embedding with 256 dimensions
 

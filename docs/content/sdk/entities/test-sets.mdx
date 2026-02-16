@@ -142,7 +142,7 @@ Use an LLM to generate name, description, and metadata based on test content:
 
 <CodeBlock filename="set_properties.py" language="python">
 {`from rhesis.sdk.entities import TestSet, Test, Prompt
-from rhesis.sdk.models import get_model
+from rhesis.sdk.models import get_language_model
 
 # Create test set with tests but no name/description
 tests = [
@@ -158,7 +158,7 @@ test_set = TestSet(
 )
 
 # Auto-generate properties using LLM
-model = get_model()
+model = get_language_model()
 test_set.set_properties(model)
 
 print(f"Generated name: {test_set.name}")
