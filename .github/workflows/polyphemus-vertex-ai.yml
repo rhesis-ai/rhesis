@@ -1,0 +1,46 @@
+name: "[Deploy] Model Deployment - Vertex AI"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/polyphemus/vertex_ai/**'
+      - '.github/workflows/polyphemus-vertex-ai.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - stg
+          - prd
+
+env:
+  SA_KEY_PATH: 'gcp-sa-key.json'
+
+jobs:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate environment parameter
+        uses: ./.github/actions/validate-environment
+        with:
+          environment: ${{ github.event.inputs.environment || 'dev' }}
+
+  smoke:
+    needs: validate-inputs
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    steps:
+      - name: Pipeline ready
+        run: |
+          echo "✅ Polyphemus Vertex AI pipeline ran successfully"
+          echo "Environment: ${{ github.event.inputs.environment || 'dev' }}"
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Add build and Vertex AI deploy steps here when ready."
