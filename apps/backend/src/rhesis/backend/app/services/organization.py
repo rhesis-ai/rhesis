@@ -656,6 +656,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             db=db,
             type_name="ProviderType",
             type_value="rhesis",
+            description="Rhesis",
             organization_id=organization_id,
             user_id=user_id,
             commit=False,
@@ -676,7 +677,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             "name": "Rhesis Default",
             "model_name": "default",
             "model_type": ModelType.LANGUAGE.value,
-            "description": "Default Rhesis-hosted language model.",
+            "description": "Default Rhesis language model.",
             "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
             "provider_type_id": rhesis_provider_type.id,
             "status_id": available_status.id,
@@ -708,7 +709,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
             "name": "Rhesis Default Embedding",
             "model_name": "default",
             "model_type": ModelType.EMBEDDING.value,
-            "description": "Default Rhesis-hosted embedding model for semantic search.",
+            "description": "Default Rhesis embedding model",
             "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
             "provider_type_id": rhesis_provider_type.id,
             "status_id": available_status.id,

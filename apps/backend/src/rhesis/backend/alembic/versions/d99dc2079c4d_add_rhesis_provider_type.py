@@ -29,7 +29,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Add 'rhesis' provider type to support Rhesis-hosted model infrastructure."""
     # Add ProviderType "rhesis" to type_lookup table for all organizations
-    provider_type_values = "('ProviderType', 'rhesis', 'Rhesis hosted model infrastructure')"
+    provider_type_values = "('ProviderType', 'rhesis', 'Rhesis')"
     op.execute(load_type_lookup_template(provider_type_values))
 
 
