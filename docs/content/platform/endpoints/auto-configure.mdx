@@ -1,0 +1,235 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Auto-Configure
+
+Let AI generate your request and response mappings automatically. Paste any reference material about your endpoint and Rhesis handles the rest.
+
+<Callout type="info">
+  Auto-Configure requires an AI generation model configured in your organization
+  settings (or the platform default). The feature uses this model to analyze
+  your input and generate mappings.
+</Callout>
+
+## When to Use Auto-Configure
+
+Auto-Configure is ideal when you:
+
+- Have a working endpoint but don't want to write Jinja2 templates and JSONPath expressions by hand
+- Want to quickly connect a new API and start testing immediately
+- Need to map an unfamiliar endpoint format
+- Want a starting point that you can refine manually
+
+## Prerequisites
+
+Before using Auto-Configure, ensure you have:
+
+1. An AI generation model configured in **Settings** (or use the platform default)
+2. The endpoint's **URL** (e.g., `https://api.example.com/chat`)
+3. An **authentication token** for the target API (if required)
+
+## How to Use Auto-Configure
+
+### Step 1: Fill in Basic Information
+
+In the **Create Endpoint** form, provide:
+
+- **Name**: A descriptive name for the endpoint
+- **URL**: The full API endpoint URL
+- **API Token**: Your authentication credentials for the target API
+
+### Step 2: Click Auto-Configure
+
+Once the basic information is filled in, the **Auto-configure** button (magic wand icon) in the action bar becomes active. Click it to open the Auto-Configure modal.
+
+### Step 3: Paste Reference Material
+
+In the modal, paste any reference material about your endpoint. See [What Can You Paste?](#what-can-you-paste) below for supported formats.
+
+### Step 4: Run Auto-Configure
+
+Click the **Auto-configure** button in the modal. The AI will:
+
+1. Analyze your input to understand the endpoint's structure
+2. Optionally send a test request to your endpoint (if probing is enabled)
+3. Generate Rhesis-compatible request and response mappings
+
+### Step 5: Review and Apply
+
+Review the generated mappings, confidence level, and any warnings. Click **Apply to Endpoint** to populate the form with the generated configuration.
+
+### Step 6: Test the Connection
+
+After applying, switch to the **Test Connection** tab to verify the mapping works correctly with a real request.
+
+## What Can You Paste?
+
+Auto-Configure accepts a wide variety of input formats:
+
+### curl Commands
+
+The most reliable format. Paste a working curl command:
+
+```bash
+curl -X POST https://api.example.com/v1/chat/completions \
+  -H "Authorization: Bearer sk-..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "temperature": 0.7
+  }'
+```
+
+### Python Code
+
+Flask/FastAPI route handlers or `requests` library calls:
+
+```python
+import requests
+
+response = requests.post(
+    "https://api.example.com/chat",
+    json={"query": "Hello", "model": "gpt-4"},
+    headers={"Authorization": "Bearer sk-..."}
+)
+print(response.json()["response"]["text"])
+```
+
+### Sample Request/Response JSON
+
+A pair showing the expected input and output:
+
+```json
+// Request
+{"messages": [{"role": "user", "content": "What is AI?"}], "model": "gpt-4"}
+
+// Response
+{"choices": [{"message": {"content": "AI is..."}}]}
+```
+
+### API Documentation or Plain Text
+
+Any description of your endpoint's interface:
+
+```
+My chat API accepts POST requests to /api/chat with a JSON body
+containing "prompt" (the user message) and "settings" (optional config).
+It returns {"answer": "...", "sources": [...]}.
+```
+
+## How It Works
+
+Behind the scenes, Auto-Configure runs a multi-step AI pipeline:
+
+1. **Parse**: AI analyzes your input to identify the endpoint's URL, HTTP method, request fields, and response structure
+2. **Probe** (optional): Rhesis sends a test request to your endpoint to capture the real response format
+3. **Self-correct**: If the probe fails, AI analyzes the error and adjusts the request — retrying up to 3 times
+4. **Generate**: Using the confirmed schema and real response, AI creates Rhesis-compatible Jinja2 request templates and JSONPath response mappings
+
+<Callout type="warning">
+  When probing is enabled, Rhesis sends a **real API call** to your endpoint.
+  Disable probing if your endpoint has side effects (e.g., creating records,
+  sending emails, or charging credits).
+</Callout>
+
+## Understanding Results
+
+### Confidence Levels
+
+- **High** (green, 70%+): The mapping was verified via a successful probe and the AI is confident in the mapping
+- **Medium** (amber, 40-70%): The mapping was generated but may need minor adjustments
+- **Low** (red, below 40%): The mapping is a best guess and likely needs manual review
+
+### Warnings
+
+Warnings highlight areas that may need attention:
+
+- **"Mapping generated but could not be verified"**: The probe failed but mappings were generated from the input analysis alone
+- **"Could not determine the output field"**: Set the `response_mapping.output` field manually
+- **"Multiple candidate input fields detected"**: Review which field carries the user's message
+
+### Probe Response
+
+Click **Show probe response** to see the actual JSON response from your endpoint. This helps verify that the response mapping correctly extracts the fields you need.
+
+## When Auto-Configure Doesn't Work
+
+### "No AI model configured"
+
+Configure a generation model in **Settings > AI Models** or contact your administrator.
+
+### "Could not parse input"
+
+The AI couldn't identify an API structure. Try:
+
+- Paste a working **curl command** — the most reliable input format
+- Include both request and response examples
+- Add more context about the endpoint's expected fields
+
+### "Mapping generated but unverified"
+
+The probe failed, but mappings were generated. This often happens when:
+
+- The API requires specific field values that test data doesn't satisfy
+- Rate limits or IP restrictions block the probe
+- The endpoint expects pre-existing state (e.g., a valid session)
+
+Use the **Test Connection** tab to debug and refine the mapping manually.
+
+### Partial Results
+
+When some fields couldn't be mapped, apply the partial result as a starting point and fill in the missing fields manually. Even partial results save significant time compared to configuring everything from scratch.
+
+## Using Auto-Configure from the SDK
+
+The Python SDK provides an `auto_configure()` class method as a code-first alternative to the UI modal:
+
+<CodeBlock filename="auto_configure.py" language="python">
+{`from rhesis.sdk.entities.endpoint import Endpoint
+
+endpoint = Endpoint.auto_configure(
+    input_text="""
+    curl -X POST https://api.example.com/chat \\
+      -H "Authorization: Bearer token123" \\
+      -d '{"query": "hello", "model": "gpt-4"}'
+    """,
+    url="https://api.example.com/chat",
+    auth_token="token123",
+    name="My Chat API",
+    project_id="your-project-uuid",
+)
+
+# Check confidence and warnings
+result = endpoint.auto_configure_result
+print(f"Confidence: {result['confidence']}")
+print(f"Warnings: {result['warnings']}")
+
+# Review generated mappings
+print(endpoint.request_mapping)
+print(endpoint.response_mapping)
+
+# Save the endpoint
+endpoint.push()`}
+</CodeBlock>
+
+Set `probe=False` to skip the live endpoint test:
+
+<CodeBlock filename="auto_configure_no_probe.py" language="python">
+{`endpoint = Endpoint.auto_configure(
+    input_text="...",
+    url="https://api.example.com/chat",
+    auth_token="token123",
+    probe=False,  # Skip live endpoint test
+)`}
+</CodeBlock>
+
+For general SDK endpoint usage, see [SDK Endpoints](/platform/endpoints/sdk-endpoints).
+
+## Tips for Best Results
+
+- **Provide a curl command** with a real request body — the most reliable input format
+- **Include both request and response examples** when possible
+- **Mention the response structure** if your API returns nested JSON
+- **Specify the conversation pattern** for multi-turn endpoints (messages array or conversation IDs)
+- **Review generated mappings** before testing, especially for low-confidence results
+- **Use Test Connection** after applying to verify the mapping works end-to-end

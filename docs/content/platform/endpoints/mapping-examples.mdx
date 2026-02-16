@@ -58,12 +58,14 @@ For APIs that follow the OpenAI chat completions format.
 <CodeBlock filename="openai-response.json" language="json">
   {`{
   "output": "$.choices[0].message.content",
-  "metadata": "$.usage"
+  "metadata": "$.usage",
+  "tool_calls": "$.choices[0].message.tool_calls"
 }`}
 </CodeBlock>
 
 The response text is nested inside `choices[0].message.content`. The `metadata`
-field captures token usage statistics for reference.
+field captures token usage statistics, and `tool_calls` captures any
+function/tool call data if your model uses tool calling.
 
 <Callout type="info">
   **Multi-turn conversations**: This example sends a single user message. Since
@@ -145,11 +147,14 @@ For the Google Gemini (Vertex AI) chat format.
 <CodeBlock filename="gemini-response.json" language="json">
   {`{
   "output": "$.candidates[0].content.parts[0].text",
-  "metadata": "$.usageMetadata"
+  "metadata": "$.usageMetadata",
+  "tool_calls": "$.candidates[0].content.parts[0].functionCall"
 }`}
 </CodeBlock>
 
 Gemini uses a deeply nested structure with `candidates`, `content`, and `parts`.
+The `tool_calls` field maps to Gemini's function calling response format when
+applicable.
 
 <Callout type="info">
   **Multi-turn conversations**: The Gemini API is also stateless. For
@@ -249,6 +254,7 @@ LLM provider APIs).
   "model": "gpt-4",
   "messages": "{{ messages }}",
   "temperature": 0.7,
+  "conversation_id": "{{ conversation_id }}",
   "system_prompt": "You are a knowledgeable insurance advisor."
 }`}
 </CodeBlock>
@@ -257,7 +263,8 @@ LLM provider APIs).
 
 <CodeBlock filename="stateless-response.json" language="json">
   {`{
-  "output": "$.choices[0].message.content"
+  "output": "$.choices[0].message.content",
+  "metadata": "$.usage"
 }`}
 </CodeBlock>
 

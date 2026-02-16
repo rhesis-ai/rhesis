@@ -132,16 +132,19 @@ detects this and switches to stateless conversation management:
   "messages": "{{ messages }}",
   "model": "my-model",
   "temperature": 0.7,
+  "conversation_id": "{{ conversation_id }}",
   "system_prompt": "You are a helpful assistant."
 }`}
 </CodeBlock>
 
-The response mapping works the same as any other endpoint. Map the `output`
-field to where the assistant's reply is returned:
+The response mapping extracts the assistant's reply from the API response.
+If your API returns a conversation or session identifier, map it to
+`conversation_id` as well:
 
 <CodeBlock filename="stateless-response-mapping.json" language="json">
   {`{
-  "output": "$.choices[0].message.content"
+  "output": "$.choices[0].message.content",
+  "metadata": "$.usage"
 }`}
 </CodeBlock>
 
@@ -159,10 +162,11 @@ field to where the assistant's reply is returned:
 - **Single-turn auto-population**: For single test runs (outside multi-turn
   conversations), Rhesis automatically builds the messages array from the test
   input and system prompt so you do not need to provide it manually.
-- **Conversation ID**: Even though your endpoint is stateless, Rhesis assigns an
-  internal `conversation_id` so the platform can track the conversation across
-  turns. This ID is returned in the API response but is not sent to your
-  endpoint.
+- **Conversation ID**: Even though your endpoint is stateless, Rhesis still
+  tracks conversations using a `conversation_id`. Map `conversation_id` in both
+  the request template and the response mapping so that Rhesis can extract the
+  identifier from each API response (e.g., `$.id` for OpenAI-compatible APIs)
+  and track the conversation across turns.
 
 ### Messages Format
 
@@ -231,10 +235,11 @@ prompt already included as the first message.
 | Aspect | Stateful | Stateless |
 |---|---|---|
 | **Server manages context** | Yes | No |
-| **Request body includes** | `conversation_id` | `messages` array |
+| **Request body includes** | `conversation_id` + `input` | `messages` array + `conversation_id` |
+| **Response mapping includes** | `conversation_id` from API | `conversation_id` from API (if returned) |
 | **Detected by** | Conversation field in response mapping | `\{\{ messages \}\}` in request template |
 | **Example providers** | Custom chatbots, managed services | OpenAI, Anthropic, Google AI |
-| **Rhesis manages** | Conversation ID tracking | Full message history |
+| **Rhesis manages** | Conversation ID tracking | Full message history + conversation ID tracking |
 
 ---
 
