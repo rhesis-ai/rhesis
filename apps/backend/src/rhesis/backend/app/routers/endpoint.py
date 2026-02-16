@@ -12,7 +12,9 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.schemas.endpoint import AutoConfigureRequest, AutoConfigureResult
 from rhesis.backend.app.services.endpoint import EndpointService
+from rhesis.backend.app.services.endpoint.auto_configure import AutoConfigureService
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
@@ -90,6 +92,118 @@ def read_endpoints(
         organization_id=organization_id,
         user_id=user_id,
     )
+
+
+@router.post("/test")
+async def test_endpoint(
+    test_config: schemas.EndpointTestRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    endpoint_service: EndpointService = Depends(get_endpoint_service),
+):
+    """
+    Test an endpoint configuration without saving it to the database.
+
+    This endpoint allows testing endpoint connectivity, authentication, and response
+    handling before creating a persistent endpoint record.
+
+    Currently only supports REST endpoints with BEARER_TOKEN authentication.
+
+    Args:
+        test_config: Endpoint test configuration including connection_type, url, method,
+                    request_headers, request_mapping, response_mapping, auth_type,
+                    auth_token, and input_data
+        db: Database session
+        tenant_context: Tenant context for organization and user IDs
+        endpoint_service: The endpoint service instance
+
+    Returns:
+        The response from the endpoint, either mapped or raw depending on endpoint configuration
+    """
+    try:
+        # Safely get connection_type string value
+        connection_type_str = (
+            test_config.connection_type.value
+            if hasattr(test_config.connection_type, "value")
+            else str(test_config.connection_type)
+        )
+        logger.info(
+            f"API test request for endpoint: {test_config.url} "
+            f"({connection_type_str}, {test_config.method})"
+        )
+
+        organization_id, user_id = tenant_context
+        result = await endpoint_service.test_endpoint(
+            db,
+            test_config,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        )
+        logger.info(f"API test successful for endpoint: {test_config.url}")
+        return result
+    except HTTPException as e:
+        logger.error(f"API test HTTPException for endpoint {test_config.url}: {e.detail}")
+        raise e
+    except Exception as e:
+        logger.error(
+            f"API test unexpected error for endpoint {test_config.url}: {str(e)}", exc_info=True
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/auto-configure", response_model=AutoConfigureResult)
+async def auto_configure_endpoint(
+    request: AutoConfigureRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Auto-configure an endpoint using AI-powered mapping generation.
+
+    Paste any reference material about an endpoint (curl command, code,
+    API docs) and the AI will generate request/response mappings.
+
+    Args:
+        request: Auto-configure request with input text and options
+        db: Database session
+        current_user: Authenticated user
+
+    Returns:
+        AutoConfigureResult with generated mappings and diagnostics
+    """
+    try:
+        service = AutoConfigureService(db, current_user)
+        result = await service.auto_configure(request)
+        return result
+    except ValueError as e:
+        logger.error(f"Auto-configure ValueError: {e}")
+        raise HTTPException(
+            status_code=422,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(
+            f"Auto-configure unexpected error: {str(e)}",
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/schema")
+def get_endpoint_schema(endpoint_service: EndpointService = Depends(get_endpoint_service)):
+    """
+    Get the endpoint schema definition.
+
+    Args:
+        endpoint_service: The endpoint service instance
+
+    Returns:
+        Dict containing the input and output schema definitions
+    """
+    return endpoint_service.get_schema()
+
+
+# --- Routes with path parameters must come AFTER static routes ---
 
 
 @router.get("/{endpoint_id}", response_model=EndpointDetailSchema)
@@ -204,74 +318,3 @@ async def invoke_endpoint(
             f"API invoke unexpected error for endpoint {endpoint_id}: {str(e)}", exc_info=True
         )
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/test")
-async def test_endpoint(
-    test_config: schemas.EndpointTestRequest,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
-    endpoint_service: EndpointService = Depends(get_endpoint_service),
-):
-    """
-    Test an endpoint configuration without saving it to the database.
-
-    This endpoint allows testing endpoint connectivity, authentication, and response
-    handling before creating a persistent endpoint record.
-
-    Currently only supports REST endpoints with BEARER_TOKEN authentication.
-
-    Args:
-        test_config: Endpoint test configuration including connection_type, url, method,
-                    request_headers, request_mapping, response_mapping, auth_type,
-                    auth_token, and input_data
-        db: Database session
-        tenant_context: Tenant context for organization and user IDs
-        endpoint_service: The endpoint service instance
-
-    Returns:
-        The response from the endpoint, either mapped or raw depending on endpoint configuration
-    """
-    try:
-        # Safely get connection_type string value
-        connection_type_str = (
-            test_config.connection_type.value
-            if hasattr(test_config.connection_type, "value")
-            else str(test_config.connection_type)
-        )
-        logger.info(
-            f"API test request for endpoint: {test_config.url} "
-            f"({connection_type_str}, {test_config.method})"
-        )
-
-        organization_id, user_id = tenant_context
-        result = await endpoint_service.test_endpoint(
-            db,
-            test_config,
-            organization_id=str(organization_id),
-            user_id=str(user_id),
-        )
-        logger.info(f"API test successful for endpoint: {test_config.url}")
-        return result
-    except HTTPException as e:
-        logger.error(f"API test HTTPException for endpoint {test_config.url}: {e.detail}")
-        raise e
-    except Exception as e:
-        logger.error(
-            f"API test unexpected error for endpoint {test_config.url}: {str(e)}", exc_info=True
-        )
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/schema")
-def get_endpoint_schema(endpoint_service: EndpointService = Depends(get_endpoint_service)):
-    """
-    Get the endpoint schema definition.
-
-    Args:
-        endpoint_service: The endpoint service instance
-
-    Returns:
-        Dict containing the input and output schema definitions
-    """
-    return endpoint_service.get_schema()
