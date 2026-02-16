@@ -10,7 +10,7 @@ export interface Model {
   description?: string;
   icon?: string;
   model_name: string;
-  model_type?: 'llm' | 'embedding';
+  model_type?: 'language' | 'embedding';
   endpoint: string;
   key: string;
   request_headers?: Record<string, string>;
@@ -32,7 +32,7 @@ export interface ModelCreate {
   description?: string;
   icon?: string;
   model_name: string;
-  model_type?: 'llm' | 'embedding';
+  model_type?: 'language' | 'embedding';
   endpoint?: string;
   key: string;
   request_headers?: Record<string, string>;
@@ -49,7 +49,7 @@ export interface ModelUpdate {
   description?: string;
   icon?: string;
   model_name?: string;
-  model_type?: 'llm' | 'embedding';
+  model_type?: 'language' | 'embedding';
   endpoint?: string;
   key?: string;
   request_headers?: Record<string, string>;
@@ -81,7 +81,7 @@ export interface TestModelConnectionRequest {
   api_key?: string;
   model_id?: UUID;
   endpoint?: string;
-  model_type?: 'llm' | 'embedding';
+  model_type?: 'language' | 'embedding';
 }
 
 export interface TestModelConnectionResponse {
