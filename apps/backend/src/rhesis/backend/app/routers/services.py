@@ -259,12 +259,26 @@ async def generate_embedding_endpoint(request: GenerateEmbeddingRequest):
     Generate an embedding for a given text.
     """
     try:
-        from rhesis.backend.app.constants import DEFAULT_EMBEDDING_MODEL, DEFAULT_MODEL_NAME
-        from rhesis.sdk.models.factory import get_model
+        from rhesis.backend.app.constants import (
+            DEFAULT_EMBEDDING_MODEL_NAME,
+            DEFAULT_EMBEDDING_MODEL_PROVIDER,
+        )
+        from rhesis.sdk.models.factory import get_embedding_model
 
-        embedder =
+        text = request.text
+
+        embedder = get_embedding_model(
+            provider=DEFAULT_EMBEDDING_MODEL_PROVIDER,
+            model_name=DEFAULT_EMBEDDING_MODEL_NAME,
+        )
+        embedding = embedder.generate(text=text)
+
+        return embedding
     except Exception as e:
         error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to generate embedding: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to generate embedding: {error_msg}")
+
 
 @router.post("/generate/tests", response_model=GenerateTestsResponse)
 async def generate_tests_endpoint(
