@@ -29,7 +29,7 @@ class ModelConnectionService:
         model_name: str,
         api_key: str,
         endpoint: str | None = None,
-        model_type: Literal["language_model", "embedding"] = "language_model",
+        model_type: Literal["language", "embedding"] = "language",
     ) -> ModelConnectionTestResult:
         """
         Test a model connection by attempting to initialize and use the model.
@@ -45,7 +45,7 @@ class ModelConnectionService:
             model_name: The specific model name
             api_key: The API key for authentication
             endpoint: Optional endpoint URL for self-hosted providers
-            model_type: Type of model - "language_model" or "embedding"
+            model_type: Type of model - "language" or "embedding"
 
         Returns:
             ModelConnectionTestResult: Result of the connection test
@@ -73,7 +73,7 @@ class ModelConnectionService:
                     model_name=model_name,
                 )
 
-            if model_type == "language_model":
+            if model_type == "language":
                 return ModelConnectionService._test_language_model_connection(
                     provider, model_name, api_key, endpoint
                 )
@@ -85,7 +85,7 @@ class ModelConnectionService:
                 return ModelConnectionTestResult(
                     success=False,
                     message=(
-                        f"Invalid model type: {model_type}. Must be 'language_model' or 'embedding'"
+                        f"Invalid model type: {model_type}. Must be 'language' or 'embedding'"
                     ),
                     provider=provider,
                     model_name=model_name,
