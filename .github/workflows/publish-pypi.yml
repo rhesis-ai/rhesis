@@ -17,6 +17,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/rhesis-sdk
     permissions:
+      contents: read   # Required for actions/checkout
       id-token: write  # Required for trusted publishing
     
     steps:
@@ -42,6 +43,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/rhesis
     permissions:
+      contents: read   # Required for actions/checkout
       id-token: write  # Required for trusted publishing
     
     steps:
