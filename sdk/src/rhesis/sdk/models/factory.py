@@ -198,10 +198,6 @@ LANGUAGE_MODEL_PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseL
     "vertex_ai": _create_vertex_ai_llm,
 }
 
-# Deprecated aliases for backward compatibility
-DEFAULT_MODELS = DEFAULT_LANGUAGE_MODELS
-PROVIDER_REGISTRY = LANGUAGE_MODEL_PROVIDER_REGISTRY
-
 
 @dataclass
 class LanguageModelConfig:
