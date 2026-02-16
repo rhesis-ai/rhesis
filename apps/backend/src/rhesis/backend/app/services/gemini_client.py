@@ -9,7 +9,7 @@ from typing import AsyncGenerator, Dict, Iterator, List, Union
 from google import genai
 from google.genai import errors
 
-from rhesis.backend.app.constants import DEFAULT_MODEL_NAME
+from rhesis.backend.app.constants import DEFAULT_LANGUAGE_MODEL_NAME
 
 # Configure logging
 logging.basicConfig(
@@ -35,7 +35,7 @@ def get_client():
 
 def _get_model_name(client):
     """Get the appropriate model name based on environment variables."""
-    return os.getenv("GEMINI_MODEL_NAME", DEFAULT_MODEL_NAME)
+    return os.getenv("GEMINI_MODEL_NAME", DEFAULT_LANGUAGE_MODEL_NAME)
 
 
 def _with_retries(func, *args, **kwargs):
