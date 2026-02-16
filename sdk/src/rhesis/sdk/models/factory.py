@@ -11,7 +11,7 @@ from typing import Callable, Dict, Optional
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 
 # Default configuration for language models
-DEFAULT_PROVIDER = "rhesis"
+DEFAULT_LANGUAGE_MODEL_PROVIDER = "rhesis"
 DEFAULT_LANGUAGE_MODELS = {
     "rhesis": "rhesis-default",
     "anthropic": "claude-4",
@@ -33,8 +33,9 @@ DEFAULT_LANGUAGE_MODELS = {
 }
 
 # Default embedding models per provider
-DEFAULT_EMBEDDING_MODEL_PROVIDER = "openai"
+DEFAULT_EMBEDDING_MODEL_PROVIDER = "rhesis"
 DEFAULT_EMBEDDING_MODELS = {
+    "rhesis": "rhesis-default",
     "openai": "text-embedding-3-small",
     "gemini": "gemini-embedding-001",
     "vertex_ai": "text-embedding-005",
@@ -50,6 +51,15 @@ def _create_rhesis_llm(model_name: str, api_key: Optional[str], **kwargs) -> Bas
     from rhesis.sdk.models.providers.native import RhesisLLM
 
     return RhesisLLM(model_name=model_name, api_key=api_key, **kwargs)
+
+
+def _create_rhesis_embedding_model(
+    model_name: str, api_key: Optional[str], dimensions: Optional[int], **kwargs
+) -> BaseEmbedder:
+    """Factory function for Rhesis embedding model."""
+    from rhesis.sdk.models.providers.native import RhesisEmbedder
+
+    return RhesisEmbedder(model_name=model_name, api_key=api_key, **kwargs)
 
 
 def _create_gemini_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
@@ -292,7 +302,7 @@ def get_language_model(
         prov, model = provider.split("/", 1)
         provider, model_name = prov, model
 
-    provider = provider or cfg.provider or DEFAULT_PROVIDER
+    provider = provider or cfg.provider or DEFAULT_LANGUAGE_MODEL_PROVIDER
     if provider not in DEFAULT_LANGUAGE_MODELS.keys():
         raise ValueError(f"Provider {provider} not supported")
     model_name = model_name or cfg.model_name or DEFAULT_LANGUAGE_MODELS[provider]
@@ -603,6 +613,7 @@ def _create_vertex_ai_embedding_model(
 
 # Embedding model provider registry
 EMBEDDING_MODEL_REGISTRY: Dict[str, Callable[..., BaseEmbedder]] = {
+    "rhesis": _create_rhesis_embedding_model,
     "openai": _create_openai_embedding_model,
     "gemini": _create_gemini_embedding_model,
     "vertex_ai": _create_vertex_ai_embedding_model,

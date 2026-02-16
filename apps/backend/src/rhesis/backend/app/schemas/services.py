@@ -156,8 +156,10 @@ class GenerateContentRequest(BaseModel):
         description="Optional OpenAI JSON Schema for structured output validation",
     )
 
+
 class GenerateEmbeddingRequest(BaseModel):
     text: str
+
 
 class TestConfigRequest(BaseModel):
     prompt: str

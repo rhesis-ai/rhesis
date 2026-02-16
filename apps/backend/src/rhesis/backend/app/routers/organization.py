@@ -135,11 +135,11 @@ async def initialize_organization_data(
         if org.is_onboarding_complete:
             raise HTTPException(status_code=400, detail="Organization already initialized")
 
-        # Load initial data and get the default model ID
-        default_model_id = load_initial_data(db, str(organization_id), str(current_user.id))
+        # Load initial data and get the default model IDs
+        default_model_ids = load_initial_data(db, str(organization_id), str(current_user.id))
 
-        # Update user settings with the default model for both generation and evaluation
-        if default_model_id:
+        # Update user settings with the default models for generation, evaluation, and embedding
+        if default_model_ids:
             # Get the user to update settings
             user = db.query(models.User).filter(models.User.id == current_user.id).first()
             if user:
@@ -147,8 +147,9 @@ async def initialize_organization_data(
                 user.settings.update(
                     {
                         "models": {
-                            "generation": {"model_id": default_model_id},
-                            "evaluation": {"model_id": default_model_id},
+                            "generation": {"model_id": default_model_ids.get("language_model_id")},
+                            "evaluation": {"model_id": default_model_ids.get("language_model_id")},
+                            "embedding": {"model_id": default_model_ids.get("embedding_model_id")},
                         }
                     }
                 )
@@ -182,7 +183,7 @@ async def initialize_organization_data(
         return {
             "status": "success",
             "message": "Initial data loaded successfully",
-            "default_model_id": default_model_id,
+            "default_model_ids": default_model_ids,
             "test_execution": test_execution_summary,
         }
     except HTTPException:

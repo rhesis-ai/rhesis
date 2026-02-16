@@ -160,13 +160,87 @@ class RhesisLLM(BaseLLM):
 
 
 class RhesisEmbedder(BaseEmbedder):
+    """Rhesis embedding model for generating text embeddings.
+
+    This embedder uses the Rhesis API to generate embeddings for text inputs.
+    It requires a valid RHESIS_API_KEY environment variable or API key passed directly.
+    """
+
+    PROVIDER = "rhesis"
+
     def __init__(
         self,
-        model_name: str = DEFAULT_LANGUAGE_MODEL_NAME,
+        model_name: str = "default",
         api_key=None,
         base_url=None,
         **kwargs,
     ):
+        """Initialize the Rhesis embedder.
+
+        Args:
+            model_name: Name of the embedding model to use (default: "default")
+            api_key: API key for Rhesis. If not provided, will use RHESIS_API_KEY from environment.
+            base_url: Base URL for the Rhesis API. If not provided, will use RHESIS_BASE_URL
+                from environment.
+            **kwargs: Additional parameters passed to the underlying client.
+
+        Raises:
+            ValueError: If the API key is not set.
+        """
         super().__init__(model_name, **kwargs)
         self.api_key = api_key or os.getenv("RHESIS_API_KEY")
         self.base_url = base_url or os.getenv("RHESIS_BASE_URL")
+
+        if self.api_key is None:
+            raise ValueError("RHESIS_API_KEY is not set")
+
+        self.client = APIClient(api_key=self.api_key, base_url=self.base_url)
+        self.headers = {
+            "Authorization": f"Bearer {self.client.api_key}",
+            "Content-Type": "application/json",
+        }
+
+    def generate(self, text: str, **kwargs: Any) -> List[float]:
+        """Generate embedding for a single text.
+
+        Args:
+            text: The input text to embed.
+            **kwargs: Additional parameters (unused for Rhesis).
+
+        Returns:
+            A list of floats representing the embedding vector.
+
+        Raises:
+            requests.exceptions.HTTPError: If the API request fails.
+        """
+        try:
+            url = self.client.get_url("services/generate/embedding")
+            response = requests.post(
+                url,
+                headers=self.headers,
+                json={"text": text},
+            )
+            response.raise_for_status()
+            result = response.json()
+            return result
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"Error generating embedding: {e}", exc_info=True)
+            raise
+
+    def generate_batch(self, texts: List[str], **kwargs: Any) -> List[List[float]]:
+        """Generate embeddings for multiple texts.
+
+        Note: Currently implemented as sequential calls. Future versions may support
+        true batch processing.
+
+        Args:
+            texts: List of input texts to embed.
+            **kwargs: Additional parameters (unused for Rhesis).
+
+        Returns:
+            A list of embedding vectors, one for each input text.
+
+        Raises:
+            requests.exceptions.HTTPError: If any API request fails.
+        """
+        return [self.generate(text, **kwargs) for text in texts]

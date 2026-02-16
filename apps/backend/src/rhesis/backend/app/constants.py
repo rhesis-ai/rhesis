@@ -72,15 +72,18 @@ DEFAULT_PRIORITY = 1
 
 # Model-related defaults
 # Can be overridden via environment variables for flexible deployment
-DEFAULT_GENERATION_MODEL = os.getenv(
-    "DEFAULT_GENERATION_MODEL", "rhesis"
+DEFAULT_LANGUAGE_MODEL_PROVIDER = os.getenv(
+    "DEFAULT_LANGUAGE_MODEL_PROVIDER", "rhesis"
 )  # Default provider for test generation
-DEFAULT_MODEL_NAME = os.getenv(
-    "DEFAULT_MODEL_NAME", "default"
+DEFAULT_LANGUAGE_MODEL_NAME = os.getenv(
+    "DEFAULT_LANGUAGE_MODEL_NAME", "default"
 )  # Default model name (gemini-2.0-flash recommended, avoid 2.5-flash)
-DEFAULT_EMBEDDING_MODEL = os.getenv(
-    "DEFAULT_EMBEDDING_MODEL", "openai"
+DEFAULT_EMBEDDING_MODEL_PROVIDER = os.getenv(
+    "DEFAULT_EMBEDDING_MODEL_PROVIDER", "rhesis"
 )  # Default provider for embedding generation
+DEFAULT_EMBEDDING_MODEL_NAME = os.getenv(
+    "DEFAULT_EMBEDDING_MODEL_NAME", "default"
+)  # Default embedding model name
 
 # Rhesis API configuration
 # Required for Rhesis system models to work
