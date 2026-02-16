@@ -37,6 +37,11 @@ dependencies = [
 toxicity = [
     "google-api-python-client",
 ]
+# Optional: Vertex AI model deployment (for vertex_ai/ scripts)
+vertex-ai = [
+    "google-cloud-aiplatform>=1.38.0",
+    "google-cloud-compute>=1.15.0",
+]
 
 [build-system]
 requires = ["hatchling"]

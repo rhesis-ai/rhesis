@@ -17,6 +17,30 @@ on:
           - dev
           - stg
           - prd
+      skip_existing:
+        description: 'Skip models that are already deployed'
+        required: false
+        default: true
+        type: boolean
+      enable_lora:
+        description: 'Enable LoRA support'
+        required: false
+        default: false
+        type: boolean
+      enforce_eager:
+        description: 'Enforce eager execution'
+        required: false
+        default: false
+        type: boolean
+      guided_decoding_backend:
+        description: 'Guided decoding backend'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - outlines
+          - lm-format-enforcer
 
 env:
   SA_KEY_PATH: 'gcp-sa-key.json'
@@ -31,16 +55,169 @@ jobs:
       - name: Validate environment parameter
         uses: ./.github/actions/validate-environment
         with:
-          environment: ${{ github.event.inputs.environment || 'dev' }}
+          environment: ${{ github.event.inputs.environment }}
 
-  smoke:
+  deploy-to-vertex-ai:
     needs: validate-inputs
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'dev' }}
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+
+    env:
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+
     steps:
-      - name: Pipeline ready
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Create and validate service account key file
+        id: sa_key
         run: |
-          echo "✅ Polyphemus Vertex AI pipeline ran successfully"
-          echo "Environment: ${{ github.event.inputs.environment || 'dev' }}"
-          echo "Trigger: ${{ github.event_name }}"
-          echo "Add build and Vertex AI deploy steps here when ready."
+          # Write the key to a file, ensuring it's properly quoted
+          echo '${{ secrets.GCP_SA_KEY }}' > ${{ env.SA_KEY_PATH }}
+
+          # Validate that the file contains valid JSON
+          if ! jq . ${{ env.SA_KEY_PATH }} > /dev/null 2>&1; then
+            echo "❌ Error: Service account key is not valid JSON"
+            echo "First few characters:"
+            head -c 20 ${{ env.SA_KEY_PATH }}
+            exit 1
+          fi
+
+          echo "✅ Service account key validated as proper JSON"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(realpath ${{ env.SA_KEY_PATH }})" >> $GITHUB_ENV
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Set environment variables
+        run: |
+          echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
+          echo "GCP_REGION=${{ secrets.POLYPHEMUS_REGION || secrets.TF_VAR_POLYPHEMUS_REGION || 'us-central1' }}" >> $GITHUB_ENV
+          echo "GCP_SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT }}" >> $GITHUB_ENV
+          
+          # Model path and default model (existing GitHub secrets)
+          if [ -n "${{ secrets.MODEL_PATH }}" ]; then
+            echo "MODEL_PATH=${{ secrets.MODEL_PATH }}" >> $GITHUB_ENV
+            echo "✓ Using MODEL_PATH: ${{ secrets.MODEL_PATH }}"
+          fi
+          if [ -n "${{ secrets.DEFAULT_MODEL }}" ]; then
+            echo "DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }}" >> $GITHUB_ENV
+            echo "✓ Using DEFAULT_MODEL: ${{ secrets.DEFAULT_MODEL }}"
+          fi
+          
+          # HuggingFace token for private models (optional)
+          if [ -n "${{ secrets.HUGGINGFACE_TOKEN }}" ]; then
+            echo "HF_TOKEN=${{ secrets.HUGGINGFACE_TOKEN }}" >> $GITHUB_ENV
+            echo "✓ HuggingFace token provided for private model access"
+          fi
+
+      - name: Install dependencies
+        working-directory: apps/polyphemus/vertex_ai
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build deployment arguments
+        id: build_args
+        run: |
+          ARGS=""
+          
+          # Handle skip_existing (default is true)
+          if [ "${{ github.event.inputs.skip_existing }}" = "false" ]; then
+            ARGS="$ARGS --force"
+          fi
+          
+          # Handle enable_lora
+          if [ "${{ github.event.inputs.enable_lora }}" = "true" ]; then
+            ARGS="$ARGS --enable-lora"
+          fi
+          
+          # Handle enforce_eager
+          if [ "${{ github.event.inputs.enforce_eager }}" = "true" ]; then
+            ARGS="$ARGS --enforce-eager"
+          fi
+          
+          # Handle guided_decoding_backend
+          if [ -n "${{ github.event.inputs.guided_decoding_backend }}" ]; then
+            ARGS="$ARGS --guided-decoding-backend=${{ github.event.inputs.guided_decoding_backend }}"
+          fi
+          
+          echo "DEPLOY_ARGS=$ARGS" >> $GITHUB_ENV
+          echo "Deployment arguments: $ARGS"
+
+      - name: Deploy models to Vertex AI
+        working-directory: apps/polyphemus/vertex_ai
+        run: |
+          echo "🚀 Deploying models to Vertex AI..."
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "Project: ${{ env.GCP_PROJECT_ID }}"
+          echo "Region: ${{ env.GCP_REGION }}"
+          echo "Arguments: ${{ env.DEPLOY_ARGS }}"
+          
+          python deploy.py ${{ env.DEPLOY_ARGS }}
+
+      - name: Generate deployment summary
+        if: success()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          # ✅ Vertex AI Deployment Complete
+          
+          ## Configuration
+          - **Environment**: \`${{ env.ENVIRONMENT }}\`
+          - **Project**: \`${{ env.GCP_PROJECT_ID }}\`
+          - **Region**: \`${{ env.GCP_REGION }}\`
+          - **MODEL_PATH**: \`${{ env.MODEL_PATH || 'Not configured' }}\`
+          - **DEFAULT_MODEL**: \`${{ env.DEFAULT_MODEL || 'Not configured' }}\`
+          - **Skip Existing**: \`${{ github.event.inputs.skip_existing || 'true' }}\`
+          - **Enable LoRA**: \`${{ github.event.inputs.enable_lora || 'false' }}\`
+          - **Enforce Eager**: \`${{ github.event.inputs.enforce_eager || 'false' }}\`
+          - **Guided Decoding Backend**: \`${{ github.event.inputs.guided_decoding_backend || 'auto' }}\`
+          
+          ## Model Loading
+          Models can be loaded from:
+          - **HuggingFace**: Public or private models (with token)
+          - **GCS**: Pre-downloaded models from \`${{ env.MODEL_PATH || 'gs://your-bucket/models' }}\` (model: \`${{ env.DEFAULT_MODEL }}\`)
+          
+          ## Next Steps
+          1. Check the Vertex AI console to verify deployments
+          2. Test the endpoints using the Vertex AI Python client
+          3. Monitor the deployment logs for any issues
+          
+          ## Resources
+          - [Vertex AI Console](https://console.cloud.google.com/vertex-ai/endpoints?project=${{ env.GCP_PROJECT_ID }})
+          - [GCS Storage](https://console.cloud.google.com/storage?project=${{ env.GCP_PROJECT_ID }})
+          - [Documentation](apps/polyphemus/vertex_ai/README.md)
+          EOF
+
+      - name: Handle deployment failure
+        if: failure()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          # ❌ Vertex AI Deployment Failed
+          
+          ## Configuration
+          - **Environment**: \`${{ env.ENVIRONMENT }}\`
+          - **Project**: \`${{ env.GCP_PROJECT_ID }}\`
+          - **Region**: \`${{ env.GCP_REGION }}\`
+          
+          ## Troubleshooting
+          1. Check the workflow logs for error messages
+          2. Verify that the GCP service account has the necessary permissions
+          3. Check quota limits in the GCP console
+          4. Ensure the model configurations are correct
+          
+          ## Resources
+          - [Vertex AI Console](https://console.cloud.google.com/vertex-ai/endpoints?project=${{ env.GCP_PROJECT_ID }})
+          - [Documentation](apps/polyphemus/vertex_ai/README.md)
+          EOF
