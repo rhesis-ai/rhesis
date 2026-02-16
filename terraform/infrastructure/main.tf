@@ -1,5 +1,5 @@
 # Creates all four VPCs and peerings (WireGuard <-> dev, stg, prd).
-# Run: terraform init && terraform apply from infrastructure/
+# Run: terraform init -backend-config="bucket=YOUR_BUCKET_NAME" && terraform apply from infrastructure/
 
 terraform {
   required_providers {
@@ -8,7 +8,9 @@ terraform {
       version = "~> 6.0"
     }
   }
-  backend "local" {}
+  backend "gcs" {
+    prefix = "terraform/infrastructure/state"
+  }
 }
 
 provider "google" {
@@ -200,10 +202,11 @@ module "gke_prd" {
 module "wireguard_server" {
   source = "./modules/wireguard/gcp"
 
-  project_id       = var.project_id
-  region           = var.region
-  vpc_name         = module.wireguard.vpc_name
-  subnet_self_link = module.wireguard.subnet_self_links["main"]
+  project_id          = var.project_id
+  region              = var.region
+  vpc_name            = module.wireguard.vpc_name
+  subnet_self_link    = module.wireguard.subnet_self_links["main"]
+  deletion_protection = var.wireguard_deletion_protection
 
   wireguard_peers = var.wireguard_peers
 

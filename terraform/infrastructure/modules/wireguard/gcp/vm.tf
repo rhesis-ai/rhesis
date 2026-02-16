@@ -39,5 +39,6 @@ resource "google_compute_instance" "wireguard" {
 
   tags = ["wireguard-server"]
 
-  can_ip_forward = true # Required for VPN routing
+  can_ip_forward      = true # Required for VPN routing
+  deletion_protection = var.deletion_protection
 }
