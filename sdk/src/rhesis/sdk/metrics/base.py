@@ -25,7 +25,7 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.factory import get_model
+from rhesis.sdk.models.factory import get_language_model
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -170,7 +170,7 @@ class BaseMetric(ABC):
     def set_model(self, model: Optional[Union[BaseLLM, str]]) -> BaseLLM:
         if isinstance(model, BaseLLM):
             return model
-        return get_model(model)
+        return get_language_model(model)
 
     @abstractmethod
     def evaluate(

@@ -1,9 +1,8 @@
 """
-Model Factory for Rhesis SDK
+Language Model and Embedding Model Factory for Rhesis SDK.
 
 This module provides a simple and intuitive way to create language model instances
 and embedding model instances with smart defaults and comprehensive error handling.
-
 """
 
 from dataclasses import dataclass, field
@@ -11,9 +10,9 @@ from typing import Callable, Dict, Optional
 
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 
-# Default configuration
+# Default configuration for language models
 DEFAULT_PROVIDER = "rhesis"
-DEFAULT_MODELS = {
+DEFAULT_LANGUAGE_MODELS = {
     "rhesis": "rhesis-default",
     "anthropic": "claude-4",
     "cohere": "command-r-plus",
@@ -168,8 +167,8 @@ def _create_polyphemus_llm(model_name: str, api_key: Optional[str], **kwargs) ->
     return PolyphemusLLM(model_name=model_name, api_key=api_key, **kwargs)
 
 
-# Provider registry mapping provider names to their factory functions
-PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
+# Language model provider registry: provider name -> factory function
+LANGUAGE_MODEL_PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
     "rhesis": _create_rhesis_llm,
     "anthropic": _create_anthropic_llm,
     "cohere": _create_cohere_llm,
@@ -188,6 +187,10 @@ PROVIDER_REGISTRY: Dict[str, Callable[[str, Optional[str]], BaseLLM]] = {
     "together_ai": _create_together_ai_llm,
     "vertex_ai": _create_vertex_ai_llm,
 }
+
+# Deprecated aliases for backward compatibility
+DEFAULT_MODELS = DEFAULT_LANGUAGE_MODELS
+PROVIDER_REGISTRY = LANGUAGE_MODEL_PROVIDER_REGISTRY
 
 
 @dataclass
@@ -290,15 +293,15 @@ def get_language_model(
         provider, model_name = prov, model
 
     provider = provider or cfg.provider or DEFAULT_PROVIDER
-    if provider not in DEFAULT_MODELS.keys():
+    if provider not in DEFAULT_LANGUAGE_MODELS.keys():
         raise ValueError(f"Provider {provider} not supported")
-    model_name = model_name or cfg.model_name or DEFAULT_MODELS[provider]
+    model_name = model_name or cfg.model_name or DEFAULT_LANGUAGE_MODELS[provider]
     api_key = api_key or cfg.api_key
 
     config = LanguageModelConfig(provider=provider, model_name=model_name, api_key=api_key)
 
     # Get the factory function for the provider
-    factory_func = PROVIDER_REGISTRY.get(config.provider)
+    factory_func = LANGUAGE_MODEL_PROVIDER_REGISTRY.get(config.provider)
     if factory_func is None:
         raise ValueError(f"Provider {config.provider} not supported")
 
@@ -349,8 +352,8 @@ def get_available_language_models(provider: str) -> list[str]:
         >>> # Get Gemini models
         >>> models = get_available_language_models("gemini")
     """
-    if provider not in PROVIDER_REGISTRY:
-        available_providers = ", ".join(sorted(PROVIDER_REGISTRY.keys()))
+    if provider not in LANGUAGE_MODEL_PROVIDER_REGISTRY:
+        available_providers = ", ".join(sorted(LANGUAGE_MODEL_PROVIDER_REGISTRY.keys()))
         raise ValueError(
             f"Provider '{provider}' not supported. Available providers: {available_providers}"
         )
