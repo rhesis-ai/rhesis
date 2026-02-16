@@ -42,7 +42,7 @@ class TestEmbeddingModelConfig:
 class TestGetEmbeddingModel:
     """Test the get_embedding_model function with various configurations."""
 
-    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    @patch("rhesis.sdk.models.providers.native.RhesisEmbedder")
     def test_get_embedding_model_minimal_defaults(self, mock_embedder_class):
         """Test get_embedding_model() with no parameters - uses all defaults."""
         mock_instance = Mock(spec=BaseEmbedder)
@@ -50,11 +50,10 @@ class TestGetEmbeddingModel:
 
         result = get_embedding_model()
 
-        # Should use default provider and embedding model
+        # Should use default provider (rhesis) and default embedding model
         mock_embedder_class.assert_called_once_with(
             model_name=DEFAULT_EMBEDDING_MODELS[DEFAULT_EMBEDDING_MODEL_PROVIDER],
             api_key=None,
-            dimensions=None,
         )
         assert result == mock_instance
 
