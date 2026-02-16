@@ -4,8 +4,8 @@ import pytest
 
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import (
+    DEFAULT_LANGUAGE_MODEL_PROVIDER,
     DEFAULT_LANGUAGE_MODELS,
-    DEFAULT_PROVIDER,
     LanguageModelConfig,
     get_available_embedding_models,
     get_available_language_models,
@@ -62,7 +62,7 @@ class TestGetLanguageModel:
 
         # Should use default provider and language model
         mock_rhesis_class.assert_called_once_with(
-            model_name=DEFAULT_LANGUAGE_MODELS[DEFAULT_PROVIDER], api_key=None
+            model_name=DEFAULT_LANGUAGE_MODELS[DEFAULT_LANGUAGE_MODEL_PROVIDER], api_key=None
         )
         assert result == mock_instance
 
@@ -272,7 +272,7 @@ class TestGetLanguageModel:
         result = get_language_model(None, None, None)
 
         mock_rhesis_class.assert_called_once_with(
-            model_name=DEFAULT_LANGUAGE_MODELS[DEFAULT_PROVIDER], api_key=None
+            model_name=DEFAULT_LANGUAGE_MODELS[DEFAULT_LANGUAGE_MODEL_PROVIDER], api_key=None
         )
         assert result == mock_instance
 
