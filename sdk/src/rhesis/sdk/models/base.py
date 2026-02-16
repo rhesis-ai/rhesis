@@ -97,7 +97,7 @@ class BaseLLM(ABC):
             description=description,
             provider=provider,
             model_name=model_name,
-            model_type="llm",
+            model_type="language",
             key=api_key,
         )
         model.push()
