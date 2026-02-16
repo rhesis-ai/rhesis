@@ -6,11 +6,11 @@ import requests
 from pydantic import BaseModel
 
 from rhesis.sdk.clients import APIClient
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL_NAME = "rhesis-llm-v1"
+DEFAULT_LANGUAGE_MODEL_NAME = "rhesis-llm-v1"
 API_ENDPOINT = "services/generate/content"
 
 
@@ -18,7 +18,7 @@ class RhesisLLM(BaseLLM):
     """Service for interacting with the LLM API endpoints."""
 
     def __init__(
-        self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, base_url=None, **kwargs
+        self, model_name: str = DEFAULT_LANGUAGE_MODEL_NAME, api_key=None, base_url=None, **kwargs
     ) -> None:
         """
         RhesisLLMService: Rhesis LLM Provider
@@ -157,3 +157,16 @@ class RhesisLLM(BaseLLM):
         response.raise_for_status()
         result: Dict[str, Any] = response.json()
         return result
+
+
+class RhesisEmbedder(BaseEmbedder):
+    def __init__(
+        self,
+        model_name: str = DEFAULT_LANGUAGE_MODEL_NAME,
+        api_key=None,
+        base_url=None,
+        **kwargs,
+    ):
+        super().__init__(model_name, **kwargs)
+        self.api_key = api_key or os.getenv("RHESIS_API_KEY")
+        self.base_url = base_url or os.getenv("RHESIS_BASE_URL")

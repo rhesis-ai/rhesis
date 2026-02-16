@@ -2,13 +2,13 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-DEFAULT_MODEL_NAME = "sonar-pro"
+DEFAULT_LANGUAGE_MODEL_NAME = "sonar-pro"
 
 
 class PerplexityLLM(LiteLLM):
     PROVIDER = "perplexity"
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
+    def __init__(self, model_name: str = DEFAULT_LANGUAGE_MODEL_NAME, api_key=None, **kwargs):
         """
         PerplexityLLM: Perplexity AI LLM Provider
 
