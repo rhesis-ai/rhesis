@@ -263,13 +263,14 @@ async def generate_embedding_endpoint(request: GenerateEmbeddingRequest):
             DEFAULT_EMBEDDING_MODEL_NAME,
             DEFAULT_EMBEDDING_MODEL_PROVIDER,
         )
-        from rhesis.sdk.models.factory import get_embedding_model
+        from rhesis.sdk.models.factory import get_model
 
         text = request.text
 
-        embedder = get_embedding_model(
+        embedder = get_model(
             provider=DEFAULT_EMBEDDING_MODEL_PROVIDER,
             model_name=DEFAULT_EMBEDDING_MODEL_NAME,
+            model_type="embedding",
         )
         embedding = embedder.generate(text=text)
 
