@@ -18,12 +18,11 @@ test.describe('Projects @sanity', () => {
     const hasProjects = await page.locator('.MuiCard-root').count();
     const hasEmptyState = await page.getByText(/no projects/i).count();
     const hasCreateButton = await page
-      .getByRole('link', { name: /create/i })
-      .or(page.getByRole('button', { name: /create/i }))
+      .getByRole('link', { name: /create|new/i })
+      .or(page.getByRole('button', { name: /create|new/i }))
       .count();
     const hasPageContent = await page
-      .locator('main, [role="main"]')
-      .first()
+      .getByRole('heading', { name: /projects/i })
       .isVisible()
       .catch(() => false);
 
