@@ -9,7 +9,7 @@ Use _model_name(full_id) to get the name part when calling provider constructors
 DEFAULT_LANGUAGE_MODEL = "rhesis/rhesis-default"
 
 # Default when requesting an embedding with no arguments
-DEFAULT_EMBEDDING_MODEL = "rhesis/rhesis-default"
+DEFAULT_EMBEDDING_MODEL = "rhesis/rhesis-embedding"
 
 # Per-provider default language models (full id: provider/name)
 DEFAULT_LANGUAGE_MODELS = {
@@ -34,7 +34,7 @@ DEFAULT_LANGUAGE_MODELS = {
 
 # Per-provider default embedding models (full id: provider/name)
 DEFAULT_EMBEDDING_MODELS = {
-    "rhesis": "rhesis/rhesis-default",
+    "rhesis": "rhesis/rhesis-embedding",
     "openai": "openai/text-embedding-3-small",
     "gemini": "gemini/gemini-embedding-001",
     "vertex_ai": "vertex_ai/text-embedding-005",
