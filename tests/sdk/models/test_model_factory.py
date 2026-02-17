@@ -2,31 +2,31 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
+from rhesis.sdk.models.defaults import DEFAULT_LANGUAGE_MODEL, model_name_from_id
 from rhesis.sdk.models.factory import (
-    DEFAULT_MODELS,
-    DEFAULT_PROVIDER,
-    ModelConfig,
-    get_available_embedding_models,
-    get_available_language_models,
+    EmbeddingModelConfig,
+    LanguageModelConfig,
+    ModelType,
+    get_embedding_model,
     get_model,
 )
 
 
-class TestModelConfig:
-    """Test the ModelConfig dataclass."""
+class TestLanguageModelConfig:
+    """Test the LanguageModelConfig dataclass."""
 
-    def test_model_config_defaults(self):
-        """Test ModelConfig with default values."""
-        config = ModelConfig()
+    def test_language_model_config_defaults(self):
+        """Test LanguageModelConfig with default values."""
+        config = LanguageModelConfig()
         assert config.provider is None
         assert config.model_name is None
         assert config.api_key is None
         assert config.extra_params == {}
 
-    def test_model_config_with_values(self):
-        """Test ModelConfig with provided values."""
-        config = ModelConfig(
+    def test_language_model_config_with_values(self):
+        """Test LanguageModelConfig with provided values."""
+        config = LanguageModelConfig(
             provider="test-provider",
             model_name="test-model",
             api_key="test-key",
@@ -37,486 +37,337 @@ class TestModelConfig:
         assert config.api_key == "test-key"
         assert config.extra_params == {"temperature": 0.5}
 
-    def test_model_config_extra_params_default_factory(self):
-        """Test that extra_params uses default_factory correctly."""
-        config1 = ModelConfig()
-        config2 = ModelConfig()
 
-        # Modify one config's extra_params
-        config1.extra_params["test"] = "value"
+class TestEmbeddingModelConfig:
+    """Test the EmbeddingModelConfig dataclass."""
 
-        # The other should remain unchanged
-        assert config2.extra_params == {}
+    def test_embedding_model_config_defaults(self):
+        """Test EmbeddingModelConfig with default values."""
+        config = EmbeddingModelConfig()
+        assert config.provider is None
+        assert config.model_name is None
+        assert config.api_key is None
+        assert config.dimensions is None
+        assert config.extra_params == {}
+
+    def test_embedding_model_config_with_values(self):
+        """Test EmbeddingModelConfig with provided values."""
+        config = EmbeddingModelConfig(
+            provider="openai",
+            model_name="text-embedding-3-small",
+            api_key="test-key",
+            dimensions=512,
+        )
+        assert config.provider == "openai"
+        assert config.model_name == "text-embedding-3-small"
+        assert config.api_key == "test-key"
+        assert config.dimensions == 512
 
 
-class TestGetModel:
-    """Test the get_model function with various configurations."""
+class TestUnifiedGetModel:
+    """Test the unified get_model() function with auto-detection."""
+
+    # =============================================================================
+    # Language Model Tests
+    # =============================================================================
 
     @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_minimal_defaults(self, mock_rhesis_class):
-        """Test get_model() with no parameters - uses all defaults."""
+    def test_language_model_auto_detect_rhesis(self, mock_llm_class):
+        """Test auto-detection of Rhesis language model."""
         mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
+        mock_llm_class.return_value = mock_instance
+
+        result = get_model("rhesis/rhesis-default")
+
+        assert isinstance(result, BaseLLM)
+        mock_llm_class.assert_called_once()
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAILLM")
+    def test_language_model_auto_detect_openai(self, mock_llm_class):
+        """Test auto-detection of OpenAI language model."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_llm_class.return_value = mock_instance
+
+        result = get_model("openai/gpt-4o")
+
+        assert isinstance(result, BaseLLM)
+        mock_llm_class.assert_called_once()
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAILLM")
+    def test_language_model_explicit_type(self, mock_llm_class):
+        """Test explicit language model_type parameter."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_llm_class.return_value = mock_instance
+
+        result = get_model("openai", "gpt-4o", model_type="language")
+
+        assert isinstance(result, BaseLLM)
+        mock_llm_class.assert_called_once_with(model_name="gpt-4o", api_key=None)
+
+    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
+    def test_language_model_with_defaults(self, mock_llm_class):
+        """Test language model creation with defaults."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_llm_class.return_value = mock_instance
 
         result = get_model()
 
-        # Should use default provider and model
-        mock_rhesis_class.assert_called_once_with(
-            model_name=DEFAULT_MODELS[DEFAULT_PROVIDER], api_key=None
+        mock_llm_class.assert_called_once_with(
+            model_name=model_name_from_id(DEFAULT_LANGUAGE_MODEL), api_key=None
         )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_provider_only(self, mock_rhesis_class):
-        """Test get_model("rhesis") - uses default model for provider."""
+    @patch("rhesis.sdk.models.providers.openai.OpenAILLM")
+    def test_language_model_with_api_key(self, mock_llm_class):
+        """Test language model with API key."""
         mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
+        mock_llm_class.return_value = mock_instance
 
-        result = get_model("rhesis")
+        result = get_model("openai", "gpt-4o", api_key="test-key")
 
-        mock_rhesis_class.assert_called_once_with(model_name=DEFAULT_MODELS["rhesis"], api_key=None)
+        mock_llm_class.assert_called_once_with(model_name="gpt-4o", api_key="test-key")
         assert result == mock_instance
 
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_provider_and_model(self, mock_rhesis_class):
-        """Test get_model("rhesis", "custom-model") - specific provider and model."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
+    # =============================================================================
+    # Embedding Model Tests
+    # =============================================================================
 
-        result = get_model("rhesis", "custom-model")
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_embedding_model_auto_detect(self, mock_embedder_class):
+        """Test auto-detection of embedding model from name."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
 
-        mock_rhesis_class.assert_called_once_with(model_name="custom-model", api_key=None)
+        result = get_model("openai/text-embedding-3-small")
+
+        assert isinstance(result, BaseEmbedder)
+        mock_embedder_class.assert_called_once()
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_embedding_model_explicit_type(self, mock_embedder_class):
+        """Test explicit embedding model_type parameter."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
+
+        result = get_model("openai", "custom-model", model_type="embedding")
+
+        assert isinstance(result, BaseEmbedder)
+        mock_embedder_class.assert_called_once()
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_embedding_model_with_dimensions(self, mock_embedder_class):
+        """Test embedding model with dimensions parameter."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
+
+        result = get_model("openai/text-embedding-3-small", dimensions=512)
+
+        mock_embedder_class.assert_called_once_with(
+            model_name="text-embedding-3-small", api_key=None, dimensions=512
+        )
         assert result == mock_instance
 
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_with_api_key(self, mock_rhesis_class):
-        """Test get_model with API key."""
+    @patch("rhesis.sdk.models.providers.gemini.GeminiEmbedder")
+    def test_embedding_model_gemini(self, mock_embedder_class):
+        """Test Gemini embedding model."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
+
+        result = get_model("gemini/gemini-embedding-001")
+
+        assert isinstance(result, BaseEmbedder)
+        mock_embedder_class.assert_called_once()
+
+    # =============================================================================
+    # Error Cases
+    # =============================================================================
+
+    def test_unsupported_provider(self):
+        """Test error when provider doesn't exist."""
+        with pytest.raises(ValueError, match="Provider 'invalid-provider' not supported"):
+            get_model("invalid-provider/some-model")
+
+    def test_unsupported_type_for_provider(self):
+        """Test error when provider doesn't support model type."""
+        # Anthropic doesn't support embedding models
+        with pytest.raises(ValueError, match="does not support model type 'embedding'"):
+            get_model("anthropic", "text-embedding-3-small", model_type="embedding")
+
+    # =============================================================================
+    # Shorthand Notation Tests
+    # =============================================================================
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAILLM")
+    def test_shorthand_notation(self, mock_llm_class):
+        """Test provider/model shorthand notation."""
         mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
+        mock_llm_class.return_value = mock_instance
 
-        result = get_model("rhesis", "test-model", "test-api-key")
+        result = get_model("openai/gpt-4o")
 
-        mock_rhesis_class.assert_called_once_with(model_name="test-model", api_key="test-api-key")
+        mock_llm_class.assert_called_once_with(model_name="gpt-4o", api_key=None)
         assert result == mock_instance
 
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_shorthand_provider_model(self, mock_rhesis_class):
-        """Test get_model("rhesis/custom-model") - shorthand notation."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_shorthand_notation_embedding(self, mock_embedder_class):
+        """Test shorthand notation for embeddings."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
 
-        result = get_model("rhesis/custom-model")
+        result = get_model("openai/text-embedding-3-small")
 
-        mock_rhesis_class.assert_called_once_with(model_name="custom-model", api_key=None)
+        mock_embedder_class.assert_called_once()
         assert result == mock_instance
 
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_with_config_object(self, mock_rhesis_class):
-        """Test get_model(config=ModelConfig(...))."""
+    # =============================================================================
+    # Configuration Object Tests
+    # =============================================================================
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAILLM")
+    def test_language_config_object(self, mock_llm_class):
+        """Test using LanguageModelConfig object."""
         mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
+        mock_llm_class.return_value = mock_instance
 
-        config = ModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
+        config = LanguageModelConfig(
+            provider="openai",
+            model_name="gpt-4o",
+            api_key="test-key",
+        )
+        result = get_model(config=config, model_type="language")
 
+        mock_llm_class.assert_called_once()
+        assert result == mock_instance
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_embedding_config_object(self, mock_embedder_class):
+        """Test using EmbeddingModelConfig object."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
+
+        config = EmbeddingModelConfig(
+            provider="openai",
+            model_name="text-embedding-3-small",
+            api_key="test-key",
+            dimensions=256,
+        )
+        result = get_model(config=config, model_type="embedding")
+
+        mock_embedder_class.assert_called_once()
+        assert result == mock_instance
+
+    # =============================================================================
+    # Optional model_type and shorthand notation (user-facing cases)
+    # =============================================================================
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_embedding_shorthand_without_model_type(self, mock_embedder_class):
+        """get_model('openai/text-embedding-3-small') works without model_type (auto-detect)."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
+
+        embedder = get_model("openai/text-embedding-3-small")
+
+        assert isinstance(embedder, BaseEmbedder)
+        mock_embedder_class.assert_called_once_with(
+            model_name="text-embedding-3-small", api_key=None, dimensions=None
+        )
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAILLM")
+    def test_language_shorthand_without_model_type(self, mock_llm_class):
+        """get_model('openai/gpt-4o') works without model_type (auto-detect)."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_llm_class.return_value = mock_instance
+
+        llm = get_model("openai/gpt-4o")
+
+        assert isinstance(llm, BaseLLM)
+        mock_llm_class.assert_called_once_with(model_name="gpt-4o", api_key=None)
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_embedding_config_without_model_type_auto_detected(self, mock_embedder_class):
+        """get_model(config=EmbeddingModelConfig(...)) without model_type auto-detects embedding."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
+
+        config = EmbeddingModelConfig(
+            provider="openai",
+            model_name="text-embedding-3-small",
+        )
         result = get_model(config=config)
 
-        mock_rhesis_class.assert_called_once_with(model_name="config-model", api_key="config-key")
-        assert result == mock_instance
+        assert isinstance(result, BaseEmbedder)
+        mock_embedder_class.assert_called_once()
 
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_config_with_kwargs_override(self, mock_rhesis_class):
-        """Test that kwargs override config values."""
+    def test_bare_model_name_without_provider_raises(self):
+        """get_model('text-embedding-3-small') without provider raises (provider required)."""
+        with pytest.raises(ValueError, match="Provider 'text-embedding-3-small' not supported"):
+            get_model("text-embedding-3-small")
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_get_embedding_model_shorthand(self, mock_embedder_class):
+        """get_embedding_model('openai/text-embedding-3-small') works (typed helper)."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
+
+        embedder = get_embedding_model("openai/text-embedding-3-small")
+
+        assert isinstance(embedder, BaseEmbedder)
+        mock_embedder_class.assert_called_once()
+
+
+class TestModelTypeClassification:
+    """Test ModelType enum and classification logic."""
+
+    def test_model_type_enum_values(self):
+        """Test ModelType enum has expected values."""
+        assert ModelType.LANGUAGE == "language"
+        assert ModelType.EMBEDDING == "embedding"
+        assert ModelType.IMAGE == "image"
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_classification_by_name_embedding(self, mock_embedder_class):
+        """Test classification detects 'embedding' in name."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
+
+        # Should auto-detect as embedding
+        result = get_model("openai", "my-custom-embedding-model")
+
+        assert isinstance(result, BaseEmbedder)
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAILLM")
+    def test_classification_default_to_language(self, mock_llm_class):
+        """Test classification defaults to language model."""
         mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
+        mock_llm_class.return_value = mock_instance
 
-        config = ModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
+        # Should default to language model
+        result = get_model("openai", "some-unknown-model")
 
-        result = get_model(config=config, model_name="override-model")
+        assert isinstance(result, BaseLLM)
 
-        mock_rhesis_class.assert_called_once_with(model_name="override-model", api_key="config-key")
-        assert result == mock_instance
 
-    @patch("rhesis.sdk.models.providers.gemini.GeminiLLM")
-    def test_get_model_gemini(self, mock_gemini_class):
-        """Test get_model with gemini provider."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_gemini_class.return_value = mock_instance
+class TestAvailableModels:
+    """Test get_available_language_models and get_available_embedding_models functions."""
 
-        result = get_model("gemini", "gemini-model")
+    def test_get_available_language_models_invalid_provider(self):
+        """Test error for invalid provider."""
+        with pytest.raises(ValueError, match="Provider 'invalid' not supported"):
+            from rhesis.sdk.models.factory import get_available_language_models
 
-        mock_gemini_class.assert_called_once_with(model_name="gemini-model", api_key=None)
-        assert result == mock_instance
+            get_available_language_models("invalid")
 
-    @patch("rhesis.sdk.models.providers.gemini.GeminiLLM")
-    def test_get_model_gemini_with_default(self, mock_gemini_class):
-        """Test get_model with gemini provider using default model."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_gemini_class.return_value = mock_instance
+    def test_get_available_embedding_models_invalid_provider(self):
+        """Test error for invalid provider."""
+        with pytest.raises(ValueError, match="Embedding provider 'invalid' not supported"):
+            from rhesis.sdk.models.factory import get_available_embedding_models
 
-        result = get_model("gemini")
+            get_available_embedding_models("invalid")
 
-        mock_gemini_class.assert_called_once_with(model_name=DEFAULT_MODELS["gemini"], api_key=None)
-        assert result == mock_instance
+    def test_get_available_embedding_models_no_support(self):
+        """Test error when provider doesn't support embeddings."""
+        with pytest.raises(ValueError, match="does not support embedding models"):
+            from rhesis.sdk.models.factory import get_available_embedding_models
 
-    @patch("rhesis.sdk.models.providers.openrouter.OpenRouterLLM")
-    def test_get_model_openrouter(self, mock_openrouter_class):
-        """Test get_model with openrouter provider."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_openrouter_class.return_value = mock_instance
-
-        result = get_model("openrouter", "anthropic/claude-3.5-sonnet")
-
-        mock_openrouter_class.assert_called_once_with(
-            model_name="anthropic/claude-3.5-sonnet", api_key=None
-        )
-        assert result == mock_instance
-
-    @patch("rhesis.sdk.models.providers.openrouter.OpenRouterLLM")
-    def test_get_model_openrouter_with_default(self, mock_openrouter_class):
-        """Test get_model with openrouter provider using default model."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_openrouter_class.return_value = mock_instance
-
-        result = get_model("openrouter")
-
-        mock_openrouter_class.assert_called_once_with(
-            model_name=DEFAULT_MODELS["openrouter"], api_key=None
-        )
-        assert result == mock_instance
-
-    @patch("rhesis.sdk.models.providers.openrouter.OpenRouterLLM")
-    def test_get_model_openrouter_shorthand(self, mock_openrouter_class):
-        """Test get_model with openrouter shorthand syntax."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_openrouter_class.return_value = mock_instance
-
-        result = get_model("openrouter/meta-llama/llama-3.1-8b-instruct")
-
-        mock_openrouter_class.assert_called_once_with(
-            model_name="meta-llama/llama-3.1-8b-instruct", api_key=None
-        )
-        assert result == mock_instance
-
-    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
-    def test_get_model_vertex_ai(self, mock_vertex_ai_class):
-        """Test get_model with vertex_ai provider."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_vertex_ai_class.return_value = mock_instance
-
-        result = get_model("vertex_ai", "gemini-2.5-flash")
-
-        mock_vertex_ai_class.assert_called_once_with(model_name="gemini-2.5-flash")
-        assert result == mock_instance
-
-    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
-    def test_get_model_vertex_ai_with_default(self, mock_vertex_ai_class):
-        """Test get_model with vertex_ai provider using default model."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_vertex_ai_class.return_value = mock_instance
-
-        result = get_model("vertex_ai")
-
-        mock_vertex_ai_class.assert_called_once_with(model_name=DEFAULT_MODELS["vertex_ai"])
-        assert result == mock_instance
-
-    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
-    def test_get_model_vertex_ai_shorthand(self, mock_vertex_ai_class):
-        """Test get_model with vertex_ai shorthand syntax."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_vertex_ai_class.return_value = mock_instance
-
-        result = get_model("vertex_ai/gemini-2.0-flash")
-
-        mock_vertex_ai_class.assert_called_once_with(model_name="gemini-2.0-flash")
-        assert result == mock_instance
-
-    def test_get_model_unsupported_provider(self):
-        """Test get_model with unsupported provider raises ValueError."""
-        with pytest.raises(ValueError, match="Provider unsupported-provider not supported"):
-            get_model("unsupported-provider")
-
-    def test_get_model_unsupported_provider_from_config(self):
-        """Test get_model with unsupported provider from config raises ValueError."""
-        config = ModelConfig(provider="unsupported-provider")
-
-        with pytest.raises(ValueError, match="Provider unsupported-provider not supported"):
-            get_model(config=config)
-
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_priority_order(self, mock_rhesis_class):
-        """Test that parameter priority is correct: kwargs > config > defaults."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
-
-        config = ModelConfig(provider="rhesis", model_name="config-model", api_key="config-key")
-
-        # kwargs should override config
-        result = get_model(
-            config=config,
-            provider="rhesis",
-            model_name="kwargs-model",
-            api_key="kwargs-key",
-        )
-
-        mock_rhesis_class.assert_called_once_with(model_name="kwargs-model", api_key="kwargs-key")
-        assert result == mock_instance
-
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_none_values_use_defaults(self, mock_rhesis_class):
-        """Test that None values fall back to defaults."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
-
-        result = get_model(None, None, None)
-
-        mock_rhesis_class.assert_called_once_with(
-            model_name=DEFAULT_MODELS[DEFAULT_PROVIDER], api_key=None
-        )
-        assert result == mock_instance
-
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_empty_string_provider(self, mock_rhesis_class):
-        """Test get_model with empty string provider - should use default."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
-
-        result = get_model("", "test-model")
-
-        mock_rhesis_class.assert_called_once_with(model_name="test-model", api_key=None)
-        assert result == mock_instance
-
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_extra_params_passed_through(self, mock_rhesis_class):
-        """Test that extra parameters are passed through to the provider."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
-
-        # Note: The current implementation doesn't pass extra_params to providers
-        # This test documents the current behavior
-        result = get_model("rhesis", "test-model", extra_params={"temperature": 0.5})
-
-        mock_rhesis_class.assert_called_once_with(
-            model_name="test-model", api_key=None, extra_params={"temperature": 0.5}
-        )
-        assert result == mock_instance
-
-
-class TestModelFactoryIntegration:
-    """Integration tests for the model factory."""
-
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_rhesis_integration(self, mock_rhesis_class):
-        """Test full integration with rhesis provider."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
-
-        # Test all creation methods for rhesis
-        models = [
-            get_model(),  # defaults
-            get_model("rhesis"),  # provider only
-            get_model("rhesis", "custom-model"),  # provider + model
-            get_model("rhesis/custom-model"),  # shorthand
-            get_model(config=ModelConfig(provider="rhesis", model_name="custom-model")),  # config
-        ]
-
-        assert all(isinstance(model, Mock) for model in models)
-        assert mock_rhesis_class.call_count == 5
-
-    @patch("rhesis.sdk.models.providers.gemini.GeminiLLM")
-    def test_gemini_integration(self, mock_gemini_class):
-        """Test full integration with gemini provider."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_gemini_class.return_value = mock_instance
-
-        # Test all creation methods for gemini
-        models = [
-            get_model("gemini"),  # provider only
-            get_model("gemini", "custom-model"),  # provider + model
-            get_model("gemini/custom-model"),  # shorthand
-            get_model(config=ModelConfig(provider="gemini", model_name="custom-model")),  # config
-        ]
-
-        assert all(isinstance(model, Mock) for model in models)
-        assert mock_gemini_class.call_count == 4
-
-    @patch("rhesis.sdk.models.providers.openrouter.OpenRouterLLM")
-    def test_openrouter_integration(self, mock_openrouter_class):
-        """Test full integration with openrouter provider."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_openrouter_class.return_value = mock_instance
-
-        # Test all creation methods for openrouter
-        models = [
-            get_model("openrouter"),  # provider only
-            get_model("openrouter", "anthropic/claude-3.5-sonnet"),  # provider + model
-            get_model("openrouter/anthropic/claude-3.5-sonnet"),  # shorthand
-            get_model(
-                config=ModelConfig(provider="openrouter", model_name="anthropic/claude-3.5-sonnet")
-            ),  # config
-        ]
-
-        assert all(isinstance(model, Mock) for model in models)
-        assert mock_openrouter_class.call_count == 4
-
-    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
-    def test_vertex_ai_integration(self, mock_vertex_ai_class):
-        """Test full integration with vertex_ai provider."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_vertex_ai_class.return_value = mock_instance
-
-        # Test all creation methods for vertex_ai
-        models = [
-            get_model("vertex_ai"),  # provider only
-            get_model("vertex_ai", "custom-model"),  # provider + model
-            get_model("vertex_ai/custom-model"),  # shorthand
-            get_model(
-                config=ModelConfig(provider="vertex_ai", model_name="custom-model")
-            ),  # config
-        ]
-
-        assert all(isinstance(model, Mock) for model in models)
-        assert mock_vertex_ai_class.call_count == 4
-
-
-class TestModelFactoryEdgeCases:
-    """Test edge cases and error conditions."""
-
-    def test_get_model_with_invalid_config_type(self):
-        """Test get_model with invalid config type."""
-        with pytest.raises(AttributeError):
-            get_model(config="not-a-config-object")
-
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_with_very_long_model_name(self, mock_rhesis_class):
-        """Test get_model with very long model name."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
-
-        long_name = "a" * 1000
-        result = get_model("rhesis", long_name)
-
-        mock_rhesis_class.assert_called_once_with(model_name=long_name, api_key=None)
-        assert result == mock_instance
-
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_with_special_characters(self, mock_rhesis_class):
-        """Test get_model with special characters in model name."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
-
-        special_name = "model-with-special-chars!@#$%^&*()"
-        result = get_model("rhesis", special_name)
-
-        mock_rhesis_class.assert_called_once_with(model_name=special_name, api_key=None)
-        assert result == mock_instance
-
-    def test_get_model_provider_case_sensitivity(self):
-        """Test that provider names are case-sensitive."""
-        # This test documents current behavior - providers are case-sensitive
-        with pytest.raises(ValueError, match="Provider Rhesis not supported"):
-            get_model("Rhesis")
-
-    @patch("rhesis.sdk.models.providers.native.RhesisLLM")
-    def test_get_model_api_key_none_vs_empty_string(self, mock_rhesis_class):
-        """Test that None and empty string API keys are handled the same."""
-        mock_instance = Mock(spec=BaseLLM)
-        mock_rhesis_class.return_value = mock_instance
-
-        # Both should result in api_key=None being passed
-        get_model("rhesis", "test-model", None)
-        get_model("rhesis", "test-model", "")
-
-        expected_calls = [
-            (({"model_name": "test-model", "api_key": None}),),
-            (({"model_name": "test-model", "api_key": None}),),
-        ]
-
-        assert mock_rhesis_class.call_args_list == expected_calls
-
-
-class TestGetAvailableLanguageModels:
-    """Test the get_available_language_models function."""
-
-    @patch("rhesis.sdk.models.providers.openai.OpenAILLM.get_available_models")
-    def test_get_available_language_models_openai(self, mock_get_models):
-        """Test getting available language models for OpenAI."""
-        mock_get_models.return_value = ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"]
-
-        models = get_available_language_models("openai")
-
-        assert models == ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"]
-        mock_get_models.assert_called_once()
-
-    @patch("rhesis.sdk.models.providers.gemini.GeminiLLM.get_available_models")
-    def test_get_available_language_models_gemini(self, mock_get_models):
-        """Test getting available language models for Gemini."""
-        mock_get_models.return_value = ["gemini-2.0-flash", "gemini-2.5-flash"]
-
-        models = get_available_language_models("gemini")
-
-        assert models == ["gemini-2.0-flash", "gemini-2.5-flash"]
-        mock_get_models.assert_called_once()
-
-    def test_get_available_language_models_unsupported_provider(self):
-        """Test getting models for unsupported provider raises ValueError."""
-        with pytest.raises(ValueError, match="Provider 'unsupported' not supported"):
-            get_available_language_models("unsupported")
-
-    def test_get_available_language_models_non_litellm_provider(self):
-        """Test getting models for provider that doesn't support listing."""
-        with pytest.raises(
-            ValueError, match="Provider 'rhesis' does not support listing available models"
-        ):
-            get_available_language_models("rhesis")
-
-
-class TestGetAvailableEmbeddingModels:
-    """Test the get_available_embedding_models function."""
-
-    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder.get_available_models")
-    def test_get_available_embedding_models_openai(self, mock_get_models):
-        """Test getting available embedding models for OpenAI."""
-        mock_get_models.return_value = [
-            "text-embedding-3-small",
-            "text-embedding-3-large",
-            "text-embedding-ada-002",
-        ]
-
-        models = get_available_embedding_models("openai")
-
-        assert models == [
-            "text-embedding-3-small",
-            "text-embedding-3-large",
-            "text-embedding-ada-002",
-        ]
-        mock_get_models.assert_called_once()
-
-    @patch("rhesis.sdk.models.providers.gemini.GeminiEmbedder.get_available_models")
-    def test_get_available_embedding_models_gemini(self, mock_get_models):
-        """Test getting available embedding models for Gemini."""
-        mock_get_models.return_value = ["text-embedding-004", "gemini-embedding-001"]
-
-        models = get_available_embedding_models("gemini")
-
-        assert models == ["text-embedding-004", "gemini-embedding-001"]
-        mock_get_models.assert_called_once()
-
-    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAIEmbedder.get_available_models")
-    def test_get_available_embedding_models_vertex_ai(self, mock_get_models):
-        """Test getting available embedding models for Vertex AI."""
-        mock_get_models.return_value = ["text-embedding-005", "text-embedding-004"]
-
-        models = get_available_embedding_models("vertex_ai")
-
-        assert models == ["text-embedding-005", "text-embedding-004"]
-        mock_get_models.assert_called_once()
-
-    def test_get_available_embedding_models_unsupported_provider(self):
-        """Test getting embedding models for unsupported provider raises ValueError."""
-        with pytest.raises(ValueError, match="Embedding provider 'unsupported' not supported"):
-            get_available_embedding_models("unsupported")
-
-    def test_get_available_embedding_models_non_embedding_provider(self):
-        """Test getting embedding models for provider that doesn't support embeddings."""
-        with pytest.raises(ValueError, match="Embedding provider 'anthropic' not supported"):
             get_available_embedding_models("anthropic")

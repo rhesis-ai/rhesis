@@ -28,7 +28,7 @@ interface ProviderSelectionDialogProps {
   onClose: () => void;
   onSelectProvider: (provider: TypeLookup) => void;
   providers: TypeLookup[];
-  modelType?: 'llm' | 'embedding';
+  modelType?: 'language' | 'embedding';
 }
 
 export function ProviderSelectionDialog({
@@ -36,7 +36,7 @@ export function ProviderSelectionDialog({
   onClose,
   onSelectProvider,
   providers,
-  modelType = 'llm',
+  modelType = 'language',
 }: ProviderSelectionDialogProps) {
   // Filter out system-managed providers (like 'rhesis') that users cannot create
   // and filter by model type (embedding providers for embedding models)

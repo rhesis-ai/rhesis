@@ -1032,7 +1032,7 @@ def _get_user_llm(db: Session, user: User):
     """Get a configured BaseLLM instance for the user."""
     model_or_provider = get_user_generation_model(db, user)
     if isinstance(model_or_provider, str):
-        return get_model(provider=model_or_provider)
+        return get_model(model_or_provider)
     return model_or_provider
 
 

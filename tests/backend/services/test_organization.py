@@ -226,6 +226,7 @@ class TestLoadInitialData:
                 db=test_db,
                 type_name="ProviderType",
                 type_value="rhesis",
+                description="Rhesis",
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 commit=False,

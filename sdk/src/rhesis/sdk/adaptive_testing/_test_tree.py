@@ -313,8 +313,8 @@ class TestTree:
 
         embedder : BaseEmbedder
             The text embedding model to use for similarity-based suggestions. Should be an
-            instance of `rhesis.sdk.models.BaseEmbedder` (e.g., from `get_embedder()`).
-            If not provided, defaults to OpenAI text-embedding-3-small (768 dimensions).
+            instance of `rhesis.sdk.models.BaseEmbedder` (e.g., from `get_model()`).
+            If not provided, defaults to the user's Rhesis embedding model.
 
         user : str
             The user name to author new tests with.

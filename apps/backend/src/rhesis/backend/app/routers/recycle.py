@@ -100,8 +100,12 @@ def list_available_models(
 
     model_info = []
     for table_name, model_class in sorted(model_map.items()):
-        # Get model metadata
-        mapper = inspect(model_class)
+        try:
+            # Get model metadata (skip if class is not fully mapped, e.g. in test env)
+            mapper = inspect(model_class)
+        except UnmappedClassError:
+            logger.debug(f"Skipping unmapped model in list_available_models: {model_class}")
+            continue
 
         model_info.append(
             {

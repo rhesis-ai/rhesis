@@ -18,7 +18,7 @@ from rhesis.backend.app.constants import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
-from rhesis.sdk.models.factory import get_embedder, get_model
+from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger(__name__)
 
@@ -237,7 +237,9 @@ def _fetch_and_configure_model(
 
     # Use SDK's get_model to create configured instance with error handling
     try:
-        configured_model = get_model(provider=provider, model_name=model_name, api_key=api_key)
+        configured_model = get_model(
+            provider=provider, model_name=model_name, api_key=api_key, model_type="language"
+        )
         logger.info(
             f"[LLM_UTILS] ✓ Returning configured BaseLLM instance: "
             f"{type(configured_model).__name__}"
@@ -278,7 +280,7 @@ def _fetch_and_configure_model(
 
 
 def _get_user_model(
-    db: Session, user: User, model_type: str, default_model: str
+    db: Session, user: User, purpose: str, default_model: str
 ) -> Union[str, BaseLLM]:
     """
     Internal helper to get user's configured model for a specific purpose.
@@ -292,7 +294,7 @@ def _get_user_model(
     Args:
         db: Database session
         user: Current user
-        model_type: Type of model ("generation", "evaluation", or "embedding")
+        purpose: What the model is used for ("generation", "evaluation", or "embedding")
         default_model: Default model to use if user hasn't configured one
 
     Returns:
@@ -303,12 +305,12 @@ def _get_user_model(
         Never accepts organization_id as a parameter that could be manipulated.
     """
     logger.info(
-        f"[LLM_UTILS] Getting {model_type} model for user_id={user.id}, "
+        f"[LLM_UTILS] Getting {purpose} model for user_id={user.id}, "
         f"email={user.email}, org_id={user.organization_id}"
     )
 
     # Get the appropriate model settings based on type
-    model_settings = getattr(user.settings.models, model_type)
+    model_settings = getattr(user.settings.models, purpose)
     model_id = model_settings.model_id
 
     logger.info(f"[LLM_UTILS] User settings: model_id={model_id}")
@@ -371,10 +373,10 @@ def _fetch_and_configure_embedder(
         logger.info(f"[LLM_UTILS] ✓ Falling back to default embedder: {default_model}")
         return default_model
 
-    # Use SDK's get_embedder to create configured instance with error handling
+    # Use SDK's get_model to create configured instance with error handling
     try:
-        configured_embedder = get_embedder(
-            provider=provider, model_name=model_name, api_key=api_key
+        configured_embedder = get_model(
+            provider=provider, model_name=model_name, api_key=api_key, model_type="embedding"
         )
         logger.info(
             f"[LLM_UTILS] ✓ Returning configured BaseEmbedder instance: "

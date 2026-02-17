@@ -42,7 +42,7 @@ class TestConfigGeneratorService:
         model = get_user_generation_model(self.db, self.user)
         # If model is a string (provider name), convert it to an LLM instance
         if isinstance(model, str):
-            self.llm = get_model(provider=model)
+            self.llm = get_model(model)
         else:
             self.llm = model
 

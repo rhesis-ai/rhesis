@@ -65,7 +65,7 @@ class Model(BaseEntity):
     # Model configuration
     provider: Optional[str] = None  # Provider name (e.g., "openai", "anthropic")
     model_name: Optional[str] = None
-    model_type: Optional[Literal["llm", "embedding"]] = "llm"
+    model_type: Optional[Literal["language", "embedding"]] = "language"
     key: Optional[str] = None  # Provider API key
 
     # Relationships (resolved automatically from provider)
@@ -238,21 +238,21 @@ class Model(BaseEntity):
         if not self.model_name:
             raise ValueError("Model name is required to create a model instance")
 
-        if self.model_type == "embedding":
-            from rhesis.sdk.models.factory import get_embedder
+        from rhesis.sdk.models.factory import get_model
 
-            return get_embedder(
+        if self.model_type == "embedding":
+            return get_model(
                 provider=self.provider,
                 model_name=self.model_name,
                 api_key=self.key,
+                model_type="embedding",
             )
-
-        from rhesis.sdk.models.factory import get_model
 
         return get_model(
             provider=self.provider,
             model_name=self.model_name,
             api_key=self.key,
+            model_type="language",
         )
 
 

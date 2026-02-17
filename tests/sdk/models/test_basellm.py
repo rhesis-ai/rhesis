@@ -40,6 +40,6 @@ def test_base_llm_concrete_methods():
     test_llm = TestLLM(model_name)
 
     # Test concrete method
-    assert test_llm.get_model_name() == "Class name: TestLLM, model name: test-model"
+    assert test_llm.get_model_name() == "TestLLM: test-model"
     assert model_name in test_llm.model_name
     assert test_llm.model == "test-model-object"

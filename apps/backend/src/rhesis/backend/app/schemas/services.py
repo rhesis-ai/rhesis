@@ -157,6 +157,10 @@ class GenerateContentRequest(BaseModel):
     )
 
 
+class GenerateEmbeddingRequest(BaseModel):
+    text: str
+
+
 class TestConfigRequest(BaseModel):
     prompt: str
     project_id: Optional[UUID4] = None

@@ -1,8 +1,10 @@
 import os
 
+from rhesis.sdk.models.defaults import DEFAULT_LANGUAGE_MODELS, model_name_from_id
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-DEFAULT_MODEL_NAME = "togethercomputer/llama-2-70b-chat"
+DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["together_ai"]
+DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 
 
 class TogetherAILLM(LiteLLM):

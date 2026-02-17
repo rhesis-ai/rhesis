@@ -14,6 +14,7 @@ from rhesis.backend.app.schemas.services import (
     ExtractMCPRequest,
     ExtractMCPResponse,
     GenerateContentRequest,
+    GenerateEmbeddingRequest,
     GenerateMultiTurnTestsRequest,
     GenerateMultiTurnTestsResponse,
     GenerateTestsRequest,
@@ -250,6 +251,28 @@ async def generate_content_endpoint(request: GenerateContentRequest):
         error_msg = str(e) if str(e) else "Unknown error"
         logger.error(f"Failed to generate content: {error_msg}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Failed to generate content: {error_msg}")
+
+
+@router.post("/generate/embedding")
+async def generate_embedding_endpoint(request: GenerateEmbeddingRequest):
+    """
+    Generate an embedding for a given text.
+    """
+    try:
+        from rhesis.backend.app.constants import DEFAULT_EMBEDDING_MODEL
+        from rhesis.sdk.models.factory import get_model
+
+        text = request.text
+
+        # First arg is provider; "provider/model_name" is resolved in the background
+        embedder = get_model(DEFAULT_EMBEDDING_MODEL, model_type="embedding")
+        embedding = embedder.generate(text=text)
+
+        return embedding
+    except Exception as e:
+        error_msg = str(e) if str(e) else "Unknown error"
+        logger.error(f"Failed to generate embedding: {error_msg}", exc_info=True)
+        raise HTTPException(status_code=400, detail=f"Failed to generate embedding: {error_msg}")
 
 
 @router.post("/generate/tests", response_model=GenerateTestsResponse)

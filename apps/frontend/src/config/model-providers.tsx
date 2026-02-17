@@ -22,7 +22,7 @@ import Image from 'next/image';
  */
 
 // Providers currently supported by the Rhesis SDK
-// These must match the keys in PROVIDER_REGISTRY in sdk/src/rhesis/sdk/models/factory.py
+// These must match the keys in LANGUAGE_MODEL_PROVIDER_REGISTRY in sdk/src/rhesis/sdk/models/factory.py
 export const SUPPORTED_PROVIDERS = [
   'openai',
   'gemini',
@@ -44,8 +44,6 @@ export const SUPPORTED_PROVIDERS = [
 
 export const LOCAL_PROVIDERS = ['huggingface', 'lmformatenforcer', 'ollama'];
 
-// Providers that support embedding models
-// These must match the keys in EMBEDDER_REGISTRY in sdk/src/rhesis/sdk/models/factory.py
 export const EMBEDDING_PROVIDERS = ['openai', 'gemini', 'vertex_ai'];
 
 // Providers that require custom endpoint URLs (self-hosted or local)

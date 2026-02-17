@@ -29,7 +29,7 @@ class ModelConnectionService:
         model_name: str,
         api_key: str,
         endpoint: str | None = None,
-        model_type: Literal["llm", "embedding"] = "llm",
+        model_type: Literal["language", "embedding"] = "language",
     ) -> ModelConnectionTestResult:
         """
         Test a model connection by attempting to initialize and use the model.
@@ -45,7 +45,7 @@ class ModelConnectionService:
             model_name: The specific model name
             api_key: The API key for authentication
             endpoint: Optional endpoint URL for self-hosted providers
-            model_type: Type of model - "llm" or "embedding"
+            model_type: Type of model - "language" or "embedding"
 
         Returns:
             ModelConnectionTestResult: Result of the connection test
@@ -73,7 +73,7 @@ class ModelConnectionService:
                     model_name=model_name,
                 )
 
-            if model_type == "llm":
+            if model_type == "language":
                 return ModelConnectionService._test_llm_connection(
                     provider, model_name, api_key, endpoint
                 )
@@ -84,7 +84,7 @@ class ModelConnectionService:
             else:
                 return ModelConnectionTestResult(
                     success=False,
-                    message=f"Invalid model type: {model_type}. Must be 'llm' or 'embedding'",
+                    message=f"Invalid model type: {model_type}. Must be 'language' or 'embedding'",
                     provider=provider,
                     model_name=model_name,
                 )
@@ -173,7 +173,7 @@ class ModelConnectionService:
     ) -> ModelConnectionTestResult:
         """Test an embedding model connection."""
         try:
-            from rhesis.sdk.models.factory import EmbedderConfig, get_embedder
+            from rhesis.sdk.models.factory import EmbeddingModelConfig, get_model
 
             # Build extra params for providers that need them
             extra_params = {}
@@ -181,7 +181,7 @@ class ModelConnectionService:
                 extra_params["base_url"] = endpoint
 
             # Create embedder config
-            config = EmbedderConfig(
+            config = EmbeddingModelConfig(
                 provider=provider,
                 model_name=model_name,
                 api_key=api_key,
@@ -190,7 +190,7 @@ class ModelConnectionService:
 
             # Try to create the embedder instance
             try:
-                embedder = get_embedder(config=config)
+                embedder = get_model(config=config, model_type="embedding")
             except ValueError as e:
                 # Provider not supported or invalid configuration
                 logger.warning(f"Embedding model configuration error: {str(e)}")

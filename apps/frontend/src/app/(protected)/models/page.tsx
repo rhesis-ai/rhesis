@@ -39,8 +39,8 @@ export default function ModelsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [modelToDelete, setModelToDelete] = useState<Model | null>(null);
   const [selectedModelType, setSelectedModelType] = useState<
-    'llm' | 'embedding'
-  >('llm');
+    'language' | 'embedding'
+  >('language');
 
   useEffect(() => {
     async function loadData() {
@@ -91,7 +91,7 @@ export default function ModelsPage() {
   }, [session]);
 
   const handleAddLLM = () => {
-    setSelectedModelType('llm');
+    setSelectedModelType('language');
     setProviderSelectionOpen(true);
   };
 
@@ -161,7 +161,7 @@ export default function ModelsPage() {
     [session?.session_token]
   );
 
-  // Validate any models set as defaults (generation or evaluation)
+  // Validate any models set as defaults (generation, evaluation, or embedding)
   // This ensures users are warned if their default models are misconfigured
   // and clears warnings for models that are no longer defaults
   useEffect(() => {
@@ -171,13 +171,16 @@ export default function ModelsPage() {
 
     const defaultGenerationId = userSettings?.models?.generation?.model_id;
     const defaultEvaluationId = userSettings?.models?.evaluation?.model_id;
+    const defaultEmbeddingId = userSettings?.models?.embedding?.model_id;
 
     // Clear validation status for models that are NOT currently defaults
     setModelValidationStatus(prev => {
       const newStatus = new Map(prev);
       connectedModels.forEach(model => {
         const isDefault =
-          model.id === defaultGenerationId || model.id === defaultEvaluationId;
+          model.id === defaultGenerationId ||
+          model.id === defaultEvaluationId ||
+          model.id === defaultEmbeddingId;
         if (!isDefault && newStatus.has(model.id)) {
           // Remove validation status for non-default models
           newStatus.delete(model.id);
@@ -209,10 +212,26 @@ export default function ModelsPage() {
         validateModel(defaultEvaluationModel.id);
       }
     }
+
+    // Validate default embedding model
+    if (defaultEmbeddingId) {
+      const defaultEmbeddingModel = connectedModels.find(
+        m => m.id === defaultEmbeddingId
+      );
+      // Only validate if it's different from generation and evaluation models
+      if (
+        defaultEmbeddingModel &&
+        defaultEmbeddingModel.id !== defaultGenerationId &&
+        defaultEmbeddingModel.id !== defaultEvaluationId
+      ) {
+        validateModel(defaultEmbeddingModel.id);
+      }
+    }
   }, [
     connectedModels,
     userSettings?.models?.generation?.model_id,
     userSettings?.models?.evaluation?.model_id,
+    userSettings?.models?.embedding?.model_id,
     session?.session_token,
     validateModel,
   ]);
@@ -241,7 +260,7 @@ export default function ModelsPage() {
     event.stopPropagation();
     setModelToEdit(model);
     setSelectedProvider(model.provider_type || null);
-    setSelectedModelType(model.model_type || 'llm');
+    setSelectedModelType(model.model_type || 'language');
     setConnectionDialogOpen(true);
   };
 
@@ -257,10 +276,11 @@ export default function ModelsPage() {
         prev.map(model => (model.id === modelId ? updatedModel : model))
       );
 
-      // Re-validate if this is a default model (generation or evaluation)
+      // Re-validate if this is a default model (generation, evaluation, or embedding)
       if (
         userSettings?.models?.generation?.model_id === modelId ||
-        userSettings?.models?.evaluation?.model_id === modelId
+        userSettings?.models?.evaluation?.model_id === modelId ||
+        userSettings?.models?.embedding?.model_id === modelId
       ) {
         validateModel(modelId);
       }
@@ -294,8 +314,8 @@ export default function ModelsPage() {
   };
 
   // Separate models by type
-  const llmModels = connectedModels.filter(
-    model => !model.model_type || model.model_type === 'llm'
+  const languageModels = connectedModels.filter(
+    model => !model.model_type || model.model_type === 'language'
   );
   const embeddingModels = connectedModels.filter(
     model => model.model_type === 'embedding'
@@ -306,8 +326,8 @@ export default function ModelsPage() {
       <Box sx={{ mb: 3 }}>
         <Typography color="text.secondary">
           Connect language models for test generation and
-          language-model-as-judge evaluation, and embedding models. Set your
-          default models for each purpose.
+          language-model-as-judge evaluation, and embedding models for semantic
+          search. Set your default models for each purpose.
         </Typography>
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
@@ -341,7 +361,7 @@ export default function ModelsPage() {
               }}
             >
               {/* Connected Language Model Cards */}
-              {llmModels.map(model => (
+              {languageModels.map(model => (
                 <ConnectedModelCard
                   key={model.id}
                   model={model}
