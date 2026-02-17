@@ -65,7 +65,7 @@ class Model(BaseEntity):
     # Model configuration
     provider: Optional[str] = None  # Provider name (e.g., "openai", "anthropic")
     model_name: Optional[str] = None
-    model_type: Optional[Literal["llm", "embedding"]] = "llm"
+    model_type: Optional[Literal["language", "embedding"]] = "language"
     key: Optional[str] = None  # Provider API key
 
     # Relationships (resolved automatically from provider)

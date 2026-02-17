@@ -59,11 +59,8 @@ class BaseModel(ABC):
         # Get API key if available
         api_key = getattr(self, "api_key", None)
 
-        # Determine model_type from MODEL_TYPE class variable
-        model_type = getattr(self, "MODEL_TYPE", "llm")
-        # Map "language" to "llm" for API compatibility
-        if model_type == "language":
-            model_type = "llm"
+        # Determine model_type from MODEL_TYPE class variable ("language" or "embedding")
+        model_type = getattr(self, "MODEL_TYPE", "language")
 
         model = Model(
             name=name,
