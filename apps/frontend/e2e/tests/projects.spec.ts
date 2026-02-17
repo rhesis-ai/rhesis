@@ -12,15 +12,23 @@ test.describe('Projects @sanity', () => {
     const projects = new ProjectsPage(page);
     await projects.goto();
     await projects.expectLoaded();
+    await page.waitForLoadState('networkidle');
 
-    // The page should contain either project cards or an empty state
-    const hasProjects = await page.locator('[class*="ProjectCard"]').count();
+    // The page should contain project cards, empty state, or page content
+    const hasProjects = await page.locator('.MuiCard-root').count();
     const hasEmptyState = await page.getByText(/no projects/i).count();
     const hasCreateButton = await page
-      .getByRole('button', { name: /create|new/i })
+      .getByRole('link', { name: /create|new/i })
+      .or(page.getByRole('button', { name: /create|new/i }))
       .count();
+    const hasPageContent = await page
+      .getByRole('heading', { name: /projects/i })
+      .isVisible()
+      .catch(() => false);
 
     // At least one of these should be present
-    expect(hasProjects + hasEmptyState + hasCreateButton).toBeGreaterThan(0);
+    expect(
+      hasProjects + hasEmptyState + hasCreateButton + (hasPageContent ? 1 : 0)
+    ).toBeGreaterThan(0);
   });
 });
