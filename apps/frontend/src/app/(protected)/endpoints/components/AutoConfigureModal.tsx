@@ -38,7 +38,7 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
         justifyContent: 'center',
         border: 1,
         borderColor: 'divider',
-        borderRadius: 1,
+        borderRadius: theme => `${theme.shape.borderRadius}px`,
         backgroundColor: 'background.default',
       }}
     >
@@ -181,7 +181,7 @@ export default function AutoConfigureModal({
   const editorWrapperStyle = {
     border: 1,
     borderColor: 'divider',
-    borderRadius: 1,
+    borderRadius: `${theme.shape.borderRadius}px`,
     overflow: 'hidden',
   };
 
