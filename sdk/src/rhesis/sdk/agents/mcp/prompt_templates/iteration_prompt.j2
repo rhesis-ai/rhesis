@@ -1,0 +1,22 @@
+User Query: {{ user_query }}
+
+Available MCP Tools:
+{{ tools_text }}
+
+{% if history_text %}
+Execution History:
+{{ history_text }}
+
+Based on the query, available tools, and execution history above, decide what to do next.
+
+{% else %}
+This is the first iteration. Analyze the query and decide what tools to call.
+
+{% endif %}
+Your response should follow this structure:
+- reasoning: Your step-by-step thinking about what to do
+- action: Either "call_tool" (to execute tools) or "finish" (when you have the answer)
+- tool_calls: List of tools to call if action="call_tool" (can be multiple)
+- final_answer: Your complete answer if action="finish"
+
+Think carefully about what information you need and how to get it efficiently.

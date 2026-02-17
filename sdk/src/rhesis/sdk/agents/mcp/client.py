@@ -1,0 +1,233 @@
+"""MCP (Model Context Protocol) client for connecting to external data sources."""
+
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional
+
+import httpx
+import jinja2
+from mcp import ClientSession, StdioServerParameters  # type: ignore[import-untyped]
+from mcp.client.sse import sse_client  # type: ignore[import-untyped]
+from mcp.client.stdio import stdio_client  # type: ignore[import-untyped]
+from mcp.client.streamable_http import streamablehttp_client  # type: ignore[import-untyped]
+
+
+class MCPClient:
+    """Client for connecting to and communicating with MCP servers.
+
+    Supports multiple transport types (stdio, HTTP, SSE).
+    """
+
+    def __init__(
+        self,
+        server_name: str,
+        transport_type: Literal["stdio", "http", "sse"],
+        transport_params: Dict[str, Any],
+    ):
+        self.server_name = server_name
+        self.transport_type = transport_type
+        self.transport_params = transport_params
+        self.session: Optional[ClientSession] = None
+        self._transport_context = None
+
+    async def connect(self) -> None:
+        """Connect to MCP server using the configured transport."""
+        if self.transport_type == "stdio":
+            await self._connect_stdio()
+        elif self.transport_type == "http":
+            await self._connect_http()
+        elif self.transport_type == "sse":
+            await self._connect_sse()
+
+    async def _connect_stdio(self) -> None:
+        """Connect via stdio transport."""
+        server_params = StdioServerParameters(
+            command=self.transport_params["command"],
+            args=self.transport_params["args"],
+            env=self.transport_params.get("env", {}),
+        )
+        stdio_context = stdio_client(server_params)
+        read, write = await stdio_context.__aenter__()
+        self._transport_context = stdio_context
+        self.session = ClientSession(read, write)
+        await self.session.__aenter__()
+        await self.session.initialize()
+
+    async def _validate_http_connection(self, url: str, headers: Dict[str, Any]) -> None:
+        """Validate HTTP connection before entering transport context."""
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code in (400, 401, 403):
+                    error_msg = f"{e.response.status_code} {e.response.reason_phrase}"
+                    raise ConnectionError(error_msg) from e
+            except httpx.RequestError as e:
+                raise ConnectionError(str(e)) from e
+
+    async def _connect_http(self) -> None:
+        """Connect via HTTP/StreamableHTTP transport."""
+        url = self.transport_params["url"]
+        headers = self.transport_params.get("headers", {})
+        await self._validate_http_connection(url, headers)
+        http_context = streamablehttp_client(url=url, headers=headers)
+        read, write, get_session_id = await http_context.__aenter__()
+        self._transport_context = http_context
+        self.session = ClientSession(read, write)
+        await self.session.__aenter__()
+        await self.session.initialize()
+
+    async def _connect_sse(self) -> None:
+        """Connect via SSE transport."""
+        url = self.transport_params["url"]
+        headers = self.transport_params.get("headers", {})
+        await self._validate_http_connection(url, headers)
+        sse_context = sse_client(url=url, headers=headers)
+        read, write = await sse_context.__aenter__()
+        self._transport_context = sse_context
+        self.session = ClientSession(read, write)
+        await self.session.__aenter__()
+        await self.session.initialize()
+
+    async def disconnect(self) -> None:
+        """Disconnect from the MCP server."""
+        if self.session:
+            await self.session.__aexit__(None, None, None)
+            self.session = None
+        if self._transport_context:
+            await self._transport_context.__aexit__(None, None, None)
+            self._transport_context = None
+
+    async def list_resources(self) -> List[Dict[str, Any]]:
+        """List all available resources from the MCP server."""
+        if not self.session:
+            raise RuntimeError("Not connected to MCP server. Call connect() first.")
+        result = await self.session.list_resources()
+        return [
+            {
+                "uri": resource.uri,
+                "name": resource.name,
+                "description": resource.description,
+                "mimeType": (resource.mimeType if hasattr(resource, "mimeType") else None),
+            }
+            for resource in result.resources
+        ]
+
+    async def read_resource(self, uri: str) -> str:
+        """Read content from a specific resource."""
+        if not self.session:
+            raise RuntimeError("Not connected to MCP server. Call connect() first.")
+        result = await self.session.read_resource(uri)
+        if result.contents:
+            content_parts = []
+            for content in result.contents:
+                if hasattr(content, "text"):
+                    content_parts.append(content.text)
+                elif hasattr(content, "data"):
+                    content_parts.append(str(content.data))
+            return "\n".join(content_parts)
+        return ""
+
+    async def call_tool(
+        self,
+        tool_name: str,
+        arguments: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Call a tool provided by the MCP server."""
+        if not self.session:
+            raise RuntimeError("Not connected to MCP server. Call connect() first.")
+        result = await self.session.call_tool(tool_name, arguments or {})
+        return result
+
+    async def list_tools(self) -> List[Dict[str, Any]]:
+        """List all tools exposed by this MCP server."""
+        if not self.session:
+            raise RuntimeError("Not connected to MCP server. Call connect() first.")
+        result = await self.session.list_tools()
+        return [
+            {
+                "name": tool.name,
+                "description": tool.description,
+                "inputSchema": tool.inputSchema,
+            }
+            for tool in result.tools
+        ]
+
+
+class MCPClientFactory:
+    """Factory for creating MCP clients from configuration."""
+
+    def __init__(
+        self,
+        config_path: Optional[str] = None,
+        config_dict: Optional[Dict] = None,
+    ):
+        if config_path is None and config_dict is None:
+            raise ValueError("Either 'config_path' or 'config_dict' must be provided.")
+        self.config_path = config_path
+        self.config_dict = config_dict
+
+    def _load_config(self) -> Dict[str, Any]:
+        """Load MCP configuration from file or config dict."""
+        if self.config_dict is not None:
+            return self.config_dict
+
+        config_file = Path(self.config_path)
+        if not config_file.exists():
+            raise FileNotFoundError(f"MCP configuration file not found at {config_file}.")
+        with open(config_file, "r") as f:
+            config = json.load(f)
+        return config
+
+    def create_client(self, server_name: str) -> MCPClient:
+        """Create an MCP client from configuration."""
+        config = self._load_config()
+
+        servers = config.get("mcpServers") or config.get("servers")
+        if not servers:
+            raise ValueError("Invalid MCP configuration: no 'mcpServers' or 'servers' key found")
+
+        if server_name not in servers:
+            available = ", ".join(servers.keys())
+            raise ValueError(f"Server '{server_name}' not found. Available: {available}")
+
+        server_config = servers[server_name]
+        transport_type = server_config.get("transport")
+        client = MCPClient(
+            server_name=server_name,
+            transport_type=transport_type,
+            transport_params=server_config,
+        )
+        return client
+
+    @classmethod
+    def from_tool_config(cls, tool_config: Dict, credentials: Dict[str, str]):
+        """Create factory from MCP config with credential substitution."""
+        env = jinja2.Environment(autoescape=False)
+        template = env.from_string(json.dumps(tool_config))
+        rendered = template.render(**credentials)
+        processed_config = json.loads(rendered)
+
+        if "mcpServers" not in processed_config:
+            raise ValueError("tool_config must contain 'mcpServers' key.")
+        return cls(config_dict=processed_config)
+
+    @classmethod
+    def from_provider(cls, provider: str, credentials: Dict[str, str]):
+        """Create factory from a built-in provider template."""
+        templates_dir = Path(__file__).parent / "provider_templates"
+        template_file = templates_dir / f"{provider}.json.j2"
+
+        if not template_file.exists():
+            available = [p.stem.split(".")[0] for p in templates_dir.glob("*.json.j2")]
+            raise ValueError(f"Provider '{provider}' not supported. Available: {available}")
+
+        env = jinja2.Environment(autoescape=False)
+        template = env.from_string(template_file.read_text())
+        rendered = template.render(**credentials)
+        tool_config = json.loads(rendered)
+
+        if "mcpServers" not in tool_config:
+            raise ValueError(f"Provider template for '{provider}' is invalid.")
+        return cls(config_dict=tool_config)

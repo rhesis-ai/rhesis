@@ -1,8 +1,4 @@
-"""MCP (Model Context Protocol) - backward compatibility re-exports.
-
-All MCP components have moved to rhesis.sdk.agents.mcp.
-This module re-exports them for backward compatibility.
-"""
+"""MCP (Model Context Protocol) client and agent for autonomous tool usage."""
 
 from rhesis.sdk.agents.mcp.agent import MCPAgent
 from rhesis.sdk.agents.mcp.client import MCPClient, MCPClientFactory

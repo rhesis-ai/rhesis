@@ -1,12 +1,11 @@
-from .extractor import DocumentExtractor
-
-# Re-export MCP components from mcp/ folder for backward compatibility
-from .mcp import (
+from rhesis.sdk.agents.mcp import (
     MCPAgent,
     MCPClient,
     MCPClientFactory,
     ToolExecutor,
 )
+
+from .extractor import DocumentExtractor
 
 __all__ = [
     "DocumentExtractor",

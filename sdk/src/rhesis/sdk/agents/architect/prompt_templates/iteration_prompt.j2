@@ -1,0 +1,29 @@
+Current Mode: {{ mode }}
+
+User Message: {{ user_query }}
+
+Available Tools:
+{{ tools_text }}
+
+{% if plan_text %}
+Current Plan:
+{{ plan_text }}
+
+{% endif %}
+{% if history_text %}
+Conversation & Execution History:
+{{ history_text }}
+
+Based on the user's message, the current mode, available tools, and history above, decide what to do next.
+
+{% else %}
+This is the start of the conversation. Analyze the user's request and begin the discovery phase.
+
+{% endif %}
+Your response should follow this structure:
+- reasoning: Your step-by-step thinking about what to do
+- action: Either "call_tool" (to execute tools) or "finish" (to respond to the user)
+- tool_calls: List of tools to call if action="call_tool" (can be multiple)
+- final_answer: Your response to the user if action="finish"
+
+Think carefully about what information you need and how to progress through the phases efficiently.
