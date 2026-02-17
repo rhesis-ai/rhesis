@@ -9,6 +9,7 @@ and a concrete probe request body — in a single call.
 
 import json
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Type
@@ -111,12 +112,78 @@ class AutoConfigureService:
             return schema(**response)
         return response
 
+    # ------------------------------------------------------------------
+    # Secret redaction
+    # ------------------------------------------------------------------
+
+    # Env-var references like $API_KEY or ${SECRET} — these are safe placeholders.
+    _ENV_VAR_RE = re.compile(r"\$\{?\w+\}?")
+
+    # Patterns that match real API keys/tokens.  Each tuple is
+    # (compiled regex, replacement string).  Order matters — more
+    # specific patterns first so they aren't consumed by generic ones.
+    _SECRET_PATTERNS: list[tuple[re.Pattern, str]] = [
+        # OpenAI project keys  (sk-proj-...)
+        (re.compile(r"sk-proj-[A-Za-z0-9_-]{20,}"), "sk-proj-REDACTED"),
+        # OpenAI / Anthropic style keys  (sk-ant-..., sk-...)
+        (re.compile(r"sk-ant-[A-Za-z0-9_-]{20,}"), "sk-ant-REDACTED"),
+        (re.compile(r"sk-[A-Za-z0-9_-]{20,}"), "sk-REDACTED"),
+        # AWS access key IDs
+        (re.compile(r"AKIA[0-9A-Z]{16}"), "AKIA_REDACTED"),
+        # Google API keys  (AIza...)
+        (re.compile(r"AIza[0-9A-Za-z_-]{35}"), "AIza_REDACTED"),
+        # Bearer tokens in header values  (preserve the "Bearer " prefix)
+        (
+            re.compile(r"(Bearer\s+)[A-Za-z0-9._\-]{20,}"),
+            r"\1REDACTED",
+        ),
+        # Generic header-value secrets: lines like
+        #   "x-api-key: <long value>"  or  'Authorization': 'token abc...'
+        (
+            re.compile(
+                r"(?i)"
+                r"((?:api[_-]?key|token|secret|password|authorization)"
+                r"[\"':\s]{1,5})"
+                r"([A-Za-z0-9._\-]{20,})"
+            ),
+            r"\1REDACTED",
+        ),
+    ]
+
+    @classmethod
+    def _redact_secrets(cls, text: str) -> str:
+        """Replace likely API keys/tokens with REDACTED placeholders.
+
+        Environment variable references ($VAR, ${VAR}) are preserved
+        because they are safe placeholders, not real secrets.
+        """
+        # Strategy: temporarily replace env-var references with
+        # sentinels so the secret patterns don't match them, apply
+        # redaction, then restore the env-var references.
+        env_vars: list[str] = cls._ENV_VAR_RE.findall(text)
+        sentinel = "\x00ENV"
+        protected = cls._ENV_VAR_RE.sub(sentinel, text)
+
+        for pattern, replacement in cls._SECRET_PATTERNS:
+            protected = pattern.sub(replacement, protected)
+
+        # Restore env-var references in order
+        for var in env_vars:
+            protected = protected.replace(sentinel, var, 1)
+
+        return protected
+
+    # ------------------------------------------------------------------
+
     def _analyse(self, request: AutoConfigureRequest) -> AutoConfigureResult:
         """Single LLM call: analyse input and generate mappings + probe body."""
+        sanitized_input = self._redact_secrets(request.input_text)
+        if sanitized_input != request.input_text:
+            logger.info("Redacted potential secrets from auto-configure input")
         return self._call_llm(
             "auto_configure.jinja2",
             {
-                "input_text": request.input_text,
+                "input_text": sanitized_input,
                 "url": request.url,
                 "method": request.method,
             },

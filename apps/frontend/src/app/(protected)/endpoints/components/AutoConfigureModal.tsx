@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -50,6 +50,29 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 });
 
 const STEPS = ['Provide Input', 'Review Mappings'];
+
+/**
+ * Detect likely API keys/tokens in user input.
+ * Environment-variable references ($VAR, ${VAR}) are excluded.
+ */
+const SECRET_PATTERNS = [
+  /sk-proj-[A-Za-z0-9_-]{20,}/,
+  /sk-ant-[A-Za-z0-9_-]{20,}/,
+  /sk-[A-Za-z0-9_-]{20,}/,
+  /AKIA[0-9A-Z]{16}/,
+  /AIza[0-9A-Za-z_-]{35}/,
+  /Bearer\s+[A-Za-z0-9._-]{20,}/,
+];
+
+/** Environment-variable placeholder pattern. */
+const ENV_VAR_RE = /\$\{?\w+\}?/g;
+
+function containsApiKey(text: string): boolean {
+  if (!text) return false;
+  // Strip env-var references so they don't trigger false positives
+  const stripped = text.replace(ENV_VAR_RE, '');
+  return SECRET_PATTERNS.some(pattern => pattern.test(stripped));
+}
 
 interface AutoConfigureModalProps {
   open: boolean;
@@ -153,6 +176,8 @@ export default function AutoConfigureModal({
     return 'Low';
   };
 
+  const hasApiKey = useMemo(() => containsApiKey(inputText), [inputText]);
+
   const editorWrapperStyle = {
     border: 1,
     borderColor: 'divider',
@@ -249,6 +274,18 @@ export default function AutoConfigureModal({
                 }}
               />
             </Box>
+
+            {/* API key warning */}
+            {hasApiKey && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                <Typography variant="body2">
+                  <strong>API key detected.</strong> Remove real API keys before
+                  continuing — they are not needed here. Use environment
+                  variable placeholders like <code>$API_KEY</code> instead. Any
+                  remaining keys will be redacted automatically before analysis.
+                </Typography>
+              </Alert>
+            )}
 
             {/* Probe toggle */}
             <FormControlLabel
@@ -456,7 +493,7 @@ export default function AutoConfigureModal({
               <Button
                 variant="contained"
                 onClick={handleAutoConfigure}
-                disabled={!inputText.trim()}
+                disabled={!inputText.trim() || hasApiKey}
                 startIcon={<RefreshIcon />}
               >
                 Retry
@@ -465,7 +502,7 @@ export default function AutoConfigureModal({
               <Button
                 variant="contained"
                 onClick={handleAutoConfigure}
-                disabled={!inputText.trim()}
+                disabled={!inputText.trim() || hasApiKey}
                 startIcon={<AutoFixHighIcon />}
               >
                 Auto-configure
