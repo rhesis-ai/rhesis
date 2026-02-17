@@ -552,17 +552,17 @@ export default function BehaviorsClient({
           onDuplicate={
             !isNewBehavior && editingBehavior.id
               ? () =>
-                  handleDuplicateBehavior(
-                    editingBehavior.id!,
-                    editingBehavior.name,
-                    editingBehavior.description
-                  )
+                handleDuplicateBehavior(
+                  editingBehavior.id,
+                  editingBehavior.name,
+                  editingBehavior.description
+                )
               : undefined
           }
           onDelete={
             !isNewBehavior &&
-            editingBehavior.id &&
-            behaviors.find(b => b.id === editingBehavior.id)?.metrics.length ===
+              editingBehavior.id &&
+              behaviors.find(b => b.id === editingBehavior.id)?.metrics.length ===
               0
               ? handleDeleteBehavior
               : undefined

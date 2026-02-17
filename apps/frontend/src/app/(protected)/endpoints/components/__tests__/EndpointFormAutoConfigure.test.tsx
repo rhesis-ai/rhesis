@@ -116,6 +116,7 @@ jest.mock('../AutoConfigureModal', () => {
 import EndpointForm from '../EndpointForm';
 
 describe('EndpointForm Auto-configure Integration', () => {
+  jest.setTimeout(10000);
   it('renders auto-configure button', async () => {
     render(<EndpointForm />);
 

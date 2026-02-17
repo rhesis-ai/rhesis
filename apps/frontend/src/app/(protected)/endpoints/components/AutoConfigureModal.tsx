@@ -349,8 +349,8 @@ export default function AutoConfigureModal({
                 <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
                   Warnings:
                 </Typography>
-                {result.warnings.map((warning, index) => (
-                  <Typography key={index} variant="body2">
+                {result.warnings.map(warning => (
+                  <Typography key={warning} variant="body2">
                     &bull; {warning}
                   </Typography>
                 ))}
