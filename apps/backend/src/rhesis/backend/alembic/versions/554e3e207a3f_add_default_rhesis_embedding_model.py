@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 # Import models and utilities
 from rhesis.backend.app import models
-from rhesis.backend.app.constants import DEFAULT_EMBEDDING_MODEL_NAME, EntityType
+from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_entity,
@@ -89,6 +89,10 @@ def upgrade() -> None:
     session = Session(bind=bind)
 
     try:
+        # For Rhesis embedding model, always use "default" as model_name
+        # (regardless of what DEFAULT_EMBEDDING_MODEL env var is set to)
+        embedding_model_name = "default"
+
         # Get all organizations (including those that haven't completed onboarding)
         organizations = session.query(models.Organization).all()
 
@@ -153,7 +157,7 @@ def upgrade() -> None:
                 # Create the default Rhesis embedding model
                 default_embedding_model_data = {
                     "name": "Rhesis Default Embedding",
-                    "model_name": DEFAULT_EMBEDDING_MODEL_NAME,
+                    "model_name": embedding_model_name,
                     "model_type": ModelType.EMBEDDING.value,
                     "description": "Default Rhesis-hosted embedding model for semantic search.",
                     "icon": "rhesis",

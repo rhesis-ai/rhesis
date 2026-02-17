@@ -259,19 +259,13 @@ async def generate_embedding_endpoint(request: GenerateEmbeddingRequest):
     Generate an embedding for a given text.
     """
     try:
-        from rhesis.backend.app.constants import (
-            DEFAULT_EMBEDDING_MODEL_NAME,
-            DEFAULT_EMBEDDING_MODEL_PROVIDER,
-        )
+        from rhesis.backend.app.constants import DEFAULT_EMBEDDING_MODEL
         from rhesis.sdk.models.factory import get_model
 
         text = request.text
 
-        embedder = get_model(
-            provider=DEFAULT_EMBEDDING_MODEL_PROVIDER,
-            model_name=DEFAULT_EMBEDDING_MODEL_NAME,
-            model_type="embedding",
-        )
+        # First arg is provider; "provider/model_name" is resolved in the background
+        embedder = get_model(DEFAULT_EMBEDDING_MODEL, model_type="embedding")
         embedding = embedder.generate(text=text)
 
         return embedding

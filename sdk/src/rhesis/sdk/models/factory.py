@@ -448,9 +448,12 @@ def get_model(
     The model type is auto-detected from the model name. You can
     override detection with the `model_type` parameter.
 
+    Pass a unified "provider/model_name" as the first argument;
+    it is resolved in the background (e.g. get_model("vertex_ai/text-embedding-005")).
+
     Args:
-        provider: Provider name (e.g., "openai", "anthropic", "gemini")
-        model_name: Specific model name
+        provider: Provider name, or "provider/model_name" as first positional
+        model_name: Specific model name (omit when using unified format)
         api_key: API key for authentication
         model_type: Explicit model type ("language" or "embedding"). Auto-detected if not provided.
         dimensions: Optional embedding dimensions (for embedding models only)

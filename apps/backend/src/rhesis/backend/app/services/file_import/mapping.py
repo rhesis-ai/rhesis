@@ -247,7 +247,7 @@ def is_llm_available(
         model_or_provider = get_user_generation_model(db, user)
         if isinstance(model_or_provider, str):
             # Verify the default provider can actually be instantiated
-            get_model(provider=model_or_provider)
+            get_model(model_or_provider)
         return True
     except Exception:
         return False
@@ -277,7 +277,7 @@ def llm_map_columns(
 
         model_or_provider = get_user_generation_model(db, user)
         if isinstance(model_or_provider, str):
-            model = get_model(provider=model_or_provider)
+            model = get_model(model_or_provider)
         else:
             model = model_or_provider
 

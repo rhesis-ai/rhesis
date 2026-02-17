@@ -85,7 +85,7 @@ class LLMMapper:
             # If it's a string (provider name), convert to model instance
             if isinstance(model_or_provider, str):
                 logger.debug(f"Converting provider '{model_or_provider}' to model instance")
-                model = get_model(provider=model_or_provider)
+                model = get_model(model_or_provider)
             else:
                 model = model_or_provider
 
