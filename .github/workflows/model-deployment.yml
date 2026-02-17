@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/polyphemus/vertex_ai/**'
-      - '.github/workflows/polyphemus-vertex-ai.yml'
+      - 'apps/polyphemus/model-deployment/**'
+      - '.github/workflows/model-deployment.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -57,7 +57,7 @@ jobs:
         with:
           environment: ${{ github.event.inputs.environment }}
 
-  deploy-to-vertex-ai:
+  deploy-to-gcp-services:
     needs: validate-inputs
     runs-on: ubuntu-latest
     permissions:
@@ -76,6 +76,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        working-directory: apps/polyphemus
+        run: uv sync --extra vertex-ai
 
       - name: Create and validate service account key file
         id: sa_key
@@ -122,12 +129,6 @@ jobs:
             echo "✓ HuggingFace token provided for private model access"
           fi
 
-      - name: Install dependencies
-        working-directory: apps/polyphemus/vertex_ai
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
       - name: Build deployment arguments
         id: build_args
         run: |
@@ -156,22 +157,22 @@ jobs:
           echo "DEPLOY_ARGS=$ARGS" >> $GITHUB_ENV
           echo "Deployment arguments: $ARGS"
 
-      - name: Deploy models to Vertex AI
-        working-directory: apps/polyphemus/vertex_ai
+      - name: Deploy models to GCP Services
+        working-directory: apps/polyphemus/model-deployment
         run: |
-          echo "🚀 Deploying models to Vertex AI..."
+          echo "🚀 Deploying models to GCP Services..."
           echo "Environment: ${{ env.ENVIRONMENT }}"
           echo "Project: ${{ env.GCP_PROJECT_ID }}"
           echo "Region: ${{ env.GCP_REGION }}"
           echo "Arguments: ${{ env.DEPLOY_ARGS }}"
           
-          python deploy.py ${{ env.DEPLOY_ARGS }}
+          uv run --project .. python deploy.py ${{ env.DEPLOY_ARGS }}
 
       - name: Generate deployment summary
         if: success()
         run: |
           cat >> $GITHUB_STEP_SUMMARY <<EOF
-          # ✅ Vertex AI Deployment Complete
+          # ✅ Model Deployment Complete
           
           ## Configuration
           - **Environment**: \`${{ env.ENVIRONMENT }}\`
@@ -190,21 +191,21 @@ jobs:
           - **GCS**: Pre-downloaded models from \`${{ env.MODEL_PATH || 'gs://your-bucket/models' }}\` (model: \`${{ env.DEFAULT_MODEL }}\`)
           
           ## Next Steps
-          1. Check the Vertex AI console to verify deployments
+          1. Check the GCP Services console to verify deployments
           2. Test the endpoints using the Vertex AI Python client
           3. Monitor the deployment logs for any issues
           
           ## Resources
-          - [Vertex AI Console](https://console.cloud.google.com/vertex-ai/endpoints?project=${{ env.GCP_PROJECT_ID }})
+          - [GCP Services Console](https://console.cloud.google.com/vertex-ai/endpoints?project=${{ env.GCP_PROJECT_ID }})
           - [GCS Storage](https://console.cloud.google.com/storage?project=${{ env.GCP_PROJECT_ID }})
-          - [Documentation](apps/polyphemus/vertex_ai/README.md)
+          - [Documentation](apps/polyphemus/model-deployment/README.md)
           EOF
 
       - name: Handle deployment failure
         if: failure()
         run: |
           cat >> $GITHUB_STEP_SUMMARY <<EOF
-          # ❌ Vertex AI Deployment Failed
+          # ❌ Model Deployment Failed
           
           ## Configuration
           - **Environment**: \`${{ env.ENVIRONMENT }}\`
@@ -218,6 +219,6 @@ jobs:
           4. Ensure the model configurations are correct
           
           ## Resources
-          - [Vertex AI Console](https://console.cloud.google.com/vertex-ai/endpoints?project=${{ env.GCP_PROJECT_ID }})
-          - [Documentation](apps/polyphemus/vertex_ai/README.md)
+          - [GCP Services Console](https://console.cloud.google.com/services/dashboard?project=${{ env.GCP_PROJECT_ID }})
+          - [Documentation](apps/polyphemus/model-deployment/README.md)
           EOF

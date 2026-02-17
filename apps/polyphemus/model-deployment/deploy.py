@@ -183,13 +183,13 @@ def deploy_models(
     # Validate configuration
     validate_config()
 
-    # Initialize Vertex AI with staging bucket if provided
+    # Initialize Vertex AI with bucket if provided
     init_kwargs = {"project": PROJECT_ID, "location": REGION}
     if BUCKET_URI:
-        # Use a staging subdirectory in the bucket
-        staging_bucket = f"{BUCKET_URI}/temporal"
-        init_kwargs["staging_bucket"] = staging_bucket
-        logger.info(f"Using staging bucket: {staging_bucket}")
+        # Use a temporal subdirectory in the bucket for Vertex AI artifacts (env-agnostic)
+        bucket_uri = f"{BUCKET_URI}/temporal"
+        init_kwargs["staging_bucket"] = bucket_uri  # Vertex AI SDK parameter name
+        logger.info(f"Using GCS bucket for Vertex AI: {bucket_uri}")
 
     aiplatform.init(**init_kwargs)
     logger.info(f"Initialized Vertex AI: project={PROJECT_ID}, region={REGION}")
@@ -202,7 +202,7 @@ def deploy_models(
     if MODEL_GCS_PATH:
         logger.info(f"Full model GCS path: {MODEL_GCS_PATH}")
     if BUCKET_URI:
-        logger.info(f"Staging bucket: {BUCKET_URI}")
+        logger.info(f"bucket: {BUCKET_URI}")
 
     # Use defaults if not provided
     if models is None:

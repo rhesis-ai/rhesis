@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any, TypedDict
 
-# Load .env from vertex_ai directory so GCP_SERVICE_ACCOUNT, MODEL_PATH, etc. are used
+# Load .env from model-deployment directory so GCP_SERVICE_ACCOUNT, MODEL_PATH, etc. are used
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
@@ -34,7 +34,7 @@ SERVICE_ACCOUNT = os.getenv("GCP_SERVICE_ACCOUNT", "")
 MODEL_PATH = os.getenv("MODEL_PATH", "")
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "")
 
-# Derived: bucket URI for staging (gs://bucket-name from MODEL_PATH)
+# Derived: bucket URI for model storage (gs://bucket-name from MODEL_PATH)
 # e.g. MODEL_PATH=gs://your-bucket-name/cache -> BUCKET_URI=gs://your-bucket-name
 BUCKET_URI = ""
 if MODEL_PATH and MODEL_PATH.startswith("gs://"):
