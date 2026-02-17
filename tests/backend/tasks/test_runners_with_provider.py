@@ -214,7 +214,7 @@ class TestMultiTurnRunnerWithProvider:
 
     @pytest.mark.asyncio
     async def test_uses_provider_metrics_when_present(self):
-        """When provider returns metrics (live Penelope), skip external evaluation."""
+        """When provider returns metrics (live Penelope), use them and merge additional."""
         mock_provider = MagicMock()
         mock_provider.get_output = AsyncMock(
             return_value=TestOutput(
@@ -231,6 +231,7 @@ class TestMultiTurnRunnerWithProvider:
 
         with patch(
             "rhesis.backend.tasks.execution.executors.runners.evaluate_multi_turn_metrics",
+            return_value={},
         ) as mock_eval:
             runner = MultiTurnRunner()
             exec_time, trace, metrics = await runner.run(
@@ -241,9 +242,48 @@ class TestMultiTurnRunnerWithProvider:
                 output_provider=mock_provider,
             )
 
-        # External evaluation should NOT be called
-        mock_eval.assert_not_called()
+        # External evaluation called for additional metrics, excluding GoalAchievementJudge
+        mock_eval.assert_called_once()
+        assert mock_eval.call_args.kwargs["exclude_class_names"] == {"GoalAchievementJudge"}
+        # Penelope metrics preserved (no additional metrics returned)
         assert metrics == {"goal_achieved": True, "score": 0.95}
+
+    @pytest.mark.asyncio
+    async def test_merges_additional_metrics_with_penelope(self):
+        """Additional three-tier metrics are merged with Penelope's metrics."""
+        mock_provider = MagicMock()
+        mock_provider.get_output = AsyncMock(
+            return_value=TestOutput(
+                response={"conversation_summary": []},
+                execution_time=2500,
+                metrics={"Goal Achievement": {"is_successful": True, "score": 0.95}},
+                source="live",
+            )
+        )
+
+        mock_test = MagicMock()
+        mock_test.id = "test-1"
+        mock_test.test_configuration = {"goal": "Test"}
+
+        with patch(
+            "rhesis.backend.tasks.execution.executors.runners.evaluate_multi_turn_metrics",
+            return_value={"Tone Judge": {"is_successful": False, "score": 0.3}},
+        ) as mock_eval:
+            runner = MultiTurnRunner()
+            _, _, metrics = await runner.run(
+                db=MagicMock(),
+                test=mock_test,
+                endpoint_id="ep-1",
+                organization_id="org-1",
+                output_provider=mock_provider,
+            )
+
+        mock_eval.assert_called_once()
+        # Both Penelope and additional metrics present
+        assert "Goal Achievement" in metrics
+        assert "Tone Judge" in metrics
+        assert metrics["Goal Achievement"]["is_successful"] is True
+        assert metrics["Tone Judge"]["is_successful"] is False
 
     @pytest.mark.asyncio
     async def test_defaults_to_multi_turn_output(self):
@@ -252,9 +292,15 @@ class TestMultiTurnRunnerWithProvider:
         mock_test.id = "test-1"
         mock_test.test_configuration = {"goal": "Test"}
 
-        with patch(
-            "rhesis.backend.tasks.execution.executors.runners.MultiTurnOutput",
-        ) as mock_mt_class:
+        with (
+            patch(
+                "rhesis.backend.tasks.execution.executors.runners.MultiTurnOutput",
+            ) as mock_mt_class,
+            patch(
+                "rhesis.backend.tasks.execution.executors.runners.evaluate_multi_turn_metrics",
+                return_value={},
+            ),
+        ):
             mock_provider_instance = MagicMock()
             mock_provider_instance.get_output = AsyncMock(
                 return_value=TestOutput(
