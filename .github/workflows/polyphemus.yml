@@ -332,7 +332,43 @@ jobs:
           echo "✅ Image name: $IMAGE_NAME"
           echo "✅ Environment display: $ENV_DISPLAY"
 
-      - name: Deploy to Cloud Run with GPU
+      - name: Get Polyphemus Endpoint ID
+        id: get_endpoint
+        run: |
+          echo "🔍 Querying Polyphemus endpoint ID for environment: ${{ env.ENVIRONMENT }}"
+          
+          # Determine endpoint display name based on environment (matches config.py logic)
+          if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
+            ENDPOINT_NAME="polyphemus-endpoint"
+          elif [ "${{ env.ENVIRONMENT }}" = "stg" ]; then
+            ENDPOINT_NAME="polyphemus-endpoint-stg"
+          else
+            ENDPOINT_NAME="polyphemus-endpoint-dev"
+          fi
+          
+          echo "Endpoint name: $ENDPOINT_NAME"
+          
+          # Query Polyphemus for endpoint ID
+          ENDPOINT_ID=$(gcloud ai endpoints list \
+            --region=${{ env.POLYPHEMUS_REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --filter="displayName:${ENDPOINT_NAME}" \
+            --format="value(name)" \
+            --limit=1 | grep -oP '[0-9]+$' || echo "")
+          
+          if [ -n "$ENDPOINT_ID" ]; then
+            echo "POLYPHEMUS_ENDPOINT_ID=$ENDPOINT_ID" >> $GITHUB_ENV
+            echo "endpoint_id=$ENDPOINT_ID" >> $GITHUB_OUTPUT
+            echo "✅ Found Polyphemus Endpoint ID: $ENDPOINT_ID"
+          else
+            echo "⚠️ No Polyphemus endpoint found with name: $ENDPOINT_NAME"
+            echo "⚠️ Deployment will continue but Polyphemus may not work without endpoint"
+            echo "⚠️ Deploy a model to Polyphemus first using the polyphemus-model-deployment workflow"
+            # Set empty value so deployment doesn't fail
+            echo "POLYPHEMUS_ENDPOINT_ID=" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy to Cloud Run
         id: deploy
         run: |
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
@@ -343,32 +379,26 @@ jobs:
 
             echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
 
-            gcloud beta run deploy ${{ env.SERVICE_NAME }} \
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:$IMAGE_TAG \
               --project=${{ env.PROJECT_ID }} \
               --region=${{ env.POLYPHEMUS_REGION }} \
               --platform=managed \
               --allow-unauthenticated \
-              --gpu=1 \
-              --gpu-type=nvidia-l4 \
-              --memory=32Gi \
-              --cpu=8 \
-              --timeout=3600 \
-              --min-instances=1 \
-              --max-instances=1 \
+              --memory=2Gi \
+              --cpu=2 \
+              --timeout=600 \
+              --min-instances=0 \
+              --max-instances=10 \
               --port=8080 \
-              --concurrency=1 \
+              --concurrency=80 \
               --no-traffic \
               --revision-suffix=${{ env.COMMIT_SHA }} \
-              --no-cpu-throttling \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
-              --add-volume name=models,type=cloud-storage,bucket=${{ secrets.MODEL_BUCKET }} \
-              --add-volume-mount volume=models,mount-path=/gcs-models \
               --set-env-vars="$(cat <<EOF
-          MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
-          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }},
-          LOAD_KWARGS_B64=$(echo -n '{"torch_dtype":"float16","use_cache":true}' | base64),
-          TRANSFORMERS_CACHE=/tmp/transformers_cache,
+          POLYPHEMUS_ENDPOINT_ID=${{ env.POLYPHEMUS_ENDPOINT_ID }},
+          POLYPHEMUS_PROJECT_ID=${{ env.PROJECT_ID }},
+          POLYPHEMUS_LOCATION=${{ env.POLYPHEMUS_REGION }},
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
           SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
@@ -388,30 +418,24 @@ jobs:
             echo "Image: ${{ env.IMAGE_NAME }}:latest"
             echo "Using Cloud SQL instance: ${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }}"
 
-            gcloud beta run deploy ${{ env.SERVICE_NAME }} \
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ env.IMAGE_NAME }}:latest \
               --project=${{ env.PROJECT_ID }} \
               --region=${{ env.POLYPHEMUS_REGION }} \
               --platform=managed \
               --allow-unauthenticated \
-              --gpu=1 \
-              --gpu-type=nvidia-l4 \
-              --memory=32Gi \
-              --cpu=8 \
-              --timeout=3600 \
-              --min-instances=1 \
-              --max-instances=1 \
+              --memory=2Gi \
+              --cpu=2 \
+              --timeout=600 \
+              --min-instances=0 \
+              --max-instances=10 \
               --port=8080 \
-              --concurrency=1 \
-              --no-cpu-throttling \
+              --concurrency=80 \
               --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.POLYPHEMUS_REGION }}:${{ env.CLOUDSQL_INSTANCE }} \
-              --add-volume name=models,type=cloud-storage,bucket=${{ secrets.MODEL_BUCKET }} \
-              --add-volume-mount volume=models,mount-path=/gcs-models \
               --set-env-vars="$(cat <<EOF
-          MODEL_PATH=${{ secrets.MODEL_PATH || '' }},
-          DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL}},
-          LOAD_KWARGS_B64=$(echo -n '{"torch_dtype":"float16","use_cache":true}' | base64),
-          TRANSFORMERS_CACHE=/tmp/transformers_cache,
+          POLYPHEMUS_ENDPOINT_ID=${{ env.POLYPHEMUS_ENDPOINT_ID }},
+          POLYPHEMUS_PROJECT_ID=${{ env.PROJECT_ID }},
+          POLYPHEMUS_LOCATION=${{ env.POLYPHEMUS_REGION }},
           SQLALCHEMY_DATABASE_URL=${{ secrets.SQLALCHEMY_DATABASE_URL }},
           SQLALCHEMY_DB_MODE=${{ secrets.SQLALCHEMY_DB_MODE }},
           SQLALCHEMY_DB_DRIVER=${{ secrets.SQLALCHEMY_DB_DRIVER }},
