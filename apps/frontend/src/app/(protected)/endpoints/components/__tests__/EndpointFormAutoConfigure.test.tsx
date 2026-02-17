@@ -134,17 +134,14 @@ describe('EndpointForm Auto-configure Integration', () => {
     const user = userEvent.setup();
     render(<EndpointForm />);
 
-    // Fill in name
-    const nameInput = screen.getByLabelText(/name/i);
-    await user.type(nameInput, 'My API');
+    // Fill in name (use getByRole to avoid matching Tooltip aria-label)
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'My API');
 
     // Fill in URL
-    const urlInput = screen.getByLabelText(/url/i);
-    await user.type(urlInput, 'https://api.example.com');
+    await user.type(screen.getByRole('textbox', { name: /url/i }), 'https://api.example.com');
 
     // Fill in auth token
-    const tokenInput = screen.getByLabelText(/api token/i);
-    await user.type(tokenInput, 'test-token');
+    await user.type(screen.getByLabelText(/api token/i), 'test-token');
 
     const button = screen.getByRole('button', { name: /auto-configure/i });
     expect(button).not.toBeDisabled();
@@ -154,9 +151,9 @@ describe('EndpointForm Auto-configure Integration', () => {
     const user = userEvent.setup();
     render(<EndpointForm />);
 
-    // Fill required fields
-    await user.type(screen.getByLabelText(/name/i), 'My API');
-    await user.type(screen.getByLabelText(/url/i), 'https://api.example.com');
+    // Fill required fields (use getByRole to avoid matching Tooltip aria-label)
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'My API');
+    await user.type(screen.getByRole('textbox', { name: /url/i }), 'https://api.example.com');
     await user.type(screen.getByLabelText(/api token/i), 'test-token');
 
     // Click auto-configure

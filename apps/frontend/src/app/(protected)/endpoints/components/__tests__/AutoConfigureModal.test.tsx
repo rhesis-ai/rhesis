@@ -56,7 +56,7 @@ const PARTIAL_RESULT = {
   probe_error: 'HTTP 422: validation error',
 };
 
-const FAILED_RESULT = {
+const _FAILED_RESULT = {
   status: 'failed' as const,
   error: 'Could not parse the input',
   confidence: 0,
