@@ -40,7 +40,7 @@ on:
         options:
           - auto
           - outlines
-          - lm-format-enforcer
+          #- lm-format-enforcer
 
 env:
   SA_KEY_PATH: 'gcp-sa-key.json'

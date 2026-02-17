@@ -14,6 +14,8 @@ from config import (
     SERVICE_ACCOUNT,
     VLLM_DOCKER_URI,
     ModelConfig,
+    get_endpoint_display_name,
+    get_model_registry_display_name,
     get_vllm_args,
     validate_config,
 )
@@ -81,9 +83,9 @@ def deploy_model_vllm(
         env_vars["HF_TOKEN"] = hf_token
         logger.info("HuggingFace token provided for private model access")
 
-    # Upload model
+    # Upload model (registry name: polyphemus-dev / polyphemus-stg / polyphemus by env)
     model = aiplatform.Model.upload(
-        display_name=model_config["model_name"],
+        display_name=get_model_registry_display_name(),
         serving_container_image_uri=VLLM_DOCKER_URI,
         serving_container_args=vllm_args,
         serving_container_ports=[8080],
@@ -124,6 +126,9 @@ def get_or_create_endpoint(
 ) -> aiplatform.Endpoint:
     """Get an existing endpoint or create a new one.
 
+    Endpoint display name is environment-based: polyphemus-endpoint-dev,
+    polyphemus-endpoint-stg, or polyphemus-endpoint (prd).
+
     Args:
         model_config: Model configuration dictionary
         force_create: Force creation of a new endpoint even if one exists
@@ -131,7 +136,7 @@ def get_or_create_endpoint(
     Returns:
         Endpoint object
     """
-    endpoint_name = f"vllm-{model_config['model_name']}"
+    endpoint_name = get_endpoint_display_name()
 
     if not force_create:
         # Try to find existing endpoint
@@ -252,7 +257,7 @@ def deploy_models(
             print(
                 format_deployment_summary(
                     model_name=model_name,
-                    endpoint_name=f"vllm-{model_name}",
+                    endpoint_name=get_endpoint_display_name(),
                     endpoint_url=endpoint.resource_name,
                 )
             )
