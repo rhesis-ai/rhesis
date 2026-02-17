@@ -131,14 +131,17 @@ describe('EndpointForm Auto-configure Integration', () => {
   });
 
   it('auto-configure button is enabled when basic info is complete', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<EndpointForm />);
 
     // Fill in name (use getByRole to avoid matching Tooltip aria-label)
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'My API');
 
     // Fill in URL
-    await user.type(screen.getByRole('textbox', { name: /url/i }), 'https://api.example.com');
+    await user.type(
+      screen.getByRole('textbox', { name: /url/i }),
+      'https://api.example.com'
+    );
 
     // Fill in auth token
     await user.type(screen.getByLabelText(/api token/i), 'test-token');
@@ -148,12 +151,15 @@ describe('EndpointForm Auto-configure Integration', () => {
   });
 
   it('clicking auto-configure opens the modal', async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     render(<EndpointForm />);
 
     // Fill required fields (use getByRole to avoid matching Tooltip aria-label)
     await user.type(screen.getByRole('textbox', { name: /name/i }), 'My API');
-    await user.type(screen.getByRole('textbox', { name: /url/i }), 'https://api.example.com');
+    await user.type(
+      screen.getByRole('textbox', { name: /url/i }),
+      'https://api.example.com'
+    );
     await user.type(screen.getByLabelText(/api token/i), 'test-token');
 
     // Click auto-configure
