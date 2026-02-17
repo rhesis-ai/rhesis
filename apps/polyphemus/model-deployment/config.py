@@ -27,6 +27,8 @@ class ModelConfig(TypedDict, total=False):
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "")
 REGION = os.getenv("GCP_REGION", "us-central1")
 SERVICE_ACCOUNT = os.getenv("GCP_SERVICE_ACCOUNT", "")
+# Deployment type: dev, stg, or prd (set by CI or .env; default dev)
+ENVIRONMENT = (os.getenv("ENVIRONMENT", "dev") or "dev").strip().lower()
 
 # GCS model path and default model (use existing GitHub secrets)
 # MODEL_PATH e.g. gs://your-bucket-name/cache
@@ -82,6 +84,26 @@ MODELS: list[ModelConfig] = [
     #     "max_model_len": 4096,
     # },
 ]
+
+
+def get_endpoint_display_name(environment: str | None = None) -> str:
+    """Return Vertex AI endpoint display name for the deployment type."""
+    env = (environment or ENVIRONMENT).strip().lower()
+    if env in ("prd", "prod", "production"):
+        return "polyphemus-endpoint"
+    if env in ("stg", "staging"):
+        return "polyphemus-endpoint-stg"
+    return "polyphemus-endpoint-dev"
+
+
+def get_model_registry_display_name(environment: str | None = None) -> str:
+    """Return Vertex AI model registry display name for the deployment type."""
+    env = (environment or ENVIRONMENT).strip().lower()
+    if env in ("prd", "prod", "production"):
+        return "polyphemus"
+    if env in ("stg", "staging"):
+        return "polyphemus-stg"
+    return "polyphemus-dev"
 
 
 def validate_config() -> None:
