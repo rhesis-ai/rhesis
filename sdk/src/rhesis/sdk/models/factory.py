@@ -68,7 +68,7 @@ def _classify_model(provider: str, model_name: str) -> ModelType:
         pass  # Fall through to heuristics
 
     # 2. Name-based heuristics (fallback)
-    name_lower = model_name.lower()
+    name_lower = (model_name or provider or "").lower()
     if any(p in name_lower for p in EMBEDDING_PATTERNS):
         return ModelType.EMBEDDING
     if any(p in name_lower for p in IMAGE_PATTERNS):

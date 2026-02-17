@@ -8,6 +8,7 @@ from rhesis.sdk.models.factory import (
     EmbeddingModelConfig,
     LanguageModelConfig,
     ModelType,
+    get_embedding_model,
     get_model,
 )
 
@@ -254,6 +255,65 @@ class TestUnifiedGetModel:
 
         mock_embedder_class.assert_called_once()
         assert result == mock_instance
+
+    # =============================================================================
+    # Optional model_type and shorthand notation (user-facing cases)
+    # =============================================================================
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_embedding_shorthand_without_model_type(self, mock_embedder_class):
+        """get_model('openai/text-embedding-3-small') works without model_type (auto-detect)."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
+
+        embedder = get_model("openai/text-embedding-3-small")
+
+        assert isinstance(embedder, BaseEmbedder)
+        mock_embedder_class.assert_called_once_with(
+            model_name="text-embedding-3-small", api_key=None, dimensions=None
+        )
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAILLM")
+    def test_language_shorthand_without_model_type(self, mock_llm_class):
+        """get_model('openai/gpt-4o') works without model_type (auto-detect)."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_llm_class.return_value = mock_instance
+
+        llm = get_model("openai/gpt-4o")
+
+        assert isinstance(llm, BaseLLM)
+        mock_llm_class.assert_called_once_with(model_name="gpt-4o", api_key=None)
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_embedding_config_without_model_type_auto_detected(self, mock_embedder_class):
+        """get_model(config=EmbeddingModelConfig(...)) without model_type auto-detects embedding."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
+
+        config = EmbeddingModelConfig(
+            provider="openai",
+            model_name="text-embedding-3-small",
+        )
+        result = get_model(config=config)
+
+        assert isinstance(result, BaseEmbedder)
+        mock_embedder_class.assert_called_once()
+
+    def test_bare_model_name_without_provider_raises(self):
+        """get_model('text-embedding-3-small') without provider raises (provider required)."""
+        with pytest.raises(ValueError, match="Provider 'text-embedding-3-small' not supported"):
+            get_model("text-embedding-3-small")
+
+    @patch("rhesis.sdk.models.providers.openai.OpenAIEmbedder")
+    def test_get_embedding_model_shorthand(self, mock_embedder_class):
+        """get_embedding_model('openai/text-embedding-3-small') works (typed helper)."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_embedder_class.return_value = mock_instance
+
+        embedder = get_embedding_model("openai/text-embedding-3-small")
+
+        assert isinstance(embedder, BaseEmbedder)
+        mock_embedder_class.assert_called_once()
 
 
 class TestModelTypeClassification:
