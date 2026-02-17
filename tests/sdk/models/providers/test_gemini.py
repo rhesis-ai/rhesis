@@ -5,15 +5,15 @@ import pytest
 from pydantic import BaseModel
 
 from rhesis.sdk.models.providers.gemini import (
-    DEFAULT_LANGUAGE_MODEL_NAME,
+    DEFAULT_MODEL_NAME,
     GeminiLLM,
 )
 
 
 def test_gemini_defaults():
     assert GeminiLLM.PROVIDER == "gemini"
-    assert DEFAULT_LANGUAGE_MODEL_NAME is not None
-    assert DEFAULT_LANGUAGE_MODEL_NAME != ""
+    assert DEFAULT_MODEL_NAME is not None
+    assert DEFAULT_MODEL_NAME != ""
 
 
 class TestGeminiLLM:
@@ -22,7 +22,7 @@ class TestGeminiLLM:
         api_key = "test_api_key"
         llm = GeminiLLM(api_key=api_key)
         assert llm.api_key == api_key
-        assert llm.model_name == GeminiLLM.PROVIDER + "/" + DEFAULT_LANGUAGE_MODEL_NAME
+        assert llm.model_name == GeminiLLM.PROVIDER + "/" + DEFAULT_MODEL_NAME
 
     def test_init_with_env_api_key(self):
         """Test initialization with environment variable API key"""
@@ -64,7 +64,7 @@ class TestGeminiLLM:
 
         assert result == "Hello, this is a test response"
         mock_completion.assert_called_once_with(
-            model=f"gemini/{DEFAULT_LANGUAGE_MODEL_NAME}",
+            model=f"gemini/{DEFAULT_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key="test_key",
@@ -97,7 +97,7 @@ class TestGeminiLLM:
         assert result["city"] == "New York"
 
         mock_completion.assert_called_once_with(
-            model=f"gemini/{DEFAULT_LANGUAGE_MODEL_NAME}",
+            model=f"gemini/{DEFAULT_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=TestSchema,
             api_key="test_key",
@@ -138,7 +138,7 @@ class TestGeminiLLM:
         llm.generate(prompt, temperature=0.7, max_tokens=100)
 
         mock_completion.assert_called_once_with(
-            model=f"gemini/{DEFAULT_LANGUAGE_MODEL_NAME}",
+            model=f"gemini/{DEFAULT_MODEL_NAME}",
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key="test_key",

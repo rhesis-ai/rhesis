@@ -34,29 +34,29 @@ def test_init_with_custom_batch_size():
     assert synthesizer.batch_size == 25
 
 
-@patch("rhesis.sdk.synthesizers.multi_turn.base.get_language_model")
-def test_init_with_none_model(mock_get_language_model):
-    """Test that model=None triggers get_language_model(None)."""
+@patch("rhesis.sdk.synthesizers.multi_turn.base.get_model")
+def test_init_with_none_model(mock_get_model):
+    """Test that model=None triggers get_model(None)."""
     mock_model = Mock(spec=BaseLLM)
-    mock_get_language_model.return_value = mock_model
+    mock_get_model.return_value = mock_model
     config = GenerationConfig(generation_prompt="Test")
 
     synthesizer = MultiTurnSynthesizer(config=config, model=None)
 
-    mock_get_language_model.assert_called_once_with(None)
+    mock_get_model.assert_called_once_with(None)
     assert synthesizer.model is mock_model
 
 
-@patch("rhesis.sdk.synthesizers.multi_turn.base.get_language_model")
-def test_init_with_string_model(mock_get_language_model):
-    """Test that a string model name triggers get_language_model(name)."""
+@patch("rhesis.sdk.synthesizers.multi_turn.base.get_model")
+def test_init_with_string_model(mock_get_model):
+    """Test that a string model name triggers get_model(name)."""
     mock_model = Mock(spec=BaseLLM)
-    mock_get_language_model.return_value = mock_model
+    mock_get_model.return_value = mock_model
     config = GenerationConfig(generation_prompt="Test")
 
     synthesizer = MultiTurnSynthesizer(config=config, model="gpt-4")
 
-    mock_get_language_model.assert_called_once_with("gpt-4")
+    mock_get_model.assert_called_once_with("gpt-4")
     assert synthesizer.model is mock_model
 
 
