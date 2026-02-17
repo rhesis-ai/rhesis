@@ -16,6 +16,7 @@ Run with: python -m pytest tests/backend/routes/test_model.py -v
 
 import uuid
 from typing import Any, Dict
+from unittest.mock import patch
 
 import pytest
 from faker import Faker
@@ -85,8 +86,23 @@ class TestModelConnectionTesting(ModelTestMixin, BaseEntityTests):
         model = model_factory.create(self.get_sample_data())
         model_id = model["id"]
 
-        # Test the connection endpoint
-        response = model_factory.client.post(self.endpoints.test(model_id))
+        # Mock connection test so we don't call real provider APIs
+        with patch(
+            "rhesis.backend.app.routers.model.ModelConnectionService.test_connection"
+        ) as mock_test:
+            from rhesis.backend.app.services.model_connection import (
+                ModelConnectionTestResult,
+            )
+
+            mock_test.return_value = ModelConnectionTestResult(
+                success=True,
+                message="Connection test passed",
+                provider="test",
+                model_name="test-model",
+            )
+
+            # Test the connection endpoint
+            response = model_factory.client.post(self.endpoints.test(model_id))
 
         assert response.status_code == status.HTTP_200_OK
         result = response.json()
