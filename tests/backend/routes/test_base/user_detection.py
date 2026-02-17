@@ -88,8 +88,6 @@ class UserFieldDetector:
             import_paths = [
                 f"rhesis.backend.app.models.{test_class.entity_name}",
                 "rhesis.backend.app.models",
-                f"apps.backend.src.rhesis.backend.app.models.{test_class.entity_name}",
-                "apps.backend.src.rhesis.backend.app.models",
             ]
 
             model_class = None

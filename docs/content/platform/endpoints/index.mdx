@@ -43,7 +43,7 @@ These variables are available in your request body templates using Jinja2 syntax
 | Variable | Required | Description |
 |---|---|---|
 | `input` | Yes | The user query or test prompt. This is the primary text sent to your AI endpoint. |
-| `conversation_id` | No | Conversation tracking identifier for multi-turn stateful endpoints. Rhesis passes this back on subsequent turns. |
+| `conversation_id` | No | Conversation tracking identifier for multi-turn endpoints (both stateful and stateless). Rhesis uses this to track conversations across turns. |
 | `messages` | No | Full conversation history as an array of message objects. Used for stateless endpoints that require the entire history with every request. |
 | `system_prompt` | No | System prompt text. Rhesis prepends it to the `messages` array and strips it from the final request body before sending. |
 
@@ -57,7 +57,7 @@ These variables are extracted from your API response using JSONPath or Jinja2 ex
 | `context` | No | Additional context or reasoning provided by the response (e.g., retrieved documents, sources). |
 | `metadata` | No | Arbitrary metadata about the response (e.g., model version, token counts). Stored but not actively evaluated. |
 | `tool_calls` | No | Tool or function call results returned by the API. |
-| Conversation ID fields | No | Any of the recognized conversation identifiers: `conversation_id`, `session_id`, `thread_id`, `chat_id`, `dialog_id`, `dialogue_id`, `context_id`, `interaction_id`. Rhesis auto-detects these for multi-turn tracking. |
+| Conversation ID fields | For conversational | Any of the recognized conversation identifiers: `conversation_id`, `session_id`, `thread_id`, `chat_id`, `dialog_id`, `dialogue_id`, `context_id`, `interaction_id`. Map one of these for both stateful and stateless multi-turn endpoints so Rhesis can track conversations across turns. |
 
 <Callout type="info">
   You can include additional custom fields in both request templates and response
@@ -96,6 +96,13 @@ Request and response mappings tell Rhesis how to translate between its standard 
 For full details on template syntax, filters, and advanced mapping techniques, see [Single-Turn Endpoints](/platform/endpoints/single-turn).
 
 ## Creating an Endpoint
+
+<Callout type="info">
+  **New to mapping?** Use the [Auto-Configure](/platform/endpoints/auto-configure)
+  feature to let AI generate your request and response mappings automatically.
+  Just paste a curl command, code snippet, or API documentation and Rhesis
+  handles the rest.
+</Callout>
 
 ### Manual Configuration
 
@@ -196,6 +203,8 @@ Environment tags help you quickly identify which endpoints are production-critic
 
 <Callout type="default">
   **Next Steps**
+  - Try [Auto-Configure](/platform/endpoints/auto-configure) to let AI generate
+    mappings from a curl command or code snippet
   - Learn about [Single-Turn Endpoints](/platform/endpoints/single-turn) for
     request/response mapping details
   - Configure [Multi-Turn Conversations](/platform/endpoints/multi-turn-conversations)

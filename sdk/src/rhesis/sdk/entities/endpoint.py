@@ -157,6 +157,103 @@ class Endpoint(BaseEntity):
             raise ValueError("Endpoint is not answering")
         print("Endpoint is working correctly")
 
+    @property
+    def auto_configure_result(self) -> Optional[Dict[str, Any]]:
+        """Access the raw auto-configure result (confidence, reasoning, warnings).
+
+        Returns:
+            Dict with auto-configure metadata, or None if not created via auto_configure().
+        """
+        return getattr(self, "_auto_configure_result", None)
+
+    @classmethod
+    @handle_http_errors
+    def auto_configure(
+        cls,
+        input_text: str,
+        url: str,
+        auth_token: Optional[str] = None,
+        method: str = "POST",
+        probe: bool = True,
+        name: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> Optional["Endpoint"]:
+        """
+        Auto-configure an endpoint using AI-powered mapping generation.
+
+        Paste any reference material about your endpoint -- a curl command,
+        Python code, API docs, or a plain-text description -- and Rhesis
+        will use AI to generate the request and response mappings.
+
+        Args:
+            input_text: Any reference material about the endpoint (curl,
+                code, docs, description).
+            url: The endpoint URL.
+            auth_token: Authentication token for the target API.
+            method: HTTP method (default: "POST").
+            probe: If True, Rhesis sends a test request to verify
+                the configuration (default: True).
+            name: Optional endpoint name.
+            project_id: Optional project ID to assign the endpoint to.
+
+        Returns:
+            An Endpoint instance pre-filled with the generated mappings
+            and configuration. Call ``push()`` to save it. Returns None
+            if the request fails.
+
+        Raises:
+            requests.exceptions.HTTPError: If the API request fails.
+
+        Example:
+            >>> endpoint = Endpoint.auto_configure(
+            ...     input_text='''
+            ...     curl -X POST https://api.example.com/chat \\
+            ...       -H "Authorization: Bearer token123" \\
+            ...       -d '{"query": "hello", "model": "gpt-4"}'
+            ...     ''',
+            ...     url="https://api.example.com/chat",
+            ...     auth_token="token123",
+            ... )
+            >>> print(endpoint.request_mapping)
+            >>> endpoint.name = "My Chat API"
+            >>> endpoint.project_id = "project-uuid"
+            >>> endpoint.push()
+        """
+        client = APIClient()
+        result = client.send_request(
+            endpoint=cls.endpoint,
+            method=Methods.POST,
+            data={
+                "input_text": input_text,
+                "url": url,
+                "auth_token": auth_token,
+                "method": method,
+                "probe": probe,
+            },
+            url_params="auto-configure",
+        )
+
+        if result is None or result.get("status") == "failed":
+            return None
+
+        # Build a pre-filled Endpoint instance
+        endpoint = cls(
+            name=name,
+            url=result.get("url", url),
+            method=result.get("method", method),
+            connection_type=ConnectionType.REST,
+            auth_token=auth_token,
+            project_id=project_id,
+            request_mapping=result.get("request_mapping"),
+            response_mapping=result.get("response_mapping"),
+            request_headers=result.get("request_headers"),
+        )
+
+        # Store the full result as metadata for transparency
+        endpoint._auto_configure_result = result
+
+        return endpoint
+
 
 class Endpoints(BaseCollection):
     endpoint = ENDPOINT

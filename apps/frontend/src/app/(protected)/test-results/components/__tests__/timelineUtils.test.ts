@@ -103,7 +103,7 @@ describe('createMetricExtractor', () => {
       },
     };
     const extractor = createMetricExtractor('accuracy');
-    expect(extractor(item)).toEqual(item.metrics!.accuracy);
+    expect(extractor(item)).toEqual(item.metrics?.accuracy);
   });
 
   it('returns null for missing metric', () => {

@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import UUID4, ConfigDict, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
 from rhesis.backend.app.models.enums import (
     EndpointAuthType,
@@ -215,3 +215,45 @@ class Endpoint(Base):
     scopes: Optional[List[str]] = None
     audience: Optional[str] = None
     extra_payload: Optional[Dict[str, Any]] = None
+
+
+# Auto-configure schemas — use BaseModel (not Base) since these are
+# transient DTOs that should not carry id/nano_id UUID fields.
+
+
+class AutoConfigureRequest(BaseModel):
+    """Request schema for AI-powered endpoint auto-configuration."""
+
+    input_text: str  # The "paste anything" content
+    url: Optional[str] = None  # Pre-filled URL
+    auth_token: Optional[str] = None  # Pre-filled auth token
+    method: Optional[str] = None  # Pre-filled HTTP method
+    probe: bool = True  # Whether to probe the live endpoint
+
+
+class AutoConfigureResult(BaseModel):
+    """Result of auto-configuration — produced entirely by the LLM."""
+
+    status: Literal["success", "partial", "failed"] = "success"
+    error: Optional[str] = None
+    # Generated mappings
+    request_mapping: Optional[Dict[str, Any]] = None
+    response_mapping: Optional[Dict[str, Any]] = None
+    request_headers: Optional[Dict[str, str]] = None
+    # Endpoint basics
+    url: Optional[str] = None
+    method: str = "POST"
+    # Detection results
+    conversation_mode: Literal["single_turn", "stateless", "stateful"] = "single_turn"
+    # LLM-generated probe body (replaces hardcoded _build_test_body)
+    probe_request: Optional[Dict[str, Any]] = None
+    # Transparency
+    confidence: float = 0.0
+    reasoning: str = ""
+    warnings: List[str] = []
+    # Probe results (populated by the service, not the LLM)
+    probe_response: Optional[Dict[str, Any]] = None
+    probe_success: bool = False
+    probe_attempts: int = 0
+    probe_error: Optional[str] = None
+    probe_status_code: Optional[int] = None

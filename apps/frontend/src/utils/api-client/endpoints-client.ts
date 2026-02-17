@@ -1,6 +1,11 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
-import { Endpoint, EndpointTestRequest } from './interfaces/endpoint';
+import {
+  AutoConfigureRequest,
+  AutoConfigureResult,
+  Endpoint,
+  EndpointTestRequest,
+} from './interfaces/endpoint';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 
 // Default pagination settings
@@ -119,6 +124,21 @@ export class EndpointsClient extends BaseApiClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ test_set_ids }),
+      }
+    );
+  }
+
+  async autoConfigure(
+    payload: AutoConfigureRequest
+  ): Promise<AutoConfigureResult> {
+    return this.fetch<AutoConfigureResult>(
+      `${API_ENDPOINTS.endpoints}/auto-configure`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       }
     );
   }

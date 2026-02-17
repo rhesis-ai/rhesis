@@ -209,7 +209,9 @@ export default function SwaggerEndpointForm() {
         severity: 'success',
       });
 
-      router.push('/endpoints');
+      router.push(
+        projectIdFromUrl ? `/projects/${projectIdFromUrl}` : '/endpoints'
+      );
     } catch (error) {
       setError((error as Error).message);
     } finally {
@@ -231,7 +233,13 @@ export default function SwaggerEndpointForm() {
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button
               variant="outlined"
-              onClick={() => router.push('/projects/endpoints')}
+              onClick={() =>
+                router.push(
+                  projectIdFromUrl
+                    ? `/projects/${projectIdFromUrl}`
+                    : '/endpoints'
+                )
+              }
               disabled={isSubmitting}
             >
               Cancel
