@@ -1,8 +1,8 @@
-from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, BaseModel
 from rhesis.sdk.models.factory import (
+    ModelType,
     get_available_embedding_models,
     get_available_language_models,
-    get_embedder,
     get_model,
 )
 from rhesis.sdk.models.providers.gemini import GeminiEmbedder, GeminiLLM
@@ -30,6 +30,8 @@ except ImportError:
 __all__ = [
     "BaseEmbedder",
     "BaseLLM",
+    "BaseModel",
+    "ModelType",
     "GeminiEmbedder",
     "GeminiLLM",
     "LiteLLM",
@@ -42,9 +44,7 @@ __all__ = [
     "VertexAILLM",
     "get_available_embedding_models",
     "get_available_language_models",
-    "get_embedder",
     "get_model",
-    "get_embedder",
 ]
 
 if HUGGINGFACE_AVAILABLE:
