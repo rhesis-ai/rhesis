@@ -247,18 +247,18 @@ export default function TestsTableView({
       });
 
       // Determine the current automated status
-      // For multi-turn tests
+      // Use test_metrics for all test types when available
+      const metrics = test.test_metrics?.metrics || {};
+      const metricValues = Object.values(metrics);
+      const totalMetrics = metricValues.length;
       let automatedPassed = false;
-      if (isMultiTurn && test.test_output?.goal_evaluation) {
+      if (totalMetrics > 0) {
+        const passedMetrics = metricValues.filter(m => m.is_successful).length;
+        automatedPassed = passedMetrics === totalMetrics;
+      } else if (isMultiTurn && test.test_output?.goal_evaluation) {
+        // Fallback for multi-turn without test_metrics
         automatedPassed =
           test.test_output.goal_evaluation.all_criteria_met || false;
-      } else {
-        // For single-turn tests
-        const metrics = test.test_metrics?.metrics || {};
-        const metricValues = Object.values(metrics);
-        const totalMetrics = metricValues.length;
-        const passedMetrics = metricValues.filter(m => m.is_successful).length;
-        automatedPassed = totalMetrics > 0 && passedMetrics === totalMetrics;
       }
 
       // Find appropriate status ID using centralized utility
@@ -324,15 +324,25 @@ export default function TestsTableView({
 
   // Calculate test result status (considering reviews from backend)
   const getTestStatus = (test: TestResultDetail) => {
-    // For multi-turn tests, use goal_evaluation
+    // For multi-turn tests, use test_metrics when available, fall back to goal_evaluation
     if (isMultiTurn && test.test_output?.goal_evaluation) {
-      const allCriteriaMet = test.test_output.goal_evaluation.all_criteria_met;
-      const totalCriteria =
-        test.test_output.goal_evaluation.criteria_evaluations?.length || 0;
-      const metCriteria =
-        test.test_output.goal_evaluation.criteria_evaluations?.filter(
-          c => c.met
-        )?.length || 0;
+      const allMetrics = test.test_metrics?.metrics || {};
+      const allMetricValues = Object.values(allMetrics);
+      const hasTestMetrics = allMetricValues.length > 0;
+
+      // Determine pass/fail from all metrics when available
+      const allCriteriaMet = hasTestMetrics
+        ? allMetricValues.every(m => m.is_successful)
+        : test.test_output.goal_evaluation.all_criteria_met;
+
+      const totalCriteria = hasTestMetrics
+        ? allMetricValues.length
+        : test.test_output.goal_evaluation.criteria_evaluations?.length || 0;
+      const metCriteria = hasTestMetrics
+        ? allMetricValues.filter(m => m.is_successful).length
+        : test.test_output.goal_evaluation.criteria_evaluations?.filter(
+            c => c.met
+          )?.length || 0;
 
       const originalPassed = allCriteriaMet === true;
       const lastReview = test.last_review;

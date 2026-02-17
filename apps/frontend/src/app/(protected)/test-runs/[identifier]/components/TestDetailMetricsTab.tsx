@@ -262,6 +262,31 @@ export default function TestDetailMetricsTab({
     };
   }, [test]);
 
+  // Compute additional (non-Goal Achievement) metrics for multi-turn tests
+  const hasAdditionalMultiTurnMetrics = useMemo(() => {
+    if (!isMultiTurn) return false;
+    const testMetrics = test.test_metrics?.metrics || {};
+    return Object.keys(testMetrics).some(metricName => {
+      const lowerName = metricName.toLowerCase();
+      const isGoalMetric =
+        lowerName.includes('goal') &&
+        (lowerName.includes('achievement') || lowerName.includes('evaluation'));
+      return !isGoalMetric;
+    });
+  }, [test, isMultiTurn]);
+
+  // For multi-turn, filter out Goal Achievement from the table rows
+  const filteredMetricsForTable = useMemo(() => {
+    if (!isMultiTurn) return filteredMetrics;
+    return filteredMetrics.filter(m => {
+      const lowerName = m.name.toLowerCase();
+      const isGoalMetric =
+        lowerName.includes('goal') &&
+        (lowerName.includes('achievement') || lowerName.includes('evaluation'));
+      return !isGoalMetric;
+    });
+  }, [filteredMetrics, isMultiTurn]);
+
   const handleFilterChange = (
     _event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'passed' | 'failed' | null
@@ -285,7 +310,7 @@ export default function TestDetailMetricsTab({
         <Typography variant="h6" fontWeight={600}>
           Metrics Overview
         </Typography>
-        {!isMultiTurn && (
+        {(!isMultiTurn || hasAdditionalMultiTurnMetrics) && (
           <ToggleButtonGroup
             value={filterStatus}
             exclusive
@@ -694,8 +719,8 @@ export default function TestDetailMetricsTab({
           </CardContent>
         </Card>
       )}
-      {/* Metrics Details Table - Only for Single-turn tests */}
-      {!isMultiTurn && (
+      {/* Metrics Details Table */}
+      {(!isMultiTurn || hasAdditionalMultiTurnMetrics) && (
         <TableContainer>
           <Table>
             <TableHead>
@@ -706,7 +731,7 @@ export default function TestDetailMetricsTab({
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredMetrics.length === 0 ? (
+              {filteredMetricsForTable.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3} align="center">
                     <Typography
@@ -719,7 +744,7 @@ export default function TestDetailMetricsTab({
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredMetrics.map(metric => (
+                filteredMetricsForTable.map(metric => (
                   <TableRow
                     key={`${metric.behaviorName}-${metric.name}`}
                     sx={{
