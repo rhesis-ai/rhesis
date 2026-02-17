@@ -2,13 +2,13 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-DEFAULT_LANGUAGE_MODEL_NAME = "llama-2-70b-chat"
+DEFAULT_MODEL_NAME = "llama-2-70b-chat"
 
 
 class ReplicateLLM(LiteLLM):
     PROVIDER = "replicate"
 
-    def __init__(self, model_name: str = DEFAULT_LANGUAGE_MODEL_NAME, api_key=None, **kwargs):
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         ReplicateLLM: Replicate LLM Provider
 

@@ -2,13 +2,13 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-DEFAULT_LANGUAGE_MODEL_NAME = "openai/gpt-4o-mini"
+DEFAULT_MODEL_NAME = "openai/gpt-4o-mini"
 
 
 class OpenRouterLLM(LiteLLM):
     PROVIDER = "openrouter"
 
-    def __init__(self, model_name: str = DEFAULT_LANGUAGE_MODEL_NAME, api_key=None):
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None):
         """
         OpenRouterLLM: OpenRouter LLM Provider
 

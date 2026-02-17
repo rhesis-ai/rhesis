@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Union
 from rhesis.sdk.metrics.base import MetricConfig, MetricResult
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.factory import get_language_model
+from rhesis.sdk.models.factory import get_model
 
 
 class ConversationalMetricBase(ABC):
@@ -44,7 +44,7 @@ class ConversationalMetricBase(ABC):
         """Set the evaluation model."""
         if isinstance(model, BaseLLM):
             return model
-        return get_language_model(model)
+        return get_model(model)
 
     @property
     def model(self) -> BaseLLM:

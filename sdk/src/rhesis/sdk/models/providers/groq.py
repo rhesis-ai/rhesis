@@ -2,13 +2,13 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-DEFAULT_LANGUAGE_MODEL_NAME = "llama3-8b-8192"
+DEFAULT_MODEL_NAME = "llama3-8b-8192"
 
 
 class GroqLLM(LiteLLM):
     PROVIDER = "groq"
 
-    def __init__(self, model_name: str = DEFAULT_LANGUAGE_MODEL_NAME, api_key=None, **kwargs):
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         GroqLLM: Groq LLM Provider
 

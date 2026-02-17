@@ -3,14 +3,14 @@ from typing import Optional
 
 from rhesis.sdk.models.providers.litellm import LiteLLM, LiteLLMEmbedder
 
-DEFAULT_LANGUAGE_MODEL_NAME = "gpt-4"
+DEFAULT_MODEL_NAME = "gpt-4"
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
 
 class OpenAILLM(LiteLLM):
     PROVIDER = "openai"
 
-    def __init__(self, model_name=DEFAULT_LANGUAGE_MODEL_NAME, api_key=None):
+    def __init__(self, model_name=DEFAULT_MODEL_NAME, api_key=None):
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         if api_key is None:
             raise ValueError("OPENAI_API_KEY is not set")

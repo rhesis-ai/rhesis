@@ -2,13 +2,13 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-DEFAULT_LANGUAGE_MODEL_NAME = "mistral-medium-latest"
+DEFAULT_MODEL_NAME = "mistral-medium-latest"
 
 
 class MistralLLM(LiteLLM):
     PROVIDER = "mistral"
 
-    def __init__(self, model_name: str = DEFAULT_LANGUAGE_MODEL_NAME, api_key=None, **kwargs):
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         MistralLLM: Mistral LLM Provider
 

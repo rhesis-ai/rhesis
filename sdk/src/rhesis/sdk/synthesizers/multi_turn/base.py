@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from rhesis.sdk.entities.test import TestConfiguration
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
-from rhesis.sdk.models import get_language_model
+from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.synthesizers.utils import create_test_set
 
@@ -62,7 +62,7 @@ class MultiTurnSynthesizer:
         self.batch_size = batch_size
 
         if isinstance(model, str) or model is None:
-            self.model = get_language_model(model)
+            self.model = get_model(model)
         else:
             self.model = model
 

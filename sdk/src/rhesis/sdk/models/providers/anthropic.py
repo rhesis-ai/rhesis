@@ -2,13 +2,13 @@ import os
 
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
-DEFAULT_LANGUAGE_MODEL_NAME = "claude-4"
+DEFAULT_MODEL_NAME = "claude-4"
 
 
 class AnthropicLLM(LiteLLM):
     PROVIDER = "anthropic"
 
-    def __init__(self, model_name: str = DEFAULT_LANGUAGE_MODEL_NAME, api_key=None, **kwargs):
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         AnthropicLLM: Anthropic LLM Provider
 

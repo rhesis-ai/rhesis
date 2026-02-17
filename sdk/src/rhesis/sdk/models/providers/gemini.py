@@ -3,14 +3,14 @@ from typing import Optional
 
 from rhesis.sdk.models.providers.litellm import LiteLLM, LiteLLMEmbedder
 
-DEFAULT_LANGUAGE_MODEL_NAME = "gemini-2.5-flash-lite"
+DEFAULT_MODEL_NAME = "gemini-2.5-flash-lite"
 DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"
 
 
 class GeminiLLM(LiteLLM):
     PROVIDER = "gemini"
 
-    def __init__(self, model_name: str = DEFAULT_LANGUAGE_MODEL_NAME, api_key=None, **kwargs):
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         GeminiLLM: Google Gemini LLM Provider
 

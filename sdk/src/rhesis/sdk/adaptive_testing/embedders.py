@@ -13,24 +13,22 @@ _embedding_file_cache = diskcache.Cache(
 )
 
 
-class EmbeddingModelAdapter:
-    """Adapter that wraps a BaseEmbedder (embedding model) for use with adaptive testing caching.
+class EmbedderAdapter:
+    """Adapter that wraps a BaseEmbedder for use with adaptive testing caching.
 
     This adapter provides:
     - `name` property for cache key prefix
     - `__call__` method for batch embedding
 
     Args:
-        embedding_model: A BaseEmbedder instance from rhesis.sdk.models
+        embedder: A BaseEmbedder instance from rhesis.sdk.models
         replace_newlines: Whether to replace newlines with spaces (recommended for most models)
     """
 
-    def __init__(self, embedding_model: BaseEmbedder, replace_newlines: bool = True):
-        self._embedding_model = embedding_model
+    def __init__(self, embedder: BaseEmbedder, replace_newlines: bool = True):
+        self._embedder = embedder
         self.replace_newlines = replace_newlines
-        self.name = (
-            f"adaptive_testing.embedders.EmbeddingModelAdapter({embedding_model.model_name}):"
-        )
+        self.name = f"adaptive_testing.embedders.EmbedderAdapter({embedder.model_name}):"
 
     def __call__(self, strings: List[str]) -> np.ndarray:
         """Generate embeddings for a list of strings.
@@ -53,30 +51,22 @@ class EmbeddingModelAdapter:
                 s = s.replace("\n", " ")
             cleaned_strings.append(s)
 
-        embeddings = self._embedding_model.generate_batch(cleaned_strings)
+        embeddings = self._embedder.generate_batch(cleaned_strings)
         return np.vstack(embeddings)
 
 
-# Deprecated alias for backward compatibility
-EmbedderAdapter = EmbeddingModelAdapter
-
-
-def embed_with_cache(
-    embedding_model_adapter: EmbeddingModelAdapter,
-    strings: List[str],
-    should_normalize: bool = True,
-):
-    """Embed strings using the provided embedding model adapter with caching.
+def embed_with_cache(embedder: EmbedderAdapter, strings: List[str], should_normalize: bool = True):
+    """Embed strings using the provided embedder with caching.
 
     Args:
-        embedding_model_adapter: An EmbeddingModelAdapter instance wrapping a BaseEmbedder
+        embedder: An EmbedderAdapter instance wrapping a BaseEmbedder
         strings: List of strings to embed
         should_normalize: Whether to L2-normalize embeddings (default: True)
 
     Returns:
         List of embedding vectors (numpy arrays)
     """
-    text_prefix = embedding_model_adapter.name
+    text_prefix = embedder.name
 
     # Find which strings are not in the cache
     new_strings = []
@@ -91,7 +81,7 @@ def embed_with_cache(
 
     # Embed the new strings
     if len(new_strings) > 0:
-        new_embeds = embedding_model_adapter(new_strings)
+        new_embeds = embedder(new_strings)
         for i, s in enumerate(new_strings):
             prefixed_s = text_prefix + s
             if should_normalize:

@@ -53,14 +53,14 @@ class LMFormatEnforcerLLM(BaseLLM):
     When no schema is provided, behaves identically to HuggingFaceLLM.
 
     Example usage:
-        >>> from rhesis.sdk.models.factory import get_language_model
+        >>> from rhesis.sdk.models.factory import get_model
         >>> from pydantic import BaseModel
         >>>
         >>> class OutputSchema(BaseModel):
         ...     answer: str
         ...     confidence: float
         >>>
-        >>> llm = get_language_model("lmformatenforcer", "meta-llama/Llama-2-7b-chat-hf")
+        >>> llm = get_model("lmformatenforcer", "meta-llama/Llama-2-7b-chat-hf")
         >>> result = llm.generate(
         ...     "What is 2+2?",
         ...     schema=OutputSchema

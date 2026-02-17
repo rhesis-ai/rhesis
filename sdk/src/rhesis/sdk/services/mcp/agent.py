@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import jinja2
 
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.factory import get_language_model
+from rhesis.sdk.models.factory import get_model
 from rhesis.sdk.services.mcp.client import MCPClient
 from rhesis.sdk.services.mcp.exceptions import (
     MCPApplicationError,
@@ -80,7 +80,7 @@ class MCPAgent:
         """Convert model string or instance to BaseLLM instance."""
         if isinstance(model, BaseLLM):
             return model
-        return get_language_model(model)
+        return get_model(model)
 
     def _load_default_system_prompt(self) -> str:
         """Load the default system prompt from template."""
