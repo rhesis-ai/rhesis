@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'apps/polyphemus/model-deployment/**'
-      - '.github/workflows/model-deployment.yml'
+      - '.github/workflows/polyphemus-vertex-ai.yml'
   workflow_dispatch:
     inputs:
       environment:
