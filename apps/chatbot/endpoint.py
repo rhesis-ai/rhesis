@@ -35,8 +35,14 @@ INITIAL_RETRY_DELAY = 1  # seconds
 MAX_RETRY_DELAY = 10  # seconds
 
 # Model configuration - uses SDK providers approach
-DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "vertex_ai")
-DEFAULT_MODEL_NAME = os.getenv("DEFAULT_MODEL_NAME", "gemini-2.5-flash")
+DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "vertex_ai/gemini-2.0-flash")
+
+# Split for @observe.llm decorator
+_provider, _model_name = (
+    DEFAULT_GENERATION_MODEL.split("/", 1)
+    if "/" in DEFAULT_GENERATION_MODEL
+    else (DEFAULT_GENERATION_MODEL, "default")
+)
 
 
 class IntentClassification(BaseModel):
@@ -53,7 +59,7 @@ class IntentClassification(BaseModel):
 def get_llm_model():
     """Get the configured language model using SDK factory."""
     try:
-        return get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
+        return get_model(DEFAULT_GENERATION_MODEL)
     except Exception as e:
         logger.error(f"Failed to initialize language model: {str(e)}")
         raise ValueError(f"Could not initialize language model: {str(e)}")
@@ -113,8 +119,8 @@ class ResponseGenerator:
         return full_prompt
 
     @observe.llm(
-        provider=DEFAULT_GENERATION_MODEL,
-        model=DEFAULT_MODEL_NAME,
+        provider=_provider,
+        model=_model_name,
     )
     def _invoke_llm(self, full_prompt: str) -> str:
         """Invoke the language model to generate a response."""
@@ -197,8 +203,8 @@ class ResponseGenerator:
         return full_prompt
 
     @observe.llm(
-        provider=DEFAULT_GENERATION_MODEL,
-        model=DEFAULT_MODEL_NAME,
+        provider=_provider,
+        model=_model_name,
         purpose="context_generation",
     )
     def _generate_context_fragments_llm(self, full_prompt: str) -> str:
@@ -345,8 +351,8 @@ into one of four categories.
         return full_prompt
 
     @observe.llm(
-        provider=DEFAULT_GENERATION_MODEL,
-        model=DEFAULT_MODEL_NAME,
+        provider=_provider,
+        model=_model_name,
         purpose="intent_classification",
     )
     def _classify_intent_llm(self, full_prompt: str) -> IntentClassification:

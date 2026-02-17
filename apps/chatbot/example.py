@@ -27,14 +27,13 @@ INITIAL_RETRY_DELAY = 1  # seconds
 MAX_RETRY_DELAY = 10  # seconds
 
 # Model configuration - uses SDK providers approach
-DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "vertex_ai")
-DEFAULT_MODEL_NAME = os.getenv("DEFAULT_MODEL_NAME", "gemini-2.5-flash")
+DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "vertex_ai/gemini-2.0-flash")
 
 
 def get_llm_model():
     """Get the configured language model using SDK factory."""
     try:
-        return get_model(provider=DEFAULT_GENERATION_MODEL, model_name=DEFAULT_MODEL_NAME)
+        return get_model(DEFAULT_GENERATION_MODEL)
     except Exception as e:
         logger.error(f"Failed to initialize language model: {str(e)}")
         raise ValueError(f"Could not initialize language model: {str(e)}")

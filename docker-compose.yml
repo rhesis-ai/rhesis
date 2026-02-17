@@ -63,8 +63,9 @@ x-rhesis-config: &rhesis-config
   RHESIS_CONNECTOR_DISABLED: ${RHESIS_CONNECTOR_DISABLED:-true}
   FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
   BACKEND_URL: ${BACKEND_URL:-http://backend:8080}
-  DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-rhesis}
-  DEFAULT_MODEL_NAME: ${DEFAULT_MODEL_NAME:-gemini-2.0-flash}
+  DEFAULT_GENERATION_MODEL: ${DEFAULT_GENERATION_MODEL:-vertex_ai/gemini-2.0-flash}
+  DEFAULT_EVALUATION_MODEL: ${DEFAULT_EVALUATION_MODEL:-vertex_ai/gemini-2.0-flash}
+  DEFAULT_EMBEDDING_MODEL: ${DEFAULT_EMBEDDING_MODEL:-vertex_ai/text-embedding-005}
 
 x-telemetry-config: &telemetry-config
   OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-https://telemetry.rhesis.ai}
