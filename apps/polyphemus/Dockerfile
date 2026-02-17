@@ -1,5 +1,7 @@
-# Hint: Build this image with an expanded build context
-# `docker build -t rhesis-polyphemus -f apps/polyphemus/Dockerfile .`
+# Build context MUST be the repository root (parent of apps/), not apps/polyphemus.
+#
+# From repository root:
+#   docker build -t polyphemus:latest -f apps/polyphemus/Dockerfile .
 #
 # IMPORTANT: This Dockerfile uses a two-stage build to minimize image size
 # and optimize layer caching. The builder stage installs dependencies,
@@ -12,17 +14,22 @@
 # STAGE 1: Builder - Install dependencies
 # ============================================================================
 FROM python:3.10-slim AS builder
+
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-# Install build dependencies
+# Install build dependencies including Rust (needed for base2048/maturin)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     git \
     curl \
+    && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
     && rm -rf /var/lib/apt/lists/*
+
+# Add Rust to PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Copy only the dependency files for polyphemus
 COPY apps/polyphemus/pyproject.toml apps/polyphemus/uv.lock ./
@@ -34,21 +41,21 @@ COPY apps/polyphemus/src/rhesis/polyphemus/__init__.py /app/src/rhesis/polyphemu
 
 # Compile bytecode to improve performance
 ENV UV_COMPILE_BYTECODE=1
-# Use only system Python provided by the base image
 ENV UV_NO_MANAGED_PYTHON=1
-# Skip the installation of the dev dependencies
 ENV UV_NO_DEV=1
-# Use copy mode for better cache mount compatibility
 ENV UV_LINK_MODE=copy
 
-# Copy the backend directory (needed for auth models)
+# Copy the SDK, Penelope, and backend directories (needed for auth and rate limiting)
+COPY sdk /app/sdk/
+COPY penelope /app/penelope/
 COPY apps/backend /app/apps/backend/
 
 # Fix paths in pyproject.toml to point to the correct locations in Docker
-RUN sed -i 's|path = "../backend"|path = "/app/apps/backend"|g' /app/pyproject.toml
+RUN sed -i 's|path = "../../sdk"|path = "/app/sdk"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../../penelope"|path = "/app/penelope"|g' /app/pyproject.toml && \
+    sed -i 's|path = "../backend"|path = "/app/apps/backend"|g' /app/pyproject.toml
 
 # Install dependencies using uv sync
-# Use cache mount for faster builds and install only production dependencies
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev
 
@@ -78,6 +85,8 @@ COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 
 # Copy source code and dependencies with proper ownership
 COPY --from=builder --chown=appuser:appuser /app/src /app/src
+COPY --from=builder --chown=appuser:appuser /app/sdk /app/sdk
+COPY --from=builder --chown=appuser:appuser /app/penelope /app/penelope
 COPY --from=builder --chown=appuser:appuser /app/apps/backend /app/apps/backend
 
 # Clean up any .env files for security
