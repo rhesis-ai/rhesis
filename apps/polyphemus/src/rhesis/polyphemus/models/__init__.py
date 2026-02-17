@@ -1,5 +1,9 @@
-# InferenceEngine and format_prompt are commented out in inference.py
-# from .inference import InferenceEngine, format_prompt
-from rhesis.polyphemus.models.model_loader import LazyModelLoader
+"""
+Polyphemus models package.
 
-__all__ = ["LazyModelLoader"]
+Polyphemus is an API-only service: it authenticates users, applies rate limits,
+and proxies /generate requests to Vertex AI. It does not load or run models
+locally; all inference is done on Vertex AI endpoints.
+"""
+
+__all__: list[str] = []
