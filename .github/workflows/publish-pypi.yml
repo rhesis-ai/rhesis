@@ -19,18 +19,18 @@ jobs:
     permissions:
       contents: read   # Required for actions/checkout
       id-token: write  # Required for trusted publishing
-
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Setup Python build environment
       uses: ./.github/actions/setup-python-build
-
+    
     - name: Build SDK
       working-directory: ./sdk
       run: python -m build
-
+    
     - name: Publish rhesis-sdk to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
@@ -45,18 +45,18 @@ jobs:
     permissions:
       contents: read   # Required for actions/checkout
       id-token: write  # Required for trusted publishing
-
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Setup Python build environment
       uses: ./.github/actions/setup-python-build
-
+    
     - name: Build rhesis
       working-directory: ./packages/rhesis
       run: python -m build
-
+    
     - name: Publish rhesis to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
