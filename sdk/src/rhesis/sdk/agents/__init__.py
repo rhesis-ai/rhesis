@@ -30,6 +30,7 @@ from rhesis.sdk.agents.schemas import (
     ToolCall,
     ToolResult,
 )
+from rhesis.sdk.agents.tools import ExploreEndpointTool
 
 
 def get_rhesis_tools(
@@ -65,7 +66,7 @@ __all__ = [
     "BaseTool",
     "MCPTool",
     # Tools
-
+    "ExploreEndpointTool",
     # Events
     "AgentEventHandler",
     # MCP agent
