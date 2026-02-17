@@ -147,7 +147,7 @@ async def generate_multiturn_tests(
     """
     Generate multi-turn test cases using MultiTurnSynthesizer.
     Uses user's configured default model if available,
-    otherwise falls back to DEFAULT_LANGUAGE_MODEL_PROVIDER.
+    otherwise falls back to DEFAULT_GENERATION_MODEL.
 
     Args:
         db: Database session
