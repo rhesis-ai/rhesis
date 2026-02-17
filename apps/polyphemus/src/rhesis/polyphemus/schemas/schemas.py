@@ -28,7 +28,7 @@ class Message(BaseModel):
 
 
 class GenerateRequest(BaseModel):
-    """Request format"""
+    """Request format for Vertex AI generation"""
 
     messages: List[Message]
     model: Optional[str] = None

@@ -28,6 +28,8 @@ dependencies = [
     "rhesis-backend[gpu]",
     # GCS support for model loading from cloud buckets
     "google-cloud-storage>=2.10.0",
+    # Vertex AI endpoint calls (Application Default Credentials)
+    "google-auth>=2.0.0",
     # Optimization: BetterTransformer for 1.5-2x inference speedup
     "optimum>=1.20.0",
 ]
