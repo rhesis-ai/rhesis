@@ -32,6 +32,7 @@ jobs:
       with:
         version: latest
         enable-cache: true
+        ignore-nothing-to-cache: true
 
     # - name: Type check SDK
     #   run: |
