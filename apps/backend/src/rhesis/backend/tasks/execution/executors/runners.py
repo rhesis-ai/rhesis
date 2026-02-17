@@ -239,10 +239,26 @@ class MultiTurnRunner(BaseRunner):
 
         # --- Entity 2: Evaluate metrics ---
         if output.metrics:
-            # Live execution: Penelope already evaluated metrics
+            # Live execution: Penelope already evaluated Goal Achievement
             metrics_results = output.metrics
+
+            # Evaluate additional multi-turn metrics from three-tier model
+            # (excluding GoalAchievementJudge which Penelope already evaluated)
+            additional_metrics = evaluate_multi_turn_metrics(
+                stored_output=penelope_trace,
+                test=test,
+                db=db,
+                organization_id=organization_id,
+                user_id=user_id,
+                model=model,
+                test_set=test_set,
+                test_configuration=test_configuration,
+                exclude_class_names={"GoalAchievementJudge"},
+            )
+            if additional_metrics:
+                metrics_results.update(additional_metrics)
         else:
-            # Re-score / trace: evaluate externally
+            # Re-score / trace: evaluate ALL metrics externally
             metrics_results = evaluate_multi_turn_metrics(
                 stored_output=penelope_trace,
                 test=test,

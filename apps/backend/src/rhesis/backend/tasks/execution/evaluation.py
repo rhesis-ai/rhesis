@@ -10,7 +10,7 @@ Functions:
 - evaluate_prompt_response: Backward compatibility alias for evaluate_single_turn_metrics
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 from sqlalchemy.orm import Session
 
@@ -81,6 +81,7 @@ def evaluate_multi_turn_metrics(
     model: Any,
     test_set: Any = None,
     test_configuration: Any = None,
+    exclude_class_names: Optional[Set[str]] = None,
 ) -> Dict[str, Any]:
     """Evaluate conversational metrics on a stored Penelope trace or conversation.
 
@@ -97,6 +98,8 @@ def evaluate_multi_turn_metrics(
         model: LLM model for metric evaluation
         test_set: Optional TestSet model for metric override
         test_configuration: Optional TestConfiguration for execution-time override
+        exclude_class_names: Optional set of metric class names to exclude
+            (e.g., {"GoalAchievementJudge"} when Penelope already evaluated it)
 
     Returns:
         Dictionary of metric evaluation results
@@ -120,6 +123,11 @@ def evaluate_multi_turn_metrics(
         test_set=test_set,
         test_configuration=test_configuration,
     )
+
+    # Exclude metrics already evaluated (e.g., by Penelope)
+    if exclude_class_names:
+        metrics = [m for m in metrics if m.class_name not in exclude_class_names]
+
     metric_configs = prepare_metric_configs(metrics, str(test.id), scope=MetricScope.MULTI_TURN)
 
     if not metric_configs:
