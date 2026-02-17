@@ -534,6 +534,93 @@ def get_model(
 
 
 # =============================================================================
+# Typed Factory Functions: get_language_model, get_embedding_model
+# =============================================================================
+
+
+def get_language_model(
+    provider: Optional[str] = None,
+    model_name: Optional[str] = None,
+    api_key: Optional[str] = None,
+    config: Optional[LanguageModelConfig] = None,
+    **kwargs,
+) -> BaseLLM:
+    """Create a language model instance (LLM).
+
+    Same as get_model() but always returns a language model, using language
+    defaults when provider/model are omitted. Use this when you want a
+    BaseLLM and do not want auto-detection.
+
+    Args:
+        provider: Provider name or "provider/model_name" as first positional
+        model_name: Specific model name (omit when using unified format)
+        api_key: API key for authentication
+        config: Complete configuration object
+        **kwargs: Additional parameters passed to the model
+
+    Returns:
+        BaseLLM: Configured language model instance
+
+    Examples:
+        >>> llm = get_language_model()
+        >>> llm = get_language_model("openai/gpt-4o")
+        >>> llm = get_language_model("anthropic", "claude-4")
+    """
+    return get_model(
+        provider=provider,
+        model_name=model_name,
+        api_key=api_key,
+        model_type=ModelType.LANGUAGE,
+        config=config,
+        **kwargs,
+    )
+
+
+def get_embedding_model(
+    provider: Optional[str] = None,
+    model_name: Optional[str] = None,
+    api_key: Optional[str] = None,
+    dimensions: Optional[int] = None,
+    config: Optional[EmbeddingModelConfig] = None,
+    **kwargs,
+) -> BaseEmbedder:
+    """Create an embedding model instance.
+
+    Same as get_model(..., model_type="embedding") with embedding defaults.
+    Use this when you want a BaseEmbedder without passing model_type.
+
+    Args:
+        provider: Provider name or "provider/model_name" as first positional
+        model_name: Specific model name (omit when using unified format)
+        api_key: API key for authentication
+        dimensions: Optional embedding dimensions (model-dependent)
+        config: Complete configuration object
+        **kwargs: Additional parameters passed to the model
+
+    Returns:
+        BaseEmbedder: Configured embedding model instance
+
+    Examples:
+        >>> embedder = get_embedding_model()
+        >>> embedder = get_embedding_model("openai/text-embedding-3-small")
+        >>> embedder = get_embedding_model("openai", dimensions=512)
+    """
+    return get_model(
+        provider=provider,
+        model_name=model_name,
+        api_key=api_key,
+        model_type=ModelType.EMBEDDING,
+        dimensions=dimensions,
+        config=config,
+        **kwargs,
+    )
+
+
+# Backward compatibility: get_embedder was the previous name for embedding models
+get_embedder = get_embedding_model
+
+
+# =============================================================================
 # Helper Functions for Listing Available Models
 # =============================================================================
 
