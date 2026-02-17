@@ -179,7 +179,7 @@ jobs:
             echo "📧 Rate limit notifications enabled (hello@rhesis.ai)"
           fi
 
-          echo "🤖 Model configuration: ${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai' }} / ${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.0-flash' }}"
+          echo "🤖 Model configuration: ${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai/gemini-2.0-flash' }}"
 
           # Set environment-dependent resources
           if [ "${{ env.ENVIRONMENT }}" = "prd" ]; then
@@ -219,8 +219,7 @@ jobs:
             --max-instances=$MAX_INSTANCES \
             --min-instances=$MIN_INSTANCES \
             --set-env-vars="$(cat <<EOF
-          DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai' }},
-          DEFAULT_MODEL_NAME=${{ secrets.DEFAULT_MODEL_NAME || 'gemini-2.0-flash' }},
+          DEFAULT_GENERATION_MODEL=${{ secrets.DEFAULT_GENERATION_MODEL || 'vertex_ai/gemini-2.0-flash' }},
           GOOGLE_APPLICATION_CREDENTIALS=${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }},
           VERTEX_AI_LOCATION=${{ secrets.VERTEX_AI_LOCATION }},
           VERTEX_AI_PROJECT=${{ secrets.VERTEX_AI_PROJECT }},

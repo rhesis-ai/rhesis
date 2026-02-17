@@ -11,7 +11,11 @@ from typing import Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_EMBEDDING_MODEL, DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.constants import (
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_EVALUATION_MODEL,
+    DEFAULT_GENERATION_MODEL,
+)
 from rhesis.backend.app.models.user import User
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.factory import get_embedder, get_model
@@ -42,7 +46,7 @@ def get_user_generation_model(db: Session, user: User) -> Union[str, BaseLLM]:
 
 def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
     """
-    Get the user's configured default evaluation model or fall back to DEFAULT_GENERATION_MODEL.
+    Get the user's configured default evaluation model or fall back to DEFAULT_EVALUATION_MODEL.
 
     This function is used for language-model-as-a-judge scenarios where metrics are evaluated
     using a language model. The user can specify their preferred model via the Models page.
@@ -58,7 +62,7 @@ def get_user_evaluation_model(db: Session, user: User) -> Union[str, BaseLLM]:
         >>> model = get_user_evaluation_model(db, current_user)
         >>> # Use model for metric evaluation
     """
-    return _get_user_model(db, user, "evaluation", DEFAULT_GENERATION_MODEL)
+    return _get_user_model(db, user, "evaluation", DEFAULT_EVALUATION_MODEL)
 
 
 def get_user_embedding_model(db: Session, user: User) -> Union[str, BaseLLM]:
@@ -119,7 +123,7 @@ def validate_user_evaluation_model(db: Session, user: User) -> None:
             db=db,
             model_id=str(model_id),
             organization_id=str(user.organization_id),
-            default_model=DEFAULT_GENERATION_MODEL,
+            default_model=DEFAULT_EVALUATION_MODEL,
         )
         logger.info("[LLM_UTILS] ✓ Evaluation model validation successful")
     except ValueError:

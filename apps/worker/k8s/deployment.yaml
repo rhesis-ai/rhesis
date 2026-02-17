@@ -114,11 +114,16 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: DEFAULT_GENERATION_MODEL
-        - name: DEFAULT_MODEL_NAME
+        - name: DEFAULT_EVALUATION_MODEL
           valueFrom:
             secretKeyRef:
               name: rhesis-worker-secrets
-              key: DEFAULT_MODEL_NAME
+              key: DEFAULT_EVALUATION_MODEL
+        - name: DEFAULT_EMBEDDING_MODEL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: DEFAULT_EMBEDDING_MODEL
         - name: GOOGLE_APPLICATION_CREDENTIALS
           valueFrom:
             secretKeyRef:
@@ -226,7 +231,7 @@ spec:
           timeoutSeconds: 30
           failureThreshold: 10
           successThreshold: 1
-      
+
       # Cloud SQL Auth Proxy sidecar
       - name: cloudsql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.0
@@ -243,4 +248,4 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "200m"
-      restartPolicy: Always 
+      restartPolicy: Always

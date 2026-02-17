@@ -72,15 +72,16 @@ DEFAULT_PRIORITY = 1
 
 # Model-related defaults
 # Can be overridden via environment variables for flexible deployment
+# Format: "provider/model_name" (e.g., "vertex_ai/gemini-2.0-flash")
 DEFAULT_GENERATION_MODEL = os.getenv(
-    "DEFAULT_GENERATION_MODEL", "rhesis"
-)  # Default provider for test generation
-DEFAULT_MODEL_NAME = os.getenv(
-    "DEFAULT_MODEL_NAME", "default"
-)  # Default model name (gemini-2.0-flash recommended, avoid 2.5-flash)
+    "DEFAULT_GENERATION_MODEL", "vertex_ai/gemini-2.0-flash"
+)  # Default model for test generation
+DEFAULT_EVALUATION_MODEL = os.getenv(
+    "DEFAULT_EVALUATION_MODEL", "vertex_ai/gemini-2.0-flash"
+)  # Default model for evaluation (language-model-as-a-judge)
 DEFAULT_EMBEDDING_MODEL = os.getenv(
-    "DEFAULT_EMBEDDING_MODEL", "openai"
-)  # Default provider for embedding generation
+    "DEFAULT_EMBEDDING_MODEL", "vertex_ai/text-embedding-005"
+)  # Default model for embedding generation
 
 # Rhesis API configuration
 # Required for Rhesis system models to work

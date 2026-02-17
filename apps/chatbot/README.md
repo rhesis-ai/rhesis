@@ -95,8 +95,7 @@ uv sync
 
 ```bash
 # Model Configuration (uses SDK providers)
-export DEFAULT_GENERATION_MODEL="vertex_ai"  # Or "gemini", "openai", etc.
-export DEFAULT_MODEL_NAME="gemini-2.0-flash"  # Recommended - faster than 2.5
+export DEFAULT_GENERATION_MODEL="vertex_ai/gemini-2.0-flash"
 
 # Vertex AI Configuration (if using vertex_ai provider)
 export GOOGLE_APPLICATION_CREDENTIALS="base64-encoded-json-or-file-path"
@@ -151,8 +150,7 @@ docker build -t rhesis-chatbot -f apps/chatbot/Dockerfile .
 
 # Run the container with Vertex AI (recommended)
 docker run -p 8080:8080 \
-  -e DEFAULT_GENERATION_MODEL="vertex_ai" \
-  -e DEFAULT_MODEL_NAME="gemini-2.0-flash" \
+  -e DEFAULT_GENERATION_MODEL="vertex_ai/gemini-2.0-flash" \
   -e GOOGLE_APPLICATION_CREDENTIALS="base64-encoded-credentials" \
   -e VERTEX_AI_LOCATION="europe-west4" \
   -e CHATBOT_RATE_LIMIT="1000" \
@@ -160,8 +158,7 @@ docker run -p 8080:8080 \
 
 # Or with Gemini API (alternative)
 docker run -p 8080:8080 \
-  -e DEFAULT_GENERATION_MODEL="gemini" \
-  -e DEFAULT_MODEL_NAME="gemini-2.0-flash-001" \
+  -e DEFAULT_GENERATION_MODEL="gemini/gemini-2.0-flash-001" \
   -e GEMINI_API_KEY="your-api-key" \
   -e CHATBOT_RATE_LIMIT="1000" \
   rhesis-chatbot
@@ -245,8 +242,7 @@ List available use cases (currently only "insurance").
 ### Environment Variables
 
 #### Model Configuration
-- `DEFAULT_GENERATION_MODEL` (optional): Model provider to use, defaults to "vertex_ai"
-- `DEFAULT_MODEL_NAME` (optional): Model name, defaults to "gemini-2.5-flash"
+- `DEFAULT_GENERATION_MODEL` (optional): Model to use (format: provider/model_name), defaults to "vertex_ai/gemini-2.0-flash"
 - `GEMINI_API_KEY` (optional): Google Gemini API key (if using gemini provider)
 - `GOOGLE_APPLICATION_CREDENTIALS` (optional): Vertex AI credentials (if using vertex_ai provider)
 - `VERTEX_AI_LOCATION` (optional): Vertex AI region, defaults to "europe-west4"
@@ -299,7 +295,7 @@ gcloud run deploy ... --set-env-vars CHATBOT_RATE_LIMIT=2000
 
 The chatbot supports **optional API key authentication** for backend services, enabling secure per-user rate limiting:
 
-#### **Mode 1: Public Only (No API Key)** 
+#### **Mode 1: Public Only (No API Key)**
 - All requests treated as public access
 - 100 requests/day per IP address
 - No user-level tracking
@@ -355,7 +351,7 @@ Rate limit exceeded (429):
 }
 ```
 
-**Note**: 
+**Note**:
 - The `/health`, `/`, and `/use-cases` endpoints are always accessible without authentication
 - The root endpoint (`/`) only displays authentication information when `CHATBOT_API_KEY` is configured
 - No sensitive information (like the actual API key) is ever exposed in API responses
@@ -629,4 +625,3 @@ See LICENSE file in repository root.
 For issues or questions:
 - GitHub Issues: https://github.com/rhesis-ai/rhesis/issues
 - Documentation: https://docs.rhesis.ai/platform/default-chatbot
-
