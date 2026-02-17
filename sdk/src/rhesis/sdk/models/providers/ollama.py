@@ -2,6 +2,7 @@ from typing import Optional, Type, Union
 
 from pydantic import BaseModel
 
+from rhesis.sdk.models.defaults import DEFAULT_LANGUAGE_MODELS, model_name_from_id
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
 """
@@ -10,7 +11,8 @@ responses.
 https://docs.litellm.ai/docs/providers/ollama#using-ollama-apichat
 """
 
-DEFAULT_MODEL_NAME = "llama3.1"
+DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["ollama"]
+DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 
 
 class OllamaLLM(LiteLLM):

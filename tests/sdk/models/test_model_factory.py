@@ -3,9 +3,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
+from rhesis.sdk.models.defaults import DEFAULT_LANGUAGE_MODEL, model_name_from_id
 from rhesis.sdk.models.factory import (
-    DEFAULT_LANGUAGE_MODEL_PROVIDER,
-    DEFAULT_LANGUAGE_MODELS,
     EmbeddingModelConfig,
     LanguageModelConfig,
     ModelType,
@@ -113,7 +112,7 @@ class TestUnifiedGetModel:
         result = get_model()
 
         mock_llm_class.assert_called_once_with(
-            model_name=DEFAULT_LANGUAGE_MODELS[DEFAULT_LANGUAGE_MODEL_PROVIDER], api_key=None
+            model_name=model_name_from_id(DEFAULT_LANGUAGE_MODEL), api_key=None
         )
         assert result == mock_instance
 

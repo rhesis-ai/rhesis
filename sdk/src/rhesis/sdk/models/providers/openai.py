@@ -1,10 +1,16 @@
 import os
 from typing import Optional
 
+from rhesis.sdk.models.defaults import (
+    DEFAULT_EMBEDDING_MODELS,
+    DEFAULT_LANGUAGE_MODELS,
+    model_name_from_id,
+)
 from rhesis.sdk.models.providers.litellm import LiteLLM, LiteLLMEmbedder
 
-DEFAULT_MODEL_NAME = "gpt-4"
-DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["openai"]
+DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
+DEFAULT_EMBEDDING_MODEL = model_name_from_id(DEFAULT_EMBEDDING_MODELS["openai"])
 
 
 class OpenAILLM(LiteLLM):

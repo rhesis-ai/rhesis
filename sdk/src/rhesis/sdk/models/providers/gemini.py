@@ -1,10 +1,16 @@
 import os
 from typing import Optional
 
+from rhesis.sdk.models.defaults import (
+    DEFAULT_EMBEDDING_MODELS,
+    DEFAULT_LANGUAGE_MODELS,
+    model_name_from_id,
+)
 from rhesis.sdk.models.providers.litellm import LiteLLM, LiteLLMEmbedder
 
-DEFAULT_MODEL_NAME = "gemini-2.5-flash-lite"
-DEFAULT_EMBEDDING_MODEL = "gemini-embedding-001"
+DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["gemini"]
+DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
+DEFAULT_EMBEDDING_MODEL = model_name_from_id(DEFAULT_EMBEDDING_MODELS["gemini"])
 
 
 class GeminiLLM(LiteLLM):

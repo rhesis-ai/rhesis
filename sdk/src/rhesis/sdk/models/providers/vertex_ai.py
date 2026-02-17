@@ -25,13 +25,19 @@ from typing import List, Optional, Set, Type, Union
 from pydantic import BaseModel
 
 from rhesis.sdk.models.base import Embedding
+from rhesis.sdk.models.defaults import (
+    DEFAULT_EMBEDDING_MODELS,
+    DEFAULT_LANGUAGE_MODELS,
+    model_name_from_id,
+)
 from rhesis.sdk.models.providers.litellm import LiteLLM, LiteLLMEmbedder
 
 # Track temp files created by this process for cleanup
 _temp_credential_files: Set[str] = set()
 
-DEFAULT_MODEL_NAME = "gemini-2.0-flash"
-DEFAULT_EMBEDDING_MODEL = "text-embedding-005"
+DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["vertex_ai"]
+DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
+DEFAULT_EMBEDDING_MODEL = model_name_from_id(DEFAULT_EMBEDDING_MODELS["vertex_ai"])
 
 
 def _cleanup_temp_credentials():

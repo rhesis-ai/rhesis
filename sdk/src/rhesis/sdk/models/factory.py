@@ -10,6 +10,14 @@ from enum import Enum
 from typing import Callable, Dict, Literal, Optional, Union, overload
 
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
+from rhesis.sdk.models.defaults import (
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_EMBEDDING_MODELS,
+    DEFAULT_LANGUAGE_MODEL,
+    DEFAULT_LANGUAGE_MODELS,
+    model_name_from_id,
+    parse_model_id,
+)
 
 # =============================================================================
 # Model Type Classification
@@ -71,37 +79,11 @@ def _classify_model(provider: str, model_name: str) -> ModelType:
 
 
 # =============================================================================
-# Default Configuration
+# Default Configuration (unified provider/name format)
 # =============================================================================
-DEFAULT_LANGUAGE_MODEL_PROVIDER = "rhesis"
-DEFAULT_LANGUAGE_MODELS = {
-    "rhesis": "rhesis-default",
-    "anthropic": "claude-4",
-    "cohere": "command-r-plus",
-    "gemini": "gemini-2.0-flash",
-    "groq": "llama3-8b-8192",
-    "huggingface": "meta-llama/Llama-2-7b-chat-hf",
-    "lmformatenforcer": "meta-llama/Llama-2-7b-chat-hf",
-    "meta_llama": "Llama-3.3-70B-Instruct",
-    "mistral": "mistral-medium-latest",
-    "ollama": "llama3.1",
-    "openai": "gpt-4o",
-    "openrouter": "openai/gpt-4o-mini",
-    "perplexity": "sonar-pro",
-    "polyphemus": "",  # Polyphemus uses API's default model
-    "replicate": "llama-2-70b-chat",
-    "together_ai": "togethercomputer/llama-2-70b-chat",
-    "vertex_ai": "gemini-2.0-flash",  # Best performance - avoid 2.5-flash
-}
-
-# Default embedding models per provider
-DEFAULT_EMBEDDING_MODEL_PROVIDER = "rhesis"
-DEFAULT_EMBEDDING_MODELS = {
-    "rhesis": "rhesis-default",
-    "openai": "text-embedding-3-small",
-    "gemini": "gemini-embedding-001",
-    "vertex_ai": "text-embedding-005",
-}
+# Derived: provider part of the default (for backward compatibility)
+DEFAULT_LANGUAGE_MODEL_PROVIDER = parse_model_id(DEFAULT_LANGUAGE_MODEL)[0]
+DEFAULT_EMBEDDING_MODEL_PROVIDER = parse_model_id(DEFAULT_EMBEDDING_MODEL)[0]
 
 
 # Factory functions for each provider, the are used to create the model instance and
@@ -497,20 +479,35 @@ def get_model(
         prov, model = provider.split("/", 1)
         provider, model_name = prov, model
 
-    # Resolve defaults
+    # Resolve defaults (defaults are stored as full ids: provider/name)
     if model_type is not None:
         # Explicit type provided
         resolved_type = ModelType(model_type)
         if resolved_type == ModelType.LANGUAGE:
-            provider = provider or DEFAULT_LANGUAGE_MODEL_PROVIDER
-            model_name = model_name or DEFAULT_LANGUAGE_MODELS.get(provider)
+            if provider is None and model_name is None:
+                provider, model_name = parse_model_id(DEFAULT_LANGUAGE_MODEL)
+            else:
+                provider = provider or DEFAULT_LANGUAGE_MODEL_PROVIDER
+                if model_name is None:
+                    full_id = DEFAULT_LANGUAGE_MODELS.get(provider)
+                    model_name = model_name_from_id(full_id) if full_id else None
         elif resolved_type == ModelType.EMBEDDING:
-            provider = provider or DEFAULT_EMBEDDING_MODEL_PROVIDER
-            model_name = model_name or DEFAULT_EMBEDDING_MODELS.get(provider)
+            if provider is None and model_name is None:
+                provider, model_name = parse_model_id(DEFAULT_EMBEDDING_MODEL)
+            else:
+                provider = provider or DEFAULT_EMBEDDING_MODEL_PROVIDER
+                if model_name is None:
+                    full_id = DEFAULT_EMBEDDING_MODELS.get(provider)
+                    model_name = model_name_from_id(full_id) if full_id else None
     else:
         # Auto-detect type
-        provider = provider or DEFAULT_LANGUAGE_MODEL_PROVIDER
-        model_name = model_name or DEFAULT_LANGUAGE_MODELS.get(provider)
+        if provider is None and model_name is None:
+            provider, model_name = parse_model_id(DEFAULT_LANGUAGE_MODEL)
+        else:
+            provider = provider or DEFAULT_LANGUAGE_MODEL_PROVIDER
+            if model_name is None:
+                full_id = DEFAULT_LANGUAGE_MODELS.get(provider)
+                model_name = model_name_from_id(full_id) if full_id else None
         resolved_type = _classify_model(provider, model_name)
 
     # Validate provider exists

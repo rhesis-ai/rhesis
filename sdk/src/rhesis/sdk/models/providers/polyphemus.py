@@ -8,17 +8,22 @@ import requests
 from pydantic import BaseModel
 
 from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.defaults import DEFAULT_LANGUAGE_MODELS, model_name_from_id
 from rhesis.sdk.models.utils import validate_llm_response
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["polyphemus"]
+DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 DEFAULT_POLYPHEMUS_URL = os.getenv("DEFAULT_POLYPHEMUS_URL") or "https://polyphemus.rhesis.ai"
 
 
 class PolyphemusLLM(BaseLLM):
     """Service for interacting with the Polyphemus API endpoints."""
 
-    def __init__(self, model_name: str = "", api_key=None, base_url=None, **kwargs) -> None:
+    def __init__(
+        self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, base_url=None, **kwargs
+    ) -> None:
         """
         PolyphemusLLM: Polyphemus LLM Provider
 

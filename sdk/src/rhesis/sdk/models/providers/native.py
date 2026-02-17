@@ -7,10 +7,17 @@ from pydantic import BaseModel
 
 from rhesis.sdk.clients import APIClient
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
+from rhesis.sdk.models.defaults import (
+    DEFAULT_EMBEDDING_MODELS,
+    DEFAULT_LANGUAGE_MODELS,
+    model_name_from_id,
+)
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LANGUAGE_MODEL_NAME = "rhesis-llm-v1"
+DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["rhesis"]
+DEFAULT_LANGUAGE_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
+DEFAULT_EMBEDDING_MODEL_NAME = model_name_from_id(DEFAULT_EMBEDDING_MODELS["rhesis"])
 API_ENDPOINT = "services/generate/content"
 
 
@@ -170,7 +177,7 @@ class RhesisEmbedder(BaseEmbedder):
 
     def __init__(
         self,
-        model_name: str = "default",
+        model_name: str = DEFAULT_EMBEDDING_MODEL_NAME,
         api_key=None,
         base_url=None,
         **kwargs,
@@ -178,7 +185,7 @@ class RhesisEmbedder(BaseEmbedder):
         """Initialize the Rhesis embedder.
 
         Args:
-            model_name: Name of the embedding model to use (default: "default")
+            model_name: Name of the embedding model to use (default: from canonical defaults)
             api_key: API key for Rhesis. If not provided, will use RHESIS_API_KEY from environment.
             base_url: Base URL for the Rhesis API. If not provided, will use RHESIS_BASE_URL
                 from environment.
