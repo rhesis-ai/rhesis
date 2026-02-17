@@ -5,3 +5,4 @@
 google-cloud-aiplatform>=1.38.0
 google-cloud-compute>=1.15.0
 google-api-core>=2.15.0
+python-dotenv>=1.0.0
