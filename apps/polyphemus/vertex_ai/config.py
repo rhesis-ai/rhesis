@@ -1,7 +1,13 @@
 """Configuration for Vertex AI model deployments."""
 
 import os
+from pathlib import Path
 from typing import Any, TypedDict
+
+# Load .env from vertex_ai directory so GCP_SERVICE_ACCOUNT, MODEL_PATH, etc. are used
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 
 class ModelConfig(TypedDict, total=False):
@@ -23,13 +29,13 @@ REGION = os.getenv("GCP_REGION", "us-central1")
 SERVICE_ACCOUNT = os.getenv("GCP_SERVICE_ACCOUNT", "")
 
 # GCS model path and default model (use existing GitHub secrets)
-# MODEL_PATH e.g. gs://rhesis-model-bucket-dev/models
-# DEFAULT_MODEL e.g. llama-3-1-8b-instruct
+# MODEL_PATH e.g. gs://your-bucket-name/cache
+# DEFAULT_MODEL e.g. your-model-name
 MODEL_PATH = os.getenv("MODEL_PATH", "")
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "")
 
 # Derived: bucket URI for staging (gs://bucket-name from MODEL_PATH)
-# e.g. MODEL_PATH=gs://rhesis-model-bucket-dev/models -> BUCKET_URI=gs://rhesis-model-bucket-dev
+# e.g. MODEL_PATH=gs://your-bucket-name/cache -> BUCKET_URI=gs://your-bucket-name
 BUCKET_URI = ""
 if MODEL_PATH and MODEL_PATH.startswith("gs://"):
     parts = MODEL_PATH.split("/")
@@ -37,7 +43,7 @@ if MODEL_PATH and MODEL_PATH.startswith("gs://"):
         BUCKET_URI = f"gs://{parts[2]}"
 
 # Full GCS path to default model for deployment
-# e.g. MODEL_PATH + DEFAULT_MODEL -> gs://rhesis-model-bucket-dev/models/llama-3-1-8b-instruct
+# e.g. MODEL_PATH + DEFAULT_MODEL -> gs://your-bucket-name/cache/your-model-name
 MODEL_GCS_PATH = ""
 if MODEL_PATH and DEFAULT_MODEL:
     MODEL_GCS_PATH = f"{MODEL_PATH.rstrip('/')}/{DEFAULT_MODEL}"
@@ -96,7 +102,7 @@ def validate_config() -> None:
     if MODEL_PATH and not MODEL_PATH.startswith("gs://"):
         raise ValueError(
             f"Invalid MODEL_PATH format: {MODEL_PATH}\n"
-            "Must start with 'gs://' (e.g., gs://rhesis-model-bucket-dev/models)"
+            "Must start with 'gs://' (e.g., gs://your-bucket-name/cache)"
         )
 
 
