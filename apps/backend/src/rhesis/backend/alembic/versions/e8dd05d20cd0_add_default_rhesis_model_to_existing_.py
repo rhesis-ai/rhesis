@@ -17,12 +17,16 @@ from sqlalchemy.orm import Session
 
 # Import models and utilities
 from rhesis.backend.app import models
-from rhesis.backend.app.constants import DEFAULT_MODEL_NAME, EntityType
+from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.utils.crud_utils import (
     get_or_create_entity,
     get_or_create_status,
     get_or_create_type_lookup,
 )
+
+# Historical constant value for this migration (inlined to avoid import errors)
+# This was the value of DEFAULT_MODEL_NAME when this migration was created
+DEFAULT_MODEL_NAME = "gemini-2.0-flash"
 
 # revision identifiers, used by Alembic.
 revision: str = "e8dd05d20cd0"
