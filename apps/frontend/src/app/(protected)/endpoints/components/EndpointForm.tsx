@@ -293,9 +293,7 @@ export default function EndpointForm() {
   };
 
   const isAutoConfigureEnabled =
-    Boolean(formData.name) &&
-    Boolean(formData.url) &&
-    Boolean(formData.auth_token);
+    Boolean(formData.name) && Boolean(formData.url);
 
   const handleAutoConfigureApply = (result: AutoConfigureResult) => {
     setFormData(prev => ({
@@ -420,7 +418,7 @@ export default function EndpointForm() {
               title={
                 isAutoConfigureEnabled
                   ? 'Use AI to generate request and response mappings'
-                  : 'Fill in name, URL, and auth token first'
+                  : 'Fill in name and URL first'
               }
             >
               <span>

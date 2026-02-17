@@ -236,9 +236,9 @@ class AutoConfigureResult(BaseModel):
 
     status: Literal["success", "partial", "failed"] = "success"
     error: Optional[str] = None
-    # Generated mappings (Dict[str, str] forces flat string values)
-    request_mapping: Optional[Dict[str, str]] = None
-    response_mapping: Optional[Dict[str, str]] = None
+    # Generated mappings
+    request_mapping: Optional[Dict[str, Any]] = None
+    response_mapping: Optional[Dict[str, Any]] = None
     request_headers: Optional[Dict[str, str]] = None
     # Endpoint basics
     url: Optional[str] = None

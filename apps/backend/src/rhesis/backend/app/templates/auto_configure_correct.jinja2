@@ -68,7 +68,7 @@ Endpoints
 | Variable | Required | Purpose |
 |---|---|---|
 | `output` | Always | Primary text response (JSONPath) |
-| `conversation_id` | Multi-turn only | Session/conversation ID from response (JSONPath). Do NOT map `$.id` — request/completion IDs are not conversation IDs. |
+| `conversation_id` | Multi-turn only | Session/conversation ID from response (JSONPath). **WARNING**: Do NOT map `$.id` — this is usually a request/completion ID, not a conversation ID. Only map if the API explicitly returns a session/conversation/thread identifier. |
 | `context` | If available | Source documents, references, RAG context (JSONPath) |
 | `metadata` | If available | Usage stats, model info, token counts (JSONPath) |
 | `tool_calls` | If available | Tool/function call data (JSONPath) |
@@ -98,4 +98,4 @@ Endpoints
 
 Return a corrected JSON matching the `AutoConfigureResult` schema with `status: "success"`.
 
-CRITICAL: The `probe_request` must be a concrete JSON body with real values (not template variables). Use exact config values — do not substitute different model names or parameters.
+CRITICAL: The `probe_request` must be a concrete JSON body with real values (not template variables). Use exact config values — do not substitute different model names or parameters. Do NOT map `$.id` to `conversation_id` unless it's explicitly a session/conversation/thread ID.

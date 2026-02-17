@@ -7,12 +7,15 @@ Rhesis endpoints.  The LLM produces everything — mappings, headers,
 and a concrete probe request body — in a single call.
 """
 
+import ipaddress
 import json
 import logging
 import re
+import socket
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Type
+from urllib.parse import urlparse
 
 import httpx
 import jinja2
@@ -190,6 +193,42 @@ class AutoConfigureService:
             AutoConfigureResult,
         )
 
+    def _validate_url(self, url: str) -> None:
+        """Validate URL to prevent SSRF attacks on cloud metadata services.
+
+        Allows localhost and private networks (for local development).
+        Blocks link-local addresses (169.254.0.0/16) used by cloud metadata services.
+
+        Raises:
+            ValueError: If URL points to a blocked address range.
+        """
+        try:
+            parsed = urlparse(url)
+            hostname = parsed.hostname
+            if not hostname:
+                raise ValueError("URL must include a hostname")
+
+            # Resolve hostname to IP
+            try:
+                ip_str = socket.gethostbyname(hostname)
+                ip = ipaddress.ip_address(ip_str)
+            except (socket.gaierror, ValueError) as e:
+                # If we can't resolve, let it fail naturally during probe
+                logger.warning("Could not resolve hostname %s: %s", hostname, e)
+                return
+
+            # Block link-local (cloud metadata services like 169.254.169.254)
+            if ip in ipaddress.ip_network("169.254.0.0/16"):
+                raise ValueError(
+                    f"Access to link-local addresses (cloud metadata services) is not allowed: {ip}"
+                )
+
+            # Explicitly allow localhost and private networks
+            # (for local development and on-premise deployments)
+
+        except ValueError:
+            raise
+
     def _correct(
         self,
         result: AutoConfigureResult,
@@ -224,16 +263,19 @@ class AutoConfigureService:
         auth_token: str | None = None,
     ) -> ProbeOutcome:
         """Send a single test request to the endpoint."""
+        # Validate URL for SSRF protection
+        try:
+            self._validate_url(url)
+        except ValueError as e:
+            return ProbeOutcome(False, None, None, str(e))
+
         probe_headers = {"Content-Type": "application/json", **headers}
 
+        # Generic auth token substitution in all header values
         if auth_token:
-            auth_keys = [k for k in probe_headers if k.lower() == "authorization"]
-            if auth_keys:
-                for k in auth_keys:
-                    if "auth_token" in str(probe_headers[k]):
-                        probe_headers[k] = f"Bearer {auth_token}"
-            else:
-                probe_headers["Authorization"] = f"Bearer {auth_token}"
+            for key, value in probe_headers.items():
+                if isinstance(value, str) and "{{ auth_token }}" in value:
+                    probe_headers[key] = value.replace("{{ auth_token }}", auth_token)
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:

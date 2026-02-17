@@ -150,18 +150,17 @@ Analyze the user's input and produce a complete `AutoConfigureResult`:
 1. **url**: The endpoint URL. Extract from the input or use the pre-filled value.
 2. **method**: The HTTP method. Default to `POST` if unclear.
 3. **conversation_mode**: Follow the taxonomy above. First decide single-turn vs multi-turn, then if multi-turn, decide stateless vs stateful.
-4. **request_mapping**: A flat JSON object (`Dict[str, str]`) mapping the API's field names to values:
+4. **request_mapping**: A JSON object mapping the API's field names to values:
    - Use the **same field names** as the original request. Do NOT rename, restructure, or rewrite fields.
    - For the input/messages field: replace the value with the appropriate Rhesis template variable, but keep the original field name.
-   - For config fields: use the EXACT value from the user's input.
-   - For complex/nested config values: serialize the exact nested object as a JSON string.
+   - For config fields: use the EXACT value from the user's input, preserving nested objects/arrays as-is.
    - For auth fields in the body: use `{{ "{{" }} auth_token {{ "}}" }}`.
-   - All values MUST be strings (flat dict, no nested objects).
+   - Preserve the original structure — nested objects and arrays are allowed.
 5. **response_mapping**: A flat JSON object mapping Rhesis variable names to JSONPath expressions:
    - Always map `output`.
-   - For multi-turn: map `conversation_id` to the session/thread ID field.
+   - For multi-turn: map `conversation_id` to the session/thread ID field. **WARNING**: Do NOT map `$.id` — this is usually a request/completion ID, not a conversation ID. Only map if the API returns a true session/conversation/thread identifier.
    - Map `context`, `metadata`, `tool_calls` if available.
-6. **request_headers**: HTTP headers as `Dict[str, str]`. Always include `Content-Type: application/json`. For Bearer auth use `Bearer {{ "{{" }} auth_token {{ "}}" }}`.
+6. **request_headers**: HTTP headers as `Dict[str, str]`. Always include `Content-Type: application/json`. For Bearer auth use `Bearer {{ "{{" }} auth_token {{ "}}" }}`. For custom auth headers use `{{ "{{" }} auth_token {{ "}}" }}` as the value.
 7. **probe_request**: A concrete JSON body (with real values, not templates) to test the endpoint. Replicate the **exact structure** of the original request, replacing only the user content with a test message. Do NOT include auth fields in the body.
 8. **confidence**: Float 0.0–1.0 for your confidence in the mappings.
 9. **reasoning**: Brief explanation of your decisions. State which category you chose (single-turn / multi-turn stateless / multi-turn stateful) and why.
@@ -176,7 +175,8 @@ CRITICAL RULES:
 - **Preserve the original request structure.** Use the same field names as the user's input. Do NOT rename fields, convert `input` to `messages`, or restructure the request body.
 - **Detect from actual fields**, not from provider name or URL. Only `messages` with `[{role, content}]` triggers stateless. Only session identifiers trigger stateful. Everything else is single-turn.
 - Use EXACT values from the user's input for config fields. Never substitute.
-- Preserve complex nested config values exactly — serialize them as JSON strings in the flat mapping.
+- Preserve complex nested config values exactly — keep them as nested objects/arrays in the mapping.
 - **Multi-turn = conversation_id is MANDATORY.** If you classified the endpoint as multi-turn (stateless or stateful), you MUST include `"conversation_id": "{{ "{{" }} conversation_id {{ "}}" }}"` in `request_mapping`. This applies regardless of input format — curl, Python SDK, JavaScript, documentation, or any other format.
 - For single-turn endpoints, do NOT include `conversation_id`.
+- **Do NOT map `$.id` to `conversation_id` in response_mapping** — `$.id` is typically a request/completion ID, not a session ID. Only map if the API explicitly returns a session/conversation/thread identifier.
 - Map ALL recognizable platform variables (output, conversation_id, context, metadata, tool_calls) — not just the obvious ones.
