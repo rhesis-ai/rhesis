@@ -252,33 +252,33 @@ response = llm.generate("Hello, how are you?")`}
 
 Embedders generate vector representations (embeddings) of text, which are useful for semantic search, similarity comparison, and clustering tasks.
 
-### Using the `get_embedder` function
+### Using the `get_model` function
 
-The easiest way to use embedders is through the `get_embedder` function. When called without arguments, it returns the default OpenAI embedder.
+The easiest way to use embedders is through the `get_model` function with embedding models. When called with an embedding model, it automatically detects the type and returns an embedder.
 
 <CodeBlock filename="default_embedder.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_model
 
-embedder = get_embedder()`}
+embedder = get_model("openai/text-embedding-3-small")`}
 
 </CodeBlock>
 
 To use a specific model, provide the model name:
 
 <CodeBlock filename="specific_embedder.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_model
 
-# Use a specific embedding model
-embedder = get_embedder("openai/text-embedding-3-large")`}
+# Use a specific embedding model (auto-detected from name)
+embedder = get_model("openai/text-embedding-3-large")`}
 
 </CodeBlock>
 
 The above code is equivalent to:
 
 <CodeBlock filename="specific_embedder_alt.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_model
 
-embedder = get_embedder(provider="openai", model_name="text-embedding-3-large")`}
+embedder = get_model(provider="openai", model_name="text-embedding-3-large", model_type="embedding")`}
 
 </CodeBlock>
 
@@ -304,9 +304,9 @@ All embedders share a consistent interface with two main methods:
 **Generate embedding for a single text:**
 
 <CodeBlock filename="generate_embedding.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_model
 
-embedder = get_embedder()
+embedder = get_model("openai/text-embedding-3-small")
 embedding = embedder.generate("What is machine learning?")
 # Returns: [0.0123, -0.0456, 0.0789, ...]  (list of floats)`}
 
@@ -315,9 +315,9 @@ embedding = embedder.generate("What is machine learning?")
 **Generate embeddings for multiple texts:**
 
 <CodeBlock filename="generate_embeddings_batch.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_model
 
-embedder = get_embedder()
+embedder = get_model("openai/text-embedding-3-small")
 texts = [
     "What is machine learning?",
     "How does deep learning work?",
@@ -334,10 +334,10 @@ embeddings = embedder.generate_batch(texts)
 Some embedding models (like OpenAI's text-embedding-3 family) support configurable output dimensions. Smaller dimensions reduce storage and computation costs while maintaining most of the semantic information.
 
 <CodeBlock filename="embedder_dimensions.py" language="python">
-{`from rhesis.sdk.models import get_embedder
+{`from rhesis.sdk.models import get_model
 
 # Set dimensions at initialization
-embedder = get_embedder("openai", dimensions=256)
+embedder = get_model("openai/text-embedding-3-small", dimensions=256)
 embedding = embedder.generate("Hello world")
 # Returns embedding with 256 dimensions
 
