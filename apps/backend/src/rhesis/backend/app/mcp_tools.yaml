@@ -160,13 +160,13 @@ tools:
     path: /metrics/
     description: >
       Create a new metric for evaluating test results. Required fields:
-      name (string), evaluation_prompt (string), and score_type (either
-      "numeric" or "categorical"). For numeric metrics you can set
-      min_score, max_score, threshold, and threshold_operator (one of
-      "=", "<", ">", "<=", ">=", "!="). Optional: description,
-      evaluation_steps, reasoning, categories (list of strings for
-      categorical), passing_categories, metric_scope (list, values
-      "Single-Turn" or "Multi-Turn").
+      name (string), evaluation_prompt (string), score_type (either
+      "numeric" or "categorical"), and metric_scope (list containing
+      "Single-Turn" and/or "Multi-Turn" — always include this).
+      For numeric metrics you can set min_score, max_score, threshold,
+      and threshold_operator ("=", "<", ">", "<=", ">=", "!=").
+      Optional: description, evaluation_steps, reasoning, categories
+      (list of strings for categorical), passing_categories.
 
   - name: list_endpoints
     method: GET
