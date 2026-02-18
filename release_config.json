@@ -1,0 +1,6 @@
+{
+  "platform": "patch",
+  "backend": "patch",
+  "frontend": "patch",
+  "sdk": "patch"
+}
