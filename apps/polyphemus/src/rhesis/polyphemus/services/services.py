@@ -109,6 +109,7 @@ def _build_vertex_request_body(
     temperature: float = 0.6,
     top_p: float = 1.0,
     top_k: Optional[int] = None,
+    json_schema: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build JSON body for Vertex AI rawPredict (vLLM OpenAI chat format)."""
     body: Dict[str, Any] = {
@@ -119,6 +120,8 @@ def _build_vertex_request_body(
     }
     if top_k is not None and top_k >= 0:
         body["top_k"] = top_k
+    if json_schema is not None:
+        body["json_schema"] = json_schema
     return body
 
 
@@ -181,6 +184,7 @@ async def generate_text_via_vertex_endpoint(
         temperature=temperature,
         top_p=top_p,
         top_k=top_k,
+        json_schema=request.json_schema,
     )
 
     url = (
