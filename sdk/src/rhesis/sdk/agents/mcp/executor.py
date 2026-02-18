@@ -4,6 +4,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+from rhesis.sdk.agents.base import extract_mcp_content
 from rhesis.sdk.agents.mcp.client import MCPClient
 from rhesis.sdk.agents.mcp.exceptions import (
     MCPApplicationError,
@@ -136,17 +137,4 @@ class ToolExecutor:
 
     def _extract_content(self, result) -> str:
         """Extract text content from MCP tool result."""
-        content_parts = []
-        content_list = getattr(result, "content", None)
-        if not content_list:
-            return ""
-        for content_item in content_list:
-            if hasattr(content_item, "text"):
-                content_parts.append(content_item.text)
-            elif hasattr(content_item, "resource"):
-                resource = content_item.resource
-                if hasattr(resource, "text"):
-                    content_parts.append(resource.text)
-                else:
-                    logger.warning(f"Resource found but no text attribute: {type(resource)}")
-        return "\n\n".join(content_parts)
+        return extract_mcp_content(result)

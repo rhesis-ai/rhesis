@@ -38,7 +38,7 @@ class MCPAgent(BaseAgent):
     def __init__(
         self,
         model: Optional[Union[str, BaseLLM]] = None,
-        mcp_client: MCPClient = None,
+        mcp_client: Optional[MCPClient] = None,
         system_prompt: Optional[str] = None,
         max_iterations: int = 10,
         verbose: bool = False,
