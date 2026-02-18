@@ -91,13 +91,34 @@ class MCPClient:
         await self.session.initialize()
 
     async def disconnect(self) -> None:
-        """Disconnect from the MCP server."""
+        """Disconnect from the MCP server.
+
+        Suppresses errors during teardown — the transport's async
+        generators may already be dead if the event loop was destroyed
+        between ``asyncio.run()`` calls.
+        """
         if self.session:
-            await self.session.__aexit__(None, None, None)
+            try:
+                await self.session.__aexit__(None, None, None)
+            except Exception:
+                pass
             self.session = None
         if self._transport_context:
-            await self._transport_context.__aexit__(None, None, None)
+            try:
+                await self._transport_context.__aexit__(None, None, None)
+            except Exception:
+                pass
             self._transport_context = None
+
+    def _reset(self) -> None:
+        """Abandon stale state without async teardown.
+
+        Use this when the event loop that created the session/transport
+        has been destroyed (e.g. between ``asyncio.run()`` calls) and
+        async cleanup is impossible.
+        """
+        self.session = None
+        self._transport_context = None
 
     async def list_resources(self) -> List[Dict[str, Any]]:
         """List all available resources from the MCP server."""

@@ -127,6 +127,8 @@ class MCPTool:
     async def _ensure_connected(self) -> None:
         """Connect or reconnect if the session was lost."""
         if not self._connected:
+            # Reset stale state left over from a destroyed event loop
+            self._client._reset()
             await self.connect()
             return
         # Session may have been destroyed (e.g. event loop closed
@@ -134,6 +136,7 @@ class MCPTool:
         session = getattr(self._client, "session", None)
         if session is None:
             self._connected = False
+            self._client._reset()
             await self.connect()
 
     async def list_tools(self) -> List[Dict[str, Any]]:

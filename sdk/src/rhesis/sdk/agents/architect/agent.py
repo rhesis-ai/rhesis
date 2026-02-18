@@ -113,15 +113,20 @@ class ArchitectAgent:
 
         await _emit(self._event_handlers, "on_agent_start", query=message)
 
-        # Run the internal ReAct loop for this turn
-        response = await self._run_turn(message)
+        try:
+            # Run the internal ReAct loop for this turn
+            response = await self._run_turn(message)
 
-        self._conversation_history.append({"role": "assistant", "content": response})
+            self._conversation_history.append({"role": "assistant", "content": response})
 
-        if self._verbose:
-            print(f"[Architect:{self._mode}] Response: {response[:200]}...")
+            if self._verbose:
+                print(f"[Architect:{self._mode}] Response: {response[:200]}...")
 
-        return response
+            return response
+        finally:
+            # Disconnect MCP tools before asyncio.run() destroys the
+            # event loop, preventing orphaned async generators.
+            await self._disconnect_tools()
 
     @property
     def plan(self) -> Optional[ArchitectPlan]:
@@ -163,6 +168,23 @@ class ArchitectAgent:
         self._execution_history.clear()
         self._plan = None
         self._mode = "discovery"
+
+    # ── transport lifecycle ─────────────────────────────────────────
+
+    async def _disconnect_tools(self) -> None:
+        """Disconnect all MCP tool transports.
+
+        Called at the end of each ``chat_async()`` turn so that the
+        transport's async generators are properly closed before
+        ``asyncio.run()`` destroys the event loop. The auto-reconnect
+        in ``MCPTool._ensure_connected()`` handles the next call.
+        """
+        for tool in self._tools:
+            if isinstance(tool, MCPTool):
+                try:
+                    await tool.disconnect()
+                except Exception:
+                    pass
 
     # ── tool aggregation ────────────────────────────────────────────
 

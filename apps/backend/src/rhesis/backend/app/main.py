@@ -256,10 +256,8 @@ async def lifespan(app: FastAPI):
 
     garak_cache_task.add_done_callback(_log_task_exception)
 
-    # Start MCP session manager (FastAPI Mount doesn't propagate lifespan)
-    from rhesis.backend.app.mcp_server import get_mcp_session_manager
-
-    mcp_sm = get_mcp_session_manager()
+    # Start MCP session manager (Mount doesn't propagate lifespan)
+    mcp_sm = getattr(app, "_mcp_session_manager", None)
     if mcp_sm is not None:
         mcp_ctx = mcp_sm.run()
         await mcp_ctx.__aenter__()
@@ -464,9 +462,9 @@ for router in routers:
     app.include_router(router)
 
 # Mount MCP server for agent tool access
-from rhesis.backend.app.mcp_server import create_mcp_app
+from rhesis.backend.app.mcp_server import setup_mcp_server
 
-app.mount("/mcp", create_mcp_app(app))
+setup_mcp_server(app)
 
 
 @app.get("/", include_in_schema=True)
