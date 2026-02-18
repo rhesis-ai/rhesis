@@ -124,15 +124,35 @@ class MCPTool:
         client = factory.create_client(server_name)
         return cls(client=client)
 
-    async def list_tools(self) -> List[Dict[str, Any]]:
-        """Discover tools from the MCP server."""
+    async def _ensure_connected(self) -> None:
+        """Connect or reconnect if the session was lost."""
         if not self._connected:
             await self.connect()
-        return await self._client.list_tools()
+            return
+        # Session may have been destroyed (e.g. event loop closed
+        # between asyncio.run() calls). Detect and reconnect.
+        session = getattr(self._client, "session", None)
+        if session is None:
+            self._connected = False
+            await self.connect()
+
+    async def list_tools(self) -> List[Dict[str, Any]]:
+        """Discover tools from the MCP server."""
+        try:
+            await self._ensure_connected()
+            return await self._client.list_tools()
+        except Exception:
+            # Reconnect on any transport error
+            self._connected = False
+            await self.connect()
+            return await self._client.list_tools()
 
     async def execute(self, tool_name: str, **kwargs) -> ToolResult:
         """Route execution to the MCP server."""
-        if not self._connected:
+        try:
+            await self._ensure_connected()
+        except Exception:
+            self._connected = False
             await self.connect()
 
         result = await self._client.call_tool(tool_name, kwargs)

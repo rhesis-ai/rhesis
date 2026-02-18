@@ -333,13 +333,33 @@ def register_mcp_tools(
 
 # ── Factory ────────────────────────────────────────────────────────
 
+# The session manager must be started/stopped by the parent app's
+# lifespan since FastAPI Mount doesn't propagate lifespan events.
+_mcp_session_manager = None
+
+
+def get_mcp_session_manager():
+    """Return the MCP session manager for lifespan management.
+
+    Call ``async with get_mcp_session_manager().run():`` in the parent
+    FastAPI app's lifespan to initialize the session manager's task group.
+    """
+    return _mcp_session_manager
+
 
 def create_mcp_app(fastapi_app: Any) -> ASGIApp:
     """Create the MCP ASGI app to be mounted on the FastAPI application.
 
-    Returns an ASGI app that handles the MCP protocol at the mount
+    Returns a Starlette app that handles the MCP protocol at the mount
     point (typically ``/mcp``).
+
+    **Important:** After mounting, call ``get_mcp_session_manager().run()``
+    as an async context manager in the parent app's lifespan. FastAPI's
+    ``Mount`` does not propagate lifespan to sub-apps, so the MCP session
+    manager must be started externally.
     """
+    global _mcp_session_manager
+
     from mcp.server.fastmcp import FastMCP
     from mcp.server.transport_security import TransportSecuritySettings
 
@@ -351,6 +371,9 @@ def create_mcp_app(fastapi_app: Any) -> ASGIApp:
             "and view results."
         ),
         stateless_http=True,
+        # Route is "/" since FastAPI mounts us at /mcp — the full
+        # external URL is /mcp, not /mcp/mcp.
+        streamable_http_path="/",
         transport_security=TransportSecuritySettings(
             enable_dns_rebinding_protection=False,
         ),
@@ -362,7 +385,10 @@ def create_mcp_app(fastapi_app: Any) -> ASGIApp:
     # Get the Starlette app for streamable HTTP
     starlette_app = mcp.streamable_http_app()
 
-    # Wrap with auth middleware
-    app = MCPAuthMiddleware(starlette_app)
+    # Store session manager so the parent app's lifespan can start it.
+    _mcp_session_manager = mcp.session_manager
 
-    return app
+    # Inject auth middleware into the Starlette app's middleware stack.
+    starlette_app.add_middleware(MCPAuthMiddleware)
+
+    return starlette_app
