@@ -70,7 +70,7 @@ export interface TestBase {
   user_id?: UUID;
   assignee_id?: UUID | null;
   owner_id?: UUID | null;
-  test_configuration?: Record<string, unknown>;
+  test_configuration?: Record<string, any>;
   parent_id?: UUID;
   topic_id?: UUID;
   behavior_id?: UUID;
@@ -78,7 +78,7 @@ export interface TestBase {
   status_id?: UUID | null;
   organization_id?: UUID;
   tags?: Tag[];
-  test_metadata?: Record<string, unknown>;
+  test_metadata?: Record<string, any>;
 }
 
 export type TestCreate = TestBase;
@@ -161,7 +161,7 @@ export interface TestBulkCreate {
   behavior: string;
   category: string;
   topic: string;
-  test_configuration?: Record<string, unknown>; // Required for multi-turn tests (must contain 'goal')
+  test_configuration?: Record<string, any>; // Required for multi-turn tests (must contain 'goal')
   assignee_id?: UUID;
   owner_id?: UUID;
   status?: string;
@@ -190,8 +190,8 @@ export interface TestBulkResponse {
   category_id: UUID;
   status_id: UUID;
   organization_id: UUID;
-  test_configuration?: Record<string, unknown>;
-  prompt?: Record<string, unknown>;
+  test_configuration?: Record<string, any>;
+  prompt?: Record<string, any>;
 }
 
 // Test execution interfaces
@@ -210,7 +210,7 @@ export interface TestExecuteRequest {
   prompt?: TestPromptCreate;
 
   // For multi-turn tests
-  test_configuration?: Record<string, unknown>;
+  test_configuration?: Record<string, any>;
 
   // Required metadata if test_id not provided
   behavior?: string;
@@ -225,35 +225,8 @@ export interface TestExecuteResponse {
   test_id: string;
   prompt_id?: string;
   execution_time: number; // Milliseconds
-  test_output?: string | Record<string, unknown>; // Always returned
-  test_metrics?: Record<string, unknown>; // Only if evaluate_metrics=True
+  test_output?: string | Record<string, any>; // Always returned
+  test_metrics?: Record<string, any>; // Only if evaluate_metrics=True
   status: 'Pass' | 'Fail' | 'Error' | 'Pending'; // Status
-  test_configuration?: Record<string, unknown>; // For multi-turn tests
-}
-
-// Conversation-to-test interfaces
-export interface ConversationMessage {
-  role: string;
-  content: string;
-}
-
-export interface ConversationToTestRequest {
-  messages: ConversationMessage[];
-  endpoint_id?: string;
-  test_type?: 'Single-Turn' | 'Multi-Turn';
-}
-
-export interface ConversationToTestResponse {
-  test_id: string;
-  message: string;
-}
-
-export interface ConversationTestExtractionResponse {
-  test_type: 'Single-Turn' | 'Multi-Turn';
-  behavior: string;
-  category: string;
-  topic: string;
-  prompt_content?: string;
-  expected_response?: string;
-  test_configuration?: Record<string, unknown>;
+  test_configuration?: Record<string, any>; // For multi-turn tests
 }
