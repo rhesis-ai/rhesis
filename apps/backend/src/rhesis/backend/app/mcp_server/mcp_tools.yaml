@@ -28,15 +28,22 @@ tools:
     description: >
       Create a test set with its tests in a single operation. This is
       the preferred way to create test sets — always include tests.
-      Body format: {"name": "...", "description": "...",
-      "short_description": "...", "tests": [...]}. Each test object:
-      {"prompt": {"content": "the test prompt text", "language_code":
-      "en", "expected_response": "optional expected answer"}, "behavior":
-      "behavior name", "category": "category name", "topic": "topic
-      name"}. The behavior, category, and topic are strings (names, not
-      IDs) — they are resolved or created automatically. Use
-      list_behaviors, list_categories, and list_topics to discover
-      existing values.
+    parameters:
+      name:
+        description: "Test set name"
+      description:
+        description: "Detailed description of the test set's purpose"
+      short_description:
+        description: "Brief summary (one line)"
+      tests:
+        description: >
+          Array of test objects. Each: {"prompt": {"content": "...",
+          "language_code": "en", "expected_response": "optional expected
+          answer"}, "behavior": "behavior name", "category": "category
+          name", "topic": "topic name"}. Behavior/category/topic are
+          strings (names, not IDs) — they are resolved or created
+          automatically. Use list_behaviors, list_categories, and
+          list_topics to discover existing values.
 
   # ── Tests ─────────────────────────────────────────────────
   - name: list_tests
@@ -146,14 +153,32 @@ tools:
     method: POST
     path: /metrics/
     description: >
-      Create a new metric for evaluating test results. Required fields:
-      name (string), evaluation_prompt (string), score_type (either
-      "numeric" or "categorical"), and metric_scope (list containing
-      "Single-Turn" and/or "Multi-Turn" — always include this).
-      For numeric metrics you can set min_score, max_score, threshold,
-      and threshold_operator ("=", "<", ">", "<=", ">=", "!=").
-      Optional: description, evaluation_steps, reasoning, categories
-      (list of strings for categorical), passing_categories.
+      Create a new metric for evaluating test results.
+    parameters:
+      score_type:
+        description: "Either 'numeric' or 'categorical'"
+      metric_scope:
+        description: >
+          List containing 'Single-Turn' and/or 'Multi-Turn' — always
+          include this field
+      evaluation_prompt:
+        description: "The prompt template used to evaluate endpoint responses"
+      name:
+        description: "Metric name (unique within the organization)"
+      min_score:
+        description: "Minimum score value (numeric metrics only)"
+      max_score:
+        description: "Maximum score value (numeric metrics only)"
+      threshold:
+        description: "Pass/fail threshold value (numeric metrics only)"
+      threshold_operator:
+        description: >
+          Comparison operator for threshold: '=', '<', '>', '<=',
+          '>=', or '!=' (numeric metrics only)
+      categories:
+        description: "List of category strings (categorical metrics only)"
+      passing_categories:
+        description: "Categories that count as passing (categorical metrics only)"
 
   - name: list_endpoints
     method: GET
