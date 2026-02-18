@@ -7,6 +7,7 @@ MCPTool adapts MCP servers into the BaseTool interface.
 import asyncio
 import json
 import logging
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -25,6 +26,28 @@ from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger(__name__)
+
+
+# ── MCP content extraction ─────────────────────────────────────────
+
+
+def extract_mcp_content(result) -> str:
+    """Extract text content from an MCP tool result.
+
+    Shared by ``MCPTool.execute()`` and ``ToolExecutor._extract_content()``.
+    """
+    content_parts = []
+    content_list = getattr(result, "content", None)
+    if not content_list:
+        return ""
+    for item in content_list:
+        if hasattr(item, "text"):
+            content_parts.append(item.text)
+        elif hasattr(item, "resource"):
+            resource = item.resource
+            if hasattr(resource, "text"):
+                content_parts.append(resource.text)
+    return "\n\n".join(content_parts)
 
 
 # ── BaseTool ────────────────────────────────────────────────────────
@@ -159,19 +182,7 @@ class MCPTool:
             await self.connect()
 
         result = await self._client.call_tool(tool_name, kwargs)
-
-        # Extract content from MCP result
-        content_parts = []
-        content_list = getattr(result, "content", None)
-        if content_list:
-            for item in content_list:
-                if hasattr(item, "text"):
-                    content_parts.append(item.text)
-                elif hasattr(item, "resource"):
-                    resource = item.resource
-                    if hasattr(resource, "text"):
-                        content_parts.append(resource.text)
-        content = "\n\n".join(content_parts)
+        content = extract_mcp_content(result)
 
         # Check for MCP-level errors
         if hasattr(result, "isError") and result.isError:
@@ -198,23 +209,31 @@ class MCPTool:
 # ── BaseAgent ───────────────────────────────────────────────────────
 
 
-class BaseAgent(ABC):
-    """Abstract base class providing the ReAct reasoning loop.
+class BaseAgent:
+    """Base class providing the ReAct reasoning loop.
 
-    Subclasses must implement:
-      - get_available_tools()  -- return tool descriptions
-      - execute_tool()         -- dispatch a ToolCall
+    Provides concrete defaults for tool routing and execution so
+    that subclasses only need to override behaviour they want to
+    customise. ``MCPAgent`` overrides ``get_available_tools()`` and
+    ``execute_tool()``; ``ArchitectAgent`` overrides prompt building
+    and adds multi-turn conversation state.
 
     Supports event handlers for lifecycle notifications (tool start/end,
     LLM invocations, iteration progress, etc.). Pass a list of
     ``AgentEventHandler`` instances to receive events.
     """
 
+    _DEFAULT_HISTORY_WINDOW = 20
+
     def __init__(
         self,
         model: Optional[Union[str, BaseLLM]] = None,
         system_prompt: Optional[str] = None,
         max_iterations: int = 10,
+        tools: Optional[List[Union[BaseTool, MCPTool]]] = None,
+        max_tool_executions: Optional[int] = None,
+        timeout_seconds: Optional[float] = None,
+        history_window: Optional[int] = None,
         verbose: bool = False,
         prompt_templates_dir: Optional[Path] = None,
         event_handlers: Optional[List[AgentEventHandler]] = None,
@@ -231,20 +250,65 @@ class BaseAgent(ABC):
         self.model = self._resolve_model(model)
         self.system_prompt = system_prompt or self._load_default_system_prompt()
         self.max_iterations = max_iterations
+        self._tools: List[Union[BaseTool, MCPTool]] = list(tools or [])
+        self._max_tool_executions = (
+            max_tool_executions if max_tool_executions is not None else max_iterations * 3
+        )
+        self._timeout_seconds = timeout_seconds
+        self._history_window = (
+            history_window if history_window is not None else self._DEFAULT_HISTORY_WINDOW
+        )
         self.verbose = verbose
         self._event_handlers: List[AgentEventHandler] = list(event_handlers or [])
+        self._execution_history: List[ExecutionStep] = []
+        self._turn_lock = asyncio.Lock()
 
-    # ── abstract interface ──────────────────────────────────────────
+    # ── tool interface (concrete defaults) ─────────────────────────
 
-    @abstractmethod
     async def get_available_tools(self) -> List[Dict[str, Any]]:
-        """Return tool descriptions for the LLM."""
-        ...
+        """Aggregate tool descriptions from all tool sources."""
+        all_tools: List[Dict[str, Any]] = []
+        for tool in self._tools:
+            if isinstance(tool, MCPTool):
+                all_tools.extend(await tool.list_tools())
+            elif isinstance(tool, BaseTool):
+                all_tools.append(tool.to_dict())
+        return all_tools
 
-    @abstractmethod
     async def execute_tool(self, tool_call: ToolCall) -> ToolResult:
-        """Execute a single tool call and return the result."""
-        ...
+        """Route a tool call to the matching tool source."""
+        tool_name = tool_call.tool_name
+        arguments = tool_call.arguments
+
+        for tool in self._tools:
+            if isinstance(tool, BaseTool):
+                if tool.name == tool_name:
+                    try:
+                        return await tool.execute(**arguments)
+                    except Exception as e:
+                        return ToolResult(
+                            tool_name=tool_name,
+                            success=False,
+                            error=str(e),
+                        )
+            elif isinstance(tool, MCPTool):
+                try:
+                    return await tool.execute(tool_name, **arguments)
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if "not found" in error_str:
+                        continue
+                    return ToolResult(
+                        tool_name=tool_name,
+                        success=False,
+                        error=str(e),
+                    )
+
+        return ToolResult(
+            tool_name=tool_name,
+            success=False,
+            error=f"Tool '{tool_name}' not found",
+        )
 
     # ── model helpers ───────────────────────────────────────────────
 
@@ -267,10 +331,9 @@ class BaseAgent(ABC):
         self,
         user_query: str,
         available_tools: List[Dict[str, Any]],
-        history: List[ExecutionStep],
     ) -> str:
         tools_text = self._format_tools(available_tools)
-        history_text = self._format_history(history)
+        history_text = self._format_history()
         template = self._jinja_env.get_template("iteration_prompt.j2")
         return template.render(
             user_query=user_query,
@@ -279,6 +342,8 @@ class BaseAgent(ABC):
         )
 
     def _format_tools(self, tools: List[Dict[str, Any]]) -> str:
+        if not tools:
+            return "(no tools available)"
         descriptions = []
         for tool in tools:
             desc = f"- {tool['name']}: {tool.get('description', 'No description')}"
@@ -290,96 +355,138 @@ class BaseAgent(ABC):
             descriptions.append(desc)
         return "\n".join(descriptions)
 
-    def _format_history(self, history: List[ExecutionStep]) -> str:
-        if not history:
+    def _format_history(self) -> str:
+        if not self._execution_history:
             return ""
-        parts = []
-        for step in history:
-            parts.append(f"Iteration {step.iteration}:")
-            parts.append(f"  Reasoning: {step.reasoning}")
-            parts.append(f"  Action: {step.action}")
+        window = self._execution_history[-self._history_window :]
+        parts: List[str] = []
+        if len(self._execution_history) > self._history_window:
+            omitted = len(self._execution_history) - self._history_window
+            parts.append(f"[... {omitted} earlier tool steps omitted ...]")
+        for step in window:
+            parts.append(f"[Tool iteration {step.iteration}] Reasoning: {step.reasoning[:200]}")
             if step.tool_calls:
-                parts.append("  Tools called:")
                 for tc in step.tool_calls:
-                    parts.append(f"    - {tc.tool_name}")
+                    parts.append(f"  Called: {tc.tool_name}")
             if step.tool_results:
-                parts.append("  Results:")
                 for tr in step.tool_results:
                     if tr.success:
-                        parts.append(f"    - {tr.tool_name}: {tr.content}")
+                        content_preview = tr.content[:300]
+                        parts.append(f"  Result ({tr.tool_name}): {content_preview}")
                     else:
-                        parts.append(f"    - {tr.tool_name}: ERROR - {tr.error}")
-            parts.append("")
+                        parts.append(f"  Error ({tr.tool_name}): {tr.error}")
         return "\n".join(parts)
 
     # ── ReAct loop ──────────────────────────────────────────────────
 
-    async def run_async(self, user_query: str) -> AgentResult:
-        """Execute the ReAct loop asynchronously."""
-        history: List[ExecutionStep] = []
-        iteration = 0
-
-        await _emit(self._event_handlers, "on_agent_start", query=user_query)
-
-        if self.verbose:
-            print("\n" + "=" * 70)
-            print("Agent Starting")
-            print("=" * 70)
-            print(f"Max iterations: {self.max_iterations}")
-
+    async def _run_loop(self, user_query: str) -> str:
+        """Core ReAct loop. Returns final answer or a fallback message."""
         available_tools = await self.get_available_tools()
         logger.info(f"[Agent] Discovered {len(available_tools)} tools")
 
+        iteration = 0
+        tool_exec_count = 0
+        turn_start = time.monotonic()
+
         while iteration < self.max_iterations:
             iteration += 1
+
+            # Timeout guard
+            if self._timeout_seconds is not None:
+                elapsed = time.monotonic() - turn_start
+                if elapsed >= self._timeout_seconds:
+                    logger.warning("Agent timed out after %.1fs", elapsed)
+                    return (
+                        "I've run out of time for this turn. "
+                        "Please send another message to continue."
+                    )
+
             if self.verbose:
                 print(f"\n{'=' * 70}")
                 print(f"Iteration {iteration}/{self.max_iterations}")
                 print("=" * 70)
 
             step, should_finish = await self._execute_iteration(
-                user_query, available_tools, history, iteration
+                user_query, available_tools, iteration
             )
-            history.append(step)
+            self._execution_history.append(step)
 
             if should_finish:
                 if self.verbose:
                     print(f"\nAgent finished after {iteration} iteration(s)")
                 if step.action == "finish" and step.tool_results:
-                    tr = step.tool_results[0]
-                    if tr.success:
-                        result = AgentResult(
-                            final_answer=tr.content,
-                            execution_history=history,
-                            iterations_used=len(history),
-                            max_iterations_reached=False,
-                            success=True,
-                        )
-                    else:
-                        result = AgentResult(
-                            final_answer="",
-                            execution_history=history,
-                            iterations_used=len(history),
-                            max_iterations_reached=False,
-                            success=False,
-                            error=tr.error or "Unknown error",
-                        )
-                    await _emit(self._event_handlers, "on_agent_end", result=result)
-                    return result
+                    return step.tool_results[0].content
+                return ""
+
+            # Track tool executions for the failsafe
+            if step.action == "call_tool" and step.tool_calls:
+                tool_exec_count += len(step.tool_calls)
+                if tool_exec_count > self._max_tool_executions:
+                    logger.warning(
+                        "Agent exceeded max tool executions (%d)",
+                        self._max_tool_executions,
+                    )
+                    return (
+                        "I've reached the maximum number of tool "
+                        "calls for this turn. Please send another "
+                        "message to continue."
+                    )
 
         if self.verbose:
             print(f"\nMax iterations ({self.max_iterations}) reached")
-
-        result = AgentResult(
-            final_answer="",
-            execution_history=history,
-            iterations_used=len(history),
-            max_iterations_reached=True,
-            success=False,
-            error=(f"Agent did not complete task within {self.max_iterations} iterations."),
+        return (
+            "I've reached the maximum number of internal "
+            "iterations for this turn. Please send another "
+            "message to continue."
         )
-        await _emit(self._event_handlers, "on_agent_end", result=result)
-        return result
+
+    async def run_async(self, user_query: str) -> AgentResult:
+        """Execute the ReAct loop asynchronously."""
+        async with self._turn_lock:
+            self._execution_history.clear()
+            await _emit(self._event_handlers, "on_agent_start", query=user_query)
+
+            if self.verbose:
+                print("\n" + "=" * 70)
+                print("Agent Starting")
+                print("=" * 70)
+                print(f"Max iterations: {self.max_iterations}")
+
+            final_answer = await self._run_loop(user_query)
+
+            max_reached = len(self._execution_history) >= self.max_iterations and not any(
+                s.action == "finish" for s in self._execution_history
+            )
+            finished_ok = any(s.action == "finish" for s in self._execution_history)
+
+            # Check if the last finish step had an error
+            success = finished_ok
+            error = None
+            if finished_ok:
+                last_finish = next(
+                    s for s in reversed(self._execution_history) if s.action == "finish"
+                )
+                if last_finish.tool_results and not last_finish.tool_results[0].success:
+                    success = False
+                    error = last_finish.tool_results[0].error or "Unknown error"
+            elif max_reached:
+                success = False
+                error = f"Agent did not complete task within {self.max_iterations} iterations."
+            else:
+                # Failsafe (timeout / max tool calls) triggered
+                success = False
+                error = final_answer
+
+            result = AgentResult(
+                final_answer=final_answer,
+                execution_history=list(self._execution_history),
+                iterations_used=len(self._execution_history),
+                max_iterations_reached=max_reached,
+                success=success,
+                error=error,
+            )
+            await _emit(self._event_handlers, "on_agent_end", result=result)
+            return result
 
     def run(self, user_query: str) -> AgentResult:
         """Execute the agent synchronously."""
@@ -391,13 +498,16 @@ class BaseAgent(ABC):
         self,
         user_query: str,
         available_tools: List[Dict[str, Any]],
-        history: List[ExecutionStep],
         iteration: int,
     ) -> Tuple[ExecutionStep, bool]:
         """Execute one ReAct iteration."""
-        await _emit(self._event_handlers, "on_iteration_start", iteration=iteration)
+        await _emit(
+            self._event_handlers,
+            "on_iteration_start",
+            iteration=iteration,
+        )
 
-        prompt = self._build_prompt(user_query, available_tools, history)
+        prompt = self._build_prompt(user_query, available_tools)
         action = await self._get_llm_action(prompt, iteration)
         if action is None:
             step = self._create_error_step(iteration, "Failed to parse LLM response")
@@ -528,7 +638,7 @@ class BaseAgent(ABC):
     async def _execute_tools(self, tool_calls: List[ToolCall]) -> List[ToolResult]:
         results: List[ToolResult] = []
         for tc in tool_calls:
-            arguments = tc.arguments if isinstance(tc.arguments, dict) else {}
+            arguments = tc.arguments
             await _emit(
                 self._event_handlers,
                 "on_tool_start",

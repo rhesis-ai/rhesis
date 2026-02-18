@@ -4,20 +4,20 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.services.mcp.agent import MCPAgent
-from rhesis.sdk.services.mcp.exceptions import (
+from rhesis.sdk.agents.mcp.agent import MCPAgent
+from rhesis.sdk.agents.mcp.exceptions import (
     MCPApplicationError,
     MCPConnectionError,
     MCPValidationError,
 )
-from rhesis.sdk.services.mcp.schemas import (
+from rhesis.sdk.agents.schemas import (
     AgentAction,
     AgentResult,
     ExecutionStep,
     ToolCall,
     ToolResult,
 )
+from rhesis.sdk.models.base import BaseLLM
 
 
 @pytest.mark.unit
@@ -65,7 +65,7 @@ class TestMCPAgent:
 
     def test_agent_initialization_with_string_model(self, mock_mcp_client):
         """Test agent initialization with string model name"""
-        with patch("rhesis.sdk.services.mcp.agent.get_model") as mock_get_model:
+        with patch("rhesis.sdk.agents.base.get_model") as mock_get_model:
             mock_model = Mock()
             mock_get_model.return_value = mock_model
 
@@ -76,7 +76,7 @@ class TestMCPAgent:
 
     def test_agent_loads_default_system_prompt(self, mock_mcp_client, mock_model):
         """Test agent loads default system prompt"""
-        with patch("rhesis.sdk.services.mcp.agent.jinja2.Environment") as mock_jinja:
+        with patch("rhesis.sdk.agents.base.jinja2.Environment") as mock_jinja:
             mock_template = Mock()
             mock_template.render.return_value = "Default prompt"
             mock_env = Mock()
@@ -371,17 +371,19 @@ class TestMCPAgent:
             tool_results=[ToolResult(tool_name="finish", success=True, content="Answer")],
         )
 
-        formatted = agent._format_history([step1, step2])
+        agent._execution_history = [step1, step2]
+        formatted = agent._format_history()
 
-        assert "Iteration 1" in formatted
+        assert "iteration 1" in formatted.lower()
         assert "First step" in formatted
         assert "tool1" in formatted
-        assert "Iteration 2" in formatted
+        assert "iteration 2" in formatted.lower()
         assert "Second step" in formatted
 
     def test_format_history_empty(self, agent):
         """Test formatting empty history"""
-        formatted = agent._format_history([])
+        agent._execution_history = []
+        formatted = agent._format_history()
 
         assert formatted == ""
 
@@ -397,7 +399,7 @@ class TestMCPAgent:
             success=True,
         )
 
-        with patch("rhesis.sdk.services.mcp.agent.asyncio.run") as mock_run:
+        with patch("rhesis.sdk.agents.base.asyncio.run") as mock_run:
             mock_run.return_value = expected_result
 
             result = agent.run("Test query")

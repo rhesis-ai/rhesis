@@ -1,8 +1,39 @@
 """Shared schemas for agent structured outputs."""
 
-from typing import List, Literal, Optional
+import json
+from typing import Annotated, Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
+
+
+def _parse_arguments(v: Any) -> Dict[str, Any]:
+    """Coerce JSON strings and other values to ``dict``."""
+    if isinstance(v, str):
+        try:
+            return json.loads(v)
+        except json.JSONDecodeError:
+            return {}
+    return v if isinstance(v, dict) else {}
+
+
+# Runtime type is Dict[str, Any].
+# JSON schema presented to the LLM is {"type": "string"} so the model
+# produces a JSON-encoded string (e.g. '{"goal": "..."}') which the
+# BeforeValidator transparently parses into a dict.
+ToolArguments = Annotated[
+    Dict[str, Any],
+    BeforeValidator(_parse_arguments),
+    WithJsonSchema(
+        {
+            "type": "string",
+            "default": "{}",
+            "description": (
+                "Arguments for the tool as a JSON string. "
+                'Example: \'{"page_id": "123", "query": "term"}\''
+            ),
+        }
+    ),
+]
 
 
 class ToolCall(BaseModel):
@@ -11,24 +42,7 @@ class ToolCall(BaseModel):
     model_config = {"extra": "forbid"}
 
     tool_name: str = Field(description="Name of the tool to call")
-    arguments: str = Field(
-        default="{}",
-        description=(
-            "Arguments for the tool as a JSON string or dict. "
-            'Example: \'{"page_id": "123", "query": "search term"}\''
-        ),
-    )
-
-    @field_validator("arguments", mode="after")
-    @classmethod
-    def parse_arguments_to_dict(cls, v):
-        """Parse JSON string to dictionary for internal use."""
-        import json
-
-        try:
-            return json.loads(v) if isinstance(v, str) else v
-        except json.JSONDecodeError:
-            return {}
+    arguments: ToolArguments = Field(default_factory=dict)
 
 
 class AgentAction(BaseModel):

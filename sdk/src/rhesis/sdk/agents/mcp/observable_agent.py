@@ -48,7 +48,7 @@ class ObservableMCPAgent(MCPAgent):
     def __init__(
         self,
         model: Optional[Union[str, BaseLLM]] = None,
-        mcp_client: MCPClient = None,
+        mcp_client: Optional[MCPClient] = None,
         system_prompt: Optional[str] = None,
         max_iterations: int = 10,
         verbose: bool = False,
@@ -73,12 +73,11 @@ class ObservableMCPAgent(MCPAgent):
         self,
         user_query: str,
         available_tools: List[Dict[str, Any]],
-        history: List[ExecutionStep],
         iteration: int,
     ) -> Tuple[ExecutionStep, bool]:
         """Execute one ReAct iteration with observability."""
         step, should_finish = await super()._execute_iteration(
-            user_query, available_tools, history, iteration
+            user_query, available_tools, iteration
         )
         return step, should_finish
 
