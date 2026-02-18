@@ -79,7 +79,8 @@ tools:
     path: /test_configurations/
     description: >
       Create a test configuration that links a test set to an endpoint.
-      This defines the execution setup for running tests.
+      Required: endpoint_id (UUID). Optional: test_set_id, category_id,
+      topic_id, prompt_id, attributes (dict).
 
   - name: execute_test_configuration
     method: POST
@@ -158,7 +159,14 @@ tools:
     method: POST
     path: /metrics/
     description: >
-      Create a new metric for evaluating test results.
+      Create a new metric for evaluating test results. Required fields:
+      name (string), evaluation_prompt (string), and score_type (either
+      "numeric" or "categorical"). For numeric metrics you can set
+      min_score, max_score, threshold, and threshold_operator (one of
+      "=", "<", ">", "<=", ">=", "!="). Optional: description,
+      evaluation_steps, reasoning, categories (list of strings for
+      categorical), passing_categories, metric_scope (list, values
+      "Single-Turn" or "Multi-Turn").
 
   - name: list_endpoints
     method: GET
