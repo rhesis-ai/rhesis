@@ -182,20 +182,36 @@ def _build_tool_function(
             sig_parts.append(f"{p['name']}: {type_name} = {default_repr}")
 
     if has_body:
-        # Accept body as a dict with a default of None
+        # Accept body as a dict OR as individual keyword arguments.
+        # LLMs sometimes pass {"body": {...}} and sometimes pass the
+        # body fields directly as top-level arguments.
         sig_parts.append("body: dict = None")
+        sig_parts.append("**kwargs")
 
     sig_str = ", ".join(sig_parts)
 
     # ── Build function body ────────────────────────────────────
 
-    body_lines = [
-        "    auth = _auth_token.get()",
-        "    headers = {}",
-        "    if auth:",
-        '        headers["Authorization"] = auth',
-        f"    path = {path_template!r}",
-    ]
+    body_lines = []
+
+    # If body is None but kwargs were passed, use kwargs as body
+    if has_body:
+        body_lines.extend(
+            [
+                "    if body is None and kwargs:",
+                "        body = kwargs",
+            ]
+        )
+
+    body_lines.extend(
+        [
+            "    auth = _auth_token.get()",
+            "    headers = {}",
+            "    if auth:",
+            '        headers["Authorization"] = auth',
+            f"    path = {path_template!r}",
+        ]
+    )
 
     # Interpolate path parameters
     for pp in path_params:
