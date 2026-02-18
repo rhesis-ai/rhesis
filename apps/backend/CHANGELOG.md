@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-02-18
+
+### Added
+- **Auto-Configure Endpoint Service:** Added AI-powered auto-configuration that analyzes reference material (curl commands, API docs) and generates Rhesis request/response mappings.
+- **Test Explorer Feature:** Introduced a new "Test Explorer" page and layout for exploring test sets configured for adaptive testing.
+- **Adaptive Testing API Endpoints and Service:** Re-added adaptive testing router with endpoints for listing adaptive test sets, fetching full tree, tests-only, and topics-only views.
+- **Create Topic Endpoint and UI Button:** Added POST /adaptive_testing/{id}/topics endpoint that delegates to create_topic_node. Wire up an "Add Topic" dialog in the frontend tree panel so users can create topics from the UI.
+- **Create Test Endpoint and UI:** Added POST /{id}/tests endpoint, create_test_node service, AddTestDialog frontend component.
+- **Update Test Endpoint and Edit Dialog:** Added update_test_node service, PUT /{id}/tests/{test_id} endpoint, and EditTestDialog frontend component.
+- **Delete Test Endpoint and Confirmation Dialog:** Added delete_test_node service, DELETE endpoint, and frontend delete button with confirmation dialog.
+- **Update Topic Endpoint with Rename Support:** Added PUT /adaptive_testing/{id}/topics/{path} endpoint that renames a topic's current level name and cascades to all children and tests.
+- **Create Adaptive Test Set Endpoint and UI:** Added endpoints and UI for creating adaptive test sets.
+- **Generate Outputs Backend:** Added generate_outputs_for_tests service to invoke endpoint per test, and a POST generate-outputs route and request/response schemas.
+- **Generate Outputs UI:** Added Generate outputs dialog with endpoint picker and submit flow.
+- **Metric Selection Functionality:** Introduced metric selection functionality in AdaptiveTestingDetail component.
+
+### Changed
+- **Unified Model Environment Variables:** Consolidated model environment variables to a unified format (provider/model_name).
+- **Standardized Terminology:** Consistently use 'language model' instead of 'llm model' and 'embedding model' instead of 'llm embedding model'.
+- **Adaptive Testing:** Enhanced adaptive testing features with improved topic handling, test tree ID management, and validation methods.
+- **Adaptive Testing:** Implemented drag-and-drop functionality to move tests between topics in the Test Explorer.
+- **Adaptive Testing:** Implemented full CRUD operations for tests and topics in the Test Explorer.
+- **Adaptive Testing:** Enhanced TestTree and generator integration with BaseLLM and LLMGenerator classes.
+- **Adaptive Testing:** Updated TestTree to include topic markers in test sets.
+- **Adaptive Testing:**  Enhanced output generation with concurrent endpoint invocations using asyncio.
+- **Adaptive Testing:**  Migrated from requests to httpx for async support in RestEndpointInvoker.
+- **Adaptive Testing:**  Use per-task db sessions in generate_outputs_for_tests.
+- **Adaptive Testing:**  Allow adding test without topic.
+
+### Fixed
+- **Multi-Turn Metrics Evaluation:** Fixed issue where additional three-tier metrics were not evaluated during live multi-turn test execution.
+- **Auto-Configure:** Resolved UnmappedClassError in tests and addressed PR review comments, including schema updates, SSRF protection, and auth token substitution.
+- **Endpoint Creation:** Auto-assign active status on endpoint creation.
+- **Duplicate Endpoint Naming:** Fixed duplicate endpoint naming to increment correctly (Copy) → (Copy 2) → (Copy 3).
+- **Infinite Loop in useFormChangeDetection:** Removed initialData object reference from useEffect deps to prevent re-render loop.
+- **Null Endpoint Statuses:** Set null endpoint statuses to active.
+- **Test Explorer:** Filter tests by exact topic match only.
+- **Adaptive Testing:** Fixed get_all_parents returning strings instead of TopicNodes.
+- **Adaptive Testing:** Ensure InputLabel shrinks for topic selection in AdaptiveTestingDetail component.
+
+### Removed
+- **Test Explorer Feature:** Removed the original Test Explorer feature, replaced by the Adaptive Testing section.
+- **Adaptive Testing:** Removed adaptive testing router, schemas, and service.
+- **Adaptive Testing:** Removed profanity dependency from adaptive testing.
+
+
 ## [0.6.3] - 2026-02-12
 
 ### Added

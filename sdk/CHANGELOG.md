@@ -13,6 +13,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-02-18
+
+### Added
+- Added AI-powered auto-configuration for endpoints, analyzing reference material to generate request/response mappings. Includes LLM-driven analysis, endpoint probing, and prompt engineering.
+- Added `Endpoint.auto_configure()` class method for code-first auto-configuration.
+- Added Rhesis as the default embedding model provider.
+- Added `Test Explorer` feature with adaptive testing support.
+- Added drag-and-drop functionality to move tests between topics in the Test Explorer.
+- Added `AddTestDialog` component for creating/editing tests in the Test Explorer.
+- Added edit and delete actions to tests grid in the Test Explorer.
+- Added `TopicDialog` component for creating/renaming topics in the Test Explorer.
+- Added `DeleteTopicDialog` with impact summary in the Test Explorer.
+- Added topic CRUD actions to tree view in the Test Explorer.
+- Added clickable breadcrumb navigation for topics in the Test Explorer.
+- Added `AdaptiveTestSetDrawer` for creating and editing test sets.
+- Added `TestSet.pull()` with tests and `fetch_tests()` method.
+- Added validation method to `TestTree` for topic marker checks.
+- Added adaptive testing endpoints and service.
+- Added adaptive testing pages and navigation.
+- Added create topic endpoint and UI button.
+- Added create test endpoint and UI.
+- Added update test endpoint and edit dialog.
+- Added drag-and-drop tests to topics.
+- Added delete test endpoint and confirmation dialog.
+- Added update topic endpoint with rename support.
+- Added create adaptive test set endpoint and UI.
+- Added generate outputs backend.
+- Added Generate outputs UI and improve Add/Edit test form.
+- Added topic selection and generate outputs button next to table.
+- Added endpoint selection for output generation in AdaptiveTestingDetail component.
+- Added metric selection functionality in AdaptiveTestingDetail component.
+
+### Changed
+- Unified `get_language_model()` and `get_embedding_model()` into a single `get_model()` method with auto-detection.
+- Standardized terminology to 'language model' and 'embedding model'.
+- Updated OpenAI generator to use new model initialization.
+- Updated llm_endpoint prompts to include specific insurance offerings and guidelines for user interactions.
+- Updated rhesis_scorer prompts to clarify the context of the insurance chatbot and its compliance rules.
+- Updated TestTreeBrowser to utilize new functions for score removal and evaluation status setting, improving code clarity and maintainability.
+- Updated TestTreeBrowser to dynamically generate new topic names based on the current topic, improving usability.
+- Updated the TestTree class to store all relevant node fields (tree_id, output, label, labeler, model_score) in metadata for complete round-trip support.
+- Updated the logic for building node kwargs in the TestTree class to prioritize using the test.id (database ID) when available, falling back to the tree_id from metadata if not.
+- Updated the navigation items to include the 'Adaptive Testing' page only in the development environment, enhancing the development experience without affecting production.
+- Renamed `create` method to `add_topic` for clarity.
+- Renamed `Topic` to `TopicNode` for clarity.
+- Migrated from `requests` to `httpx` for async support in `RestEndpointInvoker`.
+- Enhanced output generation with concurrent endpoint invocations.
+
+### Fixed
+- Fixed redirect after endpoint creation.
+- Fixed ambiguous label queries in auto-configure tests.
+- Fixed test timeouts in auto-configure tests.
+- Fixed UnmappedClassError in tests.
+- Fixed auth token substitution to support custom headers.
+- Fixed topic formatting and assertions in test cases.
+- Fixed get_all_parents returning strings instead of TopicNodes.
+- Fixed test tree order in TestSet round-trip.
+- Fixed get_all_parents returning strings instead of TopicNodes.
+- Fixed frontend test filtering logic to only check for exact matches with the selected topic.
+- Fixed frontend to allow creating topic when no topics in adaptive testing.
+- Fixed frontend to ensure InputLabel shrinks for topic selection in AdaptiveTestingDetail component.
+- Fixed backend to use per-task db sessions in generate_outputs_for_tests.
+- Fixed tests to reset worker cache in telemetry enrichment service tests.
+
+### Removed
+- Removed get_language_model(), get_embedding_model(), and get_embedder(). Use get_model() instead.
+- Removed llm_endpoint function.
+- Removed description field from TestTree and TestTreeBrowser.
+- Removed obsolete sequence classification tests CSV file.
+- Removed global embedder state in adaptive testing.
+- Removed unused str property from TestTree.
+- Removed profanity filter from LLMGenerator.
+- Removed adaptive testing router, schemas, and service.
+- Removed profanity dependency from adaptive testing.
+- Removed test explorer feature.
+
+### Security
+- Added API key detection and redaction for auto-configure to prevent real API keys from being sent to the LLM.
+- Added SSRF protection to block cloud metadata services while allowing localhost.
+
+### Breaking Changes
+- Removed `get_language_model()`, `get_embedding_model()`, and `get_embedder()`. Use `get_model()` instead which auto-detects model type from name or accepts explicit `model_type` parameter.
+
+
 ## [0.6.4] - 2026-02-12
 
 ### Added

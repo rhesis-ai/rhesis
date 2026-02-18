@@ -13,6 +13,164 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-02-18
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.4**
+- **Frontend 0.6.5**
+- **SDK 0.6.5**
+
+### Summary of Changes
+
+**Backend v0.6.4:**
+Key changes include: Evaluate three-tier metrics during live multi-turn execution (#1366)
+
+* feat: evaluate three-tier metrics during live multi-turn execution
+
+Previously, only Penelope's Goal Achievement metric was evaluated during
+live multi-turn test execution. Additional metrics defined in the
+three-tier model (behavior > test set > execution) were ignored.
+
+Backend: add exclude_class_names to evaluate_multi_turn_metrics() and
+call it after Penelope's evaluation to pick up additional metrics.
+Frontend: show metrics table for multi-turn tests with additional
+metrics and use all metrics for pass/fail determination.
+
+* fix(test): update multi-turn runner tests for additional metrics evaluation
+
+Update test expectations to reflect that evaluate_multi_turn_metrics is
+now called during live execution to pick up additional three-tier
+metrics. Add test for merging additional metrics with Penelope results., Add AI-powered auto-configure for endpoint mappings (#1364)
+
+* feat(backend): add auto-configure endpoint service
+
+Add AI-powered auto-configuration that analyzes user-provided reference
+material (curl commands, code snippets, API docs) and generates Rhesis
+request/response mappings. Includes LLM-driven analysis, endpoint
+probing with self-correction, and comprehensive prompt engineering for
+conversation mode detection and platform variable mapping.
+
+* feat(frontend): add auto-configure modal and UI
+
+Add AutoConfigureModal with two-step stepper (input + review), integrate
+auto-configure button in endpoint creation form, move auth token to
+basic info tab, and fix project-context redirect after creation.
+
+* fix(frontend): fix redirect after endpoint creation
+
+Remove /endpoints suffix from project-context redirect so it navigates
+to the project detail page instead of a non-existent route.
+
+* feat(sdk): add auto_configure class method to Endpoint
+
+Add Endpoint.auto_configure() for code-first auto-configuration using
+the backend service, with probe control and result inspection.
+
+* docs: update endpoint docs for auto-configure and platform variables
+
+Add auto-configure documentation page. Update platform variable tables
+to include all managed fields (conversation_id, context, metadata,
+tool_calls, system_prompt). Fix conversation_id scope to cover all
+conversational endpoints, not just stateful. Add response mappings for
+tool_calls and metadata in provider examples.
+
+* refactor(backend): restructure auto-configure prompts with endpoint taxonomy
+
+Rewrite both auto_configure.jinja2 and auto_configure_correct.jinja2
+around a clear hierarchical taxonomy: single-turn vs multi-turn
+(stateless | stateful). This replaces the previous flat three-category
+approach with a two-step classification that improves LLM accuracy.
+
+* feat(backend): add API key detection and redaction for auto-configure
+
+Prevent real API keys from being sent to the LLM during auto-configure.
+Backend redacts secrets (OpenAI, AWS, Google, Bearer tokens) before
+prompt rendering. Frontend shows a warning and blocks submission when
+keys are detected. Environment variable placeholders are preserved.
+
+* chore: update chatbot uv.lock
+
+* style(frontend): use theme borderRadius in AutoConfigureModal
+
+* fix(frontend): resolve ambiguous label queries in auto-configure tests
+
+Use getByRole('textbox') instead of getByLabelText to avoid matching
+the Tooltip aria-label on the disabled Auto-configure button. Also
+prefix unused FAILED_RESULT fixture with _ to fix eslint warning.
+
+* ci: ignore empty uv cache in sdk test workflow
+
+The uv cache clean step wipes the cache directory, causing the
+post-job save to fail. Add ignore-nothing-to-cache to prevent this.
+
+* fix(frontend): resolve test timeouts in auto-configure tests
+
+Use userEvent.setup({ delay: null }) to remove inter-keystroke delays
+that caused CI timeout exceeding the 5s limit.
+
+* fix: resolve lint errors and test timeouts
+
+* chore: formatting and lint fixes
+
+* fix(backend): resolve UnmappedClassError in tests
+
+* fix: address PR #1364 review comments
+
+- Update schema: request_mapping and response_mapping now support nested JSON (Dict[str, Any])
+- Add SSRF protection: block cloud metadata services (169.254.0.0/16) while allowing localhost
+- Fix auth token substitution: support custom headers like x-api-key, not just Authorization
+- Update LLM prompts: clarify nested JSON support and warn against mapping $.id to conversation_id
+- Improve UX: remove auth_token requirement for auto-configure (support open APIs)
+- Fix: pre-existing TypeScript error in BehaviorsClient.tsx
+
+Addresses all 5 issues raised by @peqy in PR review.....
+
+**Frontend v0.6.5:**
+Key changes include: Evaluate three-tier metrics during live multi-turn execution (#1366)
+
+* feat: evaluate three-tier metrics during live multi-turn execution
+
+Previously, only Penelope's Goal Achievement metric was evaluated during
+live multi-turn test execution. Additional metrics defined in the
+three-tier model (behavior > test set > execution) were ignored.
+
+Backend: add exclude_class_names to evaluate_multi_turn_metrics() and
+call it after Penelope's evaluation to pick up additional metrics.
+Frontend: show metrics table for multi-turn tests with additional
+metrics and use all metrics for pass/fail determination.
+
+* fix(test): update multi-turn runner tests for additional metrics evaluation
+
+Update test expectations to reflect that evaluate_multi_turn_metrics is
+now called during live execution to pick up additional three-tier
+metrics. Add test for merging additional metrics with Penelope results., Fix e2e projects content test selectors (#1365)
+
+* fix(e2e): fix projects content test selectors
+
+Add networkidle wait, use .MuiCard-root instead of [class*="ProjectCard"],
+and broaden create button detection to include link role.
+
+* fix(e2e): use resilient selectors in projects content test
+
+Restore broader /create|new/i regex for create button matching and
+replace generic main element fallback with projects-specific heading.....
+
+**SDK v0.6.5:**
+- Added AI-powered auto-configuration for endpoints, simplifying setup with intelligent analysis and probing.
+- Introduced Adaptive Testing features, including a Test Explorer UI, CRUD operations for tests and topics, and output generation capabilities.
+- Unified model handling with a single `get_model()` function, simplifying model selection and configuration.
+- Improved performance and concurrency in output generation using asynchronous HTTP requests.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.6.4] - 2026-02-12
 
 ### Platform Release
