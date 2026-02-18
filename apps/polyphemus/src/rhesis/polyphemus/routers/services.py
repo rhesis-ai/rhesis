@@ -30,11 +30,6 @@ async def generate(
     Requires API key authentication via Bearer token.
     Rate limited to 100 requests per day per authenticated user.
 
-    Vertex AI endpoint configuration is read from environment variables:
-    - POLYPHEMUS_ENDPOINT_ID: Vertex AI endpoint ID
-    - POLYPHEMUS_PROJECT_ID: Google Cloud project ID
-    - POLYPHEMUS_LOCATION: Vertex AI region (defaults to us-central1)
-
     Accepts:
         {
             "messages": [
@@ -43,7 +38,8 @@ async def generate(
             "temperature": 0.7,
             "max_tokens": 512,
             "top_p": 1.0,
-            "top_k": 50
+            "top_k": 50,
+            "json_schema": { ... }  // optional, for structured output
         }
 
     Returns:
@@ -60,7 +56,7 @@ async def generate(
         if not endpoint_id or not project_id:
             raise ValueError(
                 "Vertex AI endpoint not configured. "
-                "POLYPHEMUS_ENDPOINT_ID and POLYPHEMUS_PROJECT_ID environment variables must be set."
+                "Set POLYPHEMUS_ENDPOINT_ID and POLYPHEMUS_PROJECT_ID."
             )
 
         return await generate_text_via_vertex_endpoint(
