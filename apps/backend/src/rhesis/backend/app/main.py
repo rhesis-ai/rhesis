@@ -257,7 +257,8 @@ async def lifespan(app: FastAPI):
     garak_cache_task.add_done_callback(_log_task_exception)
 
     # Start MCP session manager (Mount doesn't propagate lifespan)
-    mcp_sm = getattr(app, "_mcp_session_manager", None)
+    mcp_sm = getattr(app.state, "mcp_session_manager", None)
+    mcp_ctx = None
     if mcp_sm is not None:
         mcp_ctx = mcp_sm.run()
         await mcp_ctx.__aenter__()
@@ -266,7 +267,7 @@ async def lifespan(app: FastAPI):
     yield  # Application is running
 
     # Shutdown MCP session manager
-    if mcp_sm is not None:
+    if mcp_ctx is not None:
         await mcp_ctx.__aexit__(None, None, None)
 
     # Shutdown: Clean up Redis connections

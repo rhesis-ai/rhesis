@@ -11,12 +11,19 @@ from typing import Any, Dict, Optional
 
 import httpx
 import mcp.types as mcp_types
+from fastapi.security import HTTPAuthorizationCredentials
 from mcp.server.lowlevel.server import Server as MCPServer
 from mcp.server.lowlevel.server import request_ctx
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
+from starlette.responses import JSONResponse
 from starlette.types import Receive, Scope, Send
+
+from rhesis.backend.app.auth.auth_utils import (
+    get_authenticated_user_with_context,
+    get_secret_key,
+)
 
 from .tools import build_tools_and_operations
 
@@ -160,19 +167,54 @@ def setup_mcp_server(
         app=mcp_server,
         stateless=True,
         security_settings=TransportSecuritySettings(
+            # DNS rebinding protection is unnecessary here: the MCP
+            # server is mounted in-process via ASGI transport (no
+            # actual network hop), so Host header validation adds no
+            # security value and would break internal httpx calls.
             enable_dns_rebinding_protection=False,
         ),
     )
 
-    # Thin ASGI wrapper that delegates to the session manager
+    # ASGI wrapper that validates auth before delegating to the
+    # session manager.  MCP uses raw ASGI (not FastAPI routes), so
+    # AuthenticatedAPIRoute doesn't apply — we check the bearer
+    # token ourselves.
     class _MCPApp:
         async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+            if scope["type"] == "http":
+                request = Request(scope, receive, send)
+                auth_header = request.headers.get("authorization", "")
+                credentials: Optional[HTTPAuthorizationCredentials] = None
+                if auth_header.lower().startswith("bearer "):
+                    credentials = HTTPAuthorizationCredentials(
+                        scheme="Bearer",
+                        credentials=auth_header[7:],
+                    )
+
+                try:
+                    secret_key = get_secret_key()
+                except Exception:
+                    secret_key = None
+
+                user = await get_authenticated_user_with_context(
+                    request,
+                    credentials=credentials,
+                    secret_key=secret_key,
+                )
+                if user is None:
+                    response = JSONResponse(
+                        status_code=401,
+                        content={"detail": "Authentication required"},
+                    )
+                    await response(scope, receive, send)
+                    return
+
             await session_manager.handle_request(scope, receive, send)
 
     fastapi_app.mount("/mcp", _MCPApp())
 
     # Store reference so the parent app's lifespan can start it
-    fastapi_app._mcp_session_manager = session_manager
+    fastapi_app.state.mcp_session_manager = session_manager
 
     logger.info("MCP endpoint mounted at /mcp")
     return session_manager
