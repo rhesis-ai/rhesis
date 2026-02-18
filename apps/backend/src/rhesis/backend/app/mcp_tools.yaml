@@ -1,0 +1,168 @@
+tools:
+  # ── Projects ──────────────────────────────────────────────
+  - name: list_projects
+    method: GET
+    path: /projects/
+    description: >
+      List projects in the current organization. Returns project names,
+      descriptions, and IDs. Use skip/limit for pagination.
+
+  - name: create_project
+    method: POST
+    path: /projects/
+    description: >
+      Create a new project to organize test suites. A project groups
+      related test sets, test configurations, and test runs.
+
+  # ── Test Sets ─────────────────────────────────────────────
+  - name: list_test_sets
+    method: GET
+    path: /test_sets/
+    description: >
+      List test sets in the organization. Test sets group related tests
+      that share a common behavior, category, or theme.
+
+  - name: create_test_set
+    method: POST
+    path: /test_sets/
+    description: >
+      Create a new test set. Requires a name and can include a description,
+      behavior, category, topic, and associated test IDs.
+
+  - name: create_test_set_bulk
+    method: POST
+    path: /test_sets/bulk
+    description: >
+      Create a test set with its tests in a single operation. Provide the
+      test set metadata and an array of test objects (prompt, expected
+      behavior, category, etc.).
+
+  # ── Tests ─────────────────────────────────────────────────
+  - name: list_tests
+    method: GET
+    path: /tests/
+    description: >
+      List tests in the organization. Each test defines a prompt,
+      expected response behavior, and optional metadata.
+
+  - name: create_test
+    method: POST
+    path: /tests/
+    description: >
+      Create a single test. A test defines a prompt to send to an
+      endpoint and the expected behavior for evaluation.
+
+  - name: create_tests_bulk
+    method: POST
+    path: /tests/bulk
+    description: >
+      Create multiple tests in a single operation. Provide an array
+      of test objects to create them all at once.
+
+  - name: execute_tests
+    method: POST
+    path: /tests/execute
+    description: >
+      Execute tests against a configured endpoint. Sends prompts to
+      the endpoint, collects responses, and evaluates results.
+
+  # ── Test Configurations ───────────────────────────────────
+  - name: list_test_configurations
+    method: GET
+    path: /test_configurations/
+    description: >
+      List test configurations. A test configuration links a test set
+      to an endpoint, defining how tests should be run.
+
+  - name: create_test_configuration
+    method: POST
+    path: /test_configurations/
+    description: >
+      Create a test configuration that links a test set to an endpoint.
+      This defines the execution setup for running tests.
+
+  - name: execute_test_configuration
+    method: POST
+    path: /test_configurations/{test_configuration_id}/execute
+    description: >
+      Execute a test configuration — runs all tests in the linked test
+      set against the configured endpoint.
+
+  # ── Test Runs ─────────────────────────────────────────────
+  - name: list_test_runs
+    method: GET
+    path: /test_runs/
+    description: >
+      List test runs. Each test run represents one execution of a test
+      configuration, with status and timing information.
+
+  - name: create_test_run
+    method: POST
+    path: /test_runs/
+    description: >
+      Create a new test run to track the execution of a test configuration.
+
+  - name: get_test_run
+    method: GET
+    path: /test_runs/{test_run_id}
+    description: >
+      Get details of a specific test run including its status, timing,
+      and associated test results.
+
+  # ── Test Results ──────────────────────────────────────────
+  - name: list_test_results
+    method: GET
+    path: /test_results/
+    description: >
+      List test results. Each result contains the prompt sent, the
+      response received, and evaluation scores from metrics.
+
+  - name: get_test_result
+    method: GET
+    path: /test_results/{test_result_id}
+    description: >
+      Get details of a specific test result including the prompt,
+      response, metric scores, and evaluation details.
+
+  # ── Reference Data (read-only) ────────────────────────────
+  - name: list_behaviors
+    method: GET
+    path: /behaviors/
+    description: >
+      List available behaviors. Behaviors define what an endpoint should
+      do (e.g., "answer questions accurately", "refuse harmful requests").
+
+  - name: list_categories
+    method: GET
+    path: /categories/
+    description: >
+      List available categories. Categories classify tests by type
+      (e.g., "functional", "safety", "robustness").
+
+  - name: list_topics
+    method: GET
+    path: /topics/
+    description: >
+      List available topics. Topics define subject areas for tests
+      (e.g., "healthcare", "finance", "general knowledge").
+
+  - name: list_metrics
+    method: GET
+    path: /metrics/
+    description: >
+      List available metrics for evaluating test results. Metrics
+      define how endpoint responses are scored (e.g., accuracy,
+      safety compliance, response quality).
+
+  - name: create_metric
+    method: POST
+    path: /metrics/
+    description: >
+      Create a new metric for evaluating test results.
+
+  - name: list_endpoints
+    method: GET
+    path: /endpoints/
+    description: >
+      List configured endpoints. Endpoints are the AI systems being
+      tested (chat APIs, completion APIs, etc.).

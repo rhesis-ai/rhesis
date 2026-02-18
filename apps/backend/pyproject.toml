@@ -58,6 +58,7 @@ dependencies = [
     "garak>=0.9.0",
     "mcp-atlassian>=0.13.0",
     "fastxlsx>=0.2.0",
+    "mcp>=1.2.0",
 ]
 
 [project.optional-dependencies]

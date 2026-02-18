@@ -450,6 +450,11 @@ for router in routers:
     router.route_class = AuthenticatedAPIRoute
     app.include_router(router)
 
+# Mount MCP server for agent tool access
+from rhesis.backend.app.mcp_server import create_mcp_app
+
+app.mount("/mcp", create_mcp_app(app))
+
 
 @app.get("/", include_in_schema=True)
 async def root():
