@@ -47,6 +47,14 @@ export function NotificationProvider({
   >(undefined);
   const theme = useTheme();
 
+  // Use refs for values accessed by stable callbacks to avoid
+  // recreating show/close on every state change, which would cause
+  // consumers' useEffects to re-fire and potentially infinite loop.
+  const currentNotificationRef = React.useRef(currentNotification);
+  React.useEffect(() => {
+    currentNotificationRef.current = currentNotification;
+  }, [currentNotification]);
+
   React.useEffect(() => {
     if (notifications.length && !currentNotification) {
       // Set a new notification when we don't have an active one
@@ -63,20 +71,30 @@ export function NotificationProvider({
     (message: string, options: NotificationOptions = {}) => {
       const key = options.key || `notification-${++notificationCount}`;
 
-      // Check for duplicate if key is provided
-      if (options.key && notifications.some(n => n.key === options.key)) {
-        return key;
+      // Check for duplicate if key is provided using functional updater
+      // to avoid depending on notifications state directly
+      if (options.key) {
+        let isDuplicate = false;
+        setNotifications(prev => {
+          if (prev.some(n => n.key === options.key)) {
+            isDuplicate = true;
+            return prev;
+          }
+          return [...prev, { message, options, key }];
+        });
+        if (isDuplicate) return key;
+      } else {
+        setNotifications(prev => [...prev, { message, options, key }]);
       }
 
-      setNotifications(prev => [...prev, { message, options, key }]);
       return key;
     },
-    [notifications]
+    []
   );
 
   const close = React.useCallback(
     (key: string) => {
-      if (currentNotification?.key === key) {
+      if (currentNotificationRef.current?.key === key) {
         setOpen(false);
       } else {
         setNotifications(prev =>
@@ -84,7 +102,7 @@ export function NotificationProvider({
         );
       }
     },
-    [currentNotification]
+    []
   );
 
   const handleClose = (_event?: unknown, reason?: string) => {
