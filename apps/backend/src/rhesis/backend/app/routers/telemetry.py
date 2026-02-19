@@ -19,6 +19,7 @@ from rhesis.backend.app.schemas.telemetry import (
     TraceMetricsResponse,
     TraceSource,
     TraceSummary,
+    TraceType,
 )
 from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 
@@ -162,6 +163,13 @@ async def list_traces(
             "or 'operation' (normal app traces)"
         ),
     ),
+    trace_type: TraceType = Query(
+        TraceType.ALL,
+        description=(
+            "Filter: 'all' (default), 'single_turn' (no conversation_id), "
+            "'multi_turn' (has conversation_id)"
+        ),
+    ),
     root_spans_only: bool = Query(
         True,
         description=("Return only root spans (one per trace). Set to false to return all spans."),
@@ -213,6 +221,7 @@ async def list_traces(
             endpoint_id=endpoint_id,
             root_spans_only=root_spans_only,
             trace_source=trace_source,
+            trace_type=trace_type,
             environment=environment,
             span_name=span_name,
             status_code=status_code,
@@ -277,8 +286,7 @@ async def list_traces(
             summaries.append(summary)
 
         logger.info(
-            f"Listed {len(rows)} traces for project {project_id} "
-            f"(total: {total}, offset: {offset})"
+            f"Listed {len(rows)} traces for project {project_id} (total: {total}, offset: {offset})"
         )
 
         return TraceListResponse(
@@ -389,9 +397,7 @@ async def get_trace(
             span.start_time for span in spans
         )
         total_tokens = sum(span.total_tokens or 0 for span in spans)
-        error_count = sum(
-            1 for span in spans if span.status_code == StatusCode.ERROR.value
-        )
+        error_count = sum(1 for span in spans if span.status_code == StatusCode.ERROR.value)
 
         # Extract costs from enriched data
         total_cost = 0.0
@@ -576,9 +582,7 @@ async def get_metrics(
                 total_cost += costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
 
         # Calculate error rate
-        error_count = sum(
-            1 for span in spans if span.status_code == StatusCode.ERROR.value
-        )
+        error_count = sum(1 for span in spans if span.status_code == StatusCode.ERROR.value)
         error_rate = error_count / total_spans if total_spans > 0 else 0
 
         # Calculate latency percentiles

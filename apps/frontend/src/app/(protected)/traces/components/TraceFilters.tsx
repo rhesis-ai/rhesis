@@ -31,6 +31,8 @@ import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import SpeedIcon from '@mui/icons-material/Speed';
 import CloseIcon from '@mui/icons-material/Close';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import ForumIcon from '@mui/icons-material/Forum';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import Chip from '@mui/material/Chip';
 import { TraceQueryParams } from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -154,6 +156,13 @@ export default function TraceFilters({
     onFiltersChange(newFilters);
   };
 
+  const handleTraceTypeChange = (traceType: string) => {
+    handleFilterChange(
+      'trace_type',
+      traceType === 'all' ? undefined : traceType
+    );
+  };
+
   const getActiveDurationFilter = (): string => {
     if (!filters.duration_min_ms && !filters.duration_max_ms) return 'all';
 
@@ -233,11 +242,13 @@ export default function TraceFilters({
           'limit',
           'offset',
           'trace_source',
+          'trace_type',
           'status_code',
           'start_time_after',
           'environment',
         ].includes(key)) ||
       (key === 'trace_source' && value !== 'all' && value !== undefined) ||
+      (key === 'trace_type' && value !== 'all' && value !== undefined) ||
       (key === 'status_code' && value !== undefined) ||
       (key === 'start_time_after' && value !== undefined) ||
       (key === 'environment' && value !== undefined)
@@ -333,6 +344,17 @@ export default function TraceFilters({
         key: 'trace_source',
         label: `Source: ${sourceLabel}`,
         value: filters.trace_source,
+      });
+    }
+
+    // Trace type filter
+    if (filters.trace_type && filters.trace_type !== 'all') {
+      const typeLabel =
+        filters.trace_type === 'multi_turn' ? 'Multi-Turn' : 'Single-Turn';
+      chips.push({
+        key: 'trace_type',
+        label: `Type: ${typeLabel}`,
+        value: filters.trace_type,
       });
     }
 
@@ -690,6 +712,45 @@ export default function TraceFilters({
               startIcon={<HourglassEmptyIcon fontSize="small" />}
             >
               Slow
+            </Button>
+          </ButtonGroup>
+
+          <Divider
+            orientation="vertical"
+            flexItem
+            sx={{ display: { xs: 'none', sm: 'block' } }}
+          />
+
+          {/* Trace Type Filter (Single-Turn / Multi-Turn) */}
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => handleTraceTypeChange('all')}
+              variant={
+                !filters.trace_type || filters.trace_type === 'all'
+                  ? 'contained'
+                  : 'outlined'
+              }
+              startIcon={<ListIcon fontSize="small" />}
+            >
+              All
+            </Button>
+            <Button
+              onClick={() => handleTraceTypeChange('single_turn')}
+              variant={
+                filters.trace_type === 'single_turn' ? 'contained' : 'outlined'
+              }
+              startIcon={<ChatBubbleOutlineIcon fontSize="small" />}
+            >
+              Single
+            </Button>
+            <Button
+              onClick={() => handleTraceTypeChange('multi_turn')}
+              variant={
+                filters.trace_type === 'multi_turn' ? 'contained' : 'outlined'
+              }
+              startIcon={<ForumIcon fontSize="small" />}
+            >
+              Multi
             </Button>
           </ButtonGroup>
 

@@ -17,7 +17,12 @@ from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
-from rhesis.backend.app.schemas.telemetry import OTELSpanCreate, StatusCode, TraceSource
+from rhesis.backend.app.schemas.telemetry import (
+    OTELSpanCreate,
+    StatusCode,
+    TraceSource,
+    TraceType,
+)
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
@@ -3471,6 +3476,7 @@ def query_traces(
     endpoint_id: Optional[str] = None,
     root_spans_only: bool = True,
     trace_source: TraceSource = TraceSource.ALL,
+    trace_type: TraceType = TraceType.ALL,
     environment: Optional[str] = None,
     span_name: Optional[str] = None,
     status_code: Optional[Union[str, "StatusCode"]] = None,
@@ -3574,9 +3580,7 @@ def query_traces(
             .order_by(models.Trace.trace_id, desc(models.Trace.start_time))
             .subquery()
         )
-        query = query.filter(
-            models.Trace.id.in_(select(latest_root_per_trace.c.id))
-        )
+        query = query.filter(models.Trace.id.in_(select(latest_root_per_trace.c.id)))
 
     # Filter by trace source
     if trace_source == TraceSource.TEST:
@@ -3644,6 +3648,12 @@ def query_traces(
 
     if conversation_id:
         query = query.filter(models.Trace.conversation_id == conversation_id)
+
+    # Trace type filter (single-turn vs multi-turn)
+    if trace_type == TraceType.MULTI_TURN:
+        query = query.filter(models.Trace.conversation_id.isnot(None))
+    elif trace_type == TraceType.SINGLE_TURN:
+        query = query.filter(models.Trace.conversation_id.is_(None))
 
     results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
     return [TraceRow(trace=r[0], span_count=r[1], total=r[2]) for r in results]
@@ -3817,5 +3827,3 @@ def update_traces_with_test_result_id(
     logger.info(f"[TRACE_LINKING] Updated {result} traces with test_result_id={test_result_id}")
 
     return result
-
-

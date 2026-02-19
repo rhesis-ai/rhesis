@@ -37,6 +37,14 @@ class TraceSource(str, Enum):
     OPERATION = "operation"  # Only normal operation traces (without test_run_id)
 
 
+class TraceType(str, Enum):
+    """Filter traces by single-turn vs multi-turn (conversation)."""
+
+    ALL = "all"
+    SINGLE_TURN = "single_turn"  # Traces without conversation_id
+    MULTI_TURN = "multi_turn"  # Traces with conversation_id
+
+
 # Re-export SDK schemas for backward compatibility
 __all__ = [
     "SpanKind",
@@ -57,6 +65,7 @@ __all__ = [
     "TraceDetailResponse",
     "TraceMetricsResponse",
     "TraceSource",
+    "TraceType",
 ]
 
 # Alias for consistency with existing backend code

@@ -10,6 +10,8 @@ import {
   IconButton,
   Paper,
   Stack,
+  Button,
+  ButtonGroup,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -40,6 +42,8 @@ interface SpanGraphViewProps {
   spans: SpanNode[];
   selectedSpan: SpanNode | null;
   onSpanSelect: (span: SpanNode) => void;
+  isConversationTrace?: boolean;
+  rootSpans?: SpanNode[];
 }
 
 // Node dimensions for layout calculation
@@ -822,8 +826,32 @@ export default function SpanGraphView({
   spans,
   selectedSpan: _selectedSpan,
   onSpanSelect,
+  isConversationTrace,
+  rootSpans,
 }: SpanGraphViewProps) {
   const theme = useTheme();
+
+  // Turn navigation state for conversation traces
+  const [activeTurn, setActiveTurn] = useState<number | null>(null);
+
+  // Determine effective spans based on active turn filter
+  const effectiveSpans = useMemo(() => {
+    if (
+      activeTurn === null ||
+      !isConversationTrace ||
+      !rootSpans ||
+      rootSpans.length <= 1
+    ) {
+      return spans;
+    }
+    if (activeTurn >= 0 && activeTurn < rootSpans.length) {
+      return [rootSpans[activeTurn]];
+    }
+    return spans;
+  }, [spans, activeTurn, isConversationTrace, rootSpans]);
+
+  const showTurnNavigation =
+    isConversationTrace && rootSpans && rootSpans.length > 1;
 
   // Extract graph data from spans with time data
   const {
@@ -842,7 +870,7 @@ export default function SpanGraphView({
       timedTransitions,
       timedAgentEvents,
       timeRange,
-    } = extractMarkovChain(spans);
+    } = extractMarkovChain(effectiveSpans);
     const agentEdgeColor = theme.palette.info.main;
     const toolEdgeColor = theme.palette.warning.main;
     const { nodes, edges } = convertToFlowElements(
@@ -911,7 +939,7 @@ export default function SpanGraphView({
       timeRange,
       defaultViewport,
     };
-  }, [spans, theme.palette.info.main, theme.palette.warning.main]);
+  }, [effectiveSpans, theme.palette.info.main, theme.palette.warning.main]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -930,7 +958,7 @@ export default function SpanGraphView({
   useEffect(() => {
     setCurrentTime(timeRange.start);
     setIsPlaying(false);
-  }, [spans, timeRange.start]);
+  }, [effectiveSpans, timeRange.start]);
 
   // Animation loop for playback
   useEffect(() => {
@@ -1363,6 +1391,38 @@ export default function SpanGraphView({
 
       {/* ReactFlow Container */}
       <Box sx={{ flex: 1, position: 'relative' }}>
+        {/* Turn Navigation Buttons (for conversation traces) */}
+        {showTurnNavigation && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: theme.spacing(1),
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 10,
+              display: 'flex',
+              gap: 0.5,
+            }}
+          >
+            <ButtonGroup size="small" variant="outlined">
+              <Button
+                onClick={() => setActiveTurn(null)}
+                variant={activeTurn === null ? 'contained' : 'outlined'}
+              >
+                All
+              </Button>
+              {rootSpans!.map((_, i) => (
+                <Button
+                  key={i}
+                  onClick={() => setActiveTurn(i)}
+                  variant={activeTurn === i ? 'contained' : 'outlined'}
+                >
+                  Turn {i + 1}
+                </Button>
+              ))}
+            </ButtonGroup>
+          </Box>
+        )}
         <ReactFlow
           nodes={nodes}
           edges={edges}
