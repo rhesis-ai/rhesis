@@ -203,9 +203,8 @@ async def list_traces(
     organization_id, user_id = tenant_context
 
     try:
-        # Query traces (no default time filter - controlled by frontend)
-        # Returns (Trace, span_count, total_count) tuples in a single DB call
-        traces = crud.query_traces(
+        # Single DB query returns TraceRow(trace, span_count, total) per row
+        rows = crud.query_traces(
             db=db,
             organization_id=organization_id,
             project_id=project_id,
@@ -227,23 +226,20 @@ async def list_traces(
             offset=offset,
         )
 
-        # Total count is embedded in each row via COUNT(*) OVER() window function
-        total = traces[0][2] if traces else 0
+        total = rows[0].total if rows else 0
 
-        # Convert to summaries
         summaries = []
-        for trace, span_count, _total in traces:
-            # Calculate summary fields
+        for row in rows:
+            trace = row.trace
             has_errors = trace.status_code == "ERROR"
-            total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
+            total_tokens = (
+                trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
+            )
             total_cost_usd = 0.0
             total_cost_eur = 0.0
             if trace.enriched_data and "costs" in trace.enriched_data:
                 total_cost_usd = trace.enriched_data["costs"].get("total_cost_usd", 0.0)
                 total_cost_eur = trace.enriched_data["costs"].get("total_cost_eur", 0.0)
-
-            # span_count is already calculated efficiently in the query using a correlated subquery
-            # This eliminates the N+1 query pattern (previously executed a COUNT for each trace)
 
             # Get endpoint information from eagerly loaded relationships
             trace_endpoint_id = None
@@ -259,12 +255,12 @@ async def list_traces(
 
             summary = TraceSummary(
                 trace_id=trace.trace_id,
-                project_id=str(trace.project_id),  # Convert UUID to string
+                project_id=str(trace.project_id),
                 environment=trace.environment,
                 conversation_id=trace.conversation_id,
                 start_time=trace.start_time,
                 duration_ms=trace.duration_ms or 0.0,
-                span_count=span_count,  # Now reflects actual count
+                span_count=row.span_count,
                 root_operation=trace.span_name,
                 status_code=trace.status_code,
                 test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
@@ -280,7 +276,7 @@ async def list_traces(
             summaries.append(summary)
 
         logger.info(
-            f"Listed {len(traces)} traces for project {project_id} "
+            f"Listed {len(rows)} traces for project {project_id} "
             f"(total: {total}, offset: {offset})"
         )
 
@@ -546,8 +542,8 @@ async def get_metrics(
             offset=0,
         )
 
-        # Extract just the Trace objects (discard span_count and total_count)
-        spans = [trace for trace, _, _ in spans_with_counts]
+        # Extract just the Trace objects (discard span_count and total)
+        spans = [row.trace for row in spans_with_counts]
 
         if not spans:
             return TraceMetricsResponse(
