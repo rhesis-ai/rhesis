@@ -3504,7 +3504,7 @@ def query_traces(
     from uuid import UUID
 
     from fastapi import HTTPException
-    from sqlalchemy import select
+    from sqlalchemy import exists, or_, select
     from sqlalchemy.orm import aliased, joinedload
 
     def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
@@ -3553,6 +3553,27 @@ def query_traces(
     # Conditionally filter for root spans only
     if root_spans_only:
         query = query.filter(models.Trace.parent_span_id.is_(None))
+
+        # Deduplicate by trace_id: in conversation tracing, multiple turn-root
+        # spans share the same trace_id. Keep only the most recent root span
+        # per trace_id using a NOT EXISTS anti-join.
+        DedupeTrace = aliased(models.Trace)
+        query = query.filter(
+            ~exists(
+                select(DedupeTrace.id).where(
+                    DedupeTrace.trace_id == models.Trace.trace_id,
+                    DedupeTrace.parent_span_id.is_(None),
+                    DedupeTrace.organization_id == org_uuid,
+                    or_(
+                        DedupeTrace.start_time > models.Trace.start_time,
+                        and_(
+                            DedupeTrace.start_time == models.Trace.start_time,
+                            DedupeTrace.id > models.Trace.id,
+                        ),
+                    ),
+                )
+            )
+        )
 
     # Filter by trace source
     if trace_source == TraceSource.TEST:
@@ -3857,11 +3878,17 @@ def count_traces(
     org_uuid = UUID(organization_id)
 
     # Filter by organization_id for multi-tenant security (always required)
-    query = db.query(func.count(models.Trace.id)).filter(models.Trace.organization_id == org_uuid)
-
-    # Conditionally filter for root spans only
+    # When root_spans_only, count distinct trace_ids to avoid counting multiple
+    # turn-root spans per conversation trace as separate entries.
     if root_spans_only:
-        query = query.filter(models.Trace.parent_span_id.is_(None))
+        query = db.query(func.count(func.distinct(models.Trace.trace_id))).filter(
+            models.Trace.organization_id == org_uuid,
+            models.Trace.parent_span_id.is_(None),
+        )
+    else:
+        query = db.query(func.count(models.Trace.id)).filter(
+            models.Trace.organization_id == org_uuid
+        )
 
     # Filter by trace source
     if trace_source == TraceSource.TEST:
