@@ -78,6 +78,7 @@ module "prd" {
 }
 
 # VPC Peering: WireGuard <-> Dev (bidirectional)
+# GCP peering can take 5-15+ minutes; default 4m often times out.
 resource "google_compute_network_peering" "wireguard_to_dev" {
   name         = "peering-wireguard-to-dev"
   network      = module.wireguard.vpc_self_link
@@ -85,6 +86,10 @@ resource "google_compute_network_peering" "wireguard_to_dev" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+
+  timeouts {
+    create = "15m"
+  }
 }
 
 resource "google_compute_network_peering" "dev_to_wireguard" {
@@ -94,6 +99,10 @@ resource "google_compute_network_peering" "dev_to_wireguard" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+
+  timeouts {
+    create = "15m"
+  }
 }
 
 # VPC Peering: WireGuard <-> stg (bidirectional)
@@ -104,6 +113,10 @@ resource "google_compute_network_peering" "wireguard_to_stg" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+
+  timeouts {
+    create = "15m"
+  }
 }
 
 resource "google_compute_network_peering" "stg_to_wireguard" {
@@ -113,6 +126,10 @@ resource "google_compute_network_peering" "stg_to_wireguard" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+
+  timeouts {
+    create = "15m"
+  }
 }
 
 # VPC Peering: WireGuard <-> prd (bidirectional)
@@ -123,6 +140,10 @@ resource "google_compute_network_peering" "wireguard_to_prd" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+
+  timeouts {
+    create = "15m"
+  }
 }
 
 resource "google_compute_network_peering" "prd_to_wireguard" {
@@ -132,6 +153,10 @@ resource "google_compute_network_peering" "prd_to_wireguard" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+
+  timeouts {
+    create = "15m"
+  }
 }
 
 # GKE private clusters (dev, stg, prd)
