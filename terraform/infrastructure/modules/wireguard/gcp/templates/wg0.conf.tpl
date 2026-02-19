@@ -1,5 +1,7 @@
 [Interface]
-Address = ${server_ip}/24
+# Use /32 to avoid route conflict: VM's primary NIC already has 10.0.0.0/24 (VPC subnet).
+# wg-quick would add 10.0.0.0/24 via wg0 → "RTNETLINK answers: File exists". Peer traffic still uses peer_cidr (AllowedIPs).
+Address = ${server_ip}/32
 ListenPort = ${listen_port}
 PrivateKey = ${server_private_key}
 
