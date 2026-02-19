@@ -192,7 +192,7 @@ async def generate_text_via_vertex_endpoint(
         f"/locations/{location}/endpoints/{endpoint_id}:rawPredict"
     )
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     token = await loop.run_in_executor(_executor, _get_vertex_access_token)
 
     async with httpx.AsyncClient(timeout=timeout_seconds) as client:
