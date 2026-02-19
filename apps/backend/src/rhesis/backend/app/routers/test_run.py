@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.constants import EnrichedDataKeys
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -554,12 +555,13 @@ async def get_test_run_traces(
     for row in rows:
         trace = row.trace
         has_errors = trace.status_code == "ERROR"
-        total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
+        total_tokens = trace.total_tokens or 0
         total_cost_usd = 0.0
         total_cost_eur = 0.0
-        if trace.enriched_data and "costs" in trace.enriched_data:
-            total_cost_usd = trace.enriched_data["costs"].get("total_cost_usd", 0.0)
-            total_cost_eur = trace.enriched_data["costs"].get("total_cost_eur", 0.0)
+        costs = (trace.enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
+        if costs:
+            total_cost_usd = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
+            total_cost_eur = costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0)
 
         summary = TraceSummary(
             trace_id=trace.trace_id,

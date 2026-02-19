@@ -8,9 +8,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.constants import EnrichedDataKeys
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
+    StatusCode,
     TraceDetailResponse,
     TraceIngestResponse,
     TraceListResponse,
@@ -231,15 +233,14 @@ async def list_traces(
         summaries = []
         for row in rows:
             trace = row.trace
-            has_errors = trace.status_code == "ERROR"
-            total_tokens = (
-                trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
-            )
+            has_errors = trace.status_code == StatusCode.ERROR.value
+            total_tokens = trace.total_tokens or 0
             total_cost_usd = 0.0
             total_cost_eur = 0.0
-            if trace.enriched_data and "costs" in trace.enriched_data:
-                total_cost_usd = trace.enriched_data["costs"].get("total_cost_usd", 0.0)
-                total_cost_eur = trace.enriched_data["costs"].get("total_cost_eur", 0.0)
+            costs = (trace.enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
+            if costs:
+                total_cost_usd = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
+                total_cost_eur = costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0)
 
             # Get endpoint information from eagerly loaded relationships
             trace_endpoint_id = None
@@ -387,16 +388,16 @@ async def get_trace(
         total_duration = max(span.end_time for span in spans) - min(
             span.start_time for span in spans
         )
-        total_tokens = sum(
-            span.attributes.get("ai.llm.tokens.total", 0) if span.attributes else 0
-            for span in spans
+        total_tokens = sum(span.total_tokens or 0 for span in spans)
+        error_count = sum(
+            1 for span in spans if span.status_code == StatusCode.ERROR.value
         )
-        error_count = sum(1 for span in spans if span.status_code == "ERROR")
 
         # Extract costs from enriched data
         total_cost = 0.0
-        if spans[0].enriched_data and "costs" in spans[0].enriched_data:
-            total_cost = spans[0].enriched_data["costs"].get("total_cost_usd", 0.0)
+        costs = (spans[0].enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
+        if costs:
+            total_cost = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
 
         # Build relationship objects from first span
         from rhesis.backend.app.schemas.endpoint import Endpoint
@@ -565,19 +566,19 @@ async def get_metrics(
         total_spans = len(spans)
 
         # Calculate token metrics (LLM spans only)
-        total_tokens = sum(
-            span.attributes.get("ai.llm.tokens.total", 0) if span.attributes else 0
-            for span in spans
-        )
+        total_tokens = sum(span.total_tokens or 0 for span in spans)
 
         # Calculate cost metrics
         total_cost = 0.0
         for span in spans:
-            if span.enriched_data and "costs" in span.enriched_data:
-                total_cost += span.enriched_data["costs"].get("total_cost_usd", 0.0)
+            costs = (span.enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
+            if costs:
+                total_cost += costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
 
         # Calculate error rate
-        error_count = sum(1 for span in spans if span.status_code == "ERROR")
+        error_count = sum(
+            1 for span in spans if span.status_code == StatusCode.ERROR.value
+        )
         error_rate = error_count / total_spans if total_spans > 0 else 0
 
         # Calculate latency percentiles
@@ -598,11 +599,7 @@ async def get_metrics(
         # Operation type breakdown
         operation_breakdown = {}
         for span in spans:
-            op_type = (
-                span.attributes.get("ai.operation.type", "unknown")
-                if span.attributes
-                else "unknown"
-            )
+            op_type = span.operation_type or "unknown"
             operation_breakdown[op_type] = operation_breakdown.get(op_type, 0) + 1
 
         logger.info(f"Calculated metrics for project {project_id}")

@@ -14,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.constants import AISpanAttributes
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.mixins import CommentsMixin, TagsMixin
@@ -112,14 +113,14 @@ class Trace(Base, TagsMixin, CommentsMixin):
     @property
     def operation_type(self) -> str | None:
         """Extract operation type from attributes."""
-        return self.attributes.get("ai.operation.type")
+        return self.attributes.get(AISpanAttributes.OPERATION_TYPE)
 
     @property
     def model_name(self) -> str | None:
         """Extract model name from attributes."""
-        return self.attributes.get("ai.model.name")
+        return self.attributes.get(AISpanAttributes.MODEL_NAME)
 
     @property
     def total_tokens(self) -> int | None:
         """Extract total tokens from attributes."""
-        return self.attributes.get("ai.llm.tokens.total")
+        return self.attributes.get(AISpanAttributes.TOKENS_TOTAL)
