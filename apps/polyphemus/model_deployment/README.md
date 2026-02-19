@@ -261,57 +261,73 @@ Configure these GitHub secrets for automated deployment:
 
 ## Usage
 
+Deployed vLLM models expose the **OpenAI chat-completions** API at `/v1/chat/completions`. Polyphemus (and the examples below) call the Vertex AI **`:rawPredict`** API and send the **raw** request body (no `instances` envelope). The container forwards that body to `/v1/chat/completions` and returns the OpenAI-style response.
+
 ### Python Client
 
+Use `:rawPredict` with the raw OpenAI-style JSON body (messages, max_tokens, temperature, etc.):
+
 ```python
-from google.cloud import aiplatform
+import google.auth
+import google.auth.transport.requests
+import httpx
 
-# Initialize
-aiplatform.init(project="your-project-id", location="us-central1")
+PROJECT_ID = "your-project-id"
+LOCATION = "us-central1"
+ENDPOINT_ID = "your-endpoint-id"  # from: gcloud ai endpoints list --region=us-central1
 
-# Get endpoint
-endpoint = aiplatform.Endpoint.list(
-    filter='display_name="vllm-llama-3-1-8b-instruct"'
-)[0]
+# Get ADC token
+creds, _ = google.auth.default()
+creds.refresh(google.auth.transport.requests.Request())
+token = creds.token
 
-# Make prediction (OpenAI-compatible format)
-response = endpoint.predict(
-    instances=[{
-        "messages": [
-            {"role": "user", "content": "Hello, how are you?"}
-        ],
-        "max_tokens": 100,
-        "temperature": 0.7,
-    }]
+url = (
+    f"https://{LOCATION}-aiplatform.googleapis.com/v1/projects/{PROJECT_ID}"
+    f"/locations/{LOCATION}/endpoints/{ENDPOINT_ID}:rawPredict"
 )
-
-print(response.predictions[0])
+body = {
+    "messages": [{"role": "user", "content": "Hello, how are you?"}],
+    "max_tokens": 100,
+    "temperature": 0.7,
+}
+with httpx.Client(timeout=60.0) as client:
+    response = client.post(
+        url,
+        json=body,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+    )
+response.raise_for_status()
+data = response.json()
+# OpenAI-style response: choices, usage
+print(data["choices"][0]["message"]["content"])
 ```
 
 ### REST API
 
-Get the endpoint URL:
+Get the endpoint ID:
 
 ```bash
 gcloud ai endpoints list --region=us-central1 --project=YOUR_PROJECT_ID
 ```
 
-Make a request:
+Call **`:rawPredict`** with the raw chat-completions JSON (no `instances` wrapper):
 
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $(gcloud auth print-access-token)" \
   -H "Content-Type: application/json" \
-  https://REGION-aiplatform.googleapis.com/v1/projects/PROJECT_ID/locations/REGION/endpoints/ENDPOINT_ID:predict \
+  https://REGION-aiplatform.googleapis.com/v1/projects/PROJECT_ID/locations/REGION/endpoints/ENDPOINT_ID:rawPredict \
   -d '{
-    "instances": [{
-      "messages": [
-        {"role": "user", "content": "Hello!"}
-      ],
-      "max_tokens": 100
-    }]
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "max_tokens": 100,
+    "temperature": 0.7
   }'
 ```
+
+Response is OpenAI-style: `choices`, `usage`, etc.
 
 ## Cost Optimization
 
