@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any, TypedDict
 
-# Load .env from model-deployment directory so GCP_SERVICE_ACCOUNT, MODEL_PATH, etc. are used
+# Load .env from model_deployment directory so GCP_SERVICE_ACCOUNT, MODEL_PATH, etc. are used
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
