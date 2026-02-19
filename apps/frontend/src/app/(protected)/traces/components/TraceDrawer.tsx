@@ -466,6 +466,8 @@ export default function TraceDrawer({
                         spans={trace.root_spans}
                         selectedSpan={selectedSpan}
                         onSpanSelect={handleSpanSelect}
+                        isConversationTrace={isConversationTrace}
+                        rootSpans={trace.root_spans}
                       />
                     )}
                     {viewTab === graphTabIndex && (
