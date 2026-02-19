@@ -105,7 +105,8 @@ def _get_vertex_access_token() -> str:
 
 def _build_vertex_request_body(
     messages: List[Message],
-    max_tokens: int = 1024,
+    *,
+    max_tokens: Optional[int] = None,
     temperature: float = 0.6,
     top_p: float = 1.0,
     top_k: Optional[int] = None,
@@ -114,10 +115,11 @@ def _build_vertex_request_body(
     """Build JSON body for Vertex AI rawPredict (vLLM OpenAI chat format)."""
     body: Dict[str, Any] = {
         "messages": [{"role": (m.role or "user"), "content": m.content} for m in messages],
-        "max_tokens": max_tokens,
         "temperature": temperature,
         "top_p": top_p,
     }
+    if max_tokens is not None:
+        body["max_tokens"] = max_tokens
     if top_k is not None and top_k >= 0:
         body["top_k"] = top_k
     if json_schema is not None:
@@ -157,8 +159,7 @@ async def generate_text_via_vertex_endpoint(
     if not prompt:
         raise ValueError("At least one message with content is required")
 
-    # Get parameters with defaults
-    max_tokens = request.max_tokens or 1024
+    # Get parameters with defaults (max_tokens is optional; only passed when provided)
     temperature = request.temperature if request.temperature is not None else 0.6
     top_p = request.top_p if request.top_p is not None else 1.0
     top_k = request.top_k
@@ -180,7 +181,7 @@ async def generate_text_via_vertex_endpoint(
 
     body = _build_vertex_request_body(
         messages=request.messages,
-        max_tokens=max_tokens,
+        max_tokens=request.max_tokens,
         temperature=temperature,
         top_p=top_p,
         top_k=top_k,

@@ -33,7 +33,7 @@ class GenerateRequest(BaseModel):
     messages: List[Message]
     model: Optional[str] = None
     temperature: Optional[float] = 0.7
-    max_tokens: Optional[int] = 512
+    max_tokens: Optional[int] = None  # Optional; when omitted, not sent to vLLM
     stream: bool = False
     repetition_penalty: Optional[float] = 1.2  # Penalty for repetition (>1.0 = penalty)
     top_p: Optional[float] = None  # Nucleus sampling parameter

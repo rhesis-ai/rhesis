@@ -36,7 +36,7 @@ async def generate(
                 { "content": "Hello!", "role": "user" }
             ],
             "temperature": 0.7,
-            "max_tokens": 512,
+            "max_tokens": 2048,  // optional; omit to leave unbounded
             "top_p": 1.0,
             "top_k": 50,
             "json_schema": { ... }  // optional, for structured output
