@@ -74,6 +74,7 @@ class OTELSpanResponse(BaseModel):
     project_id: str
     organization_id: str
     environment: str
+    conversation_id: Optional[str] = None
     span_name: str
     span_kind: str
     start_time: datetime
@@ -126,6 +127,7 @@ class TraceSummary(BaseModel):
     trace_id: str
     project_id: str
     environment: str
+    conversation_id: Optional[str] = None
     start_time: datetime
     duration_ms: float
     span_count: int
@@ -205,6 +207,7 @@ class TraceDetailResponse(BaseModel):
     trace_id: str
     project_id: str
     environment: str
+    conversation_id: Optional[str] = None
     start_time: datetime
     end_time: datetime
     duration_ms: float

@@ -152,6 +152,7 @@ async def list_traces(
     test_run_id: Optional[str] = Query(None, description="Filter by test run ID"),
     test_result_id: Optional[str] = Query(None, description="Filter by test result ID"),
     test_id: Optional[str] = Query(None, description="Filter by test ID"),
+    conversation_id: Optional[str] = Query(None, description="Filter by conversation ID"),
     trace_source: TraceSource = Query(
         TraceSource.ALL,
         description=(
@@ -220,6 +221,7 @@ async def list_traces(
             test_run_id=test_run_id,
             test_result_id=test_result_id,
             test_id=test_id,
+            conversation_id=conversation_id,
             limit=limit,
             offset=offset,
         )
@@ -242,6 +244,7 @@ async def list_traces(
             test_run_id=test_run_id,
             test_result_id=test_result_id,
             test_id=test_id,
+            conversation_id=conversation_id,
         )
 
         # Convert to summaries
@@ -276,6 +279,7 @@ async def list_traces(
                 trace_id=trace.trace_id,
                 project_id=str(trace.project_id),  # Convert UUID to string
                 environment=trace.environment,
+                conversation_id=trace.conversation_id,
                 start_time=trace.start_time,
                 duration_ms=trace.duration_ms or 0.0,
                 span_count=span_count,  # Now reflects actual count
@@ -464,6 +468,7 @@ async def get_trace(
             trace_id=first_span.trace_id,
             project_id=str(first_span.project_id),  # Convert UUID to string
             environment=first_span.environment,
+            conversation_id=first_span.conversation_id,
             start_time=min(span.start_time for span in spans),
             end_time=max(span.end_time for span in spans),
             duration_ms=total_duration.total_seconds() * 1000,

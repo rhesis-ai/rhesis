@@ -3306,6 +3306,7 @@ def create_trace_spans(
             project_id=span.project_id,
             organization_id=organization_id,
             environment=span.environment,
+            conversation_id=span.conversation_id,
             span_name=span.span_name,
             span_kind=span.span_kind.value,
             start_time=span.start_time,
@@ -3381,6 +3382,48 @@ def get_trace_by_id(
     return query.order_by(models.Trace.start_time).all()
 
 
+def get_trace_id_for_conversation(
+    db: Session,
+    conversation_id: str,
+    project_id: str,
+    organization_id: str,
+) -> Optional[str]:
+    """
+    Get the trace_id associated with a conversation.
+
+    Looks up the earliest trace for the given conversation_id
+    to reuse the same trace_id across all turns.
+
+    Args:
+        db: Database session
+        conversation_id: The conversation identifier
+        project_id: Project ID for access control
+        organization_id: Organization ID for multi-tenant security
+
+    Returns:
+        The trace_id string, or None if no trace exists for this conversation
+    """
+    from uuid import UUID
+
+    org_uuid = UUID(organization_id)
+
+    result = (
+        db.query(models.Trace.trace_id)
+        .filter(
+            and_(
+                models.Trace.conversation_id == conversation_id,
+                models.Trace.project_id == project_id,
+                models.Trace.organization_id == org_uuid,
+            )
+        )
+        .order_by(models.Trace.created_at)
+        .limit(1)
+        .first()
+    )
+
+    return result[0] if result else None
+
+
 def get_span_by_id(
     db: Session,
     span_id: str,
@@ -3426,6 +3469,7 @@ def query_traces(
     test_run_id: Optional[str] = None,
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
 ) -> List[tuple[models.Trace, int]]:
@@ -3573,6 +3617,9 @@ def query_traces(
     test_id_uuid = validate_uuid_param(test_id, "test_id")
     if test_id_uuid:
         query = query.filter(models.Trace.test_id == test_id_uuid)
+
+    if conversation_id:
+        query = query.filter(models.Trace.conversation_id == conversation_id)
 
     return query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
 
@@ -3764,6 +3811,7 @@ def count_traces(
     test_run_id: Optional[str] = None,
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
 ) -> int:
     """
     Count traces matching filters.
@@ -3877,5 +3925,8 @@ def count_traces(
     test_id_uuid = validate_uuid_param(test_id, "test_id")
     if test_id_uuid:
         query = query.filter(models.Trace.test_id == test_id_uuid)
+
+    if conversation_id:
+        query = query.filter(models.Trace.conversation_id == conversation_id)
 
     return query.scalar()

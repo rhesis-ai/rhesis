@@ -38,6 +38,7 @@ class Trace(Base, TagsMixin, CommentsMixin):
     )
     organization_id = Column(GUID(), nullable=False, index=True)
     environment = Column(String(50), nullable=False, index=True)
+    conversation_id = Column(String(255), nullable=True)
 
     # Test execution context (nullable - only set for test execution traces)
     test_run_id = Column(
@@ -88,6 +89,7 @@ class Trace(Base, TagsMixin, CommentsMixin):
         Index("idx_trace_test_run", "test_run_id", start_time.desc()),
         Index("idx_trace_test_result", "test_result_id"),
         Index("idx_trace_test", "test_id"),
+        Index("idx_trace_conversation", "conversation_id", start_time.desc()),
         Index(
             "idx_trace_unprocessed",
             "created_at",

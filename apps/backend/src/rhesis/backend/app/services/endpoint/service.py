@@ -166,6 +166,16 @@ class EndpointService:
                     endpoint=endpoint,
                 )
 
+            # Determine conversation_id for trace linking
+            # Check all recognized conversation field names (session_id,
+            # thread_id, etc.) since different endpoints use different names
+            trace_conversation_id = stateless_conversation_id
+            if not trace_conversation_id:
+                for field_name in CONVERSATION_FIELD_NAMES:
+                    if field_name in input_data and input_data[field_name]:
+                        trace_conversation_id = input_data[field_name]
+                        break
+
             # Check if invoker needs explicit tracing (REST/WebSocket)
             if not invoker.automatic_tracing:
                 # Import here to avoid circular imports
@@ -175,7 +185,11 @@ class EndpointService:
 
                 # Wrap invocation with trace creation
                 async with create_invocation_trace(
-                    db, endpoint, organization_id, test_execution_context
+                    db,
+                    endpoint,
+                    organization_id,
+                    test_execution_context,
+                    conversation_id=trace_conversation_id,
                 ) as trace_ctx:
                     result = await invoker.invoke(
                         db, endpoint, enriched_input_data, test_execution_context

@@ -12,6 +12,7 @@ from rhesis.backend.app.constants import TestExecutionContext as TestContextCons
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
 from rhesis.backend.logging import logger
+from rhesis.sdk.telemetry.constants import ConversationContext as ConvContextConstants
 
 from .base import BaseEndpointInvoker
 from .common.schemas import ErrorResponse
@@ -376,6 +377,31 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 logger.debug(
                     f"Injected test execution context: "
                     f"run={context.test_run_id}, test={context.test_id}"
+                )
+
+            # Step 3.6: Add conversation context to kwargs if detected
+            # Use the conversation_field detected by ConversationTracker
+            # (handles session_id, thread_id, chat_id, etc.)
+            conv_id = None
+            if conversation_field and conversation_field in input_data:
+                conv_id = input_data[conversation_field]
+            elif "conversation_id" in input_data:
+                conv_id = input_data["conversation_id"]
+            if conv_id and endpoint.project_id:
+                from rhesis.backend.app import crud
+
+                existing_trace_id = crud.get_trace_id_for_conversation(
+                    db=db,
+                    conversation_id=conv_id,
+                    project_id=str(endpoint.project_id),
+                    organization_id=str(endpoint.organization_id),
+                )
+                function_kwargs[ConvContextConstants.CONTEXT_KEY] = {
+                    ConvContextConstants.Fields.CONVERSATION_ID: conv_id,
+                    ConvContextConstants.Fields.TRACE_ID: existing_trace_id,
+                }
+                logger.debug(
+                    f"Injected conversation context: id={conv_id}, trace_id={existing_trace_id}"
                 )
 
             logger.info(
