@@ -3827,3 +3827,57 @@ def update_traces_with_test_result_id(
     logger.info(f"[TRACE_LINKING] Updated {result} traces with test_result_id={test_result_id}")
 
     return result
+
+
+def update_conversation_id_for_trace(
+    db: Session,
+    trace_id: str,
+    conversation_id: str,
+    organization_id: str,
+) -> int:
+    """
+    Retroactively set conversation_id on all spans of a trace.
+
+    Used when the first turn of a conversation has no conversation_id
+    at invocation time (stateful endpoints generate the ID in their
+    response). After the response is processed, this function stamps
+    the discovered conversation_id onto the already-stored trace spans.
+
+    Only updates spans where conversation_id IS NULL to avoid
+    overwriting intentionally set values.
+
+    Returns the number of rows updated.
+    """
+    org_uuid = UUID(organization_id)
+
+    count = (
+        db.query(models.Trace)
+        .filter(
+            and_(
+                models.Trace.trace_id == trace_id,
+                models.Trace.organization_id == org_uuid,
+                models.Trace.conversation_id.is_(None),
+            )
+        )
+        .update(
+            {
+                models.Trace.conversation_id: conversation_id,
+                models.Trace.updated_at: datetime.utcnow(),
+            },
+            synchronize_session=False,
+        )
+    )
+
+    # Commit explicitly: the trace row was already committed by
+    # create_trace_spans() earlier in the same request, so this
+    # UPDATE runs in a new implicit transaction that needs its own
+    # commit.  Using flush() alone would rely on the session
+    # lifecycle to commit a second time, which is fragile.
+    db.commit()
+
+    logger.debug(
+        f"[TRACE_LINKING] Updated {count} spans with "
+        f"conversation_id={conversation_id} for trace_id={trace_id}"
+    )
+
+    return count
