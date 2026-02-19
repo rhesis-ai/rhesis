@@ -28,7 +28,7 @@ dependencies = [
 toxicity = [
     "google-api-python-client",
 ]
-# Optional: Vertex AI model deployment (for model-deployment/ scripts)
+# Optional: Vertex AI model deployment (for model_deployment/ scripts)
 vertex-ai = [
     "google-cloud-aiplatform>=1.38.0",
     "google-cloud-compute>=1.15.0",

@@ -3,7 +3,9 @@
 import logging
 from typing import Optional, Tuple
 
-from config import (
+from google.cloud import aiplatform
+
+from .config import (
     BUCKET_URI,
     DEFAULT_MODEL,
     MODEL_GCS_PATH,
@@ -19,8 +21,7 @@ from config import (
     get_vllm_args,
     validate_config,
 )
-from google.cloud import aiplatform
-from utils import check_quota, format_deployment_summary
+from .utils import check_quota, format_deployment_summary
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"

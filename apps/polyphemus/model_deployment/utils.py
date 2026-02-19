@@ -114,6 +114,6 @@ To test the endpoint:
   2. Use the Vertex AI Python client
   3. Use the REST API
 
-For more information, see the README.md in apps/polyphemus/model-deployment/
+For more information, see the README.md in apps/polyphemus/model_deployment/
 """
     return summary

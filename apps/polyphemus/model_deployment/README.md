@@ -18,7 +18,7 @@ The Vertex AI deployment capability allows you to:
 ## Directory Structure
 
 ```
-model-deployment/
+model_deployment/
 ├── __init__.py           # Package initialization
 ├── config.py             # Model configurations and settings
 ├── deploy.py             # Main deployment script
@@ -74,7 +74,7 @@ export DEFAULT_MODEL="your-model-name"
 export HF_TOKEN="hf_your_token_here"
 ```
 
-Or create a `.env` file in the `model-deployment` directory (see `.env.example`):
+Or create a `.env` file in the `model_deployment` directory (see `.env.example`):
 
 ```bash
 GCP_PROJECT_ID=your-project-id
@@ -94,18 +94,17 @@ Dependencies are defined in `apps/polyphemus/pyproject.toml` under the optional 
 ```bash
 cd apps/polyphemus
 uv sync --extra vertex-ai
-cd model-deployment
-uv run python deploy.py --help
+uv run python -m model_deployment.deploy --help
 ```
 
-**Option B – From model-deployment directory:**
+**Option B – From model_deployment directory:**
 
 ```bash
-cd apps/polyphemus/model-deployment
-uv run --project .. --extra vertex-ai python deploy.py --help
+cd apps/polyphemus/model_deployment
+uv run --project .. python -m model_deployment.deploy --help
 ```
 
-**Important:** Run `deploy.py` from the `model-deployment` directory so that local imports (`config`, `utils`) resolve correctly.
+**Important:** Run the deploy module from `apps/polyphemus` (e.g. `uv run python -m model_deployment.deploy`) so that package imports resolve correctly.
 
 ## Configuration
 
@@ -192,27 +191,27 @@ gsutil -m cp -r ./model-cache gs://vllm-model-storage/models/your-model-name
 Deploy models from your local machine:
 
 ```bash
-cd apps/polyphemus/model-deployment
-python deploy.py
+cd apps/polyphemus
+uv run python -m model_deployment.deploy
 ```
 
 #### Deployment Options
 
 ```bash
 # Deploy with default settings (skip existing deployments)
-python deploy.py
+uv run python -m model_deployment.deploy
 
 # Force redeployment even if models exist
-python deploy.py --force
+uv run python -m model_deployment.deploy --force
 
 # Enable LoRA support
-python deploy.py --enable-lora
+uv run python -m model_deployment.deploy --enable-lora
 
 # Enforce eager execution (disable CUDA graphs)
-python deploy.py --enforce-eager
+uv run python -m model_deployment.deploy --enforce-eager
 
 # Set guided decoding backend
-python deploy.py --guided-decoding-backend=outlines
+uv run python -m model_deployment.deploy --guided-decoding-backend=outlines
 ```
 
 ### GitHub Actions Deployment
@@ -236,7 +235,7 @@ Configure these GitHub secrets for automated deployment:
 
 1. **Automatic Deployment** (on push to main):
    ```bash
-   git add apps/polyphemus/model-deployment/
+   git add apps/polyphemus/model_deployment/
    git commit -m "feat: update model deployment config"
    git push origin main
    ```
