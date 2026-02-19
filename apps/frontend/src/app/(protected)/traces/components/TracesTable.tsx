@@ -38,10 +38,10 @@ export default function TracesTable({
       {
         field: 'trace_id',
         headerName: 'Trace ID',
-        width: 180,
+        width: 140,
         renderCell: params => {
           const traceId = params.value as string;
-          const truncated = `${traceId.slice(0, 8)}...${traceId.slice(-8)}`;
+          const truncated = `${traceId.slice(0, 8)}\u2026`;
           const hasConversation = !!params.row.conversation_id;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

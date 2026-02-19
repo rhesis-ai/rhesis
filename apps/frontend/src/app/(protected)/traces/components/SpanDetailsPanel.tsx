@@ -310,6 +310,24 @@ export default function SpanDetailsPanel({
                     </Typography>
                   </Box>
 
+                  {/* Trace ID */}
+                  {trace?.trace_id && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Trace ID
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontFamily: 'monospace',
+                          fontSize: theme => theme.typography.body2.fontSize,
+                        }}
+                      >
+                        {trace.trace_id}
+                      </Typography>
+                    </Box>
+                  )}
+
                   {/* Timing */}
                   <Box>
                     <Typography variant="caption" color="text.secondary">
