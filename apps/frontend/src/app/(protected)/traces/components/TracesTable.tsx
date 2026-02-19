@@ -6,6 +6,7 @@ import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { Box, Chip, Typography, Tooltip } from '@mui/material';
 import ForumIcon from '@mui/icons-material/Forum';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import { formatDistanceToNow } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
 
@@ -44,11 +45,18 @@ export default function TracesTable({
           const hasConversation = !!params.row.conversation_id;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              {hasConversation && (
+              {hasConversation ? (
                 <Tooltip title="Multi-turn conversation">
                   <ForumIcon
                     fontSize="small"
                     sx={{ color: 'primary.main', flexShrink: 0 }}
+                  />
+                </Tooltip>
+              ) : (
+                <Tooltip title="Single-turn conversation">
+                  <ChatBubbleOutlineIcon
+                    fontSize="small"
+                    sx={{ color: 'text.secondary', flexShrink: 0 }}
                   />
                 </Tooltip>
               )}

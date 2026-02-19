@@ -449,6 +449,8 @@ export default function TraceDrawer({
                       <ConversationTraceView
                         trace={trace}
                         sessionToken={sessionToken}
+                        onSpanSelect={handleSpanSelect}
+                        rootSpans={trace.root_spans}
                       />
                     )}
                     {viewTab === treeTabIndex && (

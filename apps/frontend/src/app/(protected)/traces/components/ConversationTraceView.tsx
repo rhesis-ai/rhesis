@@ -9,16 +9,21 @@ import {
   GoalEvaluation,
 } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import ConversationHistory from '@/components/common/ConversationHistory';
 
 interface ConversationTraceViewProps {
   trace: TraceDetailResponse;
   sessionToken: string;
+  onSpanSelect?: (span: SpanNode) => void;
+  rootSpans?: SpanNode[];
 }
 
 export default function ConversationTraceView({
   trace,
   sessionToken,
+  onSpanSelect,
+  rootSpans,
 }: ConversationTraceViewProps) {
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,6 +87,15 @@ export default function ConversationTraceView({
   const goalEvaluation: GoalEvaluation | undefined =
     testResult?.test_output?.goal_evaluation;
 
+  const handleResponseClick = (turnNumber: number) => {
+    if (onSpanSelect && rootSpans) {
+      const spanIndex = turnNumber - 1;
+      if (spanIndex >= 0 && spanIndex < rootSpans.length) {
+        onSpanSelect(rootSpans[spanIndex]);
+      }
+    }
+  };
+
   if (conversationSummary.length === 0) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -97,6 +111,9 @@ export default function ConversationTraceView({
       conversationSummary={conversationSummary}
       goalEvaluation={goalEvaluation}
       project={trace.project}
+      onResponseClick={
+        onSpanSelect && rootSpans ? handleResponseClick : undefined
+      }
       maxHeight="100%"
     />
   );
