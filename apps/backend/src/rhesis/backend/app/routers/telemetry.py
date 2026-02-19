@@ -204,6 +204,7 @@ async def list_traces(
 
     try:
         # Query traces (no default time filter - controlled by frontend)
+        # Returns (Trace, span_count, total_count) tuples in a single DB call
         traces = crud.query_traces(
             db=db,
             organization_id=organization_id,
@@ -226,31 +227,12 @@ async def list_traces(
             offset=offset,
         )
 
-        # Get total count for pagination (with same filters as query)
-        total = crud.count_traces(
-            db=db,
-            organization_id=organization_id,
-            project_id=project_id,
-            endpoint_id=endpoint_id,
-            root_spans_only=root_spans_only,
-            trace_source=trace_source,
-            environment=environment,
-            span_name=span_name,
-            status_code=status_code,
-            start_time_after=start_time_after,
-            start_time_before=start_time_before,
-            duration_min_ms=duration_min_ms,
-            duration_max_ms=duration_max_ms,
-            test_run_id=test_run_id,
-            test_result_id=test_result_id,
-            test_id=test_id,
-            conversation_id=conversation_id,
-        )
+        # Total count is embedded in each row via COUNT(*) OVER() window function
+        total = traces[0][2] if traces else 0
 
         # Convert to summaries
         summaries = []
-        # Unpack tuple: query_traces now returns (Trace, span_count) to avoid N+1 queries
-        for trace, span_count in traces:
+        for trace, span_count, _total in traces:
             # Calculate summary fields
             has_errors = trace.status_code == "ERROR"
             total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
@@ -564,8 +546,8 @@ async def get_metrics(
             offset=0,
         )
 
-        # Extract just the Trace objects (discard span_count since metrics recalculate)
-        spans = [trace for trace, _ in spans_with_counts]
+        # Extract just the Trace objects (discard span_count and total_count)
+        spans = [trace for trace, _, _ in spans_with_counts]
 
         if not spans:
             return TraceMetricsResponse(

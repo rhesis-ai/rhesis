@@ -3472,7 +3472,7 @@ def query_traces(
     conversation_id: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-) -> List[tuple[models.Trace, int]]:
+) -> List[tuple[models.Trace, int, int]]:
     """
     Query traces with filters and eager load nested relationships.
 
@@ -3495,8 +3495,9 @@ def query_traces(
         offset: Pagination offset
 
     Returns:
-        List of tuples (Trace model, span_count) matching filters with eager loaded relationships.
-        The span_count is calculated efficiently using a correlated subquery to avoid N+1 queries.
+        List of tuples (Trace, span_count, total_count). total_count is the
+        total number of matching rows before LIMIT/OFFSET, computed via a
+        COUNT window function in the same query to avoid a second DB call.
 
     Raises:
         HTTPException: 400 if any UUID parameter is malformed
@@ -3504,7 +3505,7 @@ def query_traces(
     from uuid import UUID
 
     from fastapi import HTTPException
-    from sqlalchemy import exists, or_, select
+    from sqlalchemy import select
     from sqlalchemy.orm import aliased, joinedload
 
     def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
@@ -3537,11 +3538,15 @@ def query_traces(
         .scalar_subquery()
     )
 
+    # Window function: total matching rows before LIMIT/OFFSET.
+    # Computed in the same query to avoid a separate count_traces DB call.
+    total_count_window = func.count().over().label("total_count")
+
     # Filter by organization_id for multi-tenant security (always required)
     # Eager load nested relationships for endpoint information
-    # Query returns tuples of (Trace, span_count)
+    # Query returns tuples of (Trace, span_count, total_count)
     query = (
-        db.query(models.Trace, span_count_subquery)
+        db.query(models.Trace, span_count_subquery, total_count_window)
         .filter(models.Trace.organization_id == org_uuid)
         .options(
             joinedload(models.Trace.test_result)
@@ -3556,23 +3561,19 @@ def query_traces(
 
         # Deduplicate by trace_id: in conversation tracing, multiple turn-root
         # spans share the same trace_id. Keep only the most recent root span
-        # per trace_id using a NOT EXISTS anti-join.
-        DedupeTrace = aliased(models.Trace)
-        query = query.filter(
-            ~exists(
-                select(DedupeTrace.id).where(
-                    DedupeTrace.trace_id == models.Trace.trace_id,
-                    DedupeTrace.parent_span_id.is_(None),
-                    DedupeTrace.organization_id == org_uuid,
-                    or_(
-                        DedupeTrace.start_time > models.Trace.start_time,
-                        and_(
-                            DedupeTrace.start_time == models.Trace.start_time,
-                            DedupeTrace.id > models.Trace.id,
-                        ),
-                    ),
-                )
+        # per trace_id using a non-correlated DISTINCT ON subquery.
+        dedup_subquery = (
+            db.query(models.Trace.id)
+            .filter(
+                models.Trace.parent_span_id.is_(None),
+                models.Trace.organization_id == org_uuid,
             )
+            .distinct(models.Trace.trace_id)
+            .order_by(models.Trace.trace_id, desc(models.Trace.start_time))
+            .subquery()
+        )
+        query = query.filter(
+            models.Trace.id.in_(select(dedup_subquery.c.id))
         )
 
     # Filter by trace source

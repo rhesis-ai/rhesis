@@ -537,6 +537,7 @@ async def get_test_run_traces(
     project_id = str(db_test_run.test_configuration.endpoint.project_id)
 
     # Query traces for this test run
+    # Returns (Trace, span_count, total_count) tuples in a single DB call
     traces = crud.query_traces(
         db=db,
         organization_id=organization_id,
@@ -548,20 +549,12 @@ async def get_test_run_traces(
         offset=offset,
     )
 
-    # Get total count
-    total = crud.count_traces(
-        db=db,
-        organization_id=organization_id,
-        project_id=project_id,
-        root_spans_only=True,
-        trace_source=TraceSource.TEST,  # Match the query filter
-        test_run_id=str(test_run_id),
-    )
+    # Total count is embedded in each row via COUNT(*) OVER() window function
+    total = traces[0][2] if traces else 0
 
     # Convert to summaries
     summaries = []
-    # Unpack tuple: query_traces now returns (Trace, span_count) to avoid N+1 queries
-    for trace, span_count in traces:
+    for trace, span_count, _total in traces:
         has_errors = trace.status_code == "ERROR"
         total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
         total_cost_usd = 0.0
