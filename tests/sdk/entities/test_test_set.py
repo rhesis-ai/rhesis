@@ -1112,6 +1112,7 @@ class TestTestSetValidation:
         )
         test_set = TestSet(
             name="Test Set",
+            test_set_type=TestType.SINGLE_TURN,
             tests=[test],
         )
 
@@ -1129,6 +1130,7 @@ class TestTestSetValidation:
         )
         test_set = TestSet(
             name="Test Set",
+            test_set_type=TestType.SINGLE_TURN,
             tests=[test],
         )
 
@@ -1145,6 +1147,7 @@ class TestTestSetValidation:
         )
         test_set = TestSet(
             name="Test Set",
+            test_set_type=TestType.SINGLE_TURN,
             tests=[test],
         )
 
@@ -1168,6 +1171,7 @@ class TestTestSetValidation:
         )
         test_set = TestSet(
             name="Test Set",
+            test_set_type=TestType.SINGLE_TURN,
             tests=[valid_test, invalid_test],
         )
 
@@ -1175,6 +1179,23 @@ class TestTestSetValidation:
             test_set.push()
 
         assert "index 1" in str(exc_info.value)
+
+    def test_push_raises_error_when_test_set_type_missing(self):
+        """push() should raise ValueError when test_set_type is missing."""
+        test = Test(
+            category="Test category",
+            behavior="Test behavior",
+            prompt=Prompt(content="Test prompt"),
+        )
+        test_set = TestSet(
+            name="Test Set",
+            tests=[test],
+        )
+
+        with pytest.raises(ValueError) as exc_info:
+            test_set.push()
+
+        assert "test_set_type" in str(exc_info.value)
 
     def test_push_raises_error_when_name_missing(self):
         """push() should raise ValueError when name is missing."""

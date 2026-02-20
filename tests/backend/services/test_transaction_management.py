@@ -45,6 +45,7 @@ class TestServiceTransactionManagement:
         test_set_data = {
             "name": f"Bulk Test Set {uuid.uuid4()}",
             "description": "Test set for transaction testing",
+            "test_set_type": "Single-Turn",
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
@@ -90,6 +91,7 @@ class TestServiceTransactionManagement:
         test_set_data = {
             "name": f"Failing Test Set {uuid.uuid4()}",
             "description": "Test set for transaction testing",
+            "test_set_type": "Single-Turn",
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
@@ -420,6 +422,7 @@ class TestServiceTransactionManagement:
         test_set_data1 = {
             "name": f"Service Test Set 1 {uuid.uuid4()}",
             "description": "First test set for transaction testing",
+            "test_set_type": "Single-Turn",
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
@@ -438,6 +441,7 @@ class TestServiceTransactionManagement:
         test_set_data2 = {
             "name": f"Service Test Set 2 {uuid.uuid4()}",
             "description": "Second test set for transaction testing",
+            "test_set_type": "Single-Turn",
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
@@ -474,6 +478,7 @@ class TestServiceTransactionManagement:
         test_set_data1 = {
             "name": f"Success Service Test Set {uuid.uuid4()}",
             "description": "First test set for transaction testing",
+            "test_set_type": "Single-Turn",
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
@@ -493,6 +498,7 @@ class TestServiceTransactionManagement:
         test_set_data2 = {
             "name": f"Failure Service Test Set {uuid.uuid4()}",
             "description": "Second test set for transaction testing",
+            "test_set_type": "Single-Turn",
             "tests": [
                 {
                     "prompt": {"content": "Test prompt content", "language_code": "en"},
@@ -529,6 +535,7 @@ class TestServiceTransactionManagement:
         test_set_data = {
             "name": f"Test Set {uuid.uuid4()}",
             "description": "Test set for transaction testing",
+            "test_set_type": "Single-Turn",
         }
         test_set_data["name"] = f"Complex Atomic Test Set {uuid.uuid4()}"
         test_set_data["tests"] = [

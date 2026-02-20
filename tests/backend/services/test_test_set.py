@@ -474,6 +474,7 @@ class TestTestSetGeneration:
             name=custom_name,
             description="A test set with custom name",
             short_description="Custom test set",
+            test_set_type="Single-Turn",
             tests=[
                 schemas.TestData(
                     prompt=schemas.TestPrompt(content="Test prompt 1"),
@@ -504,6 +505,7 @@ class TestTestSetGeneration:
             "name": "Generated Test Set",  # This would come from SDK's set_properties()
             "description": "Auto-generated test set",
             "short_description": "Auto-generated",
+            "test_set_type": "Single-Turn",
             "tests": [
                 {
                     "prompt": {"content": "Test prompt 1"},

@@ -16,6 +16,7 @@ interface TestSetSelectionDialogProps {
   onClose: () => void;
   onSelect: (testSet: TestSet) => void;
   sessionToken: string;
+  testSetTypeId?: string;
 }
 
 export default function TestSetSelectionDialog({
@@ -23,6 +24,7 @@ export default function TestSetSelectionDialog({
   onClose,
   onSelect,
   sessionToken,
+  testSetTypeId,
 }: TestSetSelectionDialogProps) {
   const [testSets, setTestSets] = React.useState<TestSet[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -61,7 +63,16 @@ export default function TestSetSelectionDialog({
         const clientFactory = new ApiClientFactory(sessionToken);
         const testSetsClient = clientFactory.getTestSetsClient();
 
-        const filter = createSearchFilter(searchValue);
+        const searchFilter = createSearchFilter(searchValue);
+        const typeFilter = testSetTypeId
+          ? `test_set_type_id eq '${testSetTypeId}'`
+          : undefined;
+
+        // Combine filters with 'and' if both are present
+        const filters = [searchFilter, typeFilter].filter(Boolean);
+        const combinedFilter =
+          filters.length > 0 ? filters.join(' and ') : undefined;
+
         const queryParams: {
           sort_by: string;
           sort_order: 'asc' | 'desc';
@@ -73,8 +84,8 @@ export default function TestSetSelectionDialog({
           limit: 100, // Maximum allowed by backend
         };
 
-        if (filter) {
-          queryParams.$filter = filter;
+        if (combinedFilter) {
+          queryParams.$filter = combinedFilter;
         }
 
         const sets = await testSetsClient.getTestSets(queryParams);
@@ -94,7 +105,7 @@ export default function TestSetSelectionDialog({
         }
       }
     },
-    [sessionToken, open, notifications, createSearchFilter]
+    [sessionToken, open, notifications, createSearchFilter, testSetTypeId]
   );
 
   // Initial load when dialog opens
