@@ -49,6 +49,9 @@ show_help() {
     echo -e "${YELLOW}Testing:${NC}"
     echo -e "  ${GREEN}./rh test frontend${NC}     - Run frontend tests"
     echo ""
+    echo -e "${YELLOW}Worktree:${NC}"
+    echo -e "  ${GREEN}./rh worktree <name>${NC}   - Create a git worktree with shared env/config"
+    echo ""
     echo -e "${YELLOW}Other:${NC}"
     echo -e "  ${GREEN}./rh help${NC}              - Show this help message"
     echo ""
@@ -1021,6 +1024,9 @@ case "$1" in
                 exit 1
                 ;;
         esac
+        ;;
+    "worktree")
+        "$SCRIPT_DIR/scripts/create-worktree.sh" "$2"
         ;;
     "help"|"--help"|"-h"|"")
         show_help
