@@ -495,8 +495,14 @@ function MarkovStateNode({ data }: NodeProps) {
         gap: theme.spacing(0.5),
       }}
     >
-      {/* Directional handles: source/target on each side for flexible routing */}
-      <Handle type="target" position={Position.Top} style={handleStyle} />
+      {/* Directional handles: source/target on each side for flexible routing.
+          Every handle has an explicit ID so edges never rely on undefined matching. */}
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="top"
+        style={handleStyle}
+      />
       <Handle
         type="source"
         position={Position.Top}
@@ -586,7 +592,12 @@ function MarkovStateNode({ data }: NodeProps) {
         </Box>
       )}
 
-      <Handle type="source" position={Position.Bottom} style={handleStyle} />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="bottom"
+        style={handleStyle}
+      />
       <Handle
         type="target"
         position={Position.Bottom}
@@ -1092,15 +1103,15 @@ export default function SpanGraphView({
       const dx = tgt.cx - src.cx;
       const dy = tgt.cy - src.cy;
 
-      let sourceHandle: string | undefined;
-      let targetHandle: string | undefined;
+      let sourceHandle: string;
+      let targetHandle: string;
 
       if (Math.abs(dy) >= Math.abs(dx)) {
         // Primarily vertical
         if (dy >= 0) {
-          // Target below: bottom → top (defaults)
-          sourceHandle = undefined;
-          targetHandle = undefined;
+          // Target below: bottom → top
+          sourceHandle = 'bottom';
+          targetHandle = 'top';
         } else {
           // Target above: top → bottom
           sourceHandle = 'top-out';
