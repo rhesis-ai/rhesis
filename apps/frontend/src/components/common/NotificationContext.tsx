@@ -55,6 +55,11 @@ export function NotificationProvider({
     currentNotificationRef.current = currentNotification;
   }, [currentNotification]);
 
+  // Track active notification keys synchronously via ref so duplicate
+  // detection in show() works reliably under React concurrent rendering
+  // (state updaters may be deferred, but ref mutations are immediate).
+  const activeKeysRef = React.useRef(new Set<string>());
+
   React.useEffect(() => {
     if (notifications.length && !currentNotification) {
       // Set a new notification when we don't have an active one
@@ -71,21 +76,14 @@ export function NotificationProvider({
     (message: string, options: NotificationOptions = {}) => {
       const key = options.key || `notification-${++notificationCount}`;
 
-      // Check for duplicate if key is provided using functional updater
-      // to avoid depending on notifications state directly
-      if (options.key) {
-        let isDuplicate = false;
-        setNotifications(prev => {
-          if (prev.some(n => n.key === options.key)) {
-            isDuplicate = true;
-            return prev;
-          }
-          return [...prev, { message, options, key }];
-        });
-        if (isDuplicate) return key;
-      } else {
-        setNotifications(prev => [...prev, { message, options, key }]);
+      // Synchronous duplicate check via ref — immune to React's
+      // deferred state scheduling under concurrent rendering.
+      if (options.key && activeKeysRef.current.has(options.key)) {
+        return key;
       }
+
+      activeKeysRef.current.add(key);
+      setNotifications(prev => [...prev, { message, options, key }]);
 
       return key;
     },
@@ -93,6 +91,7 @@ export function NotificationProvider({
   );
 
   const close = React.useCallback((key: string) => {
+    activeKeysRef.current.delete(key);
     if (currentNotificationRef.current?.key === key) {
       setOpen(false);
     } else {
@@ -110,6 +109,8 @@ export function NotificationProvider({
   };
 
   const handleExited = React.useCallback(() => {
+    const key = currentNotificationRef.current?.key;
+    if (key) activeKeysRef.current.delete(key);
     setCurrentNotification(undefined);
   }, []);
 

@@ -3570,12 +3570,22 @@ def query_traces(
         # How it works: DISTINCT ON (trace_id) keeps one row per trace_id —
         # the one with the latest start_time (most recent turn). The result
         # is a set of row IDs that the outer query filters against.
+        #
+        # The subquery must include the same scoping filters as the outer
+        # query (at minimum project_id) so DISTINCT ON picks a row that
+        # the outer query can actually see.  Without this, a trace_id
+        # shared across projects could cause the selected row to be
+        # filtered out, making the trace disappear from results.
+        dedup_filters = [
+            models.Trace.parent_span_id.is_(None),
+            models.Trace.organization_id == org_uuid,
+        ]
+        if project_id:
+            dedup_filters.append(models.Trace.project_id == project_id)
+
         latest_root_per_trace = (
             db.query(models.Trace.id)
-            .filter(
-                models.Trace.parent_span_id.is_(None),
-                models.Trace.organization_id == org_uuid,
-            )
+            .filter(*dedup_filters)
             .distinct(models.Trace.trace_id)
             .order_by(models.Trace.trace_id, desc(models.Trace.start_time))
             .subquery()
