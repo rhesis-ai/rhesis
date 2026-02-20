@@ -102,8 +102,11 @@ async def ingest_trace(
             f"(async: {async_count}, sync: {sync_count})"
         )
 
-        # Try to link traces if they belong to a test execution
+        # Post-ingestion linking: apply deferred links now that spans
+        # are committed.  Each linking step is independent and must not
+        # fail the overall ingestion.
         if stored_spans:
+            # 1. Test-result linking (traces ↔ test results)
             from rhesis.backend.app.services.telemetry.linking_service import (
                 TraceLinkingService,
             )
@@ -119,9 +122,25 @@ async def ingest_trace(
                         f"Linked {linked_count} traces to test result for trace_id={trace_id}"
                     )
             except Exception as link_error:
-                # Don't fail ingestion if linking fails
                 logger.warning(
                     f"Failed to link traces for trace_id={trace_id}: {link_error}",
+                    exc_info=True,
+                )
+
+            # 2. Conversation linking (first-turn conversation_id)
+            from rhesis.backend.app.services.telemetry.conversation_linking import (
+                apply_pending_links,
+            )
+
+            try:
+                conv_linked = apply_pending_links(db, stored_spans)
+                if conv_linked > 0:
+                    logger.info(
+                        f"Applied {conv_linked} pending conversation links for trace_id={trace_id}"
+                    )
+            except Exception as conv_error:
+                logger.warning(
+                    f"Failed to apply conversation links for trace_id={trace_id}: {conv_error}",
                     exc_info=True,
                 )
 

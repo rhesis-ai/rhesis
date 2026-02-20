@@ -262,12 +262,26 @@ class EndpointService:
                         break
 
                 if response_conv_id:
-                    crud.update_conversation_id_for_trace(
+                    count = crud.update_conversation_id_for_trace(
                         db=db,
                         trace_id=result["trace_id"],
                         conversation_id=response_conv_id,
                         organization_id=organization_id,
                     )
+                    if count == 0:
+                        # SDK endpoints export spans asynchronously —
+                        # the spans may not have arrived yet.  Park
+                        # the link so ingest_trace() can apply it
+                        # when the spans are stored.
+                        from rhesis.backend.app.services.telemetry.conversation_linking import (
+                            register_pending_link,
+                        )
+
+                        register_pending_link(
+                            trace_id=result["trace_id"],
+                            conversation_id=response_conv_id,
+                            organization_id=organization_id,
+                        )
 
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")
             return result
