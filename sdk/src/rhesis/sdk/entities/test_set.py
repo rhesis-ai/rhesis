@@ -30,7 +30,7 @@ class TestSetProperties(BaseModel):
 
 class TestSet(BaseEntity):
     endpoint: ClassVar[Endpoints] = ENDPOINT
-    _push_required_fields: ClassVar[tuple[str, ...]] = ("name", "tests")
+    _push_required_fields: ClassVar[tuple[str, ...]] = ("name", "test_set_type", "tests")
 
     id: Optional[str] = None
     tests: Optional[list[Test]] = None

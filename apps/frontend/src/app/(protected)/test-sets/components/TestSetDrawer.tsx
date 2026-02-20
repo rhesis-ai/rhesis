@@ -8,6 +8,7 @@ import {
   Typography,
   Stack,
   FormControl,
+  FormHelperText,
   InputLabel,
   Select,
   MenuItem,
@@ -45,6 +46,7 @@ export default function TestSetDrawer({
     string | undefined
   >(testSet?.test_set_type_id);
   const [nameError, setNameError] = React.useState<string>('');
+  const [typeError, setTypeError] = React.useState<string>('');
 
   React.useEffect(() => {
     if (open) {
@@ -57,6 +59,7 @@ export default function TestSetDrawer({
         setSelectedTestSetTypeId(undefined);
       }
       setNameError('');
+      setTypeError('');
       setError(undefined);
     }
   }, [open, testSet]);
@@ -99,19 +102,26 @@ export default function TestSetDrawer({
     if (!sessionToken) return;
 
     setNameError('');
+    setTypeError('');
     setError(undefined);
 
     const trimmedName = name.trim();
+    let hasError = false;
 
     if (!trimmedName) {
       setNameError('Test set name is required');
-      return;
+      hasError = true;
+    } else if (trimmedName.length < 2) {
+      setNameError('Test set name must be at least 2 characters');
+      hasError = true;
     }
 
-    if (trimmedName.length < 2) {
-      setNameError('Test set name must be at least 2 characters');
-      return;
+    if (!selectedTestSetTypeId) {
+      setTypeError('Test set type is required');
+      hasError = true;
     }
+
+    if (hasError) return;
 
     try {
       setLoading(true);
@@ -177,13 +187,20 @@ export default function TestSetDrawer({
               }
             />
 
-            <FormControl fullWidth disabled={loading}>
+            <FormControl
+              fullWidth
+              disabled={loading}
+              required
+              error={!!typeError}
+            >
               <InputLabel>Test Set Type</InputLabel>
               <Select
                 value={selectedTestSetTypeId || ''}
-                onChange={e => setSelectedTestSetTypeId(e.target.value)}
+                onChange={e => {
+                  setSelectedTestSetTypeId(e.target.value);
+                  if (typeError) setTypeError('');
+                }}
                 label="Test Set Type"
-                required
               >
                 {testSetTypes.map(type => (
                   <MenuItem key={type.id} value={type.id}>
@@ -191,6 +208,7 @@ export default function TestSetDrawer({
                   </MenuItem>
                 ))}
               </Select>
+              {typeError && <FormHelperText>{typeError}</FormHelperText>}
             </FormControl>
 
             <TextField

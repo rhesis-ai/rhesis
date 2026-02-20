@@ -37,7 +37,7 @@ class TestSetBase(Base):
 
 
 class TestSetCreate(TestSetBase):
-    pass
+    test_set_type_id: UUID4
 
 
 class AdaptiveTestSetCreate(Base):
@@ -143,7 +143,7 @@ class TestSetBulkCreate(BaseModel):
     name: str
     description: Optional[str] = None
     short_description: Optional[str] = None
-    test_set_type: Optional[str] = None
+    test_set_type: str
     owner_id: Optional[UUID4] = None
     assignee_id: Optional[UUID4] = None
     priority: Optional[int] = None
