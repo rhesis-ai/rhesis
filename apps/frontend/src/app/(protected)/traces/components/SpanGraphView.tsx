@@ -499,6 +499,18 @@ function MarkovStateNode({ data }: NodeProps) {
           height: theme.spacing(1.5),
         }}
       />
+      {/* Source handle at top for return edges (upward direction) */}
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="top-out"
+        style={{
+          background: stateColor,
+          border: 'none',
+          width: theme.spacing(1.5),
+          height: theme.spacing(1.5),
+        }}
+      />
       <Handle
         type="target"
         position={Position.Left}
@@ -584,6 +596,18 @@ function MarkovStateNode({ data }: NodeProps) {
       <Handle
         type="source"
         position={Position.Bottom}
+        style={{
+          background: stateColor,
+          border: 'none',
+          width: theme.spacing(1.5),
+          height: theme.spacing(1.5),
+        }}
+      />
+      {/* Target handle at bottom for return edges (upward direction) */}
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id="bottom-in"
         style={{
           background: stateColor,
           border: 'none',
@@ -1068,6 +1092,26 @@ export default function SpanGraphView({
     );
     const layoutedNodes = applyDagreLayout(nodes, edges);
 
+    // Adjust bidirectional edges based on actual node positions:
+    // edges going upward (source below target) use top-out/bottom-in handles
+    // so return arrows originate from top and connect to bottom
+    const nodePositions = new Map(layoutedNodes.map(n => [n.id, n.position]));
+    const adjustedEdges = edges.map(edge => {
+      if (edge.data?.lateralOffset && !edge.data?.isSelfLoop) {
+        const sourcePos = nodePositions.get(edge.source);
+        const targetPos = nodePositions.get(edge.target);
+        if (sourcePos && targetPos && sourcePos.y > targetPos.y) {
+          // Edge goes upward — use top source and bottom target
+          return {
+            ...edge,
+            sourceHandle: 'top-out',
+            targetHandle: 'bottom-in',
+          };
+        }
+      }
+      return edge;
+    });
+
     // Calculate viewport that fits all nodes (for initial zoom level)
     // This ensures the graph is properly zoomed even when starting at time zero
     let defaultViewport: Viewport = { x: 0, y: 0, zoom: 1 };
@@ -1120,7 +1164,7 @@ export default function SpanGraphView({
       states,
       transitions,
       initialNodes: layoutedNodes,
-      initialEdges: edges,
+      initialEdges: adjustedEdges,
       timedTransitions,
       timedAgentEvents,
       timeRange,
