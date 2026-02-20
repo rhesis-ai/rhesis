@@ -50,7 +50,10 @@ show_help() {
     echo -e "  ${GREEN}./rh test frontend${NC}     - Run frontend tests"
     echo ""
     echo -e "${YELLOW}Worktree:${NC}"
-    echo -e "  ${GREEN}./rh worktree <name>${NC}   - Create a git worktree with shared env/config"
+    echo -e "  ${GREEN}./rh worktree <name>${NC}            - Create a worktree with shared env/config"
+    echo -e "  ${GREEN}./rh worktree <name> --remove${NC}   - Remove worktree and delete branch"
+    echo -e "  ${GREEN}./rh worktree <name> --load${NC}     - Show worktree path"
+    echo -e "  ${GREEN}./rh worktree --list${NC}            - List all worktrees"
     echo ""
     echo -e "${YELLOW}Other:${NC}"
     echo -e "  ${GREEN}./rh help${NC}              - Show this help message"
@@ -1026,7 +1029,7 @@ case "$1" in
         esac
         ;;
     "worktree")
-        "$SCRIPT_DIR/scripts/create-worktree.sh" "$2"
+        "$SCRIPT_DIR/scripts/create-worktree.sh" "${@:2}"
         ;;
     "help"|"--help"|"-h"|"")
         show_help
