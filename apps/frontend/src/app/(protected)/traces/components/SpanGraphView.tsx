@@ -445,6 +445,12 @@ function MarkovStateNode({ data }: NodeProps) {
   const stateColor = isAgent
     ? theme.palette.info.main
     : theme.palette.warning.main;
+  const handleStyle = {
+    background: stateColor,
+    border: 'none',
+    width: theme.spacing(1.5),
+    height: theme.spacing(1.5),
+  };
 
   const avgDuration =
     state.invocationCount > 0
@@ -489,38 +495,25 @@ function MarkovStateNode({ data }: NodeProps) {
         gap: theme.spacing(0.5),
       }}
     >
-      <Handle
-        type="target"
-        position={Position.Top}
-        style={{
-          background: stateColor,
-          border: 'none',
-          width: theme.spacing(1.5),
-          height: theme.spacing(1.5),
-        }}
-      />
-      {/* Source handle at top for return edges (upward direction) */}
+      {/* Directional handles: source/target on each side for flexible routing */}
+      <Handle type="target" position={Position.Top} style={handleStyle} />
       <Handle
         type="source"
         position={Position.Top}
         id="top-out"
-        style={{
-          background: stateColor,
-          border: 'none',
-          width: theme.spacing(1.5),
-          height: theme.spacing(1.5),
-        }}
+        style={handleStyle}
       />
       <Handle
         type="target"
         position={Position.Left}
         id="left"
-        style={{
-          background: stateColor,
-          border: 'none',
-          width: theme.spacing(1.5),
-          height: theme.spacing(1.5),
-        }}
+        style={handleStyle}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left-out"
+        style={handleStyle}
       />
 
       {/* Icon - Agent or Tool */}
@@ -593,38 +586,24 @@ function MarkovStateNode({ data }: NodeProps) {
         </Box>
       )}
 
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        style={{
-          background: stateColor,
-          border: 'none',
-          width: theme.spacing(1.5),
-          height: theme.spacing(1.5),
-        }}
-      />
-      {/* Target handle at bottom for return edges (upward direction) */}
+      <Handle type="source" position={Position.Bottom} style={handleStyle} />
       <Handle
         type="target"
         position={Position.Bottom}
         id="bottom-in"
-        style={{
-          background: stateColor,
-          border: 'none',
-          width: theme.spacing(1.5),
-          height: theme.spacing(1.5),
-        }}
+        style={handleStyle}
       />
       <Handle
         type="source"
         position={Position.Right}
         id="right"
-        style={{
-          background: stateColor,
-          border: 'none',
-          width: theme.spacing(1.5),
-          height: theme.spacing(1.5),
-        }}
+        style={handleStyle}
+      />
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right-in"
+        style={handleStyle}
       />
     </Box>
   );
@@ -1092,24 +1071,55 @@ export default function SpanGraphView({
     );
     const layoutedNodes = applyDagreLayout(nodes, edges);
 
-    // Adjust bidirectional edges based on actual node positions:
-    // edges going upward (source below target) use top-out/bottom-in handles
-    // so return arrows originate from top and connect to bottom
-    const nodePositions = new Map(layoutedNodes.map(n => [n.id, n.position]));
+    // Route edge handles based on the dominant direction between nodes.
+    // Arrows depart from the side of the source facing the target,
+    // and arrive at the side of the target facing the source.
+    const nodeCenters = new Map(
+      layoutedNodes.map(n => {
+        const isTool = n.id.startsWith('tool:');
+        const w = isTool ? TOOL_WIDTH : NODE_WIDTH;
+        const h = isTool ? TOOL_HEIGHT : NODE_HEIGHT;
+        return [n.id, { cx: n.position.x + w / 2, cy: n.position.y + h / 2 }];
+      })
+    );
     const adjustedEdges = edges.map(edge => {
-      if (edge.data?.lateralOffset && !edge.data?.isSelfLoop) {
-        const sourcePos = nodePositions.get(edge.source);
-        const targetPos = nodePositions.get(edge.target);
-        if (sourcePos && targetPos && sourcePos.y > targetPos.y) {
-          // Edge goes upward — use top source and bottom target
-          return {
-            ...edge,
-            sourceHandle: 'top-out',
-            targetHandle: 'bottom-in',
-          };
+      if (edge.data?.isSelfLoop) return edge;
+
+      const src = nodeCenters.get(edge.source);
+      const tgt = nodeCenters.get(edge.target);
+      if (!src || !tgt) return edge;
+
+      const dx = tgt.cx - src.cx;
+      const dy = tgt.cy - src.cy;
+
+      let sourceHandle: string | undefined;
+      let targetHandle: string | undefined;
+
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        // Primarily vertical
+        if (dy >= 0) {
+          // Target below: bottom → top (defaults)
+          sourceHandle = undefined;
+          targetHandle = undefined;
+        } else {
+          // Target above: top → bottom
+          sourceHandle = 'top-out';
+          targetHandle = 'bottom-in';
+        }
+      } else {
+        // Primarily horizontal
+        if (dx >= 0) {
+          // Target to the right: right → left
+          sourceHandle = 'right';
+          targetHandle = 'left';
+        } else {
+          // Target to the left: left → right
+          sourceHandle = 'left-out';
+          targetHandle = 'right-in';
         }
       }
-      return edge;
+
+      return { ...edge, sourceHandle, targetHandle };
     });
 
     // Calculate viewport that fits all nodes (for initial zoom level)
