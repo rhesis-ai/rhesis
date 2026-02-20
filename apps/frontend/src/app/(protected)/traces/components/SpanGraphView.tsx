@@ -628,9 +628,14 @@ function TransitionEdge({
     turnLabel?: string;
   };
 
-  const labelFontSize = 10;
+  const labelFontSize = theme.typography.caption.fontSize;
+  const labelFontSizePx = parseFloat(String(labelFontSize)) * 16; // rem to px
+  const labelCharWidth = labelFontSizePx * 0.65;
+  const labelPadX = parseFloat(theme.spacing(0.5));
+  const labelPadY = parseFloat(theme.spacing(0.25));
   const labelColor = theme.palette.text.secondary;
   const labelBg = theme.palette.background.paper;
+  const labelFontFamily = theme.typography.fontFamily;
 
   // For self-loops, create a custom path with offset based on index
   // All loops start and end at the same points, but curve outward at different radii
@@ -648,8 +653,13 @@ function TransitionEdge({
                     ${targetX} ${targetY}`;
 
     // Label position: at the apex of the loop curve
-    const labelX = sourceX + loopRadius * 2 + 4;
-    const labelY = (sourceY + targetY) / 2;
+    const lblX = sourceX + loopRadius * 2 + labelPadX;
+    const lblY = (sourceY + targetY) / 2;
+    const lblWidth = turnLabel
+      ? turnLabel.length * labelCharWidth + labelPadX * 2
+      : 0;
+    const lblHeight = labelFontSizePx + labelPadY * 2;
+    const lblRadius = parseFloat(theme.spacing(0.5));
 
     return (
       <>
@@ -677,23 +687,23 @@ function TransitionEdge({
         {turnLabel && (
           <>
             <rect
-              x={labelX - 2}
-              y={labelY - labelFontSize / 2 - 2}
-              width={turnLabel.length * 6.5 + 4}
-              height={labelFontSize + 4}
-              rx={3}
+              x={lblX - labelPadX}
+              y={lblY - lblHeight / 2}
+              width={lblWidth}
+              height={lblHeight}
+              rx={lblRadius}
               fill={labelBg}
               fillOpacity={0.9}
             />
             <text
-              x={labelX}
-              y={labelY}
+              x={lblX}
+              y={lblY}
               style={{
                 fontSize: labelFontSize,
                 fill: labelColor,
                 dominantBaseline: 'central',
                 pointerEvents: 'none',
-                fontFamily: 'sans-serif',
+                fontFamily: labelFontFamily,
               }}
             >
               {turnLabel}
@@ -737,33 +747,39 @@ function TransitionEdge({
         }}
         markerEnd={markerEnd}
       />
-      {turnLabel && (
-        <>
-          <rect
-            x={edgeLabelX - (turnLabel.length * 6.5 + 4) / 2}
-            y={edgeLabelY - labelFontSize / 2 - 2}
-            width={turnLabel.length * 6.5 + 4}
-            height={labelFontSize + 4}
-            rx={3}
-            fill={labelBg}
-            fillOpacity={0.9}
-          />
-          <text
-            x={edgeLabelX}
-            y={edgeLabelY}
-            style={{
-              fontSize: labelFontSize,
-              fill: labelColor,
-              dominantBaseline: 'central',
-              textAnchor: 'middle',
-              pointerEvents: 'none',
-              fontFamily: 'sans-serif',
-            }}
-          >
-            {turnLabel}
-          </text>
-        </>
-      )}
+      {turnLabel &&
+        (() => {
+          const w = turnLabel.length * labelCharWidth + labelPadX * 2;
+          const h = labelFontSizePx + labelPadY * 2;
+          const r = parseFloat(theme.spacing(0.5));
+          return (
+            <>
+              <rect
+                x={edgeLabelX - w / 2}
+                y={edgeLabelY - h / 2}
+                width={w}
+                height={h}
+                rx={r}
+                fill={labelBg}
+                fillOpacity={0.9}
+              />
+              <text
+                x={edgeLabelX}
+                y={edgeLabelY}
+                style={{
+                  fontSize: labelFontSize,
+                  fill: labelColor,
+                  dominantBaseline: 'central',
+                  textAnchor: 'middle',
+                  pointerEvents: 'none',
+                  fontFamily: labelFontFamily,
+                }}
+              >
+                {turnLabel}
+              </text>
+            </>
+          );
+        })()}
     </>
   );
 }
