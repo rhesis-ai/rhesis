@@ -4,7 +4,7 @@
 # Usage:
 #   scripts/create-worktree.sh <name>              Create a new worktree
 #   scripts/create-worktree.sh <name> --remove      Remove a worktree and its branch
-#   scripts/create-worktree.sh <name> --load        Print the worktree path (for cd)
+#   scripts/create-worktree.sh <name> --load        Launch shell in worktree
 #   scripts/create-worktree.sh --list               List all worktrees
 
 # Color codes
@@ -27,12 +27,13 @@ WORKTREES_BASE="$SOURCE_DIR/../../worktrees/rhesis"
 # ============================================================================
 
 show_usage() {
-    echo -e "${RED}Error: Missing worktree name${NC}"
+    local msg="${1:-Missing worktree name}"
+    echo -e "${RED}Error: $msg${NC}"
     echo ""
     echo -e "${YELLOW}Usage:${NC}"
     echo -e "  ${GREEN}./rh worktree <name>${NC}            Create a new worktree"
     echo -e "  ${GREEN}./rh worktree <name> --remove${NC}   Remove worktree and branch"
-    echo -e "  ${GREEN}./rh worktree <name> --load${NC}     Print path to worktree"
+    echo -e "  ${GREEN}./rh worktree <name> --load${NC}     Launch shell in worktree"
     echo -e "  ${GREEN}./rh worktree --list${NC}            List all worktrees"
     echo ""
     echo -e "${YELLOW}Examples:${NC}"
@@ -97,7 +98,7 @@ worktree_remove() {
 }
 
 # ============================================================================
-# --load: print worktree path for cd
+# --load: launch shell in worktree
 # ============================================================================
 
 worktree_load() {
@@ -115,6 +116,12 @@ worktree_load() {
 
     # Resolve to absolute path
     worktree_dir="$(cd "$worktree_dir" && pwd)"
+
+    # Pick a random prompt color for this worktree shell
+    local colors=(yellow blue magenta cyan white)
+    local color=${colors[$((RANDOM % ${#colors[@]}))]}
+    export RHESIS_WORKTREE="$name"
+    export RHESIS_WORKTREE_COLOR="$color"
 
     echo -e "${CYAN}Worktree: ${WHITE}$name${NC}"
     echo -e "${CYAN}Location: ${WHITE}$worktree_dir${NC}"
@@ -255,6 +262,13 @@ fi
 NAME="$1"
 ACTION="${2:-create}"
 
+# Validate name: reject path traversal and absolute paths
+if [[ "$NAME" == /* ]] || [[ "$NAME" == *..* ]]; then
+    echo -e "${RED}Error: Invalid worktree name '${WHITE}$NAME${RED}'${NC}"
+    echo -e "${YELLOW}Name must not contain '..' or start with '/'${NC}"
+    exit 1
+fi
+
 case "$ACTION" in
     "--remove")
         worktree_remove "$NAME"
@@ -266,8 +280,6 @@ case "$ACTION" in
         worktree_create "$NAME"
         ;;
     *)
-        echo -e "${RED}Error: Unknown option ${WHITE}$ACTION${NC}"
-        echo ""
-        show_usage
+        show_usage "Unknown option '$ACTION'"
         ;;
 esac
