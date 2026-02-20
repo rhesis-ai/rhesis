@@ -56,6 +56,10 @@ export default function TraceDrawer({
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
   const [viewTab, setViewTab] = useState<number>(0);
 
+  // Resizable drawer width state
+  const [drawerWidth, setDrawerWidth] = useState(60); // viewport percentage
+  const [isResizingDrawer, setIsResizingDrawer] = useState(false);
+
   // Resizable split pane state
   const [leftPanelWidth, setLeftPanelWidth] = useState(60); // percentage
   const [isDragging, setIsDragging] = useState(false);
@@ -136,12 +140,31 @@ export default function TraceDrawer({
     setIsDragging(false);
   }, []);
 
-  // Add/remove mouse event listeners for dragging
+  // Drawer resize handlers
+  const handleDrawerResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingDrawer(true);
+  }, []);
+
+  const handleDrawerResizeMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizingDrawer) return;
+      const newWidth =
+        ((window.innerWidth - e.clientX) / window.innerWidth) * 100;
+      setDrawerWidth(Math.min(Math.max(newWidth, 30), 95));
+    },
+    [isResizingDrawer]
+  );
+
+  const handleDrawerResizeEnd = useCallback(() => {
+    setIsResizingDrawer(false);
+  }, []);
+
+  // Add/remove mouse event listeners for split pane dragging
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
-      // Prevent text selection while dragging
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'col-resize';
     }
@@ -149,10 +172,36 @@ export default function TraceDrawer({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
+      if (!isResizingDrawer) {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      }
     };
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, handleMouseMove, handleMouseUp, isResizingDrawer]);
+
+  // Add/remove mouse event listeners for drawer width resizing
+  useEffect(() => {
+    if (isResizingDrawer) {
+      document.addEventListener('mousemove', handleDrawerResizeMove);
+      document.addEventListener('mouseup', handleDrawerResizeEnd);
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'ew-resize';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleDrawerResizeMove);
+      document.removeEventListener('mouseup', handleDrawerResizeEnd);
+      if (!isDragging) {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      }
+    };
+  }, [
+    isResizingDrawer,
+    handleDrawerResizeMove,
+    handleDrawerResizeEnd,
+    isDragging,
+  ]);
 
   const drawerContent = () => {
     if (loading) {
@@ -536,11 +585,43 @@ export default function TraceDrawer({
     <BaseDrawer
       open={open}
       onClose={onClose}
-      width="60%"
+      width={`${drawerWidth}%`}
       showHeader={false}
       closeButtonText="Close"
     >
-      {drawerContent()}
+      <Box sx={{ position: 'relative', height: '100%' }}>
+        {/* Drawer width resize handle */}
+        <Box
+          onMouseDown={handleDrawerResizeStart}
+          sx={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: theme => theme.spacing(0.75),
+            cursor: 'ew-resize',
+            zIndex: 10,
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: theme => theme.spacing(0.375),
+              backgroundColor: theme =>
+                isResizingDrawer ? theme.palette.primary.main : 'transparent',
+              transition: theme =>
+                isResizingDrawer
+                  ? 'none'
+                  : theme.transitions.create('background-color'),
+            },
+            '&:hover::after': {
+              backgroundColor: theme => theme.palette.primary.main,
+            },
+          }}
+        />
+        {drawerContent()}
+      </Box>
     </BaseDrawer>
   );
 }
