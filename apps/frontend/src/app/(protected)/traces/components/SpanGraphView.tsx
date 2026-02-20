@@ -499,6 +499,18 @@ function MarkovStateNode({ data }: NodeProps) {
           height: theme.spacing(1.5),
         }}
       />
+      {/* Source handle at top for return edges of bidirectional pairs */}
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="top-out"
+        style={{
+          background: stateColor,
+          border: 'none',
+          width: theme.spacing(1.5),
+          height: theme.spacing(1.5),
+        }}
+      />
       <Handle
         type="target"
         position={Position.Left}
@@ -584,6 +596,18 @@ function MarkovStateNode({ data }: NodeProps) {
       <Handle
         type="source"
         position={Position.Bottom}
+        style={{
+          background: stateColor,
+          border: 'none',
+          width: theme.spacing(1.5),
+          height: theme.spacing(1.5),
+        }}
+      />
+      {/* Target handle at bottom for return edges of bidirectional pairs */}
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id="bottom-in"
         style={{
           background: stateColor,
           border: 'none',
@@ -722,7 +746,7 @@ function TransitionEdge({
   let edgeLabelY: number;
 
   if (lateralOffset && lateralOffset !== 0) {
-    const offsetAmount = 40 * lateralOffset;
+    const offsetAmount = 25 * lateralOffset;
     // Perpendicular vector to the source→target line
     const dx = targetX - sourceX;
     const dy = targetY - sourceY;
@@ -873,13 +897,15 @@ function convertToFlowElements(
     const involvesTool = t.from.startsWith('tool:') || t.to.startsWith('tool:');
     const edgeColor = involvesTool ? toolEdgeColor : agentEdgeColor;
 
-    // For bidirectional agent handoffs, offset edges laterally so they
-    // arc to opposite sides instead of overlapping
-    const isBidirectional =
-      !isSelfLoop && !involvesTool && hasBidirectional(t.from, t.to);
-    // Consistent ordering: lexically smaller source arcs right (+1),
-    // lexically greater source arcs left (-1)
-    const lateralOffset = isBidirectional ? (t.from < t.to ? 1 : -1) : 0;
+    // For bidirectional pairs (handoffs and tool calls), both edges share
+    // the same connection points but arc to opposite sides.
+    // Return edges use top-out/bottom-in handles so both edges connect at
+    // the same physical points. Both get lateralOffset=1 because the
+    // reversed direction naturally flips the perpendicular vector,
+    // causing forward and return edges to arc to opposite sides.
+    const isBidirectional = !isSelfLoop && hasBidirectional(t.from, t.to);
+    const isReturnEdge = isBidirectional && t.from > t.to;
+    const lateralOffset = isBidirectional ? 1 : 0;
 
     if (isSelfLoop && t.count > 1) {
       // Create multiple self-loop edges with different offsets
@@ -918,8 +944,16 @@ function convertToFlowElements(
         source: t.from,
         target: t.to,
         type: 'transition',
-        sourceHandle: isSelfLoop ? 'right' : undefined,
-        targetHandle: isSelfLoop ? 'left' : undefined,
+        sourceHandle: isSelfLoop
+          ? 'right'
+          : isReturnEdge
+            ? 'top-out'
+            : undefined,
+        targetHandle: isSelfLoop
+          ? 'left'
+          : isReturnEdge
+            ? 'bottom-in'
+            : undefined,
         data: {
           isSelfLoop,
           selfLoopIndex: 0,
