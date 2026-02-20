@@ -1283,6 +1283,37 @@ export default function SpanGraphView({
         },
       }}
     >
+      {/* Turn Navigation (for conversation traces) */}
+      {showTurnNavigation && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            py: 1,
+            backgroundColor: theme.palette.background.default,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => setActiveTurn(null)}
+              variant={activeTurn === null ? 'contained' : 'outlined'}
+            >
+              All
+            </Button>
+            {rootSpans!.map((_, i) => (
+              <Button
+                key={i}
+                onClick={() => setActiveTurn(i)}
+                variant={activeTurn === i ? 'contained' : 'outlined'}
+              >
+                Turn {i + 1}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </Box>
+      )}
+
       {/* Time Slider Controls */}
       <Paper
         elevation={0}
@@ -1391,38 +1422,6 @@ export default function SpanGraphView({
 
       {/* ReactFlow Container */}
       <Box sx={{ flex: 1, position: 'relative' }}>
-        {/* Turn Navigation Buttons (for conversation traces) */}
-        {showTurnNavigation && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: theme.spacing(1),
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 10,
-              display: 'flex',
-              gap: 0.5,
-            }}
-          >
-            <ButtonGroup size="small" variant="outlined">
-              <Button
-                onClick={() => setActiveTurn(null)}
-                variant={activeTurn === null ? 'contained' : 'outlined'}
-              >
-                All
-              </Button>
-              {rootSpans!.map((_, i) => (
-                <Button
-                  key={i}
-                  onClick={() => setActiveTurn(i)}
-                  variant={activeTurn === i ? 'contained' : 'outlined'}
-                >
-                  Turn {i + 1}
-                </Button>
-              ))}
-            </ButtonGroup>
-          </Box>
-        )}
         <ReactFlow
           nodes={nodes}
           edges={edges}
