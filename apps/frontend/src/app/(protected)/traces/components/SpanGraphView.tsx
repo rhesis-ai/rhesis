@@ -622,11 +622,10 @@ function TransitionEdge({
   style,
 }: EdgeProps) {
   const theme = useTheme();
-  const { isSelfLoop, selfLoopIndex, turnLabel, curveDirection } = data as {
+  const { isSelfLoop, selfLoopIndex, turnLabel } = data as {
     isSelfLoop: boolean;
     selfLoopIndex?: number;
     turnLabel?: string;
-    curveDirection?: number; // 1 or -1 for bidirectional edge separation
   };
 
   const labelFontSize = theme.typography.caption.fontSize;
@@ -715,9 +714,6 @@ function TransitionEdge({
     );
   }
 
-  // For bidirectional edges, use opposite curvature to separate the paths
-  const curvature = 0.25 * (curveDirection || 1);
-
   const [edgePath, edgeLabelX, edgeLabelY] = getBezierPath({
     sourceX,
     sourceY,
@@ -725,7 +721,7 @@ function TransitionEdge({
     targetX,
     targetY,
     targetPosition,
-    curvature,
+    curvature: 0.25,
   });
 
   return (
@@ -846,12 +842,11 @@ function convertToFlowElements(
     const involvesTool = t.from.startsWith('tool:') || t.to.startsWith('tool:');
     const edgeColor = involvesTool ? toolEdgeColor : agentEdgeColor;
 
-    // For bidirectional edges, determine direction to offset curves
+    // For bidirectional agent handoffs, route the "return" direction through
+    // side handles (right→left) so edges don't overlap like tool call edges
     const isBidirectional =
       !isSelfLoop && !involvesTool && hasBidirectional(t.from, t.to);
-    // Use consistent ordering: the "reverse" edge (lexically greater source)
-    // gets negative curvature to curve the opposite way
-    const isReverse = isBidirectional && t.from > t.to;
+    const isReturnEdge = isBidirectional && t.from > t.to;
 
     if (isSelfLoop && t.count > 1) {
       // Create multiple self-loop edges with different offsets
@@ -885,20 +880,21 @@ function convertToFlowElements(
       }
     } else {
       // Single edge (either non-self-loop or single self-loop)
+      // Self-loops and return edges of bidirectional pairs use side handles
+      const useSideHandles = isSelfLoop || isReturnEdge;
       edges.push({
         id: `${t.from}->${t.to}`,
         source: t.from,
         target: t.to,
         type: 'transition',
-        sourceHandle: isSelfLoop ? 'right' : undefined,
-        targetHandle: isSelfLoop ? 'left' : undefined,
+        sourceHandle: useSideHandles ? 'right' : undefined,
+        targetHandle: useSideHandles ? 'left' : undefined,
         data: {
           isSelfLoop,
           selfLoopIndex: 0,
           selfLoopTotal: 1,
           involvesTool,
           turnLabel: undefined as string | undefined,
-          curveDirection: isReverse ? -1 : 1,
         },
         style: {
           stroke: edgeColor,
