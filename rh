@@ -52,7 +52,7 @@ show_help() {
     echo -e "${YELLOW}Worktree:${NC}"
     echo -e "  ${GREEN}./rh worktree <name>${NC}            - Create a worktree with shared env/config"
     echo -e "  ${GREEN}./rh worktree <name> --remove${NC}   - Remove worktree and delete branch"
-    echo -e "  ${GREEN}./rh worktree <name> --load${NC}     - Show worktree path"
+    echo -e "  ${GREEN}./rh worktree <name> --load${NC}     - Launch shell in worktree"
     echo -e "  ${GREEN}./rh worktree --list${NC}            - List all worktrees"
     echo ""
     echo -e "${YELLOW}Other:${NC}"
