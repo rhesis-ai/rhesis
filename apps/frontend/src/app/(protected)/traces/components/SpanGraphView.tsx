@@ -1054,12 +1054,9 @@ export default function SpanGraphView({
     timeRange,
     defaultViewport,
   } = useMemo(() => {
-    // Compute turn boundaries for conversation traces in "All" mode
+    // Compute turn boundaries for conversation traces (all modes)
     const turnBoundaries =
-      isConversationTrace &&
-      rootSpans &&
-      rootSpans.length > 1 &&
-      activeTurn === null
+      isConversationTrace && rootSpans && rootSpans.length > 1
         ? rootSpans.map((span, i) => ({
             turnIndex: i,
             startTime: new Date(span.start_time).getTime(),
@@ -1208,7 +1205,7 @@ export default function SpanGraphView({
   // Turn boundary lookup for progressive edge labels
   const getTurnForTimestamp = useCallback(
     (timestamp: number): number => {
-      if (!showTurnNavigation || activeTurn !== null || !rootSpans) return -1;
+      if (!showTurnNavigation || !rootSpans) return -1;
       for (let i = 0; i < rootSpans.length; i++) {
         const start = new Date(rootSpans[i].start_time).getTime();
         const end = new Date(rootSpans[i].end_time).getTime();
@@ -1216,7 +1213,7 @@ export default function SpanGraphView({
       }
       return -1;
     },
-    [showTurnNavigation, activeTurn, rootSpans]
+    [showTurnNavigation, rootSpans]
   );
 
   // Time slider state
