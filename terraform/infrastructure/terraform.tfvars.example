@@ -1,9 +1,8 @@
 # Example Terraform variables configuration
 # Copy this file to terraform.tfvars and customize the values
 
-project_id              = "example-project-id"
-region                  = "gcp-region"
-terraform_state_bucket  = "example-terraform-state-bucket"
+project_id = "example-project-id"
+region     = "gcp-region"
 
 # WireGuard server deletion protection (recommended: true for production)
 wireguard_deletion_protection = true

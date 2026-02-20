@@ -286,6 +286,7 @@ infrastructure/environments/prd/.terraform.lock.hcl
 *.tfstate.*
 *.tfvars
 *.tfvars.json
+backend.conf
 crash.log
 crash.*.log
 override.tf

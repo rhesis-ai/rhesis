@@ -1,5 +1,5 @@
 # Creates all four VPCs and peerings (WireGuard <-> dev, stg, prd).
-# Run: terraform init -backend-config="bucket=YOUR_BUCKET_NAME" && terraform apply from infrastructure/
+# Run: terraform init -backend-config=backend.conf && terraform apply
 
 terraform {
   required_providers {

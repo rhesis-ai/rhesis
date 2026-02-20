@@ -8,11 +8,6 @@ variable "region" {
   type        = string
 }
 
-variable "terraform_state_bucket" {
-  description = "GCS bucket name for storing Terraform state"
-  type        = string
-}
-
 variable "wireguard_deletion_protection" {
   description = "Enable deletion protection for WireGuard server"
   type        = bool
