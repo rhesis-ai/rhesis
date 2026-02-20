@@ -111,7 +111,7 @@ jobs:
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
           echo "GCP_PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
           echo "GCP_REGION=${{ secrets.POLYPHEMUS_REGION || secrets.TF_VAR_POLYPHEMUS_REGION || 'us-central1' }}" >> $GITHUB_ENV
-          echo "GCP_SERVICE_ACCOUNT=${{ secrets.SA_EMAIL }}" >> $GITHUB_ENV
+          echo "GCP_SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}" >> $GITHUB_ENV
           
           # Model path and default model (existing GitHub secrets)
           if [ -n "${{ secrets.MODEL_PATH }}" ]; then
