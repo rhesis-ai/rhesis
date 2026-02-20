@@ -8,7 +8,9 @@ import base64
 import json
 import logging
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -19,6 +21,15 @@ logger = logging.getLogger("rhesis-polyphemus")
 
 # Thread pool executor for running blocking operations
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="polyphemus-vertex")
+
+# Shared HTTP client — one connection pool reused across all requests
+_http_client = httpx.AsyncClient()
+
+# GCP credentials cache — tokens are valid for 1 hour; refresh 5 min before expiry
+_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
+_TOKEN_EXPIRY_BUFFER = timedelta(minutes=5)
+_credentials_lock = threading.Lock()
+_cached_credentials = None
 
 
 def _extract_prompt_from_messages(messages: List[Message]) -> tuple[str, Optional[str]]:
@@ -54,48 +65,64 @@ def _extract_prompt_from_messages(messages: List[Message]) -> tuple[str, Optiona
 
 def _get_vertex_access_token() -> str:
     """
-    Get an access token using Google Application Default Credentials (ADC).
+    Return a valid GCP access token, refreshing only when necessary.
+
+    Credentials are cached at module level and reused until 5 minutes before
+    expiry (~55-minute effective lifetime per token). Thread-safe via a lock.
 
     Supports:
-    - Cloud Run: uses metadata server automatically (no env var needed)
-    - Local dev with gcloud: uses ~/.config/gcloud/application_default_credentials.json
-    - GOOGLE_APPLICATION_CREDENTIALS as file path
-    - GOOGLE_APPLICATION_CREDENTIALS as base64-encoded JSON (decoded to temp file)
+    - Cloud Run: metadata server (no env var needed)
+    - Local dev with gcloud: application_default_credentials.json
+    - GOOGLE_APPLICATION_CREDENTIALS as a file path
+    - GOOGLE_APPLICATION_CREDENTIALS as base64-encoded JSON (loaded in-memory)
     """
+    global _cached_credentials
+
     import google.auth
     import google.auth.transport.requests
 
-    _SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
+    with _credentials_lock:
+        # Reuse cached credentials if the token is still fresh
+        if _cached_credentials is not None:
+            expiry = getattr(_cached_credentials, "expiry", None)
+            if expiry is not None:
+                # expiry from google-auth is a naive UTC datetime; make it aware
+                if expiry.tzinfo is None:
+                    expiry = expiry.replace(tzinfo=timezone.utc)
+                if datetime.now(timezone.utc) < expiry - _TOKEN_EXPIRY_BUFFER:
+                    return _cached_credentials.token
 
-    # Handle base64-encoded GOOGLE_APPLICATION_CREDENTIALS (common in .env files).
-    # Load credentials in-memory to avoid writing a world-readable temp file.
-    creds_env = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if creds_env and len(creds_env) > 500 and "/" not in creds_env and "\\" not in creds_env:
-        try:
-            from google.oauth2 import service_account
+        request_adc = google.auth.transport.requests.Request()
 
-            decoded = base64.b64decode(creds_env, validate=True)
-            creds_json = json.loads(decoded)
-            credentials = service_account.Credentials.from_service_account_info(
-                creds_json, scopes=_SCOPES
-            )
-            logger.info("Loaded GCP credentials from base64-encoded env var (in-memory)")
-            request_adc = google.auth.transport.requests.Request()
-            credentials.refresh(request_adc)
-            return credentials.token
-        except (base64.binascii.Error, json.JSONDecodeError, Exception) as e:
-            logger.warning(
-                f"GOOGLE_APPLICATION_CREDENTIALS looks like base64 but failed to decode: {e}"
-            )
+        # Handle base64-encoded GOOGLE_APPLICATION_CREDENTIALS (common in .env files).
+        # Load in-memory to avoid writing a world-readable temp file.
+        creds_env = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if creds_env and len(creds_env) > 500 and "/" not in creds_env and "\\" not in creds_env:
+            try:
+                from google.oauth2 import service_account
 
-    # Fall back to Application Default Credentials (Cloud Run metadata server,
-    # gcloud ADC file, or GOOGLE_APPLICATION_CREDENTIALS as a file path).
-    credentials, _ = google.auth.default(scopes=_SCOPES)
-    if hasattr(credentials, "with_scopes") and credentials.requires_scopes:
-        credentials = credentials.with_scopes(_SCOPES)
-    request_adc = google.auth.transport.requests.Request()
-    credentials.refresh(request_adc)
-    return credentials.token
+                decoded = base64.b64decode(creds_env, validate=True)
+                creds_json = json.loads(decoded)
+                credentials = service_account.Credentials.from_service_account_info(
+                    creds_json, scopes=_SCOPES
+                )
+                logger.info("Loaded GCP credentials from base64-encoded env var (in-memory)")
+                credentials.refresh(request_adc)
+                _cached_credentials = credentials
+                return credentials.token
+            except (base64.binascii.Error, json.JSONDecodeError, Exception) as e:
+                logger.warning(
+                    f"GOOGLE_APPLICATION_CREDENTIALS looks like base64 but failed to decode: {e}"
+                )
+
+        # Fall back to Application Default Credentials (Cloud Run metadata server,
+        # gcloud ADC file, or GOOGLE_APPLICATION_CREDENTIALS as a file path).
+        credentials, _ = google.auth.default(scopes=_SCOPES)
+        if hasattr(credentials, "with_scopes") and credentials.requires_scopes:
+            credentials = credentials.with_scopes(_SCOPES)
+        credentials.refresh(request_adc)
+        _cached_credentials = credentials
+        return credentials.token
 
 
 def _build_vertex_request_body(
@@ -191,15 +218,15 @@ async def generate_text_via_vertex_endpoint(
     loop = asyncio.get_running_loop()
     token = await loop.run_in_executor(_executor, _get_vertex_access_token)
 
-    async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-        response = await client.post(
-            url,
-            json=body,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-        )
+    response = await _http_client.post(
+        url,
+        json=body,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        timeout=timeout_seconds,
+    )
 
     if response.status_code != 200:
         logger.error(f"Vertex endpoint error: status={response.status_code}, body={response.text}")
