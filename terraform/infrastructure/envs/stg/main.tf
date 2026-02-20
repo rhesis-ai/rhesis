@@ -21,13 +21,13 @@ module "stg" {
   project_id         = var.project_id
   environment        = "stg"
   region             = var.region
-  network_cidr       = "10.4.0.0/15"
+  network_cidr       = local.cidrs.stg.network
   create_gke_subnets = true
-  node_cidr          = "10.4.0.0/23"
-  ilb_cidr           = "10.4.2.0/23"
-  master_cidr        = "10.4.4.0/28"
-  pod_cidr           = "10.5.0.0/17"
-  service_cidr       = "10.5.128.0/17"
+  node_cidr          = local.cidrs.stg.nodes
+  ilb_cidr           = local.cidrs.stg.ilb
+  master_cidr        = local.cidrs.stg.master
+  pod_cidr           = local.cidrs.stg.pods
+  service_cidr       = local.cidrs.stg.services
 }
 
 module "gke_stg" {
@@ -38,11 +38,11 @@ module "gke_stg" {
   region                 = var.region
   vpc_name               = module.stg.vpc_name
   nodes_subnet_self_link = module.stg.subnet_self_links["nodes"]
-  master_cidr            = "10.4.4.0/28"
-  node_cidr              = "10.4.0.0/23"
-  pod_cidr               = "10.5.0.0/17"
-  service_cidr           = "10.5.128.0/17"
-  wireguard_cidr         = var.wireguard_cidr
+  master_cidr            = local.cidrs.stg.master
+  node_cidr              = local.cidrs.stg.nodes
+  pod_cidr               = local.cidrs.stg.pods
+  service_cidr           = local.cidrs.stg.services
+  wireguard_cidr         = local.cidrs.wireguard.network
   machine_type           = "e2-standard-2"
   min_node_count         = 1
   max_node_count         = 3

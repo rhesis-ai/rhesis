@@ -70,13 +70,8 @@ variable "wireguard_peers" {
 }
 
 variable "subnet_cidrs" {
-  description = "Map of subnet names to CIDR blocks"
+  description = "Map of environment names to network CIDR blocks"
   type        = map(string)
-  default = {
-    dev = "10.2.0.0/15"
-    stg = "10.4.0.0/15"
-    prd = "10.6.0.0/15"
-  }
   validation {
     condition     = alltrue([for cidr in values(var.subnet_cidrs) : can(cidrhost(cidr, 0))])
     error_message = "All values must be valid CIDR blocks."
@@ -86,11 +81,6 @@ variable "subnet_cidrs" {
 variable "master_cidrs" {
   description = "Map of environment to GKE master CIDR blocks"
   type        = map(string)
-  default = {
-    dev = "10.2.4.0/28"
-    stg = "10.4.4.0/28"
-    prd = "10.6.4.0/28"
-  }
   validation {
     condition     = alltrue([for cidr in values(var.master_cidrs) : can(cidrhost(cidr, 0))])
     error_message = "All values must be valid CIDR blocks."

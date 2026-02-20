@@ -13,12 +13,6 @@ variable "terraform_state_bucket" {
   type        = string
 }
 
-variable "wireguard_cidr" {
-  description = "WireGuard network CIDR"
-  type        = string
-  default     = "10.0.0.0/24"
-}
-
 variable "wireguard_deletion_protection" {
   description = "Enable deletion protection for WireGuard server"
   type        = bool

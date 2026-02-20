@@ -21,13 +21,13 @@ module "prd" {
   project_id         = var.project_id
   environment        = "prd"
   region             = var.region
-  network_cidr       = "10.6.0.0/15"
+  network_cidr       = local.cidrs.prd.network
   create_gke_subnets = true
-  node_cidr          = "10.6.0.0/23"
-  ilb_cidr           = "10.6.2.0/23"
-  master_cidr        = "10.6.4.0/28"
-  pod_cidr           = "10.7.0.0/17"
-  service_cidr       = "10.7.128.0/17"
+  node_cidr          = local.cidrs.prd.nodes
+  ilb_cidr           = local.cidrs.prd.ilb
+  master_cidr        = local.cidrs.prd.master
+  pod_cidr           = local.cidrs.prd.pods
+  service_cidr       = local.cidrs.prd.services
 }
 
 module "gke_prd" {
@@ -38,11 +38,11 @@ module "gke_prd" {
   region                 = var.region
   vpc_name               = module.prd.vpc_name
   nodes_subnet_self_link = module.prd.subnet_self_links["nodes"]
-  master_cidr            = "10.6.4.0/28"
-  node_cidr              = "10.6.0.0/23"
-  pod_cidr               = "10.7.0.0/17"
-  service_cidr           = "10.7.128.0/17"
-  wireguard_cidr         = var.wireguard_cidr
+  master_cidr            = local.cidrs.prd.master
+  node_cidr              = local.cidrs.prd.nodes
+  pod_cidr               = local.cidrs.prd.pods
+  service_cidr           = local.cidrs.prd.services
+  wireguard_cidr         = local.cidrs.wireguard.network
   machine_type           = "e2-standard-4"
   min_node_count         = 2
   max_node_count         = 5

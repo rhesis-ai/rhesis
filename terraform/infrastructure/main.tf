@@ -25,7 +25,7 @@ module "wireguard" {
   project_id         = var.project_id
   environment        = "wireguard"
   region             = var.region
-  network_cidr       = var.wireguard_cidr
+  network_cidr       = local.cidrs.wireguard.network
   create_gke_subnets = false
 }
 
@@ -36,13 +36,13 @@ module "dev" {
   project_id         = var.project_id
   environment        = "dev"
   region             = var.region
-  network_cidr       = "10.2.0.0/15"
+  network_cidr       = local.cidrs.dev.network
   create_gke_subnets = true
-  node_cidr          = "10.2.0.0/23"
-  ilb_cidr           = "10.2.2.0/23"
-  master_cidr        = "10.2.4.0/28"
-  pod_cidr           = "10.3.0.0/17"
-  service_cidr       = "10.3.128.0/17"
+  node_cidr          = local.cidrs.dev.nodes
+  ilb_cidr           = local.cidrs.dev.ilb
+  master_cidr        = local.cidrs.dev.master
+  pod_cidr           = local.cidrs.dev.pods
+  service_cidr       = local.cidrs.dev.services
 }
 
 # stg VPC
@@ -52,13 +52,13 @@ module "stg" {
   project_id         = var.project_id
   environment        = "stg"
   region             = var.region
-  network_cidr       = "10.4.0.0/15"
+  network_cidr       = local.cidrs.stg.network
   create_gke_subnets = true
-  node_cidr          = "10.4.0.0/23"
-  ilb_cidr           = "10.4.2.0/23"
-  master_cidr        = "10.4.4.0/28"
-  pod_cidr           = "10.5.0.0/17"
-  service_cidr       = "10.5.128.0/17"
+  node_cidr          = local.cidrs.stg.nodes
+  ilb_cidr           = local.cidrs.stg.ilb
+  master_cidr        = local.cidrs.stg.master
+  pod_cidr           = local.cidrs.stg.pods
+  service_cidr       = local.cidrs.stg.services
 }
 
 # prd VPC
@@ -68,13 +68,13 @@ module "prd" {
   project_id         = var.project_id
   environment        = "prd"
   region             = var.region
-  network_cidr       = "10.6.0.0/15"
+  network_cidr       = local.cidrs.prd.network
   create_gke_subnets = true
-  node_cidr          = "10.6.0.0/23"
-  ilb_cidr           = "10.6.2.0/23"
-  master_cidr        = "10.6.4.0/28"
-  pod_cidr           = "10.7.0.0/17"
-  service_cidr       = "10.7.128.0/17"
+  node_cidr          = local.cidrs.prd.nodes
+  ilb_cidr           = local.cidrs.prd.ilb
+  master_cidr        = local.cidrs.prd.master
+  pod_cidr           = local.cidrs.prd.pods
+  service_cidr       = local.cidrs.prd.services
 }
 
 # VPC Peering: WireGuard <-> Dev (bidirectional)
@@ -168,11 +168,11 @@ module "gke_dev" {
   region                 = var.region
   vpc_name               = module.dev.vpc_name
   nodes_subnet_self_link = module.dev.subnet_self_links["nodes"]
-  master_cidr            = "10.2.4.0/28"
-  node_cidr              = "10.2.0.0/23"
-  pod_cidr               = "10.3.0.0/17"
-  service_cidr           = "10.3.128.0/17"
-  wireguard_cidr         = var.wireguard_cidr
+  master_cidr            = local.cidrs.dev.master
+  node_cidr              = local.cidrs.dev.nodes
+  pod_cidr               = local.cidrs.dev.pods
+  service_cidr           = local.cidrs.dev.services
+  wireguard_cidr         = local.cidrs.wireguard.network
   machine_type           = "e2-medium"
   min_node_count         = 1
   max_node_count         = 2
@@ -189,11 +189,11 @@ module "gke_stg" {
   region                 = var.region
   vpc_name               = module.stg.vpc_name
   nodes_subnet_self_link = module.stg.subnet_self_links["nodes"]
-  master_cidr            = "10.4.4.0/28"
-  node_cidr              = "10.4.0.0/23"
-  pod_cidr               = "10.5.0.0/17"
-  service_cidr           = "10.5.128.0/17"
-  wireguard_cidr         = var.wireguard_cidr
+  master_cidr            = local.cidrs.stg.master
+  node_cidr              = local.cidrs.stg.nodes
+  pod_cidr               = local.cidrs.stg.pods
+  service_cidr           = local.cidrs.stg.services
+  wireguard_cidr         = local.cidrs.wireguard.network
   machine_type           = "e2-standard-2"
   min_node_count         = 1
   max_node_count         = 3
@@ -210,11 +210,11 @@ module "gke_prd" {
   region                 = var.region
   vpc_name               = module.prd.vpc_name
   nodes_subnet_self_link = module.prd.subnet_self_links["nodes"]
-  master_cidr            = "10.6.4.0/28"
-  node_cidr              = "10.6.0.0/23"
-  pod_cidr               = "10.7.0.0/17"
-  service_cidr           = "10.7.128.0/17"
-  wireguard_cidr         = var.wireguard_cidr
+  master_cidr            = local.cidrs.prd.master
+  node_cidr              = local.cidrs.prd.nodes
+  pod_cidr               = local.cidrs.prd.pods
+  service_cidr           = local.cidrs.prd.services
+  wireguard_cidr         = local.cidrs.wireguard.network
   machine_type           = "e2-standard-4"
   min_node_count         = 2
   max_node_count         = 5
@@ -235,17 +235,8 @@ module "wireguard_server" {
 
   wireguard_peers = var.wireguard_peers
 
-  subnet_cidrs = {
-    dev = "10.2.0.0/15"
-    stg = "10.4.0.0/15"
-    prd = "10.6.0.0/15"
-  }
-
-  master_cidrs = {
-    dev = "10.2.4.0/28"
-    stg = "10.4.4.0/28"
-    prd = "10.6.4.0/28"
-  }
+  subnet_cidrs = { for env, cidr in local.cidrs : env => cidr.network if env != "wireguard" }
+  master_cidrs = { for env, cidr in local.cidrs : env => cidr.master if env != "wireguard" }
 
   ssh_keys = var.ssh_keys
 
