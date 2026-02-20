@@ -57,6 +57,7 @@ dependencies = [
     "numpy",
     "scikit-learn",
     "torch",
+    "jsonfinder>=0.4.2",
 ]
 
 [project.license]
