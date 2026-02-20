@@ -447,13 +447,22 @@ async def get_trace(
         if first_span.test:
             test_obj = Test.model_validate(first_span.test)
 
+        # Resolve conversation_id: the first span (earliest by start_time)
+        # may have conversation_id=NULL when the first turn of a stateful
+        # endpoint was stored before the ID was known.  Scan all spans so
+        # the detail view matches the list view (which uses the latest span).
+        trace_conversation_id = next(
+            (s.conversation_id for s in spans if s.conversation_id),
+            None,
+        )
+
         logger.info(f"Retrieved trace {trace_id} with {len(spans)} span(s)")
 
         return TraceDetailResponse(
             trace_id=first_span.trace_id,
             project_id=str(first_span.project_id),  # Convert UUID to string
             environment=first_span.environment,
-            conversation_id=first_span.conversation_id,
+            conversation_id=trace_conversation_id,
             start_time=min(span.start_time for span in spans),
             end_time=max(span.end_time for span in spans),
             duration_ms=total_duration.total_seconds() * 1000,
