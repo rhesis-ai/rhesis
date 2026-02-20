@@ -262,11 +262,9 @@ fi
 NAME="$1"
 ACTION="${2:-create}"
 
-# Validate name: reject path traversal and absolute paths
-if [[ "$NAME" == /* ]] || [[ "$NAME" == *..* ]]; then
-    echo -e "${RED}Error: Invalid worktree name '${WHITE}$NAME${RED}'${NC}"
-    echo -e "${YELLOW}Name must not contain '..' or start with '/'${NC}"
-    exit 1
+# Validate name: reject path traversal, absolute paths, and leading dashes
+if [[ "$NAME" == /* ]] || [[ "$NAME" == *..* ]] || [[ "$NAME" == -* ]]; then
+    show_usage "Invalid worktree name '$NAME'. Name must not contain '..', start with '/', or start with '-'"
 fi
 
 case "$ACTION" in
