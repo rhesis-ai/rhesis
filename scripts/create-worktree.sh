@@ -118,10 +118,9 @@ worktree_load() {
 
     echo -e "${CYAN}Worktree: ${WHITE}$name${NC}"
     echo -e "${CYAN}Location: ${WHITE}$worktree_dir${NC}"
+    echo -e "${BLUE}Launching shell in worktree (exit to return)${NC}"
     echo ""
-    echo -e "${YELLOW}Run:${NC}"
-    echo -e "  ${GREEN}cd $worktree_dir${NC}"
-    echo ""
+    cd "$worktree_dir" && exec "$SHELL"
 }
 
 # ============================================================================
