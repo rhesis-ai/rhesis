@@ -622,10 +622,11 @@ function TransitionEdge({
   style,
 }: EdgeProps) {
   const theme = useTheme();
-  const { isSelfLoop, selfLoopIndex, turnLabel } = data as {
+  const { isSelfLoop, selfLoopIndex, turnLabel, lateralOffset } = data as {
     isSelfLoop: boolean;
     selfLoopIndex?: number;
     turnLabel?: string;
+    lateralOffset?: number; // -1 or 1 for bidirectional edge separation
   };
 
   const labelFontSize = theme.typography.caption.fontSize;
@@ -714,15 +715,51 @@ function TransitionEdge({
     );
   }
 
-  const [edgePath, edgeLabelX, edgeLabelY] = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    curvature: 0.25,
-  });
+  // For bidirectional edges, compute a custom path with lateral offset
+  // so the two directions arc to opposite sides and don't overlap
+  let edgePath: string;
+  let edgeLabelX: number;
+  let edgeLabelY: number;
+
+  if (lateralOffset && lateralOffset !== 0) {
+    const offsetAmount = 40 * lateralOffset;
+    // Perpendicular vector to the source→target line
+    const dx = targetX - sourceX;
+    const dy = targetY - sourceY;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const px = -dy / len; // perpendicular x
+    const py = dx / len; // perpendicular y
+
+    // Control points offset perpendicularly at 1/4 and 3/4 along the line
+    const cp1x = sourceX + dx * 0.25 + px * offsetAmount;
+    const cp1y = sourceY + dy * 0.25 + py * offsetAmount;
+    const cp2x = sourceX + dx * 0.75 + px * offsetAmount;
+    const cp2y = sourceY + dy * 0.75 + py * offsetAmount;
+
+    edgePath =
+      `M ${sourceX} ${sourceY} ` +
+      `C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${targetX} ${targetY}`;
+
+    // Label at the midpoint of the arc
+    edgeLabelX = sourceX + dx * 0.5 + px * offsetAmount;
+    edgeLabelY = sourceY + dy * 0.5 + py * offsetAmount;
+  } else {
+    [edgePath, edgeLabelX, edgeLabelY] = getBezierPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      curvature: 0.25,
+    });
+  }
+
+  const lblW = turnLabel
+    ? turnLabel.length * labelCharWidth + labelPadX * 2
+    : 0;
+  const lblH = labelFontSizePx + labelPadY * 2;
+  const lblR = parseFloat(theme.spacing(0.5));
 
   return (
     <>
@@ -747,39 +784,33 @@ function TransitionEdge({
         }}
         markerEnd={markerEnd}
       />
-      {turnLabel &&
-        (() => {
-          const w = turnLabel.length * labelCharWidth + labelPadX * 2;
-          const h = labelFontSizePx + labelPadY * 2;
-          const r = parseFloat(theme.spacing(0.5));
-          return (
-            <>
-              <rect
-                x={edgeLabelX - w / 2}
-                y={edgeLabelY - h / 2}
-                width={w}
-                height={h}
-                rx={r}
-                fill={labelBg}
-                fillOpacity={0.9}
-              />
-              <text
-                x={edgeLabelX}
-                y={edgeLabelY}
-                style={{
-                  fontSize: labelFontSize,
-                  fill: labelColor,
-                  dominantBaseline: 'central',
-                  textAnchor: 'middle',
-                  pointerEvents: 'none',
-                  fontFamily: labelFontFamily,
-                }}
-              >
-                {turnLabel}
-              </text>
-            </>
-          );
-        })()}
+      {turnLabel && (
+        <>
+          <rect
+            x={edgeLabelX - lblW / 2}
+            y={edgeLabelY - lblH / 2}
+            width={lblW}
+            height={lblH}
+            rx={lblR}
+            fill={labelBg}
+            fillOpacity={0.9}
+          />
+          <text
+            x={edgeLabelX}
+            y={edgeLabelY}
+            style={{
+              fontSize: labelFontSize,
+              fill: labelColor,
+              dominantBaseline: 'central',
+              textAnchor: 'middle',
+              pointerEvents: 'none',
+              fontFamily: labelFontFamily,
+            }}
+          >
+            {turnLabel}
+          </text>
+        </>
+      )}
     </>
   );
 }
@@ -842,11 +873,13 @@ function convertToFlowElements(
     const involvesTool = t.from.startsWith('tool:') || t.to.startsWith('tool:');
     const edgeColor = involvesTool ? toolEdgeColor : agentEdgeColor;
 
-    // For bidirectional agent handoffs, route the "return" direction through
-    // side handles (right→left) so edges don't overlap like tool call edges
+    // For bidirectional agent handoffs, offset edges laterally so they
+    // arc to opposite sides instead of overlapping
     const isBidirectional =
       !isSelfLoop && !involvesTool && hasBidirectional(t.from, t.to);
-    const isReturnEdge = isBidirectional && t.from > t.to;
+    // Consistent ordering: lexically smaller source arcs right (+1),
+    // lexically greater source arcs left (-1)
+    const lateralOffset = isBidirectional ? (t.from < t.to ? 1 : -1) : 0;
 
     if (isSelfLoop && t.count > 1) {
       // Create multiple self-loop edges with different offsets
@@ -880,21 +913,20 @@ function convertToFlowElements(
       }
     } else {
       // Single edge (either non-self-loop or single self-loop)
-      // Self-loops and return edges of bidirectional pairs use side handles
-      const useSideHandles = isSelfLoop || isReturnEdge;
       edges.push({
         id: `${t.from}->${t.to}`,
         source: t.from,
         target: t.to,
         type: 'transition',
-        sourceHandle: useSideHandles ? 'right' : undefined,
-        targetHandle: useSideHandles ? 'left' : undefined,
+        sourceHandle: isSelfLoop ? 'right' : undefined,
+        targetHandle: isSelfLoop ? 'left' : undefined,
         data: {
           isSelfLoop,
           selfLoopIndex: 0,
           selfLoopTotal: 1,
           involvesTool,
           turnLabel: undefined as string | undefined,
+          lateralOffset,
         },
         style: {
           stroke: edgeColor,
