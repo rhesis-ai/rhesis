@@ -3878,12 +3878,7 @@ def update_conversation_id_for_trace(
         )
     )
 
-    # Commit explicitly: the trace row was already committed by
-    # create_trace_spans() earlier in the same request, so this
-    # UPDATE runs in a new implicit transaction that needs its own
-    # commit.  Using flush() alone would rely on the session
-    # lifecycle to commit a second time, which is fragile.
-    db.commit()
+    db.flush()
 
     logger.debug(
         f"[TRACE_LINKING] Updated {count} spans with "
