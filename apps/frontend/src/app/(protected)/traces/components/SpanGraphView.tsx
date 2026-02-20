@@ -869,7 +869,6 @@ function convertToFlowElements(
       }
     } else {
       // Single edge (either non-self-loop or single self-loop)
-      const turnLabel = formatTurnLabel(t.turns);
       edges.push({
         id: `${t.from}->${t.to}`,
         source: t.from,
@@ -882,7 +881,7 @@ function convertToFlowElements(
           selfLoopIndex: 0,
           selfLoopTotal: 1,
           involvesTool,
-          turnLabel,
+          turnLabel: undefined as string | undefined,
         },
         style: {
           stroke: edgeColor,
@@ -1095,6 +1094,20 @@ export default function SpanGraphView({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
+  // Turn boundary lookup for progressive edge labels
+  const getTurnForTimestamp = useCallback(
+    (timestamp: number): number => {
+      if (!showTurnNavigation || activeTurn !== null || !rootSpans) return -1;
+      for (let i = 0; i < rootSpans.length; i++) {
+        const start = new Date(rootSpans[i].start_time).getTime();
+        const end = new Date(rootSpans[i].end_time).getTime();
+        if (timestamp >= start && timestamp <= end) return i;
+      }
+      return -1;
+    },
+    [showTurnNavigation, activeTurn, rootSpans]
+  );
+
   // Time slider state
   const [currentTime, setCurrentTime] = useState(timeRange.start);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -1168,6 +1181,8 @@ export default function SpanGraphView({
 
     // Find which transitions have occurred by current time and track the last one
     const transitionCounts = new Map<string, number>();
+    // Track which turn indices have been seen per edge (for progressive labels)
+    const visibleTurns = new Map<string, number[]>();
     let lastTransition: { from: string; to: string; index: number } | null =
       null;
 
@@ -1182,6 +1197,13 @@ export default function SpanGraphView({
           to: t.to,
           index: currentCount, // 0-based index for this specific transition
         };
+        // Track turn indices for this edge
+        const turnIdx = getTurnForTimestamp(t.timestamp);
+        if (turnIdx >= 0) {
+          const arr = visibleTurns.get(key) || [];
+          arr.push(turnIdx);
+          visibleTurns.set(key, arr);
+        }
       }
     });
 
@@ -1235,10 +1257,21 @@ export default function SpanGraphView({
         const shouldAnimate = Boolean(
           isLastTransition && !edge.data?.isSelfLoop
         );
+
+        // Progressively build turn label from visible transitions
+        const edgeTurns = visibleTurns.get(baseKey);
+        const visibleTurnLabel = edgeTurns
+          ? formatTurnLabel(edgeTurns)
+          : undefined;
+
         return {
           ...edge,
           hidden: !shouldShow,
           animated: shouldAnimate,
+          data: {
+            ...edge.data,
+            turnLabel: visibleTurnLabel,
+          },
           style: {
             ...edge.style,
             opacity: shouldShow ? 1 : 0,
@@ -1246,7 +1279,14 @@ export default function SpanGraphView({
         };
       })
     );
-  }, [currentTime, timedAgentEvents, timedTransitions, setNodes, setEdges]);
+  }, [
+    currentTime,
+    timedAgentEvents,
+    timedTransitions,
+    setNodes,
+    setEdges,
+    getTurnForTimestamp,
+  ]);
 
   // Playback controls
   const handlePlayPause = () => {
