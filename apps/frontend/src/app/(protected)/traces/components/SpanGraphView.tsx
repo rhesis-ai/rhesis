@@ -436,9 +436,10 @@ function extractMarkovChain(
  */
 function MarkovStateNode({ data }: NodeProps) {
   const theme = useTheme();
-  const { state, isSelected } = data as {
+  const { state, isSelected, visibleCount } = data as {
     state: MarkovState;
     isSelected: boolean;
+    visibleCount?: number;
   };
 
   const isAgent = state.type === 'agent';
@@ -452,6 +453,7 @@ function MarkovStateNode({ data }: NodeProps) {
     height: theme.spacing(1.5),
   };
 
+  const displayCount = visibleCount ?? state.invocationCount;
   const avgDuration =
     state.invocationCount > 0
       ? state.totalDurationMs / state.invocationCount
@@ -572,7 +574,7 @@ function MarkovStateNode({ data }: NodeProps) {
           }}
         >
           <Chip
-            label={`${state.invocationCount}x`}
+            label={`${displayCount}x`}
             size="small"
             sx={{
               height: theme.spacing(2.5),
@@ -1280,11 +1282,16 @@ export default function SpanGraphView({
 
   // Update visible nodes and edges based on current time
   useEffect(() => {
-    // Find which agents have appeared by current time
+    // Find which agents have appeared by current time and count appearances
     const visibleAgents = new Set<string>();
+    const agentCounts = new Map<string, number>();
     timedAgentEvents.forEach(event => {
       if (event.timestamp <= currentTime) {
         visibleAgents.add(event.agentName);
+        agentCounts.set(
+          event.agentName,
+          (agentCounts.get(event.agentName) || 0) + 1
+        );
       }
     });
 
@@ -1316,11 +1323,15 @@ export default function SpanGraphView({
       }
     });
 
-    // Update nodes visibility
+    // Update nodes visibility and progressive invocation count
     setNodes(prevNodes =>
       prevNodes.map(node => ({
         ...node,
         hidden: !visibleAgents.has(node.id),
+        data: {
+          ...node.data,
+          visibleCount: agentCounts.get(node.id) || 0,
+        },
         style: {
           ...node.style,
           opacity: visibleAgents.has(node.id) ? 1 : 0,
