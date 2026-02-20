@@ -13,3 +13,11 @@ output "subnet_ids" {
 output "secondary_ranges" {
   value = module.stg.secondary_ranges
 }
+
+output "cluster_name" {
+  value = module.gke_stg.cluster_name
+}
+output "cluster_endpoint" {
+  value     = module.gke_stg.cluster_endpoint
+  sensitive = true
+}
