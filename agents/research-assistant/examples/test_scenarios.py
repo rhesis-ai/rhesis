@@ -7,7 +7,7 @@ to demonstrate the composable tool chaining capabilities.
 
 Usage:
     # Make sure the server is running first:
-    # uv run python -m research_assistant.main
+    # uv run python -m research_assistant
 
     # Then run the tests:
     uv run python examples/test_scenarios.py
@@ -1054,8 +1054,8 @@ def main():
     if not check_server_health():
         print("\nError: Server is not running or not healthy.")
         print("Start the server first:")
-        print("  cd simulations/research-assistant")
-        print("  uv run python -m research_assistant.main")
+        print("  cd agents/research-assistant")
+        print("  uv run python -m research_assistant")
         sys.exit(1)
     print("Server is healthy.\n")
 

@@ -85,7 +85,7 @@ The orchestrator intelligently routes queries - simple questions may only involv
 ### 1. Setup Environment
 
 ```bash
-cd simulations/research-assistant
+cd agents/research-assistant
 
 # Copy environment variables
 cp .env.example .env

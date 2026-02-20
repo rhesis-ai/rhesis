@@ -132,31 +132,67 @@ def create_multi_agent_coscientist(
         return {"messages": []}
 
     def process_handoff(state: MultiAgentState) -> dict:
-        """Process a handoff by adding a tool response message."""
+        """Process a handoff, executing any non-transfer tool calls first."""
         messages = state["messages"]
         last_message = messages[-1]
         handoff_count = state.get("handoff_count", 0)
 
         new_messages = []
         new_active_agent = state.get("active_agent", "orchestrator")
+        tools_called = list(state.get("tools_called", []))
 
         if isinstance(last_message, AIMessage) and last_message.tool_calls:
+            transfer_calls = []
+            non_transfer_calls = []
+
             for tool_call in last_message.tool_calls:
                 if tool_call["name"] in TRANSFER_TOOL_TO_AGENT:
-                    new_active_agent = TRANSFER_TOOL_TO_AGENT[tool_call["name"]]
-                    # Create tool response message
-                    new_messages.append(
-                        ToolMessage(
-                            content=f"Successfully transferred to {new_active_agent}",
-                            tool_call_id=tool_call["id"],
-                        )
+                    transfer_calls.append(tool_call)
+                else:
+                    non_transfer_calls.append(tool_call)
+
+            # Execute non-transfer tool calls first so they aren't dropped
+            if non_transfer_calls:
+                modified_message = AIMessage(
+                    content=last_message.content,
+                    tool_calls=non_transfer_calls,
+                )
+                modified_state = {
+                    **state,
+                    "messages": [*messages[:-1], modified_message],
+                }
+                result = domain_tool_node.invoke(modified_state)
+                new_messages.extend(result["messages"])
+                tools_called = track_tools_called(state, non_transfer_calls)
+
+            # Process the first transfer call
+            for tool_call in transfer_calls[:1]:
+                new_active_agent = TRANSFER_TOOL_TO_AGENT[tool_call["name"]]
+                new_messages.append(
+                    ToolMessage(
+                        content=(f"Successfully transferred to {new_active_agent}"),
+                        tool_call_id=tool_call["id"],
                     )
-                    break
+                )
+
+            # Acknowledge any additional transfer calls
+            for tool_call in transfer_calls[1:]:
+                target = TRANSFER_TOOL_TO_AGENT[tool_call["name"]]
+                new_messages.append(
+                    ToolMessage(
+                        content=(
+                            f"Transfer to {target} skipped, "
+                            f"already transferring to {new_active_agent}"
+                        ),
+                        tool_call_id=tool_call["id"],
+                    )
+                )
 
         return {
             "messages": new_messages,
             "active_agent": new_active_agent,
             "handoff_count": handoff_count + 1,
+            "tools_called": tools_called,
         }
 
     # Build the graph
