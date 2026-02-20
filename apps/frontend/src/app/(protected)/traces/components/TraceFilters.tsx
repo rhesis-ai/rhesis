@@ -6,6 +6,7 @@ import {
   TextField,
   Button,
   ButtonGroup,
+  IconButton,
   InputAdornment,
   Badge,
   Popover,
@@ -16,10 +17,12 @@ import {
   Typography,
   Divider,
   Stack,
+  Tooltip,
   useTheme,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -39,12 +42,14 @@ import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 interface TraceFiltersProps {
   filters: TraceQueryParams;
   onFiltersChange: (filters: TraceQueryParams) => void;
+  onRefresh: () => void;
   sessionToken: string;
 }
 
 export default function TraceFilters({
   filters,
   onFiltersChange,
+  onRefresh,
   sessionToken,
 }: TraceFiltersProps) {
   const theme = useTheme();
@@ -643,17 +648,24 @@ export default function TraceFilters({
           {/* Spacer */}
           <Box sx={{ flex: 1, minWidth: { xs: 0, sm: 20 } }} />
 
-          {/* Advanced Filters Button */}
-          <Badge badgeContent={activeFilterCount} color="primary">
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<FilterListIcon />}
-              onClick={handleFilterClick}
-            >
-              More Filters
-            </Button>
-          </Badge>
+          {/* Advanced Filters & Refresh */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Badge badgeContent={activeFilterCount} color="primary">
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<FilterListIcon />}
+                onClick={handleFilterClick}
+              >
+                More Filters
+              </Button>
+            </Badge>
+            <Tooltip title="Refresh">
+              <IconButton size="small" onClick={onRefresh}>
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
 
         {/* Row 3: Active Filter Chips */}
