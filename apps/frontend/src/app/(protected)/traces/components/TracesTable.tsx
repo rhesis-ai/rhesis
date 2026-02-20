@@ -7,7 +7,7 @@ import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { Box, Chip, Typography, Tooltip } from '@mui/material';
 import ForumIcon from '@mui/icons-material/Forum';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
 
 interface TracesTableProps {
@@ -114,7 +114,7 @@ export default function TracesTable({
         headerName: 'Started',
         width: 150,
         renderCell: params => {
-          const timeAgo = formatDistanceToNow(new Date(params.value), {
+          const timeAgo = formatDistanceToNowStrict(new Date(params.value), {
             addSuffix: true,
           });
           return (
