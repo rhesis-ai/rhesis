@@ -132,11 +132,21 @@ class TestPolyphemusLLM:
         assert result["age"] == 30
         assert result["city"] == "New York"
 
-        # Verify that schema instructions were added to the prompt
+        # Verify that schema instructions were added to system prompt
         call_args = mock_post.call_args
-        user_message = call_args.kwargs["json"]["messages"][0]["content"]
-        assert "JSON matching this schema" in user_message
-        assert prompt in user_message
+        messages = call_args.kwargs["json"]["messages"]
+        assert len(messages) == 2
+
+        # System message should contain /no_think and schema instructions
+        system_message = messages[0]["content"]
+        assert messages[0]["role"] == "system"
+        assert "/no_think" in system_message
+        assert "JSON matching this schema" in system_message
+
+        # User message should contain the original prompt
+        user_message = messages[1]["content"]
+        assert messages[1]["role"] == "user"
+        assert user_message == prompt
 
     @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
     def test_generate_with_schema_invalid_response(self, mock_post):
