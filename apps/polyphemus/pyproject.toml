@@ -7,35 +7,32 @@ dependencies = [
     "fastapi>=0.100.0",
     "uvicorn[standard]>=0.23.0",
     "gunicorn>=21.0.0",
-
-    # Prompt templating and progress bars
-    "jinja2>=3.1.6",
-    "tqdm>=4.67.1",
-
-    # Data analysis and plotting
-    "pandas>=2.2.2",
-    "matplotlib>=3.10.0",
-    "numpy>=2.2.0",
-    "seaborn>=0.13.0",
-
-    # SDK dependency (required for HuggingFaceLLM)
-    "rhesis-sdk[huggingface]",
-    # Database dependencies
+    
+    # HTTP client for Vertex AI calls
+    "httpx>=0.27.0",
+    
+    # Database dependencies (for auth/rate limiting)
     "sqlalchemy>=2.0.0",
     "psycopg2-binary>=2.9.0",
     "python-dotenv>=1.0.0",
-    # Backend dependency with GPU PyTorch (brings SDK, Penelope, and GPU torch)
-    "rhesis-backend[gpu]",
-    # GCS support for model loading from cloud buckets
-    "google-cloud-storage>=2.10.0",
-    # Optimization: BetterTransformer for 1.5-2x inference speedup
-    "optimum>=1.20.0",
+    
+    # Backend dependency (for auth models and rate limiting - without GPU)
+    "rhesis-backend",
+    
+    # Vertex AI endpoint calls (Application Default Credentials)
+    "google-auth>=2.0.0",
 ]
 
 [project.optional-dependencies]
 # Optional: Perspective API for toxicity evaluation
 toxicity = [
     "google-api-python-client",
+]
+# Optional: Vertex AI model deployment (for model_deployment/ scripts)
+vertex-ai = [
+    "google-cloud-aiplatform>=1.38.0",
+    "google-cloud-compute>=1.15.0",
+    "google-api-core>=2.15.0",
 ]
 
 [build-system]
