@@ -5,13 +5,10 @@ This module provides business logic for calling Vertex AI endpoints.
 
 import asyncio
 import base64
-import hashlib
 import json
 import logging
 import os
-import tempfile
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -68,36 +65,34 @@ def _get_vertex_access_token() -> str:
     import google.auth
     import google.auth.transport.requests
 
-    # Handle base64-encoded GOOGLE_APPLICATION_CREDENTIALS (common in .env files)
+    _SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
+
+    # Handle base64-encoded GOOGLE_APPLICATION_CREDENTIALS (common in .env files).
+    # Load credentials in-memory to avoid writing a world-readable temp file.
     creds_env = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-    if creds_env:
-        # Check if it looks like base64 (long string, no path separators)
-        if len(creds_env) > 500 and "/" not in creds_env and "\\" not in creds_env:
-            try:
-                # Decode base64 and write to temp file
-                decoded = base64.b64decode(creds_env, validate=True)
-                creds_json = json.loads(decoded)
+    if creds_env and len(creds_env) > 500 and "/" not in creds_env and "\\" not in creds_env:
+        try:
+            from google.oauth2 import service_account
 
-                # Create deterministic temp file based on hash
-                creds_hash = hashlib.sha256(creds_env.encode()).hexdigest()[:16]
-                temp_dir = Path(tempfile.gettempdir())
-                temp_file = temp_dir / f"polyphemus_gcp_creds_{creds_hash}.json"
+            decoded = base64.b64decode(creds_env, validate=True)
+            creds_json = json.loads(decoded)
+            credentials = service_account.Credentials.from_service_account_info(
+                creds_json, scopes=_SCOPES
+            )
+            logger.info("Loaded GCP credentials from base64-encoded env var (in-memory)")
+            request_adc = google.auth.transport.requests.Request()
+            credentials.refresh(request_adc)
+            return credentials.token
+        except (base64.binascii.Error, json.JSONDecodeError, Exception) as e:
+            logger.warning(
+                f"GOOGLE_APPLICATION_CREDENTIALS looks like base64 but failed to decode: {e}"
+            )
 
-                with open(temp_file, "w") as f:
-                    json.dump(creds_json, f)
-
-                # Update env var to point to temp file
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(temp_file)
-                logger.info(f"Decoded base64 credentials to {temp_file}")
-            except (base64.binascii.Error, json.JSONDecodeError, OSError) as e:
-                logger.warning(
-                    f"GOOGLE_APPLICATION_CREDENTIALS looks like base64 but failed to decode: {e}"
-                )
-
-    # Get credentials via ADC
-    credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+    # Fall back to Application Default Credentials (Cloud Run metadata server,
+    # gcloud ADC file, or GOOGLE_APPLICATION_CREDENTIALS as a file path).
+    credentials, _ = google.auth.default(scopes=_SCOPES)
     if hasattr(credentials, "with_scopes") and credentials.requires_scopes:
-        credentials = credentials.with_scopes(["https://www.googleapis.com/auth/cloud-platform"])
+        credentials = credentials.with_scopes(_SCOPES)
     request_adc = google.auth.transport.requests.Request()
     credentials.refresh(request_adc)
     return credentials.token
