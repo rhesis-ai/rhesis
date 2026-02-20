@@ -57,7 +57,6 @@ def deploy_model_vllm(
         region=REGION,
         accelerator_type=model_config["accelerator_type"],
         accelerator_count=model_config["accelerator_count"],
-        is_for_training=False,
     )
 
     # Build vLLM arguments
@@ -285,12 +284,6 @@ def main():
 
     parser = argparse.ArgumentParser(description="Deploy models to Vertex AI with vLLM")
     parser.add_argument(
-        "--skip-existing",
-        action="store_true",
-        default=True,
-        help="Skip models that are already deployed (default: True)",
-    )
-    parser.add_argument(
         "--force",
         action="store_true",
         help="Force deployment even if models are already deployed",
@@ -308,7 +301,7 @@ def main():
     args = parser.parse_args()
 
     deploy_models(
-        skip_existing=args.skip_existing and not args.force,
+        skip_existing=not args.force,
         enable_lora=args.enable_lora,
         enforce_eager=args.enforce_eager,
         guided_decoding_backend=args.guided_decoding_backend,

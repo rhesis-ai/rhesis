@@ -354,7 +354,7 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --filter="displayName:${ENDPOINT_NAME}" \
             --format="value(name)" \
-            --limit=1 | grep -oP '[0-9]+$' || echo "")
+            --limit=1 | grep -oE '[0-9]+$' || echo "")
           
           if [ -n "$ENDPOINT_ID" ]; then
             echo "POLYPHEMUS_ENDPOINT_ID=$ENDPOINT_ID" >> $GITHUB_ENV

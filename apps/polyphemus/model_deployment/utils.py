@@ -14,7 +14,6 @@ def check_quota(
     region: str,
     accelerator_type: str,
     accelerator_count: int,
-    is_for_training: bool = False,
 ) -> None:
     """Check if there is sufficient quota for the deployment.
 
@@ -23,7 +22,6 @@ def check_quota(
         region: GCP region
         accelerator_type: Type of accelerator (e.g., NVIDIA_L4, NVIDIA_A100)
         accelerator_count: Number of accelerators needed
-        is_for_training: Whether this is for training (not currently used)
 
     Raises:
         ValueError: If there is insufficient quota
@@ -80,6 +78,10 @@ def check_quota(
                 "Proceeding without quota check."
             )
 
+    except ValueError:
+        raise  # quota exceeded — stop the deployment
+    except (exceptions.PermissionDenied, exceptions.Forbidden):
+        raise  # auth/permissions are not recoverable
     except Exception as e:
         logger.warning(f"Error checking quota: {e}. Proceeding without quota check.")
 
