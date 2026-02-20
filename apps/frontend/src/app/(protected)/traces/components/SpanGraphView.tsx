@@ -55,6 +55,7 @@ interface StateTransition {
   from: string;
   to: string;
   count: number;
+  turns: number[]; // turn index per occurrence (-1 if no boundary match)
 }
 
 // Interface for timed transition events
@@ -72,6 +73,13 @@ interface TimedAgentEvent {
   spanId: string;
 }
 
+// Interface for turn boundaries in conversation traces
+interface TurnBoundary {
+  turnIndex: number;
+  startTime: number;
+  endTime: number;
+}
+
 // Interface for Markov state (agent or tool)
 interface MarkovState {
   id: string;
@@ -86,7 +94,10 @@ interface MarkovState {
 /**
  * Extract agent and tool states and transitions from spans with timestamps
  */
-function extractMarkovChain(spans: SpanNode[]): {
+function extractMarkovChain(
+  spans: SpanNode[],
+  turnBoundaries?: TurnBoundary[]
+): {
   states: Map<string, MarkovState>;
   transitions: StateTransition[];
   timedTransitions: TimedTransition[];
@@ -94,7 +105,19 @@ function extractMarkovChain(spans: SpanNode[]): {
   timeRange: { start: number; end: number };
 } {
   const states = new Map<string, MarkovState>();
-  const transitionCounts = new Map<string, number>();
+
+  // Helper to find which turn a timestamp belongs to
+  function getTurnIndex(timestamp: number): number {
+    if (!turnBoundaries) return -1;
+    for (const tb of turnBoundaries) {
+      if (timestamp >= tb.startTime && timestamp <= tb.endTime) {
+        return tb.turnIndex;
+      }
+    }
+    return -1;
+  }
+
+  const transitionData = new Map<string, { count: number; turns: number[] }>();
   const entitySequence: {
     name: string;
     timestamp: number;
@@ -297,12 +320,17 @@ function extractMarkovChain(spans: SpanNode[]): {
 
     // Create transitions if we found a calling agent
     if (callingAgent) {
+      const turnIdx = getTurnIndex(tool.startTime);
+
       // Agent -> Tool transition
       const agentToToolKey = `${callingAgent}->${tool.toolId}`;
-      transitionCounts.set(
-        agentToToolKey,
-        (transitionCounts.get(agentToToolKey) || 0) + 1
-      );
+      const atData = transitionData.get(agentToToolKey) || {
+        count: 0,
+        turns: [],
+      };
+      atData.count++;
+      atData.turns.push(turnIdx);
+      transitionData.set(agentToToolKey, atData);
 
       timedTransitions.push({
         from: callingAgent,
@@ -313,10 +341,13 @@ function extractMarkovChain(spans: SpanNode[]): {
 
       // Tool -> Agent return transition
       const toolToAgentKey = `${tool.toolId}->${callingAgent}`;
-      transitionCounts.set(
-        toolToAgentKey,
-        (transitionCounts.get(toolToAgentKey) || 0) + 1
-      );
+      const taData = transitionData.get(toolToAgentKey) || {
+        count: 0,
+        turns: [],
+      };
+      taData.count++;
+      taData.turns.push(turnIdx);
+      transitionData.set(toolToAgentKey, taData);
 
       timedTransitions.push({
         from: tool.toolId,
@@ -330,7 +361,11 @@ function extractMarkovChain(spans: SpanNode[]): {
   // Process handoffs
   for (const handoff of handoffs) {
     const key = `${handoff.from}->${handoff.to}`;
-    transitionCounts.set(key, (transitionCounts.get(key) || 0) + 1);
+    const turnIdx = getTurnIndex(handoff.timestamp);
+    const hData = transitionData.get(key) || { count: 0, turns: [] };
+    hData.count++;
+    hData.turns.push(turnIdx);
+    transitionData.set(key, hData);
 
     timedTransitions.push({
       from: handoff.from,
@@ -379,9 +414,9 @@ function extractMarkovChain(spans: SpanNode[]): {
 
   // Convert to transitions array
   const transitions: StateTransition[] = [];
-  transitionCounts.forEach((count, key) => {
+  transitionData.forEach((data, key) => {
     const [from, to] = key.split('->');
-    transitions.push({ from, to, count });
+    transitions.push({ from, to, count: data.count, turns: data.turns });
   });
 
   return {
@@ -586,10 +621,16 @@ function TransitionEdge({
   markerEnd,
   style,
 }: EdgeProps) {
-  const { isSelfLoop, selfLoopIndex } = data as {
+  const theme = useTheme();
+  const { isSelfLoop, selfLoopIndex, turnLabel } = data as {
     isSelfLoop: boolean;
     selfLoopIndex?: number;
+    turnLabel?: string;
   };
+
+  const labelFontSize = 10;
+  const labelColor = theme.palette.text.secondary;
+  const labelBg = theme.palette.background.paper;
 
   // For self-loops, create a custom path with offset based on index
   // All loops start and end at the same points, but curve outward at different radii
@@ -601,10 +642,14 @@ function TransitionEdge({
 
     // All arrows start and end at the same position
     // Only the control points (curve apex) are offset
-    const path = `M ${sourceX} ${sourceY} 
-                  C ${sourceX + loopRadius * 2} ${sourceY - loopRadius} 
-                    ${sourceX + loopRadius * 2} ${sourceY + loopRadius} 
+    const path = `M ${sourceX} ${sourceY}
+                  C ${sourceX + loopRadius * 2} ${sourceY - loopRadius}
+                    ${sourceX + loopRadius * 2} ${sourceY + loopRadius}
                     ${targetX} ${targetY}`;
+
+    // Label position: at the apex of the loop curve
+    const labelX = sourceX + loopRadius * 2 + 4;
+    const labelY = (sourceY + targetY) / 2;
 
     return (
       <>
@@ -629,11 +674,37 @@ function TransitionEdge({
           }}
           markerEnd={markerEnd}
         />
+        {turnLabel && (
+          <>
+            <rect
+              x={labelX - 2}
+              y={labelY - labelFontSize / 2 - 2}
+              width={turnLabel.length * 6.5 + 4}
+              height={labelFontSize + 4}
+              rx={3}
+              fill={labelBg}
+              fillOpacity={0.9}
+            />
+            <text
+              x={labelX}
+              y={labelY}
+              style={{
+                fontSize: labelFontSize,
+                fill: labelColor,
+                dominantBaseline: 'central',
+                pointerEvents: 'none',
+                fontFamily: 'sans-serif',
+              }}
+            >
+              {turnLabel}
+            </text>
+          </>
+        )}
       </>
     );
   }
 
-  const [edgePath, _labelX, _labelY] = getBezierPath({
+  const [edgePath, edgeLabelX, edgeLabelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -666,6 +737,33 @@ function TransitionEdge({
         }}
         markerEnd={markerEnd}
       />
+      {turnLabel && (
+        <>
+          <rect
+            x={edgeLabelX - (turnLabel.length * 6.5 + 4) / 2}
+            y={edgeLabelY - labelFontSize / 2 - 2}
+            width={turnLabel.length * 6.5 + 4}
+            height={labelFontSize + 4}
+            rx={3}
+            fill={labelBg}
+            fillOpacity={0.9}
+          />
+          <text
+            x={edgeLabelX}
+            y={edgeLabelY}
+            style={{
+              fontSize: labelFontSize,
+              fill: labelColor,
+              dominantBaseline: 'central',
+              textAnchor: 'middle',
+              pointerEvents: 'none',
+              fontFamily: 'sans-serif',
+            }}
+          >
+            {turnLabel}
+          </text>
+        </>
+      )}
     </>
   );
 }
@@ -682,6 +780,17 @@ const edgeTypes = {
 /**
  * Convert agent/tool graph to ReactFlow elements
  */
+/**
+ * Format turn label for an edge from turn indices.
+ * Returns undefined if no valid turns (all -1) or empty.
+ */
+function formatTurnLabel(turns: number[]): string | undefined {
+  const valid = turns.filter(t => t >= 0);
+  if (valid.length === 0) return undefined;
+  const unique = [...new Set(valid)].sort((a, b) => a - b);
+  return unique.map(t => `T${t + 1}`).join(', ');
+}
+
 function convertToFlowElements(
   states: Map<string, MarkovState>,
   transitions: StateTransition[],
@@ -715,6 +824,9 @@ function convertToFlowElements(
     if (isSelfLoop && t.count > 1) {
       // Create multiple self-loop edges with different offsets
       for (let i = 0; i < t.count; i++) {
+        // Per-edge turn label from the i-th occurrence
+        const singleTurn = t.turns[i];
+        const turnLabel = singleTurn >= 0 ? `T${singleTurn + 1}` : undefined;
         edges.push({
           id: `${t.from}->${t.to}-${i}`,
           source: t.from,
@@ -727,6 +839,7 @@ function convertToFlowElements(
             selfLoopIndex: i,
             selfLoopTotal: t.count,
             involvesTool,
+            turnLabel,
           },
           style: {
             stroke: edgeColor,
@@ -740,6 +853,7 @@ function convertToFlowElements(
       }
     } else {
       // Single edge (either non-self-loop or single self-loop)
+      const turnLabel = formatTurnLabel(t.turns);
       edges.push({
         id: `${t.from}->${t.to}`,
         source: t.from,
@@ -752,6 +866,7 @@ function convertToFlowElements(
           selfLoopIndex: 0,
           selfLoopTotal: 1,
           involvesTool,
+          turnLabel,
         },
         style: {
           stroke: edgeColor,
@@ -864,13 +979,26 @@ export default function SpanGraphView({
     timeRange,
     defaultViewport,
   } = useMemo(() => {
+    // Compute turn boundaries for conversation traces in "All" mode
+    const turnBoundaries =
+      isConversationTrace &&
+      rootSpans &&
+      rootSpans.length > 1 &&
+      activeTurn === null
+        ? rootSpans.map((span, i) => ({
+            turnIndex: i,
+            startTime: new Date(span.start_time).getTime(),
+            endTime: new Date(span.end_time).getTime(),
+          }))
+        : undefined;
+
     const {
       states,
       transitions,
       timedTransitions,
       timedAgentEvents,
       timeRange,
-    } = extractMarkovChain(effectiveSpans);
+    } = extractMarkovChain(effectiveSpans, turnBoundaries);
     const agentEdgeColor = theme.palette.info.main;
     const toolEdgeColor = theme.palette.warning.main;
     const { nodes, edges } = convertToFlowElements(
@@ -939,7 +1067,14 @@ export default function SpanGraphView({
       timeRange,
       defaultViewport,
     };
-  }, [effectiveSpans, theme.palette.info.main, theme.palette.warning.main]);
+  }, [
+    effectiveSpans,
+    theme.palette.info.main,
+    theme.palette.warning.main,
+    activeTurn,
+    isConversationTrace,
+    rootSpans,
+  ]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -1243,6 +1378,15 @@ export default function SpanGraphView({
     [spans, onSpanSelect]
   );
 
+  // Compute turn marks for the time slider in "All" conversation mode
+  const turnMarks =
+    showTurnNavigation && activeTurn === null && rootSpans
+      ? rootSpans.map((span, i) => ({
+          value: new Date(span.start_time).getTime(),
+          label: `T${i + 1}`,
+        }))
+      : [];
+
   // Show message if no agent data
   if (states.size === 0) {
     return (
@@ -1386,6 +1530,7 @@ export default function SpanGraphView({
             min={timeRange.start}
             max={timeRange.end}
             onChange={handleSliderChange}
+            marks={turnMarks}
             sx={{
               flex: 1,
               mx: theme.spacing(1),
@@ -1401,6 +1546,16 @@ export default function SpanGraphView({
               },
               '& .MuiSlider-rail': {
                 height: theme.spacing(0.5),
+              },
+              // Turn mark labels
+              '& .MuiSlider-markLabel': {
+                fontSize: theme.typography.caption.fontSize,
+                color: theme.palette.text.secondary,
+                top: theme.spacing(3),
+              },
+              '& .MuiSlider-mark': {
+                height: theme.spacing(1),
+                backgroundColor: theme.palette.text.secondary,
               },
             }}
           />
