@@ -26,21 +26,37 @@ variable "nodes_subnet_self_link" {
 variable "master_cidr" {
   description = "CIDR for GKE control plane (must match network module master subnet)"
   type        = string
+  validation {
+    condition     = can(cidrhost(var.master_cidr, 0))
+    error_message = "Must be a valid CIDR block (e.g., 10.2.4.0/28)."
+  }
 }
 
 variable "node_cidr" {
   description = "CIDR for worker nodes (for firewall rules)"
   type        = string
+  validation {
+    condition     = can(cidrhost(var.node_cidr, 0))
+    error_message = "Must be a valid CIDR block (e.g., 10.2.0.0/23)."
+  }
 }
 
 variable "pod_cidr" {
   description = "CIDR for pods (for firewall rules)"
   type        = string
+  validation {
+    condition     = can(cidrhost(var.pod_cidr, 0))
+    error_message = "Must be a valid CIDR block (e.g., 10.3.0.0/17)."
+  }
 }
 
 variable "service_cidr" {
   description = "CIDR for services (for firewall rules)"
   type        = string
+  validation {
+    condition     = can(cidrhost(var.service_cidr, 0))
+    error_message = "Must be a valid CIDR block (e.g., 10.3.128.0/20)."
+  }
 }
 
 variable "pod_range_name" {
@@ -58,6 +74,10 @@ variable "service_range_name" {
 variable "wireguard_cidr" {
   description = "WireGuard VPN CIDR for master authorized networks"
   type        = string
+  validation {
+    condition     = can(cidrhost(var.wireguard_cidr, 0))
+    error_message = "Must be a valid CIDR block (e.g., 10.0.0.0/24)."
+  }
 }
 
 variable "release_channel" {

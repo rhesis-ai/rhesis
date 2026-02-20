@@ -28,12 +28,20 @@ variable "wireguard_server_ip" {
   description = "WireGuard server internal IP (tunnel interface)"
   type        = string
   default     = "10.0.0.1"
+  validation {
+    condition     = can(regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$", var.wireguard_server_ip))
+    error_message = "Must be a valid IPv4 address (e.g., 10.0.0.1)."
+  }
 }
 
 variable "wireguard_vm_ip" {
   description = "WireGuard VM IP in GCP subnet"
   type        = string
   default     = "10.0.0.10"
+  validation {
+    condition     = can(regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$", var.wireguard_vm_ip))
+    error_message = "Must be a valid IPv4 address (e.g., 10.0.0.10)."
+  }
 }
 
 variable "wireguard_port" {
@@ -46,6 +54,10 @@ variable "wireguard_peer_cidr" {
   description = "WireGuard peer CIDR range"
   type        = string
   default     = "10.0.0.0/24"
+  validation {
+    condition     = can(cidrhost(var.wireguard_peer_cidr, 0))
+    error_message = "Must be a valid CIDR block (e.g., 10.0.0.0/24)."
+  }
 }
 
 variable "wireguard_peers" {
@@ -65,6 +77,10 @@ variable "subnet_cidrs" {
     stg = "10.4.0.0/15"
     prd = "10.6.0.0/15"
   }
+  validation {
+    condition     = alltrue([for cidr in values(var.subnet_cidrs) : can(cidrhost(cidr, 0))])
+    error_message = "All values must be valid CIDR blocks."
+  }
 }
 
 variable "master_cidrs" {
@@ -74,6 +90,10 @@ variable "master_cidrs" {
     dev = "10.2.4.0/28"
     stg = "10.4.4.0/28"
     prd = "10.6.4.0/28"
+  }
+  validation {
+    condition     = alltrue([for cidr in values(var.master_cidrs) : can(cidrhost(cidr, 0))])
+    error_message = "All values must be valid CIDR blocks."
   }
 }
 
