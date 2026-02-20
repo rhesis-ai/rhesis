@@ -123,6 +123,7 @@ worktree_load() {
     export RHESIS_WORKTREE="$name"
     export RHESIS_WORKTREE_COLOR="$color"
 
+
     echo -e "${CYAN}Worktree: ${WHITE}$name${NC}"
     echo -e "${CYAN}Location: ${WHITE}$worktree_dir${NC}"
     echo -e "${BLUE}Launching shell in worktree (exit to return)${NC}"
@@ -268,6 +269,7 @@ if [[ "$NAME" == /* ]] || [[ "$NAME" == *..* ]]; then
     echo -e "${YELLOW}Name must not contain '..' or start with '/'${NC}"
     exit 1
 fi
+
 
 case "$ACTION" in
     "--remove")
