@@ -124,13 +124,7 @@ export function TasksSection({
     return () => {
       abortController.abort();
     };
-  }, [
-    currentPage,
-    currentPageSize,
-    entityType,
-    entityId,
-    sessionToken,
-  ]);
+  }, [currentPage, currentPageSize, entityType, entityId, sessionToken]);
 
   const _handleDeleteTask = async (taskId: string) => {
     if (onDeleteTask) {

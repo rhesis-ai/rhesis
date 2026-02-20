@@ -92,18 +92,15 @@ export function NotificationProvider({
     []
   );
 
-  const close = React.useCallback(
-    (key: string) => {
-      if (currentNotificationRef.current?.key === key) {
-        setOpen(false);
-      } else {
-        setNotifications(prev =>
-          prev.filter(notification => notification.key !== key)
-        );
-      }
-    },
-    []
-  );
+  const close = React.useCallback((key: string) => {
+    if (currentNotificationRef.current?.key === key) {
+      setOpen(false);
+    } else {
+      setNotifications(prev =>
+        prev.filter(notification => notification.key !== key)
+      );
+    }
+  }, []);
 
   const handleClose = (_event?: unknown, reason?: string) => {
     if (reason === 'clickaway') {
