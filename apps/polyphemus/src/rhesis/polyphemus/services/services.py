@@ -31,36 +31,10 @@ _TOKEN_EXPIRY_BUFFER = timedelta(minutes=5)
 _credentials_lock = threading.Lock()
 _cached_credentials = None
 
-
-def _extract_prompt_from_messages(messages: List[Message]) -> tuple[str, Optional[str]]:
-    """
-    Extract prompt and system prompt from messages array.
-
-    Args:
-        messages: List of message objects
-
-    Returns:
-        tuple: (prompt, system_prompt)
-    """
-    prompt_parts = []
-    system_prompt = None
-
-    for msg in messages:
-        content = msg.content.strip()
-        if not content:
-            continue
-
-        # Check if it's a system message
-        if msg.role == "system":
-            system_prompt = content
-        else:
-            # For user/assistant messages, append to prompt
-            prompt_parts.append(content)
-
-    # Combine all non-system messages into a single prompt
-    prompt = "\n".join(prompt_parts) if prompt_parts else ""
-
-    return prompt, system_prompt
+# Retry configuration for transient Vertex AI errors
+_RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
+_MAX_ATTEMPTS = 3
+_RETRY_BACKOFF_BASE = 1.0  # seconds; doubles each retry: 1s, 2s
 
 
 def _get_vertex_access_token() -> str:
@@ -155,31 +129,31 @@ async def generate_text_via_vertex_endpoint(
     endpoint_id: str,
     project_id: str,
     location: str = "us-central1",
-    timeout_seconds: float = 600.0,
+    timeout_seconds: float = 120.0,
 ) -> Dict:
     """
     Generate text by calling a Vertex AI endpoint (rawPredict, e.g. vLLM).
 
     Uses Application Default Credentials for authentication (same as gcloud).
     Request/response follow OpenAI chat completions format expected by vLLM.
+    Retries up to _MAX_ATTEMPTS times on transient errors with exponential backoff.
 
     Args:
         request: GenerateRequest with messages and generation parameters.
         endpoint_id: Vertex AI endpoint ID.
         project_id: Google Cloud project ID.
         location: Vertex AI region (default us-central1).
-        timeout_seconds: HTTP timeout for the prediction request.
+        timeout_seconds: HTTP timeout per attempt (default 120s).
 
     Returns:
         dict: Rhesis API format with choices, model, and usage.
 
     Raises:
-        ValueError: If prompt is empty.
-        RuntimeError: If the endpoint call fails.
+        ValueError: If no non-system message with content is provided.
+        RuntimeError: If the endpoint call fails after all retry attempts.
     """
-    prompt, _ = _extract_prompt_from_messages(request.messages)
-    if not prompt:
-        raise ValueError("At least one message with content is required")
+    if not any(m.content.strip() for m in request.messages if m.role != "system"):
+        raise ValueError("At least one non-system message with content is required")
 
     # Get parameters with defaults (max_tokens is optional; only passed when provided)
     temperature = request.temperature if request.temperature is not None else 0.6
@@ -218,15 +192,43 @@ async def generate_text_via_vertex_endpoint(
     loop = asyncio.get_running_loop()
     token = await loop.run_in_executor(_executor, _get_vertex_access_token)
 
-    response = await _http_client.post(
-        url,
-        json=body,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        },
-        timeout=timeout_seconds,
-    )
+    response = None
+    last_error: Optional[Exception] = None
+    for attempt in range(_MAX_ATTEMPTS):
+        try:
+            response = await _http_client.post(
+                url,
+                json=body,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                timeout=timeout_seconds,
+            )
+            if response.status_code not in _RETRYABLE_STATUSES:
+                break  # success or non-retryable client error
+            last_error = RuntimeError(
+                f"Vertex AI endpoint failed: {response.status_code} - {response.text}"
+            )
+        except httpx.TransportError as exc:
+            last_error = exc
+            response = None
+
+        if attempt < _MAX_ATTEMPTS - 1:
+            wait = _RETRY_BACKOFF_BASE * (2**attempt)
+            logger.warning(
+                "Vertex AI transient error on attempt %d/%d, retrying in %.1fs: %s",
+                attempt + 1,
+                _MAX_ATTEMPTS,
+                wait,
+                last_error,
+            )
+            await asyncio.sleep(wait)
+
+    if response is None:
+        raise RuntimeError(
+            f"Vertex AI endpoint unreachable after {_MAX_ATTEMPTS} attempts"
+        ) from last_error
 
     if response.status_code != 200:
         logger.error(f"Vertex endpoint error: status={response.status_code}, body={response.text}")
