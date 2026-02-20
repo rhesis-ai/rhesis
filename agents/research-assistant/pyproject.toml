@@ -1,0 +1,61 @@
+[project]
+name = "research-assistant"
+version = "0.1.0"
+description = "Research Assistant: AI-powered reasoning agent for scientific workflows"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Engineering Team", email = "engineering@rhesis.ai" },
+]
+keywords = [
+    "llm",
+    "ai",
+    "agents",
+    "science",
+    "reasoning",
+    "langgraph",
+]
+dependencies = [
+    "rhesis-sdk",
+    "langgraph>=0.2.0",
+    "langchain-core>=1.2.5",
+    "langchain-google-genai>=2.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "requests>=2.31.0",
+]
+
+[project.license]
+text = "MIT"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.11.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/research_assistant"]
+
+[tool.uv.sources]
+rhesis-sdk = { path = "../../sdk", editable = true }
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["I", "E", "F"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["research_assistant", "rhesis.sdk"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
