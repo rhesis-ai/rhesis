@@ -12,10 +12,14 @@ import {
   Stack,
   Button,
   ButtonGroup,
+  Dialog,
+  Tooltip,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import ReplayIcon from '@mui/icons-material/Replay';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import CloseIcon from '@mui/icons-material/Close';
 import ReactFlow, {
   Node,
   Edge,
@@ -1023,6 +1027,7 @@ export default function SpanGraphView({
 
   // Turn navigation state for conversation traces
   const [activeTurn, setActiveTurn] = useState<number | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Determine effective spans based on active turn filter
   const effectiveSpans = useMemo(() => {
@@ -1587,12 +1592,12 @@ export default function SpanGraphView({
     );
   }
 
-  return (
+  const graphContent = (
     <Box
       sx={{
         width: '100%',
         height: '100%',
-        minHeight: theme.spacing(50),
+        minHeight: isFullscreen ? '100vh' : theme.spacing(50),
         display: 'flex',
         flexDirection: 'column',
         '& .react-flow__attribution': {
@@ -1745,6 +1750,21 @@ export default function SpanGraphView({
           >
             {formatTime(timeRange.end)}
           </Typography>
+
+          {/* Fullscreen Toggle */}
+          <Tooltip title={isFullscreen ? 'Exit full view' : 'Full view'}>
+            <IconButton
+              size="small"
+              onClick={() => setIsFullscreen(prev => !prev)}
+              sx={{ color: theme.palette.text.secondary }}
+            >
+              {isFullscreen ? (
+                <CloseIcon fontSize="small" />
+              ) : (
+                <FullscreenIcon fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
         </Stack>
       </Paper>
 
@@ -1846,4 +1866,18 @@ export default function SpanGraphView({
       </Box>
     </Box>
   );
+
+  if (isFullscreen) {
+    return (
+      <Dialog
+        fullScreen
+        open={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+      >
+        {graphContent}
+      </Dialog>
+    );
+  }
+
+  return graphContent;
 }
