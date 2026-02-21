@@ -645,6 +645,12 @@ export default function TraceFilters({
             </Button>
           </ButtonGroup>
 
+          <Divider
+            orientation="vertical"
+            flexItem
+            sx={{ display: { xs: 'none', sm: 'block' } }}
+          />
+
           {/* Spacer */}
           <Box sx={{ flex: 1, minWidth: { xs: 0, sm: 20 } }} />
 
