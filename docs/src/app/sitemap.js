@@ -93,15 +93,18 @@ function getGlossaryTermIds(possibleContentDirs) {
     try {
       if (fs.existsSync(fullPath)) {
         const raw = fs.readFileSync(fullPath, 'utf8')
-        return raw
-          .trim()
-          .split('\n')
-          .filter(Boolean)
-          .map(line => {
+        const ids = []
+        for (const line of raw.trim().split('\n')) {
+          if (!line.trim()) continue
+          try {
             const row = JSON.parse(line)
-            return row?.id
-          })
-          .filter(Boolean)
+            if (row?.id) ids.push(row.id)
+          } catch {
+            // eslint-disable-next-line no-console
+            console.warn('[sitemap] Skipping malformed glossary-terms.jsonl line')
+          }
+        }
+        return ids
       }
     } catch {
       // Continue to next directory
