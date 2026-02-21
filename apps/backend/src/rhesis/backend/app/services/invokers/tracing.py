@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
+from rhesis.sdk.telemetry.constants import ConversationContext as ConvContextConstants
 from rhesis.sdk.telemetry.schemas import OTELSpan, SpanKind, StatusCode
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,10 @@ class EndpointAttributes:
     TEST_RESULT_ID = TestContextConstants.SpanAttributes.TEST_RESULT_ID
     TEST_ID = TestContextConstants.SpanAttributes.TEST_ID
     TEST_CONFIGURATION_ID = TestContextConstants.SpanAttributes.TEST_CONFIGURATION_ID
+
+    # Conversation I/O - use constants from ConvContextConstants.SpanAttributes
+    CONVERSATION_INPUT = ConvContextConstants.SpanAttributes.CONVERSATION_INPUT
+    CONVERSATION_OUTPUT = ConvContextConstants.SpanAttributes.CONVERSATION_OUTPUT
 
 
 def generate_trace_id() -> str:
@@ -101,6 +106,7 @@ async def create_invocation_trace(
     organization_id: str,
     test_execution_context: Optional[Dict[str, str]] = None,
     conversation_id: Optional[str] = None,
+    input_data: Optional[Dict] = None,
 ):
     """
     Create a trace span for REST/WebSocket invocations.
@@ -116,6 +122,7 @@ async def create_invocation_trace(
         test_execution_context: Optional dict with test_run_id, test_result_id, test_id,
             test_configuration_id (only present during test execution)
         conversation_id: Optional conversation ID for multi-turn traces
+        input_data: Optional input data dict for capturing mapped I/O
 
     Yields:
         Dict that executor can update with result data
@@ -186,6 +193,16 @@ async def create_invocation_trace(
                 output_preview = str(output)[:1000]
                 attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW] = output_preview
                 attributes[EndpointAttributes.RESPONSE_SIZE] = len(str(output))
+
+        # Inject mapped conversation I/O
+        if input_data:
+            mapped_input = str(input_data.get("input", ""))
+            if mapped_input:
+                attributes[EndpointAttributes.CONVERSATION_INPUT] = mapped_input[:10000]
+        if result and isinstance(result, dict):
+            mapped_output = str(result.get("output", ""))
+            if mapped_output:
+                attributes[EndpointAttributes.CONVERSATION_OUTPUT] = mapped_output[:10000]
 
         # Create OTELSpan using SDK schema
         # Span name follows function.* pattern for generic functions

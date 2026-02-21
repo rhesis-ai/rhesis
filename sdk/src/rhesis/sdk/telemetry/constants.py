@@ -38,6 +38,7 @@ class ConversationContext:
 
         CONVERSATION_ID = "conversation_id"
         TRACE_ID = "trace_id"
+        MAPPED_INPUT = "mapped_input"
 
     # OpenTelemetry span attribute names
     class SpanAttributes:
@@ -45,3 +46,5 @@ class ConversationContext:
 
         CONVERSATION_ID = "rhesis.conversation.id"
         IS_TURN_ROOT = "rhesis.conversation.is_turn_root"
+        CONVERSATION_INPUT = "rhesis.conversation.input"
+        CONVERSATION_OUTPUT = "rhesis.conversation.output"

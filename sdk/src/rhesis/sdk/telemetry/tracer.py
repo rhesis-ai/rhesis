@@ -16,6 +16,7 @@ from rhesis.sdk.telemetry.constants import ConversationContext as ConvContextCon
 from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
 from rhesis.sdk.telemetry.context import (
     get_conversation_id,
+    get_conversation_mapped_input,
     get_conversation_trace_id,
     get_root_trace_id,
     get_test_execution_context,
@@ -420,6 +421,16 @@ class Tracer:
                     conv_id,
                 )
 
+            # Set mapped input on the turn-root span (independent of conv_id
+            # so first-turn captures input even before conversation_id exists)
+            if is_root:
+                mapped_input = get_conversation_mapped_input()
+                if mapped_input:
+                    span.set_attribute(
+                        ConvContextConstants.SpanAttributes.CONVERSATION_INPUT,
+                        mapped_input[:10000],
+                    )
+
             # Set up span attributes
             self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
 
@@ -435,6 +446,10 @@ class Tracer:
                 # Handle regular functions
                 span.set_status(trace.Status(trace.StatusCode.OK))
                 self._capture_function_result(span, result)
+
+                # CONVERSATION_OUTPUT is backfilled by the backend with the
+                # mapped output (after response_mapping), so we don't set it
+                # here where we only have the raw function return value.
 
                 # For sync functions running in thread pools, context variables
                 # don't propagate back. Store trace_id in thread-safe dict.
@@ -516,6 +531,16 @@ class Tracer:
                     conv_id,
                 )
 
+            # Set mapped input on the turn-root span (independent of conv_id
+            # so first-turn captures input even before conversation_id exists)
+            if is_root:
+                mapped_input = get_conversation_mapped_input()
+                if mapped_input:
+                    span.set_attribute(
+                        ConvContextConstants.SpanAttributes.CONVERSATION_INPUT,
+                        mapped_input[:10000],
+                    )
+
             # Set up span attributes
             self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
 
@@ -526,6 +551,10 @@ class Tracer:
                 # Handle result
                 span.set_status(trace.Status(trace.StatusCode.OK))
                 self._capture_function_result(span, result)
+
+                # CONVERSATION_OUTPUT is backfilled by the backend with the
+                # mapped output (after response_mapping), so we don't set it
+                # here where we only have the raw function return value.
 
                 # Store trace_id for consistency with sync version
                 if is_root and result is not None and trace_id:

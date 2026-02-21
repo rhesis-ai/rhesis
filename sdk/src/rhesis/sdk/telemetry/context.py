@@ -26,6 +26,10 @@ _conversation_id: ContextVar[Optional[str]] = ContextVar("conversation_id", defa
 _conversation_trace_id: ContextVar[Optional[str]] = ContextVar(
     "conversation_trace_id", default=None
 )
+# conversation_mapped_input: the mapped user input for the current turn
+_conversation_mapped_input: ContextVar[Optional[str]] = ContextVar(
+    "conversation_mapped_input", default=None
+)
 
 
 def set_test_execution_context(context: Optional[TestExecutionContext]) -> None:
@@ -131,3 +135,22 @@ def get_conversation_trace_id() -> Optional[str]:
     Returns None if not in a conversation context or first turn.
     """
     return _conversation_trace_id.get()
+
+
+def set_conversation_mapped_input(mapped_input: Optional[str]) -> None:
+    """
+    Set the mapped user input for the current conversation turn.
+
+    Args:
+        mapped_input: The mapped input string, or None to clear
+    """
+    _conversation_mapped_input.set(mapped_input)
+
+
+def get_conversation_mapped_input() -> Optional[str]:
+    """
+    Get the mapped user input for the current conversation turn.
+
+    Returns None if not in a conversation context.
+    """
+    return _conversation_mapped_input.get()

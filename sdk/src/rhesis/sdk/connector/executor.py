@@ -16,6 +16,7 @@ from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextCo
 from rhesis.sdk.telemetry.context import (
     get_root_trace_id,
     set_conversation_id,
+    set_conversation_mapped_input,
     set_conversation_trace_id,
     set_root_trace_id,
     set_test_execution_context,
@@ -170,10 +171,13 @@ class TestExecutor:
             if conv_context:
                 conv_id = conv_context.get(ConvContextConstants.Fields.CONVERSATION_ID)
                 conv_trace = conv_context.get(ConvContextConstants.Fields.TRACE_ID)
+                mapped_input = conv_context.get(ConvContextConstants.Fields.MAPPED_INPUT, "")
                 if conv_id:
                     set_conversation_id(conv_id)
                 if conv_trace:
                     set_conversation_trace_id(conv_trace)
+                if mapped_input:
+                    set_conversation_mapped_input(mapped_input)
                 logger.debug(
                     f"Conversation context for {function_name}: id={conv_id}, trace_id={conv_trace}"
                 )
@@ -226,6 +230,7 @@ class TestExecutor:
                 set_root_trace_id(None)
                 set_conversation_id(None)
                 set_conversation_trace_id(None)
+                set_conversation_mapped_input(None)
 
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
@@ -235,6 +240,7 @@ class TestExecutor:
             set_root_trace_id(None)
             set_conversation_id(None)
             set_conversation_trace_id(None)
+            set_conversation_mapped_input(None)
 
             return {
                 "status": TestStatus.ERROR,

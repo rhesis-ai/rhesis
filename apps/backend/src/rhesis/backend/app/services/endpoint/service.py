@@ -191,6 +191,7 @@ class EndpointService:
                     organization_id,
                     test_execution_context,
                     conversation_id=trace_conversation_id,
+                    input_data=enriched_input_data,
                 ) as trace_ctx:
                     result = await invoker.invoke(
                         db, endpoint, enriched_input_data, test_execution_context
@@ -281,6 +282,8 @@ class EndpointService:
                             trace_id=result["trace_id"],
                             conversation_id=response_conv_id,
                             organization_id=organization_id,
+                            mapped_input=str(input_data.get("input", "")) or None,
+                            mapped_output=str(result.get("output", "")) or None,
                         )
 
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")

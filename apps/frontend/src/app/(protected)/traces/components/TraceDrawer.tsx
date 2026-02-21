@@ -383,8 +383,7 @@ export default function TraceDrawer({
           >
             {/* Tabs Header */}
             {(() => {
-              const showConversationTab =
-                !!trace.conversation_id && !!trace.test_result;
+              const showConversationTab = !!trace.conversation_id;
               const tabOffset = showConversationTab ? 1 : 0;
               const isConversationTrace = !!trace.conversation_id;
               const treeTabIndex = 0 + tabOffset;

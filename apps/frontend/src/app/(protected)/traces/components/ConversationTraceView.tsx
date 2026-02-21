@@ -19,6 +19,34 @@ interface ConversationTraceViewProps {
   rootSpans?: SpanNode[];
 }
 
+/**
+ * Reconstruct conversation turns from span attributes when no test result
+ * is available (e.g. direct SDK/endpoint multi-turn invocations).
+ */
+function reconstructConversationFromSpans(
+  rootSpans: SpanNode[]
+): ConversationTurn[] {
+  return rootSpans
+    .filter(
+      (span) =>
+        span.attributes['rhesis.conversation.input'] ||
+        span.attributes['rhesis.conversation.output']
+    )
+    .map((span, i) => ({
+      turn: i + 1,
+      timestamp: span.start_time,
+      penelope_message: String(
+        span.attributes['rhesis.conversation.input'] || ''
+      ),
+      target_response: String(
+        span.attributes['rhesis.conversation.output'] || ''
+      ),
+      penelope_reasoning: '',
+      session_id: span.span_id,
+      success: span.status_code !== 'ERROR',
+    }));
+}
+
 export default function ConversationTraceView({
   trace,
   sessionToken,
@@ -26,7 +54,7 @@ export default function ConversationTraceView({
   rootSpans,
 }: ConversationTraceViewProps) {
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!trace.test_result?.id);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -82,10 +110,20 @@ export default function ConversationTraceView({
     );
   }
 
+  // Path A: test-result-based conversation (with goal evaluation)
   const conversationSummary: ConversationTurn[] =
     testResult?.test_output?.conversation_summary || [];
   const goalEvaluation: GoalEvaluation | undefined =
     testResult?.test_output?.goal_evaluation;
+
+  // Path B: span-based reconstruction (no test result)
+  const spanConversation =
+    conversationSummary.length === 0 && rootSpans
+      ? reconstructConversationFromSpans(rootSpans)
+      : [];
+
+  const turns =
+    conversationSummary.length > 0 ? conversationSummary : spanConversation;
 
   const handleResponseClick = (turnNumber: number) => {
     if (onSpanSelect && rootSpans) {
@@ -96,7 +134,7 @@ export default function ConversationTraceView({
     }
   };
 
-  if (conversationSummary.length === 0) {
+  if (turns.length === 0) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <Typography color="text.secondary" variant="body2">
@@ -108,8 +146,8 @@ export default function ConversationTraceView({
 
   return (
     <ConversationHistory
-      conversationSummary={conversationSummary}
-      goalEvaluation={goalEvaluation}
+      conversationSummary={turns}
+      goalEvaluation={conversationSummary.length > 0 ? goalEvaluation : undefined}
       project={trace.project}
       onResponseClick={
         onSpanSelect && rootSpans ? handleResponseClick : undefined

@@ -387,9 +387,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 conv_id = input_data[conversation_field]
             elif "conversation_id" in input_data:
                 conv_id = input_data["conversation_id"]
-            if conv_id and endpoint.project_id:
-                from rhesis.backend.app import crud
+            # Lazy import: crud uses models that would cause a circular
+            # import at module level.
+            from rhesis.backend.app import crud
 
+            if conv_id and endpoint.project_id:
                 existing_trace_id = crud.get_trace_id_for_conversation(
                     db=db,
                     conversation_id=conv_id,
@@ -399,10 +401,18 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 function_kwargs[ConvContextConstants.CONTEXT_KEY] = {
                     ConvContextConstants.Fields.CONVERSATION_ID: conv_id,
                     ConvContextConstants.Fields.TRACE_ID: existing_trace_id,
+                    ConvContextConstants.Fields.MAPPED_INPUT: str(input_data.get("input", "")),
                 }
                 logger.debug(
                     f"Injected conversation context: id={conv_id}, trace_id={existing_trace_id}"
                 )
+
+            # Fallback: first turn has no conv_id yet, but still send
+            # mapped_input so the SDK tracer can stamp it on the span.
+            if endpoint.project_id and ConvContextConstants.CONTEXT_KEY not in function_kwargs:
+                function_kwargs[ConvContextConstants.CONTEXT_KEY] = {
+                    ConvContextConstants.Fields.MAPPED_INPUT: str(input_data.get("input", "")),
+                }
 
             logger.info(
                 f"Invoking SDK function: {function_name} "
@@ -446,6 +456,25 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Step 8: Include trace_id from SDK result for trace linking
             if result.get("trace_id"):
                 mapped_response["trace_id"] = result["trace_id"]
+
+            # Step 9: Backfill mapped I/O into span attributes
+            # The SDK tracer only has access to the raw function return
+            # value, not the response-mapped output.  Merge the mapped
+            # values into the span JSONB so the conversation tab shows
+            # clean, user-facing text.
+            if result.get("trace_id") and endpoint.project_id:
+                from rhesis.backend.app.services.telemetry.conversation_linking import (
+                    backfill_conversation_io,
+                )
+
+                backfill_conversation_io(
+                    db=db,
+                    trace_id=result["trace_id"],
+                    organization_id=str(endpoint.organization_id),
+                    conversation_id=conv_id or "",
+                    mapped_input=str(input_data.get("input", "")) or None,
+                    mapped_output=str(mapped_response.get("output", "")) or None,
+                )
 
             logger.info(
                 f"SDK function {function_name} completed successfully "
