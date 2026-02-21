@@ -37,6 +37,7 @@ export interface TraceSummary {
   trace_id: string;
   project_id: string;
   environment: string;
+  conversation_id?: string;
   start_time: string;
   duration_ms: number;
   span_count: number;
@@ -68,6 +69,7 @@ export interface TraceDetailResponse {
   trace_id: string;
   project_id: string;
   environment: string;
+  conversation_id?: string;
   start_time: string;
   end_time: string;
   duration_ms: number;
@@ -124,6 +126,11 @@ export interface TraceListResponse {
 export type TraceSource = 'all' | 'test' | 'operation';
 
 /**
+ * Trace type filter enum (single-turn vs multi-turn)
+ */
+export type TraceType = 'all' | 'single_turn' | 'multi_turn';
+
+/**
  * Query parameters for list endpoint
  */
 export interface TraceQueryParams {
@@ -140,6 +147,7 @@ export interface TraceQueryParams {
   test_id?: string;
   endpoint_id?: string; // Filter by endpoint ID
   trace_source?: TraceSource; // Filter by trace source (all/test/operation)
+  trace_type?: TraceType; // Filter by trace type (all/single_turn/multi_turn)
   root_spans_only?: boolean; // Return only root spans (defaults to true in backend)
   limit?: number;
   offset?: number;

@@ -11,9 +11,12 @@ from typing import Any
 
 from rhesis.sdk.connector.schemas import TestStatus
 from rhesis.sdk.connector.serializer import TypeSerializer
+from rhesis.sdk.telemetry.constants import ConversationContext as ConvContextConstants
 from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
 from rhesis.sdk.telemetry.context import (
     get_root_trace_id,
+    set_conversation_id,
+    set_conversation_trace_id,
     set_root_trace_id,
     set_test_execution_context,
 )
@@ -162,6 +165,19 @@ class TestExecutor:
                 )
                 set_test_execution_context(test_context)
 
+            # Extract conversation context (internal parameter)
+            conv_context = inputs.pop(ConvContextConstants.CONTEXT_KEY, None)
+            if conv_context:
+                conv_id = conv_context.get(ConvContextConstants.Fields.CONVERSATION_ID)
+                conv_trace = conv_context.get(ConvContextConstants.Fields.TRACE_ID)
+                if conv_id:
+                    set_conversation_id(conv_id)
+                if conv_trace:
+                    set_conversation_trace_id(conv_trace)
+                logger.debug(
+                    f"Conversation context for {function_name}: id={conv_id}, trace_id={conv_trace}"
+                )
+
             try:
                 # Prepare inputs: convert dicts to typed objects based on type hints
                 prepared_inputs = self._prepare_inputs(func, inputs, serializer)
@@ -208,6 +224,8 @@ class TestExecutor:
                 # Clear context after execution
                 set_test_execution_context(None)
                 set_root_trace_id(None)
+                set_conversation_id(None)
+                set_conversation_trace_id(None)
 
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
@@ -215,6 +233,8 @@ class TestExecutor:
             # Clear context on error too
             set_test_execution_context(None)
             set_root_trace_id(None)
+            set_conversation_id(None)
+            set_conversation_trace_id(None)
 
             return {
                 "status": TestStatus.ERROR,

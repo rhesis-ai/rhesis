@@ -100,6 +100,7 @@ async def create_invocation_trace(
     endpoint: Endpoint,
     organization_id: str,
     test_execution_context: Optional[Dict[str, str]] = None,
+    conversation_id: Optional[str] = None,
 ):
     """
     Create a trace span for REST/WebSocket invocations.
@@ -114,6 +115,7 @@ async def create_invocation_trace(
         organization_id: Organization ID
         test_execution_context: Optional dict with test_run_id, test_result_id, test_id,
             test_configuration_id (only present during test execution)
+        conversation_id: Optional conversation ID for multi-turn traces
 
     Yields:
         Dict that executor can update with result data
@@ -123,7 +125,19 @@ async def create_invocation_trace(
             result = await invoker.invoke(...)
             trace_ctx["result"] = result
     """
-    trace_id = generate_trace_id()
+    # If conversation_id is provided, try to reuse existing trace_id
+    from rhesis.backend.app import crud
+
+    existing_trace_id = None
+    if conversation_id and endpoint.project_id:
+        existing_trace_id = crud.get_trace_id_for_conversation(
+            db=db,
+            conversation_id=conversation_id,
+            project_id=str(endpoint.project_id),
+            organization_id=organization_id,
+        )
+
+    trace_id = existing_trace_id or generate_trace_id()
     span_id = generate_span_id()
     start_time = datetime.now(timezone.utc)
 
@@ -181,6 +195,7 @@ async def create_invocation_trace(
             parent_span_id=None,
             project_id=str(endpoint.project_id),
             environment=endpoint.environment or "development",
+            conversation_id=conversation_id,
             span_name=f"function.endpoint_{endpoint.connection_type.lower()}_invoke",
             span_kind=SpanKind.CLIENT,  # Calling external service
             start_time=start_time,

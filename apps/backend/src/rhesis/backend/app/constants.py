@@ -153,6 +153,25 @@ def categorize_test_result_status(status_name: str) -> str:
         return STATUS_CATEGORY_ERROR
 
 
+# OpenTelemetry Semantic Convention attribute keys for AI/LLM spans.
+# See: https://opentelemetry.io/docs/specs/semconv/gen-ai/
+class AISpanAttributes:
+    """Attribute keys stored in Trace.attributes (JSONB)."""
+
+    OPERATION_TYPE = "ai.operation.type"
+    MODEL_NAME = "ai.model.name"
+    TOKENS_TOTAL = "ai.llm.tokens.total"
+
+
+# Keys inside Trace.enriched_data (JSONB) populated by the enrichment service.
+class EnrichedDataKeys:
+    """Top-level and nested keys in Trace.enriched_data."""
+
+    COSTS = "costs"
+    TOTAL_COST_USD = "total_cost_usd"
+    TOTAL_COST_EUR = "total_cost_eur"
+
+
 # Test Execution Context Constants
 class TestExecutionContext:
     """Constants for test execution context injection."""

@@ -96,7 +96,7 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
     }));
   };
 
-  const _handleRefresh = () => {
+  const handleRefresh = () => {
     setRefreshKey(prev => prev + 1);
   };
 
@@ -111,6 +111,7 @@ export default function TracesClient({ sessionToken }: TracesClientProps) {
       <TraceFilters
         filters={filters}
         onFiltersChange={setFilters}
+        onRefresh={handleRefresh}
         sessionToken={sessionToken}
       />
 

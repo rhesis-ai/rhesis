@@ -6,7 +6,7 @@ import json
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
 from sqlalchemy import and_, desc, func, text
@@ -17,7 +17,12 @@ from rhesis.backend.app.constants import TestExecutionContext
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
-from rhesis.backend.app.schemas.telemetry import OTELSpanCreate, StatusCode, TraceSource
+from rhesis.backend.app.schemas.telemetry import (
+    OTELSpanCreate,
+    StatusCode,
+    TraceSource,
+    TraceType,
+)
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
@@ -31,6 +36,18 @@ from rhesis.backend.app.utils.crud_utils import (
 from rhesis.backend.app.utils.name_generator import generate_memorable_name
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.logging import logger
+
+
+class TraceRow(NamedTuple):
+    """A single row returned by query_traces.
+
+    Using a NamedTuple instead of a plain tuple so callers can access fields
+    by name (row.trace, row.span_count, row.total) instead of by index.
+    """
+
+    trace: models.Trace
+    span_count: int
+    total: int
 
 
 # Helper function to print session variables
@@ -3306,6 +3323,7 @@ def create_trace_spans(
             project_id=span.project_id,
             organization_id=organization_id,
             environment=span.environment,
+            conversation_id=span.conversation_id,
             span_name=span.span_name,
             span_kind=span.span_kind.value,
             start_time=span.start_time,
@@ -3381,6 +3399,48 @@ def get_trace_by_id(
     return query.order_by(models.Trace.start_time).all()
 
 
+def get_trace_id_for_conversation(
+    db: Session,
+    conversation_id: str,
+    project_id: str,
+    organization_id: str,
+) -> Optional[str]:
+    """
+    Get the trace_id associated with a conversation.
+
+    Looks up the earliest trace for the given conversation_id
+    to reuse the same trace_id across all turns.
+
+    Args:
+        db: Database session
+        conversation_id: The conversation identifier
+        project_id: Project ID for access control
+        organization_id: Organization ID for multi-tenant security
+
+    Returns:
+        The trace_id string, or None if no trace exists for this conversation
+    """
+    from uuid import UUID
+
+    org_uuid = UUID(organization_id)
+
+    result = (
+        db.query(models.Trace.trace_id)
+        .filter(
+            and_(
+                models.Trace.conversation_id == conversation_id,
+                models.Trace.project_id == project_id,
+                models.Trace.organization_id == org_uuid,
+            )
+        )
+        .order_by(models.Trace.created_at)
+        .limit(1)
+        .first()
+    )
+
+    return result[0] if result else None
+
+
 def get_span_by_id(
     db: Session,
     span_id: str,
@@ -3416,6 +3476,7 @@ def query_traces(
     endpoint_id: Optional[str] = None,
     root_spans_only: bool = True,
     trace_source: TraceSource = TraceSource.ALL,
+    trace_type: TraceType = TraceType.ALL,
     environment: Optional[str] = None,
     span_name: Optional[str] = None,
     status_code: Optional[Union[str, "StatusCode"]] = None,
@@ -3426,33 +3487,24 @@ def query_traces(
     test_run_id: Optional[str] = None,
     test_result_id: Optional[str] = None,
     test_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-) -> List[tuple[models.Trace, int]]:
+) -> List[TraceRow]:
     """
     Query traces with filters and eager load nested relationships.
 
-    Args:
-        db: Database session
-        organization_id: Organization ID for multi-tenant security (required)
-        project_id: Project ID (optional - if not provided, shows all projects for organization)
-        endpoint_id: Endpoint ID (optional - filters traces by endpoint)
-        root_spans_only: If True, returns only root spans (default). If False, returns all spans.
-        trace_source: Filter by trace source (all/test/operation)
-        environment: Filter by environment (optional)
-        span_name: Filter by span name (optional)
-        status_code: Filter by status code (StatusCode enum or string)
-        start_time_after: Filter by start time >= (optional)
-        start_time_before: Filter by start time <= (optional)
-        test_run_id: Filter by test run ID (optional)
-        test_result_id: Filter by test result ID (optional)
-        test_id: Filter by test ID (optional)
-        limit: Maximum results to return
-        offset: Pagination offset
+    Returns a list of TraceRow named tuples, each containing:
+      - trace:      the Trace ORM object
+      - span_count: number of spans belonging to this trace
+      - total:      total matching rows *before* LIMIT/OFFSET (for pagination)
 
-    Returns:
-        List of tuples (Trace model, span_count) matching filters with eager loaded relationships.
-        The span_count is calculated efficiently using a correlated subquery to avoid N+1 queries.
+    The total count is computed via a SQL window function (COUNT(*) OVER())
+    inside the same query, so callers don't need a separate count query.
+
+    When root_spans_only=True, conversation traces that share a trace_id
+    across multiple turns are deduplicated — only the latest turn's root
+    span is returned.
 
     Raises:
         HTTPException: 400 if any UUID parameter is malformed
@@ -3477,12 +3529,11 @@ def query_traces(
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
 
-    # Create correlated subquery to count spans per trace_id
-    # This eliminates the N+1 query pattern by calculating span counts in a single query
-    # Use alias for inner table to properly correlate with outer query
-    # Include organization_id filter for complete tenant isolation (defense-in-depth)
+    # -- Column 1: the Trace object itself (ORM model)
+    # -- Column 2: span_count — how many spans share this trace_id
+    #    Computed as a correlated subquery so we get it in one round-trip.
     InnerTrace = aliased(models.Trace)
-    span_count_subquery = (
+    span_count_col = (
         select(func.count(InnerTrace.id))
         .where(
             and_(
@@ -3493,11 +3544,12 @@ def query_traces(
         .scalar_subquery()
     )
 
-    # Filter by organization_id for multi-tenant security (always required)
-    # Eager load nested relationships for endpoint information
-    # Query returns tuples of (Trace, span_count)
+    # -- Column 3: total — total matching rows *before* LIMIT/OFFSET
+    #    Uses a window function so pagination total comes from the same query.
+    total_col = func.count().over().label("total_count")
+
     query = (
-        db.query(models.Trace, span_count_subquery)
+        db.query(models.Trace, span_count_col, total_col)
         .filter(models.Trace.organization_id == org_uuid)
         .options(
             joinedload(models.Trace.test_result)
@@ -3506,9 +3558,39 @@ def query_traces(
         )
     )
 
-    # Conditionally filter for root spans only
     if root_spans_only:
         query = query.filter(models.Trace.parent_span_id.is_(None))
+
+        # Deduplicate by trace_id.
+        #
+        # Why this is needed: in multi-turn conversations, each turn produces
+        # its own root span, but they all share the same trace_id. Without
+        # dedup, the list would show the same trace once per turn.
+        #
+        # How it works: DISTINCT ON (trace_id) keeps one row per trace_id —
+        # the one with the latest start_time (most recent turn). The result
+        # is a set of row IDs that the outer query filters against.
+        #
+        # The subquery must include the same scoping filters as the outer
+        # query (at minimum project_id) so DISTINCT ON picks a row that
+        # the outer query can actually see.  Without this, a trace_id
+        # shared across projects could cause the selected row to be
+        # filtered out, making the trace disappear from results.
+        dedup_filters = [
+            models.Trace.parent_span_id.is_(None),
+            models.Trace.organization_id == org_uuid,
+        ]
+        if project_id:
+            dedup_filters.append(models.Trace.project_id == project_id)
+
+        latest_root_per_trace = (
+            db.query(models.Trace.id)
+            .filter(*dedup_filters)
+            .distinct(models.Trace.trace_id)
+            .order_by(models.Trace.trace_id, desc(models.Trace.start_time))
+            .subquery()
+        )
+        query = query.filter(models.Trace.id.in_(select(latest_root_per_trace.c.id)))
 
     # Filter by trace source
     if trace_source == TraceSource.TEST:
@@ -3574,7 +3656,17 @@ def query_traces(
     if test_id_uuid:
         query = query.filter(models.Trace.test_id == test_id_uuid)
 
-    return query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
+    if conversation_id:
+        query = query.filter(models.Trace.conversation_id == conversation_id)
+
+    # Trace type filter (single-turn vs multi-turn)
+    if trace_type == TraceType.MULTI_TURN:
+        query = query.filter(models.Trace.conversation_id.isnot(None))
+    elif trace_type == TraceType.SINGLE_TURN:
+        query = query.filter(models.Trace.conversation_id.is_(None))
+
+    results = query.order_by(desc(models.Trace.start_time)).limit(limit).offset(offset).all()
+    return [TraceRow(trace=r[0], span_count=r[1], total=r[2]) for r in results]
 
 
 def get_unprocessed_traces(
@@ -3747,135 +3839,50 @@ def update_traces_with_test_result_id(
     return result
 
 
-def count_traces(
+def update_conversation_id_for_trace(
     db: Session,
+    trace_id: str,
+    conversation_id: str,
     organization_id: str,
-    project_id: Optional[str] = None,
-    endpoint_id: Optional[str] = None,
-    root_spans_only: bool = True,
-    trace_source: TraceSource = TraceSource.ALL,
-    environment: Optional[str] = None,
-    span_name: Optional[str] = None,
-    status_code: Optional[Union[str, "StatusCode"]] = None,
-    start_time_after: Optional[datetime] = None,
-    start_time_before: Optional[datetime] = None,
-    duration_min_ms: Optional[float] = None,
-    duration_max_ms: Optional[float] = None,
-    test_run_id: Optional[str] = None,
-    test_result_id: Optional[str] = None,
-    test_id: Optional[str] = None,
 ) -> int:
     """
-    Count traces matching filters.
+    Retroactively set conversation_id on all spans of a trace.
 
-    Args:
-        db: Database session
-        organization_id: Organization ID for multi-tenant security (required)
-        project_id: Project ID (optional - if not provided, counts all projects for organization)
-        endpoint_id: Endpoint ID (optional - filters traces by endpoint)
-        root_spans_only: If True, counts only root spans (default). If False, counts all spans.
-        trace_source: Filter by trace source (all/test/operation)
-        environment: Filter by environment (optional)
-        span_name: Filter by span name (optional)
-        status_code: Filter by status code (StatusCode enum or string)
-        start_time_after: Filter by start time >= (optional)
-        start_time_before: Filter by start time <= (optional)
-        test_run_id: Filter by test run ID (optional)
-        test_result_id: Filter by test result ID (optional)
-        test_id: Filter by test ID (optional)
+    Used when the first turn of a conversation has no conversation_id
+    at invocation time (stateful endpoints generate the ID in their
+    response). After the response is processed, this function stamps
+    the discovered conversation_id onto the already-stored trace spans.
 
-    Returns:
-        Count of matching traces
+    Only updates spans where conversation_id IS NULL to avoid
+    overwriting intentionally set values.
 
-    Raises:
-        HTTPException: 400 if any UUID parameter is malformed
+    Returns the number of rows updated.
     """
-    from uuid import UUID
-
-    from fastapi import HTTPException
-
-    def validate_uuid_param(value: Optional[str], param_name: str) -> Optional[UUID]:
-        """Validate and convert UUID string, raising HTTPException if invalid."""
-        if not value:
-            return None
-        try:
-            return UUID(value)
-        except (ValueError, TypeError):
-            raise HTTPException(
-                status_code=400, detail=f"Invalid UUID format for {param_name}: {value}"
-            )
-
-    # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
 
-    # Filter by organization_id for multi-tenant security (always required)
-    query = db.query(func.count(models.Trace.id)).filter(models.Trace.organization_id == org_uuid)
-
-    # Conditionally filter for root spans only
-    if root_spans_only:
-        query = query.filter(models.Trace.parent_span_id.is_(None))
-
-    # Filter by trace source
-    if trace_source == TraceSource.TEST:
-        query = query.filter(models.Trace.test_run_id.isnot(None))
-    elif trace_source == TraceSource.OPERATION:
-        query = query.filter(models.Trace.test_run_id.is_(None))
-
-    # Add project_id filter only if specified
-    if project_id:
-        query = query.filter(models.Trace.project_id == project_id)
-
-    # Add endpoint_id filter - join through TestResult -> TestConfiguration -> Endpoint
-    if endpoint_id:
-        endpoint_uuid = validate_uuid_param(endpoint_id, "endpoint_id")
-        if endpoint_uuid:
-            query = (
-                query.join(models.TestResult, models.Trace.test_result_id == models.TestResult.id)
-                .join(
-                    models.TestConfiguration,
-                    models.TestResult.test_configuration_id == models.TestConfiguration.id,
-                )
-                .join(
-                    models.Endpoint,
-                    models.TestConfiguration.endpoint_id == models.Endpoint.id,
-                )
-                .filter(models.Endpoint.id == endpoint_uuid)
+    count = (
+        db.query(models.Trace)
+        .filter(
+            and_(
+                models.Trace.trace_id == trace_id,
+                models.Trace.organization_id == org_uuid,
+                models.Trace.conversation_id.is_(None),
             )
+        )
+        .update(
+            {
+                models.Trace.conversation_id: conversation_id,
+                models.Trace.updated_at: datetime.utcnow(),
+            },
+            synchronize_session=False,
+        )
+    )
 
-    if environment:
-        query = query.filter(models.Trace.environment == environment)
+    db.flush()
 
-    if span_name:
-        query = query.filter(models.Trace.span_name == span_name)
+    logger.debug(
+        f"[TRACE_LINKING] Updated {count} spans with "
+        f"conversation_id={conversation_id} for trace_id={trace_id}"
+    )
 
-    if status_code:
-        # Convert enum to value if needed
-        status_value = status_code.value if isinstance(status_code, Enum) else status_code
-        query = query.filter(models.Trace.status_code == status_value)
-
-    if start_time_after:
-        query = query.filter(models.Trace.start_time >= start_time_after)
-
-    if start_time_before:
-        query = query.filter(models.Trace.start_time <= start_time_before)
-
-    if duration_min_ms is not None:
-        query = query.filter(models.Trace.duration_ms >= duration_min_ms)
-
-    if duration_max_ms is not None:
-        query = query.filter(models.Trace.duration_ms <= duration_max_ms)
-
-    # Test execution filters - validate UUIDs before using
-    test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")
-    if test_run_uuid:
-        query = query.filter(models.Trace.test_run_id == test_run_uuid)
-
-    test_result_uuid = validate_uuid_param(test_result_id, "test_result_id")
-    if test_result_uuid:
-        query = query.filter(models.Trace.test_result_id == test_result_uuid)
-
-    test_id_uuid = validate_uuid_param(test_id, "test_id")
-    if test_id_uuid:
-        query = query.filter(models.Trace.test_id == test_id_uuid)
-
-    return query.scalar()
+    return count

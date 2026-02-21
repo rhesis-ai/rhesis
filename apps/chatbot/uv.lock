@@ -4508,7 +4508,7 @@ requires-dist = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.6.4"
+version = "0.6.5"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },

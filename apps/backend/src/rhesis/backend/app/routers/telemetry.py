@@ -8,15 +8,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.constants import EnrichedDataKeys
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
+    StatusCode,
     TraceDetailResponse,
     TraceIngestResponse,
     TraceListResponse,
     TraceMetricsResponse,
     TraceSource,
     TraceSummary,
+    TraceType,
 )
 from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
 
@@ -99,8 +102,11 @@ async def ingest_trace(
             f"(async: {async_count}, sync: {sync_count})"
         )
 
-        # Try to link traces if they belong to a test execution
+        # Post-ingestion linking: apply deferred links now that spans
+        # are committed.  Each linking step is independent and must not
+        # fail the overall ingestion.
         if stored_spans:
+            # 1. Test-result linking (traces ↔ test results)
             from rhesis.backend.app.services.telemetry.linking_service import (
                 TraceLinkingService,
             )
@@ -116,9 +122,25 @@ async def ingest_trace(
                         f"Linked {linked_count} traces to test result for trace_id={trace_id}"
                     )
             except Exception as link_error:
-                # Don't fail ingestion if linking fails
                 logger.warning(
                     f"Failed to link traces for trace_id={trace_id}: {link_error}",
+                    exc_info=True,
+                )
+
+            # 2. Conversation linking (first-turn conversation_id)
+            from rhesis.backend.app.services.telemetry.conversation_linking import (
+                apply_pending_links,
+            )
+
+            try:
+                conv_linked = apply_pending_links(db, stored_spans)
+                if conv_linked > 0:
+                    logger.info(
+                        f"Applied {conv_linked} pending conversation links for trace_id={trace_id}"
+                    )
+            except Exception as conv_error:
+                logger.warning(
+                    f"Failed to apply conversation links for trace_id={trace_id}: {conv_error}",
                     exc_info=True,
                 )
 
@@ -152,11 +174,19 @@ async def list_traces(
     test_run_id: Optional[str] = Query(None, description="Filter by test run ID"),
     test_result_id: Optional[str] = Query(None, description="Filter by test result ID"),
     test_id: Optional[str] = Query(None, description="Filter by test ID"),
+    conversation_id: Optional[str] = Query(None, description="Filter by conversation ID"),
     trace_source: TraceSource = Query(
         TraceSource.ALL,
         description=(
             "Filter by trace source: 'all' (default), 'test' (test execution traces), "
             "or 'operation' (normal app traces)"
+        ),
+    ),
+    trace_type: TraceType = Query(
+        TraceType.ALL,
+        description=(
+            "Filter: 'all' (default), 'single_turn' (no conversation_id), "
+            "'multi_turn' (has conversation_id)"
         ),
     ),
     root_spans_only: bool = Query(
@@ -202,14 +232,15 @@ async def list_traces(
     organization_id, user_id = tenant_context
 
     try:
-        # Query traces (no default time filter - controlled by frontend)
-        traces = crud.query_traces(
+        # Single DB query returns TraceRow(trace, span_count, total) per row
+        rows = crud.query_traces(
             db=db,
             organization_id=organization_id,
             project_id=project_id,
             endpoint_id=endpoint_id,
             root_spans_only=root_spans_only,
             trace_source=trace_source,
+            trace_type=trace_type,
             environment=environment,
             span_name=span_name,
             status_code=status_code,
@@ -220,45 +251,24 @@ async def list_traces(
             test_run_id=test_run_id,
             test_result_id=test_result_id,
             test_id=test_id,
+            conversation_id=conversation_id,
             limit=limit,
             offset=offset,
         )
 
-        # Get total count for pagination (with same filters as query)
-        total = crud.count_traces(
-            db=db,
-            organization_id=organization_id,
-            project_id=project_id,
-            endpoint_id=endpoint_id,
-            root_spans_only=root_spans_only,
-            trace_source=trace_source,
-            environment=environment,
-            span_name=span_name,
-            status_code=status_code,
-            start_time_after=start_time_after,
-            start_time_before=start_time_before,
-            duration_min_ms=duration_min_ms,
-            duration_max_ms=duration_max_ms,
-            test_run_id=test_run_id,
-            test_result_id=test_result_id,
-            test_id=test_id,
-        )
+        total = rows[0].total if rows else 0
 
-        # Convert to summaries
         summaries = []
-        # Unpack tuple: query_traces now returns (Trace, span_count) to avoid N+1 queries
-        for trace, span_count in traces:
-            # Calculate summary fields
-            has_errors = trace.status_code == "ERROR"
-            total_tokens = trace.attributes.get("ai.llm.tokens.total", 0) if trace.attributes else 0
+        for row in rows:
+            trace = row.trace
+            has_errors = trace.status_code == StatusCode.ERROR.value
+            total_tokens = trace.total_tokens or 0
             total_cost_usd = 0.0
             total_cost_eur = 0.0
-            if trace.enriched_data and "costs" in trace.enriched_data:
-                total_cost_usd = trace.enriched_data["costs"].get("total_cost_usd", 0.0)
-                total_cost_eur = trace.enriched_data["costs"].get("total_cost_eur", 0.0)
-
-            # span_count is already calculated efficiently in the query using a correlated subquery
-            # This eliminates the N+1 query pattern (previously executed a COUNT for each trace)
+            costs = (trace.enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
+            if costs:
+                total_cost_usd = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
+                total_cost_eur = costs.get(EnrichedDataKeys.TOTAL_COST_EUR, 0.0)
 
             # Get endpoint information from eagerly loaded relationships
             trace_endpoint_id = None
@@ -274,11 +284,12 @@ async def list_traces(
 
             summary = TraceSummary(
                 trace_id=trace.trace_id,
-                project_id=str(trace.project_id),  # Convert UUID to string
+                project_id=str(trace.project_id),
                 environment=trace.environment,
+                conversation_id=trace.conversation_id,
                 start_time=trace.start_time,
                 duration_ms=trace.duration_ms or 0.0,
-                span_count=span_count,  # Now reflects actual count
+                span_count=row.span_count,
                 root_operation=trace.span_name,
                 status_code=trace.status_code,
                 test_run_id=str(trace.test_run_id) if trace.test_run_id else None,
@@ -294,8 +305,7 @@ async def list_traces(
             summaries.append(summary)
 
         logger.info(
-            f"Listed {len(traces)} traces for project {project_id} "
-            f"(total: {total}, offset: {offset})"
+            f"Listed {len(rows)} traces for project {project_id} (total: {total}, offset: {offset})"
         )
 
         return TraceListResponse(
@@ -405,16 +415,14 @@ async def get_trace(
         total_duration = max(span.end_time for span in spans) - min(
             span.start_time for span in spans
         )
-        total_tokens = sum(
-            span.attributes.get("ai.llm.tokens.total", 0) if span.attributes else 0
-            for span in spans
-        )
-        error_count = sum(1 for span in spans if span.status_code == "ERROR")
+        total_tokens = sum(span.total_tokens or 0 for span in spans)
+        error_count = sum(1 for span in spans if span.status_code == StatusCode.ERROR.value)
 
         # Extract costs from enriched data
         total_cost = 0.0
-        if spans[0].enriched_data and "costs" in spans[0].enriched_data:
-            total_cost = spans[0].enriched_data["costs"].get("total_cost_usd", 0.0)
+        costs = (spans[0].enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
+        if costs:
+            total_cost = costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
 
         # Build relationship objects from first span
         from rhesis.backend.app.schemas.endpoint import Endpoint
@@ -458,12 +466,22 @@ async def get_trace(
         if first_span.test:
             test_obj = Test.model_validate(first_span.test)
 
+        # Resolve conversation_id: the first span (earliest by start_time)
+        # may have conversation_id=NULL when the first turn of a stateful
+        # endpoint was stored before the ID was known.  Scan all spans so
+        # the detail view matches the list view (which uses the latest span).
+        trace_conversation_id = next(
+            (s.conversation_id for s in spans if s.conversation_id),
+            None,
+        )
+
         logger.info(f"Retrieved trace {trace_id} with {len(spans)} span(s)")
 
         return TraceDetailResponse(
             trace_id=first_span.trace_id,
             project_id=str(first_span.project_id),  # Convert UUID to string
             environment=first_span.environment,
+            conversation_id=trace_conversation_id,
             start_time=min(span.start_time for span in spans),
             end_time=max(span.end_time for span in spans),
             duration_ms=total_duration.total_seconds() * 1000,
@@ -559,8 +577,8 @@ async def get_metrics(
             offset=0,
         )
 
-        # Extract just the Trace objects (discard span_count since metrics recalculate)
-        spans = [trace for trace, _ in spans_with_counts]
+        # Extract just the Trace objects (discard span_count and total)
+        spans = [row.trace for row in spans_with_counts]
 
         if not spans:
             return TraceMetricsResponse(
@@ -582,19 +600,17 @@ async def get_metrics(
         total_spans = len(spans)
 
         # Calculate token metrics (LLM spans only)
-        total_tokens = sum(
-            span.attributes.get("ai.llm.tokens.total", 0) if span.attributes else 0
-            for span in spans
-        )
+        total_tokens = sum(span.total_tokens or 0 for span in spans)
 
         # Calculate cost metrics
         total_cost = 0.0
         for span in spans:
-            if span.enriched_data and "costs" in span.enriched_data:
-                total_cost += span.enriched_data["costs"].get("total_cost_usd", 0.0)
+            costs = (span.enriched_data or {}).get(EnrichedDataKeys.COSTS, {})
+            if costs:
+                total_cost += costs.get(EnrichedDataKeys.TOTAL_COST_USD, 0.0)
 
         # Calculate error rate
-        error_count = sum(1 for span in spans if span.status_code == "ERROR")
+        error_count = sum(1 for span in spans if span.status_code == StatusCode.ERROR.value)
         error_rate = error_count / total_spans if total_spans > 0 else 0
 
         # Calculate latency percentiles
@@ -615,11 +631,7 @@ async def get_metrics(
         # Operation type breakdown
         operation_breakdown = {}
         for span in spans:
-            op_type = (
-                span.attributes.get("ai.operation.type", "unknown")
-                if span.attributes
-                else "unknown"
-            )
+            op_type = span.operation_type or "unknown"
             operation_breakdown[op_type] = operation_breakdown.get(op_type, 0) + 1
 
         logger.info(f"Calculated metrics for project {project_id}")

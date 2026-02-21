@@ -107,6 +107,9 @@ class OTELSpan(BaseModel):
     # Rhesis context
     project_id: Optional[str] = Field(None, description="Rhesis project ID")
     environment: str = Field("development", description="Environment name")
+    conversation_id: Optional[str] = Field(
+        None, description="Conversation ID for multi-turn traces"
+    )
 
     # Span metadata
     span_name: str = Field(

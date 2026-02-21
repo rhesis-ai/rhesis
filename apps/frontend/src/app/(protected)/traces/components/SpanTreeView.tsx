@@ -12,22 +12,29 @@ interface SpanTreeViewProps {
   spans: SpanNode[];
   selectedSpan: SpanNode | null;
   onSpanSelect: (span: SpanNode) => void;
+  isConversationTrace?: boolean;
 }
 
 export default function SpanTreeView({
   spans,
   selectedSpan,
   onSpanSelect,
+  isConversationTrace,
 }: SpanTreeViewProps) {
   return (
     <Box>
-      {spans.map(span => (
+      {spans.map((span, index) => (
         <SpanTreeNode
           key={span.span_id}
           span={span}
           selectedSpan={selectedSpan}
           onSpanSelect={onSpanSelect}
           level={0}
+          turnLabel={
+            isConversationTrace && spans.length > 1
+              ? `Turn ${index + 1}`
+              : undefined
+          }
         />
       ))}
     </Box>
@@ -39,6 +46,7 @@ interface SpanTreeNodeProps {
   selectedSpan: SpanNode | null;
   onSpanSelect: (span: SpanNode) => void;
   level: number;
+  turnLabel?: string;
 }
 
 /**
@@ -75,6 +83,7 @@ function SpanTreeNode({
   selectedSpan,
   onSpanSelect,
   level,
+  turnLabel,
 }: SpanTreeNodeProps) {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = span.children && span.children.length > 0;
@@ -141,6 +150,22 @@ function SpanTreeNode({
             flexShrink: 0,
           }}
         />
+
+        {/* Turn Label (for conversation traces) */}
+        {turnLabel && (
+          <Chip
+            label={turnLabel}
+            size="small"
+            color="primary"
+            variant="outlined"
+            sx={{
+              height: theme => theme.spacing(2.5),
+              fontSize: theme => theme.typography.caption.fontSize,
+              mr: 1,
+              flexShrink: 0,
+            }}
+          />
+        )}
 
         {/* Span Name and Duration */}
         <Box sx={{ flex: 1, minWidth: 0 }}>

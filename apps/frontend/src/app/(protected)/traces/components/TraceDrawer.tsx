@@ -20,11 +20,13 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import HubIcon from '@mui/icons-material/Hub';
+import ForumIcon from '@mui/icons-material/Forum';
 import Link from 'next/link';
 import SpanTreeView from './SpanTreeView';
 import SpanSequenceView from './SpanSequenceView';
 import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
+import ConversationTraceView from './ConversationTraceView';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -53,6 +55,10 @@ export default function TraceDrawer({
   const [error, setError] = useState<string | null>(null);
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
   const [viewTab, setViewTab] = useState<number>(0);
+
+  // Resizable drawer width state
+  const [drawerWidth, setDrawerWidth] = useState(60); // viewport percentage
+  const [isResizingDrawer, setIsResizingDrawer] = useState(false);
 
   // Resizable split pane state
   const [leftPanelWidth, setLeftPanelWidth] = useState(60); // percentage
@@ -134,12 +140,31 @@ export default function TraceDrawer({
     setIsDragging(false);
   }, []);
 
-  // Add/remove mouse event listeners for dragging
+  // Drawer resize handlers
+  const handleDrawerResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingDrawer(true);
+  }, []);
+
+  const handleDrawerResizeMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizingDrawer) return;
+      const newWidth =
+        ((window.innerWidth - e.clientX) / window.innerWidth) * 100;
+      setDrawerWidth(Math.min(Math.max(newWidth, 30), 95));
+    },
+    [isResizingDrawer]
+  );
+
+  const handleDrawerResizeEnd = useCallback(() => {
+    setIsResizingDrawer(false);
+  }, []);
+
+  // Add/remove mouse event listeners for split pane dragging
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
-      // Prevent text selection while dragging
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'col-resize';
     }
@@ -147,10 +172,36 @@ export default function TraceDrawer({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
+      if (!isResizingDrawer) {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      }
     };
-  }, [isDragging, handleMouseMove, handleMouseUp]);
+  }, [isDragging, handleMouseMove, handleMouseUp, isResizingDrawer]);
+
+  // Add/remove mouse event listeners for drawer width resizing
+  useEffect(() => {
+    if (isResizingDrawer) {
+      document.addEventListener('mousemove', handleDrawerResizeMove);
+      document.addEventListener('mouseup', handleDrawerResizeEnd);
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'ew-resize';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleDrawerResizeMove);
+      document.removeEventListener('mouseup', handleDrawerResizeEnd);
+      if (!isDragging) {
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+      }
+    };
+  }, [
+    isResizingDrawer,
+    handleDrawerResizeMove,
+    handleDrawerResizeEnd,
+    isDragging,
+  ]);
 
   const drawerContent = () => {
     if (loading) {
@@ -331,111 +382,156 @@ export default function TraceDrawer({
             }}
           >
             {/* Tabs Header */}
-            <Box
-              sx={{
-                borderBottom: 1,
-                borderColor: 'divider',
-                px: theme => theme.spacing(2),
-                pt: theme => theme.spacing(2),
-                pb: theme => theme.spacing(2),
-                mb: theme => theme.spacing(1),
-              }}
-            >
-              <Tabs
-                value={viewTab}
-                onChange={(_, newValue) => setViewTab(newValue)}
-                aria-label="span hierarchy tabs"
-                variant="scrollable"
-                scrollButtons="auto"
-                sx={{
-                  minHeight: 'auto',
-                  '& .MuiTab-root': {
-                    minHeight: 'auto',
-                    fontSize: theme => theme.typography.subtitle2.fontSize,
-                    fontWeight: theme => theme.typography.subtitle2.fontWeight,
-                    textTransform: 'none',
-                    py: theme => theme.spacing(1.25),
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'flex-start',
-                    backgroundColor: 'transparent !important',
-                    color: theme => theme.palette.text.secondary,
-                    '& .MuiSvgIcon-root': {
-                      color: 'inherit',
-                    },
-                    '&.Mui-selected': {
-                      backgroundColor: 'transparent !important',
-                      color: theme => theme.palette.text.primary,
-                      '& .MuiSvgIcon-root': {
-                        color: theme => theme.palette.text.primary,
-                      },
-                    },
-                    '&:hover': {
-                      backgroundColor: 'transparent !important',
-                    },
-                  },
-                  '& .MuiTabs-indicator': {
-                    display: 'none',
-                  },
-                  '& .MuiTabs-flexContainer': {
-                    backgroundColor: 'transparent',
-                  },
-                }}
-              >
-                <Tab
-                  icon={<AccountTreeIcon fontSize="small" />}
-                  iconPosition="start"
-                  label="Tree View"
-                  id="span-hierarchy-tab-0"
-                  aria-controls="span-hierarchy-tabpanel-0"
-                />
-                <Tab
-                  icon={<TimelineIcon fontSize="small" />}
-                  iconPosition="start"
-                  label="Sequence View"
-                  id="span-hierarchy-tab-1"
-                  aria-controls="span-hierarchy-tabpanel-1"
-                />
-                <Tab
-                  icon={<HubIcon fontSize="small" />}
-                  iconPosition="start"
-                  label="Graph View"
-                  id="span-hierarchy-tab-2"
-                  aria-controls="span-hierarchy-tabpanel-2"
-                />
-              </Tabs>
-            </Box>
+            {(() => {
+              const showConversationTab =
+                !!trace.conversation_id && !!trace.test_result;
+              const tabOffset = showConversationTab ? 1 : 0;
+              const isConversationTrace = !!trace.conversation_id;
+              const treeTabIndex = 0 + tabOffset;
+              const sequenceTabIndex = 1 + tabOffset;
+              const graphTabIndex = 2 + tabOffset;
 
-            {/* Tab Content */}
-            <Box
-              sx={{
-                flex: 1,
-                overflow: viewTab === 0 ? 'auto' : 'hidden',
-                p: viewTab === 0 ? theme => theme.spacing(2) : 0,
-              }}
-            >
-              {viewTab === 0 && (
-                <SpanTreeView
-                  spans={trace.root_spans}
-                  selectedSpan={selectedSpan}
-                  onSpanSelect={handleSpanSelect}
-                />
-              )}
-              {viewTab === 1 && (
-                <SpanSequenceView
-                  spans={trace.root_spans}
-                  selectedSpan={selectedSpan}
-                  onSpanSelect={handleSpanSelect}
-                />
-              )}
-              {viewTab === 2 && (
-                <SpanGraphView
-                  spans={trace.root_spans}
-                  selectedSpan={selectedSpan}
-                  onSpanSelect={handleSpanSelect}
-                />
-              )}
-            </Box>
+              return (
+                <>
+                  <Box
+                    sx={{
+                      borderBottom: 1,
+                      borderColor: 'divider',
+                      px: theme => theme.spacing(2),
+                      pt: theme => theme.spacing(2),
+                      pb: theme => theme.spacing(2),
+                      mb: theme => theme.spacing(1),
+                    }}
+                  >
+                    <Tabs
+                      value={viewTab}
+                      onChange={(_, newValue) => setViewTab(newValue)}
+                      aria-label="span hierarchy tabs"
+                      variant="scrollable"
+                      scrollButtons="auto"
+                      sx={{
+                        minHeight: 'auto',
+                        '& .MuiTab-root': {
+                          minHeight: 'auto',
+                          fontSize: theme =>
+                            theme.typography.subtitle2.fontSize,
+                          fontWeight: theme =>
+                            theme.typography.subtitle2.fontWeight,
+                          textTransform: 'none',
+                          py: theme => theme.spacing(1.25),
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'flex-start',
+                          backgroundColor: 'transparent !important',
+                          color: theme => theme.palette.text.secondary,
+                          '& .MuiSvgIcon-root': {
+                            color: 'inherit',
+                          },
+                          '&.Mui-selected': {
+                            backgroundColor: 'transparent !important',
+                            color: theme => theme.palette.text.primary,
+                            '& .MuiSvgIcon-root': {
+                              color: theme => theme.palette.text.primary,
+                            },
+                          },
+                          '&:hover': {
+                            backgroundColor: 'transparent !important',
+                          },
+                        },
+                        '& .MuiTabs-indicator': {
+                          display: 'none',
+                        },
+                        '& .MuiTabs-flexContainer': {
+                          backgroundColor: 'transparent',
+                        },
+                      }}
+                    >
+                      {showConversationTab && (
+                        <Tab
+                          icon={<ForumIcon fontSize="small" />}
+                          iconPosition="start"
+                          label="Conversation"
+                          id="span-hierarchy-tab-conversation"
+                          aria-controls="span-hierarchy-tabpanel-conversation"
+                        />
+                      )}
+                      <Tab
+                        icon={<AccountTreeIcon fontSize="small" />}
+                        iconPosition="start"
+                        label="Tree View"
+                        id="span-hierarchy-tab-tree"
+                        aria-controls="span-hierarchy-tabpanel-tree"
+                      />
+                      <Tab
+                        icon={<TimelineIcon fontSize="small" />}
+                        iconPosition="start"
+                        label="Sequence View"
+                        id="span-hierarchy-tab-sequence"
+                        aria-controls="span-hierarchy-tabpanel-sequence"
+                      />
+                      <Tab
+                        icon={<HubIcon fontSize="small" />}
+                        iconPosition="start"
+                        label="Graph View"
+                        id="span-hierarchy-tab-graph"
+                        aria-controls="span-hierarchy-tabpanel-graph"
+                      />
+                    </Tabs>
+                  </Box>
+
+                  {/* Tab Content */}
+                  <Box
+                    sx={{
+                      flex: 1,
+                      overflow:
+                        viewTab === treeTabIndex ||
+                        (showConversationTab && viewTab === 0)
+                          ? 'auto'
+                          : 'hidden',
+                      p:
+                        viewTab === treeTabIndex
+                          ? theme => theme.spacing(2)
+                          : 0,
+                    }}
+                  >
+                    {showConversationTab && viewTab === 0 && (
+                      <ConversationTraceView
+                        trace={trace}
+                        sessionToken={sessionToken}
+                        onSpanSelect={handleSpanSelect}
+                        rootSpans={trace.root_spans}
+                      />
+                    )}
+                    {viewTab === treeTabIndex && (
+                      <SpanTreeView
+                        spans={trace.root_spans}
+                        selectedSpan={selectedSpan}
+                        onSpanSelect={handleSpanSelect}
+                        isConversationTrace={isConversationTrace}
+                      />
+                    )}
+                    {viewTab === sequenceTabIndex && (
+                      <SpanSequenceView
+                        spans={trace.root_spans}
+                        selectedSpan={selectedSpan}
+                        onSpanSelect={handleSpanSelect}
+                        isConversationTrace={isConversationTrace}
+                        rootSpans={trace.root_spans}
+                      />
+                    )}
+                    {viewTab === graphTabIndex && (
+                      <SpanGraphView
+                        spans={trace.root_spans}
+                        selectedSpan={selectedSpan}
+                        onSpanSelect={handleSpanSelect}
+                        isConversationTrace={isConversationTrace}
+                        rootSpans={trace.root_spans}
+                      />
+                    )}
+                  </Box>
+                </>
+              );
+            })()}
           </Box>
 
           {/* Draggable Divider */}
@@ -489,11 +585,43 @@ export default function TraceDrawer({
     <BaseDrawer
       open={open}
       onClose={onClose}
-      width="60%"
+      width={`${drawerWidth}%`}
       showHeader={false}
       closeButtonText="Close"
     >
-      {drawerContent()}
+      <Box sx={{ position: 'relative', height: '100%' }}>
+        {/* Drawer width resize handle */}
+        <Box
+          onMouseDown={handleDrawerResizeStart}
+          sx={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: theme => theme.spacing(0.75),
+            cursor: 'ew-resize',
+            zIndex: 10,
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: theme => theme.spacing(0.375),
+              backgroundColor: theme =>
+                isResizingDrawer ? theme.palette.primary.main : 'transparent',
+              transition: theme =>
+                isResizingDrawer
+                  ? 'none'
+                  : theme.transitions.create('background-color'),
+            },
+            '&:hover::after': {
+              backgroundColor: theme => theme.palette.primary.main,
+            },
+          }}
+        />
+        {drawerContent()}
+      </Box>
     </BaseDrawer>
   );
 }

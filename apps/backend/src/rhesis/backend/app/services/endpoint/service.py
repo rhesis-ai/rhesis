@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app import crud
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import (
     EndpointAuthType,
@@ -166,6 +167,16 @@ class EndpointService:
                     endpoint=endpoint,
                 )
 
+            # Determine conversation_id for trace linking
+            # Check all recognized conversation field names (session_id,
+            # thread_id, etc.) since different endpoints use different names
+            trace_conversation_id = stateless_conversation_id
+            if not trace_conversation_id:
+                for field_name in CONVERSATION_FIELD_NAMES:
+                    if field_name in input_data and input_data[field_name]:
+                        trace_conversation_id = input_data[field_name]
+                        break
+
             # Check if invoker needs explicit tracing (REST/WebSocket)
             if not invoker.automatic_tracing:
                 # Import here to avoid circular imports
@@ -175,7 +186,11 @@ class EndpointService:
 
                 # Wrap invocation with trace creation
                 async with create_invocation_trace(
-                    db, endpoint, organization_id, test_execution_context
+                    db,
+                    endpoint,
+                    organization_id,
+                    test_execution_context,
+                    conversation_id=trace_conversation_id,
                 ) as trace_ctx:
                     result = await invoker.invoke(
                         db, endpoint, enriched_input_data, test_execution_context
@@ -230,6 +245,43 @@ class EndpointService:
                 incoming_cid = input_data.get("conversation_id")
                 if incoming_cid:
                     result["conversation_id"] = incoming_cid
+
+            # -------------------------------------------------------
+            # First-turn trace linking
+            # -------------------------------------------------------
+            # For stateful endpoints, the first turn has no
+            # conversation_id at invocation time — the endpoint
+            # generates it in its response.  Now that we know the
+            # conversation_id from the response, stamp it onto the
+            # trace so future turns can find and reuse its trace_id.
+            if not trace_conversation_id and isinstance(result, dict) and result.get("trace_id"):
+                response_conv_id = None
+                for field_name in CONVERSATION_FIELD_NAMES:
+                    if field_name in result and result[field_name]:
+                        response_conv_id = result[field_name]
+                        break
+
+                if response_conv_id:
+                    count = crud.update_conversation_id_for_trace(
+                        db=db,
+                        trace_id=result["trace_id"],
+                        conversation_id=response_conv_id,
+                        organization_id=organization_id,
+                    )
+                    if count == 0:
+                        # SDK endpoints export spans asynchronously —
+                        # the spans may not have arrived yet.  Park
+                        # the link so ingest_trace() can apply it
+                        # when the spans are stored.
+                        from rhesis.backend.app.services.telemetry.conversation_linking import (
+                            register_pending_link,
+                        )
+
+                        register_pending_link(
+                            trace_id=result["trace_id"],
+                            conversation_id=response_conv_id,
+                            organization_id=organization_id,
+                        )
 
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")
             return result
