@@ -137,7 +137,10 @@ export default async function sitemap() {
 
   if (!contentDir) {
     // eslint-disable-next-line no-console
-    console.warn('Content directory not found, generating minimal sitemap')
+    console.warn(
+      'Content directory not found; sitemap will include base URL and glossary ' +
+        'URLs if glossary-terms.jsonl is present in any candidate path'
+    )
     sitemapEntries.push({
       url: baseUrl,
       lastModified: new Date(),
