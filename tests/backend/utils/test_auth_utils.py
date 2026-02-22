@@ -157,6 +157,7 @@ class TestVerifyJwtToken:
                 algorithms=["HS256"],
                 options={
                     "verify_exp": True,
+                    "verify_iat": True,
                     "require": ["exp", "iat"],
                 },
             )
