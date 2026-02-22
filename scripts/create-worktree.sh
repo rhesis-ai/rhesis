@@ -225,6 +225,24 @@ worktree_create() {
     if [ "$env_count" -eq 0 ]; then
         echo -e "  ${BLUE}No .env files found in source, skipping${NC}"
     fi
+    echo ""
+
+    # Symlink Claude Code settings.local.json
+    echo -e "${YELLOW}Symlinking Claude Code settings...${NC}"
+    if [ -f "$SOURCE_DIR/.claude/settings.local.json" ]; then
+        mkdir -p "$worktree_dir/.claude"
+        if [ -f "$worktree_dir/.claude/settings.local.json" ] && [ ! -L "$worktree_dir/.claude/settings.local.json" ]; then
+            rm "$worktree_dir/.claude/settings.local.json"
+        fi
+        if ln -sf "$SOURCE_DIR/.claude/settings.local.json" "$worktree_dir/.claude/settings.local.json" 2>/dev/null; then
+            symlink_count=$((symlink_count + 1))
+            echo -e "  ${GREEN}.claude/settings.local.json${NC}"
+        else
+            echo -e "  ${YELLOW}.claude/settings.local.json (failed to create symlink, skipping)${NC}"
+        fi
+    else
+        echo -e "  ${BLUE}.claude/settings.local.json not found in source, skipping${NC}"
+    fi
 
     # Summary
     echo ""
