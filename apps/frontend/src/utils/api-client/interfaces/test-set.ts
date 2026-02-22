@@ -231,6 +231,7 @@ export interface TestData {
 // Bulk test set creation request
 export interface TestSetBulkCreate {
   name: string;
+  test_set_type: string;
   description?: string;
   short_description?: string;
   owner_id?: UUID;

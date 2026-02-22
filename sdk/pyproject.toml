@@ -40,7 +40,7 @@ dependencies = [
     "deepteam>=0.2.5",
     "langchain-google-genai>=2.1.12",
     "ragas>=0.3.7",
-    "mcp>=1.2.0",
+    "mcp>=1.23.0",
     "websockets>=12.0",
     "ipython>=8.37.0",
     "ipykernel>=7.1.0",
@@ -51,7 +51,12 @@ dependencies = [
     "aiohttp_security",
     "aiohttp_session",
     "appdirs",
-    "cryptography",
+    "cryptography>=46.0.5",
+    "pillow>=12.1.1",
+    "marshmallow>=3.26.2",
+    "mammoth>=1.11.0",
+    # NOTE: diskcache has unsafe pickle deserialization (CVE-2025-69872).
+    # No patch available. Ensure only trusted data is cached.
     "diskcache",
     "nest_asyncio",
     "numpy",
@@ -86,13 +91,14 @@ garak = [
 # Framework integrations for auto-instrumentation
 langchain = [
     "langchain>=0.1.0",
-    "langchain-core>=1.2.5",
+    "langchain-core>=1.2.11",
 ]
 
 langgraph = [
     "langgraph>=0.0.26",
+    "langgraph-checkpoint>=3.0.0",
     "langchain>=0.1.0",
-    "langchain-core>=1.2.5",
+    "langchain-core>=1.2.11",
 ]
 
 autogen = [
@@ -101,8 +107,9 @@ autogen = [
 
 all-integrations = [
     "langchain>=0.1.0",
-    "langchain-core>=1.2.5",
+    "langchain-core>=1.2.11",
     "langgraph>=0.0.26",
+    "langgraph-checkpoint>=3.0.0",
     "pyautogen>=0.2.0",
 ]
 
@@ -113,8 +120,9 @@ all = [
     "bitsandbytes>=0.45.0",
     "lm-format-enforcer>=0.10.0",
     "langchain>=0.1.0",
-    "langchain-core>=1.2.5",
+    "langchain-core>=1.2.11",
     "langgraph>=0.0.26",
+    "langgraph-checkpoint>=3.0.0",
     "pyautogen>=0.2.0",
 ]
 [dependency-groups]
@@ -137,6 +145,7 @@ dev = [
     "psycopg2-binary==2.9.9", # to match the version in the backend
     "pytest-cov>=7.0.0",
     "garak>=0.9.0.4",
+    "virtualenv>=20.36.1",
 ]
 
 [build-system]

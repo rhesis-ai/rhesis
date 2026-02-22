@@ -869,6 +869,7 @@ def test_test_set_push(db_cleanup):
         name="Test Push Test Set",
         description="Test set for push testing",
         short_description="Push test",
+        test_set_type=TestType.SINGLE_TURN,
         tests=[
             Test(
                 category="Safety",
@@ -904,6 +905,7 @@ def test_test_set_push_pull(db_cleanup):
         name="Test Push Pull Test Set",
         description="Test set for push/pull testing",
         short_description="Push/pull test",
+        test_set_type=TestType.SINGLE_TURN,
         tests=[
             Test(
                 category="Accuracy",
@@ -956,6 +958,7 @@ def test_test_set_pull_without_tests(db_cleanup):
         name="Test Pull Without Tests",
         description="Test set for pull without tests testing",
         short_description="No tests pull",
+        test_set_type=TestType.SINGLE_TURN,
         tests=[
             Test(
                 category="Safety",
@@ -990,6 +993,7 @@ def test_test_set_fetch_tests(db_cleanup):
         name="Test Fetch Tests",
         description="Test set for fetch_tests testing",
         short_description="Fetch tests",
+        test_set_type=TestType.SINGLE_TURN,
         tests=[
             Test(
                 category="Robustness",

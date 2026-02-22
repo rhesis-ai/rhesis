@@ -748,6 +748,18 @@ class TestSet(BaseEntity):
         # Remove None values for cleaner output
         return {k: v for k, v in test_data.items() if v is not None}
 
+    @staticmethod
+    def _infer_test_set_type(tests: List[Test]) -> TestType:
+        """Infer the test set type from the tests.
+
+        Returns MULTI_TURN if any test has test_type == MULTI_TURN,
+        otherwise SINGLE_TURN.
+        """
+        for test in tests:
+            if test.test_type == TestType.MULTI_TURN:
+                return TestType.MULTI_TURN
+        return TestType.SINGLE_TURN
+
     @classmethod
     def _dict_to_test(cls, entry: Dict[str, Any]) -> Optional[Test]:
         """Convert a dictionary entry to a Test object.
@@ -992,6 +1004,7 @@ class TestSet(BaseEntity):
             name=name,
             description=description,
             short_description=short_description,
+            test_set_type=cls._infer_test_set_type(tests),
             tests=tests,
             test_count=len(tests),
         )
@@ -1072,6 +1085,7 @@ class TestSet(BaseEntity):
             name=name,
             description=description,
             short_description=short_description,
+            test_set_type=cls._infer_test_set_type(tests),
             tests=tests,
             test_count=len(tests),
         )
@@ -1145,6 +1159,7 @@ class TestSet(BaseEntity):
             name=name,
             description=description,
             short_description=short_description,
+            test_set_type=cls._infer_test_set_type(tests),
             tests=tests,
             test_count=len(tests),
         )

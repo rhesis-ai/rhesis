@@ -510,9 +510,9 @@ class TestAuthLogout:
     def test_logout_with_invalid_session_token(self, client: TestClient):
         """Test logout continues even with invalid session token"""
         with patch("rhesis.backend.app.routers.auth.verify_jwt_token") as mock_verify:
-            from jose import JWTError
+            from jwt import PyJWTError
 
-            mock_verify.side_effect = JWTError("Invalid token")
+            mock_verify.side_effect = PyJWTError("Invalid token")
 
             with patch.dict(os.environ, {"FRONTEND_URL": "http://localhost:3000"}):
                 response = client.get("/auth/logout?session_token=invalid_token")
@@ -595,9 +595,9 @@ class TestAuthVerify:
         """Test verification of invalid JWT token"""
         with patch("rhesis.backend.app.routers.auth.verify_jwt_token") as mock_verify:
             with patch("rhesis.backend.app.routers.auth.get_secret_key") as mock_secret:
-                from jose import JWTError
+                from jwt import PyJWTError
 
-                mock_verify.side_effect = JWTError("Invalid token")
+                mock_verify.side_effect = PyJWTError("Invalid token")
                 mock_secret.return_value = "test_secret"
 
                 response = client.post(
@@ -612,9 +612,9 @@ class TestAuthVerify:
         """Test verification of expired JWT token"""
         with patch("rhesis.backend.app.routers.auth.verify_jwt_token") as mock_verify:
             with patch("rhesis.backend.app.routers.auth.get_secret_key") as mock_secret:
-                from jose import JWTError
+                import jwt
 
-                mock_verify.side_effect = JWTError("Expired token")
+                mock_verify.side_effect = jwt.ExpiredSignatureError("Signature has expired")
                 mock_secret.return_value = "test_secret"
 
                 response = client.post(
@@ -1214,7 +1214,7 @@ class TestAuthExchangeCode:
         """Exchange an expired auth code returns 400."""
         from datetime import datetime, timedelta, timezone
 
-        from jose import jwt
+        import jwt
 
         payload = {
             "type": "auth_code",
