@@ -51,7 +51,7 @@ dependencies = [
     "aiohttp_security",
     "aiohttp_session",
     "appdirs",
-    "cryptography",
+    "cryptography>=46.0.5",
     "diskcache",
     "nest_asyncio",
     "numpy",
