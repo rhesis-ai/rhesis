@@ -211,9 +211,9 @@ class TestTraceListEndpoint:
         """
         Test that pagination total count respects filters.
 
-        This test verifies the fix for the issue where count_traces was missing
-        environment, span_name, and status_code filters, causing incorrect total
-        counts when those filters were applied.
+        This test verifies that the pagination total (computed via window
+        function in query_traces) correctly respects filters like
+        environment, span_name, and status_code.
         """
         # Create traces with different characteristics
         # 3 development + 3 production traces
@@ -1110,16 +1110,12 @@ class TestCrossOrganizationSecurity:
         assert traces[0].organization_id == org_id
 
         # Test query_traces requires organization_id
-        traces_with_counts = crud.query_traces(
-            test_db, project_id=project_id, organization_id=str(org_id)
-        )
-        assert len(traces_with_counts) >= 1
-        # query_traces now returns tuples of (Trace, span_count)
-        assert all(trace.organization_id == org_id for trace, _ in traces_with_counts)
-
-        # Test count_traces requires organization_id
-        count = crud.count_traces(test_db, project_id=project_id, organization_id=str(org_id))
-        assert count >= 1
+        rows = crud.query_traces(test_db, project_id=project_id, organization_id=str(org_id))
+        assert len(rows) >= 1
+        # query_traces returns TraceRow(trace, span_count, total)
+        assert all(row.trace.organization_id == org_id for row in rows)
+        # Total count is embedded in each row via window function
+        assert rows[0].total >= 1
 
     @pytest.mark.skip(reason="Complex auth setup needed - core security verified by existing tests")
     def test_cannot_access_trace_from_different_organization(self, test_db, client: TestClient):

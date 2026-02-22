@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -59,6 +59,18 @@ export default function TraceDrawer({
   // Resizable drawer width state
   const [drawerWidth, setDrawerWidth] = useState(60); // viewport percentage
   const [isResizingDrawer, setIsResizingDrawer] = useState(false);
+
+  // Tab index computation for optional conversation tab
+  const showConversationTab = !!trace?.conversation_id;
+  const isConversationTrace = showConversationTab;
+  const tabIndices = useMemo(() => {
+    const offset = showConversationTab ? 1 : 0;
+    return {
+      tree: 0 + offset,
+      sequence: 1 + offset,
+      graph: 2 + offset,
+    };
+  }, [showConversationTab]);
 
   // Resizable split pane state
   const [leftPanelWidth, setLeftPanelWidth] = useState(60); // percentage
@@ -382,155 +394,142 @@ export default function TraceDrawer({
             }}
           >
             {/* Tabs Header */}
-            {(() => {
-              const showConversationTab = !!trace.conversation_id;
-              const tabOffset = showConversationTab ? 1 : 0;
-              const isConversationTrace = !!trace.conversation_id;
-              const treeTabIndex = 0 + tabOffset;
-              const sequenceTabIndex = 1 + tabOffset;
-              const graphTabIndex = 2 + tabOffset;
+            <Box
+              sx={{
+                borderBottom: 1,
+                borderColor: 'divider',
+                px: theme => theme.spacing(2),
+                pt: theme => theme.spacing(2),
+                pb: theme => theme.spacing(2),
+                mb: theme => theme.spacing(1),
+              }}
+            >
+              <Tabs
+                value={viewTab}
+                onChange={(_, newValue) => setViewTab(newValue)}
+                aria-label="span hierarchy tabs"
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{
+                  minHeight: 'auto',
+                  '& .MuiTab-root': {
+                    minHeight: 'auto',
+                    fontSize: theme =>
+                      theme.typography.subtitle2.fontSize,
+                    fontWeight: theme =>
+                      theme.typography.subtitle2.fontWeight,
+                    textTransform: 'none',
+                    py: theme => theme.spacing(1.25),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-start',
+                    backgroundColor: 'transparent !important',
+                    color: theme => theme.palette.text.secondary,
+                    '& .MuiSvgIcon-root': {
+                      color: 'inherit',
+                    },
+                    '&.Mui-selected': {
+                      backgroundColor: 'transparent !important',
+                      color: theme => theme.palette.text.primary,
+                      '& .MuiSvgIcon-root': {
+                        color: theme => theme.palette.text.primary,
+                      },
+                    },
+                    '&:hover': {
+                      backgroundColor: 'transparent !important',
+                    },
+                  },
+                  '& .MuiTabs-indicator': {
+                    display: 'none',
+                  },
+                  '& .MuiTabs-flexContainer': {
+                    backgroundColor: 'transparent',
+                  },
+                }}
+              >
+                {showConversationTab && (
+                  <Tab
+                    icon={<ForumIcon fontSize="small" />}
+                    iconPosition="start"
+                    label="Conversation"
+                    id="span-hierarchy-tab-conversation"
+                    aria-controls="span-hierarchy-tabpanel-conversation"
+                  />
+                )}
+                <Tab
+                  icon={<AccountTreeIcon fontSize="small" />}
+                  iconPosition="start"
+                  label="Tree View"
+                  id="span-hierarchy-tab-tree"
+                  aria-controls="span-hierarchy-tabpanel-tree"
+                />
+                <Tab
+                  icon={<TimelineIcon fontSize="small" />}
+                  iconPosition="start"
+                  label="Sequence View"
+                  id="span-hierarchy-tab-sequence"
+                  aria-controls="span-hierarchy-tabpanel-sequence"
+                />
+                <Tab
+                  icon={<HubIcon fontSize="small" />}
+                  iconPosition="start"
+                  label="Graph View"
+                  id="span-hierarchy-tab-graph"
+                  aria-controls="span-hierarchy-tabpanel-graph"
+                />
+              </Tabs>
+            </Box>
 
-              return (
-                <>
-                  <Box
-                    sx={{
-                      borderBottom: 1,
-                      borderColor: 'divider',
-                      px: theme => theme.spacing(2),
-                      pt: theme => theme.spacing(2),
-                      pb: theme => theme.spacing(2),
-                      mb: theme => theme.spacing(1),
-                    }}
-                  >
-                    <Tabs
-                      value={viewTab}
-                      onChange={(_, newValue) => setViewTab(newValue)}
-                      aria-label="span hierarchy tabs"
-                      variant="scrollable"
-                      scrollButtons="auto"
-                      sx={{
-                        minHeight: 'auto',
-                        '& .MuiTab-root': {
-                          minHeight: 'auto',
-                          fontSize: theme =>
-                            theme.typography.subtitle2.fontSize,
-                          fontWeight: theme =>
-                            theme.typography.subtitle2.fontWeight,
-                          textTransform: 'none',
-                          py: theme => theme.spacing(1.25),
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'flex-start',
-                          backgroundColor: 'transparent !important',
-                          color: theme => theme.palette.text.secondary,
-                          '& .MuiSvgIcon-root': {
-                            color: 'inherit',
-                          },
-                          '&.Mui-selected': {
-                            backgroundColor: 'transparent !important',
-                            color: theme => theme.palette.text.primary,
-                            '& .MuiSvgIcon-root': {
-                              color: theme => theme.palette.text.primary,
-                            },
-                          },
-                          '&:hover': {
-                            backgroundColor: 'transparent !important',
-                          },
-                        },
-                        '& .MuiTabs-indicator': {
-                          display: 'none',
-                        },
-                        '& .MuiTabs-flexContainer': {
-                          backgroundColor: 'transparent',
-                        },
-                      }}
-                    >
-                      {showConversationTab && (
-                        <Tab
-                          icon={<ForumIcon fontSize="small" />}
-                          iconPosition="start"
-                          label="Conversation"
-                          id="span-hierarchy-tab-conversation"
-                          aria-controls="span-hierarchy-tabpanel-conversation"
-                        />
-                      )}
-                      <Tab
-                        icon={<AccountTreeIcon fontSize="small" />}
-                        iconPosition="start"
-                        label="Tree View"
-                        id="span-hierarchy-tab-tree"
-                        aria-controls="span-hierarchy-tabpanel-tree"
-                      />
-                      <Tab
-                        icon={<TimelineIcon fontSize="small" />}
-                        iconPosition="start"
-                        label="Sequence View"
-                        id="span-hierarchy-tab-sequence"
-                        aria-controls="span-hierarchy-tabpanel-sequence"
-                      />
-                      <Tab
-                        icon={<HubIcon fontSize="small" />}
-                        iconPosition="start"
-                        label="Graph View"
-                        id="span-hierarchy-tab-graph"
-                        aria-controls="span-hierarchy-tabpanel-graph"
-                      />
-                    </Tabs>
-                  </Box>
-
-                  {/* Tab Content */}
-                  <Box
-                    sx={{
-                      flex: 1,
-                      overflow:
-                        viewTab === treeTabIndex ||
-                        (showConversationTab && viewTab === 0)
-                          ? 'auto'
-                          : 'hidden',
-                      p:
-                        viewTab === treeTabIndex
-                          ? theme => theme.spacing(2)
-                          : 0,
-                    }}
-                  >
-                    {showConversationTab && viewTab === 0 && (
-                      <ConversationTraceView
-                        trace={trace}
-                        sessionToken={sessionToken}
-                        onSpanSelect={handleSpanSelect}
-                        rootSpans={trace.root_spans}
-                      />
-                    )}
-                    {viewTab === treeTabIndex && (
-                      <SpanTreeView
-                        spans={trace.root_spans}
-                        selectedSpan={selectedSpan}
-                        onSpanSelect={handleSpanSelect}
-                        isConversationTrace={isConversationTrace}
-                      />
-                    )}
-                    {viewTab === sequenceTabIndex && (
-                      <SpanSequenceView
-                        spans={trace.root_spans}
-                        selectedSpan={selectedSpan}
-                        onSpanSelect={handleSpanSelect}
-                        isConversationTrace={isConversationTrace}
-                        rootSpans={trace.root_spans}
-                      />
-                    )}
-                    {viewTab === graphTabIndex && (
-                      <SpanGraphView
-                        spans={trace.root_spans}
-                        selectedSpan={selectedSpan}
-                        onSpanSelect={handleSpanSelect}
-                        isConversationTrace={isConversationTrace}
-                        rootSpans={trace.root_spans}
-                      />
-                    )}
-                  </Box>
-                </>
-              );
-            })()}
+            {/* Tab Content */}
+            <Box
+              sx={{
+                flex: 1,
+                overflow:
+                  viewTab === tabIndices.tree ||
+                  (showConversationTab && viewTab === 0)
+                    ? 'auto'
+                    : 'hidden',
+                p:
+                  viewTab === tabIndices.tree
+                    ? theme => theme.spacing(2)
+                    : 0,
+              }}
+            >
+              {showConversationTab && viewTab === 0 && (
+                <ConversationTraceView
+                  trace={trace}
+                  sessionToken={sessionToken}
+                  onSpanSelect={handleSpanSelect}
+                  rootSpans={trace.root_spans}
+                />
+              )}
+              {viewTab === tabIndices.tree && (
+                <SpanTreeView
+                  spans={trace.root_spans}
+                  selectedSpan={selectedSpan}
+                  onSpanSelect={handleSpanSelect}
+                  isConversationTrace={isConversationTrace}
+                />
+              )}
+              {viewTab === tabIndices.sequence && (
+                <SpanSequenceView
+                  spans={trace.root_spans}
+                  selectedSpan={selectedSpan}
+                  onSpanSelect={handleSpanSelect}
+                  isConversationTrace={isConversationTrace}
+                  rootSpans={trace.root_spans}
+                />
+              )}
+              {viewTab === tabIndices.graph && (
+                <SpanGraphView
+                  spans={trace.root_spans}
+                  selectedSpan={selectedSpan}
+                  onSpanSelect={handleSpanSelect}
+                  isConversationTrace={isConversationTrace}
+                  rootSpans={trace.root_spans}
+                />
+              )}
+            </Box>
           </Box>
 
           {/* Draggable Divider */}

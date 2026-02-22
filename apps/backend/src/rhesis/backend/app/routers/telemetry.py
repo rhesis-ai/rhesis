@@ -104,10 +104,8 @@ async def ingest_trace(
                 f"Injected mapped output into {output_injected} span(s) for trace_id={trace_id}"
             )
     except Exception as inject_error:
-        logger.warning(
-            f"Failed to inject pending output for trace_id={trace_id}: {inject_error}",
-            exc_info=True,
-        )
+        logger.warning(f"Failed to inject pending output for trace_id={trace_id}: {inject_error}")
+        logger.debug("Pending output injection traceback:", exc_info=True)
 
     # Store spans and trigger enrichment
     try:
@@ -145,10 +143,8 @@ async def ingest_trace(
                         f"Linked {linked_count} traces to test result for trace_id={trace_id}"
                     )
             except Exception as link_error:
-                logger.warning(
-                    f"Failed to link traces for trace_id={trace_id}: {link_error}",
-                    exc_info=True,
-                )
+                logger.warning(f"Failed to link traces for trace_id={trace_id}: {link_error}")
+                logger.debug("Trace linking traceback:", exc_info=True)
 
             # 2. Conversation-id linking (first-turn patching)
             try:
@@ -161,9 +157,9 @@ async def ingest_trace(
             except Exception as conversation_error:
                 logger.warning(
                     f"Failed to apply conversation links for "
-                    f"trace_id={trace_id}: {conversation_error}",
-                    exc_info=True,
+                    f"trace_id={trace_id}: {conversation_error}"
                 )
+                logger.debug("Conversation linking traceback:", exc_info=True)
 
         return TraceResponse(
             status="received",

@@ -215,11 +215,15 @@ async def create_invocation_trace(
         if input_data:
             mapped_input = str(input_data.get("input", ""))
             if mapped_input:
-                attributes[EndpointAttributes.CONVERSATION_INPUT] = mapped_input[:10000]
+                attributes[EndpointAttributes.CONVERSATION_INPUT] = mapped_input[
+                    : ConversationConstants.MAX_IO_LENGTH
+                ]
         if result and isinstance(result, dict):
             mapped_output = str(result.get("output", ""))
             if mapped_output:
-                attributes[EndpointAttributes.CONVERSATION_OUTPUT] = mapped_output[:10000]
+                attributes[EndpointAttributes.CONVERSATION_OUTPUT] = mapped_output[
+                    : ConversationConstants.MAX_IO_LENGTH
+                ]
 
         # Create OTELSpan using SDK schema
         # Span name follows function.* pattern for generic functions

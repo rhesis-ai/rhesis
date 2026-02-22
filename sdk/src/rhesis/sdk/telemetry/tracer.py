@@ -340,10 +340,10 @@ class Tracer:
         """
         try:
             trace_id_int = int(conv_trace_id, 16)
-            # Use a placeholder span_id (will be stripped in exporter)
+            # Use a placeholder span_id (stripped by the exporter)
             synthetic_span_ctx = SpanContext(
                 trace_id=trace_id_int,
-                span_id=0xDEADBEEF,  # placeholder, stripped later
+                span_id=ConvContextConstants.SYNTHETIC_PARENT_SPAN_ID,
                 is_remote=True,
                 trace_flags=TraceFlags(TraceFlags.SAMPLED),
             )
@@ -428,7 +428,7 @@ class Tracer:
                 if mapped_input:
                     span.set_attribute(
                         ConvContextConstants.SpanAttributes.CONVERSATION_INPUT,
-                        mapped_input[:10000],
+                        mapped_input[: ConvContextConstants.MAX_IO_LENGTH],
                     )
 
             # Set up span attributes
@@ -538,7 +538,7 @@ class Tracer:
                 if mapped_input:
                     span.set_attribute(
                         ConvContextConstants.SpanAttributes.CONVERSATION_INPUT,
-                        mapped_input[:10000],
+                        mapped_input[: ConvContextConstants.MAX_IO_LENGTH],
                     )
 
             # Set up span attributes

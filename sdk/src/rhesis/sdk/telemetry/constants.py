@@ -32,6 +32,15 @@ class ConversationContext:
     # Key for context in function inputs dict (executor level)
     CONTEXT_KEY = "_rhesis_conversation_context"
 
+    # Maximum length for conversation I/O stored in span attributes.
+    # Applied consistently wherever input/output is captured or injected.
+    MAX_IO_LENGTH = 10000
+
+    # Placeholder span_id used when building a synthetic OTEL parent
+    # context to force trace_id inheritance across conversation turns.
+    # Stripped by the exporter before export (see RhesisOTLPExporter).
+    SYNTHETIC_PARENT_SPAN_ID = 0x00000000CAFECAFE
+
     # Field names in context dict
     class Fields:
         """Field names in the conversation context dictionary."""

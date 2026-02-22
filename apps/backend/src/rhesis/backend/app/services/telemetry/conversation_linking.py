@@ -49,6 +49,11 @@ logger = logging.getLogger(__name__)
 
 _CACHE_TTL = 120  # seconds
 
+# Import lazily inside functions to avoid circular imports, but
+# keep a module-level alias for the max I/O length so the cache
+# class (which runs outside those functions) can reference it.
+_MAX_IO_LENGTH = 10000  # synced with ConversationConstants.MAX_IO_LENGTH
+
 
 # ---------------------------------------------------------------
 # Data classes
@@ -263,7 +268,7 @@ class ConversationLinkingCache:
             try:
                 self._redis.set(
                     f"{_PREFIX_OUTPUT}{trace_id}",
-                    mapped_output[:10000],
+                    mapped_output[:_MAX_IO_LENGTH],
                     ex=_CACHE_TTL,
                 )
                 return
@@ -479,7 +484,7 @@ def inject_pending_output(
         has_output = output_key in span.attributes
 
         if is_root and has_input and not has_output:
-            span.attributes[output_key] = pending_output[:10000]
+            span.attributes[output_key] = pending_output[:_MAX_IO_LENGTH]
             injected_count += 1
             logger.debug(
                 f"[CONVERSATION_IO] Injected output into span "

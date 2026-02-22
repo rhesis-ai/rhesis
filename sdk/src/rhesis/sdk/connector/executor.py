@@ -235,12 +235,6 @@ class TestExecutor:
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(f"Error executing function {function_name}: {e}")
-            # Clear context on error too
-            set_test_execution_context(None)
-            set_root_trace_id(None)
-            set_conversation_id(None)
-            set_conversation_trace_id(None)
-            set_conversation_mapped_input(None)
 
             return {
                 "status": TestStatus.ERROR,
