@@ -54,6 +54,7 @@ dependencies = [
     "cryptography>=46.0.5",
     "pillow>=12.1.1",
     "marshmallow>=3.26.2",
+    "mammoth>=1.11.0",
     # NOTE: diskcache has unsafe pickle deserialization (CVE-2025-69872).
     # No patch available. Ensure only trusted data is cached.
     "diskcache",
