@@ -75,7 +75,7 @@ class ConversationTracker:
 
         is_stateless = bool(_MESSAGES_TEMPLATE_PATTERN.search(mapping_str))
         if is_stateless:
-            logger.info(
+            logger.debug(
                 "Detected stateless endpoint mode ({{ messages }} found in request_mapping)"
             )
         return is_stateless
@@ -142,7 +142,7 @@ class ConversationTracker:
         # Check common field names (auto-detection)
         for field_name in CONVERSATION_FIELD_NAMES:
             if field_name in response_mapping:
-                logger.info(f"Auto-detected conversation tracking field: {field_name}")
+                logger.debug(f"Auto-detected conversation tracking field: {field_name}")
                 return field_name
 
         logger.debug("No conversation tracking field detected in response_mapping")
@@ -215,12 +215,12 @@ class ConversationTracker:
 
         if conversation_field in rendered_body:
             conv_id = rendered_body[conversation_field]
-            logger.info(f"Using {conversation_field} from rendered template: {conv_id}")
+            logger.debug(f"Using {conversation_field} from rendered template: {conv_id}")
             return conv_id
         elif conversation_field in input_data:
             conv_id = input_data[conversation_field]
             rendered_body[conversation_field] = conv_id
-            logger.info(f"Using {conversation_field} from input_data: {conv_id}")
+            logger.debug(f"Using {conversation_field} from input_data: {conv_id}")
             return conv_id
         else:
             logger.debug(
