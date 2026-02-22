@@ -7430,7 +7430,7 @@ requires-dist = [
     { name = "lm-format-enforcer", marker = "extra == 'all'", specifier = ">=0.10.0" },
     { name = "lm-format-enforcer", marker = "extra == 'huggingface'", specifier = ">=0.10.0" },
     { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], specifier = ">=0.1.0" },
-    { name = "mcp", specifier = ">=1.2.0" },
+    { name = "mcp", specifier = ">=1.23.0" },
     { name = "nest-asyncio" },
     { name = "numpy" },
     { name = "opentelemetry-api", specifier = ">=1.32.1" },
