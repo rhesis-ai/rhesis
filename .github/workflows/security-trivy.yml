@@ -1,0 +1,79 @@
+name: Security Scanning (Trivy)
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  trivy-scan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Backend
+            path: apps/backend
+          - name: Frontend
+            path: apps/frontend
+          - name: SDK
+            path: sdk
+          - name: Penelope
+            path: penelope
+          - name: Worker
+            path: apps/worker
+          - name: Chatbot
+            path: apps/chatbot
+          - name: Polyphemus
+            path: apps/polyphemus
+          - name: Telemetry Processor
+            path: apps/telemetry-processor
+
+    name: Trivy - ${{ matrix.name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check path exists
+        id: check
+        run: |
+          if [ -d "${{ matrix.path }}" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Trivy vulnerability scanner
+        if: steps.check.outputs.exists == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: ${{ matrix.path }}
+          format: table
+          exit-code: 0
+          severity: CRITICAL,HIGH,MEDIUM
+          scanners: vuln
+
+      - name: Run Trivy (SARIF upload)
+        if: steps.check.outputs.exists == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: ${{ matrix.path }}
+          format: sarif
+          output: trivy-${{ matrix.name }}.sarif
+          exit-code: 0
+          severity: CRITICAL,HIGH,MEDIUM
+          scanners: vuln
+
+      - name: Upload SARIF to GitHub Security
+        if: steps.check.outputs.exists == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.name }}.sarif
+          category: trivy-${{ matrix.name }}
