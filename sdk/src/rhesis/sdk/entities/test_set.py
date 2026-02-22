@@ -992,6 +992,7 @@ class TestSet(BaseEntity):
             name=name,
             description=description,
             short_description=short_description,
+            test_set_type=TestType.SINGLE_TURN,
             tests=tests,
             test_count=len(tests),
         )
@@ -1072,6 +1073,7 @@ class TestSet(BaseEntity):
             name=name,
             description=description,
             short_description=short_description,
+            test_set_type=TestType.SINGLE_TURN,
             tests=tests,
             test_count=len(tests),
         )
@@ -1145,6 +1147,7 @@ class TestSet(BaseEntity):
             name=name,
             description=description,
             short_description=short_description,
+            test_set_type=TestType.SINGLE_TURN,
             tests=tests,
             test_count=len(tests),
         )

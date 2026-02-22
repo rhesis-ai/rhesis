@@ -226,19 +226,20 @@ class ImportService:
 
         test_set_name = name or f"Import: {session.filename}"
 
-        payload = {
-            "name": test_set_name,
-            "description": description,
-            "short_description": short_description,
-            "tests": tests_payload,
-        }
-
         # Determine test set type from session
         from rhesis.backend.app.constants import TestType
 
         test_set_type = (
             TestType.MULTI_TURN if session.test_type == "Multi-Turn" else TestType.SINGLE_TURN
         )
+
+        payload = {
+            "name": test_set_name,
+            "description": description,
+            "short_description": short_description,
+            "test_set_type": test_set_type.value,
+            "tests": tests_payload,
+        }
 
         logger.info(
             f"Confirming import {import_id}: {len(tests_payload)} tests ({session.test_type})"

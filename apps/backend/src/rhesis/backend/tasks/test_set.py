@@ -139,10 +139,21 @@ def _save_test_set_to_database(
 
         converted_tests.append(TestData(**test_dict))
 
+    # Determine test_set_type string for schema validation
+    from rhesis.backend.app.constants import TestType as BackendTestType
+
+    if test_set.test_set_type:
+        test_set_type_str = BackendTestType.get_value(
+            BackendTestType.from_string(test_set.test_set_type)
+        )
+    else:
+        test_set_type_str = BackendTestType.SINGLE_TURN.value
+
     test_set_data = {
         "name": custom_name if custom_name else test_set.name,
         "description": test_set.description,
         "short_description": test_set.short_description,
+        "test_set_type": test_set_type_str,
         "metadata": test_set.metadata,
         "tests": converted_tests,
     }
