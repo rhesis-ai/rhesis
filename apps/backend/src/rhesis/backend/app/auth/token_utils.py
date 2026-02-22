@@ -5,8 +5,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
+import jwt
 from fastapi import HTTPException, status
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 
 from rhesis.backend.app.auth.constants import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -75,9 +76,7 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
             algorithms=[algorithm],
             options={
                 "verify_exp": True,
-                "verify_iat": True,
-                "require_exp": True,
-                "require_iat": True,
+                "require": ["exp", "iat"],
             },
         )
 
@@ -97,10 +96,11 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
 
         return payload
 
+    except jwt.ExpiredSignatureError:
+        logger.warning("JWT token has expired")
+        raise
     except JWTError as e:
         logger.error(f"JWT validation error: {str(e)}")
-        if "Expired token" in str(e):
-            logger.warning("JWT token has expired")
         raise
 
 
@@ -202,13 +202,18 @@ def verify_email_flow_token(token: str, expected_type: str) -> Dict[str, Any]:
             algorithms=[ALGORITHM],
             options={
                 "verify_exp": True,
-                "verify_iat": True,
-                "require_exp": True,
-                "require_iat": True,
+                "require": ["exp", "iat"],
             },
         )
+    except jwt.ExpiredSignatureError:
+        detail = "Token has expired"
+        logger.warning("Email flow token expired")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail,
+        )
     except JWTError as e:
-        detail = "Token has expired" if "Expired" in str(e) else ("Invalid token")
+        detail = "Invalid token"
         logger.warning(f"Email flow token error: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

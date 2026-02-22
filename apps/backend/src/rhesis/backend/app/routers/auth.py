@@ -1,9 +1,10 @@
 import os
 from typing import List, Optional
 
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from jose import JWTError
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
@@ -1224,12 +1225,10 @@ async def verify_auth(
             "return_to": return_to,
         }
 
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
     except JWTError as e:
         logger.error(f"JWT verification failed: {str(e)}")
-        if "Expired token" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"
-            )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
     except HTTPException:
         raise

@@ -19,7 +19,7 @@ dependencies = [
     "openpyxl",
     "nanoid",
     "huggingface_hub",
-    "python-jose[cryptography]",
+    "PyJWT>=2.10.0",
     "python-multipart>=0.0.22",
     "authlib",
     "httpx",
