@@ -91,14 +91,14 @@ garak = [
 # Framework integrations for auto-instrumentation
 langchain = [
     "langchain>=0.1.0",
-    "langchain-core>=1.2.5",
+    "langchain-core>=1.2.11",
 ]
 
 langgraph = [
     "langgraph>=0.0.26",
     "langgraph-checkpoint>=3.0.0",
     "langchain>=0.1.0",
-    "langchain-core>=1.2.5",
+    "langchain-core>=1.2.11",
 ]
 
 autogen = [
@@ -107,7 +107,7 @@ autogen = [
 
 all-integrations = [
     "langchain>=0.1.0",
-    "langchain-core>=1.2.5",
+    "langchain-core>=1.2.11",
     "langgraph>=0.0.26",
     "langgraph-checkpoint>=3.0.0",
     "pyautogen>=0.2.0",
@@ -120,7 +120,7 @@ all = [
     "bitsandbytes>=0.45.0",
     "lm-format-enforcer>=0.10.0",
     "langchain>=0.1.0",
-    "langchain-core>=1.2.5",
+    "langchain-core>=1.2.11",
     "langgraph>=0.0.26",
     "langgraph-checkpoint>=3.0.0",
     "pyautogen>=0.2.0",
