@@ -36,8 +36,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 # Add Rust to PATH for the build
 ENV PATH="/root/.cargo/bin:$PATH"
 
-# Copy Celery worker requirements
-COPY apps/worker/pyproject.toml /app/pyproject.toml
+# Copy Celery worker requirements and lockfile
+COPY apps/worker/pyproject.toml apps/worker/uv.lock /app/
 
 # Compile bytecode to improve performance
 ENV UV_COMPILE_BYTECODE=1
