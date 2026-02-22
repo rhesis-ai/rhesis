@@ -18,13 +18,15 @@ keywords = [
 dependencies = [
     "rhesis-sdk",
     "langgraph>=0.2.0",
-    "langchain-core>=1.2.5",
+    "langchain-core>=1.2.11",
     "langchain-google-genai>=2.0.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
     "requests>=2.31.0",
+    "cryptography>=46.0.5",
+    "pillow>=12.1.1",
 ]
 
 [project.license]
