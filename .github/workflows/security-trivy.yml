@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
   security-events: write
-  pull-requests: write
+  pull-requests: read
 
 jobs:
   detect-changes:
@@ -40,7 +40,7 @@ jobs:
               - 'apps/chatbot/**'
             polyphemus:
               - 'apps/polyphemus/**'
-            telemetry-processor:
+            telemetry_processor:
               - 'apps/telemetry-processor/**'
 
       - name: Build scan matrix
@@ -85,7 +85,7 @@ jobs:
             if [ "${{ steps.filter.outputs.polyphemus }}" == "true" ]; then
               add_entry "Polyphemus" "polyphemus" "apps/polyphemus"
             fi
-            if [ "${{ steps.filter.outputs.telemetry-processor }}" == "true" ]; then
+            if [ "${{ steps.filter.outputs.telemetry_processor }}" == "true" ]; then
               add_entry "Telemetry Processor" "telemetry-processor" "apps/telemetry-processor"
             fi
           fi
