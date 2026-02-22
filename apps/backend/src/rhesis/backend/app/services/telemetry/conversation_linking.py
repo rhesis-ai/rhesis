@@ -20,6 +20,34 @@ Two separate concerns are handled here, each with its own cache:
 
 Both caches are process-level dicts protected by a shared lock.
 Entries expire after ``_CACHE_TTL`` seconds.
+
+**Limitation – multi-worker deployments:**
+These caches live in the process that handles the invoke request.  In a
+multi-worker deployment (e.g. Gunicorn with multiple workers, or multiple
+backend replicas behind a load balancer), the telemetry ingest request
+from the SDK may land on a *different* worker/process than the one that
+parked the pending entry.  When that happens the lookup misses and the
+output is silently dropped.  This is acceptable today because:
+
+* Single-worker local development always works.
+* In production the SDK's ``BatchSpanProcessor`` typically flushes
+  spans within a few hundred milliseconds, so the ingest request
+  almost always arrives on the same backend instance.
+* If it does miss, the only effect is a missing
+  ``rhesis.conversation.output`` attribute — no data corruption.
+
+A future fix would be to move these caches to a shared store (e.g.
+Redis) if multi-worker output injection proves unreliable.
+
+**Why the SDK path needs deferred injection (vs. REST):**
+REST/WebSocket endpoints (see ``tracing.py``) create their trace span
+synchronously inside ``create_invocation_trace()``, so both input and
+output are available when the span is constructed — no caching needed.
+SDK endpoints, however, emit spans asynchronously via the SDK's
+``BatchSpanProcessor``.  The backend receives the mapped output after
+``invoke()`` returns, but the SDK spans haven't arrived at the
+``/telemetry/traces`` ingest endpoint yet.  This module bridges that
+gap by parking the output and injecting it when the spans arrive.
 """
 
 import logging

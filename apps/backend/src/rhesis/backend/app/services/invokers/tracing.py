@@ -194,7 +194,14 @@ async def create_invocation_trace(
                 attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW] = output_preview
                 attributes[EndpointAttributes.RESPONSE_SIZE] = len(str(output))
 
-        # Inject mapped conversation I/O
+        # Inject mapped conversation I/O directly into span attributes.
+        # This is possible because REST/WebSocket spans are created synchronously —
+        # both input and output are available at construction time.
+        #
+        # Contrast with SDK endpoints: SDK spans arrive asynchronously via
+        # BatchSpanProcessor, so output must be deferred.  See
+        # ``conversation_linking.register_pending_output()`` and
+        # ``conversation_linking.inject_pending_output()`` for that path.
         if input_data:
             mapped_input = str(input_data.get("input", ""))
             if mapped_input:

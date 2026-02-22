@@ -358,13 +358,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         """
         from .conversation import find_conversation_id
 
-        conversation_id = None
+        # Prefer the endpoint's configured field name (from response_mapping),
+        # then fall back to scanning all recognized field names.
         if conversation_field and conversation_field in input_data:
             conversation_id = input_data[conversation_field]
-        elif "conversation_id" in input_data:
-            conversation_id = input_data["conversation_id"]
-
-        if not conversation_id:
+        else:
             conversation_id = find_conversation_id(input_data)
 
         mapped_input = str(input_data.get("input", ""))
