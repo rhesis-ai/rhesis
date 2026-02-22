@@ -7453,6 +7453,7 @@ dev = [
     { name = "types-pytz", specifier = ">=2025.2.0.20250326" },
     { name = "types-requests", specifier = ">=2.32.0" },
     { name = "types-tqdm", specifier = ">=4.67.0.20241221" },
+    { name = "virtualenv", specifier = ">=20.36.1" },
 ]
 
 [[package]]
