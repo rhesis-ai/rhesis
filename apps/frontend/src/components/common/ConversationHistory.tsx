@@ -30,6 +30,7 @@ interface ConversationHistoryProps {
   goalEvaluation?: GoalEvaluation;
   project?: Project | { icon?: string; useCase?: string; name?: string };
   projectName?: string;
+  onResponseClick?: (turnNumber: number) => void;
   onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
   onConfirmAutomatedReview?: () => void;
   hasExistingReview?: boolean;
@@ -48,6 +49,7 @@ export default function ConversationHistory({
   goalEvaluation,
   project,
   projectName,
+  onResponseClick,
   onReviewTurn,
   onConfirmAutomatedReview,
   hasExistingReview = false,
@@ -422,12 +424,22 @@ export default function ConversationHistory({
             >
               <Paper
                 elevation={0}
+                onClick={
+                  onResponseClick ? () => onResponseClick(turn.turn) : undefined
+                }
                 sx={{
                   p: 2,
                   maxWidth: '85%',
                   bgcolor: theme.palette.background.paper,
                   border: `1px solid ${theme.palette.divider}`,
                   borderRight: `3px solid ${theme.palette.warning.main}`,
+                  ...(onResponseClick && {
+                    cursor: 'pointer',
+                    transition: 'border-color 0.2s',
+                    '&:hover': {
+                      borderColor: theme.palette.primary.main,
+                    },
+                  }),
                 }}
               >
                 <Typography

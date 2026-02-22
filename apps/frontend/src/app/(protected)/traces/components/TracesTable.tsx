@@ -4,8 +4,10 @@ import { useMemo } from 'react';
 import { GridColDef } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
-import { Chip, Typography, Tooltip } from '@mui/material';
-import { formatDistanceToNow } from 'date-fns';
+import { Box, Chip, Typography, Tooltip } from '@mui/material';
+import ForumIcon from '@mui/icons-material/Forum';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
 
 interface TracesTableProps {
@@ -36,19 +38,37 @@ export default function TracesTable({
       {
         field: 'trace_id',
         headerName: 'Trace ID',
-        width: 150,
+        width: 140,
         renderCell: params => {
           const traceId = params.value as string;
-          const truncated = `${traceId.slice(0, 8)}...${traceId.slice(-8)}`;
+          const truncated = `${traceId.slice(0, 8)}\u2026`;
+          const hasConversation = !!params.row.conversation_id;
           return (
-            <Tooltip title={traceId}>
-              <Typography
-                variant="body2"
-                sx={{ fontFamily: 'monospace', cursor: 'pointer' }}
-              >
-                {truncated}
-              </Typography>
-            </Tooltip>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {hasConversation ? (
+                <Tooltip title="Multi-turn conversation">
+                  <ForumIcon
+                    fontSize="small"
+                    sx={{ color: 'primary.main', flexShrink: 0 }}
+                  />
+                </Tooltip>
+              ) : (
+                <Tooltip title="Single-turn conversation">
+                  <ChatBubbleOutlineIcon
+                    fontSize="small"
+                    sx={{ color: 'text.secondary', flexShrink: 0 }}
+                  />
+                </Tooltip>
+              )}
+              <Tooltip title={traceId}>
+                <Typography
+                  variant="body2"
+                  sx={{ fontFamily: 'monospace', cursor: 'pointer' }}
+                >
+                  {truncated}
+                </Typography>
+              </Tooltip>
+            </Box>
           );
         },
       },
@@ -94,7 +114,7 @@ export default function TracesTable({
         headerName: 'Started',
         width: 150,
         renderCell: params => {
-          const timeAgo = formatDistanceToNow(new Date(params.value), {
+          const timeAgo = formatDistanceToNowStrict(new Date(params.value), {
             addSuffix: true,
           });
           return (

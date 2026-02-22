@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
+from rhesis.sdk.telemetry.constants import ConversationContext as ConversationConstants
 from rhesis.sdk.telemetry.schemas import OTELSpan, SpanKind, StatusCode
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,10 @@ class EndpointAttributes:
     TEST_RESULT_ID = TestContextConstants.SpanAttributes.TEST_RESULT_ID
     TEST_ID = TestContextConstants.SpanAttributes.TEST_ID
     TEST_CONFIGURATION_ID = TestContextConstants.SpanAttributes.TEST_CONFIGURATION_ID
+
+    # Conversation I/O - use constants from ConversationConstants.SpanAttributes
+    CONVERSATION_INPUT = ConversationConstants.SpanAttributes.CONVERSATION_INPUT
+    CONVERSATION_OUTPUT = ConversationConstants.SpanAttributes.CONVERSATION_OUTPUT
 
 
 def generate_trace_id() -> str:
@@ -100,6 +105,8 @@ async def create_invocation_trace(
     endpoint: Endpoint,
     organization_id: str,
     test_execution_context: Optional[Dict[str, str]] = None,
+    conversation_id: Optional[str] = None,
+    input_data: Optional[Dict] = None,
 ):
     """
     Create a trace span for REST/WebSocket invocations.
@@ -114,6 +121,8 @@ async def create_invocation_trace(
         organization_id: Organization ID
         test_execution_context: Optional dict with test_run_id, test_result_id, test_id,
             test_configuration_id (only present during test execution)
+        conversation_id: Optional conversation ID for multi-turn traces
+        input_data: Optional input data dict for capturing mapped I/O
 
     Yields:
         Dict that executor can update with result data
@@ -123,7 +132,29 @@ async def create_invocation_trace(
             result = await invoker.invoke(...)
             trace_ctx["result"] = result
     """
-    trace_id = generate_trace_id()
+    # If conversation_id is provided, try to reuse existing trace_id
+    from rhesis.backend.app import crud
+
+    existing_trace_id = None
+    if conversation_id and endpoint.project_id:
+        existing_trace_id = crud.get_trace_id_for_conversation(
+            db=db,
+            conversation_id=conversation_id,
+            project_id=str(endpoint.project_id),
+            organization_id=organization_id,
+        )
+
+        # Fallback: check pending links cache if DB query found nothing
+        if existing_trace_id is None:
+            from rhesis.backend.app.services.telemetry.conversation_linking import (
+                get_trace_id_from_pending_links,
+            )
+
+            existing_trace_id = get_trace_id_from_pending_links(conversation_id)
+            if existing_trace_id:
+                logger.debug(f"Found trace_id from pending links cache: {existing_trace_id}")
+
+    trace_id = existing_trace_id or generate_trace_id()
     span_id = generate_span_id()
     start_time = datetime.now(timezone.utc)
 
@@ -173,6 +204,27 @@ async def create_invocation_trace(
                 attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW] = output_preview
                 attributes[EndpointAttributes.RESPONSE_SIZE] = len(str(output))
 
+        # Inject mapped conversation I/O directly into span attributes.
+        # This is possible because REST/WebSocket spans are created synchronously —
+        # both input and output are available at construction time.
+        #
+        # Contrast with SDK endpoints: SDK spans arrive asynchronously via
+        # BatchSpanProcessor, so output must be deferred.  See
+        # ``conversation_linking.register_pending_output()`` and
+        # ``conversation_linking.inject_pending_output()`` for that path.
+        if input_data:
+            mapped_input = str(input_data.get("input", ""))
+            if mapped_input:
+                attributes[EndpointAttributes.CONVERSATION_INPUT] = mapped_input[
+                    : ConversationConstants.MAX_IO_LENGTH
+                ]
+        if result and isinstance(result, dict):
+            mapped_output = str(result.get("output", ""))
+            if mapped_output:
+                attributes[EndpointAttributes.CONVERSATION_OUTPUT] = mapped_output[
+                    : ConversationConstants.MAX_IO_LENGTH
+                ]
+
         # Create OTELSpan using SDK schema
         # Span name follows function.* pattern for generic functions
         otel_span = OTELSpan(
@@ -181,6 +233,7 @@ async def create_invocation_trace(
             parent_span_id=None,
             project_id=str(endpoint.project_id),
             environment=endpoint.environment or "development",
+            conversation_id=conversation_id,
             span_name=f"function.endpoint_{endpoint.connection_type.lower()}_invoke",
             span_kind=SpanKind.CLIENT,  # Calling external service
             start_time=start_time,

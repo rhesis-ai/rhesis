@@ -6,6 +6,7 @@ import {
   TextField,
   Button,
   ButtonGroup,
+  IconButton,
   InputAdornment,
   Badge,
   Popover,
@@ -16,10 +17,12 @@ import {
   Typography,
   Divider,
   Stack,
+  Tooltip,
   useTheme,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import ClearAllIcon from '@mui/icons-material/ClearAll';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -28,9 +31,9 @@ import ScienceIcon from '@mui/icons-material/Science';
 import PublicIcon from '@mui/icons-material/Public';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
-import SpeedIcon from '@mui/icons-material/Speed';
 import CloseIcon from '@mui/icons-material/Close';
-import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import ForumIcon from '@mui/icons-material/Forum';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import Chip from '@mui/material/Chip';
 import { TraceQueryParams } from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -39,12 +42,14 @@ import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 interface TraceFiltersProps {
   filters: TraceQueryParams;
   onFiltersChange: (filters: TraceQueryParams) => void;
+  onRefresh: () => void;
   sessionToken: string;
 }
 
 export default function TraceFilters({
   filters,
   onFiltersChange,
+  onRefresh,
   sessionToken,
 }: TraceFiltersProps) {
   const theme = useTheme();
@@ -129,40 +134,11 @@ export default function TraceFilters({
     handleFilterChange('trace_source', source === 'all' ? undefined : source);
   };
 
-  const handleDurationFilterChange = (duration: string) => {
-    const newFilters = { ...filters, offset: 0 };
-
-    switch (duration) {
-      case 'normal':
-        // Normal: < 5 seconds
-        newFilters.duration_min_ms = undefined;
-        newFilters.duration_max_ms = 5000;
-        break;
-      case 'slow':
-        // Slow: >= 5 seconds
-        newFilters.duration_min_ms = 5000;
-        newFilters.duration_max_ms = undefined;
-        break;
-      case 'all':
-      default:
-        // Clear all duration filters
-        newFilters.duration_min_ms = undefined;
-        newFilters.duration_max_ms = undefined;
-        break;
-    }
-
-    onFiltersChange(newFilters);
-  };
-
-  const getActiveDurationFilter = (): string => {
-    if (!filters.duration_min_ms && !filters.duration_max_ms) return 'all';
-
-    if (filters.duration_max_ms === 5000 && !filters.duration_min_ms)
-      return 'normal';
-    if (filters.duration_min_ms === 5000 && !filters.duration_max_ms)
-      return 'slow';
-
-    return 'custom';
+  const handleTraceTypeChange = (traceType: string) => {
+    handleFilterChange(
+      'trace_type',
+      traceType === 'all' ? undefined : traceType
+    );
   };
 
   const handleTimeRangeFilterChange = (range: string) => {
@@ -233,11 +209,13 @@ export default function TraceFilters({
           'limit',
           'offset',
           'trace_source',
+          'trace_type',
           'status_code',
           'start_time_after',
           'environment',
         ].includes(key)) ||
       (key === 'trace_source' && value !== 'all' && value !== undefined) ||
+      (key === 'trace_type' && value !== 'all' && value !== undefined) ||
       (key === 'status_code' && value !== undefined) ||
       (key === 'start_time_after' && value !== undefined) ||
       (key === 'environment' && value !== undefined)
@@ -328,7 +306,7 @@ export default function TraceFilters({
 
     // Trace source filter
     if (filters.trace_source && filters.trace_source !== 'all') {
-      const sourceLabel = filters.trace_source === 'test' ? 'Tests' : 'App';
+      const sourceLabel = filters.trace_source === 'test' ? 'Tests' : 'Live';
       chips.push({
         key: 'trace_source',
         label: `Source: ${sourceLabel}`,
@@ -336,41 +314,15 @@ export default function TraceFilters({
       });
     }
 
-    // Duration filter
-    const activeDuration = getActiveDurationFilter();
-    if (activeDuration === 'normal') {
+    // Trace type filter
+    if (filters.trace_type && filters.trace_type !== 'all') {
+      const typeLabel =
+        filters.trace_type === 'multi_turn' ? 'Multi-Turn' : 'Single-Turn';
       chips.push({
-        key: 'duration',
-        label: 'Duration: Normal (<5s)',
-        value: 'normal',
+        key: 'trace_type',
+        label: `Type: ${typeLabel}`,
+        value: filters.trace_type,
       });
-    } else if (activeDuration === 'slow') {
-      chips.push({
-        key: 'duration',
-        label: 'Duration: Slow (≥5s)',
-        value: 'slow',
-      });
-    } else if (activeDuration === 'custom') {
-      // For custom duration ranges, show the actual values
-      if (filters.duration_min_ms && filters.duration_max_ms) {
-        chips.push({
-          key: 'duration',
-          label: `Duration: ${filters.duration_min_ms / 1000}s-${filters.duration_max_ms / 1000}s`,
-          value: 'custom',
-        });
-      } else if (filters.duration_min_ms) {
-        chips.push({
-          key: 'duration',
-          label: `Duration: >${filters.duration_min_ms / 1000}s`,
-          value: 'custom',
-        });
-      } else if (filters.duration_max_ms) {
-        chips.push({
-          key: 'duration',
-          label: `Duration: <${filters.duration_max_ms / 1000}s`,
-          value: 'custom',
-        });
-      }
     }
 
     // Test-related filters
@@ -650,7 +602,7 @@ export default function TraceFilters({
               }
               startIcon={<PublicIcon fontSize="small" />}
             >
-              App
+              Live
             </Button>
           </ButtonGroup>
 
@@ -660,53 +612,66 @@ export default function TraceFilters({
             sx={{ display: { xs: 'none', sm: 'block' } }}
           />
 
-          {/* Duration Filter */}
+          {/* Trace Type Filter (Single-Turn / Multi-Turn) */}
           <ButtonGroup size="small" variant="outlined">
             <Button
-              onClick={() => handleDurationFilterChange('all')}
+              onClick={() => handleTraceTypeChange('all')}
               variant={
-                getActiveDurationFilter() === 'all' ? 'contained' : 'outlined'
+                !filters.trace_type || filters.trace_type === 'all'
+                  ? 'contained'
+                  : 'outlined'
               }
               startIcon={<ListIcon fontSize="small" />}
             >
               All
             </Button>
             <Button
-              onClick={() => handleDurationFilterChange('normal')}
+              onClick={() => handleTraceTypeChange('single_turn')}
               variant={
-                getActiveDurationFilter() === 'normal'
-                  ? 'contained'
-                  : 'outlined'
+                filters.trace_type === 'single_turn' ? 'contained' : 'outlined'
               }
-              startIcon={<SpeedIcon fontSize="small" />}
+              startIcon={<ChatBubbleOutlineIcon fontSize="small" />}
             >
-              Normal
+              Single
             </Button>
             <Button
-              onClick={() => handleDurationFilterChange('slow')}
+              onClick={() => handleTraceTypeChange('multi_turn')}
               variant={
-                getActiveDurationFilter() === 'slow' ? 'contained' : 'outlined'
+                filters.trace_type === 'multi_turn' ? 'contained' : 'outlined'
               }
-              startIcon={<HourglassEmptyIcon fontSize="small" />}
+              startIcon={<ForumIcon fontSize="small" />}
             >
-              Slow
+              Multi
             </Button>
           </ButtonGroup>
+
+          <Divider
+            orientation="vertical"
+            flexItem
+            sx={{ display: { xs: 'none', sm: 'block' } }}
+          />
 
           {/* Spacer */}
           <Box sx={{ flex: 1, minWidth: { xs: 0, sm: 20 } }} />
 
-          {/* Advanced Filters Button */}
-          <Badge badgeContent={activeFilterCount} color="primary">
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<FilterListIcon />}
-              onClick={handleFilterClick}
-            >
-              More Filters
-            </Button>
-          </Badge>
+          {/* Advanced Filters & Refresh */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Badge badgeContent={activeFilterCount} color="primary">
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<FilterListIcon />}
+                onClick={handleFilterClick}
+              >
+                More Filters
+              </Button>
+            </Badge>
+            <Tooltip title="Refresh">
+              <IconButton size="small" onClick={onRefresh}>
+                <RefreshIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
 
         {/* Row 3: Active Filter Chips */}
@@ -732,21 +697,10 @@ export default function TraceFilters({
                 label={chip.label}
                 size="small"
                 onDelete={() => {
-                  // Handle duration filter specially - clear both min and max
-                  if (chip.key === 'duration') {
-                    const newFilters = {
-                      ...filters,
-                      duration_min_ms: undefined,
-                      duration_max_ms: undefined,
-                      offset: 0,
-                    };
-                    onFiltersChange(newFilters);
-                  } else {
-                    handleFilterChange(
-                      chip.key as keyof TraceQueryParams,
-                      undefined
-                    );
-                  }
+                  handleFilterChange(
+                    chip.key as keyof TraceQueryParams,
+                    undefined
+                  );
                 }}
                 deleteIcon={<CloseIcon />}
                 sx={{

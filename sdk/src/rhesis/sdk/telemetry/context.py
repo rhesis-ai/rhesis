@@ -19,6 +19,18 @@ _llm_observation_active: ContextVar[bool] = ContextVar("llm_observation_active",
 # This allows the executor to include trace_id in results for frontend linking
 _root_trace_id: ContextVar[Optional[str]] = ContextVar("root_trace_id", default=None)
 
+# Context variables for conversation-based tracing
+# conversation_id: the conversation identifier shared across turns
+_conversation_id: ContextVar[Optional[str]] = ContextVar("conversation_id", default=None)
+# conversation_trace_id: the trace_id to reuse across all turns in a conversation
+_conversation_trace_id: ContextVar[Optional[str]] = ContextVar(
+    "conversation_trace_id", default=None
+)
+# conversation_mapped_input: the mapped user input for the current turn
+_conversation_mapped_input: ContextVar[Optional[str]] = ContextVar(
+    "conversation_mapped_input", default=None
+)
+
 
 def set_test_execution_context(context: Optional[TestExecutionContext]) -> None:
     """
@@ -85,3 +97,60 @@ def get_root_trace_id() -> Optional[str]:
     Returns None if not in a traced execution context.
     """
     return _root_trace_id.get()
+
+
+def set_conversation_id(conversation_id: Optional[str]) -> None:
+    """
+    Set the conversation ID for the current execution.
+
+    Args:
+        conversation_id: The conversation identifier, or None to clear
+    """
+    _conversation_id.set(conversation_id)
+
+
+def get_conversation_id() -> Optional[str]:
+    """
+    Get the conversation ID for the current execution.
+
+    Returns None if not in a conversation context.
+    """
+    return _conversation_id.get()
+
+
+def set_conversation_trace_id(trace_id: Optional[str]) -> None:
+    """
+    Set the conversation trace_id to reuse across turns.
+
+    Args:
+        trace_id: The 32-char hex trace ID, or None to clear
+    """
+    _conversation_trace_id.set(trace_id)
+
+
+def get_conversation_trace_id() -> Optional[str]:
+    """
+    Get the conversation trace_id for the current execution.
+
+    Returns None if not in a conversation context or first turn.
+    """
+    return _conversation_trace_id.get()
+
+
+def set_conversation_mapped_input(mapped_input: Optional[str]) -> None:
+    """
+    Set the mapped user input for the current conversation turn.
+
+    Args:
+        mapped_input: The mapped input string, or None to clear
+    """
+    _conversation_mapped_input.set(mapped_input)
+
+
+def get_conversation_mapped_input() -> Optional[str]:
+    """
+    Get the mapped user input for the current conversation turn.
+
+    Returns None if not in a conversation context.
+    """
+    return _conversation_mapped_input.get()

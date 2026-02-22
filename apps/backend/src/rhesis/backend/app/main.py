@@ -212,6 +212,11 @@ async def lifespan(app: FastAPI):
             "Workers will not be able to invoke SDK functions."
         )
 
+    # Initialize conversation linking cache (Redis with in-memory fallback)
+    from rhesis.backend.app.services.telemetry.conversation_linking import initialize_cache
+
+    initialize_cache()
+
     # Initialize WebSocket Redis subscriber (optional, doesn't fail startup)
     from rhesis.backend.app.services.websocket import start_redis_subscriber, ws_manager
 
