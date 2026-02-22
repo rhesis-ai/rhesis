@@ -6,7 +6,7 @@ from .store import (
     _reset_conversation_store,
     get_conversation_store,
 )
-from .tracker import CONVERSATION_FIELD_NAMES, ConversationTracker
+from .tracker import CONVERSATION_FIELD_NAMES, ConversationTracker, find_conversation_id
 
 __all__ = [
     "ConversationHistoryStore",
@@ -14,5 +14,6 @@ __all__ = [
     "CONVERSATION_FIELD_NAMES",
     "MessageHistoryManager",
     "_reset_conversation_store",
+    "find_conversation_id",
     "get_conversation_store",
 ]

@@ -22,6 +22,23 @@ CONVERSATION_FIELD_NAMES = [
     "interaction_id",
 ]
 
+
+def find_conversation_id(data: Dict[str, Any]) -> Optional[str]:
+    """Extract conversation ID from a dict by scanning recognized field names.
+
+    Checks each name in ``CONVERSATION_FIELD_NAMES`` (priority order) and
+    returns the first non-empty value found, or ``None``.
+
+    Use this instead of hand-written loops over ``CONVERSATION_FIELD_NAMES``
+    to keep the scan logic in one place.
+    """
+    for field_name in CONVERSATION_FIELD_NAMES:
+        value = data.get(field_name)
+        if value:
+            return str(value)
+    return None
+
+
 # Pattern to detect {{ messages }} (with or without spaces) in request_mapping
 _MESSAGES_TEMPLATE_PATTERN = re.compile(r"\{\{\s*messages\s*\}\}")
 

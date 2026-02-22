@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
-from rhesis.sdk.telemetry.constants import ConversationContext as ConvContextConstants
+from rhesis.sdk.telemetry.constants import ConversationContext as ConversationConstants
 from rhesis.sdk.telemetry.schemas import OTELSpan, SpanKind, StatusCode
 
 logger = logging.getLogger(__name__)
@@ -44,9 +44,9 @@ class EndpointAttributes:
     TEST_ID = TestContextConstants.SpanAttributes.TEST_ID
     TEST_CONFIGURATION_ID = TestContextConstants.SpanAttributes.TEST_CONFIGURATION_ID
 
-    # Conversation I/O - use constants from ConvContextConstants.SpanAttributes
-    CONVERSATION_INPUT = ConvContextConstants.SpanAttributes.CONVERSATION_INPUT
-    CONVERSATION_OUTPUT = ConvContextConstants.SpanAttributes.CONVERSATION_OUTPUT
+    # Conversation I/O - use constants from ConversationConstants.SpanAttributes
+    CONVERSATION_INPUT = ConversationConstants.SpanAttributes.CONVERSATION_INPUT
+    CONVERSATION_OUTPUT = ConversationConstants.SpanAttributes.CONVERSATION_OUTPUT
 
 
 def generate_trace_id() -> str:

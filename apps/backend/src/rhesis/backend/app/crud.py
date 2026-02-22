@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, bindparam, desc, func, text
+from sqlalchemy import and_, desc, func, text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -3884,88 +3884,5 @@ def update_conversation_id_for_trace(
         f"[TRACE_LINKING] Updated {count} spans with "
         f"conversation_id={conversation_id} for trace_id={trace_id}"
     )
-
-    return count
-
-
-def update_conversation_io_for_trace(
-    db: Session,
-    trace_id: str,
-    organization_id: str,
-    mapped_input: Optional[str] = None,
-    mapped_output: Optional[str] = None,
-) -> int:
-    """
-    Merge conversation I/O attributes into a single span's JSONB.
-
-    Uses PostgreSQL JSONB concat (``||``) to add
-    ``rhesis.conversation.input`` and/or ``rhesis.conversation.output``
-    to the ``attributes`` column.
-
-    Only targets spans that do **not** already carry
-    ``rhesis.conversation.output`` in their attributes.  In a
-    multi-turn conversation all turns share the same ``trace_id``,
-    so without this guard every backfill would overwrite *all*
-    previous turns' I/O with the current turn's data.
-
-    Returns the number of rows updated (0 or 1 in practice).
-    """
-    if not mapped_input and not mapped_output:
-        return 0
-
-    org_uuid = UUID(organization_id)
-
-    from rhesis.sdk.telemetry.constants import (
-        ConversationContext as ConvContextConstants,
-    )
-
-    attrs = ConvContextConstants.SpanAttributes
-    patch: Dict[str, str] = {}
-    if mapped_input:
-        patch[attrs.CONVERSATION_INPUT] = mapped_input[:10000]
-    if mapped_output:
-        patch[attrs.CONVERSATION_OUTPUT] = mapped_output[:10000]
-
-    patch_json = json.dumps(patch)
-
-    # Use a bound parameter to avoid SQL injection / quoting issues
-    # with arbitrary user content (e.g. single quotes in output text).
-    # CAST() instead of :: because SQLAlchemy's text() parser
-    # confuses the PostgreSQL :: cast with bind-parameter colons.
-    merge_expr = text(
-        "COALESCE(attributes, CAST('{}' AS jsonb)) || CAST(:io_patch AS jsonb)"
-    ).bindparams(bindparam("io_patch", value=patch_json))
-
-    # The JSONB ``?`` operator checks for top-level key existence.
-    # Excluding spans that already have the output key prevents
-    # later turns from clobbering earlier turns' I/O.
-    # NOTE: ``NOT`` is inlined in the SQL text because
-    # ``text()`` returns a TextClause which does not support
-    # SQLAlchemy's ``~`` (invert) operator.
-    not_has_output = text("NOT (attributes ? :out_key)").bindparams(
-        bindparam("out_key", value=attrs.CONVERSATION_OUTPUT)
-    )
-
-    count = (
-        db.query(models.Trace)
-        .filter(
-            and_(
-                models.Trace.trace_id == trace_id,
-                models.Trace.organization_id == org_uuid,
-                not_has_output,
-            )
-        )
-        .update(
-            {
-                models.Trace.attributes: merge_expr,
-                models.Trace.updated_at: datetime.utcnow(),
-            },
-            synchronize_session=False,
-        )
-    )
-
-    db.flush()
-
-    logger.debug(f"[TRACE_IO] Merged I/O attributes into {count} span(s) for trace_id={trace_id}")
 
     return count
