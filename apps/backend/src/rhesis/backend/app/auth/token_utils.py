@@ -76,6 +76,7 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
             algorithms=[algorithm],
             options={
                 "verify_exp": True,
+                "verify_iat": True,
                 "require": ["exp", "iat"],
             },
         )
@@ -202,6 +203,7 @@ def verify_email_flow_token(token: str, expected_type: str) -> Dict[str, Any]:
             algorithms=[ALGORITHM],
             options={
                 "verify_exp": True,
+                "verify_iat": True,
                 "require": ["exp", "iat"],
             },
         )

@@ -77,6 +77,7 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
             algorithms=[algorithm],
             options={
                 "verify_exp": True,
+                "verify_iat": True,
                 "require": ["exp", "iat"],
             },
         )
