@@ -53,6 +53,7 @@ dependencies = [
     "appdirs",
     "cryptography>=46.0.5",
     "pillow>=12.1.1",
+    "marshmallow>=3.26.2",
     "diskcache",
     "nest_asyncio",
     "numpy",
