@@ -47,6 +47,24 @@ Repository = "https://github.com/rhesis-ai/rhesis"
 Documentation = "https://docs.rhesis.ai"
 "Bug Tracker" = "https://github.com/rhesis-ai/rhesis/issues"
 
+[project.optional-dependencies]
+langchain = [
+    "langchain>=1.0.0",
+    "langchain-core>=1.2.11",
+    "langchain-google-genai>=2.0.0",
+]
+langgraph = [
+    "langgraph>=0.2.0",
+    "langchain-core>=1.2.11",
+    "langchain-google-genai>=2.0.0",
+]
+all = [
+    "langchain>=1.0.0",
+    "langchain-core>=1.2.11",
+    "langchain-google-genai>=2.0.0",
+    "langgraph>=0.2.0",
+]
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",
@@ -59,16 +77,6 @@ dev = [
     "types-requests>=2.32.0",
     "ruff>=0.11.6",
     "pyright>=1.1.406",
-]
-langchain = [
-    "langchain>=1.0.0",
-    "langchain-core>=1.2.11",
-    "langchain-google-genai>=2.0.0",
-]
-langgraph = [
-    "langgraph>=0.2.0",
-    "langchain-core>=1.2.11",
-    "langchain-google-genai>=2.0.0",
 ]
 
 [build-system]
