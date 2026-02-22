@@ -28,7 +28,7 @@ function reconstructConversationFromSpans(
 ): ConversationTurn[] {
   return rootSpans
     .filter(
-      (span) =>
+      span =>
         span.attributes['rhesis.conversation.input'] ||
         span.attributes['rhesis.conversation.output']
     )
@@ -147,7 +147,9 @@ export default function ConversationTraceView({
   return (
     <ConversationHistory
       conversationSummary={turns}
-      goalEvaluation={conversationSummary.length > 0 ? goalEvaluation : undefined}
+      goalEvaluation={
+        conversationSummary.length > 0 ? goalEvaluation : undefined
+      }
       project={trace.project}
       onResponseClick={
         onSpanSelect && rootSpans ? handleResponseClick : undefined

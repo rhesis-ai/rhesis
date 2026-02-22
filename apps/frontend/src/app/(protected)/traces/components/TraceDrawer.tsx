@@ -414,10 +414,8 @@ export default function TraceDrawer({
                   minHeight: 'auto',
                   '& .MuiTab-root': {
                     minHeight: 'auto',
-                    fontSize: theme =>
-                      theme.typography.subtitle2.fontSize,
-                    fontWeight: theme =>
-                      theme.typography.subtitle2.fontWeight,
+                    fontSize: theme => theme.typography.subtitle2.fontSize,
+                    fontWeight: theme => theme.typography.subtitle2.fontWeight,
                     textTransform: 'none',
                     py: theme => theme.spacing(1.25),
                     display: 'flex',
@@ -489,10 +487,7 @@ export default function TraceDrawer({
                   (showConversationTab && viewTab === 0)
                     ? 'auto'
                     : 'hidden',
-                p:
-                  viewTab === tabIndices.tree
-                    ? theme => theme.spacing(2)
-                    : 0,
+                p: viewTab === tabIndices.tree ? theme => theme.spacing(2) : 0,
               }}
             >
               {showConversationTab && viewTab === 0 && (
