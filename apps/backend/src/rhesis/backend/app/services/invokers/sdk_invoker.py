@@ -378,6 +378,19 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 project_id=str(endpoint.project_id),
                 organization_id=str(endpoint.organization_id),
             )
+
+            # Fallback: if Turn 1's spans haven't been ingested yet,
+            # the trace_id is still in the pending links cache from
+            # _link_first_turn_trace().
+            if existing_trace_id is None:
+                from rhesis.backend.app.services.telemetry.conversation_linking import (
+                    get_trace_id_from_pending_links,
+                )
+
+                existing_trace_id = get_trace_id_from_pending_links(conversation_id)
+                if existing_trace_id:
+                    logger.debug(f"Found trace_id from pending links cache: {existing_trace_id}")
+
             function_kwargs[ConversationConstants.CONTEXT_KEY] = {
                 ConversationConstants.Fields.CONVERSATION_ID: conversation_id,
                 ConversationConstants.Fields.TRACE_ID: existing_trace_id,

@@ -144,6 +144,16 @@ async def create_invocation_trace(
             organization_id=organization_id,
         )
 
+        # Fallback: check pending links cache if DB query found nothing
+        if existing_trace_id is None:
+            from rhesis.backend.app.services.telemetry.conversation_linking import (
+                get_trace_id_from_pending_links,
+            )
+
+            existing_trace_id = get_trace_id_from_pending_links(conversation_id)
+            if existing_trace_id:
+                logger.debug(f"Found trace_id from pending links cache: {existing_trace_id}")
+
     trace_id = existing_trace_id or generate_trace_id()
     span_id = generate_span_id()
     start_time = datetime.now(timezone.utc)
