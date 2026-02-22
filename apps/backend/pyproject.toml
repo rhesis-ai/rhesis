@@ -4,6 +4,8 @@ version = "0.6.4"
 description = "Rhesis backend package"
 readme = "README.md"
 requires-python = ">=3.10"
+# Known unpatched vulnerabilities in transitive dependencies:
+# - orjson (CVE-2025-67221): no recursion limit for deeply nested JSON. No patch available.
 dependencies = [
     "fastapi",
     "uvicorn",
