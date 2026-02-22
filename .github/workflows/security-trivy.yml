@@ -1,0 +1,139 @@
+name: Security Scanning (Trivy)
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has_changes: ${{ steps.set-matrix.outputs.has_changes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'apps/backend/**'
+            frontend:
+              - 'apps/frontend/**'
+            sdk:
+              - 'sdk/**'
+            penelope:
+              - 'penelope/**'
+            worker:
+              - 'apps/worker/**'
+            chatbot:
+              - 'apps/chatbot/**'
+            polyphemus:
+              - 'apps/polyphemus/**'
+            telemetry-processor:
+              - 'apps/telemetry-processor/**'
+
+      - name: Build scan matrix
+        id: set-matrix
+        run: |
+          MATRIX='{"include":[]}'
+          add_entry() {
+            MATRIX=$(echo "$MATRIX" | jq \
+              --arg name "$1" --arg id "$2" --arg path "$3" \
+              '.include += [{"name": $name, "id": $id, "path": $path}]')
+          }
+
+          # On workflow_dispatch, scan everything; on PR, only changed paths
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            add_entry "Backend" "backend" "apps/backend"
+            add_entry "Frontend" "frontend" "apps/frontend"
+            add_entry "SDK" "sdk" "sdk"
+            add_entry "Penelope" "penelope" "penelope"
+            add_entry "Worker" "worker" "apps/worker"
+            add_entry "Chatbot" "chatbot" "apps/chatbot"
+            add_entry "Polyphemus" "polyphemus" "apps/polyphemus"
+            add_entry "Telemetry Processor" "telemetry-processor" "apps/telemetry-processor"
+          else
+            if [ "${{ steps.filter.outputs.backend }}" == "true" ]; then
+              add_entry "Backend" "backend" "apps/backend"
+            fi
+            if [ "${{ steps.filter.outputs.frontend }}" == "true" ]; then
+              add_entry "Frontend" "frontend" "apps/frontend"
+            fi
+            if [ "${{ steps.filter.outputs.sdk }}" == "true" ]; then
+              add_entry "SDK" "sdk" "sdk"
+            fi
+            if [ "${{ steps.filter.outputs.penelope }}" == "true" ]; then
+              add_entry "Penelope" "penelope" "penelope"
+            fi
+            if [ "${{ steps.filter.outputs.worker }}" == "true" ]; then
+              add_entry "Worker" "worker" "apps/worker"
+            fi
+            if [ "${{ steps.filter.outputs.chatbot }}" == "true" ]; then
+              add_entry "Chatbot" "chatbot" "apps/chatbot"
+            fi
+            if [ "${{ steps.filter.outputs.polyphemus }}" == "true" ]; then
+              add_entry "Polyphemus" "polyphemus" "apps/polyphemus"
+            fi
+            if [ "${{ steps.filter.outputs.telemetry-processor }}" == "true" ]; then
+              add_entry "Telemetry Processor" "telemetry-processor" "apps/telemetry-processor"
+            fi
+          fi
+
+          COUNT=$(echo "$MATRIX" | jq '.include | length')
+          if [ "$COUNT" -gt 0 ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "matrix=$(echo "$MATRIX" | jq -c)" >> "$GITHUB_OUTPUT"
+
+  trivy-scan:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
+
+    name: Trivy - ${{ matrix.name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.34.1
+        with:
+          scan-type: fs
+          scan-ref: ${{ matrix.path }}
+          format: table
+          exit-code: 0
+          severity: CRITICAL,HIGH,MEDIUM
+          scanners: vuln
+
+      - name: Run Trivy (SARIF upload)
+        uses: aquasecurity/trivy-action@0.34.1
+        with:
+          scan-type: fs
+          scan-ref: ${{ matrix.path }}
+          format: sarif
+          output: trivy-${{ matrix.id }}.sarif
+          exit-code: 0
+          severity: CRITICAL,HIGH,MEDIUM
+          scanners: vuln
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.id }}.sarif
+          category: trivy-${{ matrix.id }}
