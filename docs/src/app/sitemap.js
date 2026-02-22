@@ -79,6 +79,40 @@ function getPriority(url) {
   return 0.6
 }
 
+/**
+ * Loads glossary term IDs from glossary-terms.jsonl so the sitemap includes every term.
+ * Terms are generated at build time (prebuild) into content/glossary/<id>/index.mdx; this
+ * ensures the sitemap stays complete if the content tree is partial (e.g. build context).
+ * @param {string[]} possibleContentDirs - Directories that might contain content
+ * @returns {string[]} - Term IDs (URL slugs) for glossary pages
+ */
+function getGlossaryTermIds(possibleContentDirs) {
+  const jsonlPath = path.join('glossary', 'glossary-terms.jsonl')
+  for (const dir of possibleContentDirs) {
+    const fullPath = path.join(dir, jsonlPath)
+    try {
+      if (fs.existsSync(fullPath)) {
+        const raw = fs.readFileSync(fullPath, 'utf8')
+        const ids = []
+        for (const line of raw.trim().split('\n')) {
+          if (!line.trim()) continue
+          try {
+            const row = JSON.parse(line)
+            if (row?.id) ids.push(row.id)
+          } catch {
+            // eslint-disable-next-line no-console
+            console.warn('[sitemap] Skipping malformed glossary-terms.jsonl line')
+          }
+        }
+        return ids
+      }
+    } catch {
+      // Continue to next directory
+    }
+  }
+  return []
+}
+
 export default async function sitemap() {
   const baseUrl = 'https://docs.rhesis.ai'
 
@@ -101,35 +135,55 @@ export default async function sitemap() {
     }
   }
 
+  const urlSet = new Set()
+  const sitemapEntries = []
+
   if (!contentDir) {
     // eslint-disable-next-line no-console
-    console.warn('Content directory not found, generating empty sitemap')
-    return [
-      {
-        url: baseUrl,
+    console.warn(
+      'Content directory not found; sitemap will include base URL and glossary ' +
+        'URLs if glossary-terms.jsonl is present in any candidate path'
+    )
+    sitemapEntries.push({
+      url: baseUrl,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 1.0,
+    })
+    urlSet.add(baseUrl)
+  } else {
+    // Get all MDX files from content directory
+    const mdxFiles = getMdxFiles(contentDir)
+
+    for (const filePath of mdxFiles) {
+      const urlPath = filePathToUrl(filePath)
+      const url = urlPath ? `${baseUrl}/${urlPath}` : baseUrl
+      if (urlSet.has(url)) continue
+      urlSet.add(url)
+      sitemapEntries.push({
+        url,
         lastModified: new Date(),
         changeFrequency: 'weekly',
-        priority: 1.0,
-      },
-    ]
+        priority: getPriority(urlPath),
+      })
+    }
   }
 
-  // Get all MDX files from content directory
-  const mdxFiles = getMdxFiles(contentDir)
-
-  // Convert file paths to sitemap entries
-  const sitemapEntries = mdxFiles.map(filePath => {
-    const urlPath = filePathToUrl(filePath)
-    const url = urlPath ? `${baseUrl}/${urlPath}` : baseUrl
-    const priority = getPriority(urlPath)
-
-    return {
+  // Ensure every glossary term from glossary-terms.jsonl is in the sitemap
+  // (safety net if any generated term dirs were missing from the content copy).
+  const glossaryTermIds = getGlossaryTermIds(possibleContentDirs)
+  const glossaryPriority = 0.6
+  for (const termId of glossaryTermIds) {
+    const url = `${baseUrl}/glossary/${termId}`
+    if (urlSet.has(url)) continue
+    urlSet.add(url)
+    sitemapEntries.push({
       url,
       lastModified: new Date(),
       changeFrequency: 'weekly',
-      priority,
-    }
-  })
+      priority: glossaryPriority,
+    })
+  }
 
   // Sort by priority (highest first) and then by URL
   sitemapEntries.sort((a, b) => {
