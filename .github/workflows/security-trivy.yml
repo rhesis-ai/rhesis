@@ -18,20 +18,28 @@ jobs:
       matrix:
         include:
           - name: Backend
+            id: backend
             path: apps/backend
           - name: Frontend
+            id: frontend
             path: apps/frontend
           - name: SDK
+            id: sdk
             path: sdk
           - name: Penelope
+            id: penelope
             path: penelope
           - name: Worker
+            id: worker
             path: apps/worker
           - name: Chatbot
+            id: chatbot
             path: apps/chatbot
           - name: Polyphemus
+            id: polyphemus
             path: apps/polyphemus
           - name: Telemetry Processor
+            id: telemetry-processor
             path: apps/telemetry-processor
 
     name: Trivy - ${{ matrix.name }}
@@ -50,7 +58,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner
         if: steps.check.outputs.exists == 'true'
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.34.1
         with:
           scan-type: fs
           scan-ref: ${{ matrix.path }}
@@ -61,12 +69,12 @@ jobs:
 
       - name: Run Trivy (SARIF upload)
         if: steps.check.outputs.exists == 'true'
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.34.1
         with:
           scan-type: fs
           scan-ref: ${{ matrix.path }}
           format: sarif
-          output: trivy-${{ matrix.name }}.sarif
+          output: trivy-${{ matrix.id }}.sarif
           exit-code: 0
           severity: CRITICAL,HIGH,MEDIUM
           scanners: vuln
@@ -75,5 +83,5 @@ jobs:
         if: steps.check.outputs.exists == 'true'
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: trivy-${{ matrix.name }}.sarif
-          category: trivy-${{ matrix.name }}
+          sarif_file: trivy-${{ matrix.id }}.sarif
+          category: trivy-${{ matrix.id }}
