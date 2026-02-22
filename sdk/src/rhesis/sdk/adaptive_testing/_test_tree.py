@@ -6,6 +6,7 @@ import pandas as pd
 from rhesis.sdk import adaptive_testing
 from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode, TopicNode
 from rhesis.sdk.entities import Prompt, Test, TestSet
+from rhesis.sdk.enums import TestType
 from rhesis.sdk.models import BaseEmbedder, BaseLLM
 
 from ._prompt_builder import PromptBuilder
@@ -179,7 +180,7 @@ class TestTree:
             )
             tests.append(test)
 
-        return TestSet(name=self.name, tests=tests)
+        return TestSet(name=self.name, tests=tests, test_set_type=TestType.SINGLE_TURN)
 
     @classmethod
     def from_test_set(cls, test_set: "TestSet") -> "TestTreeData":
