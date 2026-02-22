@@ -78,7 +78,13 @@
     "@babel/traverse": ">=7.23.2",
     "fast-xml-parser": ">=5.3.6",
     "loader-utils": ">=2.0.3",
-    "webpack": ">=5.76.0"
+    "webpack": ">=5.76.0",
+    "minimatch": ">=10.2.1",
+    "@isaacs/brace-expansion": ">=5.0.1",
+    "braces": ">=3.0.3",
+    "json5": ">=2.2.2",
+    "path-to-regexp": ">=1.9.0",
+    "sanitize-html": ">=2.12.1"
   },
   "devDependencies": {
     "@axe-core/react": "^4.7.0",
