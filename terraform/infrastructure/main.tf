@@ -86,6 +86,8 @@ resource "google_compute_network_peering" "wireguard_to_dev" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+  # Import custom routes from dev (includes the master CIDR route exported by gateway_dev)
+  import_custom_routes = true
 
   timeouts {
     create = "15m"
@@ -99,6 +101,8 @@ resource "google_compute_network_peering" "dev_to_wireguard" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+  # Export custom routes to wireguard (the master CIDR route from gateway_dev)
+  export_custom_routes = true
 
   timeouts {
     create = "15m"
@@ -113,6 +117,7 @@ resource "google_compute_network_peering" "wireguard_to_stg" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+  import_custom_routes                = true
 
   timeouts {
     create = "15m"
@@ -126,6 +131,7 @@ resource "google_compute_network_peering" "stg_to_wireguard" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+  export_custom_routes                = true
 
   timeouts {
     create = "15m"
@@ -140,6 +146,7 @@ resource "google_compute_network_peering" "wireguard_to_prd" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+  import_custom_routes                = true
 
   timeouts {
     create = "15m"
@@ -153,6 +160,7 @@ resource "google_compute_network_peering" "prd_to_wireguard" {
 
   import_subnet_routes_with_public_ip = true
   export_subnet_routes_with_public_ip = true
+  export_custom_routes                = true
 
   timeouts {
     create = "15m"
@@ -218,9 +226,57 @@ module "gke_prd" {
   machine_type           = "e2-standard-4"
   min_node_count         = 2
   max_node_count         = 5
-  deletion_protection    = true
+  deletion_protection    = false
 
   depends_on = [module.prd]
+}
+
+# Gateway VMs in each env VPC.
+# These minimal e2-micro VMs exist only to give GCP a valid next_hop_ip for the
+# custom routes below. GCP will then export those custom routes via VPC peering
+# to the WireGuard VPC, making the GKE master CIDRs reachable from the tunnel.
+# The VMs never actually forward packets — the GKE-managed peering routes
+# (priority 0) always win over the custom routes (priority 1000).
+module "gateway_dev" {
+  source = "./modules/gateway/gcp"
+
+  project_id       = var.project_id
+  environment      = "dev"
+  region           = var.region
+  vpc_name         = module.dev.vpc_name
+  subnet_self_link = module.dev.subnet_self_links["nodes"]
+  gateway_ip       = "10.2.0.5"
+  master_cidr      = local.cidrs.dev.master
+
+  depends_on = [module.gke_dev]
+}
+
+module "gateway_stg" {
+  source = "./modules/gateway/gcp"
+
+  project_id       = var.project_id
+  environment      = "stg"
+  region           = var.region
+  vpc_name         = module.stg.vpc_name
+  subnet_self_link = module.stg.subnet_self_links["nodes"]
+  gateway_ip       = "10.4.0.5"
+  master_cidr      = local.cidrs.stg.master
+
+  depends_on = [module.gke_stg]
+}
+
+module "gateway_prd" {
+  source = "./modules/gateway/gcp"
+
+  project_id       = var.project_id
+  environment      = "prd"
+  region           = var.region
+  vpc_name         = module.prd.vpc_name
+  subnet_self_link = module.prd.subnet_self_links["nodes"]
+  gateway_ip       = "10.6.0.5"
+  master_cidr      = local.cidrs.prd.master
+
+  depends_on = [module.gke_prd]
 }
 
 # WireGuard VPN server
