@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.constants import EntityType
 
 # Removed unused imports - legacy tenant functions no longer needed
-from rhesis.backend.app.models import Behavior, Category, Status, Topic, TypeLookup
+from rhesis.backend.app.models import Behavior, Category, Model, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.logging import logger
@@ -1182,4 +1182,81 @@ def get_or_create_behavior(
     # Use get_or_create_entity for consistent lookup logic
     return get_or_create_entity(
         db, Behavior, behavior_data, organization_id, user_id, commit=commit
+    )
+
+
+def create_default_rhesis_model(
+    db: Session,
+    provider_value: str,
+    model_name: str,
+    name: str,
+    description: str,
+    icon: str,
+    organization_id: str,
+    user_id: str,
+    model_type: str = "language",
+    commit: bool = False,
+) -> Model:
+    """
+    Create a default Rhesis-hosted model (e.g. Rhesis Default, Rhesis Embedding, Polyphemus).
+
+    Centralizes the creation logic for protected system models used during onboarding
+    and data migrations.
+
+    Args:
+        db: Database session
+        provider_value: Provider type value (e.g. "rhesis", "polyphemus")
+        model_name: Model identifier (e.g. "default")
+        name: Human-readable display name
+        description: Description of the model
+        icon: Icon identifier for the frontend
+        organization_id: Organization ID to associate with the model
+        user_id: User ID to associate with the model
+        model_type: One of "language" or "embedding" (default: "language")
+        commit: Whether to commit the transaction (default: False)
+
+    Returns:
+        The created or existing Model instance
+    """
+    provider_type = get_or_create_type_lookup(
+        db=db,
+        type_name="ProviderType",
+        type_value=provider_value,
+        organization_id=organization_id,
+        user_id=user_id,
+        commit=False,
+    )
+
+    available_status = get_or_create_status(
+        db=db,
+        name="Available",
+        entity_type=EntityType.MODEL,
+        description="Model is ready and can be used",
+        organization_id=organization_id,
+        user_id=user_id,
+        commit=False,
+    )
+
+    model_data = {
+        "name": name,
+        "model_name": model_name,
+        "model_type": model_type,
+        "description": description,
+        "icon": icon,
+        "provider_type_id": provider_type.id,
+        "status_id": available_status.id,
+        "key": "",
+        "endpoint": None,
+        "is_protected": True,
+        "user_id": uuid.UUID(user_id),
+        "owner_id": uuid.UUID(user_id),
+    }
+
+    return get_or_create_entity(
+        db=db,
+        model=Model,
+        entity_data=model_data,
+        organization_id=organization_id,
+        user_id=user_id,
+        commit=commit,
     )

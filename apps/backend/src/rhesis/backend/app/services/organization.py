@@ -12,6 +12,7 @@ from rhesis.backend.app.models.metric import behavior_metric_association
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.test_set import execute_test_set_on_endpoint
 from rhesis.backend.app.utils.crud_utils import (
+    create_default_rhesis_model,
     get_or_create_behavior,
     get_or_create_category,
     get_or_create_entity,
@@ -651,90 +652,57 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
 
         # Process default Rhesis language model
         print("Processing default Rhesis language model...")
-        # Get the Rhesis provider type
-        rhesis_provider_type = get_or_create_type_lookup(
+        default_language_model = create_default_rhesis_model(
             db=db,
-            type_name="ProviderType",
-            type_value="rhesis",
-            description="Rhesis",
+            provider_value="rhesis",
+            model_name="default",
+            name="Rhesis Default",
+            description="Default Rhesis language model.",
+            icon="rhesis",
             organization_id=organization_id,
             user_id=user_id,
+            model_type=ModelType.LANGUAGE.value,
             commit=False,
         )
-
-        # Get Available status for the model
-        available_status = get_or_create_status(
-            db=db,
-            name="Available",
-            entity_type="Model",
-            organization_id=organization_id,
-            user_id=user_id,
-            commit=False,
-        )
-
-        # Create the default Rhesis language model
-        default_language_model_data = {
-            "name": "Rhesis Default",
-            "model_name": "default",
-            "model_type": ModelType.LANGUAGE.value,
-            "description": "Default Rhesis language model.",
-            "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
-            "provider_type_id": rhesis_provider_type.id,
-            "status_id": available_status.id,
-            "key": "",  # Empty string for system model - backend uses its own key
-            "endpoint": None,  # Uses internal infrastructure
-            "is_protected": True,  # System model - cannot be deleted
-            "user_id": uuid.UUID(user_id),
-            "owner_id": uuid.UUID(user_id),
-        }
-
-        default_language_model = get_or_create_entity(
-            db=db,
-            model=models.Model,
-            entity_data=default_language_model_data,
-            organization_id=organization_id,
-            user_id=user_id,
-            commit=False,
-        )
-
         print(f"Created default Rhesis language model with ID: {default_language_model.id}")
 
         # Process default Rhesis embedding model
         print("Processing default Rhesis embedding model...")
-        # Use the same Rhesis provider type for embedding model
-        # Note: rhesis_provider_type was already created above for language model
-
-        # Create the default Rhesis embedding model
-        default_embedding_model_data = {
-            "name": "Rhesis Default Embedding",
-            "model_name": "default",
-            "model_type": ModelType.EMBEDDING.value,
-            "description": "Default Rhesis embedding model",
-            "icon": "rhesis",  # Maps to PROVIDER_ICONS['rhesis'] in frontend
-            "provider_type_id": rhesis_provider_type.id,
-            "status_id": available_status.id,
-            "key": "",  # Empty string for system model - backend uses its own key
-            "endpoint": None,  # Uses internal infrastructure
-            "is_protected": True,  # System model - cannot be deleted
-            "user_id": uuid.UUID(user_id),
-            "owner_id": uuid.UUID(user_id),
-        }
-
-        default_embedding_model = get_or_create_entity(
+        default_embedding_model = create_default_rhesis_model(
             db=db,
-            model=models.Model,
-            entity_data=default_embedding_model_data,
+            provider_value="rhesis",
+            model_name="default",
+            name="Rhesis Default Embedding",
+            description="Default Rhesis embedding model",
+            icon="rhesis",
             organization_id=organization_id,
             user_id=user_id,
+            model_type=ModelType.EMBEDDING.value,
             commit=False,
         )
-
         print(f"Created default Rhesis embedding model with ID: {default_embedding_model.id}")
+
+        # Create Polyphemus model
+        print("Processing Polyphemus model...")
+        polyphemus_model = create_default_rhesis_model(
+            db=db,
+            provider_value="polyphemus",
+            model_name="default",
+            name="Rhesis Polyphemus",
+            description="Polyphemus adversarial model hosted by Rhesis. No API key required.",
+            icon="polyphemus",
+            organization_id=organization_id,
+            user_id=user_id,
+            model_type=ModelType.LANGUAGE.value,
+            commit=False,
+        )
+        print(f"Created Polyphemus model with ID: {polyphemus_model.id}")
 
         # Flush all changes to ensure they're persisted
         db.flush()
 
         # Return both model IDs as a dict so they can be set in user settings
+        # (Polyphemus is available but not set as a default)
         return {
             "language_model_id": str(default_language_model.id),
             "embedding_model_id": str(default_embedding_model.id),

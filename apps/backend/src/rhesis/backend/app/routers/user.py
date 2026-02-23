@@ -17,7 +17,12 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.auth import create_session_token
+from rhesis.backend.app.schemas.polyphemus import (
+    PolyphemusAccessRequest,
+    PolyphemusAccessResponse,
+)
 from rhesis.backend.app.schemas.user import UserSettings, UserSettingsUpdate
+from rhesis.backend.app.services import polyphemus as polyphemus_service
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.rate_limit import INVITATION_RATE_LIMIT, user_limiter
@@ -160,23 +165,27 @@ async def read_users(
     )
 
 
-@router.get("/settings", response_model=UserSettings)
+@router.get("/settings")
 def get_user_settings(
     db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
 ):
     """
-    Get current user's settings.
+    Get current user's settings and verification status.
 
     Returns the user's preferences including model defaults, UI settings,
-    notifications, localization, editor, and privacy preferences.
+    notifications, localization, editor, and privacy preferences,
+    along with the is_verified flag.
     """
     # Query from database to ensure fresh data
     db_user = db.query(models.User).filter(models.User.id == current_user.id).first()
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return db_user.user_settings
+    return {
+        **db_user.user_settings,
+        "is_verified": db_user.is_verified,
+    }
 
 
 @router.patch("/settings", response_model=UserSettings)
@@ -365,3 +374,27 @@ def update_user(
         )
 
     return updated_user
+
+
+@router.post("/request-polyphemus-access", response_model=PolyphemusAccessResponse)
+def request_polyphemus_access(
+    request_data: PolyphemusAccessRequest,
+    db: Session = Depends(get_db_session),
+    current_user: User = Depends(require_current_user_or_token_without_context),
+):
+    """
+    Request access to the Polyphemus adversarial model.
+
+    Records the access request in user settings and sends an email
+    notification to admins for review.
+    """
+    try:
+        success, message = polyphemus_service.request_access(
+            db=db,
+            user=current_user,
+            justification=request_data.justification,
+            expected_monthly_requests=request_data.expected_monthly_requests,
+        )
+        return PolyphemusAccessResponse(success=success, message=message)
+    except ValueError as e:
+        raise HTTPException(status_code=403, detail=str(e))

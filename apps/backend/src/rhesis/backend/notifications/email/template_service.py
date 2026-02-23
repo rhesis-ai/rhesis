@@ -24,6 +24,7 @@ class EmailTemplate(Enum):
     PASSWORD_RESET = "password_reset.html.jinja2"
     MAGIC_LINK = "magic_link.html.jinja2"
     MIGRATION_PASSWORD_SETUP = "migration_password_setup.html.jinja2"
+    POLYPHEMUS_ACCESS_REQUEST = "polyphemus_access_request.html.jinja2"
 
 
 class TemplateService:
