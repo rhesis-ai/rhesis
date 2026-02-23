@@ -20,7 +20,7 @@ from rhesis.polyphemus.schemas import GenerateRequest, Message
 logger = logging.getLogger("rhesis-polyphemus")
 
 # User-facing model aliases mapped to internal config (env vars: endpoint IDs, etc.)
-POLYPHEMUS_MODEL_ALIASES = ("polyphemus-default", "polyphemus-opus", "polyphemus-flash-001")
+POLYPHEMUS_MODEL_ALIASES = ("polyphemus-default",)
 
 POLYPHEMUS_MODELS: Dict[str, Optional[str]] = {
     "polyphemus-default": os.getenv("POLYPHEMUS_DEFAULT_MODEL")
