@@ -199,38 +199,43 @@ class TestLoadInitialData:
     def test_load_initial_data_empty_data(
         self, test_db: Session, authenticated_user_id, test_org_id
     ):
-        """Test load_initial_data with empty JSON data still creates default Rhesis model."""
+        """Test load_initial_data with empty JSON data still creates default Rhesis models."""
         # Mock empty initial data
         empty_data = {}
+
+        mock_model = patch("uuid.uuid4", return_value=uuid.uuid4())
 
         with (
             patch("builtins.open", mock_open(read_data=json.dumps(empty_data))),
             patch(
-                "rhesis.backend.app.services.organization.get_or_create_type_lookup"
-            ) as mock_get_type,
-            patch(
-                "rhesis.backend.app.services.organization.get_or_create_status"
-            ) as mock_get_status,
-            patch(
-                "rhesis.backend.app.services.organization.get_or_create_entity"
-            ) as mock_get_entity,
+                "rhesis.backend.app.services.organization.create_default_rhesis_model"
+            ) as mock_create_model,
         ):
+            # Make mock return an object with an id attribute
+            from unittest.mock import MagicMock
+
+            mock_model_obj = MagicMock()
+            mock_model_obj.id = uuid.uuid4()
+            mock_create_model.return_value = mock_model_obj
+
             # Call the function (now uses provided db parameter directly)
             organization_service.load_initial_data(
                 db=test_db, organization_id=test_org_id, user_id=authenticated_user_id
             )
 
-            # Verify that type_lookup creation WAS called for the default Rhesis model
-            # Even with empty data, the function creates a default Rhesis model
-            mock_get_type.assert_called_once_with(
-                db=test_db,
-                type_name="ProviderType",
-                type_value="rhesis",
-                description="Rhesis",
-                organization_id=test_org_id,
-                user_id=authenticated_user_id,
-                commit=False,
-            )
+            # Verify that create_default_rhesis_model was called for both language and embedding models
+            # Even with empty data, the function creates default Rhesis models
+            assert mock_create_model.call_count == 2
+
+            # Verify first call was for language model
+            first_call = mock_create_model.call_args_list[0]
+            assert first_call.kwargs["name"] == "Rhesis Default"
+            assert first_call.kwargs["model_type"] == "language"
+
+            # Verify second call was for embedding model
+            second_call = mock_create_model.call_args_list[1]
+            assert second_call.kwargs["name"] == "Rhesis Default Embedding"
+            assert second_call.kwargs["model_type"] == "embedding"
 
     def test_load_initial_data_integration(
         self, test_db: Session, authenticated_user_id, test_org_id
