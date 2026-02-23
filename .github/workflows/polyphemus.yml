@@ -173,7 +173,6 @@ jobs:
         run: |
           # Use cache to speed up builds - only rebuild layers that changed
           # Build context is repo root to access SDK and pyproject.toml (like backend)
-          # Models are loaded at runtime from MODEL_PATH (local or GCS bucket)
           
           # Enable BuildKit for better build performance and progress output
           export DOCKER_BUILDKIT=1
@@ -359,7 +358,7 @@ jobs:
           if [ -n "$ENDPOINT_ID" ]; then
             echo "POLYPHEMUS_ENDPOINT_ID=$ENDPOINT_ID" >> $GITHUB_ENV
             echo "endpoint_id=$ENDPOINT_ID" >> $GITHUB_OUTPUT
-            echo "✅ Found Polyphemus Endpoint ID: $ENDPOINT_ID"
+            echo "✅ Found Polyphemus Endpoint ID"
           else
             echo "⚠️ No Polyphemus endpoint found with name: $ENDPOINT_NAME"
             echo "⚠️ Deployment will continue but Polyphemus may not work without endpoint"

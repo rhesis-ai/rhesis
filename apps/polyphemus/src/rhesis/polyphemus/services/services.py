@@ -19,6 +19,41 @@ from rhesis.polyphemus.schemas import GenerateRequest, Message
 
 logger = logging.getLogger("rhesis-polyphemus")
 
+# User-facing model aliases mapped to internal config (env vars: endpoint IDs, etc.)
+POLYPHEMUS_MODEL_ALIASES = "polyphemus-default"
+
+POLYPHEMUS_MODELS: Dict[str, Optional[str]] = {
+    "polyphemus-default": os.getenv("POLYPHEMUS_DEFAULT_MODEL")
+}
+
+DEFAULT_MODEL_ALIAS = "polyphemus-default"
+
+
+def resolve_model(user_model: Optional[str]) -> str:
+    """
+    Resolve a user-provided model alias to the internal config value (from env).
+
+    Allowed aliases: polyphemus-default, polyphemus-opus, polyphemus-flash-001.
+    If user_model is None, returns the internal value for polyphemus-default.
+
+    Raises:
+        ValueError: If user_model is not None and not one of the allowed aliases,
+            or if the resolved env value is missing.
+    """
+    alias = user_model if user_model else DEFAULT_MODEL_ALIAS
+    if alias not in POLYPHEMUS_MODEL_ALIASES:
+        raise ValueError(
+            f"Invalid model: {alias!r}. Allowed: {', '.join(POLYPHEMUS_MODEL_ALIASES)}."
+        )
+    internal = POLYPHEMUS_MODELS.get(alias)
+    if not internal:
+        raise ValueError(
+            f"Model {alias!r} is not configured. "
+            f"Set the corresponding POLYPHEMUS_*_MODEL environment variable."
+        )
+    return internal
+
+
 # Thread pool executor for running blocking operations
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="polyphemus-vertex")
 
@@ -155,6 +190,8 @@ async def generate_text_via_vertex_endpoint(
     if not any(m.content.strip() for m in request.messages if m.role != "system"):
         raise ValueError("At least one non-system message with content is required")
 
+    resolved_model = resolve_model(request.model)
+
     # Get parameters with defaults (max_tokens is optional; only passed when provided)
     temperature = request.temperature if request.temperature is not None else 0.6
     top_p = request.top_p if request.top_p is not None else 1.0
@@ -254,7 +291,7 @@ async def generate_text_via_vertex_endpoint(
                 "finish_reason": first.get("finish_reason", "stop"),
             }
         ],
-        "model": request.model or f"vertex/{endpoint_id}",
+        "model": resolved_model,
         "usage": {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,

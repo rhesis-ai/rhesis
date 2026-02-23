@@ -65,10 +65,10 @@ export GCP_REGION="us-central1"
 export GCP_SERVICE_ACCOUNT="your-service-account@your-project.iam.gserviceaccount.com"
 
 # Optional: For loading models from GCS (same as GitHub secrets)
-# MODEL_PATH = parent path to the model folder; DEFAULT_MODEL = folder name
-# Example: model at gs://your-bucket-name/cache/your-model-name → MODEL_PATH=gs://your-bucket-name/cache, DEFAULT_MODEL=your-model-name
-export MODEL_PATH="gs://your-bucket-name/cache"
-export DEFAULT_MODEL="your-model-name"
+# POLYPHEMUS_MODEL_PATH = parent path to the model folder; POLYPHEMUS_DEFAULT_MODEL = folder name
+# Example: model at gs://your-bucket-name/cache/your-model-name → POLYPHEMUS_MODEL_PATH=gs://your-bucket-name/cache, POLYPHEMUS_DEFAULT_MODEL=your-model-name
+export POLYPHEMUS_MODEL_PATH="gs://your-bucket-name/cache"
+export POLYPHEMUS_DEFAULT_MODEL="your-model-name"
 
 # Optional: For private HuggingFace models
 export HF_TOKEN="hf_your_token_here"
@@ -80,8 +80,8 @@ Or create a `.env` file in the `model_deployment` directory (see `.env.example`)
 GCP_PROJECT_ID=your-project-id
 GCP_REGION=us-central1
 GCP_SERVICE_ACCOUNT=your-service-account@your-project.iam.gserviceaccount.com
-MODEL_PATH=gs://your-bucket-name/cache
-DEFAULT_MODEL=your-model-name
+POLYPHEMUS_MODEL_PATH=gs://your-bucket-name/cache
+POLYPHEMUS_DEFAULT_MODEL=your-model-name
 HF_TOKEN=hf_your_token_here
 ```
 
@@ -134,12 +134,12 @@ The `model_id` field supports two options:
    ```
 
 2. **GCS Path** (pre-downloaded models, faster deployment):
-   Set `MODEL_PATH` and `DEFAULT_MODEL` (e.g. `gs://your-bucket-name/models` and `your-model-name`). The full path `MODEL_PATH/DEFAULT_MODEL` is used as `model_id`.
+   Set `POLYPHEMUS_MODEL_PATH` and `POLYPHEMUS_DEFAULT_MODEL` (e.g. `gs://your-bucket-name/models` and `your-model-name`). The full path `POLYPHEMUS_MODEL_PATH/POLYPHEMUS_DEFAULT_MODEL` is used as `model_id`.
    ```python
    "model_id": "gs://your-bucket-name/models/your-model-name"
    ```
 
-**Recommendation**: Use the same `MODEL_PATH` and `DEFAULT_MODEL` as your Cloud Run / GitHub secrets for consistency. Pre-download your models to that GCS path in the same region as your deployment.
+**Recommendation**: Use the same `POLYPHEMUS_MODEL_PATH` and `POLYPHEMUS_DEFAULT_MODEL` as your Cloud Run / GitHub secrets for consistency. Pre-download your models to that GCS path in the same region as your deployment.
 
 ### Available Machine Types
 
@@ -227,8 +227,9 @@ Configure these GitHub secrets for automated deployment:
 - `POLYPHEMUS_REGION` - Deployment region (e.g., us-central1)
 
 **Optional (for GCS model loading)**:
-- `MODEL_PATH` - GCS parent path to the model folder (e.g. `gs://your-bucket-name/cache` for `gs://.../cache/your-model-name`)
-- `DEFAULT_MODEL` - Model folder name (e.g. your-model-name)
+- `POLYPHEMUS_MODEL_PATH` - GCS parent path to the model folder (e.g. `gs://your-bucket-name/cache` for `gs://.../cache/your-model-name`)
+- `POLYPHEMUS_MODEL_BUCKET` - GCS bucket name (optional; derived from POLYPHEMUS_MODEL_PATH if not set)
+- `POLYPHEMUS_DEFAULT_MODEL` - Model folder name (e.g. your-model-name)
 - `HUGGINGFACE_TOKEN` - HuggingFace token for private models
 
 #### Deployment Methods

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any, TypedDict
 
-# Load .env from model_deployment directory so GCP_SERVICE_ACCOUNT, MODEL_PATH, etc. are used
+# Load .env from model_deployment directory (GCP_SERVICE_ACCOUNT, POLYPHEMUS_MODEL_PATH, etc.)
 from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
@@ -31,21 +31,25 @@ SERVICE_ACCOUNT = os.getenv("GCP_SERVICE_ACCOUNT", "")
 ENVIRONMENT = (os.getenv("ENVIRONMENT", "dev") or "dev").strip().lower()
 
 # GCS model path and default model (use existing GitHub secrets)
-# MODEL_PATH e.g. gs://your-bucket-name/cache
-# DEFAULT_MODEL e.g. your-model-name
-MODEL_PATH = os.getenv("MODEL_PATH", "")
-DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "")
+# POLYPHEMUS_MODEL_PATH e.g. gs://your-bucket-name/cache
+# POLYPHEMUS_DEFAULT_MODEL e.g. your-model-name
+# POLYPHEMUS_MODEL_BUCKET e.g. your-bucket-name (optional; derived from path if not set)
+MODEL_PATH = os.getenv("POLYPHEMUS_MODEL_PATH", "")
+DEFAULT_MODEL = os.getenv("POLYPHEMUS_DEFAULT_MODEL", "")
+MODEL_BUCKET = os.getenv("POLYPHEMUS_MODEL_BUCKET", "")
 
-# Derived: bucket URI for model storage (gs://bucket-name from MODEL_PATH)
-# e.g. MODEL_PATH=gs://your-bucket-name/cache -> BUCKET_URI=gs://your-bucket-name
+# Derived: bucket URI (from POLYPHEMUS_MODEL_PATH or POLYPHEMUS_MODEL_BUCKET)
+# e.g. POLYPHEMUS_MODEL_PATH=gs://your-bucket-name/cache -> BUCKET_URI=gs://your-bucket-name
 BUCKET_URI = ""
-if MODEL_PATH and MODEL_PATH.startswith("gs://"):
+if MODEL_BUCKET:
+    BUCKET_URI = f"gs://{MODEL_BUCKET.strip('/')}"
+elif MODEL_PATH and MODEL_PATH.startswith("gs://"):
     parts = MODEL_PATH.split("/")
     if len(parts) >= 3:
         BUCKET_URI = f"gs://{parts[2]}"
 
 # Full GCS path to default model for deployment
-# e.g. MODEL_PATH + DEFAULT_MODEL -> gs://your-bucket-name/cache/your-model-name
+# e.g. POLYPHEMUS_MODEL_PATH + POLYPHEMUS_DEFAULT_MODEL -> gs://your-bucket-name/cache/your-model-name
 MODEL_GCS_PATH = ""
 if MODEL_PATH and DEFAULT_MODEL:
     MODEL_GCS_PATH = f"{MODEL_PATH.rstrip('/')}/{DEFAULT_MODEL}"
@@ -63,7 +67,7 @@ VLLM_DOCKER_URI = (
 #   1. HuggingFace model ID (e.g., "meta-llama/Meta-Llama-3.1-8B-Instruct")
 #   2. GCS path (e.g., "gs://bucket-name/models/your-model")
 #
-# If MODEL_PATH and DEFAULT_MODEL are set, model_id is the full GCS path
+# If POLYPHEMUS_MODEL_PATH and POLYPHEMUS_DEFAULT_MODEL are set, model_id is the full GCS path
 MODELS: list[ModelConfig] = [
     {
         "model_name": DEFAULT_MODEL or "llama-3-1-8b-instruct",
@@ -120,10 +124,10 @@ def validate_config() -> None:
             "Please set these variables before running the deployment script."
         )
 
-    # Validate MODEL_PATH format if provided
+    # Validate POLYPHEMUS_MODEL_PATH format if provided
     if MODEL_PATH and not MODEL_PATH.startswith("gs://"):
         raise ValueError(
-            f"Invalid MODEL_PATH format: {MODEL_PATH}\n"
+            f"Invalid POLYPHEMUS_MODEL_PATH format: {MODEL_PATH}\n"
             "Must start with 'gs://' (e.g., gs://your-bucket-name/cache)"
         )
 

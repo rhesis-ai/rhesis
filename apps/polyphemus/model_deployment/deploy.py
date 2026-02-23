@@ -201,9 +201,9 @@ def deploy_models(
 
     # Log GCS configuration if provided
     if MODEL_PATH:
-        logger.info(f"Model path (MODEL_PATH): {MODEL_PATH}")
+        logger.info(f"Model path (POLYPHEMUS_MODEL_PATH): {MODEL_PATH}")
     if DEFAULT_MODEL:
-        logger.info(f"Default model (DEFAULT_MODEL): {DEFAULT_MODEL}")
+        logger.info(f"Default model (POLYPHEMUS_DEFAULT_MODEL): {DEFAULT_MODEL}")
     if MODEL_GCS_PATH:
         logger.info(f"Full model GCS path: {MODEL_GCS_PATH}")
     if BUCKET_URI:

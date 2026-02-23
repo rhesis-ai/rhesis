@@ -114,13 +114,17 @@ jobs:
           echo "GCP_SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT }}" >> $GITHUB_ENV 
           
           # Model path and default model (existing GitHub secrets)
-          if [ -n "${{ secrets.MODEL_PATH }}" ]; then
-            echo "MODEL_PATH=${{ secrets.MODEL_PATH }}" >> $GITHUB_ENV
-            echo "✓ Using MODEL_PATH: ${{ secrets.MODEL_PATH }}"
+          if [ -n "${{ secrets.POLYPHEMUS_MODEL_PATH }}" ]; then
+            echo "POLYPHEMUS_MODEL_PATH=${{ secrets.POLYPHEMUS_MODEL_PATH }}" >> $GITHUB_ENV
+            echo "✓ Using POLYPHEMUS_MODEL_PATH: ${{ secrets.POLYPHEMUS_MODEL_PATH }}"
           fi
-          if [ -n "${{ secrets.DEFAULT_MODEL }}" ]; then
-            echo "DEFAULT_MODEL=${{ secrets.DEFAULT_MODEL }}" >> $GITHUB_ENV
-            echo "✓ Using DEFAULT_MODEL: ${{ secrets.DEFAULT_MODEL }}"
+          if [ -n "${{ secrets.POLYPHEMUS_MODEL_BUCKET }}" ]; then
+            echo "POLYPHEMUS_MODEL_BUCKET=${{ secrets.POLYPHEMUS_MODEL_BUCKET }}" >> $GITHUB_ENV
+            echo "✓ Using POLYPHEMUS_MODEL_BUCKET: ${{ secrets.POLYPHEMUS_MODEL_BUCKET }}"
+          fi
+          if [ -n "${{ secrets.POLYPHEMUS_DEFAULT_MODEL }}" ]; then
+            echo "POLYPHEMUS_DEFAULT_MODEL=${{ secrets.POLYPHEMUS_DEFAULT_MODEL }}" >> $GITHUB_ENV
+            echo "✓ Using POLYPHEMUS_DEFAULT_MODEL: ${{ secrets.POLYPHEMUS_DEFAULT_MODEL }}"
           fi
           
           # HuggingFace token for private models (optional)
@@ -178,8 +182,9 @@ jobs:
           - **Environment**: \`${{ env.ENVIRONMENT }}\`
           - **Project**: \`${{ env.GCP_PROJECT_ID }}\`
           - **Region**: \`${{ env.GCP_REGION }}\`
-          - **MODEL_PATH**: \`${{ env.MODEL_PATH || 'Not configured' }}\`
-          - **DEFAULT_MODEL**: \`${{ env.DEFAULT_MODEL || 'Not configured' }}\`
+          - **POLYPHEMUS_MODEL_PATH**: \`${{ env.POLYPHEMUS_MODEL_PATH || 'Not configured' }}\`
+          - **POLYPHEMUS_MODEL_BUCKET**: \`${{ env.POLYPHEMUS_MODEL_BUCKET || 'Not configured' }}\`
+          - **POLYPHEMUS_DEFAULT_MODEL**: \`${{ env.POLYPHEMUS_DEFAULT_MODEL || 'Not configured' }}\`
           - **Skip Existing**: \`${{ github.event.inputs.skip_existing || 'true' }}\`
           - **Enable LoRA**: \`${{ github.event.inputs.enable_lora || 'false' }}\`
           - **Enforce Eager**: \`${{ github.event.inputs.enforce_eager || 'false' }}\`
@@ -188,7 +193,7 @@ jobs:
           ## Model Loading
           Models can be loaded from:
           - **HuggingFace**: Public or private models (with token)
-          - **GCS**: Pre-downloaded models from \`${{ env.MODEL_PATH || 'gs://your-bucket/models' }}\` (model: \`${{ env.DEFAULT_MODEL }}\`)
+          - **GCS**: Pre-downloaded models from \`${{ env.POLYPHEMUS_MODEL_PATH || 'gs://your-bucket/models' }}\` (model: \`${{ env.POLYPHEMUS_DEFAULT_MODEL }}\`)
           
           ## Next Steps
           1. Check the GCP Services console to verify deployments
