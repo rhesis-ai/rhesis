@@ -110,3 +110,13 @@ variable "deletion_protection" {
   type        = bool
   default     = true
 }
+
+variable "env_nics" {
+  description = "Extra NICs in env VPCs for forwarding kubectl traffic to GKE master (eth1=dev, eth2=stg, eth3=prd)"
+  type = list(object({
+    subnet_self_link = string
+    network_ip       = string
+    master_cidr      = string
+  }))
+  default = []
+}

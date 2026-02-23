@@ -6,7 +6,7 @@ resource "google_compute_address" "wireguard" {
   address_type = "EXTERNAL"
 }
 
-# WireGuard VPN server VM
+# WireGuard VPN server VM (primary NIC in WireGuard VPC + optional NICs in env VPCs)
 resource "google_compute_instance" "wireguard" {
   name         = "wireguard-server"
   machine_type = var.machine_type
@@ -22,12 +22,22 @@ resource "google_compute_instance" "wireguard" {
     }
   }
 
+  # Primary NIC: WireGuard VPC (eth0)
   network_interface {
     subnetwork = var.subnet_self_link
     network_ip = var.wireguard_vm_ip
 
     access_config {
       nat_ip = google_compute_address.wireguard.address
+    }
+  }
+
+  # Extra NICs: one per env VPC (eth1=dev, eth2=stg, eth3=prd) for kubectl -> GKE master forwarding
+  dynamic "network_interface" {
+    for_each = var.env_nics
+    content {
+      subnetwork = network_interface.value.subnet_self_link
+      network_ip = network_interface.value.network_ip
     }
   }
 
@@ -39,6 +49,6 @@ resource "google_compute_instance" "wireguard" {
 
   tags = ["wireguard-server"]
 
-  can_ip_forward      = true # Required for VPN routing
+  can_ip_forward      = true # Required for VPN routing and GKE master forwarding
   deletion_protection = var.deletion_protection
 }

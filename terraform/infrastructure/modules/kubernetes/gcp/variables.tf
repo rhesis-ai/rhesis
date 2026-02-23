@@ -80,6 +80,12 @@ variable "wireguard_cidr" {
   }
 }
 
+variable "extra_authorized_cidrs" {
+  description = "Additional CIDRs allowed to access the GKE master (e.g. WireGuard server env NIC IPs)"
+  type        = list(string)
+  default     = []
+}
+
 variable "release_channel" {
   description = "GKE release channel (STABLE, REGULAR, RAPID)"
   type        = string

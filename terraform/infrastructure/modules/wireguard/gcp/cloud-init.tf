@@ -20,8 +20,21 @@ locals {
     subnet_cidrs       = var.subnet_cidrs
   })
 
-  # Render cloud-init configuration (use base64 for wg0.conf to avoid YAML parsing of [Interface] etc.)
+  # Routing setup script: resolves interface names by NIC IP at runtime
+  # (Ubuntu 22.04 on GCP uses ens* naming, not eth*) and persists rp_filter to sysctl.d.
+  gke_routing_script = join("\n", concat(
+    ["#!/bin/bash", "set -e"],
+    flatten([for nic in var.env_nics : [
+      "iface=$(ip -o addr show | awk '/${nic.network_ip}/ {print $2; exit}')",
+      "ip route replace ${nic.master_cidr} dev \"$iface\" 2>/dev/null || true",
+      "sysctl -w \"net.ipv4.conf.$iface.rp_filter=0\"",
+      "grep -q \"$iface.rp_filter\" /etc/sysctl.d/99-wireguard.conf 2>/dev/null || echo \"net.ipv4.conf.$iface.rp_filter=0\" >> /etc/sysctl.d/99-wireguard.conf"
+    ]])
+  ))
+
+  # Render cloud-init configuration (use base64 for binary/structured files to avoid YAML parsing issues)
   cloud_init = templatefile("${path.module}/templates/cloud-init.yaml.tpl", {
-    wireguard_config_b64 = base64encode(local.wireguard_config)
+    wireguard_config_b64   = base64encode(local.wireguard_config)
+    gke_routing_script_b64 = base64encode(local.gke_routing_script)
   })
 }

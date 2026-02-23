@@ -20,7 +20,15 @@ resource "google_container_cluster" "cluster" {
       cidr_block   = var.wireguard_cidr
       display_name = "wireguard-vpn"
     }
-    # Allow peered VPCs to access the private endpoint
+    # WireGuard server env NIC IPs: traffic forwarded by the WireGuard server
+    # to the GKE master is MASQUERADE'd to these IPs (one NIC per env VPC)
+    dynamic "cidr_blocks" {
+      for_each = var.extra_authorized_cidrs
+      content {
+        cidr_block   = cidr_blocks.value
+        display_name = "wireguard-server-env-nic"
+      }
+    }
     gcp_public_cidrs_access_enabled = false
   }
 
