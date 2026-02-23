@@ -4,6 +4,7 @@ import os
 import re
 from typing import Any, Dict, List, Optional, Type
 
+import jsonfinder
 import requests
 from pydantic import BaseModel
 
@@ -86,16 +87,19 @@ class PolyphemusLLM(BaseLLM):
             str if no schema provided, dict if schema provided
         """
         try:
-            # If schema is provided, augment the prompt to request JSON output
+            # If schema is provided, augment the system prompt to request JSON output
             if schema:
-                json_schema = schema.model_json_schema()
-                schema_instruction = (
-                    f"\n\nYou must respond with valid JSON matching this schema:\n"
-                    f"```json\n{json.dumps(json_schema, indent=2)}\n```\n"
-                    f"Only return the JSON object, nothing else. "
-                    f"Do not include explanations or markdown."
+                schema_description = json.dumps(schema.model_json_schema(), indent=2)
+                schema_instructions = (
+                    "\nRespond strictly in valid JSON matching this schema"
+                    " and filling all fields\n" + f"{schema_description}"
                 )
-                prompt = prompt + schema_instruction
+
+                # Build system prompt with /no_think prefix, existing prompt and schema instructions
+                if system_prompt:
+                    system_prompt = "/no_think\n" + system_prompt + schema_instructions
+                else:
+                    system_prompt = "/no_think" + schema_instructions
 
             # Build messages array
             messages = []
@@ -107,6 +111,7 @@ class PolyphemusLLM(BaseLLM):
 
             response = self.create_completion(
                 messages=messages,
+                json_schema=schema.model_json_schema() if schema else None,
                 **kwargs,
             )
 
@@ -114,15 +119,18 @@ class PolyphemusLLM(BaseLLM):
             if "choices" in response and len(response["choices"]) > 0:
                 content = response["choices"][0]["message"]["content"]
 
+                # If schema was provided, parse and validate the JSON response
+                if schema:
+                    parsed = self._extract_json(content)
+                    if not parsed:
+                        logger.error("No valid JSON found in response")
+                        return {"error": "No valid JSON found in response."}
+                    validate_llm_response(parsed, schema)
+                    return parsed
+
                 # Strip reasoning tokens if include_reasoning is False
                 if not include_reasoning:
                     content = self._strip_reasoning_tokens(content)
-
-                # If schema was provided, parse and validate the JSON response
-                if schema:
-                    response_dict = json.loads(content)
-                    validate_llm_response(response_dict, schema)
-                    return response_dict
 
                 return content
 
@@ -149,6 +157,17 @@ class PolyphemusLLM(BaseLLM):
     ) -> List[Any]:
         """Batch processing is not implemented for PolyphemusLLM."""
         raise NotImplementedError("generate_batch is not implemented for PolyphemusLLM")
+
+    def _extract_json(self, output: str) -> str:
+        """
+        Extract the JSON part of a text. Return the last found JSON object
+        as a JSON string, or "" if none found.
+        """
+        last = ""
+        for _, _, obj in jsonfinder.jsonfinder(output):
+            if obj is not None:
+                last = obj
+        return last
 
     def _strip_reasoning_tokens(self, content: str) -> str:
         """
