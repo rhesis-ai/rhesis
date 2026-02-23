@@ -223,9 +223,9 @@ class TestLoadInitialData:
                 db=test_db, organization_id=test_org_id, user_id=authenticated_user_id
             )
 
-            # Verify that create_default_rhesis_model was called for both language and embedding models
-            # Even with empty data, the function creates default Rhesis models
-            assert mock_create_model.call_count == 2
+            # Verify that create_default_rhesis_model was called for language, embedding,
+            # and Polyphemus models. Even with empty data, the function creates default models.
+            assert mock_create_model.call_count == 3
 
             # Verify first call was for language model
             first_call = mock_create_model.call_args_list[0]
@@ -236,6 +236,11 @@ class TestLoadInitialData:
             second_call = mock_create_model.call_args_list[1]
             assert second_call.kwargs["name"] == "Rhesis Default Embedding"
             assert second_call.kwargs["model_type"] == "embedding"
+
+            # Verify third call was for Polyphemus model
+            third_call = mock_create_model.call_args_list[2]
+            assert third_call.kwargs["name"] == "Rhesis Polyphemus"
+            assert third_call.kwargs["provider_value"] == "polyphemus"
 
     def test_load_initial_data_integration(
         self, test_db: Session, authenticated_user_id, test_org_id
