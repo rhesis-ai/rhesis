@@ -6,7 +6,7 @@ locals {
       identifier = peer.identifier
       ip         = peer.ip
       subnets    = peer.subnets
-      public_key = data.external.peer_keys[peer.identifier].result.public_key
+      public_key = tostring(terraform_data.peer_keys[peer.identifier].output["public_key"])
     }
   ]
 
@@ -14,7 +14,7 @@ locals {
   wireguard_config = templatefile("${path.module}/templates/wg0.conf.tpl", {
     server_ip          = var.wireguard_server_ip
     listen_port        = var.wireguard_port
-    server_private_key = data.external.server_key.result.private_key
+    server_private_key = tostring(terraform_data.server_key.output["private_key"])
     peer_cidr          = var.wireguard_peer_cidr
     peers              = local.wireguard_peers_with_keys
     subnet_cidrs       = var.subnet_cidrs
@@ -26,7 +26,8 @@ locals {
     ["#!/bin/bash", "set -e"],
     flatten([for nic in var.env_nics : [
       "iface=$(ip -o addr show | awk '/${nic.network_ip}/ {print $2; exit}')",
-      "ip route replace ${nic.master_cidr} dev \"$iface\" 2>/dev/null || true",
+      "gw=$(ip route show dev \"$iface\" | awk '/via/ {print $3; exit}')",
+      "ip route replace ${nic.master_cidr} via \"$gw\" dev \"$iface\" 2>/dev/null || true",
       "sysctl -w \"net.ipv4.conf.$iface.rp_filter=0\"",
       "grep -q \"$iface.rp_filter\" /etc/sysctl.d/99-wireguard.conf 2>/dev/null || echo \"net.ipv4.conf.$iface.rp_filter=0\" >> /etc/sysctl.d/99-wireguard.conf"
     ]])
