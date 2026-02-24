@@ -351,7 +351,7 @@ jobs:
           ENDPOINT_ID=$(gcloud ai endpoints list \
             --region=${{ env.POLYPHEMUS_REGION }} \
             --project=${{ env.PROJECT_ID }} \
-            --filter="displayName:${ENDPOINT_NAME}" \
+            --filter="displayName=\"${ENDPOINT_NAME}\"" \
             --format="value(name)" \
             --limit=1 | grep -oE '[0-9]+$' || echo "")
           
