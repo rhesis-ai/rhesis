@@ -79,12 +79,13 @@ export default function TestsTable({
     const selectedTests = tests.filter(t =>
       selectedRows.includes(t.id as string)
     );
-    const typeIds = new Set(
-      selectedTests.map(t => t.test_type?.id).filter(id => !!id)
+    const typeValues = new Set(
+      selectedTests.map(t => t.test_type?.type_value ?? null)
     );
     return {
-      isMixed: typeIds.size > 1,
-      commonTypeId: typeIds.size === 1 ? [...typeIds][0] : undefined,
+      isMixed: typeValues.size > 1,
+      commonTypeValue:
+        typeValues.size === 1 ? ([...typeValues][0] ?? undefined) : undefined,
     };
   }, [selectedRows, tests]);
 
@@ -576,9 +577,9 @@ export default function TestsTable({
             {selectedRows.length} tests selected
           </Typography>
           {selectedTestTypes.isMixed && (
-            <Typography variant="body2" color="text.secondary">
+            <Alert severity="warning">
               Select tests with the same test type
-            </Typography>
+            </Alert>
           )}
         </Box>
       )}
@@ -628,7 +629,7 @@ export default function TestsTable({
             onClose={() => setTestSetDialogOpen(false)}
             onSelect={handleTestSetSelect}
             sessionToken={sessionToken}
-            testSetTypeId={selectedTestTypes.commonTypeId}
+            testTypeValue={selectedTestTypes.commonTypeValue}
           />
           <DeleteModal
             open={deleteModalOpen}
