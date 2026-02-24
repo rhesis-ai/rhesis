@@ -6,6 +6,7 @@ including settings updates and admin email notifications.
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 
@@ -111,7 +112,7 @@ def _send_admin_notification(
         email_subject = f"Polyphemus Access Request - {user.name or user.email}"
         success = email_service.send_email(
             template=EmailTemplate.POLYPHEMUS_ACCESS_REQUEST,
-            recipient_email="harry@rhesis.ai",
+            recipient_email=os.environ.get("FROM_EMAIL", "hello@rhesis.ai"),
             subject=email_subject,
             template_variables=template_variables,
             task_id=f"polyphemus_request_{user.id}",
