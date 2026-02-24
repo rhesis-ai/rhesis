@@ -73,6 +73,7 @@ export interface UserSettings {
   privacy?: PrivacySettings;
   onboarding?: OnboardingProgress;
   polyphemus_access?: PolyphemusAccess;
+  is_verified?: boolean;
 }
 
 export interface UserSettingsUpdate {
@@ -95,6 +96,7 @@ export interface User {
   auth0_id?: string;
   picture?: string;
   is_active?: boolean;
+  is_verified?: boolean;
   organization_id?: UUID;
   user_settings?: UserSettings;
 }

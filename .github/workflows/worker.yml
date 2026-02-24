@@ -303,6 +303,7 @@ jobs:
             --from-literal=STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }} \
             --from-literal=LOCAL_STORAGE_PATH="${{ secrets.LOCAL_STORAGE_PATH }}" \
             --from-literal=RHESIS_CONNECTOR_DISABLED="${{ secrets.RHESIS_CONNECTOR_DISABLED }}" \
+            --from-literal=DEFAULT_POLYPHEMUS_URL="${{ secrets.DEFAULT_POLYPHEMUS_URL }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
           # Clean up temporary files

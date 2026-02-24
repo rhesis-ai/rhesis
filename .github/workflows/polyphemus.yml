@@ -406,6 +406,7 @@ jobs:
           SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
           SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }},
           DB_ENCRYPTION_KEY=${{ secrets.DB_ENCRYPTION_KEY }},
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},
           LOG_LEVEL=${{ secrets.LOG_LEVEL }}
           EOF
           )"
@@ -444,6 +445,7 @@ jobs:
           SQLALCHEMY_DB_HOST=${{ secrets.SQLALCHEMY_DB_HOST }},
           SQLALCHEMY_DB_NAME=${{ secrets.SQLALCHEMY_DB_NAME }},
           DB_ENCRYPTION_KEY=${{ secrets.DB_ENCRYPTION_KEY }},
+          JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }},
           LOG_LEVEL=${{ secrets.LOG_LEVEL }}
           EOF
           )"

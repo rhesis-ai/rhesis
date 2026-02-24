@@ -18,6 +18,7 @@ from rhesis.backend.app.utils.redact import redact_email
 from rhesis.backend.logging import logger
 
 # Token expiry defaults (in minutes)
+SERVICE_DELEGATION_EXPIRE_MINUTES = 5  # 5 minutes, short-lived for service-to-service calls
 EMAIL_VERIFICATION_EXPIRE_MINUTES = 60 * 24  # 24 hours
 PASSWORD_RESET_EXPIRE_MINUTES = 60  # 1 hour
 MAGIC_LINK_EXPIRE_MINUTES = 15  # 15 minutes
@@ -62,6 +63,34 @@ def create_session_token(user: User) -> str:
 
     encoded_jwt = jwt.encode(to_encode, get_secret_key(), algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def create_service_delegation_token(
+    user: User,
+    target_service: str,
+    expires_minutes: int = SERVICE_DELEGATION_EXPIRE_MINUTES,
+) -> str:
+    """Create a short-lived delegation token for service-to-service calls on behalf of a user."""
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(minutes=expires_minutes)
+
+    organization_id = str(user.organization_id) if user.organization_id else None
+
+    to_encode = {
+        "sub": str(user.id),
+        "iat": now,
+        "nbf": now,
+        "exp": expire,
+        "type": "service_delegation",
+        "target_service": target_service,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "organization_id": organization_id,
+        },
+    }
+
+    return jwt.encode(to_encode, get_secret_key(), algorithm=ALGORITHM)
 
 
 def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) -> Dict[str, Any]:
