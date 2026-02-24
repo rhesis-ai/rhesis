@@ -3,8 +3,9 @@
 import logging
 import os
 
+import jwt
 from fastapi import HTTPException, Request, status
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 
 from rhesis.backend.app.crud import get_user_by_id
 from rhesis.backend.app.database import get_db
@@ -40,9 +41,7 @@ def validate_delegation_token(request: Request, token: str) -> User:
             options={
                 "verify_exp": True,
                 "verify_iat": True,
-                "verify_nbf": True,
-                "require_exp": True,
-                "require_iat": True,
+                "require": ["exp", "iat"],
             },
         )
 
