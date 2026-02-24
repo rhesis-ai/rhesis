@@ -120,6 +120,7 @@ class UserSettings(BaseModel):
     polyphemus_access: Optional[PolyphemusAccess] = Field(
         None, description="Polyphemus access information"
     )
+    is_verified: Optional[bool] = Field(None, description="User verification status")
 
 
 class UserSettingsUpdate(BaseModel):

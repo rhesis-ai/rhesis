@@ -165,7 +165,7 @@ async def read_users(
     )
 
 
-@router.get("/settings")
+@router.get("/settings", response_model=UserSettings)
 def get_user_settings(
     db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
