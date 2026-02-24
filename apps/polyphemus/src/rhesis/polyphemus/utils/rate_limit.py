@@ -17,35 +17,8 @@ from rhesis.polyphemus.services.auth import require_api_key
 logger = logging.getLogger("rhesis-polyphemus")
 
 
-def get_rate_limit_identifier(request: Request) -> str:
-    """
-    Get a unique identifier for rate limiting.
-
-    For authenticated requests (with user_id set by auth dependency):
-      Returns: "user:{user_id}"
-    For unauthenticated requests:
-      Returns: "ip:{ip_address}"
-
-    Args:
-        request: FastAPI Request object
-
-    Returns:
-        str: Unique rate limit identifier
-    """
-    # Try to get user ID from request state (set by require_api_key dependency)
-    user_id = getattr(request.state, "user_id", None)
-    if user_id:
-        logger.debug(f"Rate limiting by user: {user_id}")
-        return f"user:{user_id}"
-
-    # Fall back to IP address for unauthenticated requests
-    ip = get_remote_address(request)
-    logger.debug(f"Rate limiting by IP: {ip}")
-    return f"ip:{ip}"
-
-
-# Initialize limiter with custom key function
-limiter = Limiter(key_func=get_rate_limit_identifier)
+# Initialize limiter with default key function
+limiter = Limiter(key_func=get_remote_address)
 RATE_LIMIT_PER_DAY = "10000/day"
 RATE_LIMIT_PER_MINUTE = "100/minute"
 
@@ -69,20 +42,27 @@ async def check_rate_limit(
     identifier = f"user:{user_id}"
 
     try:
-        # Check per-minute first (burst protection)
-        if not limiter._limiter.hit(_rate_limit_per_minute, identifier):
+        # Test both limits before incrementing either counter
+        minute_ok = limiter._limiter.test(_rate_limit_per_minute, identifier)
+        daily_ok = limiter._limiter.test(_rate_limit_per_day, identifier)
+
+        if not minute_ok:
             logger.warning(f"Per-minute rate limit exceeded for user {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=RATE_LIMIT_ERROR_DETAIL,
             )
-        # Then daily quota
-        if not limiter._limiter.hit(_rate_limit_per_day, identifier):
+        if not daily_ok:
             logger.warning(f"Daily rate limit exceeded for user {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=RATE_LIMIT_ERROR_DETAIL,
             )
+
+        # Both passed — increment both counters
+        limiter._limiter.hit(_rate_limit_per_minute, identifier)
+        limiter._limiter.hit(_rate_limit_per_day, identifier)
+
         logger.info(f"Rate limit check passed for user {user_id}")
     except HTTPException:
         raise

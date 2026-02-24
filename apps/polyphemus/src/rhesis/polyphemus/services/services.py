@@ -34,9 +34,8 @@ def resolve_model(user_model: Optional[str]) -> str:
     """
     Resolve a user-provided model alias to the internal config value (from env).
 
-    Allowed aliases: polyphemus-default, polyphemus-opus, polyphemus-flash-001.
-    Also accepts "default" as shorthand for "polyphemus-default".
-    If user_model is None or empty, returns the internal value for polyphemus-default.
+    Allowed aliases: polyphemus-default, polyphemus-opus.
+    If user_model is None, returns the internal value for polyphemus-default.
 
     Raises:
         ValueError: If user_model is not None and not one of the allowed aliases,
