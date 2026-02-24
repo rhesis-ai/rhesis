@@ -34,13 +34,17 @@ def resolve_model(user_model: Optional[str]) -> str:
     Resolve a user-provided model alias to the internal config value (from env).
 
     Allowed aliases: polyphemus-default, polyphemus-opus, polyphemus-flash-001.
-    If user_model is None, returns the internal value for polyphemus-default.
+    Also accepts "default" as shorthand for "polyphemus-default".
+    If user_model is None or empty, returns the internal value for polyphemus-default.
 
     Raises:
         ValueError: If user_model is not None and not one of the allowed aliases,
             or if the resolved env value is missing.
     """
     alias = user_model if user_model else DEFAULT_MODEL_ALIAS
+    # Accept "default" as shorthand for "polyphemus-default"
+    if alias == "default":
+        alias = DEFAULT_MODEL_ALIAS
     if alias not in POLYPHEMUS_MODEL_ALIASES:
         raise ValueError(
             f"Invalid model: {alias!r}. Allowed: {', '.join(POLYPHEMUS_MODEL_ALIASES)}."
