@@ -46,12 +46,13 @@ def get_rate_limit_identifier(request: Request) -> str:
 
 # Initialize limiter with custom key function
 limiter = Limiter(key_func=get_rate_limit_identifier)
+RATE_LIMIT_PER_DAY = "10000/day"
+RATE_LIMIT_PER_MINUTE = "100/minute"
 
-# Rate limits for different tiers
-RATE_LIMIT_AUTHENTICATED = "100/day"  # 100 requests per day per authenticated user
+_rate_limit_per_day = parse(RATE_LIMIT_PER_DAY)
+_rate_limit_per_minute = parse(RATE_LIMIT_PER_MINUTE)
 
-# Parse the rate limit string into a RateLimitItem for manual checking
-_rate_limit_item = parse(RATE_LIMIT_AUTHENTICATED)
+RATE_LIMIT_ERROR_DETAIL = "Rate limit exceeded. Try again later."
 
 
 async def check_rate_limit(
@@ -61,24 +62,27 @@ async def check_rate_limit(
     """
     Rate limit dependency that runs after authentication.
 
-    This ensures request.state.user_id is set before rate limiting is checked.
+    Enforces per-minute then daily limits. Ensures request.state.user_id
+    is set before rate limiting is checked.
     """
     user_id = str(current_user.id)
     identifier = f"user:{user_id}"
 
-    # Manually perform rate limit check using slowapi's internal limiter
     try:
-        # Use the limiter's internal _limiter.hit() method
-        # Returns True if allowed, False if rate limit would be exceeded
-        allowed = limiter._limiter.hit(_rate_limit_item, identifier)
-
-        if not allowed:
-            logger.warning(f"Rate limit exceeded for user {user_id}")
+        # Check per-minute first (burst protection)
+        if not limiter._limiter.hit(_rate_limit_per_minute, identifier):
+            logger.warning(f"Per-minute rate limit exceeded for user {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Rate limit exceeded. Try again later.",
+                detail=RATE_LIMIT_ERROR_DETAIL,
             )
-
+        # Then daily quota
+        if not limiter._limiter.hit(_rate_limit_per_day, identifier):
+            logger.warning(f"Daily rate limit exceeded for user {user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=RATE_LIMIT_ERROR_DETAIL,
+            )
         logger.info(f"Rate limit check passed for user {user_id}")
     except HTTPException:
         raise

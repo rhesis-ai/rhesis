@@ -20,10 +20,11 @@ from rhesis.polyphemus.schemas import GenerateRequest, Message
 logger = logging.getLogger("rhesis-polyphemus")
 
 # User-facing model aliases mapped to internal config (env vars: endpoint IDs, etc.)
-POLYPHEMUS_MODEL_ALIASES = ("polyphemus-default",)
+POLYPHEMUS_MODEL_ALIASES = ("polyphemus-default", "polyphemus-opus")
 
 POLYPHEMUS_MODELS: Dict[str, Optional[str]] = {
-    "polyphemus-default": os.getenv("POLYPHEMUS_DEFAULT_MODEL")
+    "polyphemus-default": os.getenv("POLYPHEMUS_DEFAULT_MODEL"),
+    "polyphemus-opus": os.getenv("POLYPHEMUS_OPUS_MODEL"),
 }
 
 DEFAULT_MODEL_ALIAS = "polyphemus-default"
@@ -194,7 +195,8 @@ async def generate_text_via_vertex_endpoint(
     if not any(m.content.strip() for m in request.messages if m.role != "system"):
         raise ValueError("At least one non-system message with content is required")
 
-    resolved_model = resolve_model(request.model)
+    model_alias = request.model if request.model else DEFAULT_MODEL_ALIAS
+    resolve_model(request.model)  # validate and resolve internal model (for Vertex call)
 
     # Get parameters with defaults (max_tokens is optional; only passed when provided)
     temperature = request.temperature if request.temperature is not None else 0.6
@@ -295,7 +297,7 @@ async def generate_text_via_vertex_endpoint(
                 "finish_reason": first.get("finish_reason", "stop"),
             }
         ],
-        "model": resolved_model,
+        "model": model_alias,
         "usage": {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
