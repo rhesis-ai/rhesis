@@ -360,11 +360,10 @@ jobs:
             echo "endpoint_id=$ENDPOINT_ID" >> $GITHUB_OUTPUT
             echo "✅ Found Polyphemus Endpoint ID"
           else
-            echo "⚠️ No Polyphemus endpoint found with name: $ENDPOINT_NAME"
-            echo "⚠️ Deployment will continue but Polyphemus may not work without endpoint"
-            echo "⚠️ Deploy a model to Polyphemus first using the polyphemus-model-deployment workflow"
-            # Set empty value so deployment doesn't fail
-            echo "POLYPHEMUS_ENDPOINT_ID=" >> $GITHUB_ENV
+            echo "❌ Error: No Polyphemus endpoint found with name: $ENDPOINT_NAME"
+            echo "Deployment cannot proceed: /generate requires POLYPHEMUS_ENDPOINT_ID."
+            echo "Deploy a model to Polyphemus first using the polyphemus-model-deployment workflow."
+            exit 1
           fi
 
       - name: Deploy to Cloud Run
