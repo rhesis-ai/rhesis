@@ -223,6 +223,16 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: LOCAL_STORAGE_PATH
+        - name: RHESIS_CONNECTOR_DISABLED
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: RHESIS_CONNECTOR_DISABLED
+        - name: DEFAULT_POLYPHEMUS_URL
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: DEFAULT_POLYPHEMUS_URL
         ports:
         - containerPort: 8080
           name: health
