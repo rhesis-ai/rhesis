@@ -6,7 +6,7 @@ Reuses authentication and rate limiting patterns from rhesis.backend.
 
 import logging
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, status
 from limits import parse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -29,40 +29,31 @@ RATE_LIMIT_ERROR_DETAIL = "Rate limit exceeded. Try again later."
 
 
 async def check_rate_limit(
-    request: Request,
     current_user: User = Depends(require_api_key),  # Authentication runs first
 ):
     """
     Rate limit dependency that runs after authentication.
 
-    Enforces per-minute then daily limits. Ensures request.state.user_id
-    is set before rate limiting is checked.
+    Enforces per-minute then daily limits using hit() which atomically
+    checks and increments each counter.
     """
     user_id = str(current_user.id)
     identifier = f"user:{user_id}"
 
     try:
-        # Test both limits before incrementing either counter
-        minute_ok = limiter._limiter.test(_rate_limit_per_minute, identifier)
-        daily_ok = limiter._limiter.test(_rate_limit_per_day, identifier)
-
-        if not minute_ok:
+        # hit() atomically checks and increments; returns False if limit exceeded
+        if not limiter._limiter.hit(_rate_limit_per_minute, identifier):
             logger.warning(f"Per-minute rate limit exceeded for user {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=RATE_LIMIT_ERROR_DETAIL,
             )
-        if not daily_ok:
+        if not limiter._limiter.hit(_rate_limit_per_day, identifier):
             logger.warning(f"Daily rate limit exceeded for user {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=RATE_LIMIT_ERROR_DETAIL,
             )
-
-        # Both passed — increment both counters
-        limiter._limiter.hit(_rate_limit_per_minute, identifier)
-        limiter._limiter.hit(_rate_limit_per_day, identifier)
-
         logger.info(f"Rate limit check passed for user {user_id}")
     except HTTPException:
         raise
