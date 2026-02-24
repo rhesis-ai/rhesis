@@ -11,8 +11,8 @@ from typing import Optional
 import jinja2
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
 from rhesis.backend.app.schemas.services import TestConfigResponse
-from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.sdk.models.factory import get_model
 
 MAX_SAMPLE_SIZE = 6
@@ -34,17 +34,14 @@ class TestConfigGeneratorService:
             trim_blocks=True,
             lstrip_blocks=True,
         )
-        # Use the default generation model from constants
-        # This respects the global configuration (currently vertex_ai)
         self.db = db
         self.user = user
 
-        model = get_user_generation_model(self.db, self.user)
-        # If model is a string (provider name), convert it to an LLM instance
-        if isinstance(model, str):
-            self.llm = get_model(model)
-        else:
-            self.llm = model
+        # Use system default model (DEFAULT_GENERATION_MODEL) instead of user's
+        # configured model. Test config generation is a lightweight operation that
+        # should use the fast system default (e.g., vertex_ai/gemini-2.0-flash),
+        # not the user's model which may be slower (e.g., Polyphemus).
+        self.llm = get_model(DEFAULT_GENERATION_MODEL)
 
     def generate_config(
         self,
