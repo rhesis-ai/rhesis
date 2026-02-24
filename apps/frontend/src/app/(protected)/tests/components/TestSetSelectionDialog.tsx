@@ -16,7 +16,7 @@ interface TestSetSelectionDialogProps {
   onClose: () => void;
   onSelect: (testSet: TestSet) => void;
   sessionToken: string;
-  testSetTypeId?: string;
+  testTypeValue?: string;
 }
 
 export default function TestSetSelectionDialog({
@@ -24,7 +24,7 @@ export default function TestSetSelectionDialog({
   onClose,
   onSelect,
   sessionToken,
-  testSetTypeId,
+  testTypeValue,
 }: TestSetSelectionDialogProps) {
   const [testSets, setTestSets] = React.useState<TestSet[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -33,8 +33,40 @@ export default function TestSetSelectionDialog({
   );
   const [inputValue, setInputValue] = React.useState<string>('');
   const [isSearching, setIsSearching] = React.useState(false);
+  const [resolvedTestSetTypeId, setResolvedTestSetTypeId] = React.useState<
+    string | undefined
+  >(undefined);
   const notifications = useNotifications();
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | undefined>(undefined);
+
+  // Resolve the test set type ID from the test type value name
+  React.useEffect(() => {
+    if (!testTypeValue || !sessionToken) {
+      setResolvedTestSetTypeId(undefined);
+      return;
+    }
+
+    const resolve = async () => {
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const typeLookupClient = clientFactory.getTypeLookupClient();
+        const escaped = testTypeValue.replace(/'/g, "''");
+        const types = await typeLookupClient.getTypeLookups({
+          $filter:
+            `type_name eq 'TestSetType' and ` +
+            `type_value eq '${escaped}'`,
+          limit: 1,
+        });
+        setResolvedTestSetTypeId(
+          types.length > 0 ? (types[0].id as string) : undefined
+        );
+      } catch {
+        setResolvedTestSetTypeId(undefined);
+      }
+    };
+
+    resolve();
+  }, [testTypeValue, sessionToken]);
 
   // Create OData filter for search
   const createSearchFilter = React.useCallback(
@@ -64,8 +96,8 @@ export default function TestSetSelectionDialog({
         const testSetsClient = clientFactory.getTestSetsClient();
 
         const searchFilter = createSearchFilter(searchValue);
-        const typeFilter = testSetTypeId
-          ? `test_set_type_id eq '${testSetTypeId}'`
+        const typeFilter = resolvedTestSetTypeId
+          ? `test_set_type_id eq '${resolvedTestSetTypeId}'`
           : undefined;
 
         // Combine filters with 'and' if both are present
@@ -105,7 +137,7 @@ export default function TestSetSelectionDialog({
         }
       }
     },
-    [sessionToken, open, notifications, createSearchFilter, testSetTypeId]
+    [sessionToken, open, notifications, createSearchFilter, resolvedTestSetTypeId]
   );
 
   // Initial load when dialog opens
