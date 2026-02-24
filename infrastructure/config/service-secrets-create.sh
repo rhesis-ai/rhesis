@@ -122,6 +122,7 @@ function show_usage() {
   echo "  NEXT_PUBLIC_AUTH0_CLIENT_ID   Auth0 client ID for frontend"
   echo "  NEXT_PUBLIC_AUTH0_DOMAIN      Auth0 domain for frontend"
   echo "  DATABASE_URL                  Database URL for frontend"
+  echo "  DEFAULT_POLYPHEMUS_URL         URL for Polyphemus adversarial model service"
   echo "  POLYPHEMUS_REGION             GCP region for Polyphemus Cloud Run deployment"
   echo "  POLYPHEMUS_DEFAULT_MODEL                 Default model for Polyphemus"
   echo "  POLYPHEMUS_MODEL_BUCKET                  Model bucket for Polyphemus"
@@ -318,6 +319,7 @@ SERVICE_VARS=(
   "DATABASE_URL"
 
   # Polyphemus service variables
+  "DEFAULT_POLYPHEMUS_URL"
   "POLYPHEMUS_REGION"
   "POLYPHEMUS_DEFAULT_MODEL"
   "POLYPHEMUS_MODEL_BUCKET"
