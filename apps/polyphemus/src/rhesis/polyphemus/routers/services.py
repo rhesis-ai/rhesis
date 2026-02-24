@@ -1,15 +1,16 @@
 """
 Rhesis API endpoints for Polyphemus service.
-Provides /generate endpoint that accepts messages format.
+Provides /generate endpoint that accepts messages format and forwards to Vertex AI.
 """
 
 import logging
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from rhesis.backend.app.models.user import User
 from rhesis.polyphemus.schemas import GenerateRequest
-from rhesis.polyphemus.services import generate_text
+from rhesis.polyphemus.services import generate_text_via_vertex_endpoint
 from rhesis.polyphemus.utils.rate_limit import check_rate_limit
 
 logger = logging.getLogger("rhesis-polyphemus")
@@ -24,7 +25,7 @@ async def generate(
     current_user: User = Depends(check_rate_limit),
 ):
     """
-    Generate text using Rhesis API format.
+    Generate text by calling Vertex AI endpoint.
 
     Requires API key authentication via Bearer token.
     Rate limited to 100 requests per day per authenticated user.
@@ -35,8 +36,10 @@ async def generate(
                 { "content": "Hello!", "role": "user" }
             ],
             "temperature": 0.7,
-            "max_tokens": 512,
-            "model": "huggingface/distilgpt2"  # optional
+            "max_tokens": 2048,  // optional; omit to leave unbounded
+            "top_p": 1.0,
+            "top_k": 50,
+            "json_schema": { ... }  // optional, for structured output
         }
 
     Returns:
@@ -44,7 +47,24 @@ async def generate(
     """
     try:
         logger.info(f"Generation request from user: {current_user.email}")
-        return await generate_text(generate_request)
+
+        # Get Vertex AI config from environment
+        endpoint_id = os.getenv("POLYPHEMUS_ENDPOINT_ID")
+        project_id = os.getenv("POLYPHEMUS_PROJECT_ID")
+        location = os.getenv("POLYPHEMUS_LOCATION", "us-central1")
+
+        if not endpoint_id or not project_id:
+            raise ValueError(
+                "Vertex AI endpoint not configured. "
+                "Set POLYPHEMUS_ENDPOINT_ID and POLYPHEMUS_PROJECT_ID."
+            )
+
+        return await generate_text_via_vertex_endpoint(
+            generate_request,
+            endpoint_id=endpoint_id,
+            project_id=project_id,
+            location=location,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
