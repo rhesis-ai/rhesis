@@ -56,22 +56,45 @@ class ModelConnectionService:
                 f"model: {model_name}, type: {model_type}"
             )
 
-            # Special handling for Rhesis system models (protected models with no API key)
-            # These models use the backend's infrastructure and don't need testing
-            if provider == "rhesis" and not api_key:
-                logger.info(
-                    "Rhesis system model detected - skipping connection test "
-                    "(uses backend infrastructure)"
-                )
-                return ModelConnectionTestResult(
-                    success=True,
-                    message=(
-                        "Rhesis-hosted model is ready to use. "
-                        "This model uses Rhesis infrastructure and requires no API key."
-                    ),
-                    provider=provider,
-                    model_name=model_name,
-                )
+            # Special handling for Rhesis system models
+            if provider == "rhesis":
+                from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+                from rhesis.sdk.models.defaults import parse_model_id
+
+                if not api_key:
+                    # Protected/system model - uses backend infrastructure
+                    logger.info(
+                        "Rhesis system model detected - skipping connection test "
+                        "(uses backend infrastructure)"
+                    )
+                    return ModelConnectionTestResult(
+                        success=True,
+                        message=(
+                            "Rhesis-hosted model is ready to use. "
+                            "This model uses Rhesis infrastructure "
+                            "and requires no API key."
+                        ),
+                        provider=provider,
+                        model_name=model_name,
+                    )
+
+                # When the system default is not Rhesis, skip strict validation.
+                # RHESIS_API_KEY is only required when Rhesis is the default provider.
+                default_provider, _ = parse_model_id(DEFAULT_GENERATION_MODEL)
+                if default_provider != provider:
+                    logger.info(
+                        "Rhesis model detected but system default is %s - skipping connection test",
+                        DEFAULT_GENERATION_MODEL,
+                    )
+                    return ModelConnectionTestResult(
+                        success=True,
+                        message=(
+                            "Rhesis model configured. The system is currently "
+                            "using a different default provider."
+                        ),
+                        provider=provider,
+                        model_name=model_name,
+                    )
 
             if model_type == "language":
                 return ModelConnectionService._test_llm_connection(
