@@ -37,10 +37,10 @@ class TestConfigGeneratorService:
         self.db = db
         self.user = user
 
-        # Use system default model (DEFAULT_GENERATION_MODEL) instead of user's
-        # configured model. Test config generation is a lightweight operation that
-        # should use the fast system default (e.g., vertex_ai/gemini-2.0-flash),
-        # not the user's model which may be slower (e.g., Polyphemus).
+        # Use system default model instead of user's configured model.
+        # Long-running models like Polyphemus are too slow for test config
+        # generation, which needs to be fast and interactive. The user's
+        # model is still used for the actual test generation.
         self.llm = get_model(DEFAULT_GENERATION_MODEL)
 
     def generate_config(
