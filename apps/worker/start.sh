@@ -86,13 +86,11 @@ except Exception as e:
 # Override database URL for TCP connection if needed
 if [ "${USE_TCP_DATABASE:-false}" = "true" ]; then
     echo "🔧 Overriding database URL for TCP connection..."
-    echo "Original SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL}"
-    
+
     # Construct TCP database URL from components
     export SQLALCHEMY_DATABASE_URL="postgresql://${SQLALCHEMY_DB_USER:-}:${SQLALCHEMY_DB_PASS:-}@${SQLALCHEMY_DB_HOST:-127.0.0.1}:${SQLALCHEMY_DB_PORT:-5432}/${SQLALCHEMY_DB_NAME:-}"
-    echo "TCP SQLALCHEMY_DATABASE_URL: ${SQLALCHEMY_DATABASE_URL}"
-    
-    # Also set individual components for consistency
+
+    # Log connection details with credentials redacted
     echo "Database host: ${SQLALCHEMY_DB_HOST}"
     echo "Database port: ${SQLALCHEMY_DB_PORT}"
     echo "Database name: ${SQLALCHEMY_DB_NAME}"
@@ -140,7 +138,9 @@ try:
     
     # Test database connection
     db_url = os.getenv('SQLALCHEMY_DATABASE_URL')
-    print(f'Testing database connection: {db_url.replace(os.getenv(\"SQLALCHEMY_DB_PASS\", \"\"), \"***\")}')
+    db_pass = os.getenv('SQLALCHEMY_DB_PASS', '')
+    redacted_url = db_url.replace(db_pass, '***') if db_pass else db_url
+    print(f'Testing database connection: {redacted_url}')
     
     engine = create_engine(db_url, pool_pre_ping=True)
     with engine.connect() as conn:
