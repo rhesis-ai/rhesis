@@ -1,5 +1,6 @@
 """Base class for native Rhesis conversational metrics using LLM-as-judge."""
 
+from dataclasses import fields
 from pathlib import Path
 from typing import Any, Dict, Optional, TypeVar, Union
 
@@ -118,6 +119,7 @@ class ConversationalJudge(
         description: Optional[str] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
         model: Optional[Union[BaseLLM, str]] = None,
+        id: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -164,6 +166,7 @@ class ConversationalJudge(
                 metric_type=metric_type or MetricType.CONVERSATIONAL,
                 score_type=ScoreType.NUMERIC,
                 class_name=self.__class__.__name__,
+                id=id,
             )
 
         super().__init__(config=self.config, model=model)
@@ -180,6 +183,13 @@ class ConversationalJudge(
 
         # Set up Jinja environment
         self._setup_jinja_environment()
+
+    @classmethod
+    def from_dict(cls, config: Dict[str, Any]) -> "ConversationalJudge":
+        """Create a metric from a dictionary."""
+        valid_fields = {field.name for field in fields(ConversationalNumericConfig)}
+        filtered_config = {k: v for k, v in config.items() if k in valid_fields}
+        return cls.from_config(ConversationalNumericConfig(**filtered_config))
 
     def _setup_jinja_environment(self) -> None:
         """Set up Jinja2 environment for template rendering."""

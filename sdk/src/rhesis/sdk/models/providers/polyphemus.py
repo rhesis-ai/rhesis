@@ -218,7 +218,10 @@ class PolyphemusLLM(BaseLLM):
         url = f"{self.base_url}/generate"
 
         logger.debug(f"Polyphemus request URL: {url}")
-        logger.debug(f"Polyphemus request body: {json.dumps(request_data, default=str)}")
+        logger.debug(
+            f"Polyphemus request: model={request_data.get('model')}, "
+            f"messages={len(request_data.get('messages', []))}"
+        )
 
         response = requests.post(
             url,
@@ -227,7 +230,7 @@ class PolyphemusLLM(BaseLLM):
         )
 
         if response.status_code != 200:
-            logger.error(f"Polyphemus error: status={response.status_code}, body={response.text}")
+            logger.error(f"Polyphemus error: status={response.status_code}")
         response.raise_for_status()
         result: Dict[str, Any] = response.json()
         return result

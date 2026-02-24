@@ -37,6 +37,7 @@ class ConversationalMetricBase(ABC):
         self.requires_context = config.requires_context
         self.class_name = config.class_name
         self.backend = config.backend
+        self.id = config.id  # ID from backend when pulled
 
         self._model = self._set_model(model)
 
