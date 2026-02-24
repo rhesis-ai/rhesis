@@ -227,9 +227,7 @@ class PolyphemusLLM(BaseLLM):
         )
 
         if response.status_code != 200:
-            logger.error(
-                f"Polyphemus error: status={response.status_code}, body={response.text}"
-            )
+            logger.error(f"Polyphemus error: status={response.status_code}, body={response.text}")
         response.raise_for_status()
         result: Dict[str, Any] = response.json()
         return result
