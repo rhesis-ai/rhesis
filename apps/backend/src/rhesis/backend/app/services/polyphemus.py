@@ -112,7 +112,7 @@ def _send_admin_notification(
         email_subject = f"Polyphemus Access Request - {user.name or user.email}"
         success = email_service.send_email(
             template=EmailTemplate.POLYPHEMUS_ACCESS_REQUEST,
-            recipient_email=os.environ.get("FROM_EMAIL", "hello@rhesis.ai"),
+            recipient_email=os.environ.get("POLYPHEMUS_ACCESS_REVIEW_EMAIL", "hello@rhesis.ai"),
             subject=email_subject,
             template_variables=template_variables,
             task_id=f"polyphemus_request_{user.id}",
