@@ -47,9 +47,9 @@ def upgrade() -> None:
         for org in organizations:
             organization_id = str(org.id)
             # Use owner_id or fall back to user_id
-            user_id = str(org.owner_id or org.user_id)
+            owner_or_user_id = org.owner_id or org.user_id
 
-            if not user_id:
+            if not owner_or_user_id:
                 print(f"  ⚠ Skipping org {organization_id}: No owner or user")
                 skipped_count += 1
                 continue
@@ -83,7 +83,7 @@ def upgrade() -> None:
                     ),
                     icon="polyphemus",
                     organization_id=organization_id,
-                    user_id=user_id,
+                    user_id=str(owner_or_user_id),
                     commit=False,
                 )
 
