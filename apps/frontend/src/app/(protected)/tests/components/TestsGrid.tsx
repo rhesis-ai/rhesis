@@ -85,9 +85,7 @@ export default function TestsTable({
     return {
       isMixed: typeValues.size > 1,
       commonTypeValue:
-        typeValues.size === 1
-          ? ([...typeValues][0] ?? undefined)
-          : undefined,
+        typeValues.size === 1 ? ([...typeValues][0] ?? undefined) : undefined,
     };
   }, [selectedRows, tests]);
 

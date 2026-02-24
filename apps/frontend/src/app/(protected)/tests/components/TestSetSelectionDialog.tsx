@@ -53,8 +53,7 @@ export default function TestSetSelectionDialog({
         const escaped = testTypeValue.replace(/'/g, "''");
         const types = await typeLookupClient.getTypeLookups({
           $filter:
-            `type_name eq 'TestSetType' and ` +
-            `type_value eq '${escaped}'`,
+            `type_name eq 'TestSetType' and ` + `type_value eq '${escaped}'`,
           limit: 1,
         });
         setResolvedTestSetTypeId(
@@ -137,7 +136,13 @@ export default function TestSetSelectionDialog({
         }
       }
     },
-    [sessionToken, open, notifications, createSearchFilter, resolvedTestSetTypeId]
+    [
+      sessionToken,
+      open,
+      notifications,
+      createSearchFilter,
+      resolvedTestSetTypeId,
+    ]
   );
 
   // Initial load when dialog opens
