@@ -35,7 +35,7 @@ INITIAL_RETRY_DELAY = 1  # seconds
 MAX_RETRY_DELAY = 10  # seconds
 
 # Model configuration - uses SDK providers approach
-DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "vertex_ai/gemini-2.0-flash")
+DEFAULT_GENERATION_MODEL = os.getenv("DEFAULT_GENERATION_MODEL", "rhesis/rhesis-default")
 
 # Split for @observe.llm decorator
 _provider, _model_name = (
