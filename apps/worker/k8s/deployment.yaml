@@ -175,6 +175,21 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: DB_ENCRYPTION_KEY
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: JWT_SECRET_KEY
+        - name: JWT_ALGORITHM
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: JWT_ALGORITHM
+        - name: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: JWT_ACCESS_TOKEN_EXPIRE_MINUTES
         # Memory optimization settings
         - name: PYTHONMALLOC
           value: "malloc"
