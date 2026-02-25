@@ -455,14 +455,15 @@ class TestSetSynthesizer(ABC):
         )
         llm_elapsed = time.time() - llm_start
 
-        # Check for error responses from the LLM
+        # Check for error responses from the LLM — return empty list so
+        # the batch loop can retry or abort via consecutive-failure guard.
         if isinstance(response, dict) and "error" in response:
             logger.error(
                 "[Synthesizer] _generate_batch: LLM returned error after %.1fs: %s",
                 llm_elapsed,
                 response["error"],
             )
-            raise RuntimeError(f"LLM returned error: {response['error']}")
+            return []
 
         if not isinstance(response, dict) or "tests" not in response:
             logger.error(
@@ -471,7 +472,7 @@ class TestSetSynthesizer(ABC):
                 llm_elapsed,
                 str(response)[:500],
             )
-            raise RuntimeError(f"LLM returned unexpected response type: {type(response).__name__}")
+            return []
 
         flat_tests = response["tests"][:num_tests]
         logger.debug(
