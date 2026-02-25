@@ -137,3 +137,32 @@ export interface GenerateOutputsResponse {
   failed: GenerateOutputsFailedItem[];
   updated: GenerateOutputsUpdatedItem[];
 }
+
+// =============================================================================
+// Evaluate
+// =============================================================================
+
+export interface EvaluateRequest {
+  metric_names: string[];
+  test_ids?: string[] | null;
+  topic?: string | null;
+  include_subtopics?: boolean;
+}
+
+export interface EvaluateResultItem {
+  test_id: string;
+  label: string;
+  labeler: string;
+  model_score: number;
+}
+
+export interface EvaluateFailedItem {
+  test_id: string;
+  error: string;
+}
+
+export interface EvaluateResponse {
+  evaluated: number;
+  results: EvaluateResultItem[];
+  failed: EvaluateFailedItem[];
+}
