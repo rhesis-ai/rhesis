@@ -21,6 +21,10 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.adaptive_testing import (
+    EvaluateFailedItem,
+    EvaluateRequest,
+    EvaluateResponse,
+    EvaluateResultItem,
     GenerateOutputsFailedItem,
     GenerateOutputsRequest,
     GenerateOutputsResponse,
@@ -31,6 +35,7 @@ from rhesis.backend.app.services.adaptive_testing import (
     create_test_node,
     create_topic_node,
     delete_test_node,
+    evaluate_tests_for_adaptive_set,
     generate_outputs_for_tests,
     get_adaptive_test_sets,
     get_tree_nodes,
@@ -466,5 +471,57 @@ async def generate_outputs(
         updated=[
             GenerateOutputsUpdatedItem(test_id=u["test_id"], output=u["output"])
             for u in result["updated"]
+        ],
+    )
+
+
+@router.post(
+    "/{test_set_identifier}/evaluate",
+    response_model=EvaluateResponse,
+)
+def evaluate_tests(
+    test_set_identifier: str,
+    body: EvaluateRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Evaluate tests using the specified metrics.
+
+    Runs each requested metric against stored (input, output) pairs
+    and persists the results (label, labeler, model_score) in each
+    test's metadata.
+    """
+    organization_id, user_id = tenant_context
+    try:
+        result = evaluate_tests_for_adaptive_set(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            metric_names=body.metric_names,
+            test_ids=list(body.test_ids) if body.test_ids else None,
+            topic=body.topic,
+            include_subtopics=body.include_subtopics,
+        )
+    except ValueError as e:
+        msg = str(e).lower()
+        if "metric" in msg and "does not exist" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return EvaluateResponse(
+        evaluated=result["evaluated"],
+        results=[
+            EvaluateResultItem(
+                test_id=r["test_id"],
+                label=r["label"],
+                labeler=r["labeler"],
+                model_score=r["model_score"],
+            )
+            for r in result["results"]
+        ],
+        failed=[
+            EvaluateFailedItem(test_id=f["test_id"], error=f["error"]) for f in result["failed"]
         ],
     )
