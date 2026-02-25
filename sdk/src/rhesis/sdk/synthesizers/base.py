@@ -279,10 +279,12 @@ class TestSetSynthesizer(ABC):
         )
 
         # For large numbers, use chunking to avoid JSON parsing issues
+        max_consecutive_failures = 3
         if num_tests > self.batch_size:
             # Generate in chunks
             remaining_tests = num_tests
             batch_num = 0
+            consecutive_failures = 0
             while remaining_tests > 0:
                 batch_num += 1
                 chunk_size = min(self.batch_size, remaining_tests)
@@ -306,26 +308,53 @@ class TestSetSynthesizer(ABC):
                         chunk_size,
                         batch_elapsed,
                     )
+
+                    if len(chunk_tests) == 0:
+                        consecutive_failures += 1
+                        logger.warning(
+                            "[Synthesizer] Batch %d: received 0 tests (%d/%d consecutive failures)",
+                            batch_num,
+                            consecutive_failures,
+                            max_consecutive_failures,
+                        )
+                        if consecutive_failures >= max_consecutive_failures:
+                            logger.error(
+                                "[Synthesizer] Aborting after %d consecutive "
+                                "empty batches (%d tests generated so far)",
+                                max_consecutive_failures,
+                                len(all_test_cases),
+                            )
+                            break
+                        if self.batch_size > 5:
+                            old_batch_size = self.batch_size
+                            self.batch_size = max(5, self.batch_size // 2)
+                            logger.warning(
+                                "[Synthesizer] Reducing batch_size %d -> %d",
+                                old_batch_size,
+                                self.batch_size,
+                            )
+                        continue
+
+                    consecutive_failures = 0
                     all_test_cases.extend(chunk_tests)
                     remaining_tests -= len(chunk_tests)
 
-                    # If we didn't get the expected number, try again with a smaller chunk
-                    if len(chunk_tests) < chunk_size and chunk_size > 5:
-                        shortfall = chunk_size - len(chunk_tests)
-                        remaining_tests += shortfall
+                    # If short, reduce batch size for next attempt
+                    if len(chunk_tests) < chunk_size and self.batch_size > 5:
                         old_batch_size = self.batch_size
                         self.batch_size = max(5, self.batch_size // 2)
                         logger.warning(
                             "[Synthesizer] Batch %d: short by %d tests, "
                             "reducing batch_size %d -> %d",
                             batch_num,
-                            shortfall,
+                            chunk_size - len(chunk_tests),
                             old_batch_size,
                             self.batch_size,
                         )
 
                 except Exception as e:
                     batch_elapsed = time.time() - batch_start
+                    consecutive_failures += 1
                     logger.error(
                         "[Synthesizer] Batch %d FAILED after %.1fs: %s: %s",
                         batch_num,
@@ -334,12 +363,19 @@ class TestSetSynthesizer(ABC):
                         e,
                         exc_info=True,
                     )
-                    # Try with smaller batch size
+                    if consecutive_failures >= max_consecutive_failures:
+                        logger.error(
+                            "[Synthesizer] Aborting after %d consecutive "
+                            "failures (%d tests generated so far)",
+                            max_consecutive_failures,
+                            len(all_test_cases),
+                        )
+                        break
                     if self.batch_size > 5:
                         old_batch_size = self.batch_size
                         self.batch_size = max(5, self.batch_size // 2)
                         logger.warning(
-                            "[Synthesizer] Reducing batch_size %d -> %d after error, retrying",
+                            "[Synthesizer] Reducing batch_size %d -> %d after error",
                             old_batch_size,
                             self.batch_size,
                         )

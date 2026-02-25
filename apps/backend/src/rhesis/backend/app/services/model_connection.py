@@ -64,11 +64,12 @@ class ModelConnectionService:
                     "(uses backend infrastructure)",
                     provider,
                 )
+                provider_label = provider.capitalize()
                 return ModelConnectionTestResult(
                     success=True,
                     message=(
-                        "Rhesis-hosted model is ready to use. "
-                        "This model uses Rhesis infrastructure "
+                        f"{provider_label}-hosted model is ready to use. "
+                        f"This model uses {provider_label} infrastructure "
                         "and requires no API key."
                     ),
                     provider=provider,

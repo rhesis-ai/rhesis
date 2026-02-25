@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["polyphemus"]
 DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 DEFAULT_POLYPHEMUS_URL = os.getenv("DEFAULT_POLYPHEMUS_URL") or "https://polyphemus.rhesis.ai"
+DEFAULT_REQUEST_TIMEOUT = int(os.getenv("RHESIS_LLM_TIMEOUT", "300"))  # 5 minutes
 
 
 class PolyphemusLLM(BaseLLM):
@@ -217,10 +218,11 @@ class PolyphemusLLM(BaseLLM):
             request_data["model"] = self.model_name
 
         url = f"{self.base_url}/generate"
+        timeout = kwargs.pop("timeout", DEFAULT_REQUEST_TIMEOUT)
 
         # Calculate prompt size for debugging
         total_prompt_chars = sum(len(m.get("content", "")) for m in messages)
-        logger.info(
+        logger.debug(
             "[Polyphemus] POST %s | model=%s | messages=%d | prompt_chars=%d",
             url,
             request_data.get("model"),
@@ -233,6 +235,7 @@ class PolyphemusLLM(BaseLLM):
             url,
             headers=self.headers,
             json=request_data,
+            timeout=timeout,
         )
         request_elapsed = time.time() - request_start
 
@@ -246,7 +249,7 @@ class PolyphemusLLM(BaseLLM):
             )
             raise
 
-        logger.info(
+        logger.debug(
             "[Polyphemus] HTTP 200 in %.1fs",
             request_elapsed,
         )
@@ -256,7 +259,7 @@ class PolyphemusLLM(BaseLLM):
         # Log usage info if available
         usage = result.get("usage", {})
         if usage:
-            logger.info(
+            logger.debug(
                 "[Polyphemus] Token usage: prompt=%s, completion=%s, total=%s",
                 usage.get("prompt_tokens", "?"),
                 usage.get("completion_tokens", "?"),

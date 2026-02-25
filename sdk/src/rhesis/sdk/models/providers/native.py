@@ -20,6 +20,7 @@ DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["rhesis"]
 DEFAULT_LANGUAGE_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 DEFAULT_EMBEDDING_MODEL_NAME = model_name_from_id(DEFAULT_EMBEDDING_MODELS["rhesis"])
 API_ENDPOINT = "services/generate/content"
+DEFAULT_REQUEST_TIMEOUT = int(os.getenv("RHESIS_LLM_TIMEOUT", "300"))  # 5 minutes
 
 
 class RhesisLLM(BaseLLM):
@@ -156,7 +157,7 @@ class RhesisLLM(BaseLLM):
 
         url = self.client.get_url(API_ENDPOINT)
 
-        logger.info(
+        logger.debug(
             "[RhesisLLM] POST %s | model=%s | prompt_chars=%d | max_tokens=%d",
             url,
             self.model_name,
@@ -169,6 +170,7 @@ class RhesisLLM(BaseLLM):
             url,
             headers=self.headers,
             json=request_data,
+            timeout=DEFAULT_REQUEST_TIMEOUT,
         )
         request_elapsed = time.time() - request_start
 
@@ -182,7 +184,7 @@ class RhesisLLM(BaseLLM):
             )
             raise
 
-        logger.info(
+        logger.debug(
             "[RhesisLLM] HTTP 200 in %.1fs",
             request_elapsed,
         )
