@@ -32,19 +32,19 @@ DEFAULT_MODEL_ALIAS = "polyphemus-default"
 
 def resolve_model(user_model: Optional[str]) -> str:
     """
-    Resolve a user-provided model alias to the internal config value (from env).
+    Normalize and validate a user-provided model string to a known alias.
 
     Allowed aliases: polyphemus-default, polyphemus-opus.
-    If user_model is None, returns the internal value for polyphemus-default.
+    If user_model is None, returns polyphemus-default.
+
+    Returns:
+        The normalized alias (e.g. "polyphemus-default", "polyphemus-opus").
 
     Raises:
-        ValueError: If user_model is not None and not one of the allowed aliases,
+        ValueError: If user_model is not one of the allowed aliases,
             or if the resolved env value is missing.
     """
     alias = user_model if user_model else DEFAULT_MODEL_ALIAS
-    # Accept "default" as shorthand for "polyphemus-default"
-    if alias == "default":
-        alias = DEFAULT_MODEL_ALIAS
     if alias not in POLYPHEMUS_MODEL_ALIASES:
         raise ValueError(
             f"Invalid model: {alias!r}. Allowed: {', '.join(POLYPHEMUS_MODEL_ALIASES)}."
@@ -55,7 +55,7 @@ def resolve_model(user_model: Optional[str]) -> str:
             f"Model {alias!r} is not configured. "
             f"Set the corresponding POLYPHEMUS_*_MODEL environment variable."
         )
-    return internal
+    return alias
 
 
 # Thread pool executor for running blocking operations
@@ -194,8 +194,7 @@ async def generate_text_via_vertex_endpoint(
     if not any(m.content.strip() for m in request.messages if m.role != "system"):
         raise ValueError("At least one non-system message with content is required")
 
-    model_alias = request.model if request.model else DEFAULT_MODEL_ALIAS
-    resolve_model(request.model)  # validate and resolve internal model (for Vertex call)
+    model_alias = resolve_model(request.model)  # normalize + validate
 
     # Get parameters with defaults (max_tokens is optional; only passed when provided)
     temperature = request.temperature if request.temperature is not None else 0.6
