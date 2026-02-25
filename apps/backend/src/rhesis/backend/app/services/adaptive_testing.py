@@ -2,11 +2,12 @@
 
 Converts backend Test models into SDK TestTreeData structures,
 providing tree, tests-only, and topics-only views.
-Also provides generation of test outputs by invoking an endpoint.
+Also provides generation of test outputs by invoking an endpoint
+and evaluation of tests using specified metrics.
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import cast
@@ -1024,4 +1025,236 @@ async def generate_outputs_for_tests(
         "generated": len(updated),
         "failed": failed,
         "updated": updated,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Evaluate tests
+# ---------------------------------------------------------------------------
+
+
+def _evaluate_one(
+    input_text: str,
+    output_text: str,
+    metric_name: str,
+    model: Any,
+) -> Tuple[str, float]:
+    """Evaluate a single (input, output) pair for one metric.
+
+    Uses the evaluation model (LLM-as-a-judge) to produce a pass/fail
+    label and a score between 0 and 1.
+
+    Returns
+    -------
+    tuple of (label, model_score)
+        label is ``"pass"`` or ``"fail"``; model_score is a float in [0, 1].
+    """
+    from rhesis.sdk.models import get_model
+
+    llm = get_model(model) if isinstance(model, str) else model
+
+    prompt = (
+        f"You are an evaluation judge for the metric '{metric_name}'.\n"
+        f"Given the following input and output, determine whether the "
+        f"output passes or fails the metric.\n\n"
+        f"Input:\n{input_text}\n\n"
+        f"Output:\n{output_text}\n\n"
+        f"Respond with ONLY a JSON object: "
+        f'{{"label": "pass" or "fail", "score": <float 0-1>}}'
+    )
+
+    import json
+
+    try:
+        response = llm.generate(prompt)
+        text = response if isinstance(response, str) else str(response)
+        # Try to parse JSON from the response
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start != -1 and end > start:
+            data = json.loads(text[start:end])
+            label = "pass" if data.get("label", "").lower() == "pass" else "fail"
+            score = float(data.get("score", 0.0))
+            score = max(0.0, min(1.0, score))
+            return label, score
+    except Exception as e:
+        logger.warning(f"Failed to parse evaluation response for metric '{metric_name}': {e}")
+
+    return "fail", 0.0
+
+
+def _build_eligible_tests(
+    tests: List[models.Test],
+    test_ids: Optional[List[UUID]] = None,
+    topic: Optional[str] = None,
+    include_subtopics: bool = True,
+) -> List[models.Test]:
+    """Filter tests to those eligible for evaluation.
+
+    Excludes topic markers, tests without prompts, and applies optional
+    test_ids / topic filters (same logic as generate_outputs_for_tests).
+    """
+    eligible: List[models.Test] = []
+    for t in tests:
+        meta = t.test_metadata or {}
+        if meta.get("label") == "topic_marker":
+            continue
+        if not t.prompt or not (t.prompt.content or "").strip():
+            continue
+        if test_ids is not None and t.id not in test_ids:
+            continue
+        if topic is not None and topic != "":
+            t_topic = (t.topic.name if t.topic and hasattr(t.topic, "name") else "") or ""
+            if include_subtopics:
+                if t_topic != topic and not t_topic.startswith(topic + "/"):
+                    continue
+            else:
+                if t_topic != topic:
+                    continue
+        eligible.append(t)
+    return eligible
+
+
+def evaluate_tests_for_adaptive_set(
+    db: Session,
+    test_set_identifier: str,
+    organization_id: str,
+    user_id: str,
+    metric_names: List[str],
+    test_ids: Optional[List[UUID]] = None,
+    topic: Optional[str] = None,
+    include_subtopics: bool = True,
+) -> Dict[str, Any]:
+    """Evaluate adaptive testing tests with the specified metrics.
+
+    For each eligible test, runs every requested metric using a simple
+    LLM-as-a-judge call and persists the results in ``test_metadata``
+    (label, labeler, model_score) so they are reflected in the
+    TestTreeNode view.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    test_set_identifier : str
+        Test set identifier (UUID, nano_id, or slug)
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+    metric_names : list of str
+        Metric names to evaluate (must exist in the organization)
+    test_ids : list of UUID, optional
+        Limit evaluation to these test IDs
+    topic : str, optional
+        Limit evaluation to tests under this topic path
+    include_subtopics : bool, default True
+        When topic is set, include subtopics or not
+
+    Returns
+    -------
+    dict
+        - evaluated: number of tests evaluated
+        - results: list of {test_id, label, labeler, model_score}
+        - failed: list of {test_id, error}
+
+    Raises
+    ------
+    ValueError
+        If any metric name does not exist or the test set is not found.
+    """
+    from rhesis.backend.tasks.execution.test import get_evaluation_model
+
+    # 1. Resolve metrics by name using get_metrics with OData filter
+    name_clauses = " or ".join(f"name eq '{n}'" for n in metric_names)
+    resolved_metrics = crud.get_metrics(
+        db,
+        skip=0,
+        limit=len(metric_names),
+        filter=name_clauses,
+        organization_id=organization_id,
+    )
+    found_names = {m.name for m in resolved_metrics}
+    missing = [n for n in metric_names if n not in found_names]
+    if missing:
+        raise ValueError(f"Metric does not exist: {', '.join(missing)}")
+
+    # 2. Resolve test set
+    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    if db_test_set is None:
+        raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
+
+    # 3. Load and filter eligible tests
+    tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
+    eligible = _build_eligible_tests(tests, test_ids, topic, include_subtopics)
+
+    # 4. Get evaluation model
+    model = get_evaluation_model(db, user_id)
+
+    # 5. Evaluate each test
+    results: List[Dict[str, Any]] = []
+    failed: List[Dict[str, str]] = []
+
+    for test in eligible:
+        test_id_str = str(test.id)
+        input_text = (test.prompt.content or "").strip()
+        output_text = (test.test_metadata or {}).get("output", "")
+
+        try:
+            evaluations = []
+            for metric in resolved_metrics:
+                label, score = _evaluate_one(input_text, output_text, metric.name, model)
+                evaluations.append(
+                    {
+                        "label": label,
+                        "labeler": metric.name,
+                        "model_score": score,
+                    }
+                )
+
+            # Aggregate: "pass" only if all metrics pass
+            all_pass = all(e["label"] == "pass" for e in evaluations)
+            agg_label = "pass" if all_pass else "fail"
+            agg_labeler = ", ".join(e["labeler"] for e in evaluations)
+            agg_score = (
+                sum(e["model_score"] for e in evaluations) / len(evaluations)
+                if evaluations
+                else 0.0
+            )
+
+            # 6. Persist to test_metadata
+            meta = dict(test.test_metadata or {})
+            meta["label"] = agg_label
+            meta["labeler"] = agg_labeler
+            meta["model_score"] = agg_score
+            if len(evaluations) > 1:
+                meta["evaluation"] = evaluations
+            elif "evaluation" in meta:
+                del meta["evaluation"]
+            test.test_metadata = meta
+
+            results.append(
+                {
+                    "test_id": test_id_str,
+                    "label": agg_label,
+                    "labeler": agg_labeler,
+                    "model_score": agg_score,
+                }
+            )
+        except Exception as e:
+            logger.warning(f"Evaluation failed for test {test_id_str}: {e}")
+            failed.append({"test_id": test_id_str, "error": str(e)})
+
+    db.flush()
+
+    logger.info(
+        f"Evaluate: test_set={test_set_identifier}, "
+        f"metrics={metric_names!r}, topic={topic!r}, "
+        f"evaluated={len(results)}, failed={len(failed)}"
+    )
+
+    return {
+        "evaluated": len(results),
+        "results": results,
+        "failed": failed,
     }
