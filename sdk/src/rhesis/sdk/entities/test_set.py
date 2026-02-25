@@ -23,6 +23,8 @@ ENDPOINT = Endpoints.TEST_SETS
 
 
 class TestSetProperties(BaseModel):
+    model_config = {"json_schema_extra": {"title": "Output"}}
+
     name: str
     description: str
     short_description: str
@@ -537,19 +539,47 @@ class TestSet(BaseEntity):
             topics=sorted(list(topics)), categories=sorted(list(categories))
         )
 
-        # Get response from LLLM
-
+        # Get response from LLM
         response = model.generate(formatted_prompt, schema=TestSetProperties)
+
         # Update test set attributes
-        if isinstance(response, dict):
-            self.name = response["name"]
-            self.description = response["description"]
-            self.short_description = response["short_description"]
-            self.categories = sorted(list(categories))
-            self.topics = sorted(list(topics))
-            self.test_count = len(self.tests) if self.tests is not None else 0
+        if isinstance(response, dict) and "error" not in response:
+            try:
+                self.name = response["name"]
+                self.description = response["description"]
+                self.short_description = response["short_description"]
+            except KeyError as e:
+                logger.warning(
+                    "[TestSet] LLM response missing expected key %s, "
+                    "using fallback properties. Response keys: %s",
+                    e,
+                    list(response.keys()),
+                )
+                self._set_fallback_properties(categories, topics)
+            else:
+                self.categories = sorted(list(categories))
+                self.topics = sorted(list(topics))
+                self.test_count = len(self.tests) if self.tests is not None else 0
         else:
-            raise ValueError("LLM response was not in the expected format")
+            logger.warning(
+                "[TestSet] LLM returned error or unexpected response for "
+                "set_properties, using fallback: %s",
+                response if isinstance(response, dict) else type(response).__name__,
+            )
+            self._set_fallback_properties(categories, topics)
+
+    def _set_fallback_properties(self, categories: set, topics: set) -> None:
+        """Set fallback properties when LLM fails to generate them."""
+        topic_str = ", ".join(sorted(topics)[:3]) if topics else "General"
+        self.name = f"Test Set - {topic_str}"
+        self.description = (
+            f"Auto-generated test set covering {len(topics)} topic(s) "
+            f"and {len(categories)} category/ies."
+        )
+        self.short_description = f"Tests for {topic_str}"
+        self.categories = sorted(list(categories))
+        self.topics = sorted(list(topics))
+        self.test_count = len(self.tests) if self.tests is not None else 0
 
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the test set to the database.

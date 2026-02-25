@@ -73,23 +73,27 @@ Configure an AI provider to enable test generation:
 
 ### Option 2: Use Your Own AI Provider
 
-Add your provider credentials to `.env.docker.local`:
+Add your provider's credentials **and set the default models** to use that provider in `.env.docker.local`:
 
 <CodeBlock filename=".env.docker.local" language="bash">
 {`# Google Gemini
 GEMINI_API_KEY=your-gemini-api-key
-GEMINI_MODEL_NAME=gemini-2.0-flash-001
 GOOGLE_API_KEY=your-google-api-key
+DEFAULT_GENERATION_MODEL=gemini/gemini-2.0-flash-001
+DEFAULT_EVALUATION_MODEL=gemini/gemini-2.0-flash-001
 
 # Or Azure OpenAI
 AZURE_OPENAI_ENDPOINT=your-endpoint
 AZURE_OPENAI_API_KEY=your-key
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 AZURE_OPENAI_API_VERSION=your-version
+DEFAULT_GENERATION_MODEL=azure/gpt-4o
+DEFAULT_EVALUATION_MODEL=azure/gpt-4o
 
 # Or OpenAI
 OPENAI_API_KEY=your-openai-key
-OPENAI_MODEL_NAME=gpt-4o`}
+DEFAULT_GENERATION_MODEL=openai/gpt-4o
+DEFAULT_EVALUATION_MODEL=openai/gpt-4o`}
 </CodeBlock>
 
 After updating, restart services:
