@@ -1,3 +1,5 @@
+import logging
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union, cast
 
@@ -21,6 +23,8 @@ from rhesis.sdk.synthesizers.utils import (
     create_test_set,
     load_prompt_template,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Prompt(BaseModel):
@@ -151,19 +155,39 @@ class TestSetSynthesizer(ABC):
         if self.chunker is None or not isinstance(self.chunker, ChunkingStrategy):
             raise ValueError("chunker must be a ChunkingStrategy object")
 
+        logger.info(
+            "[Synthesizer] _generate_with_sources: extracting %d sources",
+            len(self.sources),
+        )
+        extract_start = time.time()
         processed_sources = ExtractionService.extract(self.sources)
+        logger.info(
+            "[Synthesizer] Extraction completed in %.1fs",
+            time.time() - extract_start,
+        )
 
+        chunk_start = time.time()
         chunks = ChunkingService(processed_sources, strategy=self.chunker).chunk()
+        logger.info(
+            "[Synthesizer] Chunking completed in %.1fs: %d chunks from %d sources",
+            time.time() - chunk_start,
+            len(chunks),
+            len(processed_sources),
+        )
 
         tests_per_chunk = self._compute_tests_per_chunk(num_tests, len(chunks))
         if num_tests < len(chunks):
-            print(
-                f"number of tests is less than number of chunks. Current number of chunks: "
-                f"{len(chunks)} \n"
-                f"Number of tests: {num_tests}"
+            logger.warning(
+                "[Synthesizer] num_tests (%d) < num_chunks (%d), some chunks will be skipped",
+                num_tests,
+                len(chunks),
             )
         else:
-            print(f"Generate {num_tests} tests \n ")
+            logger.info(
+                "[Synthesizer] Generating %d tests across %d chunks",
+                num_tests,
+                len(chunks),
+            )
 
         if num_tests >= len(chunks):
             coverage_percent = 100
@@ -178,11 +202,13 @@ class TestSetSynthesizer(ABC):
         for i, chunk in enumerate(chunks):
             if tests_per_chunk[i] == 0:
                 continue
-            print(
-                f"Generating tests for chunk "
-                f"{i + 1}/{min(num_tests, len(chunks))} "
-                f"({tests_per_chunk[i]} tests)"
-                f"({len(chunk.content)} characters)"
+            logger.info(
+                "[Synthesizer] Chunk %d/%d: generating %d tests (%d chars content, source=%s)",
+                i + 1,
+                min(num_tests, len(chunks)),
+                tests_per_chunk[i],
+                len(chunk.content),
+                chunk.source.name,
             )
 
             result = self._generate_without_sources(
@@ -244,33 +270,111 @@ class TestSetSynthesizer(ABC):
         template_context = self._get_template_context(**kwargs)
 
         all_test_cases = []
+        generation_start = time.time()
+        logger.info(
+            "[Synthesizer] Starting generation: num_tests=%d, batch_size=%d, model=%s",
+            num_tests,
+            self.batch_size,
+            getattr(self.model, "model_name", type(self.model).__name__),
+        )
+
         # For large numbers, use chunking to avoid JSON parsing issues
         if num_tests > self.batch_size:
             # Generate in chunks
             remaining_tests = num_tests
+            batch_num = 0
             while remaining_tests > 0:
+                batch_num += 1
                 chunk_size = min(self.batch_size, remaining_tests)
+                logger.info(
+                    "[Synthesizer] Batch %d: requesting %d tests "
+                    "(remaining=%d, total_so_far=%d, batch_size=%d)",
+                    batch_num,
+                    chunk_size,
+                    remaining_tests,
+                    len(all_test_cases),
+                    self.batch_size,
+                )
+                batch_start = time.time()
                 try:
                     chunk_tests = self._generate_batch(chunk_size, **template_context)
+                    batch_elapsed = time.time() - batch_start
+                    logger.info(
+                        "[Synthesizer] Batch %d: received %d/%d tests in %.1fs",
+                        batch_num,
+                        len(chunk_tests),
+                        chunk_size,
+                        batch_elapsed,
+                    )
                     all_test_cases.extend(chunk_tests)
                     remaining_tests -= len(chunk_tests)
 
                     # If we didn't get the expected number, try again with a smaller chunk
                     if len(chunk_tests) < chunk_size and chunk_size > 5:
-                        remaining_tests += chunk_size - len(chunk_tests)
+                        shortfall = chunk_size - len(chunk_tests)
+                        remaining_tests += shortfall
+                        old_batch_size = self.batch_size
                         self.batch_size = max(5, self.batch_size // 2)
+                        logger.warning(
+                            "[Synthesizer] Batch %d: short by %d tests, "
+                            "reducing batch_size %d -> %d",
+                            batch_num,
+                            shortfall,
+                            old_batch_size,
+                            self.batch_size,
+                        )
 
                 except Exception as e:
-                    print(f"Error generating chunk of {chunk_size} tests: {e}")
+                    batch_elapsed = time.time() - batch_start
+                    logger.error(
+                        "[Synthesizer] Batch %d FAILED after %.1fs: %s: %s",
+                        batch_num,
+                        batch_elapsed,
+                        type(e).__name__,
+                        e,
+                        exc_info=True,
+                    )
                     # Try with smaller batch size
                     if self.batch_size > 5:
+                        old_batch_size = self.batch_size
                         self.batch_size = max(5, self.batch_size // 2)
+                        logger.warning(
+                            "[Synthesizer] Reducing batch_size %d -> %d after error, retrying",
+                            old_batch_size,
+                            self.batch_size,
+                        )
                         continue
                     else:
+                        logger.error(
+                            "[Synthesizer] batch_size at minimum (%d), "
+                            "aborting with %d tests generated",
+                            self.batch_size,
+                            len(all_test_cases),
+                        )
                         break
         else:
             # Generate all tests in a single batch
+            logger.info(
+                "[Synthesizer] Single batch: requesting %d tests",
+                num_tests,
+            )
+            batch_start = time.time()
             all_test_cases = self._generate_batch(num_tests, **template_context)
+            batch_elapsed = time.time() - batch_start
+            logger.info(
+                "[Synthesizer] Single batch: received %d tests in %.1fs",
+                len(all_test_cases),
+                batch_elapsed,
+            )
+
+        total_elapsed = time.time() - generation_start
+        logger.info(
+            "[Synthesizer] Generation complete: %d/%d tests in %.1fs (%.1f tests/sec)",
+            len(all_test_cases),
+            num_tests,
+            total_elapsed,
+            len(all_test_cases) / total_elapsed if total_elapsed > 0 else 0,
+        )
 
         # Ensure we have some test cases
         if not all_test_cases:
@@ -300,12 +404,45 @@ class TestSetSynthesizer(ABC):
         template_context = {"num_tests": num_tests, **kwargs}
         prompt = self.prompt_template.render(**template_context)
 
+        logger.debug(
+            "[Synthesizer] _generate_batch: calling model.generate for %d tests "
+            "(prompt length=%d chars)",
+            num_tests,
+            len(prompt),
+        )
+
         # Use flat schema for LLM (easier to generate), then repack to nested
+        llm_start = time.time()
         response = cast(
             Dict[str, Any],
             self.model.generate(prompt=prompt, schema=FlatTests),
         )
+        llm_elapsed = time.time() - llm_start
+
+        # Check for error responses from the LLM
+        if isinstance(response, dict) and "error" in response:
+            logger.error(
+                "[Synthesizer] _generate_batch: LLM returned error after %.1fs: %s",
+                llm_elapsed,
+                response["error"],
+            )
+            raise RuntimeError(f"LLM returned error: {response['error']}")
+
+        if not isinstance(response, dict) or "tests" not in response:
+            logger.error(
+                "[Synthesizer] _generate_batch: unexpected response type=%s after %.1fs: %s",
+                type(response).__name__,
+                llm_elapsed,
+                str(response)[:500],
+            )
+            raise RuntimeError(f"LLM returned unexpected response type: {type(response).__name__}")
+
         flat_tests = response["tests"][:num_tests]
+        logger.debug(
+            "[Synthesizer] _generate_batch: LLM returned %d tests in %.1fs",
+            len(flat_tests),
+            llm_elapsed,
+        )
 
         tests = [
             {
@@ -322,14 +459,30 @@ class TestSetSynthesizer(ABC):
 
     def generate(self, num_tests: int = 5, **kwargs: Any) -> TestSet:
         """Generate test cases."""
+        logger.info(
+            "[Synthesizer] generate() called: num_tests=%d, synthesizer=%s, "
+            "has_sources=%s, model=%s",
+            num_tests,
+            self._get_synthesizer_name(),
+            self.sources is not None,
+            getattr(self.model, "model_name", type(self.model).__name__),
+        )
+        overall_start = time.time()
+
         test_set_metadata = {}
         if self.sources is not None:
             tests, test_set_metadata = self._generate_with_sources(num_tests, **kwargs)
         else:
             tests = self._generate_without_sources(num_tests, **kwargs)
 
+        logger.info(
+            "[Synthesizer] Test generation phase complete: %d tests in %.1fs, creating TestSet...",
+            len(tests),
+            time.time() - overall_start,
+        )
+
         # Use utility function to create TestSet
-        return create_test_set(
+        test_set = create_test_set(
             tests,
             model=self.model,
             synthesizer_name=self._get_synthesizer_name(),
@@ -338,3 +491,11 @@ class TestSetSynthesizer(ABC):
             requested_tests=num_tests,
             **test_set_metadata,
         )
+
+        total_elapsed = time.time() - overall_start
+        logger.info(
+            "[Synthesizer] generate() complete: %d tests, total time %.1fs",
+            len(tests),
+            total_elapsed,
+        )
+        return test_set

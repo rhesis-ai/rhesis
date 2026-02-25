@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from typing import Any, Dict, List, Optional, Type, Union
 
 import requests
@@ -155,11 +156,35 @@ class RhesisLLM(BaseLLM):
 
         url = self.client.get_url(API_ENDPOINT)
 
+        logger.info(
+            "[RhesisLLM] POST %s | model=%s | prompt_chars=%d | max_tokens=%d",
+            url,
+            self.model_name,
+            len(prompt),
+            max_tokens,
+        )
+
+        request_start = time.time()
         response = requests.post(
             url,
             headers=self.headers,
             json=request_data,
         )
+        request_elapsed = time.time() - request_start
+
+        if response.status_code != 200:
+            logger.error(
+                "[RhesisLLM] HTTP %d after %.1fs | body=%s",
+                response.status_code,
+                request_elapsed,
+                response.text[:500],
+            )
+        else:
+            logger.info(
+                "[RhesisLLM] HTTP 200 in %.1fs | response_size=%d bytes",
+                request_elapsed,
+                len(response.content),
+            )
 
         response.raise_for_status()
         result: Dict[str, Any] = response.json()

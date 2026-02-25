@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import time
 from typing import Any, Dict, List, Optional, Type
 
 import jsonfinder
@@ -217,20 +218,49 @@ class PolyphemusLLM(BaseLLM):
 
         url = f"{self.base_url}/generate"
 
-        logger.debug(f"Polyphemus request URL: {url}")
-        logger.debug(
-            f"Polyphemus request: model={request_data.get('model')}, "
-            f"messages={len(request_data.get('messages', []))}"
+        # Calculate prompt size for debugging
+        total_prompt_chars = sum(len(m.get("content", "")) for m in messages)
+        logger.info(
+            "[Polyphemus] POST %s | model=%s | messages=%d | prompt_chars=%d",
+            url,
+            request_data.get("model"),
+            len(request_data.get("messages", [])),
+            total_prompt_chars,
         )
 
+        request_start = time.time()
         response = requests.post(
             url,
             headers=self.headers,
             json=request_data,
         )
+        request_elapsed = time.time() - request_start
 
         if response.status_code != 200:
-            logger.error(f"Polyphemus error: status={response.status_code}")
+            logger.error(
+                "[Polyphemus] HTTP %d after %.1fs | body=%s",
+                response.status_code,
+                request_elapsed,
+                response.text[:500],
+            )
+        else:
+            logger.info(
+                "[Polyphemus] HTTP 200 in %.1fs | response_size=%d bytes",
+                request_elapsed,
+                len(response.content),
+            )
+
         response.raise_for_status()
         result: Dict[str, Any] = response.json()
+
+        # Log usage info if available
+        usage = result.get("usage", {})
+        if usage:
+            logger.info(
+                "[Polyphemus] Token usage: prompt=%s, completion=%s, total=%s",
+                usage.get("prompt_tokens", "?"),
+                usage.get("completion_tokens", "?"),
+                usage.get("total_tokens", "?"),
+            )
+
         return result
