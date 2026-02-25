@@ -253,29 +253,43 @@ FROM_EMAIL=your_from_email`}
 
 #### AI Model Configuration
 
-Configure AI providers for natural language processing and content generation:
+An AI provider is required for test generation and evaluation. By default, the system uses `rhesis/rhesis-default` as the model, which requires a `RHESIS_API_KEY`. If you do not configure either a `RHESIS_API_KEY` or an alternative provider with matching `DEFAULT_GENERATION_MODEL` and `DEFAULT_EVALUATION_MODEL`, test generation will fail.
+
+**Option 1: Use Rhesis API (Recommended)**
+
+Set your Rhesis API key — no other model configuration is needed since the defaults already use `rhesis/rhesis-default`:
 
 <CodeBlock filename=".env.docker" language="bash">
-{`# Gemini AI Configuration
-# Google's Gemini AI for advanced language processing
+{`# Rhesis API key (get from https://app.rhesis.ai/)
+RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
+</CodeBlock>
+
+**Option 2: Use Your Own AI Provider**
+
+Set your provider's API key **and** change the default models to use that provider:
+
+<CodeBlock filename=".env.docker" language="bash">
+{`# Google Gemini
 GEMINI_API_KEY=your-gemini-api-key
 GOOGLE_API_KEY=your-google-api-key
-GEMINI_MODEL_NAME=gemini-2.0-flash-001
+DEFAULT_GENERATION_MODEL=gemini/gemini-2.0-flash-001
+DEFAULT_EVALUATION_MODEL=gemini/gemini-2.0-flash-001
 
-# Azure OpenAI Configuration
-# Microsoft Azure's OpenAI service for GPT models
+# Or Azure OpenAI
 AZURE_OPENAI_ENDPOINT=YOUR_AZURE_OPENAI_API_ENDPOINT
 AZURE_OPENAI_API_KEY=YOUR_AZURE_OPENAI_API_KEY
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 AZURE_OPENAI_API_VERSION=YOUR_AZURE_OPENAI_API_VERSION
+DEFAULT_GENERATION_MODEL=azure/gpt-4o
+DEFAULT_EVALUATION_MODEL=azure/gpt-4o
 
-# OpenAI Configuration
-# Direct OpenAI API integration for GPT models
+# Or OpenAI
 OPENAI_API_KEY=YOUR_OPENAI_API_KEY
-OPENAI_MODEL_NAME=gpt-4o`}
+DEFAULT_GENERATION_MODEL=openai/gpt-4o
+DEFAULT_EVALUATION_MODEL=openai/gpt-4o`}
 </CodeBlock>
 
-> **Note**: At least one AI provider configuration is required for full platform functionality. You can choose between Gemini, Azure OpenAI, or OpenAI based on your preferences and requirements.
+Supported provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `groq`, `mistral`, `together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`.
 
 ## Telemetry & Privacy
 
