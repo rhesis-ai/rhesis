@@ -7,10 +7,11 @@ Tests the HTTP endpoints:
 - GET /adaptive_testing/{test_set_id}/tests
 - GET /adaptive_testing/{test_set_id}/topics
 - POST /adaptive_testing/{test_set_id}/generate_outputs
+- POST /adaptive_testing/{test_set_id}/evaluate
 """
 
 import uuid
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import status
@@ -1628,3 +1629,198 @@ class TestGenerateOutputsEndpoint:
             status.HTTP_401_UNAUTHORIZED,
             status.HTTP_403_FORBIDDEN,
         ]
+
+
+@pytest.mark.integration
+@pytest.mark.routes
+class TestEvaluateEndpoint:
+    """Test POST /adaptive_testing/{test_set_id}/evaluate"""
+
+    @patch(
+        "rhesis.backend.app.routers.adaptive_testing.evaluate_tests_for_adaptive_set",
+    )
+    def test_evaluate_returns_200_and_shape(
+        self,
+        mock_evaluate: MagicMock,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """POST with metric_names returns 200 and EvaluateResponse."""
+        mock_evaluate.return_value = {
+            "evaluated": 2,
+            "results": [
+                {
+                    "test_id": "tid-1",
+                    "label": "pass",
+                    "labeler": "MyMetric",
+                    "model_score": 0.9,
+                },
+                {
+                    "test_id": "tid-2",
+                    "label": "fail",
+                    "labeler": "MyMetric",
+                    "model_score": 0.3,
+                },
+            ],
+            "failed": [],
+        }
+
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            json={"metric_names": ["MyMetric"]},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["evaluated"] == 2
+        assert len(data["results"]) == 2
+        assert data["results"][0]["label"] == "pass"
+        assert data["results"][0]["labeler"] == "MyMetric"
+        assert data["results"][0]["model_score"] == 0.9
+        assert len(data["failed"]) == 0
+
+        mock_evaluate.assert_called_once()
+        call_kw = mock_evaluate.call_args[1]
+        assert call_kw["metric_names"] == ["MyMetric"]
+        assert call_kw["test_set_identifier"] == str(adaptive_test_set.id)
+
+    @patch(
+        "rhesis.backend.app.routers.adaptive_testing.evaluate_tests_for_adaptive_set",
+    )
+    def test_evaluate_metric_does_not_exist_returns_400(
+        self,
+        mock_evaluate: MagicMock,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """When service raises ValueError for missing metric, return 400."""
+        mock_evaluate.side_effect = ValueError("Metric does not exist: BadMetric")
+
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            json={"metric_names": ["BadMetric"]},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        detail = response.json().get("detail", "").lower()
+        assert "metric" in detail
+        assert "does not exist" in detail
+
+    @patch(
+        "rhesis.backend.app.routers.adaptive_testing.evaluate_tests_for_adaptive_set",
+    )
+    def test_evaluate_with_test_ids(
+        self,
+        mock_evaluate: MagicMock,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """POST with test_ids passes them to the service."""
+        mock_evaluate.return_value = {
+            "evaluated": 1,
+            "results": [
+                {
+                    "test_id": "tid-1",
+                    "label": "pass",
+                    "labeler": "M",
+                    "model_score": 0.8,
+                }
+            ],
+            "failed": [],
+        }
+        test_id = str(uuid.uuid4())
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            json={"metric_names": ["M"], "test_ids": [test_id]},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        call_kw = mock_evaluate.call_args[1]
+        assert call_kw["test_ids"] is not None
+        assert len(call_kw["test_ids"]) == 1
+        assert str(call_kw["test_ids"][0]) == test_id
+
+    @patch(
+        "rhesis.backend.app.routers.adaptive_testing.evaluate_tests_for_adaptive_set",
+    )
+    def test_evaluate_with_topic_and_include_subtopics(
+        self,
+        mock_evaluate: MagicMock,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """POST with topic and include_subtopics passes them."""
+        mock_evaluate.return_value = {
+            "evaluated": 1,
+            "results": [
+                {
+                    "test_id": "tid-1",
+                    "label": "pass",
+                    "labeler": "M",
+                    "model_score": 0.7,
+                }
+            ],
+            "failed": [],
+        }
+
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            json={
+                "metric_names": ["M"],
+                "topic": "Safety/Violence",
+                "include_subtopics": False,
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        call_kw = mock_evaluate.call_args[1]
+        assert call_kw["topic"] == "Safety/Violence"
+        assert call_kw["include_subtopics"] is False
+
+    @patch(
+        "rhesis.backend.app.routers.adaptive_testing.evaluate_tests_for_adaptive_set",
+    )
+    def test_evaluate_test_set_not_found(
+        self,
+        mock_evaluate: MagicMock,
+        authenticated_client: TestClient,
+    ):
+        """When service raises ValueError for test set not found, return 404."""
+        mock_evaluate.side_effect = ValueError("Test set not found with identifier")
+
+        fake_id = str(uuid.uuid4())
+        response = authenticated_client.post(
+            f"/adaptive_testing/{fake_id}/evaluate",
+            json={"metric_names": ["M"]},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_evaluate_unauthenticated(
+        self,
+        client: TestClient,
+        adaptive_test_set,
+    ):
+        """Unauthenticated POST should be rejected."""
+        response = client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            json={"metric_names": ["M"]},
+        )
+
+        assert response.status_code in [
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        ]
+
+    def test_evaluate_missing_metric_names_validation(
+        self,
+        authenticated_client: TestClient,
+        adaptive_test_set,
+    ):
+        """POST without metric_names returns 422 validation error."""
+        response = authenticated_client.post(
+            f"/adaptive_testing/{adaptive_test_set.id}/evaluate",
+            json={},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

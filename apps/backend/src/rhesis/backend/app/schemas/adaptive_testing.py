@@ -1,10 +1,14 @@
-"""Schemas for adaptive testing API (generate outputs, etc.)."""
+"""Schemas for adaptive testing API (generate outputs, evaluate, etc.)."""
 
 from typing import List, Optional
 
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4, BaseModel, Field
 
 from rhesis.backend.app.schemas import Base
+
+# ---------------------------------------------------------------------------
+# Generate outputs
+# ---------------------------------------------------------------------------
 
 
 class GenerateOutputsRequest(Base):
@@ -36,3 +40,45 @@ class GenerateOutputsResponse(Base):
     generated: int
     failed: List[GenerateOutputsFailedItem]
     updated: List[GenerateOutputsUpdatedItem]
+
+
+# ---------------------------------------------------------------------------
+# Evaluate
+# ---------------------------------------------------------------------------
+
+
+class EvaluateRequest(Base):
+    """Request body for evaluating adaptive tests with specified metrics."""
+
+    metric_names: List[str] = Field(
+        ...,
+        min_length=1,
+        description="Metric names to evaluate (must exist in the organization)",
+    )
+    test_ids: Optional[List[UUID4]] = None
+    topic: Optional[str] = None
+    include_subtopics: bool = True
+
+
+class EvaluateResultItem(BaseModel):
+    """One test that was evaluated successfully."""
+
+    test_id: str
+    label: str
+    labeler: str
+    model_score: float
+
+
+class EvaluateFailedItem(BaseModel):
+    """One test that failed during evaluation."""
+
+    test_id: str
+    error: str
+
+
+class EvaluateResponse(Base):
+    """Response for evaluate. Results are persisted in test metadata."""
+
+    evaluated: int
+    results: List[EvaluateResultItem]
+    failed: List[EvaluateFailedItem]
