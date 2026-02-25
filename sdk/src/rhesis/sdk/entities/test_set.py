@@ -23,6 +23,8 @@ ENDPOINT = Endpoints.TEST_SETS
 
 
 class TestSetProperties(BaseModel):
+    model_config = {"json_schema_extra": {"title": "Output"}}
+
     name: str
     description: str
     short_description: str
