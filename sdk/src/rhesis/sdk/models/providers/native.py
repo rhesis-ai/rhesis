@@ -172,21 +172,21 @@ class RhesisLLM(BaseLLM):
         )
         request_elapsed = time.time() - request_start
 
-        if response.status_code != 200:
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
             logger.error(
-                "[RhesisLLM] HTTP %d after %.1fs | body=%s",
-                response.status_code,
+                "[RhesisLLM] HTTP %s after %.1fs",
+                getattr(response, "status_code", "?"),
                 request_elapsed,
-                response.text[:500],
             )
-        else:
-            logger.info(
-                "[RhesisLLM] HTTP 200 in %.1fs | response_size=%d bytes",
-                request_elapsed,
-                len(response.content),
-            )
+            raise
 
-        response.raise_for_status()
+        logger.info(
+            "[RhesisLLM] HTTP 200 in %.1fs",
+            request_elapsed,
+        )
+
         result: Dict[str, Any] = response.json()
         return result
 
