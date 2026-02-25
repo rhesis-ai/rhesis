@@ -2,6 +2,8 @@
 # Run: terraform init -backend-config=backend.conf && terraform apply
 
 terraform {
+  required_version = ">= 1.5"
+
   required_providers {
     google = {
       source  = "hashicorp/google"
@@ -103,6 +105,8 @@ resource "google_compute_network_peering" "dev_to_wireguard" {
   timeouts {
     create = "15m"
   }
+
+  depends_on = [google_compute_network_peering.wireguard_to_dev]
 }
 
 # VPC Peering: WireGuard <-> stg (bidirectional)
@@ -130,6 +134,8 @@ resource "google_compute_network_peering" "stg_to_wireguard" {
   timeouts {
     create = "15m"
   }
+
+  depends_on = [google_compute_network_peering.wireguard_to_stg]
 }
 
 # VPC Peering: WireGuard <-> prd (bidirectional)
@@ -157,6 +163,8 @@ resource "google_compute_network_peering" "prd_to_wireguard" {
   timeouts {
     create = "15m"
   }
+
+  depends_on = [google_compute_network_peering.wireguard_to_prd]
 }
 
 # GKE private clusters (dev, stg, prd)
