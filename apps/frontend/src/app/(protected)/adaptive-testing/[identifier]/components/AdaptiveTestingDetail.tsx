@@ -2636,8 +2636,7 @@ export default function AdaptiveTestingDetail({
                 ? allTestsTopicOption
                 : (topics.find(t => t.path === evaluateTopic) ?? {
                     path: evaluateTopic,
-                    name:
-                      evaluateTopic.split('/').pop() ?? evaluateTopic,
+                    name: evaluateTopic.split('/').pop() ?? evaluateTopic,
                     parent_path: null,
                     depth: 0,
                     display_name: evaluateTopic,
@@ -2662,9 +2661,7 @@ export default function AdaptiveTestingDetail({
               control={
                 <Checkbox
                   checked={evaluateIncludeSubtopics}
-                  onChange={e =>
-                    setEvaluateIncludeSubtopics(e.target.checked)
-                  }
+                  onChange={e => setEvaluateIncludeSubtopics(e.target.checked)}
                 />
               }
               label="Include subtopics"
@@ -2672,10 +2669,7 @@ export default function AdaptiveTestingDetail({
           )}
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={handleEvaluateClose}
-            disabled={evaluateSubmitting}
-          >
+          <Button onClick={handleEvaluateClose} disabled={evaluateSubmitting}>
             Cancel
           </Button>
           <Button
