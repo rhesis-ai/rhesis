@@ -37,6 +37,10 @@ ENVIRONMENT = (os.getenv("ENVIRONMENT", "dev") or "dev").strip().lower()
 MODEL_PATH = os.getenv("POLYPHEMUS_MODEL_PATH", "")
 DEFAULT_MODEL = os.getenv("POLYPHEMUS_DEFAULT_MODEL", "")
 MODEL_BUCKET = os.getenv("POLYPHEMUS_MODEL_BUCKET", "")
+MAX_MODEL_LEN = os.getenv("MAX_MODEL_LEN", 4096)
+MACHINE_TYPE = os.getenv("MACHINE_TYPE", "g2-standard-12")
+ACCELERATOR_TYPE = os.getenv("ACCELERATOR_TYPE", "NVIDIA_L4")
+ACCELERATOR_COUNT = os.getenv("ACCELERATOR_COUNT", 1)
 
 # Derived: bucket URI (from POLYPHEMUS_MODEL_PATH or POLYPHEMUS_MODEL_BUCKET)
 # e.g. POLYPHEMUS_MODEL_PATH=gs://your-bucket-name/cache -> BUCKET_URI=gs://your-bucket-name
@@ -70,12 +74,12 @@ VLLM_DOCKER_URI = (
 # If POLYPHEMUS_MODEL_PATH and POLYPHEMUS_DEFAULT_MODEL are set, model_id is the full GCS path
 MODELS: list[ModelConfig] = [
     {
-        "model_name": DEFAULT_MODEL or "llama-3-1-8b-instruct",
-        "model_id": MODEL_GCS_PATH or "meta-llama/Meta-Llama-3.1-8B-Instruct",
-        "machine_type": "g2-standard-12",
-        "accelerator_type": "NVIDIA_L4",
-        "accelerator_count": 1,
-        "max_model_len": 4096,
+        "model_name": DEFAULT_MODEL,
+        "model_id": MODEL_GCS_PATH,
+        "machine_type": MACHINE_TYPE,
+        "accelerator_type": ACCELERATOR_TYPE,
+        "accelerator_count": ACCELERATOR_COUNT,
+        "max_model_len": MAX_MODEL_LEN,
         "hf_token": "",  # Optional: HuggingFace token for private models
     },
     # Example: Load from GCS bucket

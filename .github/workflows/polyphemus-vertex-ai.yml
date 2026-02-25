@@ -132,6 +132,22 @@ jobs:
             echo "HF_TOKEN=${{ secrets.HUGGINGFACE_TOKEN }}" >> $GITHUB_ENV
             echo "✓ HuggingFace token provided for private model access"
           fi
+          if [ -n "${{ secrets.MAX_MODEL_LEN }}" ]; then
+            echo "MAX_MODEL_LEN=${{ secrets.MAX_MODEL_LEN }}" >> $GITHUB_ENV
+            echo "✓ Using MAX_MODEL_LEN: ${{ secrets.MAX_MODEL_LEN }}"
+          fi
+          if [ -n "${{ secrets.MACHINE_TYPE }}" ]; then
+            echo "MACHINE_TYPE=${{ secrets.MACHINE_TYPE }}" >> $GITHUB_ENV
+            echo "✓ Using MACHINE_TYPE: ${{ secrets.MACHINE_TYPE }}"
+          fi
+          if [ -n "${{ secrets.ACCELERATOR_TYPE }}" ]; then
+            echo "ACCELERATOR_TYPE=${{ secrets.ACCELERATOR_TYPE }}" >> $GITHUB_ENV
+            echo "✓ Using ACCELERATOR_TYPE: ${{ secrets.ACCELERATOR_TYPE }}"
+          fi
+          if [ -n "${{ secrets.ACCELERATOR_COUNT }}" ]; then
+            echo "ACCELERATOR_COUNT=${{ secrets.ACCELERATOR_COUNT }}" >> $GITHUB_ENV
+            echo "✓ Using ACCELERATOR_COUNT: ${{ secrets.ACCELERATOR_COUNT }}"
+          fi
 
       - name: Build deployment arguments
         id: build_args
