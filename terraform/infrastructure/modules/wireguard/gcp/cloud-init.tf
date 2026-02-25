@@ -6,7 +6,7 @@ locals {
       identifier = peer.identifier
       ip         = peer.ip
       subnets    = peer.subnets
-      public_key = tostring(terraform_data.peer_keys[peer.identifier].output["public_key"])
+      public_key = wireguard_asymmetric_key.peers[peer.identifier].public_key
     }
   ]
 
@@ -14,7 +14,7 @@ locals {
   wireguard_config = templatefile("${path.module}/templates/wg0.conf.tpl", {
     server_ip          = var.wireguard_tunnel_ip
     listen_port        = var.wireguard_port
-    server_private_key = tostring(terraform_data.server_key.output["private_key"])
+    server_private_key = wireguard_asymmetric_key.server.private_key
     peer_cidr          = var.wireguard_peer_cidr
     peers              = local.wireguard_peers_with_keys
     subnet_cidrs       = var.subnet_cidrs
