@@ -43,8 +43,7 @@ resource "google_compute_instance" "wireguard" {
 
   metadata = {
     user-data      = local.cloud_init
-    ssh-keys       = join("\n", var.ssh_keys)
-    enable-oslogin = "FALSE"
+    enable-oslogin = "TRUE"
   }
 
   tags = ["wireguard-server"]

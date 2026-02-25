@@ -28,8 +28,6 @@ wireguard_peers = [
   }
 ]
 
-# SSH public keys for WireGuard server access
-# Format: "username:ssh-rsa AAAA... user@host"
-ssh_keys = [
-  "admin:ssh-rsa AAAAB3Nza... admin@example.com"
-]
+# SSH access: OS Login + IAP tunneling is enabled by default.
+# Connect with: gcloud compute ssh wireguard-server --tunnel-through-iap --zone=ZONE
+# Grant access via: gcloud projects add-iam-policy-binding PROJECT --member=user:EMAIL --role=roles/iap.tunnelResourceAccessor

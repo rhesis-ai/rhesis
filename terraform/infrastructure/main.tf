@@ -263,8 +263,6 @@ module "wireguard_server" {
     }
   ]
 
-  ssh_keys = var.ssh_keys
-
   depends_on = [
     module.wireguard,
     google_compute_network_peering.wireguard_to_dev,

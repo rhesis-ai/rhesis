@@ -99,12 +99,6 @@ variable "disk_size_gb" {
   default     = 10
 }
 
-variable "ssh_keys" {
-  description = "SSH public keys for VM access"
-  type        = list(string)
-  default     = []
-}
-
 variable "deletion_protection" {
   description = "Enable deletion protection for WireGuard server"
   type        = bool

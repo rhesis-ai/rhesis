@@ -24,8 +24,3 @@ variable "wireguard_peers" {
   default = []
 }
 
-variable "ssh_keys" {
-  description = "SSH public keys for WireGuard server (format: 'user:ssh-rsa AAAA...')"
-  type        = list(string)
-  default     = []
-}

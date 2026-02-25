@@ -1,6 +1,8 @@
-# Allow SSH access to WireGuard server
-resource "google_compute_firewall" "wireguard_ssh" {
-  name     = "wireguard-allow-ssh"
+# Allow SSH via IAP tunneling only (no public SSH exposure).
+# Admins connect with: gcloud compute ssh wireguard-server --tunnel-through-iap --zone=ZONE
+# Access is controlled via the roles/iap.tunnelResourceAccessor IAM role.
+resource "google_compute_firewall" "wireguard_iap_ssh" {
+  name     = "wireguard-allow-iap-ssh"
   network  = var.vpc_name
   project  = var.project_id
   priority = 900
@@ -10,7 +12,8 @@ resource "google_compute_firewall" "wireguard_ssh" {
     ports    = ["22"]
   }
 
-  source_ranges = ["0.0.0.0/0"] # Can be restricted to admin IPs
+  # Google IAP's fixed IP range — not the public internet
+  source_ranges = ["35.235.240.0/20"]
   target_tags   = ["wireguard-server"]
 }
 
