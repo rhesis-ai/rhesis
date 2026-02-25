@@ -72,11 +72,13 @@ resource "google_compute_firewall" "gke_internal" {
 }
 
 # WireGuard to nodes and ILB (for debugging, node SSH, etc.)
+# Per-peer access control is enforced by iptables on the WireGuard server;
+# this rule only allows traffic that has already passed those checks.
 resource "google_compute_firewall" "gke_wireguard_to_nodes" {
   name     = "gke-wireguard-to-nodes-${var.environment}"
   network  = var.vpc_name
   project  = var.project_id
-  priority = 100
+  priority = 900
 
   allow {
     protocol = "tcp"
@@ -91,4 +93,5 @@ resource "google_compute_firewall" "gke_wireguard_to_nodes" {
   }
 
   source_ranges = [var.wireguard_cidr]
+  target_tags   = ["gke-${var.environment}"]
 }

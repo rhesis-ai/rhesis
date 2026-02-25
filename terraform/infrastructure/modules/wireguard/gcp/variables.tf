@@ -24,22 +24,22 @@ variable "subnet_self_link" {
   type        = string
 }
 
-variable "wireguard_server_ip" {
-  description = "WireGuard server internal IP (tunnel interface)"
+variable "wireguard_tunnel_ip" {
+  description = "WireGuard tunnel interface IP (wg0 address, used by VPN clients)"
   type        = string
   default     = "10.0.0.1"
   validation {
-    condition     = can(regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$", var.wireguard_server_ip))
+    condition     = can(regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$", var.wireguard_tunnel_ip))
     error_message = "Must be a valid IPv4 address (e.g., 10.0.0.1)."
   }
 }
 
-variable "wireguard_vm_ip" {
-  description = "WireGuard VM IP in GCP subnet"
+variable "wireguard_subnet_ip" {
+  description = "WireGuard VM IP in the GCP VPC subnet (primary NIC address)"
   type        = string
   default     = "10.0.0.10"
   validation {
-    condition     = can(regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$", var.wireguard_vm_ip))
+    condition     = can(regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$", var.wireguard_subnet_ip))
     error_message = "Must be a valid IPv4 address (e.g., 10.0.0.10)."
   }
 }

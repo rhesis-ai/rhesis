@@ -3,9 +3,9 @@ output "server_external_ip" {
   value       = google_compute_address.wireguard.address
 }
 
-output "server_internal_ip" {
-  description = "WireGuard server tunnel IP"
-  value       = var.wireguard_server_ip
+output "server_tunnel_ip" {
+  description = "WireGuard tunnel interface IP (wg0)"
+  value       = var.wireguard_tunnel_ip
 }
 
 output "server_public_key" {

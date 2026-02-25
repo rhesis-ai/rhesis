@@ -25,7 +25,7 @@ resource "google_compute_instance" "wireguard" {
   # Primary NIC: WireGuard VPC (eth0)
   network_interface {
     subnetwork = var.subnet_self_link
-    network_ip = var.wireguard_vm_ip
+    network_ip = var.wireguard_subnet_ip
 
     access_config {
       nat_ip = google_compute_address.wireguard.address

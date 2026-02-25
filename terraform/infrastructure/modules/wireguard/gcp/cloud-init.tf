@@ -12,7 +12,7 @@ locals {
 
   # Render WireGuard server configuration
   wireguard_config = templatefile("${path.module}/templates/wg0.conf.tpl", {
-    server_ip          = var.wireguard_server_ip
+    server_ip          = var.wireguard_tunnel_ip
     listen_port        = var.wireguard_port
     server_private_key = tostring(terraform_data.server_key.output["private_key"])
     peer_cidr          = var.wireguard_peer_cidr
