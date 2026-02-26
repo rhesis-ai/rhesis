@@ -19,6 +19,8 @@ from rhesis.backend.app.utils.execution_validation import (
 )
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
+from rhesis.backend.tasks.enums import RunStatus
+from rhesis.backend.tasks.execution.run import create_test_run, update_test_run_status
 from rhesis.backend.tasks.test_configuration import execute_test_configuration
 
 # Create the detailed schema for TestConfiguration
@@ -205,13 +207,36 @@ def execute_test_configuration_endpoint(
         if db_test_configuration is None:
             raise HTTPException(status_code=404, detail="Test configuration not found")
 
-        # Submit the celery task with the task_launcher which automatically adds context
-        task = task_launcher(
-            execute_test_configuration, str(test_configuration_id), current_user=current_user
+        # Create the test run immediately with Queued status so the user
+        # can see it in the UI even before a worker picks up the task
+        test_run = create_test_run(
+            db,
+            db_test_configuration,
+            current_user_id=str(current_user.id) if current_user else None,
         )
+        db.commit()
+
+        # Submit the celery task with the test_run_id so the worker
+        # transitions it from Queued to Progress
+        try:
+            task = task_launcher(
+                execute_test_configuration,
+                str(test_configuration_id),
+                test_run_id=str(test_run.id),
+                current_user=current_user,
+            )
+        except Exception as exc:
+            # Mark the queued test run as failed so it doesn't stay stuck
+            update_test_run_status(db, test_run, RunStatus.FAILED.value, error=str(exc))
+            db.commit()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to submit task: {exc}",
+            ) from exc
 
         return {
             "test_configuration_id": str(test_configuration_id),
+            "test_run_id": str(test_run.id),
             "task_id": task.id,
             "status": "submitted",
             "endpoint_id": str(db_test_configuration.endpoint_id),

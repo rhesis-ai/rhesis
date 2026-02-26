@@ -184,9 +184,7 @@ export default function TeamInviteForm({
             if (error.message.includes('API error:')) {
               // Extract the status code and message
               const statusMatch = error.message.match(/API error: (\d+)/);
-              const statusCode = statusMatch
-                ? parseInt(statusMatch[1])
-                : null;
+              const statusCode = statusMatch ? parseInt(statusMatch[1]) : null;
 
               // 400, 409, 422, 429 are expected client/validation errors
               isExpectedError = statusCode
@@ -199,8 +197,7 @@ export default function TeamInviteForm({
                 try {
                   // Try to parse as JSON first
                   const parsed = JSON.parse(match[1]);
-                  errorMessage =
-                    parsed.detail || parsed.message || match[1];
+                  errorMessage = parsed.detail || parsed.message || match[1];
                 } catch {
                   // If not JSON, use the raw message
                   errorMessage = match[1];
@@ -404,12 +401,7 @@ export default function TeamInviteForm({
       <Stack spacing={2} sx={{ mb: 3 }}>
         {formData.invites.map((invite, index) => {
           return (
-            <Box
-              key={invite.id}
-              display="flex"
-              alignItems="flex-start"
-              gap={2}
-            >
+            <Box key={invite.id} display="flex" alignItems="flex-start" gap={2}>
               <TextField
                 fullWidth
                 label="Email Address"
