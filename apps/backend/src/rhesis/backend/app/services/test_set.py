@@ -40,7 +40,8 @@ def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = Non
             joinedload(TestSet.prompts).joinedload(Prompt.attack_category),
             joinedload(TestSet.prompts).joinedload(Prompt.topic),
             joinedload(TestSet.prompts).joinedload(Prompt.behavior),
-            # joinedload(TestSet.prompts).joinedload(Prompt.source),  # Temporarily disabled due to entity_type column issue
+            # Temporarily disabled due to entity_type column issue
+            # joinedload(TestSet.prompts).joinedload(Prompt.source),
             joinedload(TestSet.prompts).joinedload(Prompt.status),
             joinedload(TestSet.prompts).joinedload(Prompt.user),
         )
