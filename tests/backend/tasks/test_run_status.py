@@ -30,6 +30,25 @@ class TestRunStatusEnum:
         assert actual == expected
 
 
+def _make_test_config(test_set_id=None):
+    """Create a mock test configuration."""
+    config = Mock()
+    config.id = uuid4()
+    config.organization_id = uuid4()
+    config.user_id = uuid4()
+    config.test_set_id = test_set_id or uuid4()
+    return config
+
+
+def _mock_session_with_test_count(count=5):
+    """Create a mock session that returns a test count query."""
+    session = MagicMock()
+    (
+        session.query.return_value.select_from.return_value.filter.return_value.scalar.return_value
+    ) = count
+    return session
+
+
 class TestCreateTestRun:
     """Test create_test_run function."""
 
@@ -41,16 +60,11 @@ class TestCreateTestRun:
         mock_status.id = uuid4()
         mock_get_status.return_value = mock_status
 
-        mock_test_config = Mock()
-        mock_test_config.id = uuid4()
-        mock_test_config.organization_id = uuid4()
-        mock_test_config.user_id = uuid4()
-
-        mock_test_run = Mock()
-        mock_crud.create_test_run.return_value = mock_test_run
+        mock_test_config = _make_test_config()
+        mock_crud.create_test_run.return_value = Mock()
         mock_crud.schemas.TestRunCreate = MagicMock()
 
-        session = MagicMock()
+        session = _mock_session_with_test_count()
         create_test_run(session, mock_test_config)
 
         mock_get_status.assert_called_once_with(
@@ -68,16 +82,11 @@ class TestCreateTestRun:
         mock_status.id = uuid4()
         mock_get_status.return_value = mock_status
 
-        mock_test_config = Mock()
-        mock_test_config.id = uuid4()
-        mock_test_config.organization_id = uuid4()
-        mock_test_config.user_id = uuid4()
-
-        mock_test_run = Mock()
-        mock_crud.create_test_run.return_value = mock_test_run
+        mock_test_config = _make_test_config()
+        mock_crud.create_test_run.return_value = Mock()
         mock_crud.schemas.TestRunCreate = MagicMock()
 
-        session = MagicMock()
+        session = _mock_session_with_test_count()
         create_test_run(session, mock_test_config, initial_status=RunStatus.PROGRESS)
 
         mock_get_status.assert_called_once_with(
@@ -95,22 +104,17 @@ class TestCreateTestRun:
         mock_status.id = uuid4()
         mock_get_status.return_value = mock_status
 
-        mock_test_config = Mock()
-        mock_test_config.id = uuid4()
-        mock_test_config.organization_id = uuid4()
-        mock_test_config.user_id = uuid4()
-
-        mock_test_run = Mock()
-        mock_crud.create_test_run.return_value = mock_test_run
+        mock_test_config = _make_test_config()
+        mock_crud.create_test_run.return_value = Mock()
         mock_crud.schemas.TestRunCreate = MagicMock()
 
-        session = MagicMock()
+        session = _mock_session_with_test_count(5)
         create_test_run(session, mock_test_config)
 
-        # Inspect the TestRunCreate call to check attributes
         call_kwargs = mock_crud.schemas.TestRunCreate.call_args.kwargs
         assert "started_at" not in call_kwargs["attributes"]
         assert call_kwargs["attributes"]["task_state"] == "Queued"
+        assert call_kwargs["attributes"]["total_tests"] == 5
 
     @patch("rhesis.backend.tasks.execution.run.crud")
     @patch("rhesis.backend.tasks.execution.run.get_or_create_status")
@@ -120,16 +124,11 @@ class TestCreateTestRun:
         mock_status.id = uuid4()
         mock_get_status.return_value = mock_status
 
-        mock_test_config = Mock()
-        mock_test_config.id = uuid4()
-        mock_test_config.organization_id = uuid4()
-        mock_test_config.user_id = uuid4()
-
-        mock_test_run = Mock()
-        mock_crud.create_test_run.return_value = mock_test_run
+        mock_test_config = _make_test_config()
+        mock_crud.create_test_run.return_value = Mock()
         mock_crud.schemas.TestRunCreate = MagicMock()
 
-        session = MagicMock()
+        session = _mock_session_with_test_count()
         create_test_run(session, mock_test_config, initial_status=RunStatus.PROGRESS)
 
         call_kwargs = mock_crud.schemas.TestRunCreate.call_args.kwargs
@@ -144,21 +143,35 @@ class TestCreateTestRun:
         mock_status.id = uuid4()
         mock_get_status.return_value = mock_status
 
-        mock_test_config = Mock()
-        mock_test_config.id = uuid4()
-        mock_test_config.organization_id = uuid4()
-        mock_test_config.user_id = uuid4()
-
+        mock_test_config = _make_test_config()
         mock_test_run = Mock()
         mock_crud.create_test_run.return_value = mock_test_run
         mock_crud.schemas.TestRunCreate = MagicMock()
 
-        session = MagicMock()
+        session = _mock_session_with_test_count()
         result = create_test_run(session, mock_test_config)
 
         assert result == mock_test_run
         call_kwargs = mock_crud.schemas.TestRunCreate.call_args.kwargs
         assert "task_id" not in call_kwargs["attributes"]
+
+    @patch("rhesis.backend.tasks.execution.run.crud")
+    @patch("rhesis.backend.tasks.execution.run.get_or_create_status")
+    def test_total_tests_stored_in_attributes(self, mock_get_status, mock_crud):
+        """total_tests should be set from test set count."""
+        mock_status = Mock()
+        mock_status.id = uuid4()
+        mock_get_status.return_value = mock_status
+
+        mock_test_config = _make_test_config()
+        mock_crud.create_test_run.return_value = Mock()
+        mock_crud.schemas.TestRunCreate = MagicMock()
+
+        session = _mock_session_with_test_count(12)
+        create_test_run(session, mock_test_config)
+
+        call_kwargs = mock_crud.schemas.TestRunCreate.call_args.kwargs
+        assert call_kwargs["attributes"]["total_tests"] == 12
 
 
 class TestUpdateTestRunStatus:
@@ -185,7 +198,6 @@ class TestUpdateTestRunStatus:
 
         assert mock_test_run.attributes["task_state"] == "Progress"
         assert mock_test_run.attributes["status"] == "Progress"
-        # Progress is not a final status, so completed_at should not be set
         assert "completed_at" not in mock_test_run.attributes
 
     @patch("rhesis.backend.tasks.execution.run.crud")

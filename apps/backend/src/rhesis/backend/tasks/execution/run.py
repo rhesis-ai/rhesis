@@ -36,9 +36,24 @@ def create_test_run(
     # Use current_user_id if provided (for re-runs), otherwise fall back to test_config.user_id
     executor_user_id = current_user_id if current_user_id else test_config.user_id
 
+    # Count tests from the test set so the UI can show the total immediately
+    total_tests = 0
+    if test_config.test_set_id:
+        from sqlalchemy import func
+
+        from rhesis.backend.app.models.test_set import test_test_set_association
+
+        total_tests = (
+            session.query(func.count())
+            .select_from(test_test_set_association)
+            .filter(test_test_set_association.c.test_set_id == test_config.test_set_id)
+            .scalar()
+        ) or 0
+
     attributes = {
         "configuration_id": str(test_config.id),
         "task_state": initial_status.value,
+        "total_tests": total_tests,
     }
     if task_info.get("id"):
         attributes["task_id"] = task_info["id"]
