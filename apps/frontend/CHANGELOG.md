@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-02-26
+
+### Added
+
+- Added support for Polyphemus model access control, including an access request modal, API route, model card UI states, and a Polyphemus provider icon and logo.
+- Added a conversation traces UI to surface multi-turn conversation traces. This includes a conversation icon in the trace list, type filter buttons, a Conversation View tab in the trace drawer, turn labels on root spans in the tree view, and turn navigation buttons in the graph view and sequence view.
+- Added a refresh button to trace filters.
+- Added a full view button to the graph timeline.
+- Added per-turn conversation input/output attributes to trace spans, enabling the frontend to reconstruct multi-turn conversations from span data.
+- Added a drag handle to the trace detail drawer, allowing users to resize the drawer width.
+
+### Changed
+
+- Improved the traces UI with clickable responses in Conversation View and cleaned up filters.
+- Shortened the trace ID column in the list view and displayed the full trace ID in the span details panel.
+- Stabilized `show`/`close` callbacks in `NotificationContext` to prevent infinite loops.
+- Updated test set selection dialog to filter by `test_set_type_id` instead of `test_type_id`.
+- Updated the trace list endpoint to deduplicate traces by `trace_id`, preventing duplicate entries for conversation traces.
+- Replaced the separate `count_traces` call with a window function to improve performance.
+- Improved conversation detection in `TestResultTab` and switched to `formatDistanceToNowStrict` for consistent time display in `TracesTable`.
+- Moved turn navigation above time controls in the graph view.
+- Turn labels are now displayed on edges in all modes of the graph view.
+- The agent node count chips on the timeline now increment progressively.
+- The conversation linking caches are now backed by Redis with an in-memory fallback, fixing multi-worker race conditions.
+
+### Fixed
+
+- Fixed critical, high, medium, and low severity security vulnerabilities in frontend transitive dependencies by adding overrides for various packages.
+- Fixed an issue where the trace detail endpoint used the wrong span to resolve the conversation ID.
+- Fixed an issue where first-turn traces for stateful endpoints were not linked to the conversation.
+- Fixed an issue where the test set selection dialog was filtering by test type ID instead of test set type ID.
+- Fixed an issue where test sets could be created without a test set type.
+- Fixed an issue where tests could be assigned to test sets with mismatched types.
+
 ## [0.6.5] - 2026-02-18
 
 ### Changed

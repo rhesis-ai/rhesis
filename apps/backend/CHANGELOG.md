@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-02-26
+
+### Added
+- Added core Polyphemus integration, including service delegation tokens, access control system with request/grant workflow, database migrations, Polyphemus-aware model resolution, and email notification template for access requests.
+- Added frontend support for Polyphemus model access including access request modal and API route, model card UI states, Polyphemus provider icon and logo, and user settings interface with `is_verified` field.
+- Added conversation-based tracing across SDK, backend, and frontend, linking multi-turn conversation interactions under a shared `trace_id` using a `conversation_id` field. This enables tracing entire conversations as a single logical unit.
+- Added turn labels on edges and slider marks in graph view for conversation traces.
+- Added a refresh button to trace filters.
+- Added a full view button to the graph timeline.
+- Added per-turn conversation I/O and first-turn trace linking to reconstruct multi-turn conversations from span data.
+- Added resizable width to trace detail drawer.
+
+### Changed
+- Aligned backend defaults with SDK by using `rhesis/rhesis-default` instead of `vertex_ai/gemini-2.0-flash` for generation and evaluation models. Deployments can still override via `DEFAULT_GENERATION_MODEL` and `DEFAULT_EVALUATION_MODEL` environment variables.
+- Improved traces UI with clickable responses and filter cleanup.
+- Improved conversation detection and time formatting in traces UI.
+- Improved traces UI with clickable responses and filter cleanup.
+- Updated auth tests for PyJWT migration.
+- Updated organization test to expect Polyphemus model creation.
+- Replaced process-local conversation linking caches with a `ConversationLinkingCache` class backed by synchronous Redis (db 3), falling back to in-memory when Redis is unavailable.
+- Generalized edge handle routing by direction in the trace graph view.
+
+### Fixed
+- Fixed OAuth callback URL host header poisoning. Rewrote `get_callback_url()` to never derive the callback URL from the untrusted HTTP Host header.
+- Fixed Polyphemus configuration and clarified AI model configuration and default values.
+- Fixed ConversationalJudge missing `id` attribute.
+- Fixed security dependency vulnerabilities by updating dependencies like `cryptography`, `pillow`, `fastmcp`, `langchain-core`, `virtualenv`, and `mammoth`. Migrated from `python-jose` to `PyJWT`.
+- Fixed fragile password redaction that broke when `SQLALCHEMY_DB_PASS` was unset.
+- Fixed test config generation to use system default model.
+- Fixed infinite loop in notification-dependent `useEffect` hooks.
+- Fixed deduplication of traces by `trace_id` in list endpoint.
+- Fixed bidirectional edges sharing connection points in trace graph view.
+- Fixed missing `test_set_type` on creation and enforced type-matching assignment.
+- Fixed the issue where the system default model was not being used for test config generation.
+- Fixed the issue where the `ConversationalJudge` was missing the `id` attribute.
+- Fixed the issue where the test set type was not being inferred correctly from imports.
+- Fixed the issue where the `FROM_EMAIL` environment variable was being used for access review emails.
+- Fixed the issue where the response model was not being restored on the settings endpoint.
+- Fixed the issue where the token and comment tests were failing.
+- Fixed the issue where the test config generation was not using the system default model.
+- Fixed the issue where the test set type was not being added to the adaptive testing service and test data.
+
+### Removed
+- Removed `python-jose` dependency from worker and polyphemus.
+
+### Security
+- Addressed subgroup attack due to missing validation for SECT Curves by updating `cryptography` to >= 46.0.5 (CVE-2026-26007).
+- Addressed out-of-bounds write on PSD images and write buffer overflow on BCn encoding by adding `pillow` >= 12.1.1 (CVE-2026-25990, CVE-2025-48379).
+- Addressed DNS rebinding protection not enabled by default by updating `mcp` to >= 1.23.0 (CVE-2025-66416).
+- Addressed RCE in "json" mode of JsonPlusSerializer by adding `langgraph-checkpoint` >= 3.0.0 (CVE-2025-64439).
+- Replaced `python-jose[cryptography]` with `PyJWT>=2.10.0`, eliminating the transitive `ecdsa` dependency which has an unpatched Minerva timing attack vulnerability (CVE-2024-23342).
+- Addressed DoS in Schema.load(many) by adding `marshmallow` >= 3.26.2 (CVE-2025-68480).
+- Addressed TOCTOU vulnerabilities in directory creation by adding `virtualenv` >= 20.36.1 (CVE-2026-22702).
+- Addressed directory traversal vulnerability by adding `mammoth` >= 1.11.0 (CVE-2025-11849).
+- Addressed SSRF via image_url token counting by updating `langchain-core` to >= 1.2.11 (CVE-2026-26013).
+- Redacted request/response body from Polyphemus provider logs to prevent leaking conversation content and PII.
+- Redacted database and redis credentials from logs.
+
+
 ## [0.6.4] - 2026-02-18
 
 ### Added

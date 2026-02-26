@@ -7271,7 +7271,7 @@ wheels = [
 
 [[package]]
 name = "rhesis-backend"
-version = "0.6.4"
+version = "0.6.5"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -7492,7 +7492,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.6.5"
+version = "0.6.6"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
