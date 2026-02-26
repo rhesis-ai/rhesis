@@ -907,12 +907,21 @@ def _submit_test_configuration_for_execution(
     test_run_id = str(test_run.id)
     logger.info(f"Created test run {test_run_id} with Queued status")
 
-    result = task_launcher(
-        execute_test_configuration,
-        test_config_id,
-        test_run_id=test_run_id,
-        current_user=current_user,
-    )
+    try:
+        result = task_launcher(
+            execute_test_configuration,
+            test_config_id,
+            test_run_id=test_run_id,
+            current_user=current_user,
+        )
+    except Exception as exc:
+        # Mark the queued test run as failed so it doesn't stay stuck
+        from rhesis.backend.tasks.enums import RunStatus
+        from rhesis.backend.tasks.execution.run import update_test_run_status
+
+        update_test_run_status(db, test_run, RunStatus.FAILED.value, error=str(exc))
+        db.commit()
+        raise
 
     logger.info(f"Test configuration execution submitted with task ID: {result.id}")
     return result, test_run_id

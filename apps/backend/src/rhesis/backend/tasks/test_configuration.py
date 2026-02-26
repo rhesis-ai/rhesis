@@ -47,7 +47,10 @@ def execute_test_configuration(self, test_configuration_id: str, test_run_id: st
             for backward compatibility.
     """
     # Validate parameters
-    is_valid, error_msg = validate_task_parameters(test_configuration_id=test_configuration_id)
+    params_to_validate = {"test_configuration_id": test_configuration_id}
+    if test_run_id:
+        params_to_validate["test_run_id"] = test_run_id
+    is_valid, error_msg = validate_task_parameters(**params_to_validate)
     if not is_valid:
         self.log_with_context("error", "Parameter validation failed", error=error_msg)
         raise ValueError(error_msg)

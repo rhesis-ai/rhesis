@@ -19,7 +19,8 @@ from rhesis.backend.app.utils.execution_validation import (
 )
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
-from rhesis.backend.tasks.execution.run import create_test_run
+from rhesis.backend.tasks.enums import RunStatus
+from rhesis.backend.tasks.execution.run import create_test_run, update_test_run_status
 from rhesis.backend.tasks.test_configuration import execute_test_configuration
 
 # Create the detailed schema for TestConfiguration
@@ -217,12 +218,21 @@ def execute_test_configuration_endpoint(
 
         # Submit the celery task with the test_run_id so the worker
         # transitions it from Queued to Progress
-        task = task_launcher(
-            execute_test_configuration,
-            str(test_configuration_id),
-            test_run_id=str(test_run.id),
-            current_user=current_user,
-        )
+        try:
+            task = task_launcher(
+                execute_test_configuration,
+                str(test_configuration_id),
+                test_run_id=str(test_run.id),
+                current_user=current_user,
+            )
+        except Exception as exc:
+            # Mark the queued test run as failed so it doesn't stay stuck
+            update_test_run_status(db, test_run, RunStatus.FAILED.value, error=str(exc))
+            db.commit()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to submit task: {exc}",
+            ) from exc
 
         return {
             "test_configuration_id": str(test_configuration_id),

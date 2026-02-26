@@ -97,6 +97,9 @@ def update_test_run_status(
     # Build update data
     update_data = {"status_id": new_status.id}
 
+    # Guard against nullable attributes
+    test_run.attributes = test_run.attributes or {}
+
     # Update attributes in memory before saving
     if error:
         test_run.attributes["error"] = error
