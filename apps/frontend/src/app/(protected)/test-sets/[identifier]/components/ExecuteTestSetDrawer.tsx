@@ -39,6 +39,7 @@ import BaseTag from '@/components/common/BaseTag';
 import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { pollForTestRun } from '@/utils/test-run-utils';
+import { getApiErrorMessage } from '@/utils/error-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import type {
@@ -389,7 +390,7 @@ export default function ExecuteTestSetDrawer({
       }
 
       // Show success notification
-      notifications.show('Test set execution started successfully!', {
+      notifications.show('Test execution queued successfully', {
         severity: 'success',
         autoHideDuration: 5000,
       });
@@ -397,7 +398,7 @@ export default function ExecuteTestSetDrawer({
       // Close drawer on success
       onClose();
     } catch (err) {
-      setError('Failed to execute test set');
+      setError(getApiErrorMessage(err, 'Failed to execute test set'));
       throw err; // Re-throw so BaseDrawer can handle the error state
     } finally {
       setExecuting(false);

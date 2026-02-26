@@ -7,6 +7,7 @@ import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 
 export type TestRunStatusColor =
   | 'success'
@@ -28,6 +29,7 @@ export function getTestRunStatusColor(status?: string): TestRunStatusColor {
   if (statusLower === 'partial') return 'warning';
   if (statusLower === 'failed') return 'error';
   if (statusLower === 'progress') return 'info';
+  if (statusLower === 'queued') return 'default';
 
   return 'default';
 }
@@ -52,6 +54,7 @@ export function getTestRunStatusIcon(
   if (statusLower === 'failed') return <CancelOutlinedIcon fontSize={size} />;
   if (statusLower === 'progress')
     return <PlayCircleOutlineIcon fontSize={size} />;
+  if (statusLower === 'queued') return <HourglassEmptyIcon fontSize={size} />;
 
   return <PlayArrowIcon fontSize={size} />;
 }

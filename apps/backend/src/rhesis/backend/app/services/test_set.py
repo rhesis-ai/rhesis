@@ -702,8 +702,10 @@ def execute_test_set_on_endpoint(
         reference_test_run_id=reference_test_run_id,
     )
 
-    # Submit for execution
-    task_result = _submit_test_configuration_for_execution(test_config_id, current_user)
+    # Submit for execution (creates test run with Queued status)
+    task_result, test_run_id = _submit_test_configuration_for_execution(
+        db, test_config_id, current_user
+    )
 
     # Return success response
     response_data = {
@@ -714,6 +716,7 @@ def execute_test_set_on_endpoint(
         "endpoint_id": str(endpoint_id),
         "endpoint_name": db_endpoint.name,
         "test_configuration_id": test_config_id,
+        "test_run_id": test_run_id,
         "task_id": task_result.id,
     }
     logger.info(f"Successfully initiated test set execution: {response_data}")
@@ -864,16 +867,52 @@ def _create_test_configuration(
     return test_config_id
 
 
-def _submit_test_configuration_for_execution(test_config_id: str, current_user: models.User):
-    """Submit test configuration for background execution."""
+def _submit_test_configuration_for_execution(
+    db: Session,
+    test_config_id: str,
+    current_user: models.User,
+):
+    """Create a Queued test run and submit the task for background execution.
+
+    Returns:
+        Tuple of (celery_result, test_run_id_str)
+    """
+    from rhesis.backend.app import crud
     from rhesis.backend.tasks import task_launcher
+    from rhesis.backend.tasks.execution.run import create_test_run
     from rhesis.backend.tasks.test_configuration import execute_test_configuration
 
     logger.debug(
         f"Submitting test configuration for execution: test_configuration_id={test_config_id}"
     )
 
-    result = task_launcher(execute_test_configuration, test_config_id, current_user=current_user)
+    # Look up the test configuration to create the test run
+    db_test_config = crud.get_test_configuration(
+        db,
+        test_configuration_id=uuid.UUID(test_config_id),
+        organization_id=str(current_user.organization_id),
+        user_id=str(current_user.id),
+    )
+    if not db_test_config:
+        raise ValueError(f"Test configuration not found: {test_config_id}")
+
+    # Create the test run with Queued status so the user sees it immediately
+    test_run = create_test_run(
+        db,
+        db_test_config,
+        current_user_id=str(current_user.id),
+    )
+    db.commit()
+
+    test_run_id = str(test_run.id)
+    logger.info(f"Created test run {test_run_id} with Queued status")
+
+    result = task_launcher(
+        execute_test_configuration,
+        test_config_id,
+        test_run_id=test_run_id,
+        current_user=current_user,
+    )
 
     logger.info(f"Test configuration execution submitted with task ID: {result.id}")
-    return result
+    return result, test_run_id

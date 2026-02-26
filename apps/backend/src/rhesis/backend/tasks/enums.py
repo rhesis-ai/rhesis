@@ -31,12 +31,14 @@ class RunStatus(str, Enum):
     Enum for test run statuses.
 
     Status reflects execution completion, not test assertion results:
+    - QUEUED: Test run created, waiting for a worker to pick it up
+    - PROGRESS: Test run is currently executing
     - COMPLETED: All tests executed (regardless of pass/fail results)
     - PARTIAL: Some tests executed, some couldn't (incomplete execution)
     - FAILED: All tests had execution errors (none could execute)
-    - PROGRESS: Test run is currently executing
     """
 
+    QUEUED = "Queued"
     PROGRESS = "Progress"
     COMPLETED = "Completed"
     PARTIAL = "Partial"
