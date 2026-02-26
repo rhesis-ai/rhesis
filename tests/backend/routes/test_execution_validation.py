@@ -13,37 +13,10 @@ import pytest
 from fastapi import HTTPException
 
 from rhesis.backend.app.utils.execution_validation import (
-    WorkerUnavailableError,
     handle_execution_error,
     validate_execution_model,
     validate_generation_model,
-    validate_workers_available,
 )
-
-
-class TestWorkerValidation:
-    """Test worker availability validation dependency."""
-
-    def test_validate_workers_available_success(self):
-        """Test that validation passes when workers are available."""
-        with patch(
-            "rhesis.backend.app.utils.execution_validation.check_workers_available",
-            return_value=True,
-        ):
-            # Should not raise any exception
-            validate_workers_available()
-
-    def test_validate_workers_unavailable_raises_503(self):
-        """Test that validation raises 503 when workers are unavailable."""
-        with patch(
-            "rhesis.backend.app.utils.execution_validation.check_workers_available",
-            return_value=False,
-        ):
-            with pytest.raises(HTTPException) as exc_info:
-                validate_workers_available()
-
-            assert exc_info.value.status_code == 503
-            assert "worker" in str(exc_info.value.detail).lower()
 
 
 class TestExecutionModelValidation:
@@ -238,17 +211,6 @@ class TestHandleExecutionError:
         assert result.status_code == 500
         assert "execute test configuration" in str(result.detail).lower()
         assert "something unexpected happened" in str(result.detail).lower()
-
-    def test_handle_worker_unavailable_error(self):
-        """Test WorkerUnavailableError falls through to generic 500 handler."""
-        error = WorkerUnavailableError("Workers are down")
-
-        result = handle_execution_error(error, "execute tests")
-
-        # WorkerUnavailableError is not specifically handled in handle_execution_error,
-        # so it falls through to the generic exception handler (500)
-        assert result.status_code == 500
-        assert "execute tests" in str(result.detail).lower()
 
 
 class TestErrorMessageContent:
