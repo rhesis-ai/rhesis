@@ -198,6 +198,15 @@ async def initialize_organization_data(
         except Exception as email_error:
             print(f"⚠ Warning: Failed to schedule Day 2 email: {email_error}")
 
+        # Send Day 3 email (scheduled for 71h 59min from now)
+        try:
+            email_service.send_day_3_email(
+                recipient_email=current_user.email,
+                recipient_name=current_user.name or current_user.given_name,
+            )
+        except Exception as email_error:
+            print(f"⚠ Warning: Failed to schedule Day 3 email: {email_error}")
+
         # Transaction commit is handled by the session context manager
 
         return {

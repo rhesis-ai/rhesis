@@ -365,6 +365,70 @@ class EmailService:
 
         return self.smtp_service.send_message(msg, recipient_email, "day-2-email")
 
+    def send_day_3_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        frontend_url: Optional[str] = None,
+    ) -> bool:
+        """
+        Send a Day 3 email scheduled for just under 72 hours after onboarding.
+
+        Uses SendGrid's send_at parameter to schedule the email delivery.
+        SendGrid allows scheduling up to 72 hours in advance, so we schedule for 71h 59min.
+        The email uses a SendGrid Dynamic Template (content managed in SendGrid).
+
+        Args:
+            recipient_email: Email address of the user
+            recipient_name: Name of the user (optional)
+            frontend_url: URL to the frontend application
+
+        Returns:
+            bool: True if email was sent successfully, False otherwise
+        """
+        if not self.is_configured:
+            logger.warning(f"Cannot send Day 3 email to {recipient_email}: SMTP not configured")
+            return False
+
+        template_id = os.getenv("SENDGRID_DAY_3_EMAIL_TEMPLATE_ID")
+        if not template_id:
+            logger.warning(
+                "Cannot send Day 3 email: SENDGRID_DAY_3_EMAIL_TEMPLATE_ID not configured"
+            )
+            return False
+
+        if not frontend_url:
+            frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
+
+        welcome_from_email = os.getenv(
+            "WELCOME_FROM_EMAIL", '"Nicolai from Rhesis AI" <hello@rhesis.ai>'
+        )
+
+        send_at_time = datetime.utcnow() + timedelta(hours=71, minutes=59)
+        send_at_timestamp = int(send_at_time.timestamp())
+
+        x_smtpapi = {
+            "send_at": send_at_timestamp,
+            "filters": {"templates": {"settings": {"enable": 1, "template_id": template_id}}},
+            "sub": {
+                "-recipient_name-": [recipient_name or "there"],
+                "-frontend_url-": [frontend_url],
+            },
+        }
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Day 3 with Rhesis AI"
+        msg["From"] = welcome_from_email
+        msg["To"] = recipient_email
+        msg["X-SMTPAPI"] = json.dumps(x_smtpapi)
+
+        logger.info(
+            f"Scheduling Day 3 email for {recipient_email} "
+            f"to be sent at {send_at_time.isoformat()}Z (timestamp: {send_at_timestamp})"
+        )
+
+        return self.smtp_service.send_message(msg, recipient_email, "day-3-email")
+
     def send_verification_email(
         self,
         recipient_email: str,
