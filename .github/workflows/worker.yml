@@ -359,6 +359,7 @@ jobs:
 
           # Set environment-specific replica counts
           if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
+            sed -i 's/replicas: 4/replicas: 4/g' deployment.yaml
             echo "  ✅ Production: Deploying with 4 initial replicas (8 total workers with concurrency=2)"
           elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
             sed -i 's/replicas: 4/replicas: 1/g' deployment.yaml
