@@ -34,7 +34,7 @@ Create a `.env` file in `apps/backend/` with the following variables:
     ['`GH_CLIENT_ID`', 'Optional', 'GitHub OAuth client ID. Enables GitHub sign-in when configured'],
     ['`GH_CLIENT_SECRET`', 'Optional', 'GitHub OAuth client secret'],
     ['`FRONTEND_URL`', 'Default: `http://localhost:3000`', 'Frontend application URL for CORS and redirects'],
-    ['`RHESIS_BASE_URL`', 'Default: `http://localhost:8080`', 'Backend API base URL'],
+    ['`RHESIS_BASE_URL`', '**Required** (production)', 'Backend API base URL. Defaults to `https://api.rhesis.ai`. **Must be explicitly set for production deployments** — OAuth callback URLs are derived from this value, so a missing or incorrect value will break authentication flows'],
     ['`BACKEND_URL`', 'Default: `http://backend:8080`', 'Internal backend URL for service-to-service communication'],
     ['`RHESIS_BASE_PATH`', 'Optional', 'Base filesystem path to Rhesis installation directory'],
     ['`QUICK_START`', 'Default: `false`', 'Enable Quick Start mode for local development. **Never enable in production**'],
