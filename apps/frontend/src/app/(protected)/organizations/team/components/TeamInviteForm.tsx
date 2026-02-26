@@ -388,10 +388,8 @@ export default function TeamInviteForm({
       {/* Form Fields */}
       <Stack spacing={2} sx={{ mb: 3 }}>
         {formData.invites.map((invite, index) => {
-          // Create stable key from email or index
-          const inviteKey = invite.email || `invite-${index}`;
           return (
-            <Box key={inviteKey} display="flex" alignItems="flex-start" gap={2}>
+            <Box key={index} display="flex" alignItems="flex-start" gap={2}>
               <TextField
                 fullWidth
                 label="Email Address"
