@@ -1,5 +1,6 @@
 import os
 from typing import List, Optional
+from urllib.parse import urlparse
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -171,6 +172,8 @@ class RefreshTokenRequest(BaseModel):
 # Helper Functions
 # =============================================================================
 
+_LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
+
 
 def _is_running_locally() -> bool:
     """Detect local deployment using server-side environment signals only.
@@ -184,8 +187,9 @@ def _is_running_locally() -> bool:
     if is_quick_start_enabled():
         return True
 
-    # Signal 2: RHESIS_BASE_URL points to localhost
-    if "localhost" in RHESIS_BASE_URL or "127.0.0.1" in RHESIS_BASE_URL:
+    # Signal 2: RHESIS_BASE_URL points to a local address
+    parsed_host = urlparse(RHESIS_BASE_URL).hostname or ""
+    if parsed_host in _LOCAL_HOSTNAMES:
         return True
 
     # Signal 3: Environment variables indicate local deployment
@@ -195,9 +199,6 @@ def _is_running_locally() -> bool:
         return True
 
     return False
-
-
-_LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
 
 
 def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
