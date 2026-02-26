@@ -10,7 +10,7 @@ Run with: python -m pytest tests/backend/routes/test_auth.py -v
 
 import os
 import uuid
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from faker import Faker
@@ -1416,3 +1416,276 @@ class TestAuthRefreshToken:
             )
         assert resp2.status_code == status.HTTP_200_OK
         assert resp2.json()["refresh_token"] != new_refresh
+
+
+# =============================================================================
+# get_callback_url() Security Tests
+# =============================================================================
+
+
+def _make_mock_request(
+    host: str = "localhost",
+    port: int = 8080,
+    scheme: str = "http",
+    headers: dict = None,
+):
+    """Create a mock Request object for testing get_callback_url."""
+    from starlette.datastructures import Headers
+
+    request = MagicMock()
+    request.scope = {"server": (host, port)}
+    request.url = MagicMock()
+    request.url.hostname = host
+
+    if headers is None:
+        headers = {"host": f"{host}:{port}"}
+    request.headers = Headers(headers)
+
+    return request
+
+
+@pytest.mark.unit
+class TestGetCallbackUrl:
+    """Test get_callback_url() security against Host header poisoning."""
+
+    @patch.dict(
+        os.environ,
+        {"QUICK_START": "true"},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=True,
+    )
+    def test_quick_start_mode_uses_localhost(self, mock_qs):
+        """Quick start mode returns http://localhost:{port}/auth/callback."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(host="localhost", port=8080)
+        url = get_callback_url(request)
+        assert url == "http://localhost:8080/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "local"},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://api.rhesis.ai",
+    )
+    def test_environment_local_uses_localhost(self, mock_qs):
+        """ENVIRONMENT=local returns http://localhost:{port}/auth/callback."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(host="localhost", port=9090)
+        url = get_callback_url(request)
+        assert url == "http://localhost:9090/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"BACKEND_ENV": "local"},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://api.rhesis.ai",
+    )
+    def test_backend_env_local_uses_localhost(self, mock_qs):
+        """BACKEND_ENV=local returns http://localhost:{port}/auth/callback."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(host="localhost", port=8080)
+        url = get_callback_url(request)
+        assert url == "http://localhost:8080/auth/callback"
+
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "http://localhost:8080",
+    )
+    def test_rhesis_base_url_localhost_uses_localhost(self, mock_qs):
+        """RHESIS_BASE_URL with localhost returns localhost callback."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(host="localhost", port=8080)
+        url = get_callback_url(request)
+        assert url == "http://localhost:8080/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "local"},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://api.rhesis.ai",
+    )
+    def test_local_preserves_127_hostname(self, mock_qs):
+        """Local mode via 127.0.0.1 preserves hostname for session cookies."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(host="127.0.0.1", port=8080)
+        url = get_callback_url(request)
+        assert url == "http://127.0.0.1:8080/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "local"},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://api.rhesis.ai",
+    )
+    def test_local_rejects_non_local_hostname(self, mock_qs):
+        """Misconfigured local mode with evil Host falls back to localhost."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(host="evil.com", port=8080)
+        url = get_callback_url(request)
+        assert url == "http://localhost:8080/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "", "BACKEND_ENV": ""},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://api.rhesis.ai",
+    )
+    def test_production_uses_rhesis_base_url(self, mock_qs):
+        """Production (no local signals) uses RHESIS_BASE_URL."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="api.rhesis.ai",
+            port=443,
+            headers={"host": "api.rhesis.ai"},
+        )
+        url = get_callback_url(request)
+        assert url == "https://api.rhesis.ai/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "", "BACKEND_ENV": ""},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://api.rhesis.ai",
+    )
+    def test_spoofed_localhost_host_header_uses_base_url(self, mock_qs):
+        """Spoofed Host: localhost in production uses RHESIS_BASE_URL."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="api.rhesis.ai",
+            port=443,
+            headers={"host": "localhost"},
+        )
+        url = get_callback_url(request)
+        assert url == "https://api.rhesis.ai/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "", "BACKEND_ENV": ""},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://api.rhesis.ai",
+    )
+    def test_spoofed_evil_host_header_uses_base_url(self, mock_qs):
+        """Spoofed Host: evil.com in production uses RHESIS_BASE_URL."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="api.rhesis.ai",
+            port=443,
+            headers={"host": "evil.com"},
+        )
+        url = get_callback_url(request)
+        assert url == "https://api.rhesis.ai/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "", "BACKEND_ENV": ""},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "https://api.rhesis.ai",
+    )
+    def test_localhost_attacker_com_uses_base_url(self, mock_qs):
+        """localhost.attacker.com bypass attempt uses RHESIS_BASE_URL."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="api.rhesis.ai",
+            port=443,
+            headers={"host": "localhost.attacker.com"},
+        )
+        url = get_callback_url(request)
+        assert url == "https://api.rhesis.ai/auth/callback"
+
+    @patch.dict(
+        os.environ,
+        {"ENVIRONMENT": "", "BACKEND_ENV": ""},
+        clear=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
+        return_value=False,
+    )
+    @patch(
+        "rhesis.backend.app.routers.auth.RHESIS_BASE_URL",
+        "http://staging.rhesis.ai",
+    )
+    def test_http_to_https_rewrite_for_non_localhost(self, mock_qs):
+        """HTTP base URL for non-localhost gets rewritten to HTTPS."""
+        from rhesis.backend.app.routers.auth import get_callback_url
+
+        request = _make_mock_request(
+            host="staging.rhesis.ai",
+            port=443,
+            headers={"host": "staging.rhesis.ai"},
+        )
+        url = get_callback_url(request)
+        assert url == "https://staging.rhesis.ai/auth/callback"
