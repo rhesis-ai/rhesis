@@ -34,6 +34,7 @@ import BaseTag from '@/components/common/BaseTag';
 import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { pollForTestRun } from '@/utils/test-run-utils';
+import { getApiErrorMessage } from '@/utils/error-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
 import type { TestSetMetric } from '@/utils/api-client/interfaces/test-set';
@@ -275,7 +276,7 @@ export default function RerunTestRunDrawer({
       }
 
       // Show success notification
-      notifications.show('Test run started successfully!', {
+      notifications.show('Test run queued successfully', {
         severity: 'success',
         autoHideDuration: 5000,
       });
@@ -288,7 +289,7 @@ export default function RerunTestRunDrawer({
       // Close drawer on success
       onClose();
     } catch (err) {
-      setError('Failed to start test run');
+      setError(getApiErrorMessage(err, 'Failed to start test run'));
       throw err;
     } finally {
       setExecuting(false);

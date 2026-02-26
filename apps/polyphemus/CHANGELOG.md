@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-02-26
+
+### Added
+- Implemented rate limiting for the Polyphemus service to prevent abuse and ensure stability.
+- Added access control and delegation tokens to the Polyphemus service for enhanced security and authentication. This includes:
+    - Service delegation tokens for Polyphemus authentication.
+    - Access control system with request/grant workflow.
+    - Database migrations for Polyphemus models and access control.
+    - Polyphemus-aware model resolution in user_model_utils.
+    - Email notification template for access requests.
+- Added delegation token validation to the Polyphemus service, enabling backend-to-Polyphemus authentication via JWT tokens alongside the existing API key authentication.
+- Added frontend support for Polyphemus model access including:
+    - Access request modal and API route.
+    - Model card UI states for Polyphemus access control.
+    - Polyphemus provider icon and logo.
+    - User settings interface with is_verified field.
+- Deployed vLLM to Vertex AI, enabling access to advanced language models.
+- Added a `DEFAULT_POLYPHEMUS_URL` environment variable to deployment configurations, allowing the backend to reach the Polyphemus adversarial model service per environment.
+
+### Changed
+- Replaced `python-jose` with `PyJWT` for token validation to address security vulnerabilities.
+- Cached GCP credentials and shared the HTTP client in the Polyphemus service for improved performance.
+- Updated model name mapping with configurable variables for vLLM on Vertex AI.
+- Updated dependencies to address multiple security vulnerabilities, including:
+    - `cryptography` to >= 46.0.5
+    - `pillow` to >= 12.1.1
+    - `fastmcp` to >= 1.23.0
+    - `langgraph-checkpoint` to >= 3.0.0
+    - `marshmallow` to >= 3.26.2
+    - `virtualenv` to >= 20.36.1
+    - `mammoth` to >= 1.11.0
+    - `langchain-core` to >= 1.2.11
+- Reduced the default timeout for Vertex AI requests from 600s to 120s.
+
+### Fixed
+- Fixed multiple security dependency vulnerabilities across all packages.
+- Fixed an issue where the endpoint name filtering was incorrect for vLLM on Vertex AI.
+- Fixed token and comment test failures.
+- Fixed an issue where the `FROM_EMAIL` environment variable was not used for access request recipients.
+- Fixed an issue where the `is_verified` field was missing from the UserSettings schema.
+- Fixed an issue where `test_set_type` was missing during test set creation.
+- Fixed broad exception swallowing in `check_quota` function.
+- Fixed a bug where the `--skip-existing` CLI flag was not working as expected in `deploy.py`.
+- Fixed an issue where the frontend TestSetBulkCreate interface did not match the backend schema.
+- Fixed an issue where `from_json`, `from_jsonl`, and `from_csv` methods were not correctly inferring the `test_set_type`.
+- Fixed an issue where the GCP service account email secret name was incorrect in the CI workflow.
+- Fixed a permission issue related to GCP credentials.
+- Fixed an issue where the deployment failed when the endpoint was empty.
+- Fixed an issue where "default" was not accepted as a model alias.
+
+### Removed
+- Removed `python-jose` as a dependency from the worker and Polyphemus components.
+- Removed unused `is_for_training` parameter from the `check_quota` function.
+- Removed dead code related to extracting the prompt from messages.
+
+
 ## [0.2.5] - 2026-02-12
 
 ### Fixed

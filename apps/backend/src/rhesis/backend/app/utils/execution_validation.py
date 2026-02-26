@@ -18,13 +18,6 @@ from rhesis.backend.app.utils.user_model_utils import (
     validate_user_generation_model,
 )
 from rhesis.backend.logging import logger
-from rhesis.backend.tasks import check_workers_available
-
-
-class WorkerUnavailableError(Exception):
-    """Raised when no Celery workers are available."""
-
-    pass
 
 
 class ModelConfigurationError(Exception):
@@ -34,33 +27,6 @@ class ModelConfigurationError(Exception):
         self.message = message
         self.original_error = original_error
         super().__init__(self.message)
-
-
-def validate_workers_available() -> None:
-    """
-    Validate that Celery workers are available.
-
-    This is a FastAPI dependency that can be used to ensure workers
-    are available before submitting tasks.
-
-    Raises:
-        HTTPException: 503 if no workers are available
-
-    Example:
-        @router.post("/execute", dependencies=[Depends(validate_workers_available)])
-        async def execute_endpoint(...):
-            ...
-    """
-    if not check_workers_available():
-        logger.error("No Celery workers available for task submission")
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Background task workers are currently unavailable. "
-                "Please ensure the worker service is running or contact support. "
-                "Tasks cannot be processed without active workers."
-            ),
-        )
 
 
 def validate_execution_model(

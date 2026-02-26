@@ -13,6 +13,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-02-26
+
+### Added
+- Added debug logging to the synthesizer pipeline and LLM providers for diagnosing test generation failures.
+- Added retry with exponential backoff to all LLM providers for handling transient errors.
+- Added core Polyphemus integration, including service delegation tokens, access control, and a request/grant workflow.
+- Added frontend support for Polyphemus model access, including an access request modal and model card UI states.
+- Added conversation-based tracing across the SDK, backend, and frontend to link multi-turn conversation interactions.
+- Added turn navigation to the sequence view in traces UI.
+- Added a refresh button to trace filters.
+- Added a full view button to the graph timeline.
+- Added per-turn conversation I/O to trace spans for reconstructing multi-turn conversations.
+- Added Redis-backed conversation linking cache with in-memory fallback for multi-worker environments.
+
+### Changed
+- Improved documentation for AI model configuration, clarifying dependencies between `RHESIS_API_KEY` and default models.
+- Updated default generation and evaluation models to `rhesis/rhesis-default`.
+- Restructured self-hosting AI configuration documentation.
+- Updated dependencies to address security vulnerabilities, including `langchain-core`, `cryptography`, `pillow`, `fastmcp`, `redis`, `langgraph-checkpoint`, `marshmallow`, `virtualenv`, `mammoth`.
+- Replaced `python-jose` with `PyJWT` for JWT handling.
+- Improved traces UI with clickable responses and filter cleanup.
+- Improved conversation detection and time formatting in traces.
+- Improved traces UI with resizable width to trace detail drawer.
+- Improved traces UI with turn labels on edges and slider marks in graph view.
+- Improved traces UI with progressive agent invocation count on timeline.
+- Improved traces UI with turn labels on edges in individual turn views.
+- Updated edge handle routing in trace graphs for better visualization.
+- Updated the traces UI to show the full trace ID in span details and truncate it in the list.
+
+### Fixed
+- Fixed Polyphemus configuration and connection test logic.
+- Fixed issues with accessing response attributes in logging during tests.
+- Fixed handling of LLM error responses in `TestSet.set_properties`.
+- Fixed batch loop shortfall and added a zero-progress guard to prevent infinite loops.
+- Fixed schema class name leaking into test set name.
+- Fixed `ConversationalJudge` missing `id` attribute.
+- Fixed security vulnerabilities reported by Dependabot.
+- Fixed infinite loop in notification-dependent `useEffect` hooks.
+- Fixed trace deduplication in list endpoint.
+- Fixed conversation ID resolution in trace detail endpoint.
+- Fixed bidirectional edges sharing connection points in trace graphs.
+- Fixed missing `test_set_type` requirement on test set creation.
+- Fixed potential data leakage by redacting request/response bodies from Polyphemus provider logs.
+- Fixed a bug where missing `owner_id`/`user_id` would become the string `'None'` in a migration.
+- Fixed the use of `FROM_EMAIL` for access review emails, replacing it with `POLYPHEMUS_ACCESS_REVIEW_EMAIL`.
+
+### Removed
+- Removed the duration filter (All/Normal/Slow) from TraceFilters in the UI.
+- Removed `python-jose` from worker and polyphemus dependencies.
+
+
 ## [0.6.5] - 2026-02-18
 
 ### Added
