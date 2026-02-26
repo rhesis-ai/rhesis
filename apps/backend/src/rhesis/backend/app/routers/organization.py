@@ -21,6 +21,7 @@ from rhesis.backend.app.services.organization import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.notifications import email_service
 
 router = APIRouter(
     prefix="/organizations", tags=["organizations"], responses={404: {"description": "Not found"}}
@@ -178,6 +179,25 @@ async def initialize_organization_data(
 
         # Mark onboarding as completed
         org.is_onboarding_complete = True
+
+        # Send Day 1 email (scheduled for 23h 59min from now)
+        try:
+            email_service.send_day_1_email(
+                recipient_email=current_user.email,
+                recipient_name=current_user.name or current_user.given_name,
+            )
+        except Exception as email_error:
+            print(f"⚠ Warning: Failed to schedule Day 1 email: {email_error}")
+
+        # Send Day 2 email (scheduled for 48h from now)
+        try:
+            email_service.send_day_2_email(
+                recipient_email=current_user.email,
+                recipient_name=current_user.name or current_user.given_name,
+            )
+        except Exception as email_error:
+            print(f"⚠ Warning: Failed to schedule Day 2 email: {email_error}")
+
         # Transaction commit is handled by the session context manager
 
         return {
