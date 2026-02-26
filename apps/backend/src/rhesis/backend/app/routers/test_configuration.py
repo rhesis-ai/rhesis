@@ -16,7 +16,6 @@ from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
     validate_execution_model,
-    validate_workers_available,
 )
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.tasks import task_launcher
@@ -189,7 +188,6 @@ def execute_test_configuration_endpoint(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-    _validate_workers=Depends(validate_workers_available),
     _validate_model=Depends(validate_execution_model),
 ):
     """
