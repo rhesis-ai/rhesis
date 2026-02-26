@@ -28,7 +28,7 @@ async def generate(
     Generate text by calling Vertex AI endpoint.
 
     Requires API key authentication via Bearer token.
-    Rate limited to 100 requests per day per authenticated user.
+    Rate limited to 10000 requests per day per authenticated user.
 
     Accepts:
         {
