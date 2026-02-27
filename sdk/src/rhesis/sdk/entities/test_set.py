@@ -383,6 +383,118 @@ class TestSet(BaseEntity):
         )
 
     # ------------------------------------------------------------------
+    # Test association
+    # ------------------------------------------------------------------
+
+    def _resolve_test_id(self, test: Union[Test, Dict[str, Any], str]) -> str:
+        """Resolve a test reference to an ID.
+
+        Accepts a Test instance, a dict with an ``"id"`` key, or a UUID string.
+
+        Args:
+            test: Test reference to resolve.
+
+        Returns:
+            The test ID as a string.
+
+        Raises:
+            ValueError: If the test reference cannot be resolved.
+        """
+        if isinstance(test, Test) and test.id:
+            return str(test.id)
+        if isinstance(test, dict):
+            tid = test.get("id")
+            if not tid:
+                raise ValueError("Test dict must contain an 'id' key")
+            return str(tid)
+        test_str = str(test)
+        try:
+            uuid_mod.UUID(test_str)
+            return test_str
+        except ValueError:
+            raise ValueError(
+                f"Cannot resolve test reference: {test_str!r}. "
+                "Provide a Test instance, a dict with 'id', or a UUID string."
+            )
+
+    @handle_http_errors
+    def add_tests(
+        self, tests: List[Union[Test, Dict[str, Any], str]]
+    ) -> Optional[Dict[str, Any]]:
+        """Associate existing tests with this test set.
+
+        Uses the bulk associate endpoint to link already-created tests
+        to this test set.
+
+        Args:
+            tests: Tests to associate. Each item can be a ``Test``
+                instance (with ``id`` set), a dict with an ``"id"`` key,
+                or a UUID string.
+
+        Returns:
+            Dict with association results including ``success``,
+            ``total_tests``, and ``message``.
+
+        Raises:
+            ValueError: If test set ID is not set or a test reference
+                cannot be resolved.
+
+        Example:
+            >>> test_set = TestSets.pull(name="Safety Tests")
+            >>> test_set.add_tests([test1, test2])
+            >>> test_set.add_tests(["<uuid>", {"id": "<uuid>"}])
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before adding tests")
+
+        test_ids = [self._resolve_test_id(t) for t in tests]
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            url_params=f"{self.id}/associate",
+            data={"test_ids": test_ids},
+        )
+
+    @handle_http_errors
+    def remove_tests(
+        self, tests: List[Union[Test, Dict[str, Any], str]]
+    ) -> Optional[Dict[str, Any]]:
+        """Remove test associations from this test set.
+
+        Removes the link between the given tests and this test set.
+        The tests themselves are not deleted.
+
+        Args:
+            tests: Tests to disassociate. Each item can be a ``Test``
+                instance (with ``id`` set), a dict with an ``"id"`` key,
+                or a UUID string.
+
+        Returns:
+            Dict with disassociation results including ``success``,
+            ``total_tests``, ``removed_associations``, and ``message``.
+
+        Raises:
+            ValueError: If test set ID is not set or a test reference
+                cannot be resolved.
+
+        Example:
+            >>> test_set = TestSets.pull(name="Safety Tests")
+            >>> test_set.remove_tests([test1, test2])
+        """
+        if not self.id:
+            raise ValueError("Test set ID must be set before removing tests")
+
+        test_ids = [self._resolve_test_id(t) for t in tests]
+        client = APIClient()
+        return client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.POST,
+            url_params=f"{self.id}/disassociate",
+            data={"test_ids": test_ids},
+        )
+
+    # ------------------------------------------------------------------
     # Test set metric management
     # ------------------------------------------------------------------
 
