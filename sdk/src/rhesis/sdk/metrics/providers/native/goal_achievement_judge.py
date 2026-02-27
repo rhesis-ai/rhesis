@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import ThresholdOperator
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
@@ -101,6 +101,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         name: Optional[str] = None,
         description: Optional[str] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
+        metric_scope: Optional[List[Union[str, MetricScope]]] = None,
         model: Optional[Union[BaseLLM, str]] = None,
         **kwargs,
     ):
@@ -132,6 +133,10 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             for quick setup while still supporting full customization.
         """
 
+        # Set default metric_scope if not provided
+        if metric_scope is None:
+            metric_scope = [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN]
+
         # Use parent ConversationalNumericConfig which now includes numeric fields
         self.config = ConversationalNumericConfig(
             evaluation_prompt=evaluation_prompt,
@@ -145,6 +150,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             name=name or "goal_achievement",
             description=description or "Evaluates how well a conversation achieves its stated goal",
             metric_type=metric_type or MetricType.CONVERSATIONAL,
+            metric_scope=metric_scope,
             score_type=SCORE_TYPE,
             class_name=self.__class__.__name__,
         )

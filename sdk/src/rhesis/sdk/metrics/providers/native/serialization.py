@@ -100,13 +100,25 @@ class BackendSyncMixin:
         Push the metric to the backend.
 
         Raises:
+            ValueError: If metric_scope is not set
             Exception: If push fails
         """
+        metric_config = self.to_config()
+        if not metric_config.metric_scope:
+            raise ValueError(
+                "metric_scope is required for pushing metrics to the backend. "
+                "Set metric_scope to a list of MetricScope values "
+                "(e.g., [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN])."
+            )
+
         client = APIClient()
-        config = asdict(self.to_config())
+        config = asdict(metric_config)
         config = sdk_config_to_backend_config(config)
 
-        client.send_request(Endpoints.METRICS, Methods.POST, config)
+        response = client.send_request(Endpoints.METRICS, Methods.POST, config)
+        if response and isinstance(response, dict) and "id" in response:
+            self.id = response["id"]
+            self.config.id = response["id"]
 
     @classmethod
     def pull(cls: type[T], name: Optional[str] = None, nano_id: Optional[str] = None) -> T:

@@ -12,7 +12,9 @@ def test_push_numeric_judge(docker_compose_test_env, db_cleanup):
     # Use unique name to avoid conflicts with existing backend data
     unique_name = f"numeric-judge-{int(time.time() * 1000)}"
     judge = NumericJudge(name=unique_name, evaluation_prompt="test-evaluation-prompt")
+    assert judge.id is None
     judge.push()
+    assert judge.id is not None
 
 
 def test_push_pull_numeric_judge(docker_compose_test_env, db_cleanup):
@@ -38,7 +40,9 @@ def test_push_conversational_judge(docker_compose_test_env, db_cleanup):
         evaluation_prompt="Evaluate if the conversation achieves its goal",
         threshold=0.7,
     )
+    assert judge.id is None
     judge.push()
+    assert judge.id is not None
 
 
 def test_push_pull_conversational_judge(docker_compose_test_env, db_cleanup):
