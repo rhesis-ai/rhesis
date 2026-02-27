@@ -13,8 +13,8 @@ from rhesis.penelope import PenelopeAgent
 agent = PenelopeAgent(
     # Optional: Model (defaults to Vertex AI / gemini-2.0-flash)
     model=AnthropicLLM(),
-    # Optional: Stopping conditions
-    max_iterations=20,  # Defaults to 10
+    # Optional: Conversation depth
+    max_turns=20,  # Default is 10
     timeout_seconds=300,  # No timeout by default
     # Observability
     enable_transparency=True,
@@ -71,36 +71,85 @@ agent = PenelopeAgent(model=OpenAILLM(model_name="gpt-4"))`}
 
 </CodeBlock>
 
-## Max Iterations
+## Conversation Turns
 
-Default: **10**. Configure globally or per-agent:
+A **turn** in Penelope is one complete user-assistant exchange: Penelope sends a message to the target and receives a response. Within a single turn, Penelope may also use internal analysis tools (e.g., `analyze_response`, `extract_information`), but these do not count as separate turns.
+
+The `max_turns` parameter controls how many of these exchanges Penelope will complete before stopping. Default: **10**.
+
+### Setting Max Turns
 
 **Environment Variable:**
 
 <CodeBlock filename="Terminal" language="bash">
-  {`export PENELOPE_DEFAULT_MAX_ITERATIONS=20`}
+  {`export PENELOPE_DEFAULT_MAX_TURNS=20`}
 </CodeBlock>
 
-**Programmatic:**
+**Programmatic (global default):**
 
 <CodeBlock filename="config.py" language="python">
 {`from rhesis.penelope import PenelopeConfig
 
-PenelopeConfig.set_default_max_iterations(20)
+PenelopeConfig.set_default_max_turns(20)
 agent = PenelopeAgent()  # Uses 20`}
 
 </CodeBlock>
 
-**Per Agent:**
+**Per Agent (default for all tests run by this agent):**
 
 <CodeBlock filename="agent.py" language="python">
-{`agent = PenelopeAgent(max_iterations=30)  # Overrides defaults`}
+{`agent = PenelopeAgent(max_turns=30)`}
+</CodeBlock>
+
+**Per Test (overrides agent default for a specific test):**
+
+<CodeBlock filename="per_test.py" language="python">
+{`agent = PenelopeAgent(max_turns=30)  # Agent default
+
+# This test uses 20 turns instead of 30
+result = agent.execute_test(
+    target=target,
+    goal="Focused test",
+    max_turns=20,
+)`}
+</CodeBlock>
+
+### Early Stopping Behavior
+
+Penelope uses a goal achievement metric to evaluate progress after each turn. To ensure the agent exercises the conversation fully, early stopping is only allowed after completing **80%** of the configured `max_turns`:
+
+- With `max_turns=10`, the agent runs at least **8 turns** before it can stop early
+- With `max_turns=20`, the agent runs at least **16 turns**
+
+This prevents premature stopping when the goal appears achieved after only a few exchanges, which would miss important conversational dynamics.
+
+You can also enforce a specific minimum through test instructions:
+
+<CodeBlock filename="min_turns.py" language="python">
+{`result = agent.execute_test(
+    target=target,
+    goal="Test multi-turn context retention",
+    instructions="Execute at least 5 turns before evaluating the goal.",
+    max_turns=10,
+)`}
 </CodeBlock>
 
 <Callout type="info">
-  **Choosing Max Iterations:** Start with 10 for simple tests. Increase to 20-30
-  for complex multi-turn scenarios or exploratory testing.
+  **Choosing Max Turns:** Start with 10 for simple tests. Use 15-20 for
+  social engineering or multi-turn attack scenarios. Use 25-30 for
+  comprehensive exploratory testing.
 </Callout>
+
+### Tool Execution Limit
+
+Separately from `max_turns`, Penelope enforces a **tool execution limit** to prevent infinite loops. This counts every tool call (both target interactions and internal analysis tools). It defaults to `max_turns * 5` and can be overridden:
+
+<CodeBlock filename="tool_limit.py" language="python">
+{`agent = PenelopeAgent(
+    max_turns=20,
+    max_tool_executions=200,  # Default would be 20 * 5 = 100
+)`}
+</CodeBlock>
 
 ## Timeout
 
@@ -109,7 +158,7 @@ Set execution timeout to prevent runaway tests:
 <CodeBlock filename="timeout.py" language="python">
 {`agent = PenelopeAgent(
     timeout_seconds=300,  # 5 minutes
-    max_iterations=50,
+    max_turns=50,
 )
 
 result = agent.execute_test(
@@ -145,14 +194,13 @@ agent = PenelopeAgent(verbose=False)`}
 
 ## Test-Level Configuration
 
-Override settings per test:
+Override `max_turns` per test:
 
 <CodeBlock filename="test_config.py" language="python">
-{`# Different max_turns for specific test
-result = agent.execute_test(
+{`result = agent.execute_test(
     target=target,
     goal="Short simple test",
-    max_turns=5,  # Override agent's max_iterations for this test
+    max_turns=5,  # Override agent default for this test
 )`}
 </CodeBlock>
 
@@ -185,13 +233,13 @@ from rhesis.penelope import PenelopeAgent, PenelopeConfig
 
 # Global defaults
 PenelopeConfig.set_default_model("anthropic", "claude-4")
-PenelopeConfig.set_default_max_iterations(20)
+PenelopeConfig.set_default_max_turns(20)
 PenelopeConfig.set_log_level("INFO")
 
 # Agent with custom config
 agent = PenelopeAgent(
     model=AnthropicLLM(model_name="claude-4"),
-    max_iterations=30,
+    max_turns=30,
     timeout_seconds=600,
     enable_transparency=True,
     verbose=True,
