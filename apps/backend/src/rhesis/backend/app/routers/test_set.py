@@ -36,7 +36,6 @@ from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
     validate_execution_model,
     validate_generation_model,
-    validate_workers_available,
 )
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.logging import logger
@@ -92,7 +91,6 @@ async def generate_test_set(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-    _validate_workers=Depends(validate_workers_available),
     _validate_model=Depends(validate_generation_model),
 ):
     """
@@ -487,7 +485,6 @@ async def execute_test_set(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-    _validate_workers=Depends(validate_workers_available),
     _validate_model=Depends(validate_execution_model),
 ):
     """Submit a test set for execution against an endpoint.

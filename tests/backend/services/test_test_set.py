@@ -257,7 +257,7 @@ class TestTestSetExecution:
             # Mock task result
             mock_task = MagicMock()
             mock_task.id = "task_id_123"
-            mock_submit.return_value = mock_task
+            mock_submit.return_value = (mock_task, "test_run_id_123")
 
             # Call the function
             result = test_set_service.execute_test_set_on_endpoint(
@@ -275,17 +275,19 @@ class TestTestSetExecution:
             assert result["endpoint_id"] == str(endpoint.id)
             assert result["endpoint_name"] == endpoint.name
             assert result["test_configuration_id"] == "test_config_id"
+            assert result["test_run_id"] == "test_run_id_123"
             assert result["task_id"] == "task_id_123"
 
             # Verify all mocks were called
+            # The function uses current_user.organization_id, not the passed-in test_org_id
             mock_resolve_test_set.assert_called_once_with(
-                str(test_set.id), test_db, organization_id=test_org_id
+                str(test_set.id), test_db, organization_id=str(user.organization_id)
             )
             mock_get_endpoint.assert_called_once_with(
                 test_db,
                 endpoint_id=endpoint.id,
-                organization_id=test_org_id,
-                user_id=authenticated_user_id,
+                organization_id=str(user.organization_id),
+                user_id=str(user.id),
             )
             mock_validate_access.assert_called_once_with(user, test_set, endpoint)
             mock_create_config.assert_called_once_with(
@@ -300,7 +302,7 @@ class TestTestSetExecution:
                 "behavior",
                 reference_test_run_id=None,
             )
-            mock_submit.assert_called_once_with("test_config_id", user)
+            mock_submit.assert_called_once_with(test_db, "test_config_id", user)
 
     def test_execute_test_set_on_endpoint_test_set_not_found(
         self, test_db: Session, authenticated_user_id, test_org_id
@@ -437,7 +439,7 @@ class TestTestSetExecution:
             # Mock task result
             mock_task = MagicMock()
             mock_task.id = "task_id_123"
-            mock_submit.return_value = mock_task
+            mock_submit.return_value = (mock_task, "test_run_id_123")
 
             # Call the function with metrics
             result = test_set_service.execute_test_set_on_endpoint(

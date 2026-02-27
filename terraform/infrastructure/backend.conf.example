@@ -1,0 +1,7 @@
+# Partial backend configuration for GCS state storage.
+# Copy this file to backend.conf and set your bucket name.
+#
+# Local:    terraform init -backend-config=backend.conf
+# Workflow: terraform init -backend-config="bucket=$TF_STATE_BUCKET"
+
+bucket = "example-terraform-state-bucket"

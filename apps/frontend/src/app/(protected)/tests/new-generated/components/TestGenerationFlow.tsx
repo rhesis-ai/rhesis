@@ -28,22 +28,10 @@ import TestInputScreen from './TestInputScreen';
 import TestGenerationInterface from './TestGenerationInterface';
 import TestConfigurationConfirmation from './TestConfigurationConfirmation';
 import { TEMPLATES } from '@/config/test-templates';
+import { getApiErrorMessage } from '@/utils/error-utils';
 
 interface TestGenerationFlowProps {
   sessionToken: string;
-}
-
-/** Extract user-facing message from API or other errors. */
-function getApiErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message) {
-    const msg = error.message;
-    if (msg.startsWith('API error: ')) {
-      const detail = msg.replace(/^API error: \d+ - /, '');
-      return detail || fallback;
-    }
-    return msg;
-  }
-  return fallback;
 }
 
 // Initial empty chip configurations

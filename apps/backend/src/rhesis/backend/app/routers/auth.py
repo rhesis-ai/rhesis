@@ -1,5 +1,6 @@
 import os
 from typing import List, Optional
+from urllib.parse import urlparse
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -43,9 +44,11 @@ from rhesis.backend.app.auth.user_utils import (
     find_or_create_user,
     find_or_create_user_from_auth,
 )
+from rhesis.backend.app.constants import RHESIS_BASE_URL
 from rhesis.backend.app.dependencies import (
     get_db_session,
 )
+from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 from rhesis.backend.app.utils.rate_limit import (
     AUTH_FORGOT_PASSWORD_LIMIT,
     AUTH_LOGIN_EMAIL_LIMIT,
@@ -169,30 +172,67 @@ class RefreshTokenRequest(BaseModel):
 # Helper Functions
 # =============================================================================
 
+_LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
+
+
+def _is_running_locally() -> bool:
+    """Detect local deployment using server-side environment signals only.
+
+    Never uses any request-derived data. Uses three independent signals:
+    1. Quick Start mode (QUICK_START=true + no GCP env vars)
+    2. RHESIS_BASE_URL explicitly configured for localhost
+    3. ENVIRONMENT or BACKEND_ENV set to 'local'
+    """
+    # Signal 1: Quick Start mode (env-vars only, no request data)
+    if is_quick_start_enabled():
+        return True
+
+    # Signal 2: RHESIS_BASE_URL points to a local address
+    parsed_host = urlparse(RHESIS_BASE_URL).hostname or ""
+    if parsed_host in _LOCAL_HOSTNAMES:
+        return True
+
+    # Signal 3: Environment variables indicate local deployment
+    env = os.getenv("ENVIRONMENT", "").lower()
+    backend_env = os.getenv("BACKEND_ENV", "").lower()
+    if env == "local" or backend_env == "local":
+        return True
+
+    return False
+
 
 def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
+    """Generate the OAuth callback URL.
+
+    For local development, uses the request hostname with the server's
+    listening port to preserve session cookie domain alignment. Only
+    whitelisted local hostnames (localhost, 127.0.0.1, ::1) are
+    accepted; any other value falls back to 'localhost'. For
+    production, uses RHESIS_BASE_URL.
     """
-    Generate the OAuth callback URL.
-    In local development, use request.base_url to match the incoming host.
-    In production, use RHESIS_BASE_URL for proper domain handling.
-    """
-    rhesis_base_url = os.getenv("RHESIS_BASE_URL")
-    if rhesis_base_url and (
-        "localhost" not in str(request.base_url) and "127.0.0.1" not in str(request.base_url)
-    ):
-        # Production: use RHESIS_BASE_URL
-        base_url = rhesis_base_url.rstrip("/")
+    if _is_running_locally():
+        # Local: use request hostname to match session cookie domain
+        # (e.g., 127.0.0.1 vs localhost). Whitelist ensures that even
+        # if _is_running_locally() fires on a misconfigured server,
+        # the callback can only ever point to a local address.
+        hostname = request.url.hostname or "localhost"
+        if hostname not in _LOCAL_HOSTNAMES:
+            hostname = "localhost"
+        server = request.scope.get("server")
+        port = server[1] if server else 8080
+        base_url = f"http://{hostname}:{port}"
     else:
-        # Local development: use the actual request host to ensure cookie domain matches
-        base_url = str(request.base_url).rstrip("/")
+        # Production: always use configured base URL
+        base_url = RHESIS_BASE_URL.rstrip("/")
 
     callback_url = f"{base_url}/auth/callback"
 
-    # Only rewrite http to https if not localhost (including 127.0.0.1)
+    # Ensure HTTPS for non-local URLs
     if (
         callback_url.startswith("http://")
         and "localhost" not in callback_url
         and "127.0.0.1" not in callback_url
+        and "::1" not in callback_url
     ):
         callback_url = "https://" + callback_url[7:]
 

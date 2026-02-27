@@ -21,6 +21,7 @@ import { UUID } from 'crypto';
 import BaseTag from '@/components/common/BaseTag';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { pollForTestRun } from '@/utils/test-run-utils';
+import { getApiErrorMessage } from '@/utils/error-utils';
 import tagStyles from '@/styles/BaseTag.module.css';
 
 interface ProjectOption {
@@ -252,8 +253,8 @@ export default function CreateTestRun({
       }
 
       onSuccess?.();
-    } catch (_error) {
-      onError?.('Failed to execute test sets');
+    } catch (error) {
+      onError?.(getApiErrorMessage(error, 'Failed to execute test sets'));
     } finally {
       setLoading(false);
     }

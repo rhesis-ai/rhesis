@@ -1,0 +1,33 @@
+# Example Terraform variables configuration
+# Copy this file to terraform.tfvars and customize the values
+
+project_id = "example-project-id"
+region     = "gcp-region"
+
+# WireGuard server deletion protection (recommended: true for production)
+wireguard_deletion_protection = true
+
+# WireGuard VPN peers configuration
+# Each peer gets a unique IP within the WireGuard network (10.0.0.0/24)
+# and access to specific environment subnets
+wireguard_peers = [
+  {
+    identifier = "admin-alice"
+    ip         = "10.0.0.2"
+    subnets    = ["dev", "stg", "prd"] # Full access
+  },
+  {
+    identifier = "dev-bob"
+    ip         = "10.0.0.3"
+    subnets    = ["dev", "stg"] # Dev and staging only
+  },
+  {
+    identifier = "dev-charlie"
+    ip         = "10.0.0.4"
+    subnets    = ["dev"] # Dev only
+  }
+]
+
+# SSH access: OS Login + IAP tunneling is enabled by default.
+# Connect with: gcloud compute ssh wireguard-server --tunnel-through-iap --zone=ZONE
+# Grant access via: gcloud projects add-iam-policy-binding PROJECT --member=user:EMAIL --role=roles/iap.tunnelResourceAccessor

@@ -13,6 +13,54 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-02-26
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.5**
+- **Frontend 0.6.6**
+- **SDK 0.6.6**
+- **Polyphemus 0.2.6**
+
+### Summary of Changes
+
+**Backend v0.6.5:**
+- Security: Mitigated OAuth callback URL host header poisoning vulnerability. Addressed multiple Dependabot security alerts by updating vulnerable dependencies (cryptography, pillow, fastmcp, redis, langgraph-checkpoint, marshmallow, virtualenv, mammoth, langchain-core).
+- Polyphemus Integration: Added core Polyphemus integration including service delegation tokens, access control system with request/grant workflow, and frontend UI for access requests.
+- Tracing: Implemented conversation-based tracing across SDK, backend, and frontend, enabling the linking of multi-turn conversation interactions under a shared trace_id. Added UI improvements for conversation traces, including turn navigation, edge labels, and resizable trace detail drawer.
+- Test Set Type Enforcement: Enforced the requirement of `test_set_type` on test set creation across the backend, frontend, and SDK, and enforced type-matching when assigning tests to test sets.
+
+
+**Frontend v0.6.6:**
+- Added Polyphemus access request UI, including access request modal, model card UI states, and Polyphemus provider icon/logo.
+- Improved trace UI with conversation tracing support, including conversation icon in trace list, type filter buttons, Conversation View tab, turn labels, and turn navigation.
+- Enhanced trace graph view with turn labels on edges, progressive agent invocation count, and improved edge routing.
+- Fixed security vulnerabilities in frontend transitive dependencies.
+
+
+**SDK v0.6.6:**
+- Enhanced Polyphemus integration with access control, delegation tokens, and UI.
+- Improved LLM error handling with retries, logging, and fallback mechanisms.
+- Added conversation-based tracing across SDK, backend, and frontend for multi-turn interactions.
+- Addressed multiple security vulnerabilities by updating dependencies and migrating to PyJWT.
+
+
+**Polyphemus v0.2.6:**
+- Added rate limiting to the Polyphemus service.
+- Implemented access control and delegation tokens for Polyphemus authentication, including a request/grant workflow and frontend UI.
+- Deployed vLLM to Vertex AI for Polyphemus, including caching GCP credentials and adding retry logic.
+- Resolved multiple security vulnerabilities by updating dependencies, including migrating from python-jose to PyJWT.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.6.5] - 2026-02-18
 
 ### Platform Release
