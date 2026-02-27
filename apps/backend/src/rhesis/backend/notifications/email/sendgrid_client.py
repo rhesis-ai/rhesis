@@ -3,12 +3,12 @@ SendGrid v3 API client for sending emails with dynamic templates.
 """
 
 import os
-import re
 from datetime import datetime, timedelta, timezone
+from email.utils import parseaddr
 from typing import Optional, Tuple
 
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Email, Mail
+from sendgrid.helpers.mail import Email, Mail, To
 
 from rhesis.backend.logging.rhesis_logger import logger
 
@@ -28,6 +28,8 @@ class SendGridClient:
         """
         Parse RFC822 email format into email address and optional name.
 
+        Uses Python's stdlib email.utils.parseaddr() for robust RFC822 parsing.
+
         Handles formats like:
         - "Name" <email@example.com>
         - Name <email@example.com>
@@ -39,15 +41,8 @@ class SendGridClient:
         Returns:
             Tuple of (email_address, name or None)
         """
-        # Match "Name" <email> or Name <email>
-        match = re.match(r'^"?([^"<]+)"?\s*<([^>]+)>$', email_string.strip())
-        if match:
-            name = match.group(1).strip()
-            email = match.group(2).strip()
-            return email, name
-
-        # Plain email address
-        return email_string.strip(), None
+        name, email = parseaddr(email_string)
+        return email, name if name else None
 
     def send_scheduled_dynamic_template(
         self,
@@ -92,9 +87,16 @@ class SendGridClient:
             from_email_addr, from_name = self._parse_email_address(from_email)
             from_email_obj = Email(from_email_addr, from_name)
 
+            # Include recipient name if provided
+            to_email_obj = (
+                To(email=recipient_email, name=recipient_name)
+                if recipient_name
+                else recipient_email
+            )
+
             message = Mail(
                 from_email=from_email_obj,
-                to_emails=recipient_email,
+                to_emails=to_email_obj,
                 subject=subject,
             )
 
@@ -113,6 +115,6 @@ class SendGridClient:
 
             return response.status_code in [200, 201, 202]
 
-        except Exception as e:
-            logger.error(f"Failed to send scheduled email to {recipient_email}: {str(e)}")
+        except Exception:
+            logger.exception(f"Failed to send scheduled email to {recipient_email}")
             return False

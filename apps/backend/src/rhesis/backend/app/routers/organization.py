@@ -181,7 +181,10 @@ async def initialize_organization_data(
         # Mark onboarding as completed
         org.is_onboarding_complete = True
 
-        # Prepare response before committing
+        # Explicitly commit the transaction before scheduling emails
+        db.commit()
+
+        # Prepare response after successful commit
         response = {
             "status": "success",
             "message": "Initial data loaded successfully",
