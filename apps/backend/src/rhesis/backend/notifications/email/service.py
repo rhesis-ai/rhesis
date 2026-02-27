@@ -32,8 +32,8 @@ class EmailService:
 
     @property
     def is_configured(self) -> bool:
-        """Check if email service is properly configured."""
-        return self.smtp_service.is_configured or self.sendgrid_client.is_configured
+        """Check if SMTP email service is properly configured."""
+        return self.smtp_service.is_configured
 
     def _should_exclude_from_welcome_email(self, email: str) -> bool:
         """
