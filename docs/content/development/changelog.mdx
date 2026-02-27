@@ -76,6 +76,66 @@ Stricter type safety across test sets:
 - Deployed vLLM to Vertex AI with GCP credential caching and retry logic
 - Migrated from python-jose to PyJWT and updated dependencies to resolve security vulnerabilities
 
+## [0.6.5] - 2026-02-18
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.4**
+- **Frontend 0.6.5**
+- **SDK 0.6.5**
+
+### Summary
+
+This release introduces **AI-powered auto-configuration for endpoints**, **three-tier metrics evaluation for multi-turn tests**, and **adaptive testing capabilities** including a Test Explorer UI and output generation.
+
+### Featured Capabilities
+
+**AI-Powered Endpoint Auto-Configure**
+
+Intelligent endpoint setup from reference material:
+
+- **Natural Language Input**: Analyze curl commands, code snippets, or API docs to generate Rhesis request/response mappings
+- **Self-Correcting Probing**: LLM-driven endpoint probing with self-correction for accurate configuration
+- **API Key Redaction**: Automatically detects and redacts secrets before sending to the LLM, with a frontend warning when keys are detected
+- **SSRF Protection**: Blocks cloud metadata service addresses while allowing localhost for safe probing
+- **Two-Step UI**: Auto-configure modal with input and review steps, integrated into the endpoint creation form
+
+**Three-Tier Metrics for Multi-Turn Tests**
+
+Comprehensive metric evaluation in live multi-turn execution:
+
+- **Full Metric Coverage**: All metrics defined in the three-tier model (behavior > test set > execution) are now evaluated, not just Penelope's Goal Achievement metric
+- **Metrics Table**: Frontend now shows a metrics table for multi-turn test results
+- **Pass/Fail Determination**: All evaluated metrics contribute to overall pass/fail outcomes
+
+**Adaptive Testing**
+
+New tools for building and managing adaptive test suites:
+
+- **Test Explorer UI**: Browse and manage adaptive tests and topics
+- **CRUD Operations**: Create, update, and delete tests and topics via SDK
+- **Output Generation**: Generate test outputs with improved async performance
+
+### Backend Highlights
+- Evaluated three-tier metrics during live multi-turn execution, expanding beyond Penelope's Goal Achievement metric
+- Added AI-powered auto-configure service with LLM-driven analysis, endpoint probing, and self-correction
+- Added API key detection and redaction for auto-configure to prevent secrets reaching the LLM
+- Added SSRF protection blocking cloud metadata services (169.254.0.0/16) during endpoint probing
+- Supported nested JSON in request/response mappings (`Dict[str, Any]`)
+
+### Frontend Highlights
+- Added auto-configure modal with two-step stepper (input + review) integrated into the endpoint creation form
+- Displayed metrics table for multi-turn test results and used all metrics for pass/fail determination
+- Fixed redirect after endpoint creation to navigate to the project detail page
+- Improved auto-configure UX: removed mandatory auth token requirement to support open APIs
+
+### SDK Highlights
+- Added `Endpoint.auto_configure()` class method for code-first auto-configuration using the backend service
+- Introduced Adaptive Testing features including Test Explorer UI, CRUD operations for tests and topics, and output generation
+- Unified model handling with a single `get_model()` function simplifying model selection and configuration
+- Improved output generation performance using asynchronous HTTP requests
+
 ## [0.6.4] - 2026-02-12
 
 ### Platform Release
