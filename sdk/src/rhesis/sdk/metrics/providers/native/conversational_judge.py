@@ -294,7 +294,7 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
             prompt=prompt,
             response_schema=ConversationalScoreResponse,
             additional_details={
-                "turn_count": len(conversation_history),
+                "turn_count": self._count_turns(conversation_history),
                 "goal": goal or GOAL_DEFAULT,
             },
         )
@@ -407,7 +407,7 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
             "evaluation_examples": self.evaluation_examples,
             "conversation_text": conversation_text,
             "goal": goal or GOAL_DEFAULT,
-            "turn_count": len(conversation_history),
+            "turn_count": self._count_turns(conversation_history),
             "score_type": score_type_value,
         }
 
@@ -426,6 +426,9 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
         """
         Format conversation history as readable text for the prompt.
 
+        Groups consecutive user/assistant message pairs into numbered turns,
+        where each turn represents one interaction (user message + assistant response).
+
         Args:
             conversation_history: The conversation to format
 
@@ -434,13 +437,71 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
         """
         simple_turns = conversation_history.get_simple_turns()
         formatted_turns = []
+        turn_number = 0
+        i = 0
 
-        for i, turn in enumerate(simple_turns, 1):
-            role = turn["role"]
-            content = turn["content"]
-            formatted_turns.append(f"Turn {i} [{role}]: {content}")
+        while i < len(simple_turns):
+            msg = simple_turns[i]
+            if msg["role"] == "user":
+                turn_number += 1
+                lines = [f"Turn {turn_number}:"]
+                lines.append(f"  User: {msg['content']}")
+                # Consume the following assistant message if present
+                if i + 1 < len(simple_turns) and simple_turns[i + 1]["role"] == "assistant":
+                    lines.append(f"  Assistant: {simple_turns[i + 1]['content']}")
+                    i += 2
+                else:
+                    i += 1
+                formatted_turns.append("\n".join(lines))
+            elif msg["role"] == "assistant":
+                # Standalone assistant message (no preceding user message)
+                turn_number += 1
+                lines = [f"Turn {turn_number}:"]
+                lines.append(f"  Assistant: {msg['content']}")
+                formatted_turns.append("\n".join(lines))
+                i += 1
+            else:
+                # System or other messages — include without a turn number
+                formatted_turns.append(f"[{msg['role']}]: {msg['content']}")
+                i += 1
 
         return "\n\n".join(formatted_turns)
+
+    @staticmethod
+    def _count_turns(conversation_history: ConversationHistory) -> int:
+        """
+        Count the number of interaction turns in a conversation.
+
+        A turn is a user-assistant exchange pair. A trailing user message
+        without an assistant response also counts as a turn.
+
+        Args:
+            conversation_history: The conversation to count turns for
+
+        Returns:
+            Number of interaction turns
+        """
+        simple_turns = conversation_history.get_simple_turns()
+        turn_count = 0
+        i = 0
+
+        while i < len(simple_turns):
+            msg = simple_turns[i]
+            if msg["role"] == "user":
+                turn_count += 1
+                # Skip over paired assistant message
+                if i + 1 < len(simple_turns) and simple_turns[i + 1]["role"] == "assistant":
+                    i += 2
+                else:
+                    i += 1
+            elif msg["role"] == "assistant":
+                # Standalone assistant message counts as a turn
+                turn_count += 1
+                i += 1
+            else:
+                i += 1
+
+        return turn_count
 
     def _evaluate_score(self, score: float) -> bool:
         """

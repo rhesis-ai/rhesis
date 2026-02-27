@@ -198,7 +198,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             "conversation_text": conversation_text,
             "goal": goal or GOAL_DEFAULT,
             "instructions": instructions,  # Add test instructions for context
-            "turn_count": len(conversation_history),
+            "turn_count": self._count_turns(conversation_history),
             "min_score": self.min_score,
             "max_score": self.max_score,
         }
@@ -266,7 +266,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             prompt=prompt,
             response_schema=GoalAchievementScoreResponse,
             additional_details={
-                "turn_count": len(conversation_history),
+                "turn_count": self._count_turns(conversation_history),
                 "goal": goal or GOAL_DEFAULT,
             },
         )
