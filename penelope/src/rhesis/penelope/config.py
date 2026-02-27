@@ -28,34 +28,34 @@ class PenelopeConfig:
         - PENELOPE_LOG_LEVEL: Set log level (default: INFO)
         - PENELOPE_DEFAULT_MODEL: Set model provider (default: vertex_ai)
         - PENELOPE_DEFAULT_MODEL_NAME: Set model name (default: gemini-2.0-flash)
-        - PENELOPE_DEFAULT_MAX_ITERATIONS: Set max iterations (default: 10)
+        - PENELOPE_DEFAULT_MAX_TURNS: Set max iterations (default: 10)
 
     Example:
         # Via environment variable
         export PENELOPE_LOG_LEVEL=DEBUG
         export PENELOPE_DEFAULT_MODEL=anthropic
         export PENELOPE_DEFAULT_MODEL_NAME=claude-4
-        export PENELOPE_DEFAULT_MAX_ITERATIONS=30
+        export PENELOPE_DEFAULT_MAX_TURNS=30
 
         # Via code
         from rhesis.penelope import PenelopeConfig
         PenelopeConfig.set_log_level("DEBUG")
         PenelopeConfig.set_default_model("anthropic", "claude-4")
-        PenelopeConfig.set_default_max_iterations(30)
+        PenelopeConfig.set_default_max_turns(30)
     """
 
     # Configuration constants
-    DEFAULT_MAX_ITERATIONS = 10
+    DEFAULT_MAX_TURNS = 10
     DEFAULT_CONTEXT_WINDOW_MESSAGES = 10  # Last N messages for context
     DEFAULT_MODEL_PROVIDER = "rhesis"
     DEFAULT_MODEL_NAME = "default"
-    DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER = 5  # 5x max_iterations
+    DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER = 5  # 5x max_turns
 
     # Default values
     _log_level: Optional[str] = None
     _default_model: Optional[str] = None
     _default_model_name: Optional[str] = None
-    _default_max_iterations: Optional[int] = None
+    _default_max_turns: Optional[int] = None
     _initialized: bool = False
 
     @classmethod
@@ -113,38 +113,38 @@ class PenelopeConfig:
         return os.getenv("PENELOPE_DEFAULT_MODEL_NAME", cls.DEFAULT_MODEL_NAME)
 
     @classmethod
-    def get_default_max_iterations(cls) -> int:
+    def get_default_max_turns(cls) -> int:
         """
         Get the default max iterations for Penelope.
 
         Checks (in order):
         1. Programmatically set value
-        2. PENELOPE_DEFAULT_MAX_ITERATIONS env var
+        2. PENELOPE_DEFAULT_MAX_TURNS env var
         3. Default: 10
 
         Returns:
             Maximum number of iterations before stopping
         """
-        if cls._default_max_iterations is not None:
-            return cls._default_max_iterations
+        if cls._default_max_turns is not None:
+            return cls._default_max_turns
 
-        env_value = os.getenv("PENELOPE_DEFAULT_MAX_ITERATIONS")
+        env_value = os.getenv("PENELOPE_DEFAULT_MAX_TURNS")
         if env_value is not None:
             try:
                 return int(env_value)
             except ValueError:
                 # Invalid value in env var, use default
-                return cls.DEFAULT_MAX_ITERATIONS
+                return cls.DEFAULT_MAX_TURNS
 
-        return cls.DEFAULT_MAX_ITERATIONS
+        return cls.DEFAULT_MAX_TURNS
 
     @classmethod
     def get_max_tool_executions_multiplier(cls) -> int:
         """
-        Get multiplier for calculating max_tool_executions from max_iterations.
+        Get multiplier for calculating max_tool_executions from max_turns.
 
         This multiplier is used to set a proportional limit on total tool executions
-        to prevent infinite loops. For example, with max_iterations=10 and multiplier=5,
+        to prevent infinite loops. For example, with max_turns=10 and multiplier=5,
         the max_tool_executions would be 50.
 
         Checks (in order):
@@ -193,22 +193,22 @@ class PenelopeConfig:
         cls._default_model_name = model_name
 
     @classmethod
-    def set_default_max_iterations(cls, max_iterations: int):
+    def set_default_max_turns(cls, max_turns: int):
         """
         Programmatically set the default max iterations.
 
         Args:
-            max_iterations: Maximum number of turns before stopping (must be positive)
+            max_turns: Maximum number of turns before stopping (must be positive)
 
         Raises:
-            ValueError: If max_iterations is not positive
+            ValueError: If max_turns is not positive
 
         Example:
-            >>> PenelopeConfig.set_default_max_iterations(30)
+            >>> PenelopeConfig.set_default_max_turns(30)
         """
-        if max_iterations <= 0:
-            raise ValueError("max_iterations must be positive")
-        cls._default_max_iterations = max_iterations
+        if max_turns <= 0:
+            raise ValueError("max_turns must be positive")
+        cls._default_max_turns = max_turns
 
     @classmethod
     def initialize(cls):
@@ -287,7 +287,7 @@ class PenelopeConfig:
         cls._log_level = None
         cls._default_model = None
         cls._default_model_name = None
-        cls._default_max_iterations = None
+        cls._default_max_turns = None
         cls._initialized = False
 
 

@@ -52,8 +52,8 @@ class TestGlobalExecutionLimit:
     """Tests for global tool execution limit."""
 
     def test_proportional_limit_calculation(self, mock_model):
-        """Verify limit scales with max_iterations."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=20)
+        """Verify limit scales with max_turns."""
+        agent = PenelopeAgent(model=mock_model, max_turns=20)
         # 20 iterations × 5 multiplier = 100
         assert agent.max_tool_executions == 100
 
@@ -65,7 +65,7 @@ class TestGlobalExecutionLimit:
 
     def test_manual_override_limit(self, mock_model):
         """Verify manual override works."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=10, max_tool_executions=200)
+        agent = PenelopeAgent(model=mock_model, max_turns=10, max_tool_executions=200)
         assert agent.max_tool_executions == 200
 
     def test_max_tool_executions_condition_stops_at_limit(self, test_state):
@@ -402,7 +402,7 @@ class TestInfiniteLoopPrevention:
             ],
         }
 
-        agent = PenelopeAgent(model=mock_model, max_iterations=100, verbose=False)
+        agent = PenelopeAgent(model=mock_model, max_turns=100, verbose=False)
         target = MockTarget()
 
         # Execute test - should stop due to validation blocking
@@ -413,7 +413,7 @@ class TestInfiniteLoopPrevention:
         )
 
         # Verify it stopped (didn't run indefinitely)
-        assert result.status.value in ["error", "failure", "max_iterations"]
+        assert result.status.value in ["error", "failure", "max_turns"]
         # Should have findings about validation blocking
         assert any("Workflow validation blocked" in str(f) for f in result.findings)
 
@@ -454,7 +454,7 @@ class TestInfiniteLoopPrevention:
 
         # Set very low limit for testing
         agent = PenelopeAgent(
-            model=mock_model, max_iterations=100, max_tool_executions=10, verbose=False
+            model=mock_model, max_turns=100, max_tool_executions=10, verbose=False
         )
         target = MockTarget()
 
@@ -466,7 +466,7 @@ class TestInfiniteLoopPrevention:
 
         # Should stop - either at global limit or due to goal evaluation
         # The key is that it stops and doesn't run indefinitely
-        assert result.status.value in ["max_iterations", "failure", "success"]
+        assert result.status.value in ["max_turns", "failure", "success"]
         # Should have completed limited turns
         assert result.turns_used <= 10
 

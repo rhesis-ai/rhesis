@@ -241,7 +241,7 @@ def main():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=True,
-        max_iterations=25,  # Allow enough iterations for complex multi-turn testing
+        max_turns=25,  # Allow enough iterations for complex multi-turn testing
     )
 
     target = EndpointTarget(endpoint_id=args.endpoint_id)

@@ -64,7 +64,7 @@ target = LangGraphTarget(graph, "customer-service-agent", "Customer service agen
 # 3. Test with Penelope
 from rhesis.penelope import PenelopeAgent
 
-agent = PenelopeAgent(enable_transparency=True, verbose=True, max_iterations=5)
+agent = PenelopeAgent(enable_transparency=True, verbose=True, max_turns=5)
 
 result = agent.execute_test(
     target=target, goal="Ask 2 questions about shipping and get helpful answers"

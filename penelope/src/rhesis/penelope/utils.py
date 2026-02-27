@@ -37,15 +37,15 @@ class StoppingCondition:
         raise NotImplementedError
 
 
-class MaxIterationsCondition(StoppingCondition):
+class MaxTurnsCondition(StoppingCondition):
     """Stop after maximum number of iterations."""
 
-    def __init__(self, max_iterations: int):
-        self.max_iterations = max_iterations
+    def __init__(self, max_turns: int):
+        self.max_turns = max_turns
 
     def should_stop(self, state: TestState) -> tuple[bool, str]:
-        if state.current_turn >= self.max_iterations:
-            return True, f"Maximum iterations reached ({self.max_iterations})"
+        if state.current_turn >= self.max_turns:
+            return True, f"Maximum turns reached ({self.max_turns})"
         return False, ""
 
 
@@ -98,14 +98,14 @@ class TimeoutCondition(StoppingCondition):
 class GoalAchievedCondition(StoppingCondition):
     """Stop when goal is achieved or determined impossible."""
 
-    # Fraction of max_iterations that must complete before goal-achieved early stop
+    # Fraction of max_turns that must complete before goal-achieved early stop
     EARLY_STOP_THRESHOLD = 0.8
 
     def __init__(
         self,
         result: Optional["MetricResult"] = None,
         instructions: Optional[str] = None,
-        max_iterations: Optional[int] = None,
+        max_turns: Optional[int] = None,
     ):
         """
         Initialize with SDK MetricResult.
@@ -113,12 +113,12 @@ class GoalAchievedCondition(StoppingCondition):
         Args:
             result: Optional initial MetricResult
             instructions: Optional test instructions to check for minimum turn requirements
-            max_iterations: Maximum iterations configured for the test. Used to prevent
+            max_turns: Maximum turns configured for the test. Used to prevent
                 early stopping before a meaningful fraction of turns has been completed.
         """
         self.result = result
         self.instructions = instructions
-        self.max_iterations = max_iterations
+        self.max_turns = max_turns
         self._min_turns_required = self._extract_min_turns(instructions) if instructions else None
 
     def _extract_min_turns(self, instructions: str) -> Optional[int]:
@@ -175,7 +175,7 @@ class GoalAchievedCondition(StoppingCondition):
 
         Priority:
         1. Explicit turn requirement from instructions (e.g. "execute 5 turns")
-        2. Fraction of max_iterations (EARLY_STOP_THRESHOLD, default 80%)
+        2. Fraction of max_turns (EARLY_STOP_THRESHOLD, default 80%)
         3. Fallback to 1 (no meaningful floor)
 
         Returns:
@@ -183,8 +183,8 @@ class GoalAchievedCondition(StoppingCondition):
         """
         if self._min_turns_required is not None:
             return self._min_turns_required
-        if self.max_iterations is not None:
-            return max(1, int(self.max_iterations * self.EARLY_STOP_THRESHOLD))
+        if self.max_turns is not None:
+            return max(1, int(self.max_turns * self.EARLY_STOP_THRESHOLD))
         return 0
 
     def should_stop(self, state: TestState) -> tuple[bool, str]:
@@ -192,7 +192,7 @@ class GoalAchievedCondition(StoppingCondition):
         Check if we should stop based on SDK evaluation.
 
         Early stopping (goal achieved or impossible) is only allowed after
-        completing a meaningful fraction of max_iterations, ensuring the
+        completing a meaningful fraction of max_turns, ensuring the
         agent exercises the conversation fully.
 
         Note: This accesses the MetricResult object directly (which has .score and .details).

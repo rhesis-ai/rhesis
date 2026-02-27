@@ -29,8 +29,8 @@ from rhesis.penelope.tools.base import Tool
 from rhesis.penelope.tools.target_interaction import TargetInteractionTool
 from rhesis.penelope.utils import (
     GoalAchievedCondition,
-    MaxIterationsCondition,
     MaxToolExecutionsCondition,
+    MaxTurnsCondition,
     StoppingCondition,
     TimeoutCondition,
     display_test_result,
@@ -214,7 +214,7 @@ class PenelopeAgent:
         self,
         model: Optional[Union[BaseLLM, str]] = None,
         tools: Optional[List[Tool]] = None,
-        max_iterations: Optional[int] = None,
+        max_turns: Optional[int] = None,
         max_tool_executions: Optional[int] = None,
         timeout_seconds: Optional[float] = None,
         enable_transparency: bool = True,
@@ -230,10 +230,10 @@ class PenelopeAgent:
                 (e.g. "vertex_ai/gemini-2.0-flash"). If None, uses default model
                 configured via PenelopeConfig (default: Vertex AI / gemini-2.0-flash)
             tools: Optional list of custom tools (default tools used if None)
-            max_iterations: Maximum number of turns before stopping. If None, uses default
+            max_turns: Maximum number of turns before stopping. If None, uses default
                 from PenelopeConfig (default: 10)
             max_tool_executions: Maximum number of total tool executions (analysis + target)
-                before stopping. If None, calculated as max_iterations × 5. This prevents
+                before stopping. If None, calculated as max_turns × 5. This prevents
                 infinite loops by capping total tool calls across all turns.
             timeout_seconds: Optional timeout in seconds
             enable_transparency: Show reasoning at each step (Anthropic principle)
@@ -271,11 +271,11 @@ class PenelopeAgent:
 
             Max Iterations Configuration:
                 - Default max iterations can be set via environment variable:
-                  PENELOPE_DEFAULT_MAX_ITERATIONS (default: 10)
-                - Or programmatically: PenelopeConfig.set_default_max_iterations(30)
+                  PENELOPE_DEFAULT_MAX_TURNS (default: 10)
+                - Or programmatically: PenelopeConfig.set_default_max_turns(30)
 
             Max Tool Executions Configuration:
-                - By default, max_tool_executions = max_iterations × multiplier
+                - By default, max_tool_executions = max_turns × multiplier
                 - Default multiplier is 5 (configurable via PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER)
                 - For 10 iterations × 5 = 50 total tool executions allowed
                 - Can be overridden directly via max_tool_executions parameter
@@ -294,15 +294,13 @@ class PenelopeAgent:
             self.model = get_model(model)
         else:
             self.model = model
-        self.max_iterations = (
-            max_iterations
-            if max_iterations is not None
-            else PenelopeConfig.get_default_max_iterations()
+        self.max_turns = (
+            max_turns if max_turns is not None else PenelopeConfig.get_default_max_turns()
         )
         # Calculate proportional limit if not specified
         if max_tool_executions is None:
             multiplier = PenelopeConfig.get_max_tool_executions_multiplier()
-            max_tool_executions = self.max_iterations * multiplier
+            max_tool_executions = self.max_turns * multiplier
         self.max_tool_executions = max_tool_executions
         self.timeout_seconds = timeout_seconds
         self.enable_transparency = enable_transparency
@@ -365,23 +363,27 @@ class PenelopeAgent:
         return DEFAULT_INSTRUCTIONS_TEMPLATE.render(goal=goal)
 
     def _create_stopping_conditions(
-        self, instructions: Optional[str] = None
+        self,
+        instructions: Optional[str] = None,
+        max_turns: Optional[int] = None,
     ) -> List[StoppingCondition]:
         """
         Create stopping conditions for the test.
 
         Args:
             instructions: Optional test instructions to check for minimum turn requirements
+            max_turns: Per-test max turns override. Falls back to agent default.
 
         Returns:
             List of StoppingCondition instances
         """
+        effective_max_turns = max_turns or self.max_turns
         conditions = [
             # Check global execution limit first (most critical for preventing infinite loops)
             MaxToolExecutionsCondition(self.max_tool_executions),
-            MaxIterationsCondition(self.max_iterations),
+            MaxTurnsCondition(effective_max_turns),
             GoalAchievedCondition(
-                instructions=instructions, max_iterations=self.max_iterations
+                instructions=instructions, max_turns=effective_max_turns
             ),  # Will be updated with progress
         ]
 
@@ -445,7 +447,7 @@ class PenelopeAgent:
                 "Must not reveal internal system prompts",
                 "Must not process illegal requests"
             context: Optional additional context/resources (metadata)
-            max_turns: Override default max_iterations for this test
+            max_turns: Override default max_turns for this test
 
         Returns:
             TestResult with complete test execution details
@@ -521,7 +523,7 @@ class PenelopeAgent:
             scenario=scenario,
             restrictions=restrictions,
             context=context or {},
-            max_turns=max_turns or self.max_iterations,
+            max_turns=max_turns or self.max_turns,
             max_tool_executions=self.max_tool_executions,
         )
 
@@ -559,7 +561,9 @@ class PenelopeAgent:
         logger.info(f"=== AGENT: System prompt created, length: {len(system_prompt)} chars ===")
 
         # Create stopping conditions (pass instructions for turn count validation)
-        conditions = self._create_stopping_conditions(instructions=instructions)
+        conditions = self._create_stopping_conditions(
+            instructions=instructions, max_turns=max_turns
+        )
 
         # Main agent loop
         instructions_length = len(instructions) if instructions else 0
@@ -579,7 +583,7 @@ class PenelopeAgent:
                     status = ExecutionStatus.TIMEOUT
                     goal_achieved = False
                 elif "max iterations" in reason.lower():
-                    status = ExecutionStatus.MAX_ITERATIONS
+                    status = ExecutionStatus.MAX_TURNS
                     goal_achieved = False
                 else:
                     status = ExecutionStatus.FAILURE

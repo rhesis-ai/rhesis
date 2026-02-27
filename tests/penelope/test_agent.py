@@ -161,18 +161,18 @@ class TestPenelopeAgentInitialization:
 
         # Verify defaults
         assert agent.model == mock_model
-        assert agent.max_iterations == 10  # Default from PenelopeConfig
+        assert agent.max_turns == 10  # Default from PenelopeConfig
         assert agent.timeout_seconds is None
         assert agent.enable_transparency is True
         assert agent.verbose is False
         assert len(agent.metrics) == 1  # Auto-created GoalAchievementJudge
         assert isinstance(agent.goal_metric, GoalAchievementJudge)
 
-    def test_init_with_custom_max_iterations(self, mock_model):
-        """Test initialization with custom max_iterations."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=20)
+    def test_init_with_custom_max_turns(self, mock_model):
+        """Test initialization with custom max_turns."""
+        agent = PenelopeAgent(model=mock_model, max_turns=20)
 
-        assert agent.max_iterations == 20
+        assert agent.max_turns == 20
 
     def test_init_with_explicit_goal_metric(self, mock_model):
         """Test initialization with explicit goal_metric parameter."""
@@ -318,7 +318,7 @@ class TestPenelopeAgentHelperMethods:
 
     def test_create_stopping_conditions(self, mock_model):
         """Test _create_stopping_conditions creates all conditions."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=15, timeout_seconds=120.0)
+        agent = PenelopeAgent(model=mock_model, max_turns=15, timeout_seconds=120.0)
 
         conditions = agent._create_stopping_conditions()
 
@@ -326,7 +326,7 @@ class TestPenelopeAgentHelperMethods:
         assert len(conditions) == 4  # MaxToolExecutions, MaxIterations, GoalAchieved, Timeout
         condition_types = [type(c).__name__ for c in conditions]
         assert "MaxToolExecutionsCondition" in condition_types
-        assert "MaxIterationsCondition" in condition_types
+        assert "MaxTurnsCondition" in condition_types
         assert "GoalAchievedCondition" in condition_types
         assert "TimeoutCondition" in condition_types
 
@@ -363,7 +363,7 @@ class TestPenelopeAgentHelperMethods:
 
     def test_should_stop_returns_true_when_condition_met(self, mock_model, mock_target):
         """Test _should_stop returns True when condition is met."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=1)
+        agent = PenelopeAgent(model=mock_model, max_turns=1)
 
         # Create test state with 1 turn already
         context = TestContext(

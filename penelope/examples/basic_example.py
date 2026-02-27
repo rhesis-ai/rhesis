@@ -84,14 +84,14 @@ def main():
     agent = PenelopeAgent(
         enable_transparency=True,  # Show reasoning at each step
         verbose=args.verbose,  # Print execution details
-        max_iterations=args.max_iterations,
+        max_turns=args.max_turns,
     )
 
-    # Alternative: Use a specific model and custom max_iterations
+    # Alternative: Use a specific model and custom max_turns
     # from rhesis.sdk.models import AnthropicLLM
     # agent = PenelopeAgent(
     #     model=AnthropicLLM(model_name="claude-4"),
-    #     max_iterations=20,
+    #     max_turns=20,
     #     enable_transparency=True,
     #     verbose=True,
     # )

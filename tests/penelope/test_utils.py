@@ -7,7 +7,7 @@ import pytest
 
 from rhesis.penelope.utils import (
     GoalAchievedCondition,
-    MaxIterationsCondition,
+    MaxTurnsCondition,
     StoppingCondition,
     TimeoutCondition,
 )
@@ -26,16 +26,16 @@ def test_stopping_condition_not_implemented():
         condition.should_stop(None)
 
 
-def test_max_iterations_condition_initialization():
-    """Test MaxIterationsCondition initialization."""
-    condition = MaxIterationsCondition(max_iterations=10)
+def test_max_turns_condition_initialization():
+    """Test MaxTurnsCondition initialization."""
+    condition = MaxTurnsCondition(max_turns=10)
 
-    assert condition.max_iterations == 10
+    assert condition.max_turns == 10
 
 
-def test_max_iterations_condition_should_not_stop(sample_test_state):
-    """Test MaxIterationsCondition doesn't stop before limit."""
-    condition = MaxIterationsCondition(max_iterations=10)
+def test_max_turns_condition_should_not_stop(sample_test_state):
+    """Test MaxTurnsCondition doesn't stop before limit."""
+    condition = MaxTurnsCondition(max_turns=10)
 
     should_stop, reason = condition.should_stop(sample_test_state)
 
@@ -43,18 +43,18 @@ def test_max_iterations_condition_should_not_stop(sample_test_state):
     assert reason == ""
 
 
-def test_max_iterations_condition_should_stop(sample_test_state):
-    """Test MaxIterationsCondition stops at limit."""
-    condition = MaxIterationsCondition(max_iterations=5)
+def test_max_turns_condition_should_stop(sample_test_state):
+    """Test MaxTurnsCondition stops at limit."""
+    condition = MaxTurnsCondition(max_turns=5)
 
-    # Simulate reaching max iterations
+    # Simulate reaching max turns
     for _ in range(5):
         sample_test_state.current_turn += 1
 
     should_stop, reason = condition.should_stop(sample_test_state)
 
     assert should_stop is True
-    assert "Maximum iterations" in reason
+    assert "Maximum turns" in reason
     assert "5" in reason
 
 
@@ -148,7 +148,12 @@ def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
 def test_goal_achieved_condition_should_stop_goal_impossible(sample_test_state):
     """Test GoalAchievedCondition stops when goal is impossible (low score after 5+ turns)."""
     from rhesis.penelope.context import ToolExecution, Turn
-    from rhesis.penelope.schemas import AssistantMessage, FunctionCall, MessageToolCall, ToolMessage
+    from rhesis.penelope.schemas import (
+        AssistantMessage,
+        FunctionCall,
+        MessageToolCall,
+        ToolMessage,
+    )
 
     mock_result = Mock()
     mock_result.score = 0.2  # Low score
@@ -159,18 +164,24 @@ def test_goal_achieved_condition_should_stop_goal_impossible(sample_test_state):
     # Simulate 5+ turns by adding turns to state
     for i in range(5):
         assistant_msg = AssistantMessage(
-                content=f"Turn {i + 1}",
-                tool_calls=[
-                    MessageToolCall(
-                        id=f"call_{i}",
-                        type="function",
-                    function=FunctionCall(name="send_message_to_target", arguments="{}"),
-                    )
-                ],
+            content=f"Turn {i + 1}",
+            tool_calls=[
+                MessageToolCall(
+                    id=f"call_{i}",
+                    type="function",
+                    function=FunctionCall(
+                        name="send_message_to_target", arguments="{}"
+                    ),
+                )
+            ],
         )
-        
-        tool_msg = ToolMessage(tool_call_id=f"call_{i}", name="send_message_to_target", content="result")
-        
+
+        tool_msg = ToolMessage(
+            tool_call_id=f"call_{i}",
+            name="send_message_to_target",
+            content="result",
+        )
+
         # Create a ToolExecution for the target interaction
         target_execution = ToolExecution(
             tool_name="send_message_to_target",
@@ -178,7 +189,7 @@ def test_goal_achieved_condition_should_stop_goal_impossible(sample_test_state):
             assistant_message=assistant_msg,
             tool_message=tool_msg,
         )
-        
+
         turn = Turn(
             turn_number=i + 1,
             executions=[target_execution],

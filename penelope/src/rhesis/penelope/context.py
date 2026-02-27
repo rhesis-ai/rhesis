@@ -103,7 +103,7 @@ class ExecutionStatus(str, Enum):
     FAILURE = "failure"
     ERROR = "error"
     TIMEOUT = "timeout"
-    MAX_ITERATIONS = "max_iterations"
+    MAX_TURNS = "max_turns"
 
 
 class ToolExecution(BaseModel):
