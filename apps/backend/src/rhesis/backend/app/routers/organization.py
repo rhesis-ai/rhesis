@@ -181,48 +181,8 @@ async def initialize_organization_data(
         # Mark onboarding as completed
         org.is_onboarding_complete = True
 
-        # Send Day 1 email (scheduled for 23h 59min from now)
-        try:
-            success = email_service.send_day_1_email(
-                recipient_email=current_user.email,
-                recipient_name=current_user.name or current_user.given_name,
-            )
-            if not success:
-                logger.warning(
-                    f"Day 1 email not sent for {current_user.email} (check configuration)"
-                )
-        except Exception:
-            logger.exception(f"Failed to schedule Day 1 email for {current_user.email}")
-
-        # Send Day 2 email (scheduled for 48h from now)
-        try:
-            success = email_service.send_day_2_email(
-                recipient_email=current_user.email,
-                recipient_name=current_user.name or current_user.given_name,
-            )
-            if not success:
-                logger.warning(
-                    f"Day 2 email not sent for {current_user.email} (check configuration)"
-                )
-        except Exception:
-            logger.exception(f"Failed to schedule Day 2 email for {current_user.email}")
-
-        # Send Day 3 email (scheduled for 71h 59min from now)
-        try:
-            success = email_service.send_day_3_email(
-                recipient_email=current_user.email,
-                recipient_name=current_user.name or current_user.given_name,
-            )
-            if not success:
-                logger.warning(
-                    f"Day 3 email not sent for {current_user.email} (check configuration)"
-                )
-        except Exception:
-            logger.exception(f"Failed to schedule Day 3 email for {current_user.email}")
-
-        # Transaction commit is handled by the session context manager
-
-        return {
+        # Prepare response before committing
+        response = {
             "status": "success",
             "message": "Initial data loaded successfully",
             "default_model_ids": default_model_ids,
@@ -237,6 +197,29 @@ async def initialize_organization_data(
         raise HTTPException(
             status_code=500, detail=f"Failed to initialize organization data: {str(e)}"
         )
+
+    # Schedule onboarding emails AFTER successful DB commit
+    # Using a loop to avoid repetitive try/except blocks
+    email_schedule = [
+        (1, email_service.send_day_1_email, "23h 59min"),
+        (2, email_service.send_day_2_email, "48h"),
+        (3, email_service.send_day_3_email, "71h 59min"),
+    ]
+
+    for day, send_method, delay_desc in email_schedule:
+        try:
+            success = send_method(
+                recipient_email=current_user.email,
+                recipient_name=current_user.name or current_user.given_name,
+            )
+            if not success:
+                logger.warning(
+                    f"Day {day} email not sent for {current_user.email} (check configuration)"
+                )
+        except Exception:
+            logger.exception(f"Failed to schedule Day {day} email for {current_user.email}")
+
+    return response
 
 
 @router.post("/{organization_id}/rollback-initial-data", response_model=dict)
