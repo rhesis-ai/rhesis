@@ -64,6 +64,7 @@ class MetricEvaluator:
         self.model = model  # Store default model for passing to metrics
         self.db = db  # Database session for fetching metric-specific models
         self.organization_id = organization_id  # For secure model lookups
+        self._conversation_history: Optional[ConversationHistory] = None
 
     @staticmethod
     def _get_config_value(
