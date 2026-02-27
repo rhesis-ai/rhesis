@@ -55,13 +55,12 @@ Stricter type safety across test sets:
 - Updated vulnerable dependencies (cryptography, pillow, fastmcp, redis, langgraph-checkpoint, marshmallow, virtualenv, mammoth, langchain-core)
 - Added Polyphemus integration with service delegation tokens and access control request/grant workflow
 - Implemented conversation-based tracing across SDK, backend, and frontend with `trace_id` linking
-- Added UI improvements for conversation traces: turn navigation, edge labels, and resizable trace detail drawer
 - Enforced `test_set_type` requirement on test set creation and type-matching when assigning tests
 
 ### Frontend Highlights
 - Added Polyphemus access request modal, model card UI states, and Polyphemus provider icon/logo
 - Improved trace UI with conversation tracing support: conversation icon, type filter buttons, Conversation View tab, and turn navigation
-- Enhanced trace graph view with turn labels on edges, progressive agent invocation count, and improved edge routing
+- Enhanced trace graph view with turn labels on edges, progressive agent invocation count, improved edge routing, and resizable trace detail drawer
 - Fixed security vulnerabilities in frontend transitive dependencies
 
 ### SDK Highlights
@@ -84,6 +83,7 @@ This release includes the following component versions:
 - **Backend 0.6.4**
 - **Frontend 0.6.5**
 - **SDK 0.6.5**
+- **Polyphemus 0.2.5** (no changes in this release)
 
 ### Summary
 
