@@ -17,6 +17,8 @@ class TestConfiguration(BaseModel):
     instructions: str = ""  # Optional - how Penelope should conduct the test
     restrictions: str = ""  # Optional - forbidden behaviors for the target
     scenario: str = ""  # Optional - contextual framing for the test
+    max_turns: Optional[int] = None  # Maximum conversation turns (default: 10)
+    min_turns: Optional[int] = None  # Minimum turns before early stopping
 
 
 class Test(BaseEntity):
@@ -36,6 +38,8 @@ class Test(BaseEntity):
     instructions: Optional[str] = None
     restrictions: Optional[str] = None
     scenario: Optional[str] = None
+    max_turns: Optional[int] = None
+    min_turns: Optional[int] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -51,7 +55,14 @@ class Test(BaseEntity):
         # If test_configuration already provided, use it and remove separate fields
         if "test_configuration" in data and data["test_configuration"] is not None:
             # Remove the separate fields if they exist
-            for field in ["goal", "instructions", "restrictions", "scenario"]:
+            for field in [
+                "goal",
+                "instructions",
+                "restrictions",
+                "scenario",
+                "max_turns",
+                "min_turns",
+            ]:
                 data.pop(field, None)
             return data
 
@@ -64,9 +75,21 @@ class Test(BaseEntity):
                 "restrictions": data.get("restrictions", ""),
                 "scenario": data.get("scenario", ""),
             }
+            # Include turn parameters if provided
+            if data.get("max_turns") is not None:
+                config_data["max_turns"] = data["max_turns"]
+            if data.get("min_turns") is not None:
+                config_data["min_turns"] = data["min_turns"]
             data["test_configuration"] = config_data
             # Remove the separate fields
-            for field in ["goal", "instructions", "restrictions", "scenario"]:
+            for field in [
+                "goal",
+                "instructions",
+                "restrictions",
+                "scenario",
+                "max_turns",
+                "min_turns",
+            ]:
                 data.pop(field, None)
 
         return data
