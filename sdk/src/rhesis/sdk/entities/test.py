@@ -21,6 +21,7 @@ class TestConfiguration(BaseModel):
     min_turns: Optional[int] = None  # Minimum turns before early stopping
 
 
+
 class Test(BaseEntity):
     endpoint = ENDPOINT
     _push_required_fields: ClassVar[tuple[str, ...]] = ("category", "behavior")
@@ -149,6 +150,16 @@ class Test(BaseEntity):
         if isinstance(v, dict):
             return v.get("type_value")
         return v
+
+    def model_dump(self, **kwargs):
+        """Exclude None turn params from test_configuration."""
+        d = super().model_dump(**kwargs)
+        config = d.get("test_configuration")
+        if isinstance(config, dict):
+            for key in ("max_turns", "min_turns"):
+                if key in config and config[key] is None:
+                    del config[key]
+        return d
 
     @handle_http_errors
     def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:

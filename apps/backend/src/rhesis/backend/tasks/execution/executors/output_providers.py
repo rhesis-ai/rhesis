@@ -122,7 +122,7 @@ class MultiTurnOutput(OutputProvider):
         scenario = test_config.get("scenario")
         restrictions = test_config.get("restrictions")
         context = test_config.get("context")
-        max_turns = test_config.get("max_turns", 10)
+        max_turns = test_config.get("max_turns") or 10
         min_turns = test_config.get("min_turns")
 
         # Reuse existing PenelopeAgent and BackendEndpointTarget
