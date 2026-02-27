@@ -115,10 +115,15 @@ class BackendSyncMixin:
         config = asdict(metric_config)
         config = sdk_config_to_backend_config(config)
 
-        response = client.send_request(Endpoints.METRICS, Methods.POST, config)
-        if response and isinstance(response, dict) and "id" in response:
-            self.id = response["id"]
-            self.config.id = response["id"]
+        if self.id is not None:
+            response = client.send_request(
+                Endpoints.METRICS, Methods.PUT, config, url_params=self.id
+            )
+        else:
+            response = client.send_request(Endpoints.METRICS, Methods.POST, config)
+            if response and isinstance(response, dict) and "id" in response:
+                self.id = response["id"]
+                self.config.id = response["id"]
 
     @classmethod
     def pull(cls: type[T], name: Optional[str] = None, nano_id: Optional[str] = None) -> T:

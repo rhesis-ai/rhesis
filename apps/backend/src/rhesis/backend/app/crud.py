@@ -2232,7 +2232,10 @@ def get_metrics(
 
 
 def _preprocess_metric_data(
-    db: Session, metric: schemas.MetricCreate, organization_id: str, user_id: str
+    db: Session,
+    metric: Union[schemas.MetricCreate, schemas.MetricUpdate],
+    organization_id: str,
+    user_id: str,
 ) -> Dict[str, Any]:
     """Preprocess metric data from SDK to convert string types to IDs."""
     from rhesis.backend.app.constants import EntityType
@@ -2240,8 +2243,12 @@ def _preprocess_metric_data(
     from rhesis.backend.logging import logger
 
     try:
-        # Convert to dict
-        metric_dict = metric.model_dump() if hasattr(metric, "model_dump") else metric.dict()
+        # Convert to dict, excluding unset fields for updates
+        is_update = isinstance(metric, schemas.MetricUpdate)
+        if hasattr(metric, "model_dump"):
+            metric_dict = metric.model_dump(exclude_unset=is_update)
+        else:
+            metric_dict = metric.dict(exclude_unset=is_update)
     except Exception as e:
         logger.error(f"Failed to convert metric to dict: {e}")
         raise
@@ -2345,7 +2352,8 @@ def update_metric(
     user_id: str = None,
 ) -> Optional[models.Metric]:
     """Update a metric with optimized approach - no session variables needed."""
-    return update_item(db, models.Metric, metric_id, metric, organization_id, user_id)
+    metric_data = _preprocess_metric_data(db, metric, organization_id, user_id)
+    return update_item(db, models.Metric, metric_id, metric_data, organization_id, user_id)
 
 
 def delete_metric(

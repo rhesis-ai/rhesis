@@ -103,6 +103,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         metric_type: Optional[Union[str, MetricType]] = None,
         metric_scope: Optional[List[Union[str, MetricScope]]] = None,
         model: Optional[Union[BaseLLM, str]] = None,
+        id: Optional[str] = None,
         **kwargs,
     ):
         """
@@ -121,7 +122,9 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             name: Unique name for this metric.
             description: Description of what this metric measures.
             metric_type: Type of metric (defaults to CONVERSATIONAL).
+            metric_scope: Scope(s) where this metric applies.
             model: Language model to use for evaluation.
+            id: ID from backend when pulled.
             **kwargs: Additional keyword arguments.
 
         Raises:
@@ -153,6 +156,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             metric_scope=metric_scope,
             score_type=SCORE_TYPE,
             class_name=self.__class__.__name__,
+            id=id,
         )
         # Numeric fields are automatically initialized by ConversationalJudge parent
         super().__init__(config=self.config, model=model)
