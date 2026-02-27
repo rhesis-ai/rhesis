@@ -279,14 +279,15 @@ class TestTestSetExecution:
             assert result["task_id"] == "task_id_123"
 
             # Verify all mocks were called
+            # The function uses current_user.organization_id, not the passed-in test_org_id
             mock_resolve_test_set.assert_called_once_with(
-                str(test_set.id), test_db, organization_id=test_org_id
+                str(test_set.id), test_db, organization_id=str(user.organization_id)
             )
             mock_get_endpoint.assert_called_once_with(
                 test_db,
                 endpoint_id=endpoint.id,
-                organization_id=test_org_id,
-                user_id=authenticated_user_id,
+                organization_id=str(user.organization_id),
+                user_id=str(user.id),
             )
             mock_validate_access.assert_called_once_with(user, test_set, endpoint)
             mock_create_config.assert_called_once_with(
