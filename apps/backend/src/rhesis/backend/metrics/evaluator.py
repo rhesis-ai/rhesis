@@ -19,6 +19,7 @@ from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
+from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 
 # Use inline factory creation to avoid circular imports
@@ -141,6 +142,7 @@ class MetricEvaluator:
         context: List[str],
         metrics: List[Union[Dict[str, Any], MetricConfig, MetricModel]],
         max_workers: int = 5,
+        conversation_history: Optional[ConversationHistory] = None,
     ) -> Dict[str, Any]:
         """
         Compute metrics using the configured backends in parallel.
@@ -176,6 +178,9 @@ class MetricEvaluator:
         Returns:
             Dictionary containing scores and details for each metric
         """
+        # Store conversation history for conversational metrics
+        self._conversation_history = conversation_history
+
         if not metrics:
             logger.warning("No metrics provided for evaluation")
             return {}
@@ -892,6 +897,10 @@ class MetricEvaluator:
             kwargs["expected_output"] = expected_output
         if "context" in params:
             kwargs["context"] = context
+        if "conversation_history" in params and self._conversation_history is not None:
+            kwargs["conversation_history"] = self._conversation_history
+        if "goal" in params:
+            kwargs["goal"] = input_text
 
         logger.debug(f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}")
 
