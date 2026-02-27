@@ -3,11 +3,12 @@ SendGrid v3 API client for sending emails with dynamic templates.
 """
 
 import os
+import re
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Tuple
 
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+from sendgrid.helpers.mail import Email, Mail
 
 from rhesis.backend.logging.rhesis_logger import logger
 
@@ -21,6 +22,32 @@ class SendGridClient:
 
         if not self.is_configured:
             logger.warning("SendGrid API key not configured. Dynamic template emails disabled.")
+
+    @staticmethod
+    def _parse_email_address(email_string: str) -> Tuple[str, Optional[str]]:
+        """
+        Parse RFC822 email format into email address and optional name.
+
+        Handles formats like:
+        - "Name" <email@example.com>
+        - Name <email@example.com>
+        - email@example.com
+
+        Args:
+            email_string: Email string in various formats
+
+        Returns:
+            Tuple of (email_address, name or None)
+        """
+        # Match "Name" <email> or Name <email>
+        match = re.match(r'^"?([^"<]+)"?\s*<([^>]+)>$', email_string.strip())
+        if match:
+            name = match.group(1).strip()
+            email = match.group(2).strip()
+            return email, name
+
+        # Plain email address
+        return email_string.strip(), None
 
     def send_scheduled_dynamic_template(
         self,
@@ -61,8 +88,12 @@ class SendGridClient:
             )
             send_at_timestamp = int(send_at_time.timestamp())
 
+            # Parse from_email to handle RFC822 format ("Name" <email>)
+            from_email_addr, from_name = self._parse_email_address(from_email)
+            from_email_obj = Email(from_email_addr, from_name)
+
             message = Mail(
-                from_email=from_email,
+                from_email=from_email_obj,
                 to_emails=recipient_email,
                 subject=subject,
             )
