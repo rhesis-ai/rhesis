@@ -380,7 +380,9 @@ class PenelopeAgent:
             # Check global execution limit first (most critical for preventing infinite loops)
             MaxToolExecutionsCondition(self.max_tool_executions),
             MaxIterationsCondition(self.max_iterations),
-            GoalAchievedCondition(instructions=instructions),  # Will be updated with progress
+            GoalAchievedCondition(
+                instructions=instructions, max_iterations=self.max_iterations
+            ),  # Will be updated with progress
         ]
 
         if self.timeout_seconds:

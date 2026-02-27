@@ -98,16 +98,27 @@ class TimeoutCondition(StoppingCondition):
 class GoalAchievedCondition(StoppingCondition):
     """Stop when goal is achieved or determined impossible."""
 
-    def __init__(self, result: Optional["MetricResult"] = None, instructions: Optional[str] = None):
+    # Fraction of max_iterations that must complete before goal-achieved early stop
+    EARLY_STOP_THRESHOLD = 0.8
+
+    def __init__(
+        self,
+        result: Optional["MetricResult"] = None,
+        instructions: Optional[str] = None,
+        max_iterations: Optional[int] = None,
+    ):
         """
         Initialize with SDK MetricResult.
 
         Args:
             result: Optional initial MetricResult
             instructions: Optional test instructions to check for minimum turn requirements
+            max_iterations: Maximum iterations configured for the test. Used to prevent
+                early stopping before a meaningful fraction of turns has been completed.
         """
         self.result = result
         self.instructions = instructions
+        self.max_iterations = max_iterations
         self._min_turns_required = self._extract_min_turns(instructions) if instructions else None
 
     def _extract_min_turns(self, instructions: str) -> Optional[int]:
@@ -158,9 +169,31 @@ class GoalAchievedCondition(StoppingCondition):
         """Update with new SDK evaluation result."""
         self.result = result
 
+    def _get_min_turns_before_stop(self) -> int:
+        """
+        Compute the minimum number of turns before early stopping is allowed.
+
+        Priority:
+        1. Explicit turn requirement from instructions (e.g. "execute 5 turns")
+        2. Fraction of max_iterations (EARLY_STOP_THRESHOLD, default 80%)
+        3. Fallback to 1 (no meaningful floor)
+
+        Returns:
+            Minimum number of turns before early stopping
+        """
+        if self._min_turns_required is not None:
+            return self._min_turns_required
+        if self.max_iterations is not None:
+            return max(1, int(self.max_iterations * self.EARLY_STOP_THRESHOLD))
+        return 0
+
     def should_stop(self, state: TestState) -> tuple[bool, str]:
         """
         Check if we should stop based on SDK evaluation.
+
+        Early stopping (goal achieved or impossible) is only allowed after
+        completing a meaningful fraction of max_iterations, ensuring the
+        agent exercises the conversation fully.
 
         Note: This accesses the MetricResult object directly (which has .score and .details).
         This is different from the flattened metrics in TestResult.metrics (output format).
@@ -168,30 +201,24 @@ class GoalAchievedCondition(StoppingCondition):
         if not self.result:
             return False, ""
 
-        # CRITICAL: Check minimum turn requirement FIRST
-        # Even if the goal metric says "is_successful", we must enforce turn requirements
-        if self._min_turns_required is not None:
-            current_turns = len(state.turns)
-            if current_turns < self._min_turns_required:
-                # Not enough turns yet - cannot stop even if goal appears achieved
-                logger.debug(
-                    f"Turn requirement not met: {current_turns}/{self._min_turns_required} turns. "
-                    "Continuing test execution."
-                )
-                return False, ""
+        current_turns = len(state.turns)
+        min_turns = self._get_min_turns_before_stop()
+
+        # Enforce minimum turn requirement before any early stopping
+        if current_turns < min_turns:
+            logger.debug(
+                f"Early stop blocked: {current_turns}/{min_turns} turns completed. "
+                "Continuing test execution."
+            )
+            return False, ""
 
         # Check if goal achieved (from SDK MetricResult.details)
         if self.result.details.get("is_successful", False):
             reason = self.result.details.get("reason", "Goal achieved")
             return True, f"Goal achieved: {reason}"
 
-        # Check if goal is impossible (Penelope's stopping logic)
-        # Give up after 5+ tool executions with very low score
-        if (
-            len(state.turns) >= 5
-            and isinstance(self.result.score, (int, float))
-            and self.result.score < 0.3
-        ):
+        # Check if goal is impossible (very low score after sufficient attempts)
+        if isinstance(self.result.score, (int, float)) and self.result.score < 0.3:
             reason = self.result.details.get("reason", "Low score after multiple attempts")
             return True, f"Goal determined impossible: {reason}"
 
