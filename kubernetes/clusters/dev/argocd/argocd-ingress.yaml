@@ -1,0 +1,23 @@
+# TODO: Update the host below with the actual domain once cluster and DNS are in place.
+# This ingress exposes the ArgoCD dashboard UI. It is safe to keep as-is —
+# an unresolved hostname simply means no traffic will reach it.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-ingress
+  namespace: argocd
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: argocd.dev.rhesis.ai
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80
