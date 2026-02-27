@@ -8,6 +8,74 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.6.6] - 2026-02-26
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.5**
+- **Frontend 0.6.6**
+- **SDK 0.6.6**
+- **Polyphemus 0.2.6**
+
+### Summary
+
+This release introduces **Polyphemus access control with delegation tokens**, **conversation-based tracing for multi-turn interactions**, and **test set type enforcement** across the platform. It also addresses multiple security vulnerabilities across all components.
+
+### Featured Capabilities
+
+**Polyphemus Access Control**
+
+Secure, governed access to Polyphemus models:
+
+- **Request/Grant Workflow**: Users can request access to Polyphemus, admins can grant or revoke it
+- **Delegation Tokens**: Service-level delegation tokens for secure Polyphemus authentication
+- **Frontend UI**: Access request modal and model card UI states for clear visibility into access status
+- **Rate Limiting**: Added rate limiting to the Polyphemus service to prevent abuse
+
+**Conversation-Based Tracing**
+
+End-to-end observability for multi-turn conversations:
+
+- **Shared Trace IDs**: Multi-turn conversation interactions are linked under a shared `trace_id`
+- **Conversation View Tab**: Dedicated UI tab for exploring conversation traces
+- **Turn Navigation**: Navigate between turns directly within the trace detail view
+- **Enhanced Graph View**: Turn labels on edges, progressive agent invocation counts, and improved edge routing
+
+**Test Set Type Enforcement**
+
+Stricter type safety across test sets:
+
+- **Required on Creation**: `test_set_type` is now required when creating test sets via backend, frontend, and SDK
+- **Type-Matching Validation**: Tests can only be assigned to test sets of a matching type
+- **Consistent Enforcement**: Applied uniformly across all interfaces
+
+### Backend Highlights
+- Mitigated OAuth callback URL host header poisoning vulnerability
+- Updated vulnerable dependencies (cryptography, pillow, fastmcp, redis, langgraph-checkpoint, marshmallow, virtualenv, mammoth, langchain-core)
+- Added Polyphemus integration with service delegation tokens and access control request/grant workflow
+- Implemented conversation-based tracing across SDK, backend, and frontend with `trace_id` linking
+- Added UI improvements for conversation traces: turn navigation, edge labels, and resizable trace detail drawer
+- Enforced `test_set_type` requirement on test set creation and type-matching when assigning tests
+
+### Frontend Highlights
+- Added Polyphemus access request modal, model card UI states, and Polyphemus provider icon/logo
+- Improved trace UI with conversation tracing support: conversation icon, type filter buttons, Conversation View tab, and turn navigation
+- Enhanced trace graph view with turn labels on edges, progressive agent invocation count, and improved edge routing
+- Fixed security vulnerabilities in frontend transitive dependencies
+
+### SDK Highlights
+- Enhanced Polyphemus integration with access control and delegation tokens
+- Improved LLM error handling with retries, logging, and fallback mechanisms
+- Added conversation-based tracing for multi-turn interactions
+- Migrated from python-jose to PyJWT and updated dependencies to address security vulnerabilities
+
+### Polyphemus Highlights
+- Added rate limiting to the Polyphemus service
+- Implemented access control and delegation tokens with a request/grant workflow and frontend UI
+- Deployed vLLM to Vertex AI with GCP credential caching and retry logic
+- Migrated from python-jose to PyJWT and updated dependencies to resolve security vulnerabilities
+
 ## [0.6.4] - 2026-02-12
 
 ### Platform Release
