@@ -21,6 +21,7 @@ from rhesis.backend.app.services.organization import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.notifications import email_service
 
 router = APIRouter(
@@ -182,30 +183,42 @@ async def initialize_organization_data(
 
         # Send Day 1 email (scheduled for 23h 59min from now)
         try:
-            email_service.send_day_1_email(
+            success = email_service.send_day_1_email(
                 recipient_email=current_user.email,
                 recipient_name=current_user.name or current_user.given_name,
             )
-        except Exception as email_error:
-            print(f"⚠ Warning: Failed to schedule Day 1 email: {email_error}")
+            if not success:
+                logger.warning(
+                    f"Day 1 email not sent for {current_user.email} (check configuration)"
+                )
+        except Exception:
+            logger.exception(f"Failed to schedule Day 1 email for {current_user.email}")
 
         # Send Day 2 email (scheduled for 48h from now)
         try:
-            email_service.send_day_2_email(
+            success = email_service.send_day_2_email(
                 recipient_email=current_user.email,
                 recipient_name=current_user.name or current_user.given_name,
             )
-        except Exception as email_error:
-            print(f"⚠ Warning: Failed to schedule Day 2 email: {email_error}")
+            if not success:
+                logger.warning(
+                    f"Day 2 email not sent for {current_user.email} (check configuration)"
+                )
+        except Exception:
+            logger.exception(f"Failed to schedule Day 2 email for {current_user.email}")
 
         # Send Day 3 email (scheduled for 71h 59min from now)
         try:
-            email_service.send_day_3_email(
+            success = email_service.send_day_3_email(
                 recipient_email=current_user.email,
                 recipient_name=current_user.name or current_user.given_name,
             )
-        except Exception as email_error:
-            print(f"⚠ Warning: Failed to schedule Day 3 email: {email_error}")
+            if not success:
+                logger.warning(
+                    f"Day 3 email not sent for {current_user.email} (check configuration)"
+                )
+        except Exception:
+            logger.exception(f"Failed to schedule Day 3 email for {current_user.email}")
 
         # Transaction commit is handled by the session context manager
 
