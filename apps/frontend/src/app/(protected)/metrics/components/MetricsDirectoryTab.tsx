@@ -868,126 +868,68 @@ export default function MetricsDirectoryTab({
         {filteredMetrics
           .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
           .map(metric => {
-          const assignedBehaviors = activeBehaviors.filter(b => {
-            if (!Array.isArray(metric.behaviors)) return false;
-            // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
-            const behaviorIds = metric.behaviors.map(behavior =>
-              typeof behavior === 'string' ? behavior : behavior.id
+            const assignedBehaviors = activeBehaviors.filter(b => {
+              if (!Array.isArray(metric.behaviors)) return false;
+              // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
+              const behaviorIds = metric.behaviors.map(behavior =>
+                typeof behavior === 'string' ? behavior : behavior.id
+              );
+              return behaviorIds.includes(b.id as string);
+            });
+            const behaviorNames = assignedBehaviors.map(
+              b => b.name || 'Unnamed Behavior'
             );
-            return behaviorIds.includes(b.id as string);
-          });
-          const behaviorNames = assignedBehaviors.map(
-            b => b.name || 'Unnamed Behavior'
-          );
 
-          return (
-            <Box
-              key={metric.id}
-              sx={{
-                position: 'relative',
-                ...(assignMode && {
-                  cursor: 'pointer',
-                  transition: theme.transitions.create(
-                    ['transform', 'box-shadow'],
-                    {
-                      duration: theme.transitions.duration.short,
-                    }
-                  ),
-                  '&:hover': {
-                    transform: `translateY(-${theme.spacing(0.5)})`,
-                  },
-                  '&:active': {
-                    transform: `translateY(-${theme.spacing(0.25)})`,
-                  },
-                }),
-              }}
-              onClick={
-                assignMode
-                  ? () => {
-                      setSelectedMetric(metric);
-                      setAssignDialogOpen(true);
-                    }
-                  : undefined
-              }
-            >
+            return (
               <Box
+                key={metric.id}
                 sx={{
-                  position: 'absolute',
-                  top: 8,
-                  right: 8,
-                  display: 'flex',
-                  gap: 1,
-                  zIndex: 1,
-                }}
-              >
-                {/* Only show detail button for rhesis and custom metrics */}
-                {(metric.backend_type?.type_value?.toLowerCase() === 'rhesis' ||
-                  metric.backend_type?.type_value?.toLowerCase() ===
-                    'custom') && (
-                  <IconButton
-                    size="small"
-                    onClick={e => {
-                      if (assignMode) e.stopPropagation();
-                      handleMetricDetail(metric.id);
-                    }}
-                    sx={{
-                      padding: theme.spacing(0.25),
-                      '& .MuiSvgIcon-root': {
-                        fontSize:
-                          theme?.typography?.helperText?.fontSize || '0.75rem',
-                      },
-                    }}
-                  >
-                    <OpenInNewIcon fontSize="inherit" />
-                  </IconButton>
-                )}
-                <IconButton
-                  size="small"
-                  onClick={e => {
-                    if (assignMode) e.stopPropagation();
-                    setSelectedMetric(metric);
-                    setAssignDialogOpen(true);
-                  }}
-                  sx={{
-                    padding: theme => theme.spacing(0.25),
-                    '& .MuiSvgIcon-root': {
-                      fontSize:
-                        theme?.typography?.helperText?.fontSize || '0.75rem',
+                  position: 'relative',
+                  ...(assignMode && {
+                    cursor: 'pointer',
+                    transition: theme.transitions.create(
+                      ['transform', 'box-shadow'],
+                      {
+                        duration: theme.transitions.duration.short,
+                      }
+                    ),
+                    '&:hover': {
+                      transform: `translateY(-${theme.spacing(0.5)})`,
                     },
+                    '&:active': {
+                      transform: `translateY(-${theme.spacing(0.25)})`,
+                    },
+                  }),
+                }}
+                onClick={
+                  assignMode
+                    ? () => {
+                        setSelectedMetric(metric);
+                        setAssignDialogOpen(true);
+                      }
+                    : undefined
+                }
+              >
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    display: 'flex',
+                    gap: 1,
+                    zIndex: 1,
                   }}
                 >
-                  <AddIcon fontSize="inherit" />
-                </IconButton>
-                {/* Duplicate button for rhesis and custom metrics */}
-                {(metric.backend_type?.type_value?.toLowerCase() === 'rhesis' ||
-                  metric.backend_type?.type_value?.toLowerCase() ===
-                    'custom') && (
-                  <IconButton
-                    size="small"
-                    onClick={e => {
-                      e.stopPropagation();
-                      handleDuplicateMetric(metric);
-                    }}
-                    sx={{
-                      padding: theme.spacing(0.25),
-                      '& .MuiSvgIcon-root': {
-                        fontSize:
-                          theme?.typography?.helperText?.fontSize || '0.75rem',
-                      },
-                    }}
-                  >
-                    <ContentCopyIcon fontSize="inherit" />
-                  </IconButton>
-                )}
-                {/* Only show delete button for unassigned custom metrics */}
-                {assignedBehaviors.length === 0 &&
-                  metric.backend_type?.type_value?.toLowerCase() ===
-                    'custom' && (
+                  {/* Only show detail button for rhesis and custom metrics */}
+                  {(metric.backend_type?.type_value?.toLowerCase() ===
+                    'rhesis' ||
+                    metric.backend_type?.type_value?.toLowerCase() ===
+                      'custom') && (
                     <IconButton
                       size="small"
                       onClick={e => {
-                        e.stopPropagation();
-                        handleDeleteMetric(metric.id, metric.name);
+                        if (assignMode) e.stopPropagation();
+                        handleMetricDetail(metric.id);
                       }}
                       sx={{
                         padding: theme.spacing(0.25),
@@ -998,28 +940,90 @@ export default function MetricsDirectoryTab({
                         },
                       }}
                     >
-                      <DeleteIcon fontSize="inherit" />
+                      <OpenInNewIcon fontSize="inherit" />
                     </IconButton>
                   )}
+                  <IconButton
+                    size="small"
+                    onClick={e => {
+                      if (assignMode) e.stopPropagation();
+                      setSelectedMetric(metric);
+                      setAssignDialogOpen(true);
+                    }}
+                    sx={{
+                      padding: theme => theme.spacing(0.25),
+                      '& .MuiSvgIcon-root': {
+                        fontSize:
+                          theme?.typography?.helperText?.fontSize || '0.75rem',
+                      },
+                    }}
+                  >
+                    <AddIcon fontSize="inherit" />
+                  </IconButton>
+                  {/* Duplicate button for rhesis and custom metrics */}
+                  {(metric.backend_type?.type_value?.toLowerCase() ===
+                    'rhesis' ||
+                    metric.backend_type?.type_value?.toLowerCase() ===
+                      'custom') && (
+                    <IconButton
+                      size="small"
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleDuplicateMetric(metric);
+                      }}
+                      sx={{
+                        padding: theme.spacing(0.25),
+                        '& .MuiSvgIcon-root': {
+                          fontSize:
+                            theme?.typography?.helperText?.fontSize ||
+                            '0.75rem',
+                        },
+                      }}
+                    >
+                      <ContentCopyIcon fontSize="inherit" />
+                    </IconButton>
+                  )}
+                  {/* Only show delete button for unassigned custom metrics */}
+                  {assignedBehaviors.length === 0 &&
+                    metric.backend_type?.type_value?.toLowerCase() ===
+                      'custom' && (
+                      <IconButton
+                        size="small"
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleDeleteMetric(metric.id, metric.name);
+                        }}
+                        sx={{
+                          padding: theme.spacing(0.25),
+                          '& .MuiSvgIcon-root': {
+                            fontSize:
+                              theme?.typography?.helperText?.fontSize ||
+                              '0.75rem',
+                          },
+                        }}
+                      >
+                        <DeleteIcon fontSize="inherit" />
+                      </IconButton>
+                    )}
+                </Box>
+                <MetricCard
+                  type={
+                    isValidMetricType(metric.metric_type?.type_value)
+                      ? metric.metric_type.type_value
+                      : undefined
+                  }
+                  title={metric.name}
+                  description={metric.description}
+                  backend={metric.backend_type?.type_value}
+                  metricType={metric.metric_type?.type_value}
+                  scoreType={metric.score_type}
+                  metricScope={metric.metric_scope}
+                  usedIn={behaviorNames}
+                  showUsage={true}
+                />
               </Box>
-              <MetricCard
-                type={
-                  isValidMetricType(metric.metric_type?.type_value)
-                    ? metric.metric_type.type_value
-                    : undefined
-                }
-                title={metric.name}
-                description={metric.description}
-                backend={metric.backend_type?.type_value}
-                metricType={metric.metric_type?.type_value}
-                scoreType={metric.score_type}
-                metricScope={metric.metric_scope}
-                usedIn={behaviorNames}
-                showUsage={true}
-              />
-            </Box>
-          );
-        })}
+            );
+          })}
       </Box>
       {filteredMetrics.length > 0 && (
         <TablePagination
