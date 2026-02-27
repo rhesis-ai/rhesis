@@ -224,7 +224,7 @@ Configure these GitHub secrets for automated deployment:
 - `PROJECT_ID` - GCP project ID
 - `GCP_SA_KEY` - Service account key JSON
 - `GCP_SERVICE_ACCOUNT` - Service account email
-- `POLYPHEMUS_REGION` - Deployment region (e.g., us-central1)
+- `REGION` - Deployment region (e.g., us-central1)
 
 **Optional (for GCS model loading)**:
 - `POLYPHEMUS_MODEL_PATH` - GCS parent path to the model folder (e.g. `gs://your-bucket-name/cache` for `gs://.../cache/your-model-name`)
