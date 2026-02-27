@@ -2243,12 +2243,18 @@ def _preprocess_metric_data(
     from rhesis.backend.logging import logger
 
     try:
-        # Convert to dict, excluding unset fields for updates
+        # Convert to dict.  For updates exclude both unset and None-valued
+        # fields so that null values from the frontend don't overwrite existing
+        # data (mirrors how update_item handles Pydantic models).
         is_update = isinstance(metric, schemas.MetricUpdate)
         if hasattr(metric, "model_dump"):
-            metric_dict = metric.model_dump(exclude_unset=is_update)
+            metric_dict = metric.model_dump(
+                exclude_unset=is_update, exclude_none=is_update
+            )
         else:
-            metric_dict = metric.dict(exclude_unset=is_update)
+            metric_dict = metric.dict(
+                exclude_unset=is_update, exclude_none=is_update
+            )
     except Exception as e:
         logger.error(f"Failed to convert metric to dict: {e}")
         raise
@@ -2296,25 +2302,27 @@ def _preprocess_metric_data(
         if "metric_type" in metric_dict:
             del metric_dict["metric_type"]
 
-        # Set class_name based on score_type if not provided
-        if not metric_dict.get("class_name"):
-            score_type = metric_dict.get("score_type")
-            if score_type == "numeric":
-                metric_dict["class_name"] = "NumericJudge"
-            elif score_type == "categorical":
-                metric_dict["class_name"] = "CategoricalJudge"
+        # Only set defaults for creates, not updates
+        if not is_update:
+            # Set class_name based on score_type if not provided
+            if not metric_dict.get("class_name"):
+                score_type = metric_dict.get("score_type")
+                if score_type == "numeric":
+                    metric_dict["class_name"] = "NumericJudge"
+                elif score_type == "categorical":
+                    metric_dict["class_name"] = "CategoricalJudge"
 
-        # Ensure we have a status_id if not provided
-        if not metric_dict.get("status_id"):
-            status = get_or_create_status(
-                db=db,
-                name="Active",  # Default status
-                entity_type=EntityType.METRIC,
-                organization_id=organization_id,
-                user_id=user_id,
-                commit=False,
-            )
-            metric_dict["status_id"] = status.id
+            # Ensure we have a status_id if not provided
+            if not metric_dict.get("status_id"):
+                status = get_or_create_status(
+                    db=db,
+                    name="Active",  # Default status
+                    entity_type=EntityType.METRIC,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                    commit=False,
+                )
+                metric_dict["status_id"] = status.id
 
         return metric_dict
 
