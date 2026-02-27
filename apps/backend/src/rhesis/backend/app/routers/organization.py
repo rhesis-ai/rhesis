@@ -204,12 +204,12 @@ async def initialize_organization_data(
     # Schedule onboarding emails AFTER successful DB commit
     # Using a loop to avoid repetitive try/except blocks
     email_schedule = [
-        (1, email_service.send_day_1_email, "23h 59min"),
-        (2, email_service.send_day_2_email, "48h"),
-        (3, email_service.send_day_3_email, "71h 59min"),
+        (1, email_service.send_day_1_email),
+        (2, email_service.send_day_2_email),
+        (3, email_service.send_day_3_email),
     ]
 
-    for day, send_method, delay_desc in email_schedule:
+    for day, send_method in email_schedule:
         try:
             success = send_method(
                 recipient_email=current_user.email,
