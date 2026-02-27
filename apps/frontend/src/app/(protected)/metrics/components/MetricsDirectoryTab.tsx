@@ -19,6 +19,7 @@ import Divider from '@mui/material/Divider';
 import FormGroup from '@mui/material/FormGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
+import TablePagination from '@mui/material/TablePagination';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import CodeIcon from '@mui/icons-material/Code';
 import FunctionsIcon from '@mui/icons-material/Functions';
@@ -136,6 +137,10 @@ export default function MetricsDirectoryTab({
     React.useState<{ id: string; name: string } | null>(null);
   const [isDeletingMetric, setIsDeletingMetric] = React.useState(false);
 
+  // Pagination state
+  const [page, setPage] = React.useState(0);
+  const [rowsPerPage, setRowsPerPage] = React.useState(25);
+
   // Advanced filters popover state
   const [anchorEl, setAnchorEl] = React.useState<HTMLButtonElement | null>(
     null
@@ -150,6 +155,7 @@ export default function MetricsDirectoryTab({
       ...prev,
       [filterType]: value,
     }));
+    setPage(0);
   };
 
   // Popover handlers
@@ -178,6 +184,7 @@ export default function MetricsDirectoryTab({
       metricScope: [],
       behavior: [],
     }));
+    setPage(0);
   };
 
   // Filter metrics based on search and filter criteria
@@ -186,8 +193,10 @@ export default function MetricsDirectoryTab({
       // Search filter
       const searchMatch =
         !filters.search ||
-        metric.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        metric.description
+        (metric.name || '')
+          .toLowerCase()
+          .includes(filters.search.toLowerCase()) ||
+        (metric.description || '')
           .toLowerCase()
           .includes(filters.search.toLowerCase()) ||
         (metric.metric_type?.type_value || '')
@@ -275,6 +284,7 @@ export default function MetricsDirectoryTab({
       metricScope: [],
       behavior: [],
     });
+    setPage(0);
   };
 
   const handleMetricDetail = (metricType: string) => {
@@ -855,7 +865,9 @@ export default function MetricsDirectoryTab({
           mb: 4,
         }}
       >
-        {filteredMetrics.map(metric => {
+        {filteredMetrics
+          .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+          .map(metric => {
           const assignedBehaviors = activeBehaviors.filter(b => {
             if (!Array.isArray(metric.behaviors)) return false;
             // Check if behaviors is an array of strings (UUIDs) or BehaviorReference objects
@@ -1009,6 +1021,22 @@ export default function MetricsDirectoryTab({
           );
         })}
       </Box>
+      {filteredMetrics.length > 0 && (
+        <TablePagination
+          component="div"
+          count={filteredMetrics.length}
+          page={page}
+          onPageChange={(_event, newPage) => setPage(newPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={event => {
+            setRowsPerPage(parseInt(event.target.value, 10));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[25, 50, 100]}
+          labelRowsPerPage="Metrics per page:"
+          sx={{ mb: 2 }}
+        />
+      )}
       {/* Dialogs */}
       <DeleteModal
         open={deleteMetricDialogOpen}
