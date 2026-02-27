@@ -49,6 +49,7 @@ export class MetricsClient extends BaseApiClient {
         skip,
         limit: pageSize,
       });
+      if (response.data.length === 0) break;
       allData.push(...response.data);
       totalCount = response.pagination.totalCount;
       skip += pageSize;

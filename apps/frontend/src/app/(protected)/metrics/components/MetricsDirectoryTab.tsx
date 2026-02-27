@@ -554,6 +554,17 @@ export default function MetricsDirectoryTab({
   const filteredMetrics = getFilteredMetrics();
   const activeBehaviors = behaviors.filter(b => b.name && b.name.trim() !== '');
 
+  // Clamp page when list shrinks (e.g. after delete/duplicate)
+  React.useEffect(() => {
+    const lastPage = Math.max(
+      0,
+      Math.ceil(filteredMetrics.length / rowsPerPage) - 1
+    );
+    if (page > lastPage) {
+      setPage(lastPage);
+    }
+  }, [filteredMetrics.length, rowsPerPage, page]);
+
   if (isLoading) {
     return (
       <Box
