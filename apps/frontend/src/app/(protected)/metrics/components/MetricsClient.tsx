@@ -138,7 +138,7 @@ export default function MetricsClientComponent({
           }),
           metricsClient.getMetrics({
             skip: 0,
-            limit: 100,
+            limit: 500,
             sort_by: 'created_at',
             sort_order: 'desc',
           }),
