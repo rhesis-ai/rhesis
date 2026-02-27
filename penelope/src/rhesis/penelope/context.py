@@ -334,6 +334,7 @@ class TestContext:
     restrictions: Optional[str] = None
     context: Dict[str, Any] = field(default_factory=dict)
     max_turns: int = 20
+    min_turns: Optional[int] = None
     max_tool_executions: Optional[int] = None
     timeout_seconds: Optional[float] = None
 
@@ -551,6 +552,7 @@ class TestState:
             "restrictions": self.context.restrictions,
             "context": self.context.context,
             "max_turns": self.context.max_turns,
+            "min_turns": self.context.min_turns,
         }
 
         # Build model info (if model provided)

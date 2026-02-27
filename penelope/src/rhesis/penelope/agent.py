@@ -364,15 +364,16 @@ class PenelopeAgent:
 
     def _create_stopping_conditions(
         self,
-        instructions: Optional[str] = None,
         max_turns: Optional[int] = None,
+        min_turns: Optional[int] = None,
     ) -> List[StoppingCondition]:
         """
         Create stopping conditions for the test.
 
         Args:
-            instructions: Optional test instructions to check for minimum turn requirements
             max_turns: Per-test max turns override. Falls back to agent default.
+            min_turns: Minimum turns before early stopping is allowed.
+                Overrides the default 80% threshold when set.
 
         Returns:
             List of StoppingCondition instances
@@ -383,7 +384,7 @@ class PenelopeAgent:
             MaxToolExecutionsCondition(self.max_tool_executions),
             MaxTurnsCondition(effective_max_turns),
             GoalAchievedCondition(
-                instructions=instructions, max_turns=effective_max_turns
+                max_turns=effective_max_turns, min_turns=min_turns
             ),  # Will be updated with progress
         ]
 
@@ -423,6 +424,7 @@ class PenelopeAgent:
         restrictions: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
         max_turns: Optional[int] = None,
+        min_turns: Optional[int] = None,
     ) -> TestResult:
         """
         Execute a multi-turn test.
@@ -448,6 +450,11 @@ class PenelopeAgent:
                 "Must not process illegal requests"
             context: Optional additional context/resources (metadata)
             max_turns: Override default max_turns for this test
+            min_turns: Minimum turns before early stopping is allowed.
+                When set, the agent will complete at least this many turns
+                before goal achievement or impossibility can trigger an early
+                stop. Cannot exceed max_turns. If not set, defaults to 80%
+                of max_turns.
 
         Returns:
             TestResult with complete test execution details
@@ -524,6 +531,7 @@ class PenelopeAgent:
             restrictions=restrictions,
             context=context or {},
             max_turns=max_turns or self.max_turns,
+            min_turns=min_turns,
             max_tool_executions=self.max_tool_executions,
         )
 
@@ -560,10 +568,8 @@ class PenelopeAgent:
 
         logger.info(f"=== AGENT: System prompt created, length: {len(system_prompt)} chars ===")
 
-        # Create stopping conditions (pass instructions for turn count validation)
-        conditions = self._create_stopping_conditions(
-            instructions=instructions, max_turns=max_turns
-        )
+        # Create stopping conditions
+        conditions = self._create_stopping_conditions(max_turns=max_turns, min_turns=min_turns)
 
         # Main agent loop
         instructions_length = len(instructions) if instructions else 0

@@ -123,16 +123,18 @@ Penelope uses a goal achievement metric to evaluate progress after each turn. To
 
 This prevents premature stopping when the goal appears achieved after only a few exchanges, which would miss important conversational dynamics.
 
-You can also enforce a specific minimum through test instructions:
+You can override the default 80% threshold with an explicit `min_turns` parameter:
 
 <CodeBlock filename="min_turns.py" language="python">
 {`result = agent.execute_test(
     target=target,
     goal="Test multi-turn context retention",
-    instructions="Execute at least 5 turns before evaluating the goal.",
     max_turns=10,
+    min_turns=5,  # Allow early stopping after 5 turns instead of 8
 )`}
 </CodeBlock>
+
+If `min_turns` exceeds `max_turns`, it is automatically capped to `max_turns`.
 
 <Callout type="info">
   **Choosing Max Turns:** Start with 10 for simple tests. Use 15-20 for
@@ -253,6 +255,7 @@ result = agent.execute_test(
     instructions="Detailed instructions...",
     context={"environment": "staging"},
     max_turns=25,  # Test-specific override
+    min_turns=15,  # Early stop allowed after 15 turns
 )`}
 
 </CodeBlock>

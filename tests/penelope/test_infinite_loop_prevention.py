@@ -123,7 +123,7 @@ class TestGlobalExecutionLimit:
         assert should_stop is True
         assert "max_tool_executions=100" in reason
         assert "export PENELOPE_MAX_TOOL_EXECUTIONS=100" in reason
-        assert "⚠️  Warning" in reason
+        assert "Warning" in reason
 
     def _create_execution(self, tool_name: str) -> ToolExecution:
         """Helper to create a ToolExecution."""
