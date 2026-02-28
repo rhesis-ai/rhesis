@@ -558,10 +558,14 @@ export default function MultiTurnConfigFields({
                 variant="body2"
                 sx={theme => ({ minWidth: theme.spacing(9) })}
               >
-                Min: {config.min_turns ?? Math.ceil((config.max_turns || 10) * 0.8)}
+                Min:{' '}
+                {config.min_turns ?? Math.ceil((config.max_turns || 10) * 0.8)}
               </Typography>
               <Slider
-                value={[config.min_turns ?? Math.ceil((config.max_turns || 10) * 0.8), config.max_turns || 10]}
+                value={[
+                  config.min_turns ?? Math.ceil((config.max_turns || 10) * 0.8),
+                  config.max_turns || 10,
+                ]}
                 onChange={(_, newValue) => {
                   const [newMin, newMax] = newValue as number[];
                   setConfig(prev => ({
