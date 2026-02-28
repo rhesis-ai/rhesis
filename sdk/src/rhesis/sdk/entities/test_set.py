@@ -731,7 +731,12 @@ class TestSet(BaseEntity):
 
     @handle_http_errors
     def _push_update(self) -> Optional[Dict[str, Any]]:
-        """Update an existing test set's metadata via PUT."""
+        """Update an existing test set's metadata via PUT.
+
+        Updates name, description, and short_description. Does not modify
+        test_set_type, tests, or metadata — use add_tests()/remove_tests()
+        to manage test associations.
+        """
         data = self.model_dump(mode="json", exclude_none=True)
         for field in self._update_exclude_fields:
             data.pop(field, None)
