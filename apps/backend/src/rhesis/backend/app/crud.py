@@ -2248,13 +2248,9 @@ def _preprocess_metric_data(
         # data (mirrors how update_item handles Pydantic models).
         is_update = isinstance(metric, schemas.MetricUpdate)
         if hasattr(metric, "model_dump"):
-            metric_dict = metric.model_dump(
-                exclude_unset=is_update, exclude_none=is_update
-            )
+            metric_dict = metric.model_dump(exclude_unset=is_update, exclude_none=is_update)
         else:
-            metric_dict = metric.dict(
-                exclude_unset=is_update, exclude_none=is_update
-            )
+            metric_dict = metric.dict(exclude_unset=is_update, exclude_none=is_update)
     except Exception as e:
         logger.error(f"Failed to convert metric to dict: {e}")
         raise
