@@ -483,6 +483,12 @@ def _rows_to_test_data(
                 test_config["restrictions"] = row["restrictions"]
             if row.get("scenario"):
                 test_config["scenario"] = row["scenario"]
+            raw_min = row.get("min_turns")
+            if raw_min is not None and str(raw_min).strip():
+                test_config["min_turns"] = int(raw_min)
+            raw_max = row.get("max_turns")
+            if raw_max is not None and str(raw_max).strip():
+                test_config["max_turns"] = int(raw_max)
             if test_config:
                 test["test_configuration"] = test_config
 

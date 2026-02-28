@@ -32,7 +32,17 @@ class TestSetProperties(BaseModel):
 
 class TestSet(BaseEntity):
     endpoint: ClassVar[Endpoints] = ENDPOINT
-    _push_required_fields: ClassVar[tuple[str, ...]] = ("name", "test_set_type", "tests")
+    _push_required_fields: ClassVar[tuple[str, ...]] = ("name", "test_set_type")
+    _update_exclude_fields: ClassVar[tuple[str, ...]] = (
+        "tests",
+        "categories",
+        "topics",
+        "behaviors",
+        "test_count",
+        "test_set_type",
+        "metadata",
+        "id",
+    )
 
     id: Optional[str] = None
     tests: Optional[list[Test]] = None
@@ -418,9 +428,7 @@ class TestSet(BaseEntity):
             )
 
     @handle_http_errors
-    def add_tests(
-        self, tests: List[Union[Test, Dict[str, Any], str]]
-    ) -> Optional[Dict[str, Any]]:
+    def add_tests(self, tests: List[Union[Test, Dict[str, Any], str]]) -> Optional[Dict[str, Any]]:
         """Associate existing tests with this test set.
 
         Uses the bulk associate endpoint to link already-created tests
@@ -696,13 +704,14 @@ class TestSet(BaseEntity):
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the test set to the database.
 
-        Uses the bulk endpoint to create test set with tests.
+        If the test set has an ID, updates metadata via PUT.
+        Otherwise, creates a new test set with tests via the bulk POST endpoint.
 
         Returns:
             Dict containing the response from the API, or None if error occurred.
 
         Raises:
-            ValueError: If required fields are missing or tests lack category/behavior.
+            ValueError: If required fields are missing (creation only).
 
         Example:
             >>> test_set = TestSet(
@@ -713,7 +722,23 @@ class TestSet(BaseEntity):
             ... )
             >>> result = test_set.push()
             >>> print(f"Created test set with ID: {test_set.id}")
+            >>> test_set.name = "Updated Name"
+            >>> test_set.push()  # Updates via PUT
         """
+        if self.id is not None:
+            return self._push_update()
+        return self._push_create()
+
+    @handle_http_errors
+    def _push_update(self) -> Optional[Dict[str, Any]]:
+        """Update an existing test set's metadata via PUT."""
+        data = self.model_dump(mode="json", exclude_none=True)
+        for field in self._update_exclude_fields:
+            data.pop(field, None)
+        return self._update(self.id, data)
+
+    def _push_create(self) -> Optional[Dict[str, Any]]:
+        """Create a new test set via the bulk endpoint, with or without tests."""
         # Validate required fields
         missing_fields = [
             field for field in self._push_required_fields if getattr(self, field, None) is None
@@ -721,7 +746,7 @@ class TestSet(BaseEntity):
         if missing_fields:
             raise ValueError(f"Required fields for push: {', '.join(missing_fields)}")
 
-        # Validate that each test has required fields set (from Test._push_required_fields)
+        # Validate that each test has required fields set
         if self.tests:
             for i, test in enumerate(self.tests):
                 missing_test_fields = [
@@ -736,6 +761,8 @@ class TestSet(BaseEntity):
         # mode="json": Ensures enums are serialized as strings instead of enum objects
         # exclude_none=True: Excludes None values so backend uses defaults
         data = self.model_dump(mode="json", exclude_none=True)
+        # Bulk endpoint requires a tests list; default to empty when none provided
+        data.setdefault("tests", [])
 
         client = APIClient()
         response = client.send_request(
@@ -795,6 +822,8 @@ class TestSet(BaseEntity):
                 "instructions",
                 "restrictions",
                 "scenario",
+                "min_turns",
+                "max_turns",
             ]
 
         filepath = Path(filename)
@@ -828,11 +857,15 @@ class TestSet(BaseEntity):
                     row["instructions"] = cfg.instructions or ""
                     row["restrictions"] = cfg.restrictions or ""
                     row["scenario"] = cfg.scenario or ""
+                    row["min_turns"] = str(cfg.min_turns) if cfg.min_turns is not None else ""
+                    row["max_turns"] = str(cfg.max_turns) if cfg.max_turns is not None else ""
                 elif "goal" in fieldnames:
                     row["goal"] = ""
                     row["instructions"] = ""
                     row["restrictions"] = ""
                     row["scenario"] = ""
+                    row["min_turns"] = ""
+                    row["max_turns"] = ""
 
                 writer.writerow(row)
 
@@ -876,12 +909,17 @@ class TestSet(BaseEntity):
 
         # Add test configuration for multi-turn tests
         if test_obj.test_configuration:
-            test_data["test_configuration"] = {
+            config_dict: Dict[str, Any] = {
                 "goal": test_obj.test_configuration.goal,
                 "instructions": test_obj.test_configuration.instructions,
                 "restrictions": test_obj.test_configuration.restrictions,
                 "scenario": test_obj.test_configuration.scenario,
             }
+            if test_obj.test_configuration.min_turns is not None:
+                config_dict["min_turns"] = test_obj.test_configuration.min_turns
+            if test_obj.test_configuration.max_turns is not None:
+                config_dict["max_turns"] = test_obj.test_configuration.max_turns
+            test_data["test_configuration"] = config_dict
 
         # Add metadata if present
         if test_obj.metadata:
@@ -940,6 +978,16 @@ class TestSet(BaseEntity):
         instructions = entry.get("instructions", "")
         restrictions = entry.get("restrictions", "")
         scenario = entry.get("scenario", "")
+
+        # Extract turn configuration (may come from CSV as strings)
+        raw_min_turns = entry.get("min_turns")
+        raw_max_turns = entry.get("max_turns")
+        min_turns = (
+            int(raw_min_turns) if raw_min_turns is not None and str(raw_min_turns).strip() else None
+        )
+        max_turns = (
+            int(raw_max_turns) if raw_max_turns is not None and str(raw_max_turns).strip() else None
+        )
 
         # Skip empty entries - check if any meaningful field has content
         category = entry.get("category", "")
@@ -1000,6 +1048,10 @@ class TestSet(BaseEntity):
                 test_kwargs["restrictions"] = restrictions
             if str(scenario).strip():
                 test_kwargs["scenario"] = scenario
+            if min_turns is not None:
+                test_kwargs["min_turns"] = min_turns
+            if max_turns is not None:
+                test_kwargs["max_turns"] = max_turns
 
         return Test(**test_kwargs)
 

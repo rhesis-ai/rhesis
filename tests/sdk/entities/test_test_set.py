@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -1097,6 +1098,120 @@ class TestJsonlRoundTrip:
             os.unlink(json_path)
             os.unlink(jsonl_path)
 
+    def test_roundtrip_json_preserves_turn_config(self):
+        """Test JSON round-trip preserves min_turns and max_turns."""
+        test = Test(
+            category="Conversation",
+            topic="Turns",
+            behavior="Memory",
+            test_type=TestType.MULTI_TURN,
+            test_configuration=TestConfiguration(
+                goal="Test turn limits",
+                min_turns=3,
+                max_turns=8,
+            ),
+        )
+        test_set = TestSet(name="Turn Config", tests=[test])
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            test_set.to_json(temp_path)
+            imported = TestSet.from_json(temp_path, name="Turn Config")
+
+            assert len(imported.tests) == 1
+            cfg = imported.tests[0].test_configuration
+            assert cfg.min_turns == 3
+            assert cfg.max_turns == 8
+        finally:
+            os.unlink(temp_path)
+
+    def test_roundtrip_jsonl_preserves_turn_config(self):
+        """Test JSONL round-trip preserves min_turns and max_turns."""
+        test = Test(
+            category="Conversation",
+            topic="Turns",
+            behavior="Memory",
+            test_type=TestType.MULTI_TURN,
+            test_configuration=TestConfiguration(
+                goal="Test turn limits",
+                min_turns=2,
+                max_turns=15,
+            ),
+        )
+        test_set = TestSet(name="Turn Config", tests=[test])
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            test_set.to_jsonl(temp_path)
+            imported = TestSet.from_jsonl(temp_path, name="Turn Config")
+
+            assert len(imported.tests) == 1
+            cfg = imported.tests[0].test_configuration
+            assert cfg.min_turns == 2
+            assert cfg.max_turns == 15
+        finally:
+            os.unlink(temp_path)
+
+    def test_roundtrip_csv_preserves_turn_config(self):
+        """Test CSV round-trip preserves min_turns and max_turns."""
+        test = Test(
+            category="Conversation",
+            topic="Turns",
+            behavior="Memory",
+            test_type=TestType.MULTI_TURN,
+            test_configuration=TestConfiguration(
+                goal="Test turn limits",
+                min_turns=4,
+                max_turns=20,
+            ),
+        )
+        test_set = TestSet(name="Turn Config", tests=[test])
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            test_set.to_csv(temp_path)
+            imported = TestSet.from_csv(temp_path, name="Turn Config")
+
+            assert len(imported.tests) == 1
+            cfg = imported.tests[0].test_configuration
+            assert cfg.min_turns == 4
+            assert cfg.max_turns == 20
+        finally:
+            os.unlink(temp_path)
+
+    def test_roundtrip_csv_omits_none_turn_config(self):
+        """Test CSV round-trip with no turn config leaves fields as None."""
+        test = Test(
+            category="Conversation",
+            topic="Turns",
+            behavior="Memory",
+            test_type=TestType.MULTI_TURN,
+            test_configuration=TestConfiguration(
+                goal="Test without turns",
+            ),
+        )
+        test_set = TestSet(name="No Turns", tests=[test])
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            temp_path = f.name
+
+        try:
+            test_set.to_csv(temp_path)
+            imported = TestSet.from_csv(temp_path, name="No Turns")
+
+            assert len(imported.tests) == 1
+            cfg = imported.tests[0].test_configuration
+            assert cfg.min_turns is None
+            assert cfg.max_turns is None
+        finally:
+            os.unlink(temp_path)
+
 
 # --- Tests for TestSet push validation ---
 
@@ -1213,8 +1328,8 @@ class TestTestSetValidation:
 
         assert "name" in str(exc_info.value)
 
-    def test_push_raises_error_when_tests_missing(self):
-        """push() should raise ValueError when tests are missing."""
+    def test_push_raises_error_when_test_set_type_missing_no_tests(self):
+        """push() should raise ValueError when test_set_type is missing, even without tests."""
         test_set = TestSet(
             name="Test Set",
         )
@@ -1222,4 +1337,141 @@ class TestTestSetValidation:
         with pytest.raises(ValueError) as exc_info:
             test_set.push()
 
-        assert "tests" in str(exc_info.value)
+        assert "test_set_type" in str(exc_info.value)
+
+
+class TestTestSetPushUpdate:
+    """Tests for TestSet.push() update path (when id is set)."""
+
+    @patch("rhesis.sdk.entities.test_set.TestSet._update")
+    def test_push_with_id_sends_put(self, mock_update):
+        """push() on a test set with id should call _update (PUT)."""
+        mock_update.return_value = {"id": "abc-123", "name": "Updated"}
+        ts = TestSet(id="abc-123", name="Updated")
+        result = ts.push()
+
+        mock_update.assert_called_once()
+        call_args = mock_update.call_args
+        assert call_args[0][0] == "abc-123"
+        assert result is not None
+
+    @patch("rhesis.sdk.entities.test_set.TestSet._update")
+    def test_push_update_excludes_tests_and_readonly(self, mock_update):
+        """push() update should exclude read-only and separately-managed fields."""
+        mock_update.return_value = {"id": "abc-123", "name": "TS"}
+        ts = TestSet(
+            id="abc-123",
+            name="TS",
+            tests=[
+                Test(
+                    category="Safety",
+                    topic="Content",
+                    behavior="Compliance",
+                    prompt=Prompt(content="test"),
+                )
+            ],
+            categories=["Safety"],
+            topics=["Content"],
+            behaviors=["Compliance"],
+            test_count=1,
+            test_set_type=TestType.SINGLE_TURN,
+            metadata={"key": "value"},
+        )
+        ts.push()
+
+        payload = mock_update.call_args[0][1]
+        for field in TestSet._update_exclude_fields:
+            assert field not in payload, f"{field} should be excluded from update"
+
+    @patch("rhesis.sdk.entities.test_set.TestSet._update")
+    def test_push_update_excludes_none_values(self, mock_update):
+        """push() update should not send fields that are None."""
+        mock_update.return_value = {"id": "abc-123", "name": "TS"}
+        ts = TestSet(id="abc-123", name="TS")
+        ts.push()
+
+        payload = mock_update.call_args[0][1]
+        assert "description" not in payload
+        assert "short_description" not in payload
+
+    @patch("rhesis.sdk.entities.test_set.TestSet._update")
+    def test_push_update_sends_writable_fields(self, mock_update):
+        """push() update should include name, description, short_description."""
+        mock_update.return_value = {
+            "id": "abc-123",
+            "name": "New Name",
+            "description": "New Desc",
+            "short_description": "Short",
+        }
+        ts = TestSet(
+            id="abc-123",
+            name="New Name",
+            description="New Desc",
+            short_description="Short",
+        )
+        ts.push()
+
+        payload = mock_update.call_args[0][1]
+        assert payload["name"] == "New Name"
+        assert payload["description"] == "New Desc"
+        assert payload["short_description"] == "Short"
+
+    @patch("rhesis.sdk.entities.test_set.APIClient")
+    def test_push_without_id_uses_bulk_post(self, mock_client_cls):
+        """push() without id should POST to bulk endpoint."""
+        mock_client = MagicMock()
+        mock_client.send_request.return_value = {"id": "new-id"}
+        mock_client_cls.return_value = mock_client
+
+        ts = TestSet(
+            name="New TS",
+            test_set_type=TestType.SINGLE_TURN,
+            tests=[
+                Test(
+                    category="Safety",
+                    topic="Content",
+                    behavior="Compliance",
+                    prompt=Prompt(content="test"),
+                )
+            ],
+        )
+        ts.push()
+
+        mock_client.send_request.assert_called_once()
+        call_kwargs = mock_client.send_request.call_args
+        assert call_kwargs.kwargs.get("url_params") == "bulk" or (
+            len(call_kwargs.args) > 2 and call_kwargs.args[2] == "bulk"
+        )
+        assert ts.id == "new-id"
+
+    def test_push_with_id_skips_creation_validation(self):
+        """push() with id should not require tests or test_set_type."""
+        with patch("rhesis.sdk.entities.test_set.TestSet._update") as mock_update:
+            mock_update.return_value = {"id": "abc-123", "name": "TS"}
+            ts = TestSet(id="abc-123", name="TS")
+            # Should NOT raise ValueError about missing tests/test_set_type
+            result = ts.push()
+            assert result is not None
+
+    @patch("rhesis.sdk.entities.test_set.APIClient")
+    def test_push_without_tests_uses_bulk_post_with_empty_list(self, mock_client_cls):
+        """push() without tests should POST to bulk with an empty tests list."""
+        mock_client = MagicMock()
+        mock_client.send_request.return_value = {"id": "new-id"}
+        mock_client_cls.return_value = mock_client
+
+        ts = TestSet(
+            name="Empty TS",
+            test_set_type=TestType.SINGLE_TURN,
+        )
+        ts.push()
+
+        mock_client.send_request.assert_called_once()
+        call_kwargs = mock_client.send_request.call_args
+        assert call_kwargs.kwargs.get("url_params") == "bulk" or (
+            len(call_kwargs.args) > 2 and call_kwargs.args[2] == "bulk"
+        )
+        # Verify tests defaults to empty list in payload
+        payload = call_kwargs.kwargs.get("data") or call_kwargs.args[3]
+        assert payload["tests"] == []
+        assert ts.id == "new-id"
