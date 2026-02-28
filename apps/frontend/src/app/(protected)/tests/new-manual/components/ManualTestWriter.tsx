@@ -64,7 +64,7 @@ interface MultiTurnTestCase {
   instructions: string;
   restrictions: string;
   scenario: string;
-  minTurns: number;
+  minTurns?: number;
   maxTurns: number;
   category: string;
   topic: string;
@@ -112,7 +112,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             instructions: '',
             restrictions: '',
             scenario: '',
-            minTurns: 2,
+            minTurns: undefined,
             maxTurns: 10,
             category: '',
             topic: '',
@@ -202,7 +202,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             instructions: '',
             restrictions: '',
             scenario: '',
-            minTurns: 2,
+            minTurns: undefined,
             maxTurns: 10,
             category: '',
             topic: '',
@@ -362,7 +362,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             instructions: tc.instructions || undefined,
             restrictions: tc.restrictions || undefined,
             scenario: tc.scenario || undefined,
-            min_turns: tc.minTurns,
+            min_turns: tc.minTurns ?? undefined,
             max_turns: tc.maxTurns,
           };
           return {
@@ -833,11 +833,21 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                                   fullWidth
                                   type="number"
                                   label="Min"
-                                  value={testCase.minTurns}
+                                  value={testCase.minTurns ?? ''}
+                                  placeholder="Auto"
                                   onChange={e => {
+                                    const raw = e.target.value;
+                                    if (raw === '') {
+                                      updateTestCase(
+                                        testCase.id,
+                                        'minTurns',
+                                        undefined
+                                      );
+                                      return;
+                                    }
                                     const val = Math.min(
                                       50,
-                                      Math.max(1, parseInt(e.target.value) || 2)
+                                      Math.max(1, parseInt(raw) || 1)
                                     );
                                     updateTestCase(
                                       testCase.id,
@@ -865,7 +875,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                                     updateTestCase(
                                       testCase.id,
                                       'maxTurns',
-                                      Math.max(val, testCase.minTurns)
+                                      Math.max(val, testCase.minTurns ?? 1)
                                     );
                                   }}
                                   inputProps={{ min: 1, max: 50 }}

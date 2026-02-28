@@ -588,7 +588,7 @@ class PenelopeAgent:
                 elif "timeout" in reason.lower():
                     status = ExecutionStatus.TIMEOUT
                     goal_achieved = False
-                elif "max iterations" in reason.lower():
+                elif "maximum turns" in reason.lower():
                     status = ExecutionStatus.MAX_TURNS
                     goal_achieved = False
                 else:

@@ -27,7 +27,7 @@ export interface MultiTurnTestConfig {
   scenario?: string;
 
   /**
-   * Minimum number of conversation turns (default: 2, range: 1-50)
+   * Minimum turns before early stopping is allowed (default: 80% of max_turns when omitted, range: 1-50)
    */
   min_turns?: number;
 

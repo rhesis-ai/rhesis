@@ -5,6 +5,7 @@ Includes stopping conditions, evaluation helpers, and other utility functions.
 """
 
 import logging
+import math
 from typing import TYPE_CHECKING, Dict, Optional
 
 from rich.console import Console
@@ -143,7 +144,7 @@ class GoalAchievedCondition(StoppingCondition):
                 return min(self.min_turns, self.max_turns)
             return self.min_turns
         if self.max_turns is not None:
-            return max(1, int(self.max_turns * self.EARLY_STOP_THRESHOLD))
+            return max(1, math.ceil(self.max_turns * self.EARLY_STOP_THRESHOLD))
         return 0
 
     def should_stop(self, state: TestState) -> tuple[bool, str]:
