@@ -21,7 +21,6 @@ class TestConfiguration(BaseModel):
     min_turns: Optional[int] = None  # Minimum turns before early stopping
 
 
-
 class Test(BaseEntity):
     endpoint = ENDPOINT
     _push_required_fields: ClassVar[tuple[str, ...]] = ("category", "behavior")
