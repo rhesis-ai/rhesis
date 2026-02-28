@@ -573,24 +573,6 @@ class PenelopeAgent:
         # Create stopping conditions
         conditions = self._create_stopping_conditions(max_turns=max_turns, min_turns=min_turns)
 
-        # Build evaluation instructions with turn budget context.
-        # The GoalAchievementJudge aggressively treats any turn number
-        # found in instructions as a minimum requirement. Clarify that
-        # the turn budget is an execution bound, not a success criterion.
-        eval_instructions = instructions or ""
-        if min_turns or (max_turns or self.max_turns):
-            effective_max = max_turns or self.max_turns
-            eval_instructions += (
-                f"\n\nNote on turn budget: This test is configured with max_turns={effective_max}"
-            )
-            if min_turns:
-                eval_instructions += f", min_turns={min_turns}"
-            eval_instructions += (
-                ". These are execution bounds that control how many turns"
-                " the testing agent runs. They are NOT success criteria."
-                " Do not fail the test based on how many turns were used."
-            )
-
         # Main agent loop
         instructions_length = len(instructions) if instructions else 0
         logger.info(f"Starting test execution (instructions length: {instructions_length} chars)")
@@ -639,7 +621,7 @@ class PenelopeAgent:
                 if metric == self.goal_metric:
                     # Goal metric was already evaluated during test execution
                     # for stopping conditions. Use the final evaluation result.
-                    result = self.evaluator.evaluate(state, goal, instructions=eval_instructions)
+                    result = self.evaluator.evaluate(state, goal, instructions=instructions or "")
 
                     # Update goal-achieved stopping condition
                     for condition in conditions:
