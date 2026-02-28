@@ -45,6 +45,219 @@ import { generateCopyName } from '@/utils/entity-helpers';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 
+const SectionHeader = React.memo(
+  ({ icon, title }: { icon: React.ReactNode; title: string }) => {
+    const theme = useTheme();
+    return (
+      <Box
+        sx={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1) }}
+      >
+        <Box
+          sx={{
+            color: theme.palette.primary.main,
+            display: 'flex',
+            alignItems: 'center',
+            '& > svg': {
+              fontSize: theme.typography.h6.fontSize,
+            },
+          }}
+        >
+          {icon}
+        </Box>
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: theme.typography.fontWeightMedium,
+            color: theme.palette.text.primary,
+          }}
+        >
+          {title}
+        </Typography>
+      </Box>
+    );
+  }
+);
+
+SectionHeader.displayName = 'SectionHeader';
+
+const InfoRow = React.memo(
+  ({ label, children }: { label: string; children: React.ReactNode }) => {
+    const theme = useTheme();
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing(1),
+          py: theme.spacing(1),
+        }}
+      >
+        <Typography
+          variant="subtitle2"
+          sx={{
+            color: theme.palette.text.secondary,
+            fontWeight: theme.typography.fontWeightMedium,
+            letterSpacing: '0.02em',
+          }}
+        >
+          {label}
+        </Typography>
+        <Box
+          sx={{
+            '& .MuiTypography-root': {
+              color: theme.palette.text.primary,
+            },
+          }}
+        >
+          {children}
+        </Box>
+      </Box>
+    );
+  }
+);
+
+InfoRow.displayName = 'InfoRow';
+
+const EditableSection = React.memo(
+  ({
+    title,
+    icon,
+    section,
+    children,
+    isEditing,
+    onEdit,
+    onCancel,
+    onConfirm,
+    isSaving,
+    checkChanges,
+  }: {
+    title: string;
+    icon: React.ReactNode;
+    section: EditableSectionType;
+    children: React.ReactNode;
+    isEditing: EditableSectionType | null;
+    onEdit: (section: EditableSectionType) => void;
+    onCancel: () => void;
+    onConfirm: () => void;
+    isSaving?: boolean;
+    checkChanges: () => boolean;
+  }) => {
+    const theme = useTheme();
+    const hasChanges = isEditing === section ? checkChanges() : false;
+    return (
+      <Paper
+        sx={{
+          p: theme.spacing(3),
+          position: 'relative',
+          borderRadius: theme.shape.borderRadius,
+          bgcolor: theme.palette.background.paper,
+          boxShadow: theme.shadows[1],
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: theme.spacing(3),
+            pb: theme.spacing(2),
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <SectionHeader icon={icon} title={title} />
+          {!isEditing && (
+            <Button
+              startIcon={<EditIcon />}
+              onClick={() => onEdit(section)}
+              variant="outlined"
+              size="small"
+              sx={{
+                color: theme.palette.primary.main,
+                borderColor: theme.palette.primary.main,
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.light,
+                  borderColor: theme.palette.primary.main,
+                },
+              }}
+            >
+              Edit Section
+            </Button>
+          )}
+        </Box>
+
+        {isEditing === section ? (
+          <Box>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: theme.spacing(3),
+                p: theme.spacing(2),
+                bgcolor: theme.palette.action.hover,
+                borderRadius: theme.shape.borderRadius,
+                mb: theme.spacing(3),
+                border: `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              {children}
+            </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: theme.spacing(1),
+                mt: theme.spacing(2),
+              }}
+            >
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<CancelIcon />}
+                onClick={onCancel}
+                disabled={isSaving}
+                sx={{
+                  borderColor: theme.palette.error.main,
+                  '&:hover': {
+                    backgroundColor: theme.palette.error.light,
+                    borderColor: theme.palette.error.main,
+                  },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<CheckIcon />}
+                onClick={onConfirm}
+                disabled={isSaving || !hasChanges}
+                sx={{
+                  bgcolor: theme.palette.primary.main,
+                  '&:hover': {
+                    bgcolor: theme.palette.primary.dark,
+                  },
+                  '&.Mui-disabled': {
+                    bgcolor: theme.palette.action.disabledBackground,
+                    color: theme.palette.action.disabled,
+                  },
+                }}
+              >
+                {isSaving ? 'Saving...' : 'Save Section'}
+              </Button>
+            </Box>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {children}
+          </Box>
+        )}
+      </Paper>
+    );
+  }
+);
+
+EditableSection.displayName = 'EditableSection';
+
 interface EditData {
   name?: string;
   description?: string;
@@ -84,7 +297,7 @@ export default function MetricDetailPage() {
   const [stepsWithIds, setStepsWithIds] = useState<StepWithId[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const dataFetchedRef = useRef(false);
-  const [textFieldsTouched, setTextFieldsTouched] = useState(false);
+  const [textFieldsTouched, setTextFieldsTouched] = useState(0);
 
   // Set document title dynamically
   useDocumentTitle(metric?.name || null);
@@ -345,7 +558,7 @@ export default function MetricDetailPage() {
       if (!metric) return;
 
       setIsEditing(section);
-      setTextFieldsTouched(false);
+      setTextFieldsTouched(0);
 
       populateFieldRefs(section, metric);
 
@@ -406,7 +619,7 @@ export default function MetricDetailPage() {
     setIsEditing(null);
     setEditData({});
     setStepsWithIds([]);
-    setTextFieldsTouched(false);
+    setTextFieldsTouched(0);
     // Clear step refs
     stepRefs.current.clear();
   }, []);
@@ -550,7 +763,7 @@ export default function MetricDetailPage() {
       setIsEditing(null);
       setEditData({});
       setStepsWithIds([]);
-      setTextFieldsTouched(false);
+      setTextFieldsTouched(0);
 
       notifications.show('Metric updated successfully', {
         severity: 'success',
@@ -578,13 +791,13 @@ export default function MetricDetailPage() {
       const newStep = { id: `step-${Date.now()}-${prev.length}`, content: '' };
       return [...prev, newStep];
     });
-    setTextFieldsTouched(true);
+    setTextFieldsTouched(c => c + 1);
   }, []);
 
   const removeStep = React.useCallback((stepId: string) => {
     setStepsWithIds(prev => prev.filter(step => step.id !== stepId));
     stepRefs.current.delete(stepId);
-    setTextFieldsTouched(true);
+    setTextFieldsTouched(c => c + 1);
   }, []);
 
   const [isDuplicating, setIsDuplicating] = React.useState(false);
@@ -635,218 +848,6 @@ export default function MetricDetailPage() {
       setIsDuplicating(false);
     }
   }, [session?.session_token, metric, notifications, router]);
-
-  const EditableSection = React.memo(
-    ({
-      title,
-      icon,
-      section,
-      children,
-      isEditing,
-      onEdit,
-      onCancel,
-      onConfirm,
-      isSaving,
-      checkChanges,
-    }: {
-      title: string;
-      icon: React.ReactNode;
-      section: EditableSectionType;
-      children: React.ReactNode;
-      isEditing: EditableSectionType | null;
-      onEdit: (section: EditableSectionType) => void;
-      onCancel: () => void;
-      onConfirm: () => void;
-      isSaving?: boolean;
-      checkChanges: () => boolean;
-    }) => {
-      const hasChanges = isEditing === section ? checkChanges() : false;
-      return (
-        <Paper
-          sx={{
-            p: theme.spacing(3),
-            position: 'relative',
-            borderRadius: theme.shape.borderRadius,
-            bgcolor: theme.palette.background.paper,
-            boxShadow: theme.shadows[1],
-          }}
-        >
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: theme.spacing(3),
-              pb: theme.spacing(2),
-              borderBottom: `1px solid ${theme.palette.divider}`,
-            }}
-          >
-            <SectionHeader icon={icon} title={title} />
-            {!isEditing && (
-              <Button
-                startIcon={<EditIcon />}
-                onClick={() => onEdit(section)}
-                variant="outlined"
-                size="small"
-                sx={{
-                  color: theme.palette.primary.main,
-                  borderColor: theme.palette.primary.main,
-                  '&:hover': {
-                    backgroundColor: theme.palette.primary.light,
-                    borderColor: theme.palette.primary.main,
-                  },
-                }}
-              >
-                Edit Section
-              </Button>
-            )}
-          </Box>
-
-          {isEditing === section ? (
-            <Box>
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: theme.spacing(3),
-                  p: theme.spacing(2),
-                  bgcolor: theme.palette.action.hover,
-                  borderRadius: theme.shape.borderRadius,
-                  mb: theme.spacing(3),
-                  border: `1px solid ${theme.palette.divider}`,
-                }}
-              >
-                {children}
-              </Box>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: theme.spacing(1),
-                  mt: theme.spacing(2),
-                }}
-              >
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<CancelIcon />}
-                  onClick={onCancel}
-                  disabled={isSaving}
-                  sx={{
-                    borderColor: theme.palette.error.main,
-                    '&:hover': {
-                      backgroundColor: theme.palette.error.light,
-                      borderColor: theme.palette.error.main,
-                    },
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<CheckIcon />}
-                  onClick={onConfirm}
-                  disabled={isSaving || !hasChanges}
-                  sx={{
-                    bgcolor: theme.palette.primary.main,
-                    '&:hover': {
-                      bgcolor: theme.palette.primary.dark,
-                    },
-                    '&.Mui-disabled': {
-                      bgcolor: theme.palette.action.disabledBackground,
-                      color: theme.palette.action.disabled,
-                    },
-                  }}
-                >
-                  {isSaving ? 'Saving...' : 'Save Section'}
-                </Button>
-              </Box>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {children}
-            </Box>
-          )}
-        </Paper>
-      );
-    }
-  );
-
-  EditableSection.displayName = 'EditableSection';
-
-  const SectionHeader = React.memo(
-    ({ icon, title }: { icon: React.ReactNode; title: string }) => {
-      const theme = useTheme();
-      return (
-        <Box
-          sx={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1) }}
-        >
-          <Box
-            sx={{
-              color: theme.palette.primary.main,
-              display: 'flex',
-              alignItems: 'center',
-              '& > svg': {
-                fontSize: theme.typography.h6.fontSize,
-              },
-            }}
-          >
-            {icon}
-          </Box>
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: theme.typography.fontWeightMedium,
-              color: theme.palette.text.primary,
-            }}
-          >
-            {title}
-          </Typography>
-        </Box>
-      );
-    }
-  );
-
-  SectionHeader.displayName = 'SectionHeader';
-
-  const InfoRow = React.memo(
-    ({ label, children }: { label: string; children: React.ReactNode }) => {
-      const theme = useTheme();
-      return (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing(1),
-            py: theme.spacing(1),
-          }}
-        >
-          <Typography
-            variant="subtitle2"
-            sx={{
-              color: theme.palette.text.secondary,
-              fontWeight: theme.typography.fontWeightMedium,
-              letterSpacing: '0.02em',
-            }}
-          >
-            {label}
-          </Typography>
-          <Box
-            sx={{
-              '& .MuiTypography-root': {
-                color: theme.palette.text.primary,
-              },
-            }}
-          >
-            {children}
-          </Box>
-        </Box>
-      );
-    }
-  );
-
-  InfoRow.displayName = 'InfoRow';
 
   // Memoize icons to prevent recreation
   const infoIcon = <InfoIcon />;
@@ -933,7 +934,7 @@ export default function MetricDetailPage() {
                     inputRef={nameRef}
                     defaultValue={metric.name || ''}
                     placeholder="Enter metric name"
-                    onChange={() => setTextFieldsTouched(true)}
+                    onChange={() => setTextFieldsTouched(c => c + 1)}
                   />
                 ) : (
                   <Typography>{metric.name}</Typography>
@@ -950,7 +951,7 @@ export default function MetricDetailPage() {
                     inputRef={descriptionRef}
                     defaultValue={metric.description || ''}
                     placeholder="Enter metric description"
-                    onChange={() => setTextFieldsTouched(true)}
+                    onChange={() => setTextFieldsTouched(c => c + 1)}
                   />
                 ) : (
                   <Typography>{metric.description || '-'}</Typography>
@@ -1056,7 +1057,7 @@ export default function MetricDetailPage() {
                     inputRef={evaluationPromptRef}
                     defaultValue={metric.evaluation_prompt || ''}
                     placeholder="Enter evaluation prompt"
-                    onChange={() => setTextFieldsTouched(true)}
+                    onChange={() => setTextFieldsTouched(c => c + 1)}
                   />
                 ) : (
                   <Typography
@@ -1095,7 +1096,7 @@ export default function MetricDetailPage() {
                           }}
                           defaultValue={step.content}
                           placeholder={`Step ${index + 1}: Describe this evaluation step...`}
-                          onChange={() => setTextFieldsTouched(true)}
+                          onChange={() => setTextFieldsTouched(c => c + 1)}
                         />
                         <IconButton
                           onClick={() => removeStep(step.id)}
@@ -1169,7 +1170,7 @@ export default function MetricDetailPage() {
                     inputRef={reasoningRef}
                     defaultValue={metric.reasoning || ''}
                     placeholder="Enter reasoning instructions"
-                    onChange={() => setTextFieldsTouched(true)}
+                    onChange={() => setTextFieldsTouched(c => c + 1)}
                   />
                 ) : (
                   <Typography
@@ -1612,7 +1613,7 @@ export default function MetricDetailPage() {
                     inputRef={explanationRef}
                     defaultValue={metric.explanation || ''}
                     placeholder="Enter result explanation"
-                    onChange={() => setTextFieldsTouched(true)}
+                    onChange={() => setTextFieldsTouched(c => c + 1)}
                   />
                 ) : (
                   <Typography

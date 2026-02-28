@@ -8,6 +8,17 @@ Test sets organize related tests into collections for batch execution. When you 
 
 Test sets inherit shared types, behaviors, categories, topics and sources from their tests.
 
+## Test Set Types
+
+Every test set has a type that determines how its tests are executed:
+
+| Type | Description |
+| --- | --- |
+| **Single-Turn** | Tests that evaluate individual prompt/response exchanges. Each test sends a single input and evaluates the response. Ideal for RAG systems, classification tasks, and standalone response quality. |
+| **Multi-Turn** | Tests that evaluate conversational interactions across multiple turns. Each test defines a goal and the system conducts an automated multi-turn conversation to assess the endpoint's behavior. Ideal for chatbots, agents, and dialogue systems. |
+
+The test set type is set when the test set is created and determines which metrics can be applied during evaluation. When generating tests or importing from files, the type is inferred automatically from the tests: if any test is multi-turn, the test set is classified as Multi-Turn.
+
 ## Executing Test Sets
 
 Executing a test set runs all its tests against your AI application endpoint to see how your application responds. This creates a [Test Run](/platform/test-runs) that captures all results.

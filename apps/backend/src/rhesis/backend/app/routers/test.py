@@ -440,7 +440,8 @@ async def execute_test_endpoint(
       "evaluate_metrics": true,
       "test_configuration": {
         "goal": "Book a flight to Paris",
-        "max_turns": 10
+        "max_turns": 10,
+        "min_turns": 5
       },
       "behavior": "Task Completion",
       "topic": "Travel",

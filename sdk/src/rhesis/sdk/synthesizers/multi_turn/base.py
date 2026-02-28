@@ -40,6 +40,8 @@ class FlatTest(BaseModel):
     test_configuration_instructions: str
     test_configuration_restrictions: str
     test_configuration_scenario: str
+    test_configuration_min_turns: int
+    test_configuration_max_turns: int
     behavior: str
     category: str
     topic: str
@@ -75,13 +77,20 @@ class MultiTurnSynthesizer:
 
     def _flat_test_to_nested(self, flat: Dict[str, Any]) -> Dict[str, Any]:
         """Repack a flat test dict (LLM output) into the nested Test structure."""
+        config: Dict[str, Any] = {
+            "goal": flat["test_configuration_goal"],
+            "instructions": flat["test_configuration_instructions"],
+            "restrictions": flat["test_configuration_restrictions"],
+            "scenario": flat["test_configuration_scenario"],
+        }
+        min_turns = flat.get("test_configuration_min_turns")
+        max_turns = flat.get("test_configuration_max_turns")
+        if min_turns is not None:
+            config["min_turns"] = int(min_turns)
+        if max_turns is not None:
+            config["max_turns"] = int(max_turns)
         return {
-            "test_configuration": {
-                "goal": flat["test_configuration_goal"],
-                "instructions": flat["test_configuration_instructions"],
-                "restrictions": flat["test_configuration_restrictions"],
-                "scenario": flat["test_configuration_scenario"],
-            },
+            "test_configuration": config,
             "behavior": flat["behavior"],
             "category": flat["category"],
             "topic": flat["topic"],

@@ -45,6 +45,12 @@ class MultiTurnTestConfig(BaseModel):
         le=50,
         description="Maximum number of conversation turns (default: 10, max: 50)",
     )
+    min_turns: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=50,
+        description="Minimum turns before early stopping is allowed (default: 80% of max_turns)",
+    )
 
     @field_validator("goal", "instructions", "restrictions", "scenario")
     @classmethod

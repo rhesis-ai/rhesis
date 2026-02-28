@@ -128,13 +128,13 @@ def test_config_reset():
     """Test configuration reset."""
     PenelopeConfig.set_log_level("DEBUG")
     PenelopeConfig.set_default_model("anthropic", "claude-4")
-    PenelopeConfig.set_default_max_iterations(30)
+    PenelopeConfig.set_default_max_turns(30)
     PenelopeConfig.initialize()
 
     assert PenelopeConfig._initialized
     assert PenelopeConfig._log_level == "DEBUG"
     assert PenelopeConfig._default_model == "anthropic"
-    assert PenelopeConfig._default_max_iterations == 30
+    assert PenelopeConfig._default_max_turns == 30
 
     PenelopeConfig.reset()
 
@@ -142,7 +142,7 @@ def test_config_reset():
     assert PenelopeConfig._log_level is None
     assert PenelopeConfig._default_model is None
     assert PenelopeConfig._default_model_name is None
-    assert PenelopeConfig._default_max_iterations is None
+    assert PenelopeConfig._default_max_turns is None
 
 
 def test_config_default_model():
@@ -205,78 +205,78 @@ def test_config_programmatic_overrides_env_model(monkeypatch):
     PenelopeConfig.reset()
 
 
-def test_config_default_max_iterations():
+def test_config_default_max_turns():
     """Test default max iterations configuration."""
     PenelopeConfig.reset()
     
     # Should default to 10
-    max_iterations = PenelopeConfig.get_default_max_iterations()
-    assert max_iterations == 10
+    max_turns = PenelopeConfig.get_default_max_turns()
+    assert max_turns == 10
     
     # Cleanup
     PenelopeConfig.reset()
 
 
-def test_config_set_default_max_iterations():
+def test_config_set_default_max_turns():
     """Test programmatic max iterations setting."""
-    PenelopeConfig.set_default_max_iterations(30)
+    PenelopeConfig.set_default_max_turns(30)
     
-    assert PenelopeConfig.get_default_max_iterations() == 30
+    assert PenelopeConfig.get_default_max_turns() == 30
     
     # Cleanup
     PenelopeConfig.reset()
 
 
-def test_config_set_invalid_max_iterations():
+def test_config_set_invalid_max_turns():
     """Test that setting invalid max iterations raises error."""
     
-    with pytest.raises(ValueError, match="max_iterations must be positive"):
-        PenelopeConfig.set_default_max_iterations(0)
+    with pytest.raises(ValueError, match="max_turns must be positive"):
+        PenelopeConfig.set_default_max_turns(0)
     
-    with pytest.raises(ValueError, match="max_iterations must be positive"):
-        PenelopeConfig.set_default_max_iterations(-5)
+    with pytest.raises(ValueError, match="max_turns must be positive"):
+        PenelopeConfig.set_default_max_turns(-5)
     
     # Cleanup
     PenelopeConfig.reset()
 
 
-def test_config_default_max_iterations_env_variable(monkeypatch):
+def test_config_default_max_turns_env_variable(monkeypatch):
     """Test that environment variable overrides default max iterations."""
     PenelopeConfig.reset()
-    monkeypatch.setenv("PENELOPE_DEFAULT_MAX_ITERATIONS", "50")
+    monkeypatch.setenv("PENELOPE_DEFAULT_MAX_TURNS", "50")
     
-    max_iterations = PenelopeConfig.get_default_max_iterations()
+    max_turns = PenelopeConfig.get_default_max_turns()
     
-    assert max_iterations == 50
+    assert max_turns == 50
     
     # Cleanup
     PenelopeConfig.reset()
 
 
-def test_config_default_max_iterations_invalid_env_variable(monkeypatch):
+def test_config_default_max_turns_invalid_env_variable(monkeypatch):
     """Test that invalid environment variable falls back to default."""
     PenelopeConfig.reset()
-    monkeypatch.setenv("PENELOPE_DEFAULT_MAX_ITERATIONS", "not_a_number")
+    monkeypatch.setenv("PENELOPE_DEFAULT_MAX_TURNS", "not_a_number")
     
-    max_iterations = PenelopeConfig.get_default_max_iterations()
+    max_turns = PenelopeConfig.get_default_max_turns()
     
     # Should fall back to default
-    assert max_iterations == 10
+    assert max_turns == 10
     
     # Cleanup
     PenelopeConfig.reset()
 
 
-def test_config_programmatic_overrides_env_max_iterations(monkeypatch):
+def test_config_programmatic_overrides_env_max_turns(monkeypatch):
     """Test that programmatic setting overrides environment variable for max iterations."""
     PenelopeConfig.reset()
-    monkeypatch.setenv("PENELOPE_DEFAULT_MAX_ITERATIONS", "50")
+    monkeypatch.setenv("PENELOPE_DEFAULT_MAX_TURNS", "50")
     
     # Set programmatically
-    PenelopeConfig.set_default_max_iterations(30)
+    PenelopeConfig.set_default_max_turns(30)
     
     # Should use programmatic value
-    assert PenelopeConfig.get_default_max_iterations() == 30
+    assert PenelopeConfig.get_default_max_turns() == 30
     
     # Cleanup
     PenelopeConfig.reset()

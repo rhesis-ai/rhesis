@@ -142,9 +142,10 @@ def test_goal_achievement_judge_prompt_generation(mock_model, sample_conversatio
     # Check that prompt contains goal-achievement-specific template elements
     assert "evaluate whether the conversation successfully achieved its stated goal" in prompt
     assert "Customer finds suitable auto insurance" in prompt
-    assert "6 turns" in prompt  # Sample conversation has 6 turns
-    assert "Turn 1 [user]" in prompt
-    assert "Turn 2 [assistant]" in prompt
+    assert "3 turns" in prompt  # Sample conversation has 3 turns (3 user-assistant pairs)
+    assert "Turn 1:" in prompt
+    assert "User:" in prompt
+    assert "Assistant:" in prompt
     # Verify goal-achievement-specific defaults are rendered
     assert "Break down the goal into specific measurable criteria" in prompt
     assert "Understanding" in prompt  # From default evaluation criteria
@@ -161,10 +162,13 @@ def test_goal_achievement_judge_format_conversation(mock_model, sample_conversat
 
     formatted = judge._format_conversation(sample_conversation)
 
-    # Check that formatting is correct
-    assert "Turn 1 [user]:" in formatted
-    assert "Turn 2 [assistant]:" in formatted
-    assert "Turn 6 [assistant]:" in formatted
+    # Check that formatting groups messages into paired turns
+    assert "Turn 1:" in formatted
+    assert "Turn 2:" in formatted
+    assert "Turn 3:" in formatted
+    assert "Turn 4:" not in formatted  # Only 3 pairs, not 6 individual messages
+    assert "  User:" in formatted
+    assert "  Assistant:" in formatted
     assert "I need help finding a new insurance policy" in formatted
 
 
@@ -206,7 +210,7 @@ def test_goal_achievement_judge_evaluate_with_mock(mock_model, sample_conversati
         "The conversation successfully achieves the goal. "
         "The assistant provides clear information about auto insurance options."
     )
-    assert result.details["turn_count"] == 6
+    assert result.details["turn_count"] == 3
     assert result.details["goal"] == "Customer learns about auto insurance options"
 
 

@@ -5,6 +5,7 @@ Includes stopping conditions, evaluation helpers, and other utility functions.
 """
 
 import logging
+import math
 from typing import TYPE_CHECKING, Dict, Optional
 
 from rich.console import Console
@@ -37,15 +38,15 @@ class StoppingCondition:
         raise NotImplementedError
 
 
-class MaxIterationsCondition(StoppingCondition):
-    """Stop after maximum number of iterations."""
+class MaxTurnsCondition(StoppingCondition):
+    """Stop after maximum number of turns."""
 
-    def __init__(self, max_iterations: int):
-        self.max_iterations = max_iterations
+    def __init__(self, max_turns: int):
+        self.max_turns = max_turns
 
     def should_stop(self, state: TestState) -> tuple[bool, str]:
-        if state.current_turn >= self.max_iterations:
-            return True, f"Maximum iterations reached ({self.max_iterations})"
+        if state.current_turn >= self.max_turns:
+            return True, f"Maximum turns reached ({self.max_turns})"
         return False, ""
 
 
@@ -72,7 +73,7 @@ class MaxToolExecutionsCondition(StoppingCondition):
                 "To increase this limit:\n"
                 "1. Via parameter: PenelopeAgent(..., max_tool_executions=100)\n"
                 "2. Via environment: export PENELOPE_MAX_TOOL_EXECUTIONS=100\n\n"
-                "⚠️  Warning: Higher limits increase cost risk. "
+                "Warning: Higher limits increase cost risk. "
                 "Ensure your agent is making progress."
             )
 
@@ -98,100 +99,87 @@ class TimeoutCondition(StoppingCondition):
 class GoalAchievedCondition(StoppingCondition):
     """Stop when goal is achieved or determined impossible."""
 
-    def __init__(self, result: Optional["MetricResult"] = None, instructions: Optional[str] = None):
+    # Fraction of max_turns that must complete before goal-achieved early stop
+    EARLY_STOP_THRESHOLD = 0.8
+
+    def __init__(
+        self,
+        result: Optional["MetricResult"] = None,
+        max_turns: Optional[int] = None,
+        min_turns: Optional[int] = None,
+    ):
         """
         Initialize with SDK MetricResult.
 
         Args:
             result: Optional initial MetricResult
-            instructions: Optional test instructions to check for minimum turn requirements
+            max_turns: Maximum turns configured for the test. Used to compute
+                the default early-stop floor (80% of max_turns).
+            min_turns: Explicit minimum turns before early stopping is allowed.
+                When set, overrides the 80% default. Cannot exceed max_turns.
         """
         self.result = result
-        self.instructions = instructions
-        self._min_turns_required = self._extract_min_turns(instructions) if instructions else None
-
-    def _extract_min_turns(self, instructions: str) -> Optional[int]:
-        """
-        Extract minimum turn requirement from instructions.
-
-        Looks for patterns like:
-        - "execute 5 turns"
-        - "at least 5 turns"
-        - "MUST execute at least 5 turns"
-        - "minimum 5 turns"
-
-        Returns:
-            Minimum number of turns required, or None if not specified
-        """
-        import re
-
-        if not instructions:
-            return None
-
-        instructions_lower = instructions.lower()
-
-        # Pattern 1: "at least N turns"
-        match = re.search(r"at least (\d+) turns?", instructions_lower)
-        if match:
-            return int(match.group(1))
-
-        # Pattern 2: "execute N turns" or "complete N turns"
-        match = re.search(
-            r"(?:execute|complete|run|perform) (?:at least )?(\d+) turns?", instructions_lower
-        )
-        if match:
-            return int(match.group(1))
-
-        # Pattern 3: "minimum N turns" or "min N turns"
-        match = re.search(r"(?:minimum|min) (?:of )?(\d+) turns?", instructions_lower)
-        if match:
-            return int(match.group(1))
-
-        # Pattern 4: "N turns" with "must" nearby
-        match = re.search(r"must.*?(\d+) turns?", instructions_lower)
-        if match:
-            return int(match.group(1))
-
-        return None
+        self.max_turns = max_turns
+        self.min_turns = min_turns
 
     def update_result(self, result: "MetricResult"):
         """Update with new SDK evaluation result."""
         self.result = result
 
+    def _get_min_turns_before_stop(self) -> int:
+        """
+        Compute the minimum number of turns before early stopping is allowed.
+
+        Priority:
+        1. Explicit min_turns parameter (capped at max_turns)
+        2. Fraction of max_turns (EARLY_STOP_THRESHOLD, default 80%)
+        3. Fallback to 0 (no floor, for backward compatibility)
+
+        Returns:
+            Minimum number of turns before early stopping
+        """
+        if self.min_turns is not None:
+            # Explicit min_turns, but never exceed max_turns
+            if self.max_turns is not None:
+                return min(self.min_turns, self.max_turns)
+            return self.min_turns
+        if self.max_turns is not None:
+            return max(1, math.ceil(self.max_turns * self.EARLY_STOP_THRESHOLD))
+        return 0
+
     def should_stop(self, state: TestState) -> tuple[bool, str]:
         """
         Check if we should stop based on SDK evaluation.
 
-        Note: This accesses the MetricResult object directly (which has .score and .details).
-        This is different from the flattened metrics in TestResult.metrics (output format).
+        Early stopping (goal achieved or impossible) is only allowed after
+        completing the minimum turn requirement, ensuring the agent exercises
+        the conversation fully.
+
+        Note: This accesses the MetricResult object directly (which has
+        .score and .details). This is different from the flattened metrics
+        in TestResult.metrics (output format).
         """
         if not self.result:
             return False, ""
 
-        # CRITICAL: Check minimum turn requirement FIRST
-        # Even if the goal metric says "is_successful", we must enforce turn requirements
-        if self._min_turns_required is not None:
-            current_turns = len(state.turns)
-            if current_turns < self._min_turns_required:
-                # Not enough turns yet - cannot stop even if goal appears achieved
-                logger.debug(
-                    f"Turn requirement not met: {current_turns}/{self._min_turns_required} turns. "
-                    "Continuing test execution."
-                )
-                return False, ""
+        current_turns = len(state.turns)
+        min_turns = self._get_min_turns_before_stop()
+
+        # Enforce minimum turn requirement before any early stopping
+        if current_turns < min_turns:
+            logger.debug(
+                f"Early stop blocked: {current_turns}/{min_turns} turns "
+                "completed. Continuing test execution."
+            )
+            return False, ""
 
         # Check if goal achieved (from SDK MetricResult.details)
         if self.result.details.get("is_successful", False):
             reason = self.result.details.get("reason", "Goal achieved")
             return True, f"Goal achieved: {reason}"
 
-        # Check if goal is impossible (Penelope's stopping logic)
-        # Give up after 5+ tool executions with very low score
-        if (
-            len(state.turns) >= 5
-            and isinstance(self.result.score, (int, float))
-            and self.result.score < 0.3
-        ):
+        # Check if goal is impossible (very low score after sufficient attempts)
+        if isinstance(self.result.score, (int, float)) and self.result.score < 0.3:
             reason = self.result.details.get("reason", "Low score after multiple attempts")
             return True, f"Goal determined impossible: {reason}"
 
@@ -279,7 +267,7 @@ def display_test_result(result):
     table = Table(title="Test Results", show_header=False, border_style=border_style)
 
     table.add_row("Status", str(result.status.value))
-    table.add_row("Goal Achieved", "✓ Yes" if result.goal_achieved else "✗ No")
+    table.add_row("Goal Achieved", "Yes" if result.goal_achieved else "No")
     table.add_row("Turns Used", str(result.turns_used))
 
     if result.duration_seconds:

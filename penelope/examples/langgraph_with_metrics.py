@@ -268,7 +268,7 @@ def example_1_customer_service_with_metrics():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=True,
-        max_iterations=6,
+        max_turns=6,
         metrics=[
             goal_achievement_judge,  # Default SDK metric (auto-detected for stopping)
             customer_service_quality,  # Custom service quality evaluation
@@ -403,7 +403,7 @@ def example_2_technical_support_with_metrics():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=True,
-        max_iterations=8,
+        max_turns=8,
         metrics=[
             goal_achievement_judge,  # Default SDK metric (auto-detected for stopping)
             technical_competence,  # Custom technical skill evaluation
