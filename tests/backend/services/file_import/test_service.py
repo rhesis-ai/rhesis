@@ -227,6 +227,64 @@ class TestRowsToTestData:
             "instructions": "Ask",
         }
 
+    def test_includes_turn_fields_from_flat_rows(self):
+        """min_turns and max_turns from flat fields are included in test_configuration."""
+        rows = [
+            {
+                "category": "Safety",
+                "topic": "Content",
+                "behavior": "Refusal",
+                "test_type": "Multi-Turn",
+                "goal": "Test goal",
+                "min_turns": 3,
+                "max_turns": 8,
+            }
+        ]
+        result = _rows_to_test_data(rows)
+        assert len(result) == 1
+        config = result[0]["test_configuration"]
+        assert config["goal"] == "Test goal"
+        assert config["min_turns"] == 3
+        assert config["max_turns"] == 8
+
+    def test_includes_turn_fields_from_csv_strings(self):
+        """min_turns and max_turns as strings (from CSV) are converted to int."""
+        rows = [
+            {
+                "category": "Safety",
+                "topic": "Content",
+                "behavior": "Refusal",
+                "test_type": "Multi-Turn",
+                "goal": "Test goal",
+                "min_turns": "2",
+                "max_turns": "15",
+            }
+        ]
+        result = _rows_to_test_data(rows)
+        assert len(result) == 1
+        config = result[0]["test_configuration"]
+        assert config["min_turns"] == 2
+        assert config["max_turns"] == 15
+
+    def test_omits_empty_turn_fields(self):
+        """Empty string turn fields (from CSV) should not appear in config."""
+        rows = [
+            {
+                "category": "Safety",
+                "topic": "Content",
+                "behavior": "Refusal",
+                "test_type": "Multi-Turn",
+                "goal": "Test goal",
+                "min_turns": "",
+                "max_turns": "",
+            }
+        ]
+        result = _rows_to_test_data(rows)
+        assert len(result) == 1
+        config = result[0]["test_configuration"]
+        assert "min_turns" not in config
+        assert "max_turns" not in config
+
 
 # ── ImportService.analyze ────────────────────────────────────────
 

@@ -79,6 +79,28 @@ class TestAutoMapColumns:
         assert "topic" in result["unmatched_targets"]
         assert "behavior" in result["unmatched_targets"]
 
+    def test_min_turns_exact_match(self):
+        headers = ["category", "topic", "behavior", "goal", "min_turns"]
+        result = auto_map_columns(headers)
+        assert result["mapping"].get("min_turns") == "min_turns"
+
+    def test_max_turns_exact_match(self):
+        headers = ["category", "topic", "behavior", "goal", "max_turns"]
+        result = auto_map_columns(headers)
+        assert result["mapping"].get("max_turns") == "max_turns"
+
+    def test_turn_aliases(self):
+        headers = ["minimum_turns", "maximum_turns"]
+        result = auto_map_columns(headers)
+        assert result["mapping"].get("minimum_turns") == "min_turns"
+        assert result["mapping"].get("maximum_turns") == "max_turns"
+
+    def test_turn_aliases_with_spaces(self):
+        headers = ["min turns", "max turns"]
+        result = auto_map_columns(headers)
+        assert result["mapping"].get("min turns") == "min_turns"
+        assert result["mapping"].get("max turns") == "max_turns"
+
 
 # ── is_llm_available ─────────────────────────────────────────────
 
