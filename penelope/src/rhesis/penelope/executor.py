@@ -223,7 +223,11 @@ class TurnExecutor:
         if state.current_turn == 0:
             user_prompt = FIRST_TURN_PROMPT.render()
         else:
-            user_prompt = SUBSEQUENT_TURN_PROMPT.render()
+            user_prompt = SUBSEQUENT_TURN_PROMPT.render(
+                current_turn=state.current_turn + 1,
+                min_turns=state.context.min_turns,
+                max_turns=state.context.max_turns,
+            )
 
         # Add workflow guidance to the prompt
         workflow_guidance = self.workflow_manager.get_tool_guidance(tools)

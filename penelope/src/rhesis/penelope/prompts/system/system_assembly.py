@@ -15,6 +15,8 @@ def get_system_prompt(
     restrictions: str = "",
     context: str = "",
     available_tools: str = "",
+    min_turns: int = None,
+    max_turns: int = None,
 ) -> str:
     """
     Construct the complete system prompt for Penelope using Jinja2 templates.
@@ -29,6 +31,8 @@ def get_system_prompt(
         restrictions: Optional constraints on what NOT to do during testing
         context: Additional context or resources (documentation, data, etc.)
         available_tools: Description of available tools
+        min_turns: Minimum turns before early stopping is allowed
+        max_turns: Maximum number of turns for this test
 
     Returns:
         Complete system prompt rendered from Jinja2 template
@@ -50,4 +54,6 @@ def get_system_prompt(
         restrictions=restrictions,
         context=context,
         available_tools=available_tools,
+        min_turns=min_turns,
+        max_turns=max_turns,
     )

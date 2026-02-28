@@ -34,6 +34,8 @@ def get_system_prompt_jinja(
     restrictions: str = "",
     context: str = "",
     available_tools: str = "",
+    min_turns: int = None,
+    max_turns: int = None,
 ) -> str:
     """
     Construct the complete system prompt using Jinja2.
@@ -48,6 +50,8 @@ def get_system_prompt_jinja(
         restrictions: Optional constraints on what NOT to do during testing
         context: Additional context or resources (documentation, data, etc.)
         available_tools: Description of available tools
+        min_turns: Minimum turns before early stopping is allowed
+        max_turns: Maximum number of turns for this test
 
     Returns:
         Complete system prompt rendered from Jinja2 template
@@ -69,6 +73,7 @@ def get_system_prompt_jinja(
     logger.info(f"Restrictions length: {len(restrictions) if restrictions else 0} chars")
     logger.info(f"Context length: {len(context) if context else 0} chars")
     logger.info(f"Available tools length: {len(available_tools) if available_tools else 0} chars")
+    logger.info(f"Turn budget: min_turns={min_turns}, max_turns={max_turns}")
 
     # Render the template
     rendered_prompt = SYSTEM_PROMPT_TEMPLATE.render(
@@ -79,6 +84,8 @@ def get_system_prompt_jinja(
         restrictions=restrictions if restrictions else None,
         context=context if context else None,
         available_tools=available_tools if available_tools else None,
+        min_turns=min_turns,
+        max_turns=max_turns,
     )
 
     logger.info("=== RENDERED PROMPT PREVIEW ===")

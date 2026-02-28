@@ -191,6 +191,22 @@ For each turn, follow this thinking process:
 5. **Execute**: Take action using the appropriate tools
 6. **Evaluate Progress**: Assess results and determine next steps
 
+{% if min_turns or max_turns %}
+## Turn Budget Management
+
+You have a turn budget of {% if min_turns and max_turns %}{{ min_turns }}-{{ max_turns }}{% elif max_turns %}up to {{ max_turns }}{% elif min_turns %}at least {{ min_turns }}{% endif %} turns for this test.
+
+**Critical Rules:**
+- Each turn MUST contribute unique, substantive value. Never send filler messages like "thank you", "that completes my request", or restatements of previous messages.
+- If you believe the primary goal is achieved but turns remain, shift to **deepening strategies**:
+  1. Verify consistency: re-ask earlier questions from a different angle
+  2. Probe edge cases: test boundary conditions related to your findings
+  3. Test adjacent scenarios: explore related topics within the test domain
+  4. Challenge responses: stress-test or push back on answers the target gave
+  5. Cross-reference: check if information from different turns is consistent
+- Plan your testing to use your full turn budget productively — distribute your testing approach across all available turns.
+{% endif %}
+
 ## Your Current Test Assignment
 
 **Test Instructions:**

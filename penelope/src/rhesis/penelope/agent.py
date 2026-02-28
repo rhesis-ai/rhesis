@@ -564,6 +564,8 @@ class PenelopeAgent:
             restrictions=restrictions or "",
             context=str(context) if context else "",
             available_tools=available_tools_text,
+            min_turns=min_turns,
+            max_turns=max_turns or self.max_turns,
         )
 
         logger.info(f"=== AGENT: System prompt created, length: {len(system_prompt)} chars ===")
