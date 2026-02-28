@@ -194,7 +194,13 @@ For each turn, follow this thinking process:
 {% if min_turns or max_turns %}
 ## Turn Budget Management
 
-You have a turn budget of {% if min_turns and max_turns %}{{ min_turns }}-{{ max_turns }}{% elif max_turns %}up to {{ max_turns }}{% elif min_turns %}at least {{ min_turns }}{% endif %} turns for this test.
+{% if min_turns and max_turns %}
+You must complete at least {{ min_turns }} turns (minimum) and can use up to {{ max_turns }} turns (maximum) for this test.
+{% elif max_turns %}
+You can use up to {{ max_turns }} turns (maximum) for this test.
+{% elif min_turns %}
+You must complete at least {{ min_turns }} turns (minimum) for this test.
+{% endif %}
 
 **Critical Rules:**
 - Each turn MUST contribute unique, substantive value. Never send filler messages like "thank you", "that completes my request", or restatements of previous messages.
@@ -204,7 +210,7 @@ You have a turn budget of {% if min_turns and max_turns %}{{ min_turns }}-{{ max
   3. Test adjacent scenarios: explore related topics within the test domain
   4. Challenge responses: stress-test or push back on answers the target gave
   5. Cross-reference: check if information from different turns is consistent
-- Plan your testing to use your full turn budget productively — distribute your testing approach across all available turns.
+- Plan your testing to distribute your approach across all available turns productively.
 {% endif %}
 
 ## Your Current Test Assignment
