@@ -64,6 +64,7 @@ interface MultiTurnTestCase {
   instructions: string;
   restrictions: string;
   scenario: string;
+  minTurns: number;
   maxTurns: number;
   category: string;
   topic: string;
@@ -111,6 +112,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             instructions: '',
             restrictions: '',
             scenario: '',
+            minTurns: 2,
             maxTurns: 10,
             category: '',
             topic: '',
@@ -200,6 +202,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             instructions: '',
             restrictions: '',
             scenario: '',
+            minTurns: 2,
             maxTurns: 10,
             category: '',
             topic: '',
@@ -359,6 +362,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             instructions: tc.instructions || undefined,
             restrictions: tc.restrictions || undefined,
             scenario: tc.scenario || undefined,
+            min_turns: tc.minTurns,
             max_turns: tc.maxTurns,
           };
           return {
@@ -561,8 +565,8 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                             Restrictions
                           </TableCell>
                           <TableCell sx={{ minWidth: 200 }}>Scenario</TableCell>
-                          <TableCell sx={{ minWidth: 120 }}>
-                            Max. Turns *
+                          <TableCell sx={{ minWidth: 140 }}>
+                            Turn Config
                           </TableCell>
                           <TableCell sx={{ minWidth: 180 }}>
                             Category *
@@ -818,27 +822,57 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                               />
                             </TableCell>
                             <TableCell sx={{ p: 1 }}>
-                              <TextField
-                                fullWidth
-                                type="number"
-                                value={testCase.maxTurns}
-                                onChange={e =>
-                                  updateTestCase(
-                                    testCase.id,
-                                    'maxTurns',
-                                    Math.min(
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: 0.5,
+                                }}
+                              >
+                                <TextField
+                                  fullWidth
+                                  type="number"
+                                  label="Min"
+                                  value={testCase.minTurns}
+                                  onChange={e => {
+                                    const val = Math.min(
+                                      50,
+                                      Math.max(1, parseInt(e.target.value) || 2)
+                                    );
+                                    updateTestCase(
+                                      testCase.id,
+                                      'minTurns',
+                                      Math.min(val, testCase.maxTurns)
+                                    );
+                                  }}
+                                  inputProps={{ min: 1, max: 50 }}
+                                  size="small"
+                                  disabled={loading}
+                                />
+                                <TextField
+                                  fullWidth
+                                  type="number"
+                                  label="Max"
+                                  value={testCase.maxTurns}
+                                  onChange={e => {
+                                    const val = Math.min(
                                       50,
                                       Math.max(
                                         1,
                                         parseInt(e.target.value) || 10
                                       )
-                                    )
-                                  )
-                                }
-                                inputProps={{ min: 1, max: 50 }}
-                                size="small"
-                                disabled={loading}
-                              />
+                                    );
+                                    updateTestCase(
+                                      testCase.id,
+                                      'maxTurns',
+                                      Math.max(val, testCase.minTurns)
+                                    );
+                                  }}
+                                  inputProps={{ min: 1, max: 50 }}
+                                  size="small"
+                                  disabled={loading}
+                                />
+                              </Box>
                             </TableCell>
                             <TableCell sx={{ p: 1 }}>
                               <Autocomplete

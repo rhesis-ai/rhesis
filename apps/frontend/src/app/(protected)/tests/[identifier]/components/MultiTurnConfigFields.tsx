@@ -1,7 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Grid, TextField, Typography, Button } from '@mui/material';
+import {
+  Box,
+  Grid,
+  TextField,
+  Typography,
+  Button,
+  Slider,
+} from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckIcon from '@mui/icons-material/Check';
@@ -277,8 +284,9 @@ export default function MultiTurnConfigFields({
   const [showScenario, setShowScenario] = React.useState(
     !!initialConfig?.scenario
   );
-  const [showMaxTurns, setShowMaxTurns] = React.useState(
-    !!initialConfig?.max_turns && initialConfig.max_turns !== 10
+  const [showTurnConfig, setShowTurnConfig] = React.useState(
+    (!!initialConfig?.max_turns && initialConfig.max_turns !== 10) ||
+      !!initialConfig?.min_turns
   );
   const notifications = useNotifications();
 
@@ -289,8 +297,9 @@ export default function MultiTurnConfigFields({
       setShowInstructions(!!initialConfig.instructions);
       setShowRestrictions(!!initialConfig.restrictions);
       setShowScenario(!!initialConfig.scenario);
-      setShowMaxTurns(
-        !!initialConfig.max_turns && initialConfig.max_turns !== 10
+      setShowTurnConfig(
+        (!!initialConfig.max_turns && initialConfig.max_turns !== 10) ||
+          !!initialConfig.min_turns
       );
     }
   }, [initialConfig]);
@@ -346,17 +355,86 @@ export default function MultiTurnConfigFields({
     }
   };
 
+  const updateTurnConfig = async (minTurns: number, maxTurns: number) => {
+    try {
+      const apiFactory = new ApiClientFactory(sessionToken);
+      const testsClient = apiFactory.getTestsClient();
+
+      const updatedConfig = {
+        ...config,
+        min_turns: minTurns,
+        max_turns: maxTurns,
+      };
+
+      await testsClient.updateTest(testId, {
+        test_configuration: updatedConfig as unknown as Record<string, unknown>,
+      });
+
+      setConfig(updatedConfig);
+
+      notifications.show('Successfully updated turn configuration', {
+        severity: 'success',
+        autoHideDuration: 3000,
+      });
+
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error: unknown) {
+      notifications.show(
+        `Failed to update turn configuration: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        {
+          severity: 'error',
+          autoHideDuration: 6000,
+        }
+      );
+    }
+  };
+
   const removeField = async (
-    field: keyof MultiTurnTestConfig,
+    field: keyof MultiTurnTestConfig | 'turn_config',
     setShowFunction: (show: boolean) => void
   ) => {
     try {
+      if (field === 'turn_config') {
+        // Reset both min_turns and max_turns
+        const apiFactory = new ApiClientFactory(sessionToken);
+        const testsClient = apiFactory.getTestsClient();
+
+        const updatedConfig = {
+          ...config,
+          min_turns: undefined,
+          max_turns: 10,
+        };
+
+        await testsClient.updateTest(testId, {
+          test_configuration: updatedConfig as unknown as Record<
+            string,
+            unknown
+          >,
+        });
+
+        setConfig(updatedConfig);
+
+        notifications.show('Successfully reset turn configuration', {
+          severity: 'success',
+          autoHideDuration: 3000,
+        });
+
+        if (onUpdate) {
+          onUpdate();
+        }
+
+        setShowFunction(false);
+        return;
+      }
+
       // Determine default value based on field
       let defaultValue: string | number;
       if (field === 'max_turns') {
         defaultValue = 10;
       } else {
-        defaultValue = ''; // For text fields (instructions, restrictions, scenario)
+        defaultValue = '';
       }
 
       // Update the field to its default value
@@ -389,10 +467,10 @@ export default function MultiTurnConfigFields({
       label: 'Scenario',
     },
     {
-      key: 'max_turns',
-      show: showMaxTurns,
-      setShow: setShowMaxTurns,
-      label: 'Max. Turns',
+      key: 'turn_config',
+      show: showTurnConfig,
+      setShow: setShowTurnConfig,
+      label: 'Turn Configuration',
     },
   ];
 
@@ -445,17 +523,105 @@ export default function MultiTurnConfigFields({
           maxLength={5000}
         />
       )}
-      {showMaxTurns && (
-        <EditableField
-          label="Max. Turns"
-          value={config.max_turns || 10}
-          onSave={value => updateField('max_turns', value)}
-          multiline={false}
-          type="number"
-          placeholder="10"
-          helperText="Maximum number of conversation turns allowed (default: 10, max: 50)"
-          onRemove={() => removeField('max_turns', setShowMaxTurns)}
-        />
+      {showTurnConfig && (
+        <Grid size={12}>
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              Turn Configuration
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', fontStyle: 'italic' }}
+            >
+              Set the minimum and maximum number of conversation turns
+            </Typography>
+          </Box>
+          <Box
+            sx={theme => ({
+              position: 'relative',
+              bgcolor: 'action.hover',
+              borderRadius: theme.shape.borderRadius * 0.25,
+              p: theme.spacing(2),
+              pr: theme.spacing(14),
+            })}
+          >
+            <Box
+              sx={theme => ({
+                display: 'flex',
+                alignItems: 'center',
+                gap: theme.spacing(2),
+                mb: theme.spacing(1),
+              })}
+            >
+              <Typography
+                variant="body2"
+                sx={theme => ({ minWidth: theme.spacing(9) })}
+              >
+                Min: {config.min_turns || 2}
+              </Typography>
+              <Slider
+                value={[config.min_turns || 2, config.max_turns || 10]}
+                onChange={(_, newValue) => {
+                  const [newMin, newMax] = newValue as number[];
+                  setConfig(prev => ({
+                    ...prev,
+                    min_turns: newMin,
+                    max_turns: newMax,
+                  }));
+                }}
+                onChangeCommitted={(_, newValue) => {
+                  const [newMin, newMax] = newValue as number[];
+                  updateTurnConfig(newMin, newMax);
+                }}
+                min={1}
+                max={50}
+                step={1}
+                marks={[
+                  { value: 1, label: '1' },
+                  { value: 10, label: '10' },
+                  { value: 25, label: '25' },
+                  { value: 50, label: '50' },
+                ]}
+                valueLabelDisplay="auto"
+                disableSwap
+              />
+              <Typography
+                variant="body2"
+                sx={theme => ({ minWidth: theme.spacing(9) })}
+              >
+                Max: {config.max_turns || 10}
+              </Typography>
+            </Box>
+            <Box
+              sx={theme => ({
+                position: 'absolute',
+                top: theme.spacing(1),
+                right: theme.spacing(1),
+                zIndex: 1,
+              })}
+            >
+              <Button
+                startIcon={<CloseIcon />}
+                onClick={() => removeField('turn_config', setShowTurnConfig)}
+                sx={theme => ({
+                  backgroundColor:
+                    theme.palette.mode === 'dark'
+                      ? theme.palette.action.hover
+                      : theme.palette.background.paper,
+                  '&:hover': {
+                    backgroundColor:
+                      theme.palette.mode === 'dark'
+                        ? theme.palette.action.selected
+                        : theme.palette.action.hover,
+                  },
+                })}
+              >
+                Remove
+              </Button>
+            </Box>
+          </Box>
+        </Grid>
       )}
       {hiddenFields.length > 0 && (
         <Grid size={12}>
