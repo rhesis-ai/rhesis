@@ -220,7 +220,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
   const updateTestCase = (
     id: string,
     field: string,
-    value: string | number
+    value: string | number | undefined
   ) => {
     setTestCases(
       testCases.map(tc => (tc.id === id ? { ...tc, [field]: value } : tc))
