@@ -14,9 +14,7 @@ from rhesis.sdk.enums import TestType
 # ------------------------------------------------------------------
 
 
-def _create_test_set(
-    name: str = "Association Test Set", num_tests: int = 1
-) -> TestSet:
+def _create_test_set(name: str = "Association Test Set", num_tests: int = 1) -> TestSet:
     """Create a test set with the given number of tests via the bulk endpoint."""
     tests = [
         {
@@ -103,11 +101,13 @@ class TestAddTests:
         target = _create_test_set("Target")
         tests = source.tests
 
-        result = target.add_tests([
-            tests[0],
-            {"id": tests[1].id},
-            str(tests[2].id),
-        ])
+        result = target.add_tests(
+            [
+                tests[0],
+                {"id": tests[1].id},
+                str(tests[2].id),
+            ]
+        )
 
         assert result is not None
         assert result["success"] is True
@@ -197,3 +197,92 @@ class TestAddRemoveRoundTrip:
         assert len(remaining) == initial_count + 1
         remaining_ids = [t.id for t in remaining]
         assert source.tests[1].id in remaining_ids
+
+
+class TestUpdateTestSet:
+    """Tests for TestSet.push() update path (PUT)."""
+
+    def test_update_name(self, db_cleanup):
+        """Renaming a test set via push() persists the new name."""
+        ts = _create_test_set("Original Name")
+        original_id = ts.id
+
+        ts.name = "Renamed Test Set"
+        ts.push()
+
+        # Pull fresh copy from backend
+        refreshed = TestSet(id=original_id)
+        refreshed.pull()
+        assert refreshed.name == "Renamed Test Set"
+        assert refreshed.id == original_id
+
+    def test_update_description(self, db_cleanup):
+        """Updating description and short_description via push() persists."""
+        ts = _create_test_set("Desc Update Test")
+
+        ts.description = "Updated description"
+        ts.short_description = "Updated short"
+        ts.push()
+
+        refreshed = TestSet(id=ts.id)
+        refreshed.pull()
+        assert refreshed.description == "Updated description"
+        assert refreshed.short_description == "Updated short"
+
+    def test_update_preserves_tests(self, db_cleanup):
+        """Updating metadata does not remove associated tests."""
+        ts = _create_test_set("Preserve Tests", num_tests=3)
+        ts.fetch_tests()
+        original_test_ids = sorted(_get_test_ids(ts))
+
+        ts.name = "Still Has Tests"
+        ts.push()
+
+        refreshed = TestSet(id=ts.id)
+        refreshed.pull()
+        refreshed.fetch_tests()
+        refreshed_test_ids = sorted(_get_test_ids(refreshed))
+        assert refreshed_test_ids == original_test_ids
+
+
+class TestCreateTestSetWithoutTests:
+    """Tests for creating a test set without any tests."""
+
+    def test_create_empty_test_set(self, db_cleanup):
+        """Creating a test set without tests succeeds."""
+        ts = TestSet(
+            name="Empty Test Set",
+            description="No tests yet",
+            short_description="Empty",
+            test_set_type=TestType.SINGLE_TURN,
+        )
+        ts.push()
+        assert ts.id is not None
+
+        refreshed = TestSet(id=ts.id)
+        refreshed.pull()
+        assert refreshed.name == "Empty Test Set"
+
+    def test_create_empty_then_add_tests(self, db_cleanup):
+        """Create an empty test set, then associate tests via add_tests."""
+        # Create empty test set
+        ts = TestSet(
+            name="Initially Empty",
+            description="Will get tests later",
+            short_description="Empty",
+            test_set_type=TestType.SINGLE_TURN,
+        )
+        ts.push()
+        assert ts.id is not None
+
+        # Create a source test set with tests to borrow from
+        source = _create_test_set("Source", num_tests=2)
+
+        # Add tests to the empty set
+        result = ts.add_tests(source.tests)
+        assert result is not None
+        assert result["success"] is True
+
+        # Verify tests are now associated
+        tests = ts.fetch_tests()
+        assert len(tests) == 2
