@@ -14,8 +14,12 @@ function makeFetchResponse(
       entries: () => Object.entries(headers),
     },
     json: () => Promise.resolve(body),
-    text: () => Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)),
-    blob: () => Promise.resolve(new Blob([JSON.stringify(body)], { type: 'application/json' })),
+    text: () =>
+      Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)),
+    blob: () =>
+      Promise.resolve(
+        new Blob([JSON.stringify(body)], { type: 'application/json' })
+      ),
   } as unknown as Response);
 }
 
@@ -172,7 +176,9 @@ describe('TestRunsClient', () => {
   describe('updateTestRun', () => {
     it('sends PUT request with update data', async () => {
       const updateData = { name: 'Updated Run' };
-      fetchMock.mockResolvedValue(makeFetchResponse({ id: 'run-1', ...updateData }));
+      fetchMock.mockResolvedValue(
+        makeFetchResponse({ id: 'run-1', ...updateData })
+      );
 
       await client.updateTestRun('run-1', updateData);
 
@@ -239,16 +245,22 @@ describe('TestRunsClient', () => {
 
   describe('error handling', () => {
     it('throws on 404 responses', async () => {
-      fetchMock.mockResolvedValue(makeFetchResponse({ detail: 'Not found' }, 404));
+      fetchMock.mockResolvedValue(
+        makeFetchResponse({ detail: 'Not found' }, 404)
+      );
 
-      await expect(client.getTestRun('missing-id')).rejects.toThrow('API error: 404');
+      await expect(client.getTestRun('missing-id')).rejects.toThrow(
+        'API error: 404'
+      );
     });
 
     it('propagates network errors', async () => {
       fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
 
       await expect(client.getTestRun('run-1')).rejects.toThrow(
-        expect.objectContaining({ message: expect.stringContaining('Network error') })
+        expect.objectContaining({
+          message: expect.stringContaining('Network error'),
+        })
       );
     });
   });

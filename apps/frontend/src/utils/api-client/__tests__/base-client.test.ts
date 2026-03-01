@@ -37,7 +37,8 @@ function makeFetchResponse(
       entries: () => Object.entries(headers),
     },
     json: () => Promise.resolve(body),
-    text: () => Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)),
+    text: () =>
+      Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)),
   } as unknown as Response;
 }
 
@@ -90,7 +91,9 @@ describe('BaseApiClient', () => {
     });
 
     it('returns default when header value is not a number', () => {
-      const response = makeFetchResponse([], 200, { 'x-total-count': 'not-a-number' });
+      const response = makeFetchResponse([], 200, {
+        'x-total-count': 'not-a-number',
+      });
       expect(client.extractTotalCountPublic(response)).toBe(0);
     });
   });
@@ -150,14 +153,18 @@ describe('BaseApiClient', () => {
         })
       );
 
-      await expect(client.fetchPublic('/tests/1')).rejects.toThrow('API error: 500');
+      await expect(client.fetchPublic('/tests/1')).rejects.toThrow(
+        'API error: 500'
+      );
     });
 
     it('wraps TypeError "Failed to fetch" as descriptive network error', async () => {
       fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
 
       await expect(client.fetchPublic('/tests/1')).rejects.toThrow(
-        expect.objectContaining({ message: expect.stringContaining('Network error') })
+        expect.objectContaining({
+          message: expect.stringContaining('Network error'),
+        })
       );
     });
 
@@ -168,7 +175,7 @@ describe('BaseApiClient', () => {
         })
       );
 
-      let caughtError: Error & { status?: number } | null = null;
+      let caughtError: (Error & { status?: number }) | null = null;
       try {
         await client.fetchPublic('/tests/missing');
       } catch (e) {
@@ -198,9 +205,7 @@ describe('BaseApiClient', () => {
 
     it('parses detail array for validation errors (422)', async () => {
       const validationError = {
-        detail: [
-          { loc: ['body', 'name'], msg: 'field required' },
-        ],
+        detail: [{ loc: ['body', 'name'], msg: 'field required' }],
       };
       fetchMock.mockResolvedValue(
         makeFetchResponse(validationError, 422, {
@@ -208,15 +213,21 @@ describe('BaseApiClient', () => {
         })
       );
 
-      await expect(client.fetchPublic('/tests', { method: 'POST' })).rejects.toThrow(
-        expect.objectContaining({ message: expect.stringContaining('field required') })
+      await expect(
+        client.fetchPublic('/tests', { method: 'POST' })
+      ).rejects.toThrow(
+        expect.objectContaining({
+          message: expect.stringContaining('field required'),
+        })
       );
     });
   });
 
   describe('fetchPaginated', () => {
     it('constructs paginated URL with skip/limit params', async () => {
-      fetchMock.mockResolvedValue(makeFetchResponse([], 200, { 'x-total-count': '0' }));
+      fetchMock.mockResolvedValue(
+        makeFetchResponse([], 200, { 'x-total-count': '0' })
+      );
 
       await client.fetchPaginatedPublic('/tests', { skip: 10, limit: 20 });
 
@@ -226,7 +237,9 @@ describe('BaseApiClient', () => {
     });
 
     it('includes sort_by and sort_order in URL', async () => {
-      fetchMock.mockResolvedValue(makeFetchResponse([], 200, { 'x-total-count': '0' }));
+      fetchMock.mockResolvedValue(
+        makeFetchResponse([], 200, { 'x-total-count': '0' })
+      );
 
       await client.fetchPaginatedPublic('/tests', {
         sort_by: 'created_at',
@@ -239,9 +252,11 @@ describe('BaseApiClient', () => {
     });
 
     it('returns correct pagination metadata', async () => {
-      fetchMock.mockResolvedValue(makeFetchResponse(['item1', 'item2'], 200, {
-        'x-total-count': '100',
-      }));
+      fetchMock.mockResolvedValue(
+        makeFetchResponse(['item1', 'item2'], 200, {
+          'x-total-count': '100',
+        })
+      );
 
       const result = await client.fetchPaginatedPublic<string>('/tests', {
         skip: 20,
@@ -261,7 +276,9 @@ describe('BaseApiClient', () => {
         makeFetchResponse(items, 200, { 'x-total-count': '3' })
       );
 
-      const result = await client.fetchPaginatedPublic<{ id: string }>('/items');
+      const result = await client.fetchPaginatedPublic<{ id: string }>(
+        '/items'
+      );
 
       expect(result.data).toHaveLength(3);
       expect(result.data[0].id).toBe('1');
@@ -274,9 +291,9 @@ describe('BaseApiClient', () => {
         })
       );
 
-      await expect(
-        client.fetchPaginatedPublic('/tests')
-      ).rejects.toThrow('API error: 404');
+      await expect(client.fetchPaginatedPublic('/tests')).rejects.toThrow(
+        'API error: 404'
+      );
     });
   });
 });

@@ -18,8 +18,12 @@ export class TestRunsPage {
 
   async expectLoaded() {
     await expect(this.page).toHaveURL(/\/test-runs/);
-    await expect(this.page.locator('body')).not.toContainText('Internal Server Error');
-    await expect(this.page.locator('body')).not.toContainText('Application error');
+    await expect(this.page.locator('body')).not.toContainText(
+      'Internal Server Error'
+    );
+    await expect(this.page.locator('body')).not.toContainText(
+      'Application error'
+    );
   }
 
   async waitForContent() {
@@ -39,6 +43,8 @@ export class TestRunsPage {
   /** Wait for the detail page to navigate away from the list. */
   async expectDetailPageLoaded() {
     await expect(this.page).toHaveURL(/\/test-runs\/.+/);
-    await expect(this.page.locator('body')).not.toContainText('Internal Server Error');
+    await expect(this.page.locator('body')).not.toContainText(
+      'Internal Server Error'
+    );
   }
 }

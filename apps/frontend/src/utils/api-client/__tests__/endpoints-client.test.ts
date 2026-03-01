@@ -15,7 +15,8 @@ function makeFetchResponse(
       entries: () => Object.entries(headers),
     },
     json: () => Promise.resolve(body),
-    text: () => Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)),
+    text: () =>
+      Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)),
   } as unknown as Response);
 }
 
@@ -46,7 +47,10 @@ describe('EndpointsClient', () => {
 
   describe('getEndpoints', () => {
     it('fetches endpoints with default pagination', async () => {
-      const mockEndpoints = [mockEndpoint, { ...mockEndpoint, id: 'ep-2', name: 'Endpoint 2' }];
+      const mockEndpoints = [
+        mockEndpoint,
+        { ...mockEndpoint, id: 'ep-2', name: 'Endpoint 2' },
+      ];
       fetchMock.mockResolvedValue(
         makeFetchResponse(mockEndpoints, 200, { 'x-total-count': '2' })
       );
@@ -162,8 +166,13 @@ describe('EndpointsClient', () => {
 
   describe('updateEndpoint', () => {
     it('sends PUT request with updated fields', async () => {
-      const updateData = { name: 'Updated Endpoint', url: 'https://new.example.com' };
-      fetchMock.mockResolvedValue(makeFetchResponse({ ...mockEndpoint, ...updateData }));
+      const updateData = {
+        name: 'Updated Endpoint',
+        url: 'https://new.example.com',
+      };
+      fetchMock.mockResolvedValue(
+        makeFetchResponse({ ...mockEndpoint, ...updateData })
+      );
 
       await client.updateEndpoint('ep-1', updateData);
 
@@ -227,9 +236,13 @@ describe('EndpointsClient', () => {
 
   describe('error handling', () => {
     it('throws on 404 when endpoint not found', async () => {
-      fetchMock.mockResolvedValue(makeFetchResponse({ detail: 'Not found' }, 404));
+      fetchMock.mockResolvedValue(
+        makeFetchResponse({ detail: 'Not found' }, 404)
+      );
 
-      await expect(client.getEndpoint('nonexistent')).rejects.toThrow('API error: 404');
+      await expect(client.getEndpoint('nonexistent')).rejects.toThrow(
+        'API error: 404'
+      );
     });
 
     it('throws on 500 server error', async () => {
@@ -245,7 +258,9 @@ describe('EndpointsClient', () => {
 
       // getEndpoint uses this.fetch() which has network error wrapping
       await expect(client.getEndpoint('ep-1')).rejects.toThrow(
-        expect.objectContaining({ message: expect.stringContaining('Network error') })
+        expect.objectContaining({
+          message: expect.stringContaining('Network error'),
+        })
       );
     });
   });

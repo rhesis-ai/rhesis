@@ -20,8 +20,12 @@ export class EndpointsPage {
 
   async expectLoaded() {
     await expect(this.page).toHaveURL(/\/endpoints/);
-    await expect(this.page.locator('body')).not.toContainText('Internal Server Error');
-    await expect(this.page.locator('body')).not.toContainText('Application error');
+    await expect(this.page.locator('body')).not.toContainText(
+      'Internal Server Error'
+    );
+    await expect(this.page.locator('body')).not.toContainText(
+      'Application error'
+    );
   }
 
   async waitForContent() {

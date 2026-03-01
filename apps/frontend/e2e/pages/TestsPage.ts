@@ -8,7 +8,9 @@ export class TestsPage {
   readonly dataGrid: Locator;
 
   constructor(private readonly page: Page) {
-    this.addButton = page.getByRole('button', { name: /add test|new test/i }).first();
+    this.addButton = page
+      .getByRole('button', { name: /add test|new test/i })
+      .first();
     this.dataGrid = page.locator('[role="grid"]');
   }
 
@@ -18,8 +20,12 @@ export class TestsPage {
 
   async expectLoaded() {
     await expect(this.page).toHaveURL(/\/tests/);
-    await expect(this.page.locator('body')).not.toContainText('Internal Server Error');
-    await expect(this.page.locator('body')).not.toContainText('Application error');
+    await expect(this.page.locator('body')).not.toContainText(
+      'Internal Server Error'
+    );
+    await expect(this.page.locator('body')).not.toContainText(
+      'Application error'
+    );
   }
 
   async waitForContent() {

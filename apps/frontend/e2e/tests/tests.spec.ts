@@ -26,7 +26,9 @@ test.describe('Tests @sanity', () => {
     expect(title.length).toBeGreaterThan(0);
   });
 
-  test('tests page does not show loading spinner indefinitely', async ({ page }) => {
+  test('tests page does not show loading spinner indefinitely', async ({
+    page,
+  }) => {
     const testsPage = new TestsPage(page);
     await testsPage.goto();
 
@@ -46,11 +48,16 @@ test.describe('Tests navigation @sanity', () => {
     await page.waitForLoadState('networkidle');
 
     // Navigate via sidebar link
-    const testNavLink = page.locator('nav').getByRole('link', { name: /^tests$/i }).first();
+    const testNavLink = page
+      .locator('nav')
+      .getByRole('link', { name: /^tests$/i })
+      .first();
     await testNavLink.click();
 
     await expect(page).toHaveURL(/\/tests/);
-    await expect(page.locator('body')).not.toContainText('Internal Server Error');
+    await expect(page.locator('body')).not.toContainText(
+      'Internal Server Error'
+    );
   });
 
   test('tests URL shows correct route structure', async ({ page }) => {

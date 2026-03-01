@@ -16,7 +16,8 @@ function makeFetchResponse(
       entries: () => Object.entries(headers),
     },
     json: () => Promise.resolve(body),
-    text: () => Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)),
+    text: () =>
+      Promise.resolve(typeof body === 'string' ? body : JSON.stringify(body)),
   } as unknown as Response);
 }
 
@@ -37,11 +38,25 @@ describe('TestsClient', () => {
   describe('getTests', () => {
     it('fetches tests with default pagination', async () => {
       const mockTests = [
-        { id: 'test-1', priority: 1, prompt_id: 'prompt-1', created_at: '2024-01-01', updated_at: '2024-01-01' },
-        { id: 'test-2', priority: 0, prompt_id: 'prompt-2', created_at: '2024-01-01', updated_at: '2024-01-01' },
+        {
+          id: 'test-1',
+          priority: 1,
+          prompt_id: 'prompt-1',
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        },
+        {
+          id: 'test-2',
+          priority: 0,
+          prompt_id: 'prompt-2',
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        },
       ];
       fetchMock.mockResolvedValue(
-        makeFetchResponse(mockTests, 200, { 'x-total-count': '2' }) as unknown as Response
+        makeFetchResponse(mockTests, 200, {
+          'x-total-count': '2',
+        }) as unknown as Response
       );
 
       const result = await client.getTests();
@@ -56,10 +71,18 @@ describe('TestsClient', () => {
 
     it('converts numeric priority 1 to Medium', async () => {
       const mockTests = [
-        { id: 'test-1', priority: 1, prompt_id: 'p1', created_at: '2024-01-01', updated_at: '2024-01-01' },
+        {
+          id: 'test-1',
+          priority: 1,
+          prompt_id: 'p1',
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        },
       ];
       fetchMock.mockResolvedValue(
-        makeFetchResponse(mockTests, 200, { 'x-total-count': '1' }) as unknown as Response
+        makeFetchResponse(mockTests, 200, {
+          'x-total-count': '1',
+        }) as unknown as Response
       );
 
       const result = await client.getTests();
@@ -69,10 +92,18 @@ describe('TestsClient', () => {
 
     it('converts numeric priority 0 to Low', async () => {
       const mockTests = [
-        { id: 'test-1', priority: 0, prompt_id: 'p1', created_at: '2024-01-01', updated_at: '2024-01-01' },
+        {
+          id: 'test-1',
+          priority: 0,
+          prompt_id: 'p1',
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        },
       ];
       fetchMock.mockResolvedValue(
-        makeFetchResponse(mockTests, 200, { 'x-total-count': '1' }) as unknown as Response
+        makeFetchResponse(mockTests, 200, {
+          'x-total-count': '1',
+        }) as unknown as Response
       );
 
       const result = await client.getTests();
@@ -82,10 +113,18 @@ describe('TestsClient', () => {
 
     it('converts numeric priority 2 to High', async () => {
       const mockTests = [
-        { id: 'test-1', priority: 2, prompt_id: 'p1', created_at: '2024-01-01', updated_at: '2024-01-01' },
+        {
+          id: 'test-1',
+          priority: 2,
+          prompt_id: 'p1',
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        },
       ];
       fetchMock.mockResolvedValue(
-        makeFetchResponse(mockTests, 200, { 'x-total-count': '1' }) as unknown as Response
+        makeFetchResponse(mockTests, 200, {
+          'x-total-count': '1',
+        }) as unknown as Response
       );
 
       const result = await client.getTests();
@@ -95,10 +134,18 @@ describe('TestsClient', () => {
 
     it('converts numeric priority 3 to Urgent', async () => {
       const mockTests = [
-        { id: 'test-1', priority: 3, prompt_id: 'p1', created_at: '2024-01-01', updated_at: '2024-01-01' },
+        {
+          id: 'test-1',
+          priority: 3,
+          prompt_id: 'p1',
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        },
       ];
       fetchMock.mockResolvedValue(
-        makeFetchResponse(mockTests, 200, { 'x-total-count': '1' }) as unknown as Response
+        makeFetchResponse(mockTests, 200, {
+          'x-total-count': '1',
+        }) as unknown as Response
       );
 
       const result = await client.getTests();
@@ -108,7 +155,9 @@ describe('TestsClient', () => {
 
     it('includes filter in request when provided', async () => {
       fetchMock.mockResolvedValue(
-        makeFetchResponse([], 200, { 'x-total-count': '0' }) as unknown as Response
+        makeFetchResponse([], 200, {
+          'x-total-count': '0',
+        }) as unknown as Response
       );
 
       await client.getTests({ filter: "behavior eq 'safety'" });
@@ -121,7 +170,9 @@ describe('TestsClient', () => {
 
     it('sends Authorization header with session token', async () => {
       fetchMock.mockResolvedValue(
-        makeFetchResponse([], 200, { 'x-total-count': '0' }) as unknown as Response
+        makeFetchResponse([], 200, {
+          'x-total-count': '0',
+        }) as unknown as Response
       );
 
       await client.getTests();
@@ -138,7 +189,9 @@ describe('TestsClient', () => {
 
     it('returns pagination metadata with correct page numbers', async () => {
       fetchMock.mockResolvedValue(
-        makeFetchResponse([], 200, { 'x-total-count': '100' }) as unknown as Response
+        makeFetchResponse([], 200, {
+          'x-total-count': '100',
+        }) as unknown as Response
       );
 
       const result = await client.getTests({ skip: 0, limit: 50 });
@@ -149,9 +202,7 @@ describe('TestsClient', () => {
     });
 
     it('handles missing x-total-count header gracefully', async () => {
-      fetchMock.mockResolvedValue(
-        makeFetchResponse([]) as unknown as Response
-      );
+      fetchMock.mockResolvedValue(makeFetchResponse([]) as unknown as Response);
 
       const result = await client.getTests();
 
@@ -186,7 +237,8 @@ describe('TestsClient', () => {
   describe('createTest', () => {
     it('sends POST request with test data', async () => {
       const newTest = {
-        prompt_id: 'prompt-xyz' as unknown as `${string}-${string}-${string}-${string}-${string}`,
+        prompt_id:
+          'prompt-xyz' as unknown as `${string}-${string}-${string}-${string}-${string}`,
         priority: 1,
       };
       const createdTest = { id: 'new-test', ...newTest };
@@ -209,7 +261,13 @@ describe('TestsClient', () => {
   describe('updateTest', () => {
     it('sends PUT request with test update data', async () => {
       const updateData = { priority: 2 };
-      const updatedTest = { id: 'test-1', priority: 2, prompt_id: 'p1', created_at: '2024-01-01', updated_at: '2024-01-01' };
+      const updatedTest = {
+        id: 'test-1',
+        priority: 2,
+        prompt_id: 'p1',
+        created_at: '2024-01-01',
+        updated_at: '2024-01-01',
+      };
       fetchMock.mockResolvedValue(
         makeFetchResponse(updatedTest) as unknown as Response
       );
@@ -228,7 +286,12 @@ describe('TestsClient', () => {
 
   describe('deleteTest', () => {
     it('sends DELETE request for the test', async () => {
-      const deletedTest = { id: 'test-1', prompt_id: 'p1', created_at: '2024-01-01', updated_at: '2024-01-01' };
+      const deletedTest = {
+        id: 'test-1',
+        prompt_id: 'p1',
+        created_at: '2024-01-01',
+        updated_at: '2024-01-01',
+      };
       fetchMock.mockResolvedValue(
         makeFetchResponse(deletedTest) as unknown as Response
       );
@@ -248,24 +311,29 @@ describe('TestsClient', () => {
         makeFetchResponse({ detail: 'Not found' }, 404) as unknown as Response
       );
 
-      await expect(client.getTest('missing-id')).rejects.toThrow('API error: 404');
+      await expect(client.getTest('missing-id')).rejects.toThrow(
+        'API error: 404'
+      );
     });
 
     it('throws an error with status on 500', async () => {
       fetchMock.mockResolvedValue(
-        makeFetchResponse({ detail: 'Server error' }, 500) as unknown as Response
+        makeFetchResponse(
+          { detail: 'Server error' },
+          500
+        ) as unknown as Response
       );
 
       await expect(client.getTest('test-1')).rejects.toThrow('API error: 500');
     });
 
     it('throws network error as descriptive message', async () => {
-      fetchMock.mockRejectedValue(
-        new TypeError('Failed to fetch')
-      );
+      fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
 
       await expect(client.getTest('test-1')).rejects.toThrow(
-        expect.objectContaining({ message: expect.stringContaining('Network error') })
+        expect.objectContaining({
+          message: expect.stringContaining('Network error'),
+        })
       );
     });
   });
@@ -275,7 +343,11 @@ describe('TestsClient', () => {
       const mockStats = {
         total: 100,
         stats: {},
-        metadata: { generated_at: '2024-01-01', organization_id: 'org-1', entity_type: 'test' },
+        metadata: {
+          generated_at: '2024-01-01',
+          organization_id: 'org-1',
+          entity_type: 'test',
+        },
       };
       fetchMock.mockResolvedValue(
         makeFetchResponse(mockStats) as unknown as Response
@@ -292,7 +364,11 @@ describe('TestsClient', () => {
 
     it('includes query parameters when provided', async () => {
       fetchMock.mockResolvedValue(
-        makeFetchResponse({ total: 10, stats: {}, metadata: {} }) as unknown as Response
+        makeFetchResponse({
+          total: 10,
+          stats: {},
+          metadata: {},
+        }) as unknown as Response
       );
 
       await client.getTestStats({ top: 5, months: 3 });

@@ -19,7 +19,11 @@ test.describe('Test Runs — Extended @sanity', () => {
 
     // Check that a data grid or empty-state content is shown
     const hasGrid = await testRunsPage.hasDataGrid();
-    const hasContent = await page.locator('main, [role="main"]').first().isVisible().catch(() => false);
+    const hasContent = await page
+      .locator('main, [role="main"]')
+      .first()
+      .isVisible()
+      .catch(() => false);
 
     expect(hasGrid || hasContent).toBeTruthy();
   });
@@ -40,13 +44,17 @@ test.describe('Test Runs — Extended @sanity', () => {
 });
 
 test.describe('Test Run detail page @sanity', () => {
-  test('test run detail with non-existent id shows error or redirects gracefully', async ({ page }) => {
+  test('test run detail with non-existent id shows error or redirects gracefully', async ({
+    page,
+  }) => {
     // Navigate to a non-existent test run — should not 500
     const response = await page.goto('/test-runs/non-existent-id-12345');
     // Either a redirect (3xx) or a handled error page (4xx) is acceptable; 5xx is not
     if (response) {
       expect(response.status()).not.toBe(500);
     }
-    await expect(page.locator('body')).not.toContainText('Internal Server Error');
+    await expect(page.locator('body')).not.toContainText(
+      'Internal Server Error'
+    );
   });
 });

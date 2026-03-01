@@ -18,7 +18,11 @@ test.describe('Endpoints — Extended @sanity', () => {
     await page.waitForLoadState('networkidle');
 
     const hasGrid = await endpointsPage.hasDataGrid();
-    const hasContent = await page.locator('main, [role="main"]').first().isVisible().catch(() => false);
+    const hasContent = await page
+      .locator('main, [role="main"]')
+      .first()
+      .isVisible()
+      .catch(() => false);
 
     expect(hasGrid || hasContent).toBeTruthy();
   });
@@ -28,7 +32,9 @@ test.describe('Endpoints — Extended @sanity', () => {
     await endpointsPage.gotoNewEndpoint();
     await page.waitForLoadState('networkidle');
 
-    await expect(page.locator('body')).not.toContainText('Internal Server Error');
+    await expect(page.locator('body')).not.toContainText(
+      'Internal Server Error'
+    );
     await expect(page.locator('body')).not.toContainText('Application error');
   });
 
@@ -56,6 +62,8 @@ test.describe('Endpoint navigation @sanity', () => {
       await expect(page).toHaveURL(/\/endpoints/);
     }
 
-    await expect(page.locator('body')).not.toContainText('Internal Server Error');
+    await expect(page.locator('body')).not.toContainText(
+      'Internal Server Error'
+    );
   });
 });
