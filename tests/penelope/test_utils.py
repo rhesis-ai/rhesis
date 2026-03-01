@@ -8,7 +8,9 @@ import pytest
 from rhesis.penelope.utils import (
     GoalAchievedCondition,
     MaxTurnsCondition,
+    StopCategory,
     StoppingCondition,
+    StopResult,
     TimeoutCondition,
 )
 
@@ -37,10 +39,11 @@ def test_max_turns_condition_should_not_stop(sample_test_state):
     """Test MaxTurnsCondition doesn't stop before limit."""
     condition = MaxTurnsCondition(max_turns=10)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is False
-    assert reason == ""
+    assert result.should_stop is False
+    assert result.category is None
+    assert result.reason == ""
 
 
 def test_max_turns_condition_should_stop(sample_test_state):
@@ -51,11 +54,12 @@ def test_max_turns_condition_should_stop(sample_test_state):
     for _ in range(5):
         sample_test_state.current_turn += 1
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is True
-    assert "Maximum turns" in reason
-    assert "5" in reason
+    assert result.should_stop is True
+    assert result.category == StopCategory.MAX_TURNS
+    assert "Maximum turns" in result.reason
+    assert "5" in result.reason
 
 
 def test_timeout_condition_initialization():
@@ -69,10 +73,10 @@ def test_timeout_condition_should_not_stop(sample_test_state):
     """Test TimeoutCondition doesn't stop before timeout."""
     condition = TimeoutCondition(timeout_seconds=60.0)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is False
-    assert reason == ""
+    assert result.should_stop is False
+    assert result.category is None
 
 
 def test_timeout_condition_should_stop(sample_test_state):
@@ -82,10 +86,11 @@ def test_timeout_condition_should_stop(sample_test_state):
     # Simulate time passing
     sample_test_state.start_time = datetime.now() - timedelta(seconds=2)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is True
-    assert "Timeout" in reason
+    assert result.should_stop is True
+    assert result.category == StopCategory.TIMEOUT
+    assert "Timeout" in result.reason
 
 
 def test_goal_achieved_condition_initialization():
@@ -110,10 +115,10 @@ def test_goal_achieved_condition_should_not_stop_no_result(sample_test_state):
     """Test GoalAchievedCondition doesn't stop without result."""
     condition = GoalAchievedCondition()
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is False
-    assert reason == ""
+    assert result.should_stop is False
+    assert result.category is None
 
 
 def test_goal_achieved_condition_should_not_stop_goal_not_achieved(
@@ -126,10 +131,10 @@ def test_goal_achieved_condition_should_not_stop_goal_not_achieved(
 
     condition = GoalAchievedCondition(result=mock_result)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is False
-    assert reason == ""
+    assert result.should_stop is False
+    assert result.category is None
 
 
 def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
@@ -143,11 +148,12 @@ def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
 
     condition = GoalAchievedCondition(result=mock_result)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is True
-    assert "Goal achieved" in reason
-    assert "successfully achieved" in reason
+    assert result.should_stop is True
+    assert result.category == StopCategory.GOAL_ACHIEVED
+    assert "Goal achieved" in result.reason
+    assert "successfully achieved" in result.reason
 
 
 def _add_turns_to_state(state, count):
@@ -167,9 +173,7 @@ def _add_turns_to_state(state, count):
                 MessageToolCall(
                     id=f"call_{i}",
                     type="function",
-                    function=FunctionCall(
-                        name="send_message_to_target", arguments="{}"
-                    ),
+                    function=FunctionCall(name="send_message_to_target", arguments="{}"),
                 )
             ],
         )
@@ -206,10 +210,11 @@ def test_goal_achieved_condition_should_stop_goal_impossible(
     condition = GoalAchievedCondition(result=mock_result)
     _add_turns_to_state(sample_test_state, 5)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is True
-    assert "impossible" in reason.lower()
+    assert result.should_stop is True
+    assert result.category == StopCategory.GOAL_IMPOSSIBLE
+    assert "impossible" in result.reason.lower()
 
 
 def test_goal_achieved_condition_update_result():
@@ -236,14 +241,12 @@ def test_min_turns_blocks_early_stop(sample_test_state):
         "reason": "Goal achieved",
     }
 
-    condition = GoalAchievedCondition(
-        result=mock_result, max_turns=10, min_turns=8
-    )
+    condition = GoalAchievedCondition(result=mock_result, max_turns=10, min_turns=8)
     _add_turns_to_state(sample_test_state, 5)
 
     # At 5 turns with min_turns=8, should NOT stop
-    should_stop, reason = condition.should_stop(sample_test_state)
-    assert should_stop is False
+    result = condition.should_stop(sample_test_state)
+    assert result.should_stop is False
 
 
 def test_min_turns_allows_stop_after_threshold(sample_test_state):
@@ -255,15 +258,14 @@ def test_min_turns_allows_stop_after_threshold(sample_test_state):
         "reason": "Goal achieved",
     }
 
-    condition = GoalAchievedCondition(
-        result=mock_result, max_turns=10, min_turns=5
-    )
+    condition = GoalAchievedCondition(result=mock_result, max_turns=10, min_turns=5)
     _add_turns_to_state(sample_test_state, 5)
 
     # At 5 turns with min_turns=5, should stop
-    should_stop, reason = condition.should_stop(sample_test_state)
-    assert should_stop is True
-    assert "Goal achieved" in reason
+    result = condition.should_stop(sample_test_state)
+    assert result.should_stop is True
+    assert result.category == StopCategory.GOAL_ACHIEVED
+    assert "Goal achieved" in result.reason
 
 
 def test_min_turns_capped_at_max_turns(sample_test_state):
@@ -287,3 +289,50 @@ def test_no_floor_when_neither_set():
     condition = GoalAchievedCondition()
 
     assert condition._get_min_turns_before_stop() == 0
+
+
+def test_stop_result_continue():
+    """Test StopResult.continue_() sentinel."""
+    result = StopResult.continue_()
+
+    assert result.should_stop is False
+    assert result.category is None
+    assert result.reason == ""
+
+
+def test_stop_result_with_category():
+    """Test StopResult with a category."""
+    result = StopResult(StopCategory.GOAL_ACHIEVED, "Test reason")
+
+    assert result.should_stop is True
+    assert result.category == StopCategory.GOAL_ACHIEVED
+    assert result.reason == "Test reason"
+
+
+def test_stop_result_tuple_unpacking():
+    """Test backward-compatible tuple unpacking."""
+    result = StopResult(StopCategory.MAX_TURNS, "Max reached")
+
+    should_stop, reason = result
+
+    assert should_stop is True
+    assert reason == "Max reached"
+
+
+def test_stop_result_continue_tuple_unpacking():
+    """Test tuple unpacking for continue sentinel."""
+    result = StopResult.continue_()
+
+    should_stop, reason = result
+
+    assert should_stop is False
+    assert reason == ""
+
+
+def test_stop_category_values():
+    """Test StopCategory enum values."""
+    assert StopCategory.GOAL_ACHIEVED == "goal_achieved"
+    assert StopCategory.GOAL_IMPOSSIBLE == "goal_impossible"
+    assert StopCategory.MAX_TURNS == "max_turns"
+    assert StopCategory.MAX_TOOL_EXECUTIONS == "max_tool_executions"
+    assert StopCategory.TIMEOUT == "timeout"

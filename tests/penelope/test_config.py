@@ -148,15 +148,15 @@ def test_config_reset():
 def test_config_default_model():
     """Test default model configuration."""
     PenelopeConfig.reset()
-    
+
     # Should default to rhesis
     model = PenelopeConfig.get_default_model()
     assert model == "rhesis"
-    
+
     # Should default to default
     model_name = PenelopeConfig.get_default_model_name()
     assert model_name == "default"
-    
+
     # Cleanup
     PenelopeConfig.reset()
 
@@ -164,10 +164,10 @@ def test_config_default_model():
 def test_config_set_default_model():
     """Test programmatic default model setting."""
     PenelopeConfig.set_default_model("anthropic", "claude-4")
-    
+
     assert PenelopeConfig.get_default_model() == "anthropic"
     assert PenelopeConfig.get_default_model_name() == "claude-4"
-    
+
     # Cleanup
     PenelopeConfig.reset()
 
@@ -177,13 +177,13 @@ def test_config_default_model_env_variable(monkeypatch):
     PenelopeConfig.reset()
     monkeypatch.setenv("PENELOPE_DEFAULT_MODEL", "openai")
     monkeypatch.setenv("PENELOPE_DEFAULT_MODEL_NAME", "gpt-4")
-    
+
     model = PenelopeConfig.get_default_model()
     model_name = PenelopeConfig.get_default_model_name()
-    
+
     assert model == "openai"
     assert model_name == "gpt-4"
-    
+
     # Cleanup
     PenelopeConfig.reset()
 
@@ -193,14 +193,14 @@ def test_config_programmatic_overrides_env_model(monkeypatch):
     PenelopeConfig.reset()
     monkeypatch.setenv("PENELOPE_DEFAULT_MODEL", "openai")
     monkeypatch.setenv("PENELOPE_DEFAULT_MODEL_NAME", "gpt-4")
-    
+
     # Set programmatically
     PenelopeConfig.set_default_model("anthropic", "claude-4")
-    
+
     # Should use programmatic value
     assert PenelopeConfig.get_default_model() == "anthropic"
     assert PenelopeConfig.get_default_model_name() == "claude-4"
-    
+
     # Cleanup
     PenelopeConfig.reset()
 
@@ -208,11 +208,11 @@ def test_config_programmatic_overrides_env_model(monkeypatch):
 def test_config_default_max_turns():
     """Test default max iterations configuration."""
     PenelopeConfig.reset()
-    
+
     # Should default to 10
     max_turns = PenelopeConfig.get_default_max_turns()
     assert max_turns == 10
-    
+
     # Cleanup
     PenelopeConfig.reset()
 
@@ -220,22 +220,22 @@ def test_config_default_max_turns():
 def test_config_set_default_max_turns():
     """Test programmatic max iterations setting."""
     PenelopeConfig.set_default_max_turns(30)
-    
+
     assert PenelopeConfig.get_default_max_turns() == 30
-    
+
     # Cleanup
     PenelopeConfig.reset()
 
 
 def test_config_set_invalid_max_turns():
     """Test that setting invalid max iterations raises error."""
-    
+
     with pytest.raises(ValueError, match="max_turns must be positive"):
         PenelopeConfig.set_default_max_turns(0)
-    
+
     with pytest.raises(ValueError, match="max_turns must be positive"):
         PenelopeConfig.set_default_max_turns(-5)
-    
+
     # Cleanup
     PenelopeConfig.reset()
 
@@ -244,11 +244,11 @@ def test_config_default_max_turns_env_variable(monkeypatch):
     """Test that environment variable overrides default max iterations."""
     PenelopeConfig.reset()
     monkeypatch.setenv("PENELOPE_DEFAULT_MAX_TURNS", "50")
-    
+
     max_turns = PenelopeConfig.get_default_max_turns()
-    
+
     assert max_turns == 50
-    
+
     # Cleanup
     PenelopeConfig.reset()
 
@@ -257,12 +257,12 @@ def test_config_default_max_turns_invalid_env_variable(monkeypatch):
     """Test that invalid environment variable falls back to default."""
     PenelopeConfig.reset()
     monkeypatch.setenv("PENELOPE_DEFAULT_MAX_TURNS", "not_a_number")
-    
+
     max_turns = PenelopeConfig.get_default_max_turns()
-    
+
     # Should fall back to default
     assert max_turns == 10
-    
+
     # Cleanup
     PenelopeConfig.reset()
 
@@ -271,12 +271,90 @@ def test_config_programmatic_overrides_env_max_turns(monkeypatch):
     """Test that programmatic setting overrides environment variable for max iterations."""
     PenelopeConfig.reset()
     monkeypatch.setenv("PENELOPE_DEFAULT_MAX_TURNS", "50")
-    
+
     # Set programmatically
     PenelopeConfig.set_default_max_turns(30)
-    
+
     # Should use programmatic value
     assert PenelopeConfig.get_default_max_turns() == 30
-    
+
     # Cleanup
+    PenelopeConfig.reset()
+
+
+# --- Early stop threshold tests ---
+
+
+def test_config_default_early_stop_threshold():
+    """Test that default early stop threshold is 0.8."""
+    PenelopeConfig.reset()
+    assert PenelopeConfig.get_early_stop_threshold() == 0.8
+    PenelopeConfig.reset()
+
+
+def test_config_early_stop_threshold_env_variable(monkeypatch):
+    """Test that environment variable overrides default early stop threshold."""
+    PenelopeConfig.reset()
+    monkeypatch.setenv("PENELOPE_EARLY_STOP_THRESHOLD", "0.5")
+    assert PenelopeConfig.get_early_stop_threshold() == 0.5
+    PenelopeConfig.reset()
+
+
+def test_config_early_stop_threshold_invalid_env(monkeypatch):
+    """Test that invalid environment variable falls back to default."""
+    PenelopeConfig.reset()
+    monkeypatch.setenv("PENELOPE_EARLY_STOP_THRESHOLD", "not_a_number")
+    assert PenelopeConfig.get_early_stop_threshold() == 0.8
+    PenelopeConfig.reset()
+
+
+# --- Impossible score threshold tests ---
+
+
+def test_config_default_impossible_score_threshold():
+    """Test that default impossible score threshold is 0.3."""
+    PenelopeConfig.reset()
+    assert PenelopeConfig.get_impossible_score_threshold() == 0.3
+    PenelopeConfig.reset()
+
+
+def test_config_impossible_score_threshold_env_variable(monkeypatch):
+    """Test that environment variable overrides default impossible score threshold."""
+    PenelopeConfig.reset()
+    monkeypatch.setenv("PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD", "0.2")
+    assert PenelopeConfig.get_impossible_score_threshold() == 0.2
+    PenelopeConfig.reset()
+
+
+def test_config_impossible_score_threshold_invalid_env(monkeypatch):
+    """Test that invalid environment variable falls back to default."""
+    PenelopeConfig.reset()
+    monkeypatch.setenv("PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD", "bad")
+    assert PenelopeConfig.get_impossible_score_threshold() == 0.3
+    PenelopeConfig.reset()
+
+
+# --- Goal achievement threshold tests ---
+
+
+def test_config_default_goal_achievement_threshold():
+    """Test that default goal achievement threshold is 0.7."""
+    PenelopeConfig.reset()
+    assert PenelopeConfig.get_goal_achievement_threshold() == 0.7
+    PenelopeConfig.reset()
+
+
+def test_config_goal_achievement_threshold_env_variable(monkeypatch):
+    """Test that environment variable overrides default goal achievement threshold."""
+    PenelopeConfig.reset()
+    monkeypatch.setenv("PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD", "0.9")
+    assert PenelopeConfig.get_goal_achievement_threshold() == 0.9
+    PenelopeConfig.reset()
+
+
+def test_config_goal_achievement_threshold_invalid_env(monkeypatch):
+    """Test that invalid environment variable falls back to default."""
+    PenelopeConfig.reset()
+    monkeypatch.setenv("PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD", "xyz")
+    assert PenelopeConfig.get_goal_achievement_threshold() == 0.7
     PenelopeConfig.reset()
