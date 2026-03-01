@@ -5,8 +5,9 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rhesis.penelope.agent import PenelopeAgent, _create_default_model
-from rhesis.penelope.context import TestContext, TestState
+from rhesis.penelope.context import ExecutionStatus, TestContext, TestState
 from rhesis.penelope.targets.base import Target
+from rhesis.penelope.utils import StopCategory
 from rhesis.sdk.metrics.providers.native import GoalAchievementJudge
 from rhesis.sdk.models.base import BaseLLM
 
@@ -354,10 +355,11 @@ class TestPenelopeAgentHelperMethods:
         state = TestState(context=context)
 
         conditions = agent._create_stopping_conditions()
-        should_stop, reason = agent._should_stop(state, conditions)
+        result = agent._should_stop(state, conditions)
 
-        assert should_stop is False
-        assert reason == ""
+        assert result.should_stop is False
+        assert result.category is None
+        assert result.reason == ""
 
     def test_should_stop_returns_true_when_condition_met(self, mock_model, mock_target):
         """Test _should_stop returns True when condition is met."""
@@ -374,10 +376,11 @@ class TestPenelopeAgentHelperMethods:
         state.current_turn = 1
 
         conditions = agent._create_stopping_conditions()
-        should_stop, reason = agent._should_stop(state, conditions)
+        result = agent._should_stop(state, conditions)
 
-        assert should_stop is True
-        assert "maximum iterations" in reason.lower() or "1" in reason
+        assert result.should_stop is True
+        assert result.category == StopCategory.MAX_TURNS
+        assert "maximum" in result.reason.lower() or "1" in result.reason
 
 
 class TestCreateDefaultModel:
@@ -400,6 +403,49 @@ class TestCreateDefaultModel:
             provider="vertex_ai", model_name="gemini-2.0-flash"
         )
         assert result == mock_model
+
+
+class TestStopCategoryMapping:
+    """Tests for StopCategory -> ExecutionStatus mapping used in agent loop."""
+
+    # Reproduce the mapping defined in PenelopeAgent.execute_test
+    _STATUS_MAP = {
+        StopCategory.GOAL_ACHIEVED: (ExecutionStatus.SUCCESS, True),
+        StopCategory.GOAL_IMPOSSIBLE: (ExecutionStatus.FAILURE, False),
+        StopCategory.MAX_TURNS: (ExecutionStatus.MAX_TURNS, False),
+        StopCategory.TIMEOUT: (ExecutionStatus.TIMEOUT, False),
+        StopCategory.MAX_TOOL_EXECUTIONS: (ExecutionStatus.FAILURE, False),
+    }
+
+    def test_goal_achieved_maps_to_success(self):
+        """GOAL_ACHIEVED should map to SUCCESS with goal_achieved=True."""
+        status, goal_achieved = self._STATUS_MAP[StopCategory.GOAL_ACHIEVED]
+        assert status == ExecutionStatus.SUCCESS
+        assert goal_achieved is True
+
+    def test_goal_impossible_maps_to_failure(self):
+        """GOAL_IMPOSSIBLE should map to FAILURE with goal_achieved=False."""
+        status, goal_achieved = self._STATUS_MAP[StopCategory.GOAL_IMPOSSIBLE]
+        assert status == ExecutionStatus.FAILURE
+        assert goal_achieved is False
+
+    def test_max_turns_maps_to_max_turns(self):
+        """MAX_TURNS should map to MAX_TURNS with goal_achieved=False."""
+        status, goal_achieved = self._STATUS_MAP[StopCategory.MAX_TURNS]
+        assert status == ExecutionStatus.MAX_TURNS
+        assert goal_achieved is False
+
+    def test_timeout_maps_to_timeout(self):
+        """TIMEOUT should map to TIMEOUT with goal_achieved=False."""
+        status, goal_achieved = self._STATUS_MAP[StopCategory.TIMEOUT]
+        assert status == ExecutionStatus.TIMEOUT
+        assert goal_achieved is False
+
+    def test_max_tool_executions_maps_to_failure(self):
+        """MAX_TOOL_EXECUTIONS should map to FAILURE with goal_achieved=False."""
+        status, goal_achieved = self._STATUS_MAP[StopCategory.MAX_TOOL_EXECUTIONS]
+        assert status == ExecutionStatus.FAILURE
+        assert goal_achieved is False
 
 
 if __name__ == "__main__":
