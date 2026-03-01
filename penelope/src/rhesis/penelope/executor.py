@@ -250,11 +250,12 @@ class TurnExecutor:
                 prompt = user_prompt
 
             # Debug logging for LLM input (without prompt content)
-            logger.info("=== EXECUTOR: Sending to LLM ===")
-            logger.info(f"Model: {self.model.get_model_name()}")
-            logger.info(f"User prompt length: {len(prompt)} chars")
-            logger.info(f"System prompt length: {len(system_prompt)} chars")
-            logger.info("=== END EXECUTOR DEBUG ===")
+            logger.debug(
+                "Sending to LLM: model=%s, prompt_len=%d, system_len=%d",
+                self.model.get_model_name(),
+                len(prompt),
+                len(system_prompt),
+            )
 
             response = self.model.generate(
                 prompt=prompt,
@@ -319,17 +320,9 @@ class TurnExecutor:
                 # Only inject if no conversation ID is already present
                 if not extract_conversation_id(action_params):
                     action_params["conversation_id"] = state.conversation_id
-                    logger.info(f"TurnExecutor injected conversation_id: {state.conversation_id}")
+                    logger.debug("Injected conversation_id into params")
                 else:
-                    logger.info(
-                        f"TurnExecutor found existing conversation_id in params: "
-                        f"{extract_conversation_id(action_params)}"
-                    )
-            elif action_name == "send_message_to_target":
-                logger.info(
-                    f"TurnExecutor: No conversation_id to inject "
-                    f"(state.conversation_id: {state.conversation_id})"
-                )
+                    logger.debug("Using existing conversation_id from params")
 
             # Debug: Log structured response
             if self.verbose:
@@ -462,15 +455,12 @@ class TurnExecutor:
                     if conversation_id:
                         old_conversation_id = state.conversation_id
                         state.conversation_id = conversation_id
-                        logger.info(
-                            f"TurnExecutor updated conversation_id: "
-                            f"{old_conversation_id} -> {conversation_id}"
-                        )
-                    else:
-                        logger.info(
-                            f"TurnExecutor: No conversation_id found in tool output: "
-                            f"{tool_result.output}"
-                        )
+                        if old_conversation_id != conversation_id:
+                            logger.debug(
+                                "Updated conversation_id: %s -> %s",
+                                old_conversation_id,
+                                conversation_id,
+                            )
 
             # Display execution if verbose
             if self.verbose and self.enable_transparency:

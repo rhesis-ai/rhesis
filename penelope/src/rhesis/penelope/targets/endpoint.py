@@ -8,10 +8,13 @@ All authentication, request mapping, and response parsing is handled by the
 Rhesis backend - Penelope simply uses the SDK to invoke endpoints.
 """
 
+import logging
 from typing import Any, Optional
 
 from rhesis.penelope.targets.base import Target, TargetResponse
 from rhesis.sdk.entities import Endpoint
+
+logger = logging.getLogger(__name__)
 
 
 class EndpointTarget(Target):
@@ -156,34 +159,13 @@ class EndpointTarget(Target):
             # Standard fields: output, conversation_id, metadata, context
             response_text = response_data.get("output", "")
 
-            # Log the raw response structure for debugging
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.debug(f"Raw endpoint response: {response_data}")
-            logger.debug(
-                f"Response keys: "
-                f"{list(response_data.keys()) if isinstance(response_data, dict) else 'Not a dict'}"
-            )
-
             # Extract conversation_id using smart field detection
             from rhesis.penelope.conversation import extract_conversation_id
 
-            # Extract conversation_id from endpoint response
             response_conversation_id = extract_conversation_id(response_data)
             if not response_conversation_id:
                 # Fallback to input conversation_id for subsequent turns
                 response_conversation_id = conversation_id
-
-            # Debug logging for conversation ID tracking
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.debug(
-                f"Endpoint conversation tracking - Input: {conversation_id}, "
-                f"Response extracted: {extract_conversation_id(response_data)}, "
-                f"Final: {response_conversation_id}"
-            )
 
             # Build metadata including context if available
             response_metadata = {
