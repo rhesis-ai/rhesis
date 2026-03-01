@@ -6,6 +6,11 @@ on:
     paths:
       - 'apps/frontend/**'
       - '.github/workflows/frontend-e2e-test.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/frontend/**'
+      - '.github/workflows/frontend-e2e-test.yml'
   workflow_dispatch:
 
 jobs:
