@@ -120,6 +120,7 @@ jobs:
           exit-code: 0
           severity: CRITICAL,HIGH,MEDIUM
           scanners: vuln
+          version: v0.69.2
 
       - name: Run Trivy (SARIF upload)
         uses: aquasecurity/trivy-action@0.34.1
@@ -131,6 +132,7 @@ jobs:
           exit-code: 0
           severity: CRITICAL,HIGH,MEDIUM
           scanners: vuln
+          version: v0.69.2
 
       - name: Upload SARIF to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
