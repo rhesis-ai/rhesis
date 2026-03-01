@@ -6,14 +6,13 @@ Includes stopping conditions, evaluation helpers, and other utility functions.
 
 import logging
 import math
-from enum import Enum
 from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from rhesis.penelope.context import TestState
+from rhesis.penelope.context import ExecutionStatus, TestState
 
 if TYPE_CHECKING:
     from rhesis.sdk.metrics.base import MetricResult
@@ -23,24 +22,20 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
-class StopCategory(str, Enum):
-    """Why the agent stopped. Used for structured status mapping."""
-
-    GOAL_ACHIEVED = "goal_achieved"
-    GOAL_IMPOSSIBLE = "goal_impossible"
-    MAX_TURNS = "max_turns"
-    MAX_TOOL_EXECUTIONS = "max_tool_executions"
-    TIMEOUT = "timeout"
-
-
 class StopResult:
     """Structured result from a stopping condition check."""
 
     # Singleton for "don't stop"
     _CONTINUE = None
 
-    def __init__(self, category: Optional[StopCategory], reason: str):
-        self.category = category
+    def __init__(
+        self,
+        status: ExecutionStatus,
+        goal_achieved: bool,
+        reason: str,
+    ):
+        self.status = status
+        self.goal_achieved = goal_achieved
         self.reason = reason
 
     @classmethod
@@ -48,13 +43,14 @@ class StopResult:
         """Return a sentinel meaning 'do not stop'."""
         if cls._CONTINUE is None:
             cls._CONTINUE = cls.__new__(cls)
-            cls._CONTINUE.category = None
+            cls._CONTINUE.status = None
+            cls._CONTINUE.goal_achieved = False
             cls._CONTINUE.reason = ""
         return cls._CONTINUE
 
     @property
     def should_stop(self) -> bool:
-        return self.category is not None
+        return self.status is not None
 
     def as_tuple(self) -> Tuple[bool, str]:
         """Backward-compatible (should_stop, reason) tuple."""
@@ -90,7 +86,8 @@ class MaxTurnsCondition(StoppingCondition):
     def should_stop(self, state: TestState) -> StopResult:
         if state.current_turn >= self.max_turns:
             return StopResult(
-                StopCategory.MAX_TURNS,
+                ExecutionStatus.MAX_TURNS,
+                False,
                 f"Maximum turns reached ({self.max_turns})",
             )
         return StopResult.continue_()
@@ -122,7 +119,7 @@ class MaxToolExecutionsCondition(StoppingCondition):
                 "Ensure your agent is making progress."
             )
 
-            return StopResult(StopCategory.MAX_TOOL_EXECUTIONS, message)
+            return StopResult(ExecutionStatus.FAILURE, False, message)
         return StopResult.continue_()
 
 
@@ -138,7 +135,8 @@ class TimeoutCondition(StoppingCondition):
         elapsed = (datetime.now() - state.start_time).total_seconds()
         if elapsed >= self.timeout_seconds:
             return StopResult(
-                StopCategory.TIMEOUT,
+                ExecutionStatus.TIMEOUT,
+                False,
                 f"Timeout reached ({self.timeout_seconds}s)",
             )
         return StopResult.continue_()
@@ -258,7 +256,7 @@ class GoalAchievedCondition(StoppingCondition):
         # Check if goal achieved (from SDK MetricResult.details)
         if self.result.details.get("is_successful", False):
             reason = self.result.details.get("reason", "Goal achieved")
-            return StopResult(StopCategory.GOAL_ACHIEVED, f"Goal achieved: {reason}")
+            return StopResult(ExecutionStatus.SUCCESS, True, f"Goal achieved: {reason}")
 
         # Check if goal is impossible (very low score after exhausting budget)
         if (
@@ -269,7 +267,8 @@ class GoalAchievedCondition(StoppingCondition):
             if current_turns >= impossible_floor:
                 reason = self.result.details.get("reason", "Low score after multiple attempts")
                 return StopResult(
-                    StopCategory.GOAL_IMPOSSIBLE,
+                    ExecutionStatus.FAILURE,
+                    False,
                     f"Goal determined impossible: {reason}",
                 )
             else:

@@ -5,10 +5,10 @@ from unittest.mock import Mock
 
 import pytest
 
+from rhesis.penelope.context import ExecutionStatus
 from rhesis.penelope.utils import (
     GoalAchievedCondition,
     MaxTurnsCondition,
-    StopCategory,
     StoppingCondition,
     StopResult,
     TimeoutCondition,
@@ -42,7 +42,7 @@ def test_max_turns_condition_should_not_stop(sample_test_state):
     result = condition.should_stop(sample_test_state)
 
     assert result.should_stop is False
-    assert result.category is None
+    assert result.status is None
     assert result.reason == ""
 
 
@@ -57,7 +57,7 @@ def test_max_turns_condition_should_stop(sample_test_state):
     result = condition.should_stop(sample_test_state)
 
     assert result.should_stop is True
-    assert result.category == StopCategory.MAX_TURNS
+    assert result.status == ExecutionStatus.MAX_TURNS
     assert "Maximum turns" in result.reason
     assert "5" in result.reason
 
@@ -76,7 +76,7 @@ def test_timeout_condition_should_not_stop(sample_test_state):
     result = condition.should_stop(sample_test_state)
 
     assert result.should_stop is False
-    assert result.category is None
+    assert result.status is None
 
 
 def test_timeout_condition_should_stop(sample_test_state):
@@ -89,7 +89,7 @@ def test_timeout_condition_should_stop(sample_test_state):
     result = condition.should_stop(sample_test_state)
 
     assert result.should_stop is True
-    assert result.category == StopCategory.TIMEOUT
+    assert result.status == ExecutionStatus.TIMEOUT
     assert "Timeout" in result.reason
 
 
@@ -118,7 +118,7 @@ def test_goal_achieved_condition_should_not_stop_no_result(sample_test_state):
     result = condition.should_stop(sample_test_state)
 
     assert result.should_stop is False
-    assert result.category is None
+    assert result.status is None
 
 
 def test_goal_achieved_condition_should_not_stop_goal_not_achieved(
@@ -134,7 +134,7 @@ def test_goal_achieved_condition_should_not_stop_goal_not_achieved(
     result = condition.should_stop(sample_test_state)
 
     assert result.should_stop is False
-    assert result.category is None
+    assert result.status is None
 
 
 def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
@@ -151,7 +151,7 @@ def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
     result = condition.should_stop(sample_test_state)
 
     assert result.should_stop is True
-    assert result.category == StopCategory.GOAL_ACHIEVED
+    assert result.status == ExecutionStatus.SUCCESS
     assert "Goal achieved" in result.reason
     assert "successfully achieved" in result.reason
 
@@ -213,7 +213,7 @@ def test_goal_achieved_condition_should_stop_goal_impossible(
     result = condition.should_stop(sample_test_state)
 
     assert result.should_stop is True
-    assert result.category == StopCategory.GOAL_IMPOSSIBLE
+    assert result.status == ExecutionStatus.FAILURE
     assert "impossible" in result.reason.lower()
 
 
@@ -264,7 +264,7 @@ def test_min_turns_allows_stop_after_threshold(sample_test_state):
     # At 5 turns with min_turns=5, should stop
     result = condition.should_stop(sample_test_state)
     assert result.should_stop is True
-    assert result.category == StopCategory.GOAL_ACHIEVED
+    assert result.status == ExecutionStatus.SUCCESS
     assert "Goal achieved" in result.reason
 
 
@@ -296,22 +296,23 @@ def test_stop_result_continue():
     result = StopResult.continue_()
 
     assert result.should_stop is False
-    assert result.category is None
+    assert result.status is None
     assert result.reason == ""
 
 
-def test_stop_result_with_category():
-    """Test StopResult with a category."""
-    result = StopResult(StopCategory.GOAL_ACHIEVED, "Test reason")
+def test_stop_result_with_status():
+    """Test StopResult with a status."""
+    result = StopResult(ExecutionStatus.SUCCESS, True, "Test reason")
 
     assert result.should_stop is True
-    assert result.category == StopCategory.GOAL_ACHIEVED
+    assert result.status == ExecutionStatus.SUCCESS
+    assert result.goal_achieved is True
     assert result.reason == "Test reason"
 
 
 def test_stop_result_tuple_unpacking():
     """Test backward-compatible tuple unpacking."""
-    result = StopResult(StopCategory.MAX_TURNS, "Max reached")
+    result = StopResult(ExecutionStatus.MAX_TURNS, False, "Max reached")
 
     should_stop, reason = result
 
@@ -327,12 +328,3 @@ def test_stop_result_continue_tuple_unpacking():
 
     assert should_stop is False
     assert reason == ""
-
-
-def test_stop_category_values():
-    """Test StopCategory enum values."""
-    assert StopCategory.GOAL_ACHIEVED == "goal_achieved"
-    assert StopCategory.GOAL_IMPOSSIBLE == "goal_impossible"
-    assert StopCategory.MAX_TURNS == "max_turns"
-    assert StopCategory.MAX_TOOL_EXECUTIONS == "max_tool_executions"
-    assert StopCategory.TIMEOUT == "timeout"
