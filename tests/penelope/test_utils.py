@@ -273,7 +273,7 @@ def test_min_turns_capped_at_max_turns(sample_test_state):
     condition = GoalAchievedCondition(max_turns=10, min_turns=15)
 
     # min_turns=15 should be capped to max_turns=10
-    assert condition._get_min_turns_before_stop() == 10
+    assert condition._get_early_stop_floor(strict=False) == 10
 
 
 def test_default_threshold_when_no_min_turns():
@@ -281,14 +281,14 @@ def test_default_threshold_when_no_min_turns():
     condition = GoalAchievedCondition(max_turns=10)
 
     # 80% of 10 = 8
-    assert condition._get_min_turns_before_stop() == 8
+    assert condition._get_early_stop_floor(strict=False) == 8
 
 
 def test_no_floor_when_neither_set():
     """Test fallback to 0 when neither max_turns nor min_turns is set."""
     condition = GoalAchievedCondition()
 
-    assert condition._get_min_turns_before_stop() == 0
+    assert condition._get_early_stop_floor(strict=False) == 0
 
 
 def test_stop_result_continue():
@@ -308,23 +308,3 @@ def test_stop_result_with_status():
     assert result.status == ExecutionStatus.SUCCESS
     assert result.goal_achieved is True
     assert result.reason == "Test reason"
-
-
-def test_stop_result_tuple_unpacking():
-    """Test backward-compatible tuple unpacking."""
-    result = StopResult(ExecutionStatus.MAX_TURNS, False, "Max reached")
-
-    should_stop, reason = result
-
-    assert should_stop is True
-    assert reason == "Max reached"
-
-
-def test_stop_result_continue_tuple_unpacking():
-    """Test tuple unpacking for continue sentinel."""
-    result = StopResult.continue_()
-
-    should_stop, reason = result
-
-    assert should_stop is False
-    assert reason == ""

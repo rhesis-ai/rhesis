@@ -132,53 +132,37 @@ class PenelopeConfig:
         if cls._default_max_turns is not None:
             return cls._default_max_turns
 
-        env_value = os.getenv("PENELOPE_DEFAULT_MAX_TURNS")
-        if env_value is not None:
-            try:
-                return int(env_value)
-            except ValueError:
-                # Invalid value in env var, use default
-                return cls.DEFAULT_MAX_TURNS
-
-        return cls.DEFAULT_MAX_TURNS
+        return cls._parse_env("PENELOPE_DEFAULT_MAX_TURNS", cls.DEFAULT_MAX_TURNS, int)
 
     @classmethod
     def get_max_tool_executions_multiplier(cls) -> int:
         """
         Get multiplier for calculating max_tool_executions from max_turns.
 
-        This multiplier is used to set a proportional limit on total tool executions
-        to prevent infinite loops. For example, with max_turns=10 and multiplier=5,
-        the max_tool_executions would be 50.
-
-        Checks (in order):
-        1. PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER env var
-        2. Default: 5
-
-        Returns:
-            Multiplier for calculating max tool executions
+        Environment variable: PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER
+        Default: 5
         """
-        env_value = os.getenv("PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER")
-        if env_value is not None:
-            try:
-                return int(env_value)
-            except ValueError:
-                return cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER
-        return cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER
+        return cls._parse_env(
+            "PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER",
+            cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER,
+            int,
+        )
 
     @staticmethod
-    def _parse_float_env(
-        env_var: str, default: float, min_val: float = 0.0, max_val: float = 1.0
-    ) -> float:
-        """Parse a float env var, falling back to default if absent, invalid, or out of range."""
+    def _parse_env(env_var, default, type_fn, min_val=None, max_val=None):
+        """Parse a typed env var, falling back to default if absent, invalid, or out of range."""
         env_value = os.getenv(env_var)
         if env_value is None:
             return default
         try:
-            value = float(env_value)
-        except ValueError:
+            value = type_fn(env_value)
+        except (ValueError, TypeError):
             return default
-        if not math.isfinite(value) or value < min_val or value > max_val:
+        if isinstance(value, float) and not math.isfinite(value):
+            return default
+        if min_val is not None and value < min_val:
+            return default
+        if max_val is not None and value > max_val:
             return default
         return value
 
@@ -190,8 +174,12 @@ class PenelopeConfig:
         Environment variable: PENELOPE_EARLY_STOP_THRESHOLD
         Default: 0.8
         """
-        return cls._parse_float_env(
-            "PENELOPE_EARLY_STOP_THRESHOLD", cls.DEFAULT_EARLY_STOP_THRESHOLD
+        return cls._parse_env(
+            "PENELOPE_EARLY_STOP_THRESHOLD",
+            cls.DEFAULT_EARLY_STOP_THRESHOLD,
+            float,
+            min_val=0.0,
+            max_val=1.0,
         )
 
     @classmethod
@@ -202,9 +190,12 @@ class PenelopeConfig:
         Environment variable: PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD
         Default: 0.3
         """
-        return cls._parse_float_env(
+        return cls._parse_env(
             "PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD",
             cls.DEFAULT_IMPOSSIBLE_SCORE_THRESHOLD,
+            float,
+            min_val=0.0,
+            max_val=1.0,
         )
 
     @classmethod
@@ -215,9 +206,12 @@ class PenelopeConfig:
         Environment variable: PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD
         Default: 0.7
         """
-        return cls._parse_float_env(
+        return cls._parse_env(
             "PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD",
             cls.DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
+            float,
+            min_val=0.0,
+            max_val=1.0,
         )
 
     @classmethod

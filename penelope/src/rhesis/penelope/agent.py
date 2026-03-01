@@ -612,7 +612,7 @@ class PenelopeAgent:
                 if metric == self.goal_metric:
                     # Evaluate goal achievement directly
                     if len(state.conversation) < 1:
-                        result = MetricResult(
+                        metric_result = MetricResult(
                             score=0.0,
                             details={
                                 "is_successful": False,
@@ -621,23 +621,22 @@ class PenelopeAgent:
                             },
                         )
                     else:
-                        result = self.goal_metric.evaluate(
+                        metric_result = self.goal_metric.evaluate(
                             conversation_history=state.conversation,
                             goal=goal,
                             instructions=instructions or "",
                         )
 
-                    # Update goal-achieved stopping condition
+                    # Update all conditions that care about evaluation results
                     for condition in conditions:
-                        if isinstance(condition, GoalAchievedCondition):
-                            condition.update_result(result)
+                        condition.update_result(metric_result)
                 else:
-                    # Directly evaluate other metrics
-                    result = metric.evaluate(state.conversation, goal=goal)
+                    metric_result = metric.evaluate(state.conversation, goal=goal)
 
                 # Store metric property in result details for robust detection
                 if hasattr(metric, "is_goal_achievement_metric"):
-                    result.details["is_goal_achievement_metric"] = metric.is_goal_achievement_metric
+                    metric_result.details["is_goal_achievement_metric"] = (
+                        metric.is_goal_achievement_metric
+                    )
 
-                # Store all metric results for reporting
-                state.metric_results.append(result)
+                state.metric_results.append(metric_result)

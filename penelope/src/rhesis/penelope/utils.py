@@ -6,7 +6,7 @@ Includes stopping conditions, evaluation helpers, and other utility functions.
 
 import logging
 import math
-from typing import TYPE_CHECKING, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -52,14 +52,6 @@ class StopResult:
     def should_stop(self) -> bool:
         return self.status is not None
 
-    def as_tuple(self) -> Tuple[bool, str]:
-        """Backward-compatible (should_stop, reason) tuple."""
-        return self.should_stop, self.reason
-
-    def __iter__(self):
-        """Allow tuple unpacking: should_stop, reason = result."""
-        return iter(self.as_tuple())
-
 
 class StoppingCondition:
     """Base class for stopping conditions."""
@@ -72,9 +64,12 @@ class StoppingCondition:
             state: Current test state
 
         Returns:
-            StopResult with category and reason, or StopResult.continue_()
+            StopResult with status and reason, or StopResult.continue_()
         """
         raise NotImplementedError
+
+    def update_result(self, result: "MetricResult") -> None:
+        """Update condition with a new evaluation result. No-op by default."""
 
 
 class MaxTurnsCondition(StoppingCondition):
@@ -189,47 +184,38 @@ class GoalAchievedCondition(StoppingCondition):
         """Update with new SDK evaluation result."""
         self.result = result
 
-    def _get_min_turns_before_stop(self) -> int:
+    def _get_early_stop_floor(self, strict: bool = False) -> int:
         """
-        Compute the minimum number of turns before early stopping is allowed.
+        Compute minimum turns before early stopping is allowed.
 
-        Priority:
-        1. Explicit min_turns parameter (capped at max_turns)
-        2. Fraction of max_turns (early_stop_threshold)
-        3. Fallback to 0 (no floor, for backward compatibility)
+        Args:
+            strict: When False (goal achieved), min_turns can lower
+                the threshold-based floor, saving remaining budget.
+                When True (goal impossible), the floor is always at
+                least the threshold fraction, ensuring the agent
+                exhausts most of its budget before giving up.
 
         Returns:
             Minimum number of turns before early stopping
         """
-        if self.min_turns is not None:
-            if self.max_turns is not None:
-                return min(self.min_turns, self.max_turns)
-            return self.min_turns
+        threshold_floor = (
+            max(1, math.ceil(self.max_turns * self.early_stop_threshold))
+            if self.max_turns is not None
+            else 0
+        )
+
+        if self.min_turns is None:
+            return threshold_floor
+
+        if strict:
+            # Goal impossible: never stop before either floor
+            return max(threshold_floor, self.min_turns)
+
+        # Goal achieved: min_turns overrides threshold, capped at max_turns
+        floor = self.min_turns
         if self.max_turns is not None:
-            return max(1, math.ceil(self.max_turns * self.early_stop_threshold))
-        return 0
-
-    def _get_impossible_floor(self) -> int:
-        """
-        Compute minimum turns before "goal impossible" can trigger.
-
-        The "impossible" floor is always at least early_stop_threshold
-        of max_turns and never less than min_turns. This ensures the
-        agent exhausts most of its turn budget before giving up, even
-        when min_turns is set lower (e.g., min_turns=8, max_turns=15,
-        threshold=0.8 → impossible at turn 12, not turn 8).
-
-        Returns:
-            Minimum number of turns before goal-impossible early stopping
-        """
-        if self.max_turns is not None:
-            floor = max(1, math.ceil(self.max_turns * self.early_stop_threshold))
-            if self.min_turns is not None:
-                return max(floor, self.min_turns)
-            return floor
-        if self.min_turns is not None:
-            return self.min_turns
-        return 0
+            floor = min(floor, self.max_turns)
+        return floor
 
     def should_stop(self, state: TestState) -> StopResult:
         """
@@ -243,12 +229,12 @@ class GoalAchievedCondition(StoppingCondition):
             return StopResult.continue_()
 
         current_turns = len(state.turns)
-        min_turns = self._get_min_turns_before_stop()
+        success_floor = self._get_early_stop_floor(strict=False)
 
         # Enforce minimum turn requirement before goal-achieved early stopping
-        if current_turns < min_turns:
+        if current_turns < success_floor:
             logger.debug(
-                f"Early stop blocked: {current_turns}/{min_turns} turns "
+                f"Early stop blocked: {current_turns}/{success_floor} turns "
                 "completed. Continuing test execution."
             )
             return StopResult.continue_()
@@ -263,7 +249,7 @@ class GoalAchievedCondition(StoppingCondition):
             isinstance(self.result.score, (int, float))
             and self.result.score < self.impossible_score_threshold
         ):
-            impossible_floor = self._get_impossible_floor()
+            impossible_floor = self._get_early_stop_floor(strict=True)
             if current_turns >= impossible_floor:
                 reason = self.result.details.get("reason", "Low score after multiple attempts")
                 return StopResult(

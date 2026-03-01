@@ -27,9 +27,7 @@ def mock_model():
     mock.get_model_name.return_value = "mock-model"
     mock.generate.return_value = {
         "reasoning": "Test reasoning",
-        "tool_calls": [
-            {"tool_name": "send_message_to_target", "parameters": {"message": "Hello"}}
-        ],
+        "tool_calls": [{"tool_name": "send_message_to_target", "parameters": {"message": "Hello"}}],
     }
     return mock
 
@@ -77,10 +75,10 @@ class TestGlobalExecutionLimit:
             execution = self._create_execution(f"tool_{i}")
             test_state.current_turn_executions.append(execution)
 
-        should_stop, reason = condition.should_stop(test_state)
-        assert should_stop is True
-        assert "Maximum tool executions reached" in reason
-        assert "5/5" in reason
+        result = condition.should_stop(test_state)
+        assert result.should_stop is True
+        assert "Maximum tool executions reached" in result.reason
+        assert "5/5" in result.reason
 
     def test_max_tool_executions_condition_allows_below_limit(self, test_state):
         """Verify condition allows execution below limit."""
@@ -91,9 +89,9 @@ class TestGlobalExecutionLimit:
             execution = self._create_execution(f"tool_{i}")
             test_state.current_turn_executions.append(execution)
 
-        should_stop, reason = condition.should_stop(test_state)
-        assert should_stop is False
-        assert reason == ""
+        result = condition.should_stop(test_state)
+        assert result.should_stop is False
+        assert result.reason == ""
 
     def test_error_message_includes_statistics(self, test_state):
         """Verify error message includes helpful statistics."""
@@ -105,11 +103,11 @@ class TestGlobalExecutionLimit:
             execution = self._create_execution(f"tool_{i}")
             test_state.current_turn_executions.append(execution)
 
-        should_stop, reason = condition.should_stop(test_state)
-        assert should_stop is True
-        assert "Turns completed: 2" in reason
-        assert "Tool executions: 10" in reason
-        assert "Average tools per turn: 5.0" in reason
+        result = condition.should_stop(test_state)
+        assert result.should_stop is True
+        assert "Turns completed: 2" in result.reason
+        assert "Tool executions: 10" in result.reason
+        assert "Average tools per turn: 5.0" in result.reason
 
     def test_error_message_includes_upgrade_instructions(self, test_state):
         """Verify error message includes instructions to increase limit."""
@@ -119,11 +117,11 @@ class TestGlobalExecutionLimit:
             execution = self._create_execution(f"tool_{i}")
             test_state.current_turn_executions.append(execution)
 
-        should_stop, reason = condition.should_stop(test_state)
-        assert should_stop is True
-        assert "max_tool_executions=100" in reason
-        assert "export PENELOPE_MAX_TOOL_EXECUTIONS=100" in reason
-        assert "Warning" in reason
+        result = condition.should_stop(test_state)
+        assert result.should_stop is True
+        assert "max_tool_executions=100" in result.reason
+        assert "export PENELOPE_MAX_TOOL_EXECUTIONS=100" in result.reason
+        assert "Warning" in result.reason
 
     def _create_execution(self, tool_name: str) -> ToolExecution:
         """Helper to create a ToolExecution."""
@@ -189,7 +187,9 @@ class TestWorkflowValidationBlocking:
             ],
         }
 
-        success = executor.execute_turn(state=test_state, tools=[analysis_tool], system_prompt="Test")
+        success = executor.execute_turn(
+            state=test_state, tools=[analysis_tool], system_prompt="Test"
+        )
 
         # Execution should be blocked
         assert success is False
@@ -243,7 +243,12 @@ class TestWorkflowValidationBlocking:
         manager.record_tool_execution(target_execution)
 
         # Record oscillation: A, B, A, B
-        for tool_name in ["analyze_response", "extract_information", "analyze_response", "extract_information"]:
+        for tool_name in [
+            "analyze_response",
+            "extract_information",
+            "analyze_response",
+            "extract_information",
+        ]:
             execution = self._create_execution(tool_name)
             manager.record_tool_execution(execution)
 
@@ -304,7 +309,7 @@ class TestConfigurationSupport:
 
 class TestExecutionProgressWarnings:
     """Tests for execution progress warnings.
-    
+
     Note: These tests verify the warning logic is in place. The actual warnings
     are logged to stderr and can be observed in test output.
     """
@@ -473,4 +478,3 @@ class TestInfiniteLoopPrevention:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
