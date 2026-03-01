@@ -216,9 +216,6 @@ export default {
   "source": {
     display: "hidden",
   },
-  "delegation-token": {
-    display: "hidden",
-  },
   "opentelemetry": {
     display: "hidden",
   },
