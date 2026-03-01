@@ -50,6 +50,9 @@ class PenelopeConfig:
     DEFAULT_MODEL_PROVIDER = "rhesis"
     DEFAULT_MODEL_NAME = "default"
     DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER = 5  # 5x max_turns
+    DEFAULT_EARLY_STOP_THRESHOLD = 0.8  # Fraction of max_turns before early stop
+    DEFAULT_IMPOSSIBLE_SCORE_THRESHOLD = 0.3  # Score below which goal is impossible
+    DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD = 0.7  # Score above which goal is achieved
 
     # Default values
     _log_level: Optional[str] = None
@@ -161,6 +164,54 @@ class PenelopeConfig:
             except ValueError:
                 return cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER
         return cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER
+
+    @classmethod
+    def get_early_stop_threshold(cls) -> float:
+        """
+        Fraction of max_turns before early stopping is allowed.
+
+        Environment variable: PENELOPE_EARLY_STOP_THRESHOLD
+        Default: 0.8
+        """
+        env_value = os.getenv("PENELOPE_EARLY_STOP_THRESHOLD")
+        if env_value is not None:
+            try:
+                return float(env_value)
+            except ValueError:
+                return cls.DEFAULT_EARLY_STOP_THRESHOLD
+        return cls.DEFAULT_EARLY_STOP_THRESHOLD
+
+    @classmethod
+    def get_impossible_score_threshold(cls) -> float:
+        """
+        Score below which the goal is considered impossible.
+
+        Environment variable: PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD
+        Default: 0.3
+        """
+        env_value = os.getenv("PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD")
+        if env_value is not None:
+            try:
+                return float(env_value)
+            except ValueError:
+                return cls.DEFAULT_IMPOSSIBLE_SCORE_THRESHOLD
+        return cls.DEFAULT_IMPOSSIBLE_SCORE_THRESHOLD
+
+    @classmethod
+    def get_goal_achievement_threshold(cls) -> float:
+        """
+        Score above which the goal is considered achieved.
+
+        Environment variable: PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD
+        Default: 0.7
+        """
+        env_value = os.getenv("PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD")
+        if env_value is not None:
+            try:
+                return float(env_value)
+            except ValueError:
+                return cls.DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD
+        return cls.DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD
 
     @classmethod
     def set_log_level(cls, level: str):

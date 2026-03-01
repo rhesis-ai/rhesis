@@ -30,7 +30,9 @@ from rhesis.penelope.utils import (
     GoalAchievedCondition,
     MaxToolExecutionsCondition,
     MaxTurnsCondition,
+    StopCategory,
     StoppingCondition,
+    StopResult,
     TimeoutCondition,
     display_test_result,
 )
@@ -203,7 +205,7 @@ class PenelopeAgent:
             name="penelope_goal_evaluation",
             description="Evaluates goal achievement in Penelope test conversations",
             model=model,
-            threshold=0.7,
+            threshold=PenelopeConfig.get_goal_achievement_threshold(),
         )
         metrics.append(default_judge)
         logger.info("✓ Created default GoalAchievementJudge for stopping and evaluation")
@@ -396,7 +398,7 @@ class PenelopeAgent:
         self,
         state: TestState,
         conditions: List[StoppingCondition],
-    ) -> tuple[bool, str]:
+    ) -> StopResult:
         """
         Check all stopping conditions.
 
@@ -405,14 +407,14 @@ class PenelopeAgent:
             conditions: List of stopping conditions
 
         Returns:
-            Tuple of (should_stop, reason)
+            StopResult with category and reason, or StopResult.continue_()
         """
         for condition in conditions:
-            should_stop, reason = condition.should_stop(state)
-            if should_stop:
-                return True, reason
+            result = condition.should_stop(state)
+            if result.should_stop:
+                return result
 
-        return False, ""
+        return StopResult.continue_()
 
     def execute_test(
         self,
@@ -578,23 +580,37 @@ class PenelopeAgent:
 
         while True:
             # Check stopping conditions
-            should_stop, reason = self._should_stop(state, conditions)
-            if should_stop:
-                logger.info(f"Stopping: {reason}")
+            stop_result = self._should_stop(state, conditions)
+            if stop_result.should_stop:
+                logger.info(f"Stopping: {stop_result.reason}")
 
-                # Determine status
-                if "goal achieved" in reason.lower():
-                    status = ExecutionStatus.SUCCESS
-                    goal_achieved = True
-                elif "timeout" in reason.lower():
-                    status = ExecutionStatus.TIMEOUT
-                    goal_achieved = False
-                elif "maximum turns" in reason.lower():
-                    status = ExecutionStatus.MAX_TURNS
-                    goal_achieved = False
-                else:
-                    status = ExecutionStatus.FAILURE
-                    goal_achieved = False
+                # Map StopCategory to ExecutionStatus
+                _STATUS_MAP = {
+                    StopCategory.GOAL_ACHIEVED: (
+                        ExecutionStatus.SUCCESS,
+                        True,
+                    ),
+                    StopCategory.GOAL_IMPOSSIBLE: (
+                        ExecutionStatus.FAILURE,
+                        False,
+                    ),
+                    StopCategory.MAX_TURNS: (
+                        ExecutionStatus.MAX_TURNS,
+                        False,
+                    ),
+                    StopCategory.MAX_TOOL_EXECUTIONS: (
+                        ExecutionStatus.FAILURE,
+                        False,
+                    ),
+                    StopCategory.TIMEOUT: (
+                        ExecutionStatus.TIMEOUT,
+                        False,
+                    ),
+                }
+                status, goal_achieved = _STATUS_MAP.get(
+                    stop_result.category,
+                    (ExecutionStatus.FAILURE, False),
+                )
 
                 result = state.to_result(status, goal_achieved, target=target, model=self.model)
 
