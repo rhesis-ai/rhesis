@@ -1,8 +1,8 @@
 """
-Jinja2-based system prompt assembly.
+System prompt assembly using Jinja2 templates.
 
-Alternative implementation using Jinja2 templates for more powerful
-composition and conditionals.
+Combines base instructions with test-specific context to create the complete
+system prompt for a test execution.
 """
 
 import logging
@@ -27,7 +27,7 @@ SYSTEM_PROMPT_TEMPLATE = PromptTemplate(
 )
 
 
-def get_system_prompt_jinja(
+def get_system_prompt(
     instructions: str,
     goal: str,
     scenario: str = "",
@@ -38,10 +38,7 @@ def get_system_prompt_jinja(
     max_turns: int = None,
 ) -> str:
     """
-    Construct the complete system prompt using Jinja2.
-
-    This is an alternative to the Python string-based get_system_prompt()
-    that uses Jinja2 for more powerful templating (conditionals, loops, etc.).
+    Construct the complete system prompt using Jinja2 templates.
 
     Args:
         instructions: HOW to conduct the test - testing methodology and approach
@@ -57,7 +54,7 @@ def get_system_prompt_jinja(
         Complete system prompt rendered from Jinja2 template
 
     Example:
-        >>> prompt = get_system_prompt_jinja(
+        >>> prompt = get_system_prompt(
         ...     instructions="Test the refund policy chatbot",
         ...     goal="Verify accurate refund information provided",
         ...     scenario="You are a frustrated customer seeking a refund",
@@ -93,3 +90,7 @@ def get_system_prompt_jinja(
     logger.info("=== END SYSTEM PROMPT DEBUG ===")
 
     return rendered_prompt
+
+
+# Backward-compatible alias
+get_system_prompt_jinja = get_system_prompt

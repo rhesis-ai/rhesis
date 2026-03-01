@@ -17,9 +17,9 @@ from rhesis.penelope.prompts.agent.turn_prompts import (
 from rhesis.penelope.prompts.base import PromptTemplate, TemplateFormat
 from rhesis.penelope.prompts.evaluation.goal_evaluation import GOAL_EVALUATION_PROMPT
 from rhesis.penelope.prompts.loader import PromptLoader, get_loader, render_template
-from rhesis.penelope.prompts.system.system_assembly import get_system_prompt
 from rhesis.penelope.prompts.system.system_assembly_jinja import (
     SYSTEM_PROMPT_TEMPLATE,
+    get_system_prompt,
     get_system_prompt_jinja,
 )
 from rhesis.penelope.prompts.tools import (

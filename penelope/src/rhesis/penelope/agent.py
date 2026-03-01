@@ -17,7 +17,6 @@ from rhesis.penelope.context import (
     TestResult,
     TestState,
 )
-from rhesis.penelope.evaluation import GoalEvaluator
 from rhesis.penelope.executor import TurnExecutor
 from rhesis.penelope.prompts import (
     DEFAULT_INSTRUCTIONS_TEMPLATE,
@@ -35,6 +34,7 @@ from rhesis.penelope.utils import (
     TimeoutCondition,
     display_test_result,
 )
+from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
 
@@ -321,7 +321,6 @@ class PenelopeAgent:
         )
 
         # Initialize specialized components
-        self.evaluator = GoalEvaluator(goal_metric=self.goal_metric)
         self.executor = TurnExecutor(self.model, verbose, enable_transparency)
 
         logger.info(
@@ -619,9 +618,22 @@ class PenelopeAgent:
             # Evaluate all SDK metrics
             for metric in self.metrics:
                 if metric == self.goal_metric:
-                    # Goal metric was already evaluated during test execution
-                    # for stopping conditions. Use the final evaluation result.
-                    result = self.evaluator.evaluate(state, goal, instructions=instructions or "")
+                    # Evaluate goal achievement directly
+                    if len(state.conversation) < 1:
+                        result = MetricResult(
+                            score=0.0,
+                            details={
+                                "is_successful": False,
+                                "confidence": 0.0,
+                                "reason": "Insufficient conversation (< 1 turn)",
+                            },
+                        )
+                    else:
+                        result = self.goal_metric.evaluate(
+                            conversation_history=state.conversation,
+                            goal=goal,
+                            instructions=instructions or "",
+                        )
 
                     # Update goal-achieved stopping condition
                     for condition in conditions:

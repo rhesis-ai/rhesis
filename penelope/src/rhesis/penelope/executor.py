@@ -106,51 +106,6 @@ class ToolCallIdGenerator:
         return f"{tool_name}_{uuid.uuid4().hex[:8]}"
 
 
-class ContextManager:
-    """Manages conversation context with intelligent selection."""
-
-    @staticmethod
-    def select_context_messages(
-        messages: List[Any],
-        max_messages: int = None,
-        max_tokens: int = None,
-        strategy: str = "recent",
-    ) -> List[Any]:
-        """
-        Select context messages based on strategy and limits.
-
-        Args:
-            messages: All conversation messages
-            max_messages: Maximum number of messages to include
-            max_tokens: Maximum token count (if supported)
-            strategy: Selection strategy ("recent", "relevant", "balanced")
-
-        Returns:
-            Selected context messages
-        """
-        if not messages:
-            return []
-
-        if max_messages is None:
-            from rhesis.penelope.config import PenelopeConfig
-
-            max_messages = PenelopeConfig.DEFAULT_CONTEXT_WINDOW_MESSAGES
-
-        if max_messages == 0:
-            return []
-
-        if strategy == "recent":
-            return messages[-max_messages:]
-        elif strategy == "relevant":
-            # Could implement relevance scoring in the future
-            return messages[-max_messages:]  # Fallback to recent
-        elif strategy == "balanced":
-            # Could implement balanced selection (recent + important)
-            return messages[-max_messages:]  # Fallback to recent
-        else:
-            raise ValueError(f"Unknown context strategy: {strategy}")
-
-
 class TurnExecutor:
     """
     Handles execution of individual turns in the agent loop.
@@ -238,13 +193,11 @@ class TurnExecutor:
         try:
             # Build messages for the model
             if conversation_messages:
-                # We have history, use it
+                from rhesis.penelope.config import PenelopeConfig
+
                 prompt = user_prompt
-                # Use context manager for intelligent message selection
-                context_messages = ContextManager.select_context_messages(
-                    conversation_messages, strategy="recent"
-                )
-                for msg in context_messages:
+                max_messages = PenelopeConfig.DEFAULT_CONTEXT_WINDOW_MESSAGES
+                for msg in conversation_messages[-max_messages:]:
                     prompt += f"\n\n{msg.role}: {msg.content}"
             else:
                 prompt = user_prompt
