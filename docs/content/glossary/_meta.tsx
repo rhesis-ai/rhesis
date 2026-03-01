@@ -219,4 +219,7 @@ export default {
   "opentelemetry": {
     display: "hidden",
   },
+  "test-type": {
+    display: "hidden",
+  },
 };
