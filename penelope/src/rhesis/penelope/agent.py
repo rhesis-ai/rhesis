@@ -377,7 +377,7 @@ class PenelopeAgent:
         Returns:
             List of StoppingCondition instances
         """
-        effective_max_turns = max_turns or self.max_turns
+        effective_max_turns = max_turns if max_turns is not None else self.max_turns
         conditions = [
             # Check global execution limit first (most critical for preventing infinite loops)
             MaxToolExecutionsCondition(self.max_tool_executions),
@@ -529,7 +529,7 @@ class PenelopeAgent:
             scenario=scenario,
             restrictions=restrictions,
             context=context or {},
-            max_turns=max_turns or self.max_turns,
+            max_turns=max_turns if max_turns is not None else self.max_turns,
             min_turns=min_turns,
             max_tool_executions=self.max_tool_executions,
         )
@@ -564,7 +564,7 @@ class PenelopeAgent:
             context=str(context) if context else "",
             available_tools=available_tools_text,
             min_turns=min_turns,
-            max_turns=max_turns or self.max_turns,
+            max_turns=max_turns if max_turns is not None else self.max_turns,
         )
 
         logger.info(f"=== AGENT: System prompt created, length: {len(system_prompt)} chars ===")

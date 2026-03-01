@@ -197,7 +197,8 @@ class TurnExecutor:
 
                 prompt = user_prompt
                 max_messages = PenelopeConfig.DEFAULT_CONTEXT_WINDOW_MESSAGES
-                for msg in conversation_messages[-max_messages:]:
+                context_messages = conversation_messages[-max_messages:] if max_messages > 0 else []
+                for msg in context_messages:
                     prompt += f"\n\n{msg.role}: {msg.content}"
             else:
                 prompt = user_prompt

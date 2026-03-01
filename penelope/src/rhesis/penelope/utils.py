@@ -209,7 +209,7 @@ class GoalAchievedCondition(StoppingCondition):
                 reason = self.result.details.get("reason", "Low score after multiple attempts")
                 return True, f"Goal determined impossible: {reason}"
             else:
-                logger.info(
+                logger.debug(
                     f"Low score ({self.result.score:.2f}) but only "
                     f"{current_turns}/{impossible_floor} turns used. "
                     f"Continuing to allow more attempts."
