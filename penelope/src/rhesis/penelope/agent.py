@@ -42,6 +42,16 @@ from rhesis.sdk.models.base import BaseLLM
 
 logger = logging.getLogger(__name__)
 
+# Maps StopCategory → (ExecutionStatus, goal_achieved).
+# Defined at module level so tests can import and verify the real mapping.
+STOP_STATUS_MAP = {
+    StopCategory.GOAL_ACHIEVED: (ExecutionStatus.SUCCESS, True),
+    StopCategory.GOAL_IMPOSSIBLE: (ExecutionStatus.FAILURE, False),
+    StopCategory.MAX_TURNS: (ExecutionStatus.MAX_TURNS, False),
+    StopCategory.MAX_TOOL_EXECUTIONS: (ExecutionStatus.FAILURE, False),
+    StopCategory.TIMEOUT: (ExecutionStatus.TIMEOUT, False),
+}
+
 
 class DefaultToolRegistry:
     """Registry for default tools that can be configured."""
@@ -584,30 +594,7 @@ class PenelopeAgent:
             if stop_result.should_stop:
                 logger.info(f"Stopping: {stop_result.reason}")
 
-                # Map StopCategory to ExecutionStatus
-                _STATUS_MAP = {
-                    StopCategory.GOAL_ACHIEVED: (
-                        ExecutionStatus.SUCCESS,
-                        True,
-                    ),
-                    StopCategory.GOAL_IMPOSSIBLE: (
-                        ExecutionStatus.FAILURE,
-                        False,
-                    ),
-                    StopCategory.MAX_TURNS: (
-                        ExecutionStatus.MAX_TURNS,
-                        False,
-                    ),
-                    StopCategory.MAX_TOOL_EXECUTIONS: (
-                        ExecutionStatus.FAILURE,
-                        False,
-                    ),
-                    StopCategory.TIMEOUT: (
-                        ExecutionStatus.TIMEOUT,
-                        False,
-                    ),
-                }
-                status, goal_achieved = _STATUS_MAP.get(
+                status, goal_achieved = STOP_STATUS_MAP.get(
                     stop_result.category,
                     (ExecutionStatus.FAILURE, False),
                 )

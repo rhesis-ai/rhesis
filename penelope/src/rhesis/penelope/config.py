@@ -6,6 +6,7 @@ environment variables or programmatically.
 """
 
 import logging
+import math
 import os
 from typing import Optional
 
@@ -165,6 +166,22 @@ class PenelopeConfig:
                 return cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER
         return cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER
 
+    @staticmethod
+    def _parse_float_env(
+        env_var: str, default: float, min_val: float = 0.0, max_val: float = 1.0
+    ) -> float:
+        """Parse a float env var, falling back to default if absent, invalid, or out of range."""
+        env_value = os.getenv(env_var)
+        if env_value is None:
+            return default
+        try:
+            value = float(env_value)
+        except ValueError:
+            return default
+        if not math.isfinite(value) or value < min_val or value > max_val:
+            return default
+        return value
+
     @classmethod
     def get_early_stop_threshold(cls) -> float:
         """
@@ -173,13 +190,9 @@ class PenelopeConfig:
         Environment variable: PENELOPE_EARLY_STOP_THRESHOLD
         Default: 0.8
         """
-        env_value = os.getenv("PENELOPE_EARLY_STOP_THRESHOLD")
-        if env_value is not None:
-            try:
-                return float(env_value)
-            except ValueError:
-                return cls.DEFAULT_EARLY_STOP_THRESHOLD
-        return cls.DEFAULT_EARLY_STOP_THRESHOLD
+        return cls._parse_float_env(
+            "PENELOPE_EARLY_STOP_THRESHOLD", cls.DEFAULT_EARLY_STOP_THRESHOLD
+        )
 
     @classmethod
     def get_impossible_score_threshold(cls) -> float:
@@ -189,13 +202,10 @@ class PenelopeConfig:
         Environment variable: PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD
         Default: 0.3
         """
-        env_value = os.getenv("PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD")
-        if env_value is not None:
-            try:
-                return float(env_value)
-            except ValueError:
-                return cls.DEFAULT_IMPOSSIBLE_SCORE_THRESHOLD
-        return cls.DEFAULT_IMPOSSIBLE_SCORE_THRESHOLD
+        return cls._parse_float_env(
+            "PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD",
+            cls.DEFAULT_IMPOSSIBLE_SCORE_THRESHOLD,
+        )
 
     @classmethod
     def get_goal_achievement_threshold(cls) -> float:
@@ -205,13 +215,10 @@ class PenelopeConfig:
         Environment variable: PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD
         Default: 0.7
         """
-        env_value = os.getenv("PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD")
-        if env_value is not None:
-            try:
-                return float(env_value)
-            except ValueError:
-                return cls.DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD
-        return cls.DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD
+        return cls._parse_float_env(
+            "PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD",
+            cls.DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
+        )
 
     @classmethod
     def set_log_level(cls, level: str):

@@ -39,7 +39,7 @@ class StopResult:
     # Singleton for "don't stop"
     _CONTINUE = None
 
-    def __init__(self, category: StopCategory, reason: str):
+    def __init__(self, category: Optional[StopCategory], reason: str):
         self.category = category
         self.reason = reason
 

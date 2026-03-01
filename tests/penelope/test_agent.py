@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rhesis.penelope.agent import PenelopeAgent, _create_default_model
+from rhesis.penelope.agent import STOP_STATUS_MAP, PenelopeAgent, _create_default_model
 from rhesis.penelope.context import ExecutionStatus, TestContext, TestState
 from rhesis.penelope.targets.base import Target
 from rhesis.penelope.utils import StopCategory
@@ -406,44 +406,35 @@ class TestCreateDefaultModel:
 
 
 class TestStopCategoryMapping:
-    """Tests for StopCategory -> ExecutionStatus mapping used in agent loop."""
-
-    # Reproduce the mapping defined in PenelopeAgent.execute_test
-    _STATUS_MAP = {
-        StopCategory.GOAL_ACHIEVED: (ExecutionStatus.SUCCESS, True),
-        StopCategory.GOAL_IMPOSSIBLE: (ExecutionStatus.FAILURE, False),
-        StopCategory.MAX_TURNS: (ExecutionStatus.MAX_TURNS, False),
-        StopCategory.TIMEOUT: (ExecutionStatus.TIMEOUT, False),
-        StopCategory.MAX_TOOL_EXECUTIONS: (ExecutionStatus.FAILURE, False),
-    }
+    """Tests for STOP_STATUS_MAP used in agent loop."""
 
     def test_goal_achieved_maps_to_success(self):
         """GOAL_ACHIEVED should map to SUCCESS with goal_achieved=True."""
-        status, goal_achieved = self._STATUS_MAP[StopCategory.GOAL_ACHIEVED]
+        status, goal_achieved = STOP_STATUS_MAP[StopCategory.GOAL_ACHIEVED]
         assert status == ExecutionStatus.SUCCESS
         assert goal_achieved is True
 
     def test_goal_impossible_maps_to_failure(self):
         """GOAL_IMPOSSIBLE should map to FAILURE with goal_achieved=False."""
-        status, goal_achieved = self._STATUS_MAP[StopCategory.GOAL_IMPOSSIBLE]
+        status, goal_achieved = STOP_STATUS_MAP[StopCategory.GOAL_IMPOSSIBLE]
         assert status == ExecutionStatus.FAILURE
         assert goal_achieved is False
 
     def test_max_turns_maps_to_max_turns(self):
         """MAX_TURNS should map to MAX_TURNS with goal_achieved=False."""
-        status, goal_achieved = self._STATUS_MAP[StopCategory.MAX_TURNS]
+        status, goal_achieved = STOP_STATUS_MAP[StopCategory.MAX_TURNS]
         assert status == ExecutionStatus.MAX_TURNS
         assert goal_achieved is False
 
     def test_timeout_maps_to_timeout(self):
         """TIMEOUT should map to TIMEOUT with goal_achieved=False."""
-        status, goal_achieved = self._STATUS_MAP[StopCategory.TIMEOUT]
+        status, goal_achieved = STOP_STATUS_MAP[StopCategory.TIMEOUT]
         assert status == ExecutionStatus.TIMEOUT
         assert goal_achieved is False
 
     def test_max_tool_executions_maps_to_failure(self):
         """MAX_TOOL_EXECUTIONS should map to FAILURE with goal_achieved=False."""
-        status, goal_achieved = self._STATUS_MAP[StopCategory.MAX_TOOL_EXECUTIONS]
+        status, goal_achieved = STOP_STATUS_MAP[StopCategory.MAX_TOOL_EXECUTIONS]
         assert status == ExecutionStatus.FAILURE
         assert goal_achieved is False
 

@@ -358,3 +358,23 @@ def test_config_goal_achievement_threshold_invalid_env(monkeypatch):
     monkeypatch.setenv("PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD", "xyz")
     assert PenelopeConfig.get_goal_achievement_threshold() == 0.7
     PenelopeConfig.reset()
+
+
+# --- Threshold range validation tests ---
+
+
+@pytest.mark.parametrize(
+    "env_var,getter,default",
+    [
+        ("PENELOPE_EARLY_STOP_THRESHOLD", "get_early_stop_threshold", 0.8),
+        ("PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD", "get_impossible_score_threshold", 0.3),
+        ("PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD", "get_goal_achievement_threshold", 0.7),
+    ],
+)
+@pytest.mark.parametrize("bad_value", ["-0.1", "1.5", "nan", "inf", "-inf"])
+def test_config_threshold_out_of_range_falls_back(monkeypatch, env_var, getter, default, bad_value):
+    """Test that out-of-range or non-finite env values fall back to default."""
+    PenelopeConfig.reset()
+    monkeypatch.setenv(env_var, bad_value)
+    assert getattr(PenelopeConfig, getter)() == default
+    PenelopeConfig.reset()
