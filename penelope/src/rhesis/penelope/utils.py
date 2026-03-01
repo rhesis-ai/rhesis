@@ -147,13 +147,35 @@ class GoalAchievedCondition(StoppingCondition):
             return max(1, math.ceil(self.max_turns * self.EARLY_STOP_THRESHOLD))
         return 0
 
+    def _get_impossible_floor(self) -> int:
+        """
+        Compute minimum turns before "goal impossible" can trigger.
+
+        The "impossible" floor is always at least 80% of max_turns and
+        never less than min_turns. This ensures the agent exhausts most
+        of its turn budget before giving up, even when min_turns is set
+        lower (e.g., min_turns=8, max_turns=15 → impossible at turn 12,
+        not turn 8).
+
+        Returns:
+            Minimum number of turns before goal-impossible early stopping
+        """
+        if self.max_turns is not None:
+            floor = max(1, math.ceil(self.max_turns * self.EARLY_STOP_THRESHOLD))
+            if self.min_turns is not None:
+                return max(floor, self.min_turns)
+            return floor
+        if self.min_turns is not None:
+            return self.min_turns
+        return 0
+
     def should_stop(self, state: TestState) -> tuple[bool, str]:
         """
         Check if we should stop based on SDK evaluation.
 
-        Early stopping (goal achieved or impossible) is only allowed after
-        completing the minimum turn requirement, ensuring the agent exercises
-        the conversation fully.
+        Two early-stop scenarios with different thresholds:
+        - Goal achieved: allowed after min_turns (saves remaining budget)
+        - Goal impossible: allowed only near max_turns (exhausts attempts)
 
         Note: This accesses the MetricResult object directly (which has
         .score and .details). This is different from the flattened metrics
@@ -165,7 +187,7 @@ class GoalAchievedCondition(StoppingCondition):
         current_turns = len(state.turns)
         min_turns = self._get_min_turns_before_stop()
 
-        # Enforce minimum turn requirement before any early stopping
+        # Enforce minimum turn requirement before goal-achieved early stopping
         if current_turns < min_turns:
             logger.debug(
                 f"Early stop blocked: {current_turns}/{min_turns} turns "
@@ -178,10 +200,20 @@ class GoalAchievedCondition(StoppingCondition):
             reason = self.result.details.get("reason", "Goal achieved")
             return True, f"Goal achieved: {reason}"
 
-        # Check if goal is impossible (very low score after sufficient attempts)
+        # Check if goal is impossible (very low score after exhausting budget)
+        # Uses a HIGHER floor than goal-achieved: 80% of max_turns.
+        # This prevents giving up at min_turns when many turns remain.
         if isinstance(self.result.score, (int, float)) and self.result.score < 0.3:
-            reason = self.result.details.get("reason", "Low score after multiple attempts")
-            return True, f"Goal determined impossible: {reason}"
+            impossible_floor = self._get_impossible_floor()
+            if current_turns >= impossible_floor:
+                reason = self.result.details.get("reason", "Low score after multiple attempts")
+                return True, f"Goal determined impossible: {reason}"
+            else:
+                logger.debug(
+                    f"Low score ({self.result.score:.2f}) but only "
+                    f"{current_turns}/{impossible_floor} turns used. "
+                    f"Continuing to allow more attempts."
+                )
 
         return False, ""
 

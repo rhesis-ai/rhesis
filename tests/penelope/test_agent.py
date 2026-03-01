@@ -257,15 +257,13 @@ class TestPenelopeAgentInitialization:
         with pytest.raises(ValueError, match="must have an 'evaluate' method"):
             PenelopeAgent(model=mock_model, goal_metric=invalid_metric)
 
-    def test_evaluator_initialized_with_goal_metric(self, mock_model):
-        """Test that GoalEvaluator is initialized with goal_metric."""
+    def test_goal_metric_stored_on_agent(self, mock_model):
+        """Test that goal_metric is stored on agent for direct evaluation."""
         goal_metric = GoalAchievementJudge(name="test", model=mock_model)
 
         agent = PenelopeAgent(model=mock_model, goal_metric=goal_metric)
 
-        # Verify evaluator exists and has the goal_metric
-        assert hasattr(agent, "evaluator")
-        assert agent.evaluator.goal_metric == goal_metric
+        assert agent.goal_metric == goal_metric
 
     def test_executor_initialized(self, mock_model):
         """Test that TurnExecutor is initialized."""

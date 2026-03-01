@@ -1,7 +1,9 @@
 """Tests for system prompt assembly with restrictions."""
 
-from rhesis.penelope.prompts.system.system_assembly import get_system_prompt
-from rhesis.penelope.prompts.system.system_assembly_jinja import get_system_prompt_jinja
+from rhesis.penelope.prompts.system.system_assembly_jinja import (
+    get_system_prompt,
+    get_system_prompt_jinja,
+)
 
 
 def test_get_system_prompt_basic():

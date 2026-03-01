@@ -106,51 +106,6 @@ class ToolCallIdGenerator:
         return f"{tool_name}_{uuid.uuid4().hex[:8]}"
 
 
-class ContextManager:
-    """Manages conversation context with intelligent selection."""
-
-    @staticmethod
-    def select_context_messages(
-        messages: List[Any],
-        max_messages: int = None,
-        max_tokens: int = None,
-        strategy: str = "recent",
-    ) -> List[Any]:
-        """
-        Select context messages based on strategy and limits.
-
-        Args:
-            messages: All conversation messages
-            max_messages: Maximum number of messages to include
-            max_tokens: Maximum token count (if supported)
-            strategy: Selection strategy ("recent", "relevant", "balanced")
-
-        Returns:
-            Selected context messages
-        """
-        if not messages:
-            return []
-
-        if max_messages is None:
-            from rhesis.penelope.config import PenelopeConfig
-
-            max_messages = PenelopeConfig.DEFAULT_CONTEXT_WINDOW_MESSAGES
-
-        if max_messages == 0:
-            return []
-
-        if strategy == "recent":
-            return messages[-max_messages:]
-        elif strategy == "relevant":
-            # Could implement relevance scoring in the future
-            return messages[-max_messages:]  # Fallback to recent
-        elif strategy == "balanced":
-            # Could implement balanced selection (recent + important)
-            return messages[-max_messages:]  # Fallback to recent
-        else:
-            raise ValueError(f"Unknown context strategy: {strategy}")
-
-
 class TurnExecutor:
     """
     Handles execution of individual turns in the agent loop.
@@ -223,7 +178,11 @@ class TurnExecutor:
         if state.current_turn == 0:
             user_prompt = FIRST_TURN_PROMPT.render()
         else:
-            user_prompt = SUBSEQUENT_TURN_PROMPT.render()
+            user_prompt = SUBSEQUENT_TURN_PROMPT.render(
+                current_turn=state.current_turn + 1,
+                min_turns=state.context.min_turns,
+                max_turns=state.context.max_turns,
+            )
 
         # Add workflow guidance to the prompt
         workflow_guidance = self.workflow_manager.get_tool_guidance(tools)
@@ -234,23 +193,23 @@ class TurnExecutor:
         try:
             # Build messages for the model
             if conversation_messages:
-                # We have history, use it
+                from rhesis.penelope.config import PenelopeConfig
+
                 prompt = user_prompt
-                # Use context manager for intelligent message selection
-                context_messages = ContextManager.select_context_messages(
-                    conversation_messages, strategy="recent"
-                )
+                max_messages = PenelopeConfig.DEFAULT_CONTEXT_WINDOW_MESSAGES
+                context_messages = conversation_messages[-max_messages:] if max_messages > 0 else []
                 for msg in context_messages:
                     prompt += f"\n\n{msg.role}: {msg.content}"
             else:
                 prompt = user_prompt
 
             # Debug logging for LLM input (without prompt content)
-            logger.info("=== EXECUTOR: Sending to LLM ===")
-            logger.info(f"Model: {self.model.get_model_name()}")
-            logger.info(f"User prompt length: {len(prompt)} chars")
-            logger.info(f"System prompt length: {len(system_prompt)} chars")
-            logger.info("=== END EXECUTOR DEBUG ===")
+            logger.debug(
+                "Sending to LLM: model=%s, prompt_len=%d, system_len=%d",
+                self.model.get_model_name(),
+                len(prompt),
+                len(system_prompt),
+            )
 
             response = self.model.generate(
                 prompt=prompt,
@@ -315,17 +274,9 @@ class TurnExecutor:
                 # Only inject if no conversation ID is already present
                 if not extract_conversation_id(action_params):
                     action_params["conversation_id"] = state.conversation_id
-                    logger.info(f"TurnExecutor injected conversation_id: {state.conversation_id}")
+                    logger.debug("Injected conversation_id into params")
                 else:
-                    logger.info(
-                        f"TurnExecutor found existing conversation_id in params: "
-                        f"{extract_conversation_id(action_params)}"
-                    )
-            elif action_name == "send_message_to_target":
-                logger.info(
-                    f"TurnExecutor: No conversation_id to inject "
-                    f"(state.conversation_id: {state.conversation_id})"
-                )
+                    logger.debug("Using existing conversation_id from params")
 
             # Debug: Log structured response
             if self.verbose:
@@ -458,15 +409,12 @@ class TurnExecutor:
                     if conversation_id:
                         old_conversation_id = state.conversation_id
                         state.conversation_id = conversation_id
-                        logger.info(
-                            f"TurnExecutor updated conversation_id: "
-                            f"{old_conversation_id} -> {conversation_id}"
-                        )
-                    else:
-                        logger.info(
-                            f"TurnExecutor: No conversation_id found in tool output: "
-                            f"{tool_result.output}"
-                        )
+                        if old_conversation_id != conversation_id:
+                            logger.debug(
+                                "Updated conversation_id: %s -> %s",
+                                old_conversation_id,
+                                conversation_id,
+                            )
 
             # Display execution if verbose
             if self.verbose and self.enable_transparency:

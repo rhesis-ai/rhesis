@@ -216,10 +216,10 @@ class BackendEndpointTarget(Target):
             if conversation_id:
                 input_data["conversation_id"] = conversation_id
 
-            logger.info(
-                f"BackendEndpointTarget invoking {self.endpoint_id} "
-                f"with message: '{message[:100]}...', "
-                f"conversation_id: {conversation_id}"
+            logger.debug(
+                "BackendEndpointTarget invoking %s, message_len=%d",
+                self.endpoint_id,
+                len(message),
             )
 
             response_data = run_async(
@@ -280,11 +280,10 @@ class BackendEndpointTarget(Target):
             if "context" in response_data and response_data["context"]:
                 response_metadata["context"] = response_data["context"]
 
-            logger.info(
-                f"BackendEndpointTarget received response from "
-                f"{self.endpoint_id}: "
-                f"'{str(response_text)[:100]}...', "
-                f"conversation_id: {response_conversation_id}"
+            logger.debug(
+                "BackendEndpointTarget received response from %s, response_len=%d",
+                self.endpoint_id,
+                len(str(response_text)),
             )
 
             return TargetResponse(
