@@ -56,12 +56,8 @@ def create_test(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    test_data = resolve_test_entity_names(
-        db, test.model_dump(), organization_id, user_id
-    )
-    return crud.create_test(
-        db=db, test=test_data, organization_id=organization_id, user_id=user_id
-    )
+    test_data = resolve_test_entity_names(db, test.model_dump(), organization_id, user_id)
+    return crud.create_test(db=db, test=test_data, organization_id=organization_id, user_id=user_id)
 
 
 @router.post("/bulk", response_model=schemas.TestBulkCreateResponse)
