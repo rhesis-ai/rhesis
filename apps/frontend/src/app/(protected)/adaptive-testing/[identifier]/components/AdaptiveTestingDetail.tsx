@@ -47,6 +47,7 @@ import AddIcon from '@mui/icons-material/AddOutlined';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
+import GradingIcon from '@mui/icons-material/GradingOutlined';
 import {
   TestNode,
   TestNodeCreate,
@@ -1472,6 +1473,15 @@ export default function AdaptiveTestingDetail({
   const [selectedMetric, setSelectedMetric] = useState<MetricDetail | null>(
     null
   );
+  const [evaluateDialogOpen, setEvaluateDialogOpen] = useState(false);
+  const [evaluateSubmitting, setEvaluateSubmitting] = useState(false);
+  const [evaluateError, setEvaluateError] = useState<string | null>(null);
+  const [evaluateTopic, setEvaluateTopic] = useState<string | null>(null);
+  const [evaluateIncludeSubtopics, setEvaluateIncludeSubtopics] =
+    useState(true);
+  const [evaluateMetric, setEvaluateMetric] = useState<MetricDetail | null>(
+    null
+  );
 
   const notifications = useNotifications();
 
@@ -1604,6 +1614,71 @@ export default function AdaptiveTestingDetail({
       );
     } finally {
       setGenerateSubmitting(false);
+    }
+  };
+
+  const handleEvaluateOpen = (fromTable?: boolean) => {
+    if (fromTable && activeTab === 0 && selectedTopic) {
+      setEvaluateTopic(selectedTopic);
+      setEvaluateIncludeSubtopics(true);
+    } else {
+      setEvaluateTopic(null);
+      setEvaluateIncludeSubtopics(true);
+    }
+    setEvaluateMetric(metricForGeneration);
+    setEvaluateError(null);
+    setEvaluateDialogOpen(true);
+  };
+
+  const handleEvaluateClose = () => {
+    if (!evaluateSubmitting) {
+      setEvaluateDialogOpen(false);
+      setEvaluateMetric(null);
+      setEvaluateError(null);
+    }
+  };
+
+  const handleEvaluateSubmit = async () => {
+    if (!evaluateMetric?.name) {
+      setEvaluateError('Please select a metric.');
+      return;
+    }
+    setEvaluateSubmitting(true);
+    setEvaluateError(null);
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+    try {
+      const result = await client.evaluate(testSetId, {
+        metric_names: [evaluateMetric.name],
+        topic: evaluateTopic ?? undefined,
+        include_subtopics: evaluateIncludeSubtopics,
+      });
+      const [treeNodes, updatedTopics] = await Promise.all([
+        client.getTree(testSetId),
+        client.getTopics(testSetId),
+      ]);
+      setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
+      setTopics(updatedTopics);
+      setEvaluateDialogOpen(false);
+      setEvaluateMetric(null);
+      const failedCount = result.failed?.length ?? 0;
+      if (failedCount > 0) {
+        notifications.show(
+          `Evaluated ${result.evaluated} tests; ${failedCount} failed.`,
+          { severity: 'warning' }
+        );
+      } else {
+        notifications.show(
+          `Evaluated ${result.evaluated} test(s) successfully.`,
+          { severity: 'success' }
+        );
+      }
+    } catch (err) {
+      setEvaluateError(
+        err instanceof Error ? err.message : 'Failed to evaluate tests.'
+      );
+    } finally {
+      setEvaluateSubmitting(false);
     }
   };
 
@@ -2148,6 +2223,14 @@ export default function AdaptiveTestingDetail({
               </Button>
               <Button
                 size="small"
+                startIcon={<GradingIcon />}
+                onClick={() => handleEvaluateOpen(true)}
+                sx={{ textTransform: 'none' }}
+              >
+                Evaluate
+              </Button>
+              <Button
+                size="small"
                 startIcon={<AddIcon />}
                 onClick={() => setAddTestDialogOpen(true)}
                 sx={{ textTransform: 'none' }}
@@ -2185,6 +2268,14 @@ export default function AdaptiveTestingDetail({
               sx={{ textTransform: 'none' }}
             >
               Generate outputs
+            </Button>
+            <Button
+              size="small"
+              startIcon={<GradingIcon />}
+              onClick={() => handleEvaluateOpen(true)}
+              sx={{ textTransform: 'none' }}
+            >
+              Evaluate
             </Button>
             <Button
               size="small"
@@ -2483,6 +2574,117 @@ export default function AdaptiveTestingDetail({
             }
           >
             {generateSubmitting ? 'Generating…' : 'Generate'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Evaluate dialog */}
+      <Dialog
+        open={evaluateDialogOpen}
+        onClose={handleEvaluateClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Evaluate tests</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Run the selected metric against each test and persist the evaluation
+            result in test metadata.
+          </Typography>
+          {evaluateError && (
+            <Alert
+              severity="error"
+              sx={{ mb: 2 }}
+              onClose={() => setEvaluateError(null)}
+            >
+              {evaluateError}
+            </Alert>
+          )}
+          <Autocomplete
+            options={metrics}
+            getOptionLabel={option => option.name ?? ''}
+            value={evaluateMetric}
+            onChange={(_, value) => setEvaluateMetric(value ?? null)}
+            loading={metricsLoading}
+            renderInput={params => (
+              <TextField
+                {...params}
+                label="Metric"
+                placeholder="Select metric"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {metricsLoading ? (
+                        <CircularProgress color="inherit" size={20} />
+                      ) : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            sx={{ mb: 2 }}
+          />
+          <Autocomplete
+            options={[allTestsTopicOption, ...topics]}
+            getOptionLabel={option =>
+              option.path ? (option.display_path ?? option.path) : 'All tests'
+            }
+            value={
+              evaluateTopic === null || evaluateTopic === ''
+                ? allTestsTopicOption
+                : (topics.find(t => t.path === evaluateTopic) ?? {
+                    path: evaluateTopic,
+                    name: evaluateTopic.split('/').pop() ?? evaluateTopic,
+                    parent_path: null,
+                    depth: 0,
+                    display_name: evaluateTopic,
+                    display_path: evaluateTopic,
+                    has_direct_tests: false,
+                    has_subtopics: false,
+                  })
+            }
+            onChange={(_, value) =>
+              setEvaluateTopic(
+                value?.path && value.path !== '' ? value.path : null
+              )
+            }
+            isOptionEqualToValue={(a, b) => a.path === b.path}
+            renderInput={params => (
+              <TextField {...params} label="Topic" placeholder="All tests" />
+            )}
+            sx={{ mb: 1 }}
+          />
+          {evaluateTopic != null && evaluateTopic !== '' && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={evaluateIncludeSubtopics}
+                  onChange={e => setEvaluateIncludeSubtopics(e.target.checked)}
+                />
+              }
+              label="Include subtopics"
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleEvaluateClose} disabled={evaluateSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleEvaluateSubmit}
+            disabled={!evaluateMetric || evaluateSubmitting}
+            startIcon={
+              evaluateSubmitting ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <GradingIcon />
+              )
+            }
+          >
+            {evaluateSubmitting ? 'Evaluating…' : 'Evaluate'}
           </Button>
         </DialogActions>
       </Dialog>

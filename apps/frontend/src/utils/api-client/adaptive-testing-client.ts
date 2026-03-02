@@ -14,6 +14,8 @@ import {
   DeleteTestResponse,
   GenerateOutputsRequest,
   GenerateOutputsResponse,
+  EvaluateRequest,
+  EvaluateResponse,
 } from './interfaces/adaptive-testing';
 
 /**
@@ -273,6 +275,25 @@ export class AdaptiveTestingClient extends BaseApiClient {
   ): Promise<GenerateOutputsResponse> {
     const basePath = this.getBasePath(testSetId);
     return this.fetch<GenerateOutputsResponse>(`${basePath}/generate_outputs`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+
+  /**
+   * Evaluate tests using the specified metrics.
+   * @param testSetId The test set identifier
+   * @param body Metric names and optional filters
+   */
+  async evaluate(
+    testSetId: string,
+    body: EvaluateRequest
+  ): Promise<EvaluateResponse> {
+    const basePath = this.getBasePath(testSetId);
+    return this.fetch<EvaluateResponse>(`${basePath}/evaluate`, {
       method: 'POST',
       body: JSON.stringify(body),
       headers: {
