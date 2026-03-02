@@ -1,6 +1,7 @@
 import { Box } from '@mui/material';
 import { Metadata } from 'next';
 import { PageContainer } from '@toolpad/core/PageContainer';
+import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -55,9 +56,11 @@ export default async function TestRunPage({
   const testResultsClient = apiFactory.getTestResultsClient();
   const behaviorClient = apiFactory.getBehaviorClient();
 
-  // Fetch test run details
-  // Any errors (404, 410, etc.) will be caught by the global error.tsx
-  const testRun = await testRunsClient.getTestRun(identifier);
+  // Fetch test run details — notFound() on any API error (404, 422, etc.)
+  // so Next.js returns a 404 response instead of a 500.
+  const testRun = await testRunsClient
+    .getTestRun(identifier)
+    .catch(() => notFound());
 
   // Fetch all test results for this test run in batches (API limit is 100)
   // The backend now includes nested prompt and behavior objects, eliminating the need for separate API calls
