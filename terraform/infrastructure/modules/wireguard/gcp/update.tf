@@ -39,6 +39,12 @@ resource "terraform_data" "wireguard_config_update" {
         sleep 10
       done
 
+      # Remove any stale file from a previous failed run (may be owned by root)
+      gcloud compute ssh wireguard-server \
+        --zone="$ZONE" --project="$PROJECT" \
+        --tunnel-through-iap \
+        --command="sudo rm -f /tmp/wg0.b64" 2>/dev/null || true
+
       # Copy base64-encoded config to server
       gcloud compute scp "$tmpfile" wireguard-server:/tmp/wg0.b64 \
         --zone="$ZONE" --project="$PROJECT" \
