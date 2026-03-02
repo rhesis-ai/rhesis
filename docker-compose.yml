@@ -216,6 +216,8 @@ services:
     build:
       context: ./docs
       dockerfile: src/Dockerfile
+      args:
+        ROBOTS_NOINDEX: ${ROBOTS_NOINDEX:-false}
     environment:
       <<: [*common-environment]
       PORT: 3001
