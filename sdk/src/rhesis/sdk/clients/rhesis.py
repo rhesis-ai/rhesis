@@ -301,6 +301,10 @@ class RhesisClient:
         then waits indefinitely. On cancellation or interrupt, shuts down cleanly.
         """
         self._ensure_connector()
+        _green = "\033[92m"
+        _dim = "\033[2m"
+        _reset = "\033[0m"
+        print(f"{_green}Connector running.{_reset} {_dim}Press Ctrl+C to stop.{_reset}")
         self._connector_manager._ensure_connection()
         shutdown_event = asyncio.Event()
         try:
@@ -331,8 +335,8 @@ class RhesisClient:
                 "running event loop; run the connector as a task in that loop "
                 "or use an async entry point instead."
             )
-        _green = "\033[92m"
-        _dim = "\033[2m"
-        _reset = "\033[0m"
-        print(f"{_green}Connector running.{_reset} {_dim}Press Ctrl+C to stop.{_reset}")
-        asyncio.run(self._run_async())
+        try:
+            asyncio.run(self._run_async())
+        except KeyboardInterrupt:
+            print("Stopped.")
+            return
