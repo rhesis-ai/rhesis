@@ -3,18 +3,25 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
-// Mock next/dynamic to be synchronous — avoids act() hanging on unresolved
-// async import boundaries in JSDOM, which causes user.type() to time out.
+// Mock next/dynamic so that dynamic regions trigger a React re-render once the
+// loader promise resolves.  Using useState + useEffect means the component will
+// render null on the first pass, then re-render with the loaded component after
+// the (microtask-scheduled) promise settles — matching real React Suspense
+// semantics and avoiding permanently-null dynamic zones.
 jest.mock(
   'next/dynamic',
   () => (loader: () => Promise<{ default: React.ComponentType }>) => {
-    let LoadedComponent: React.ComponentType | null = null;
-    loader().then(mod => {
-      LoadedComponent = mod.default || (mod as unknown as React.ComponentType);
-    });
     function DynamicComponent(props: Record<string, unknown>) {
-      if (!LoadedComponent) return null;
-      return React.createElement(LoadedComponent, props);
+      const [Comp, setComp] = React.useState<React.ComponentType | null>(null);
+      React.useEffect(() => {
+        loader().then(mod => {
+          setComp(() => mod.default ?? (mod as unknown as React.ComponentType));
+        });
+        // loader identity is stable per mock call; omitting from deps is intentional.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+      if (!Comp) return null;
+      return React.createElement(Comp, props);
     }
     DynamicComponent.displayName = 'DynamicComponent';
     return DynamicComponent;

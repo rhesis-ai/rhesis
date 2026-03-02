@@ -29,7 +29,9 @@ export class TestsPage {
   }
 
   async waitForContent() {
-    await this.page.waitForLoadState('networkidle');
+    // Wait for the data grid to become visible rather than relying on
+    // networkidle, which can be flaky on pages with background polling requests.
+    await this.dataGrid.waitFor({ state: 'visible', timeout: 15_000 });
   }
 
   /** Returns true when the data grid is visible (data loaded). */
@@ -52,6 +54,7 @@ export class TestsPage {
   async searchFor(text: string) {
     const searchInput = this.page.getByPlaceholder(/search|filter/i).first();
     await searchInput.fill(text);
-    await this.page.waitForLoadState('networkidle');
+    // Wait for the grid to reflect the search rather than relying on networkidle.
+    await this.dataGrid.waitFor({ state: 'visible', timeout: 15_000 });
   }
 }

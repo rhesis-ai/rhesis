@@ -29,7 +29,9 @@ export class EndpointsPage {
   }
 
   async waitForContent() {
-    await this.page.waitForLoadState('networkidle');
+    // Wait for the data grid to become visible rather than relying on
+    // networkidle, which can be flaky on pages with background polling requests.
+    await this.dataGrid.waitFor({ state: 'visible', timeout: 15_000 });
   }
 
   async hasDataGrid(): Promise<boolean> {

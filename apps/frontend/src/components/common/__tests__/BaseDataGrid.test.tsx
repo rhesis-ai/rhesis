@@ -212,8 +212,12 @@ describe('BaseDataGrid', () => {
       ).toBeInTheDocument();
     });
 
-    it('renders no buttons when actionButtons is not provided', () => {
+    it('does not inject action buttons when actionButtons prop is omitted', () => {
       renderAndInit(<BaseDataGrid columns={sampleColumns} rows={sampleRows} />);
+      // BaseDataGrid only renders action-button elements when the actionButtons
+      // prop is supplied.  The DataGrid itself is mocked here (no built-in
+      // toolbar/quick-filter buttons), so we can assert that the component
+      // introduces no button elements of its own when no actions are requested.
       expect(screen.queryByRole('button')).not.toBeInTheDocument();
     });
   });
