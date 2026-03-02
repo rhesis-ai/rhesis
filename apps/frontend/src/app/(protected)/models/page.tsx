@@ -16,6 +16,7 @@ import {
   ConnectedModelCard,
   AddModelCard,
 } from './components';
+import PolyphemusAccessModal from '@/components/common/PolyphemusAccessModal';
 import type { ValidationStatus } from './types';
 
 export type { ValidationStatus } from './types';
@@ -41,6 +42,8 @@ export default function ModelsPage() {
   const [selectedModelType, setSelectedModelType] = useState<
     'language' | 'embedding'
   >('language');
+  const [polyphemusModalOpen, setPolyphemusModalOpen] = useState(false);
+  const [organization, setOrganization] = useState<any>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -63,12 +66,25 @@ export default function ModelsPage() {
         });
         setProviderTypes(types);
 
-        // Load user settings
+        // Load user settings (now includes is_verified)
         try {
           const settings = await usersClient.getUserSettings();
           setUserSettings(settings);
         } catch {
           // Failed to load user settings - continue without them
+        }
+
+        // Load organization details if user belongs to one
+        if (session.user?.organization_id) {
+          try {
+            const organizationsClient = apiFactory.getOrganizationsClient();
+            const org = await organizationsClient.getOrganization(
+              session.user.organization_id
+            );
+            setOrganization(org);
+          } catch {
+            // Failed to load organization - continue without it
+          }
         }
 
         // Then load connected models
@@ -313,6 +329,15 @@ export default function ModelsPage() {
     }
   };
 
+  const handleRequestPolyphemusAccess = (model: Model) => {
+    setPolyphemusModalOpen(true);
+  };
+
+  const handlePolyphemusAccessSuccess = async () => {
+    // Refresh user settings after successful request
+    await refreshUserSettings();
+  };
+
   // Separate models by type
   const languageModels = connectedModels.filter(
     model => !model.model_type || model.model_type === 'language'
@@ -366,9 +391,11 @@ export default function ModelsPage() {
                   key={model.id}
                   model={model}
                   userSettings={userSettings}
+                  isVerified={userSettings?.is_verified}
                   validationStatus={modelValidationStatus.get(model.id)}
                   onEdit={handleEditClick}
                   onDelete={handleDeleteClick}
+                  onRequestAccess={handleRequestPolyphemusAccess}
                 />
               ))}
 
@@ -401,9 +428,11 @@ export default function ModelsPage() {
                   key={model.id}
                   model={model}
                   userSettings={userSettings}
+                  isVerified={userSettings?.is_verified}
                   validationStatus={modelValidationStatus.get(model.id)}
                   onEdit={handleEditClick}
                   onDelete={handleDeleteClick}
+                  onRequestAccess={handleRequestPolyphemusAccess}
                 />
               ))}
 
@@ -452,6 +481,14 @@ export default function ModelsPage() {
         itemType="model connection"
         itemName={modelToDelete?.name}
         title="Delete Model Connection"
+      />
+
+      <PolyphemusAccessModal
+        open={polyphemusModalOpen}
+        onClose={() => setPolyphemusModalOpen(false)}
+        onSuccess={handlePolyphemusAccessSuccess}
+        userEmail={session?.user?.email || ''}
+        organization={organization}
       />
     </PageContainer>
   );

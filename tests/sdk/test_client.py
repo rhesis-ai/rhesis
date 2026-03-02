@@ -302,3 +302,37 @@ def test_normal_client_when_connector_enabled(monkeypatch):
 
     # Clean up
     importlib.reload(rhesis.sdk.clients.rhesis)
+
+
+@pytest.mark.asyncio
+async def test_connect_raises_when_event_loop_running(monkeypatch):
+    """connect() raises RuntimeError when called from a context with a running event loop."""
+    import importlib
+
+    import rhesis.sdk.clients.rhesis
+
+    monkeypatch.delenv("RHESIS_CONNECTOR_DISABLED", raising=False)
+    monkeypatch.setenv("RHESIS_API_KEY", "test_key")
+    monkeypatch.setenv("RHESIS_BASE_URL", "http://localhost:8080")
+    monkeypatch.setenv("RHESIS_PROJECT_ID", "test_project")
+    importlib.reload(rhesis.sdk.clients.rhesis)
+
+    from rhesis.sdk.clients.rhesis import RhesisClient
+
+    client = RhesisClient.from_environment()
+    assert client.__class__.__name__ == "RhesisClient"
+
+    with pytest.raises(RuntimeError, match="connect.*sync scripts only"):
+        client.connect()
+
+    importlib.reload(rhesis.sdk.clients.rhesis)
+
+
+def test_disabled_client_connect_returns_immediately():
+    """DisabledClient.connect() returns immediately without blocking."""
+    from rhesis.sdk.clients.rhesis import DisabledClient
+
+    client = DisabledClient()
+    # Should return immediately (no-op)
+    result = client.connect()
+    assert result is None

@@ -269,24 +269,24 @@ def main():
     print("🚀 Multi-Turn Metrics Integration Test")
     print("=" * 60)
     print(f"Testing endpoint: {args.endpoint_id}")
-    print(f"Max iterations: {args.max_iterations}")
+    print(f"Max iterations: {args.max_turns}")
     print(f"Verbose: {args.verbose}")
 
     try:
         # Test 1: Auto-detect GoalAchievementJudge
         print("\n🧪 Test 1: Auto-detect GoalAchievementJudge in metrics")
         print("=" * 50)
-        result1 = test_auto_detect_goal_metric(args.endpoint_id, args.verbose, args.max_iterations)
+        result1 = test_auto_detect_goal_metric(args.endpoint_id, args.verbose, args.max_turns)
 
         # Test 2: Auto-create GoalAchievementJudge
         print("\n🧪 Test 2: Auto-create GoalAchievementJudge")
         print("=" * 50)
-        result2 = test_auto_create_goal_metric(args.endpoint_id, args.verbose, args.max_iterations)
+        result2 = test_auto_create_goal_metric(args.endpoint_id, args.verbose, args.max_turns)
 
         # Test 3: Explicit goal_metric
         print("\n🧪 Test 3: Explicit goal_metric parameter")
         print("=" * 50)
-        result3 = test_explicit_goal_metric(args.endpoint_id, args.verbose, args.max_iterations)
+        result3 = test_explicit_goal_metric(args.endpoint_id, args.verbose, args.max_turns)
 
         print("\n🎉 All Tests Completed Successfully!")
         print("=" * 60)
@@ -305,7 +305,7 @@ def main():
     return 0
 
 
-def test_auto_detect_goal_metric(endpoint_id: str, verbose: bool, max_iterations: int):
+def test_auto_detect_goal_metric(endpoint_id: str, verbose: bool, max_turns: int):
     """Test auto-detecting GoalAchievementJudge in metrics list."""
     model = VertexAILLM(model_name="gemini-2.0-flash")
 
@@ -322,7 +322,7 @@ def test_auto_detect_goal_metric(endpoint_id: str, verbose: bool, max_iterations
         model=model,
         metrics=metrics,  # GoalAchievementJudge should be auto-detected
         verbose=verbose,
-        max_iterations=max_iterations,
+        max_turns=max_turns,
     )
 
     target = EndpointTarget(endpoint_id=endpoint_id)
@@ -338,7 +338,7 @@ def test_auto_detect_goal_metric(endpoint_id: str, verbose: bool, max_iterations
     return result
 
 
-def test_auto_create_goal_metric(endpoint_id: str, verbose: bool, max_iterations: int):
+def test_auto_create_goal_metric(endpoint_id: str, verbose: bool, max_turns: int):
     """Test auto-creating GoalAchievementJudge when none provided."""
     model = VertexAILLM(model_name="gemini-2.0-flash")
 
@@ -347,7 +347,7 @@ def test_auto_create_goal_metric(endpoint_id: str, verbose: bool, max_iterations
         model=model,
         metrics=[],  # Empty metrics - GoalAchievementJudge will be auto-created
         verbose=verbose,
-        max_iterations=max_iterations,
+        max_turns=max_turns,
     )
 
     target = EndpointTarget(endpoint_id=endpoint_id)
@@ -363,7 +363,7 @@ def test_auto_create_goal_metric(endpoint_id: str, verbose: bool, max_iterations
     return result
 
 
-def test_explicit_goal_metric(endpoint_id: str, verbose: bool, max_iterations: int):
+def test_explicit_goal_metric(endpoint_id: str, verbose: bool, max_turns: int):
     """Test explicit goal_metric parameter."""
     model = VertexAILLM(model_name="gemini-2.0-flash")
 
@@ -378,7 +378,7 @@ def test_explicit_goal_metric(endpoint_id: str, verbose: bool, max_iterations: i
         metrics=[],  # No metrics initially
         goal_metric=goal_metric,  # Explicit stopping metric
         verbose=verbose,
-        max_iterations=max_iterations,
+        max_turns=max_turns,
     )
 
     target = EndpointTarget(endpoint_id=endpoint_id)

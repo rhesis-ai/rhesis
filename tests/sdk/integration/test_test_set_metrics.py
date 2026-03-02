@@ -6,6 +6,7 @@ exercise the full HTTP path: SDK -> backend API -> database.
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.test_set import TestSet
+from rhesis.sdk.enums import TestType
 
 # ------------------------------------------------------------------
 # Helpers
@@ -36,6 +37,7 @@ def _create_test_set(name: str = "Metric Mgmt Test Set") -> TestSet:
         name=name,
         description="Integration test set for metric management",
         short_description="Test",
+        test_set_type=TestType.SINGLE_TURN,
         tests=[
             {
                 "category": "Safety",

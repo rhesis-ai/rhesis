@@ -53,7 +53,7 @@ class TestToolAvailability:
 
     def test_system_prompt_includes_tool_names(self, mock_model, mock_target):
         """Test that system prompt includes all available tool names."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=2)  # Allow at least one turn
+        agent = PenelopeAgent(model=mock_model, max_turns=2)  # Allow at least one turn
 
         # Execute a test
         agent.execute_test(
@@ -88,7 +88,7 @@ class TestToolAvailability:
 
     def test_system_prompt_includes_tool_descriptions(self, mock_model, mock_target):
         """Test that system prompt includes tool descriptions."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=2)
+        agent = PenelopeAgent(model=mock_model, max_turns=2)
 
         agent.execute_test(
             target=mock_target,
@@ -110,7 +110,7 @@ class TestToolAvailability:
 
     def test_system_prompt_not_empty_for_tools(self, mock_model, mock_target):
         """Test that available_tools parameter is not empty."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=2)
+        agent = PenelopeAgent(model=mock_model, max_turns=2)
 
         with patch("rhesis.penelope.agent.get_system_prompt") as mock_get_prompt:
             mock_get_prompt.return_value = "Test prompt"
@@ -138,7 +138,7 @@ class TestToolAvailability:
 
     def test_tool_documentation_format(self, mock_model, mock_target):
         """Test that tool documentation is properly formatted."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=2)
+        agent = PenelopeAgent(model=mock_model, max_turns=2)
 
         agent.execute_test(
             target=mock_target,
@@ -172,7 +172,7 @@ class TestToolAvailability:
                 return ToolResult(success=True, output={}, error=None)
 
         custom_tool = CustomTool()
-        agent = PenelopeAgent(model=mock_model, tools=[custom_tool], max_iterations=2)
+        agent = PenelopeAgent(model=mock_model, tools=[custom_tool], max_turns=2)
 
         agent.execute_test(
             target=mock_target,
@@ -228,7 +228,7 @@ class TestToolNameValidation:
             ],
         }
 
-        agent = PenelopeAgent(model=mock_model, max_iterations=1)
+        agent = PenelopeAgent(model=mock_model, max_turns=1)
         result = agent.execute_test(
             target=mock_target,
             goal="Test goal",
@@ -260,7 +260,7 @@ class TestToolNameValidation:
             ],
         }
 
-        agent = PenelopeAgent(model=mock_model, max_iterations=1)
+        agent = PenelopeAgent(model=mock_model, max_turns=1)
         result = agent.execute_test(
             target=mock_target,
             goal="Test goal",

@@ -12,6 +12,7 @@ from rhesis.backend.app.constants import TestExecutionContext as TestContextCons
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
 from rhesis.backend.logging import logger
+from rhesis.sdk.telemetry.constants import ConversationContext as ConversationConstants
 
 from .base import BaseEndpointInvoker
 from .common.schemas import ErrorResponse
@@ -335,6 +336,103 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             mapped_response[conversation_field] = fallback
             logger.debug(f"Echoed {conversation_field} from request: {fallback}")
 
+    def _inject_conversation_context(
+        self,
+        db: Session,
+        endpoint: Endpoint,
+        input_data: Dict[str, Any],
+        conversation_field: Optional[str],
+        function_kwargs: Dict[str, Any],
+    ) -> Optional[str]:
+        """Build and inject conversation context into function kwargs.
+
+        Looks up the conversation ID from input_data (using the field name
+        detected by ConversationTracker), resolves the existing trace_id for
+        the conversation (so the SDK reuses it), and injects the context dict
+        into function_kwargs.
+
+        On the first turn (no conversation_id yet), only mapped_input is
+        injected so the SDK tracer can still stamp it on the root span.
+
+        Returns the resolved conversation_id (or None for first turn).
+        """
+        from .conversation import find_conversation_id
+
+        # Prefer the endpoint's configured field name (from response_mapping),
+        # then fall back to scanning all recognized field names.
+        if conversation_field and conversation_field in input_data:
+            conversation_id = input_data[conversation_field]
+        else:
+            conversation_id = find_conversation_id(input_data)
+
+        mapped_input = str(input_data.get("input", ""))
+
+        if conversation_id and endpoint.project_id:
+            # Lazy import: crud uses models that would cause a circular
+            # import at module level.
+            from rhesis.backend.app import crud
+
+            existing_trace_id = crud.get_trace_id_for_conversation(
+                db=db,
+                conversation_id=conversation_id,
+                project_id=str(endpoint.project_id),
+                organization_id=str(endpoint.organization_id),
+            )
+
+            # Fallback: if Turn 1's spans haven't been ingested yet,
+            # the trace_id is still in the pending links cache from
+            # _link_first_turn_trace().
+            if existing_trace_id is None:
+                from rhesis.backend.app.services.telemetry.conversation_linking import (
+                    get_trace_id_from_pending_links,
+                )
+
+                existing_trace_id = get_trace_id_from_pending_links(conversation_id)
+                if existing_trace_id:
+                    logger.debug(f"Found trace_id from pending links cache: {existing_trace_id}")
+
+            function_kwargs[ConversationConstants.CONTEXT_KEY] = {
+                ConversationConstants.Fields.CONVERSATION_ID: conversation_id,
+                ConversationConstants.Fields.TRACE_ID: existing_trace_id,
+                ConversationConstants.Fields.MAPPED_INPUT: mapped_input,
+            }
+            logger.debug(
+                f"Injected conversation context: id={conversation_id}, trace_id={existing_trace_id}"
+            )
+        elif endpoint.project_id:
+            # First turn: no conversation_id yet, but still send
+            # mapped_input so the SDK tracer stamps it on the span.
+            function_kwargs[ConversationConstants.CONTEXT_KEY] = {
+                ConversationConstants.Fields.MAPPED_INPUT: mapped_input,
+            }
+
+        return conversation_id
+
+    @staticmethod
+    def _park_mapped_output(
+        result: Dict[str, Any],
+        endpoint: Endpoint,
+        mapped_response: Dict[str, Any],
+    ) -> None:
+        """Park the response-mapped output for injection at span ingest time.
+
+        The SDK tracer sets ``rhesis.conversation.input`` per-span, but cannot
+        set ``rhesis.conversation.output`` because it only has the raw function
+        return value.  We park the mapped output here; it will be injected into
+        the span's attributes when the SDK exports it to the telemetry ingest
+        endpoint — before storage.
+        """
+        mapped_output = str(mapped_response.get("output", "")) or None
+        if result.get("trace_id") and endpoint.project_id and mapped_output:
+            from rhesis.backend.app.services.telemetry.conversation_linking import (
+                register_pending_output,
+            )
+
+            register_pending_output(
+                trace_id=result["trace_id"],
+                mapped_output=mapped_output,
+            )
+
     async def invoke(
         self,
         db: Session,
@@ -368,15 +466,14 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             _, conversation_field = self._prepare_conversation_context(endpoint, input_data)
             function_kwargs = self._prepare_function_kwargs(endpoint, input_data, function_name)
 
-            # Step 3.5: Add test execution context to kwargs if provided
+            # Inject test and conversation context into function kwargs
             if test_execution_context:
-                # Validate structure and convert string UUIDs if needed
                 context = TestExecutionContext(**test_execution_context)
                 function_kwargs[TestContextConstants.CONTEXT_KEY] = context.model_dump(mode="json")
-                logger.debug(
-                    f"Injected test execution context: "
-                    f"run={context.test_run_id}, test={context.test_id}"
-                )
+
+            conversation_id = self._inject_conversation_context(
+                db, endpoint, input_data, conversation_field, function_kwargs
+            )
 
             logger.info(
                 f"Invoking SDK function: {function_name} "
@@ -384,46 +481,45 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             )
             logger.debug(f"Function kwargs: {function_kwargs}")
 
-            # Step 4: Execute via RPC or direct WebSocket
-            test_run_id = f"invoke_{uuid.uuid4().hex[:12]}"
+            # Execute via RPC or direct WebSocket
+            invocation_id = f"invoke_{uuid.uuid4().hex[:12]}"
 
             if use_rpc:
                 result = await self._execute_via_rpc(
-                    project_id, environment, test_run_id, function_name, function_kwargs
+                    project_id, environment, invocation_id, function_name, function_kwargs
                 )
             else:
                 result = await self._execute_via_websocket(
-                    project_id, environment, test_run_id, function_name, function_kwargs
+                    project_id, environment, invocation_id, function_name, function_kwargs
                 )
 
-            # Step 5: Check for execution errors
-            # If result is already an ErrorResponse, return it directly
+            # Check for execution errors
             if isinstance(result, ErrorResponse):
                 return result
 
-            # Debug: log raw SDK result
-            logger.info(
-                f"[DEBUG] Raw SDK result keys: {list(result.keys())}, "
-                f"trace_id in raw result: {result.get('trace_id')}"
+            logger.debug(
+                f"Raw SDK result keys: {list(result.keys())}, trace_id={result.get('trace_id')}"
             )
 
             error_response = self._check_result_errors(result, function_name)
             if error_response:
                 return error_response
 
-            # Step 6: Map SDK response to standardized format
+            # Map response and propagate trace/conversation fields
             mapped_response = self._map_sdk_response(result, endpoint, function_name)
-
-            # Step 7: Ensure conversation ID in response
             self._ensure_conversation_field(mapped_response, conversation_field, input_data)
 
-            # Step 8: Include trace_id from SDK result for trace linking
             if result.get("trace_id"):
                 mapped_response["trace_id"] = result["trace_id"]
 
+            # Park mapped output for injection when SDK spans arrive
+            # at the telemetry ingest endpoint (before storage).
+            self._park_mapped_output(result, endpoint, mapped_response)
+
             logger.info(
                 f"SDK function {function_name} completed successfully "
-                f"in {result.get('duration_ms', 0)}ms, trace_id={result.get('trace_id')}"
+                f"in {result.get('duration_ms', 0)}ms, "
+                f"trace_id={result.get('trace_id')}"
             )
 
             return mapped_response

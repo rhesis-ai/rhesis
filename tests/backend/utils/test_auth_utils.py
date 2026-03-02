@@ -16,7 +16,7 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi import HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
-from jose import JWTError
+from jwt import PyJWTError as JWTError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.auth_utils import (
@@ -158,8 +158,7 @@ class TestVerifyJwtToken:
                 options={
                     "verify_exp": True,
                     "verify_iat": True,
-                    "require_exp": True,
-                    "require_iat": True,
+                    "require": ["exp", "iat"],
                 },
             )
 
@@ -327,8 +326,8 @@ def mock_async():
 
 
 # Add the run helper to pytest namespace for convenience
-pytest.run = (
-    lambda coro: pytest.run_async_helper(coro) if hasattr(pytest, "run_async_helper") else None
+pytest.run = lambda coro: (
+    pytest.run_async_helper(coro) if hasattr(pytest, "run_async_helper") else None
 )
 
 

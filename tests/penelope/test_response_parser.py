@@ -1,10 +1,8 @@
 """Tests for ResponseParser and validation components."""
 
-from unittest.mock import Mock
-
 import pytest
 
-from rhesis.penelope.executor import ContextManager, ResponseParser, ToolCallIdGenerator
+from rhesis.penelope.executor import ResponseParser, ToolCallIdGenerator
 
 
 class TestResponseParser:
@@ -230,100 +228,3 @@ class TestToolCallIdGenerator:
         assert tool_id == "call_1_tool-with_special.chars"
 
 
-class TestContextManager:
-    """Tests for ContextManager functionality."""
-
-    def create_mock_messages(self, count: int):
-        """Helper to create mock messages."""
-        messages = []
-        for i in range(count):
-            msg = Mock()
-            msg.content = f"Message {i + 1}"
-            messages.append(msg)
-        return messages
-
-    def test_select_context_messages_recent_strategy(self):
-        """Test selecting context messages with recent strategy."""
-        messages = self.create_mock_messages(10)
-
-        # Select last 5 messages
-        selected = ContextManager.select_context_messages(
-            messages, max_messages=5, strategy="recent"
-        )
-
-        assert len(selected) == 5
-        assert selected[0].content == "Message 6"
-        assert selected[-1].content == "Message 10"
-
-    def test_select_context_messages_no_limit(self):
-        """Test selecting context messages without limit."""
-        messages = self.create_mock_messages(3)
-
-        selected = ContextManager.select_context_messages(messages)
-
-        assert len(selected) == 3
-        assert selected == messages
-
-    def test_select_context_messages_limit_larger_than_available(self):
-        """Test selecting context messages when limit is larger than available."""
-        messages = self.create_mock_messages(3)
-
-        selected = ContextManager.select_context_messages(
-            messages, max_messages=10, strategy="recent"
-        )
-
-        assert len(selected) == 3
-        assert selected == messages
-
-    def test_select_context_messages_empty_list(self):
-        """Test selecting context messages from empty list."""
-        selected = ContextManager.select_context_messages([], max_messages=5)
-        assert selected == []
-
-    def test_select_context_messages_zero_limit(self):
-        """Test selecting context messages with zero limit."""
-        messages = self.create_mock_messages(5)
-
-        selected = ContextManager.select_context_messages(
-            messages, max_messages=0, strategy="recent"
-        )
-
-        assert selected == []
-
-    def test_select_context_messages_fallback_strategies(self):
-        """Test that unsupported strategies fall back to recent."""
-        messages = self.create_mock_messages(10)
-
-        # Test "relevant" strategy (should fallback to recent)
-        selected = ContextManager.select_context_messages(
-            messages, max_messages=3, strategy="relevant"
-        )
-        assert len(selected) == 3
-        assert selected[-1].content == "Message 10"  # Most recent
-
-        # Test "balanced" strategy (should fallback to recent)
-        selected = ContextManager.select_context_messages(
-            messages, max_messages=3, strategy="balanced"
-        )
-        assert len(selected) == 3
-        assert selected[-1].content == "Message 10"  # Most recent
-
-    def test_select_context_messages_invalid_strategy(self):
-        """Test selecting context messages with invalid strategy."""
-        messages = self.create_mock_messages(5)
-
-        with pytest.raises(ValueError, match="Unknown context strategy"):
-            ContextManager.select_context_messages(
-                messages, max_messages=3, strategy="invalid_strategy"
-            )
-
-    def test_select_context_messages_default_config(self):
-        """Test that default max_messages comes from config when not provided."""
-        messages = self.create_mock_messages(20)
-
-        # Should use DEFAULT_CONTEXT_WINDOW_MESSAGES from config
-        selected = ContextManager.select_context_messages(messages)
-
-        # Default should be 10 (from PenelopeConfig.DEFAULT_CONTEXT_WINDOW_MESSAGES)
-        assert len(selected) == 10
-        assert selected[-1].content == "Message 20"  # Most recent

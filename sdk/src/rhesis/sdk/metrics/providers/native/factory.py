@@ -2,6 +2,7 @@ from typing import List
 
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
 from rhesis.sdk.metrics.providers.native.categorical_judge import CategoricalJudge
+from rhesis.sdk.metrics.providers.native.conversational_judge import ConversationalJudge
 from rhesis.sdk.metrics.providers.native.goal_achievement_judge import GoalAchievementJudge
 from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
 
@@ -11,6 +12,7 @@ class RhesisMetricFactory(BaseMetricFactory):
 
     _metrics = {
         "CategoricalJudge": CategoricalJudge,
+        "ConversationalJudge": ConversationalJudge,
         "NumericJudge": NumericJudge,
         "GoalAchievementJudge": GoalAchievementJudge,
     }
@@ -64,6 +66,7 @@ class RhesisMetricFactory(BaseMetricFactory):
             "categories",
             "passing_categories",
         },
+        "ConversationalJudge": _base_metric_params | _base_judge_params | _numeric_params,
         "NumericJudge": _base_metric_params | _base_judge_params | _numeric_params,
         "GoalAchievementJudge": _base_metric_params | _base_judge_params | _numeric_params,
     }
@@ -71,6 +74,7 @@ class RhesisMetricFactory(BaseMetricFactory):
     # Define required parameters for each metric class
     _required_params = {
         "CategoricalJudge": {"categories", "passing_categories"},
+        "ConversationalJudge": set(),  # All params are optional with defaults
         "NumericJudge": {"evaluation_prompt"},
         "GoalAchievementJudge": set(),  # All params are optional with defaults
     }

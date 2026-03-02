@@ -47,6 +47,19 @@ export function NotificationProvider({
   >(undefined);
   const theme = useTheme();
 
+  // Use refs for values accessed by stable callbacks to avoid
+  // recreating show/close on every state change, which would cause
+  // consumers' useEffects to re-fire and potentially infinite loop.
+  const currentNotificationRef = React.useRef(currentNotification);
+  React.useEffect(() => {
+    currentNotificationRef.current = currentNotification;
+  }, [currentNotification]);
+
+  // Track active notification keys synchronously via ref so duplicate
+  // detection in show() works reliably under React concurrent rendering
+  // (state updaters may be deferred, but ref mutations are immediate).
+  const activeKeysRef = React.useRef(new Set<string>());
+
   React.useEffect(() => {
     if (notifications.length && !currentNotification) {
       // Set a new notification when we don't have an active one
@@ -63,29 +76,30 @@ export function NotificationProvider({
     (message: string, options: NotificationOptions = {}) => {
       const key = options.key || `notification-${++notificationCount}`;
 
-      // Check for duplicate if key is provided
-      if (options.key && notifications.some(n => n.key === options.key)) {
+      // Synchronous duplicate check via ref — immune to React's
+      // deferred state scheduling under concurrent rendering.
+      if (options.key && activeKeysRef.current.has(options.key)) {
         return key;
       }
 
+      activeKeysRef.current.add(key);
       setNotifications(prev => [...prev, { message, options, key }]);
+
       return key;
     },
-    [notifications]
+    []
   );
 
-  const close = React.useCallback(
-    (key: string) => {
-      if (currentNotification?.key === key) {
-        setOpen(false);
-      } else {
-        setNotifications(prev =>
-          prev.filter(notification => notification.key !== key)
-        );
-      }
-    },
-    [currentNotification]
-  );
+  const close = React.useCallback((key: string) => {
+    activeKeysRef.current.delete(key);
+    if (currentNotificationRef.current?.key === key) {
+      setOpen(false);
+    } else {
+      setNotifications(prev =>
+        prev.filter(notification => notification.key !== key)
+      );
+    }
+  }, []);
 
   const handleClose = (_event?: unknown, reason?: string) => {
     if (reason === 'clickaway') {
@@ -95,6 +109,8 @@ export function NotificationProvider({
   };
 
   const handleExited = React.useCallback(() => {
+    const key = currentNotificationRef.current?.key;
+    if (key) activeKeysRef.current.delete(key);
     setCurrentNotification(undefined);
   }, []);
 

@@ -38,9 +38,9 @@ class TokenUpdate(TokenBase):
 # For list and detail views - excludes the actual token value
 class TokenRead(TokenBase):
     id: UUID4
-    token_obfuscated: str
-    last_used_at: Optional[datetime]
-    last_refreshed_at: Optional[datetime]
+    token_obfuscated: Optional[str] = None
+    last_used_at: Optional[datetime] = None
+    last_refreshed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 

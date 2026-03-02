@@ -226,7 +226,7 @@ def main():
     logging.info("Initializing Penelope agent...")
     agent = PenelopeAgent(
         model=VertexAILLM(model_name="gemini-2.0-flash"),
-        max_iterations=15,
+        max_turns=15,
         enable_transparency=True,
         verbose=True,
     )

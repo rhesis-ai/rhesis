@@ -14,6 +14,7 @@ from rhesis.backend.app.auth.token_validation import validate_token
 from rhesis.backend.app.crud import get_token_by_value, get_user_by_id
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
+from rhesis.polyphemus.services.token_validator import validate_delegation_token
 
 logger = logging.getLogger("rhesis-polyphemus")
 
@@ -25,10 +26,11 @@ async def require_api_key(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ) -> User:
     """
-    FastAPI dependency to require and validate API key authentication.
+    FastAPI dependency to require and validate authentication.
 
-    Accepts Bearer tokens in the format: rh-* (Rhesis API tokens).
-    Uses backend utilities from rhesis.backend.app for consistent token validation.
+    Accepts either:
+    - API tokens (format: rh-*) for user-initiated requests
+    - JWT delegation tokens for service-to-service requests
 
     Sets user_id in request state for rate limiting identification.
 
@@ -40,7 +42,7 @@ async def require_api_key(
         User: The authenticated user object
 
     Raises:
-        HTTPException: 401 if token is invalid, missing, or not found in database
+        HTTPException: 401 if token is invalid, missing, or not found
                       403 if user account is inactive or not verified
     """
     if not credentials:
@@ -52,6 +54,30 @@ async def require_api_key(
 
     token_value = credentials.credentials
 
+    # Route based on token format
+    if token_value.startswith("rh-"):
+        return await _validate_api_token(request, token_value)
+    else:
+        return validate_delegation_token(request, token_value)
+
+
+async def _validate_api_token(request: Request, token_value: str) -> User:
+    """
+    Validate API token (rh-*) authentication.
+
+    Uses backend utilities from rhesis.backend.app for consistent token validation.
+
+    Args:
+        request: FastAPI Request object
+        token_value: The API token value
+
+    Returns:
+        User: The authenticated user object
+
+    Raises:
+        HTTPException: 401 if token is invalid, missing, or not found
+                      403 if user account is inactive or not verified
+    """
     try:
         with get_db() as db:
             # Use backend's validate_token utility from token_validation module

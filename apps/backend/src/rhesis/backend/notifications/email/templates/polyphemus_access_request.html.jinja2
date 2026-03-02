@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Polyphemus Access Request - Rhesis AI</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h2 style="color: #856404; margin-top: 0;">
+            ⚠️ Polyphemus Access Request
+        </h2>
+        <p style="margin: 0; color: #856404;">
+            A user has requested access to the Polyphemus adversarial model. 
+            Please review the details below and approve or deny the request.
+        </p>
+    </div>
+    
+    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: #1D2939; margin-top: 0;">User Information</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold; width: 40%;">Name:</td>
+                <td style="padding: 8px 0;">{{ user_name }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Email:</td>
+                <td style="padding: 8px 0;">{{ user_email }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">User ID:</td>
+                <td style="padding: 8px 0;"><code style="background: #f8f9fa; padding: 2px 6px; border-radius: 3px; font-size: 12px;">{{ user_id }}</code></td>
+            </tr>
+        </table>
+    </div>
+
+    {% if organization_name -%}
+    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: #1D2939; margin-top: 0;">Organization Information</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold; width: 40%;">Name:</td>
+                <td style="padding: 8px 0;">{{ organization_name }}</td>
+            </tr>
+            {% if organization_display_name -%}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Display Name:</td>
+                <td style="padding: 8px 0;">{{ organization_display_name }}</td>
+            </tr>
+            {%- endif %}
+            {% if organization_email -%}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Email:</td>
+                <td style="padding: 8px 0;">{{ organization_email }}</td>
+            </tr>
+            {%- endif %}
+            {% if organization_website -%}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Website:</td>
+                <td style="padding: 8px 0;">
+                    <a href="{{ organization_website }}" style="color: #F38755; text-decoration: none;">
+                        {{ organization_website }}
+                    </a>
+                </td>
+            </tr>
+            {%- endif %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Active:</td>
+                <td style="padding: 8px 0;">{{ 'Yes' if organization_is_active else 'No' }}</td>
+            </tr>
+        </table>
+    </div>
+    {%- else %}
+    <div style="background: #f8d7da; border-left: 4px solid #dc3545; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+        <p style="margin: 0; color: #721c24;">
+            <strong>Warning:</strong> User does not belong to an organization.
+        </p>
+    </div>
+    {%- endif %}
+
+    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: #1D2939; margin-top: 0;">Request Details</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold; width: 40%;">Expected Monthly Requests:</td>
+                <td style="padding: 8px 0;">{{ expected_monthly_requests | int | format_number }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Request Time:</td>
+                <td style="padding: 8px 0;">{{ request_timestamp }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: #1D2939; margin-top: 0;">Justification</h3>
+        <div style="background: #f8f9fa; border-radius: 4px; padding: 15px; white-space: pre-wrap; font-family: Arial, sans-serif;">{{ justification }}</div>
+    </div>
+
+    <div style="background: #d4edda; border-left: 4px solid #28a745; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: #155724; margin-top: 0;">Admin Actions</h3>
+        <p style="color: #155724; margin-top: 0;">
+            To <strong>grant</strong> access, run the following SQL command:
+        </p>
+        <pre style="background: #1D2939; color: #ffffff; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 13px;"><code>SELECT grant_polyphemus_access('{{ user_id }}');</code></pre>
+        
+        <p style="color: #155724; margin-top: 20px;">
+            To <strong>revoke</strong> access (if previously granted), run:
+        </p>
+        <pre style="background: #1D2939; color: #ffffff; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 13px;"><code>SELECT revoke_polyphemus_access('{{ user_id }}');</code></pre>
+    </div>
+
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; text-align: center;">
+        <p style="margin: 0; font-size: 12px; color: #6c757d;">
+            This request was submitted by {{ user_name }} ({{ user_email }}){{ ' from ' + organization_name if organization_name else '' }}.
+            <br>
+            Please review carefully before granting access to the Polyphemus adversarial model.
+        </p>
+        <p style="margin: 10px 0 0 0; font-size: 12px; color: #6c757d;">
+            Best regards,<br>
+            <strong>Rhesis AI Automated System</strong>
+        </p>
+        
+        <div style="text-align: left;">
+            {% include '_imprint.html.jinja2' %}
+        </div>
+    </div>
+</body>
+</html>
+

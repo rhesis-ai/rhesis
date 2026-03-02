@@ -136,9 +136,7 @@ export default function MetricsClientComponent({
             sort_by: 'created_at',
             sort_order: 'desc',
           }),
-          metricsClient.getMetrics({
-            skip: 0,
-            limit: 100,
+          metricsClient.getAllMetrics({
             sort_by: 'created_at',
             sort_order: 'desc',
           }),
@@ -148,7 +146,7 @@ export default function MetricsClientComponent({
         const behaviorsData = behaviorsWithMetricsData;
 
         // Use all metrics from the dedicated metrics endpoint
-        const metricsData = allMetricsData.data || [];
+        const metricsData = allMetricsData;
 
         // Add behavior IDs to each metric for compatibility
         const metricsWithBehaviors = metricsData.map(metric => {

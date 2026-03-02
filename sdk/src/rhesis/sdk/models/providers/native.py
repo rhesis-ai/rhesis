@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from typing import Any, Dict, List, Optional, Type, Union
 
 import requests
@@ -19,6 +20,7 @@ DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["rhesis"]
 DEFAULT_LANGUAGE_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 DEFAULT_EMBEDDING_MODEL_NAME = model_name_from_id(DEFAULT_EMBEDDING_MODELS["rhesis"])
 API_ENDPOINT = "services/generate/content"
+DEFAULT_REQUEST_TIMEOUT = int(os.getenv("RHESIS_LLM_TIMEOUT", "300"))  # 5 minutes
 
 
 class RhesisLLM(BaseLLM):
@@ -155,13 +157,38 @@ class RhesisLLM(BaseLLM):
 
         url = self.client.get_url(API_ENDPOINT)
 
+        logger.debug(
+            "[RhesisLLM] POST %s | model=%s | prompt_chars=%d | max_tokens=%d",
+            url,
+            self.model_name,
+            len(prompt),
+            max_tokens,
+        )
+
+        request_start = time.time()
         response = requests.post(
             url,
             headers=self.headers,
             json=request_data,
+            timeout=DEFAULT_REQUEST_TIMEOUT,
+        )
+        request_elapsed = time.time() - request_start
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            logger.error(
+                "[RhesisLLM] HTTP %s after %.1fs",
+                getattr(response, "status_code", "?"),
+                request_elapsed,
+            )
+            raise
+
+        logger.debug(
+            "[RhesisLLM] HTTP 200 in %.1fs",
+            request_elapsed,
         )
 
-        response.raise_for_status()
         result: Dict[str, Any] = response.json()
         return result
 

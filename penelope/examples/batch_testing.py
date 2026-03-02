@@ -310,7 +310,7 @@ def main():
     agent = PenelopeAgent(
         enable_transparency=False,  # Disable for batch to reduce noise
         verbose=args.quiet if hasattr(args, "quiet") else False,
-        max_iterations=args.max_iterations,
+        max_turns=args.max_turns,
     )
 
     # Create target

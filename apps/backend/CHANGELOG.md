@@ -7,6 +7,142 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-03-02
+
+### Added
+- Added explicit `min_turns` parameter for early stop control in tests.
+- Added `min_turns` and `max_turns` support to import/export and synthesizer features.
+- Added test association methods (`add_tests()`, `remove_tests()`) to the SDK's `TestSet` class for bulk test linking.
+- Added client-side pagination to the metrics grid in the frontend.
+
+### Changed
+- Replaced the maximum turns input in the frontend with a turn configuration range slider, allowing users to set both `min_turns` and `max_turns`.
+- Standardized naming: `max_iterations` has been renamed to `max_turns` across the backend, SDK, and documentation to reflect the actual semantics of conversation turns.
+- Updated the frontend to use an 80% default for `min_turns` in the test detail slider, matching the backend/Penelope default when `min_turns` is not explicitly set.
+- Improved turn budget awareness and deepening strategies in Penelope, ensuring every turn contributes substantive testing value.
+- Refactored Penelope's orchestration to simplify the codebase and improve evaluator voice.
+
+### Fixed
+- Fixed an issue where the goal judge was creating spurious turn count criteria, leading to incorrect test failures.
+- Fixed premature stopping issues in Penelope by decoupling goal-impossible conditions from `min_turns` and clarifying turn budget.
+- Fixed a bug where metric updates could overwrite existing data with null values.
+- Fixed focus loss and stale save button issues in the metric editor in the frontend.
+- Fixed an issue where conversational metrics were not receiving the `conversation_history`, causing errors.
+- Fixed metrics page pagination to show all backend type tabs, even with a large number of metrics.
+- Fixed an issue where the conversational judge was incorrectly counting turns.
+- Fixed an issue preventing early stopping before reaching `max_turns`.
+- Fixed an issue where the push() method was discarding the backend response, leaving metric.id as None after creation.
+- Fixed max-turns stop reason detection to check for "maximum turns" instead of the stale "max iterations" string.
+
+### Removed
+- Removed unnecessary indirection layers in Penelope's orchestration, simplifying the codebase.
+
+
+## [0.6.5] - 2026-02-26
+
+### Added
+- Added core Polyphemus integration, including service delegation tokens, access control system with request/grant workflow, database migrations, Polyphemus-aware model resolution, and email notification template for access requests.
+- Added frontend support for Polyphemus model access including access request modal and API route, model card UI states, Polyphemus provider icon and logo, and user settings interface with `is_verified` field.
+- Added conversation-based tracing across SDK, backend, and frontend, linking multi-turn conversation interactions under a shared `trace_id` using a `conversation_id` field. This enables tracing entire conversations as a single logical unit.
+- Added turn labels on edges and slider marks in graph view for conversation traces.
+- Added a refresh button to trace filters.
+- Added a full view button to the graph timeline.
+- Added per-turn conversation I/O and first-turn trace linking to reconstruct multi-turn conversations from span data.
+- Added resizable width to trace detail drawer.
+
+### Changed
+- Aligned backend defaults with SDK by using `rhesis/rhesis-default` instead of `vertex_ai/gemini-2.0-flash` for generation and evaluation models. Deployments can still override via `DEFAULT_GENERATION_MODEL` and `DEFAULT_EVALUATION_MODEL` environment variables.
+- Improved traces UI with clickable responses and filter cleanup.
+- Improved conversation detection and time formatting in traces UI.
+- Improved traces UI with clickable responses and filter cleanup.
+- Updated auth tests for PyJWT migration.
+- Updated organization test to expect Polyphemus model creation.
+- Replaced process-local conversation linking caches with a `ConversationLinkingCache` class backed by synchronous Redis (db 3), falling back to in-memory when Redis is unavailable.
+- Generalized edge handle routing by direction in the trace graph view.
+
+### Fixed
+- Fixed OAuth callback URL host header poisoning. Rewrote `get_callback_url()` to never derive the callback URL from the untrusted HTTP Host header.
+- Fixed Polyphemus configuration and clarified AI model configuration and default values.
+- Fixed ConversationalJudge missing `id` attribute.
+- Fixed security dependency vulnerabilities by updating dependencies like `cryptography`, `pillow`, `fastmcp`, `langchain-core`, `virtualenv`, and `mammoth`. Migrated from `python-jose` to `PyJWT`.
+- Fixed fragile password redaction that broke when `SQLALCHEMY_DB_PASS` was unset.
+- Fixed test config generation to use system default model.
+- Fixed infinite loop in notification-dependent `useEffect` hooks.
+- Fixed deduplication of traces by `trace_id` in list endpoint.
+- Fixed bidirectional edges sharing connection points in trace graph view.
+- Fixed missing `test_set_type` on creation and enforced type-matching assignment.
+- Fixed the issue where the system default model was not being used for test config generation.
+- Fixed the issue where the `ConversationalJudge` was missing the `id` attribute.
+- Fixed the issue where the test set type was not being inferred correctly from imports.
+- Fixed the issue where the `FROM_EMAIL` environment variable was being used for access review emails.
+- Fixed the issue where the response model was not being restored on the settings endpoint.
+- Fixed the issue where the token and comment tests were failing.
+- Fixed the issue where the test config generation was not using the system default model.
+- Fixed the issue where the test set type was not being added to the adaptive testing service and test data.
+
+### Removed
+- Removed `python-jose` dependency from worker and polyphemus.
+
+### Security
+- Addressed subgroup attack due to missing validation for SECT Curves by updating `cryptography` to >= 46.0.5 (CVE-2026-26007).
+- Addressed out-of-bounds write on PSD images and write buffer overflow on BCn encoding by adding `pillow` >= 12.1.1 (CVE-2026-25990, CVE-2025-48379).
+- Addressed DNS rebinding protection not enabled by default by updating `mcp` to >= 1.23.0 (CVE-2025-66416).
+- Addressed RCE in "json" mode of JsonPlusSerializer by adding `langgraph-checkpoint` >= 3.0.0 (CVE-2025-64439).
+- Replaced `python-jose[cryptography]` with `PyJWT>=2.10.0`, eliminating the transitive `ecdsa` dependency which has an unpatched Minerva timing attack vulnerability (CVE-2024-23342).
+- Addressed DoS in Schema.load(many) by adding `marshmallow` >= 3.26.2 (CVE-2025-68480).
+- Addressed TOCTOU vulnerabilities in directory creation by adding `virtualenv` >= 20.36.1 (CVE-2026-22702).
+- Addressed directory traversal vulnerability by adding `mammoth` >= 1.11.0 (CVE-2025-11849).
+- Addressed SSRF via image_url token counting by updating `langchain-core` to >= 1.2.11 (CVE-2026-26013).
+- Redacted request/response body from Polyphemus provider logs to prevent leaking conversation content and PII.
+- Redacted database and redis credentials from logs.
+
+
+## [0.6.4] - 2026-02-18
+
+### Added
+- **Auto-Configure Endpoint Service:** Added AI-powered auto-configuration that analyzes reference material (curl commands, API docs) and generates Rhesis request/response mappings.
+- **Test Explorer Feature:** Introduced a new "Test Explorer" page and layout for exploring test sets configured for adaptive testing.
+- **Adaptive Testing API Endpoints and Service:** Re-added adaptive testing router with endpoints for listing adaptive test sets, fetching full tree, tests-only, and topics-only views.
+- **Create Topic Endpoint and UI Button:** Added POST /adaptive_testing/{id}/topics endpoint that delegates to create_topic_node. Wire up an "Add Topic" dialog in the frontend tree panel so users can create topics from the UI.
+- **Create Test Endpoint and UI:** Added POST /{id}/tests endpoint, create_test_node service, AddTestDialog frontend component.
+- **Update Test Endpoint and Edit Dialog:** Added update_test_node service, PUT /{id}/tests/{test_id} endpoint, and EditTestDialog frontend component.
+- **Delete Test Endpoint and Confirmation Dialog:** Added delete_test_node service, DELETE endpoint, and frontend delete button with confirmation dialog.
+- **Update Topic Endpoint with Rename Support:** Added PUT /adaptive_testing/{id}/topics/{path} endpoint that renames a topic's current level name and cascades to all children and tests.
+- **Create Adaptive Test Set Endpoint and UI:** Added endpoints and UI for creating adaptive test sets.
+- **Generate Outputs Backend:** Added generate_outputs_for_tests service to invoke endpoint per test, and a POST generate-outputs route and request/response schemas.
+- **Generate Outputs UI:** Added Generate outputs dialog with endpoint picker and submit flow.
+- **Metric Selection Functionality:** Introduced metric selection functionality in AdaptiveTestingDetail component.
+
+### Changed
+- **Unified Model Environment Variables:** Consolidated model environment variables to a unified format (provider/model_name).
+- **Standardized Terminology:** Consistently use 'language model' instead of 'llm model' and 'embedding model' instead of 'llm embedding model'.
+- **Adaptive Testing:** Enhanced adaptive testing features with improved topic handling, test tree ID management, and validation methods.
+- **Adaptive Testing:** Implemented drag-and-drop functionality to move tests between topics in the Test Explorer.
+- **Adaptive Testing:** Implemented full CRUD operations for tests and topics in the Test Explorer.
+- **Adaptive Testing:** Enhanced TestTree and generator integration with BaseLLM and LLMGenerator classes.
+- **Adaptive Testing:** Updated TestTree to include topic markers in test sets.
+- **Adaptive Testing:**  Enhanced output generation with concurrent endpoint invocations using asyncio.
+- **Adaptive Testing:**  Migrated from requests to httpx for async support in RestEndpointInvoker.
+- **Adaptive Testing:**  Use per-task db sessions in generate_outputs_for_tests.
+- **Adaptive Testing:**  Allow adding test without topic.
+
+### Fixed
+- **Multi-Turn Metrics Evaluation:** Fixed issue where additional three-tier metrics were not evaluated during live multi-turn test execution.
+- **Auto-Configure:** Resolved UnmappedClassError in tests and addressed PR review comments, including schema updates, SSRF protection, and auth token substitution.
+- **Endpoint Creation:** Auto-assign active status on endpoint creation.
+- **Duplicate Endpoint Naming:** Fixed duplicate endpoint naming to increment correctly (Copy) → (Copy 2) → (Copy 3).
+- **Infinite Loop in useFormChangeDetection:** Removed initialData object reference from useEffect deps to prevent re-render loop.
+- **Null Endpoint Statuses:** Set null endpoint statuses to active.
+- **Test Explorer:** Filter tests by exact topic match only.
+- **Adaptive Testing:** Fixed get_all_parents returning strings instead of TopicNodes.
+- **Adaptive Testing:** Ensure InputLabel shrinks for topic selection in AdaptiveTestingDetail component.
+
+### Removed
+- **Test Explorer Feature:** Removed the original Test Explorer feature, replaced by the Adaptive Testing section.
+- **Adaptive Testing:** Removed adaptive testing router, schemas, and service.
+- **Adaptive Testing:** Removed profanity dependency from adaptive testing.
+
+
 ## [0.6.3] - 2026-02-12
 
 ### Added

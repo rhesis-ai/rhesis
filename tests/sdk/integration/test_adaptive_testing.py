@@ -3,6 +3,7 @@
 from rhesis.sdk.adaptive_testing import TestTree
 from rhesis.sdk.adaptive_testing.schemas import TestTreeData, TestTreeNode
 from rhesis.sdk.entities import TestSet
+from rhesis.sdk.enums import TestType
 
 # ============================================================================
 # Adaptive Testing Round-Trip Tests
@@ -241,6 +242,7 @@ def test_test_tree_from_test_set_backward_compatibility(db_cleanup):
     # Create a TestSet directly (without adaptive testing metadata)
     test_set = TestSet(
         name="Legacy Test Set",
+        test_set_type=TestType.SINGLE_TURN,
         tests=[
             Test(
                 topic="Legacy/Topic",

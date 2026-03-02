@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from jinja2 import Environment, FileSystemLoader, Template
 
 from rhesis.sdk.entities.test_set import TestSet
+from rhesis.sdk.enums import TestType
 from rhesis.sdk.models.base import BaseLLM
 
 
@@ -34,7 +35,12 @@ def create_test_set(tests: List[Dict], model: BaseLLM, **metadata_kwargs) -> "Te
     metadata = create_test_set_metadata(**metadata_kwargs)
     # Pass the empty string for name, description, and short_description to pass pydantic validation
     test_set = TestSet(
-        tests=tests, metadata=metadata, name="", description="", short_description=""
+        tests=tests,
+        metadata=metadata,
+        name="",
+        description="",
+        short_description="",
+        test_set_type=TestType.SINGLE_TURN,
     )
     test_set.set_properties(model)
     return test_set

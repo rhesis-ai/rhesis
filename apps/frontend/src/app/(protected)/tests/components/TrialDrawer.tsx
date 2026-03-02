@@ -293,6 +293,7 @@ export default function TrialDrawer({
             instructions: config.instructions,
             restrictions: config.restrictions,
             scenario: config.scenario,
+            min_turns: config.min_turns,
             max_turns: config.max_turns,
           },
           behavior: testData.behavior?.name || '',

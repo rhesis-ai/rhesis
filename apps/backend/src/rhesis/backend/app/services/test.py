@@ -439,6 +439,92 @@ def create_entity_with_status(
     )
 
 
+def resolve_test_entity_names(
+    db: Session,
+    test_data: Dict[str, Any],
+    organization_id: str,
+    user_id: str,
+    is_create: bool = True,
+) -> Dict[str, Any]:
+    """Resolve string name fields to entity IDs for single-test create/update.
+
+    Handles the same name-resolution that the bulk endpoint does:
+    - ``category``, ``topic``, ``behavior`` → ``*_id`` via get-or-create
+    - ``prompt`` (dict) → ``prompt_id`` via :func:`create_prompt`
+    - ``test_type`` (string) → ``test_type_id`` via get-or-create TypeLookup
+
+    String names take precedence only when the corresponding ``_id`` field
+    is not already set.
+
+    Args:
+        is_create: When True (default), auto-detects and defaults
+            ``test_type_id`` if not provided. When False (updates),
+            only resolves ``test_type`` if explicitly included in the
+            payload to avoid overwriting the existing value.
+
+    Returns the mutated *test_data* dict.
+    """
+    defaults = load_defaults()
+
+    # Resolve category / topic / behavior names → _id
+    entity_mapping = [
+        ("category", models.Category, EntityType.CATEGORY),
+        ("topic", models.Topic, EntityType.TOPIC),
+        ("behavior", models.Behavior, EntityType.BEHAVIOR),
+    ]
+    for field, model_cls, entity_type in entity_mapping:
+        name = test_data.pop(field, None)
+        if name and not test_data.get(f"{field}_id"):
+            entity = _create_entity_with_status_uncached(
+                db=db,
+                model=model_cls,
+                name=name,
+                defaults=defaults,
+                entity_type=entity_type,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            test_data[f"{field}_id"] = entity.id
+
+    # Resolve prompt dict → prompt_id (single-turn tests)
+    prompt_data = test_data.pop("prompt", None)
+    if prompt_data and not test_data.get("prompt_id"):
+        prompt = create_prompt(
+            db=db,
+            prompt_data=prompt_data,
+            defaults=defaults,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        if prompt:
+            test_data["prompt_id"] = prompt.id
+
+    # Resolve test_type string → test_type_id
+    # On create: auto-detect from content if not explicitly provided
+    # On update: only resolve if test_type was explicitly included
+    test_type_value = test_data.pop("test_type", None)
+    if is_create and not test_type_value and not test_data.get("test_type_id"):
+        # Auto-detect from content, matching bulk endpoint logic
+        test_config = test_data.get("test_configuration")
+        if test_config and isinstance(test_config, dict) and "goal" in test_config:
+            test_type_value = "Multi-Turn"
+        elif test_data.get("prompt_id"):
+            test_type_value = "Single-Turn"
+        else:
+            test_type_value = defaults["test"]["test_type"]
+    if test_type_value and not test_data.get("test_type_id"):
+        test_type = get_or_create_type_lookup(
+            db=db,
+            type_name="TestType",
+            type_value=test_type_value,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+        test_data["test_type_id"] = test_type.id
+
+    return test_data
+
+
 def prepare_test_data(
     test_data: Dict[str, Any] | schemas.TestData, defaults: Dict
 ) -> Dict[str, Any]:

@@ -1,9 +1,11 @@
 [project]
 name = "rhesis-backend"
-version = "0.6.3"
+version = "0.6.6"
 description = "Rhesis backend package"
 readme = "README.md"
 requires-python = ">=3.10"
+# Known unpatched vulnerabilities in transitive dependencies:
+# - orjson (CVE-2025-67221): no recursion limit for deeply nested JSON. No patch available.
 dependencies = [
     "fastapi",
     "uvicorn",
@@ -19,7 +21,7 @@ dependencies = [
     "openpyxl",
     "nanoid",
     "huggingface_hub",
-    "python-jose[cryptography]",
+    "PyJWT>=2.10.0",
     "python-multipart>=0.0.22",
     "authlib",
     "httpx",
@@ -31,7 +33,7 @@ dependencies = [
     "psutil==5.9.5",
     "celery[redis]==5.5.2",
     "kombu==5.5.3",
-    "redis==4.6.0",
+    "redis>=5.0.0,<6.0.0",
     "portalocker==3.1.1",
     "yaspin==3.1.0",
     "pyfiglet==1.0.2",
@@ -48,7 +50,8 @@ dependencies = [
     "rhesis-sdk",
     "rhesis-penelope",
     "gcsfs>=2025.9.0",
-    "cryptography>=44.0.3",
+    "cryptography>=46.0.5",
+    "pillow>=12.1.1",
     "opentelemetry-api>=1.32.1",
     "opentelemetry-sdk>=1.32.1",
     "opentelemetry-exporter-otlp-proto-http>=1.32.1",
@@ -94,6 +97,10 @@ url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
 [tool.uv]
+# Force minimum versions for transitive dependencies with security advisories
+constraint-dependencies = [
+    "fastmcp>=2.14.0",
+]
 # CPU and GPU extras are mutually exclusive
 conflicts = [
     [{ extra = "cpu" }, { extra = "gpu" }],

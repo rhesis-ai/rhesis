@@ -133,7 +133,7 @@ class BaseEntity(BaseModel):
     def push(self) -> Optional[Dict[str, Any]]:
         """Save the entity to the database."""
         self._validate_push_requirements()
-        data = self.model_dump(mode="json")
+        data = self.model_dump(mode="json", exclude_none=True)
 
         # Exclude write-only fields that are None to avoid clearing backend values
         for field in self._write_only_fields:

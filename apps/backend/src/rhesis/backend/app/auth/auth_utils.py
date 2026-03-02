@@ -4,9 +4,10 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
+import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.crud import get_token_by_value, get_user_by_id
@@ -75,10 +76,9 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
             secret_key,
             algorithms=[algorithm],
             options={
-                "verify_exp": True,  # Explicitly verify expiration
-                "verify_iat": True,  # Verify issued at time
-                "require_exp": True,  # Require expiration time
-                "require_iat": True,  # Require issued at time
+                "verify_exp": True,
+                "verify_iat": True,
+                "require": ["exp", "iat"],
             },
         )
 
@@ -96,10 +96,11 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
 
         return payload
 
+    except jwt.ExpiredSignatureError:
+        logger.warning("JWT token has expired")
+        raise
     except JWTError as e:
         logger.error(f"JWT validation error: {str(e)}")
-        if "Expired token" in str(e):
-            logger.warning("JWT token has expired")
         raise
 
 

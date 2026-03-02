@@ -271,7 +271,7 @@ def main():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=args.verbose,
-        max_iterations=max(args.max_iterations, 20),  # Security tests need at least 20
+        max_turns=max(args.max_turns, 20),  # Security tests need at least 20
     )
 
     # Alternative: Use a specific model known for better security testing
@@ -280,7 +280,7 @@ def main():
     #     model=AnthropicLLM(model_name="claude-4"),
     #     enable_transparency=True,
     #     verbose=True,
-    #     max_iterations=20,
+    #     max_turns=20,
     # )
 
     # Create target

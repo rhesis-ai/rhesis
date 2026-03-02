@@ -9,6 +9,7 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 
+from rhesis.sdk.telemetry.constants import ConversationContext as ConvContextConstants
 from rhesis.sdk.telemetry.schemas import OTELSpan, OTELTraceBatch, SpanEvent, SpanLink
 
 logger = logging.getLogger(__name__)
@@ -209,6 +210,9 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         """
         Convert OTEL spans to SDK OTELSpan models.
 
+        Handles conversation turn-root spans by stripping synthetic
+        parent_span_id and propagating conversation_id.
+
         Args:
             spans: Sequence of OTEL spans
 
@@ -216,6 +220,18 @@ class RhesisOTLPExporter(OTLPSpanExporter):
             OTELTraceBatch with validated SDK schemas
         """
         converted_spans = []
+
+        # First pass: identify turn-root trace_ids for conversation_id
+        # propagation to child spans
+        turn_root_conversations: dict[str, str] = {}
+        for span in spans:
+            attrs = dict(span.attributes) if span.attributes else {}
+            is_turn_root = attrs.get(ConvContextConstants.SpanAttributes.IS_TURN_ROOT)
+            if is_turn_root:
+                tid = format(span.context.trace_id, "032x")
+                cid = attrs.get(ConvContextConstants.SpanAttributes.CONVERSATION_ID)
+                if cid:
+                    turn_root_conversations[tid] = cid
 
         for span in spans:
             # Convert trace/span IDs to hex strings
@@ -225,6 +241,22 @@ class RhesisOTLPExporter(OTLPSpanExporter):
                 format(span.parent.span_id, "016x") if span.parent and span.parent.span_id else None
             )
 
+            attrs = dict(span.attributes) if span.attributes else {}
+
+            # Check if this is a conversation turn-root span
+            is_turn_root = attrs.get(ConvContextConstants.SpanAttributes.IS_TURN_ROOT)
+            conversation_id = None
+
+            if is_turn_root:
+                # Strip synthetic parent_span_id (from
+                # _build_conversation_parent_context)
+                parent_span_id = None
+                conversation_id = attrs.get(ConvContextConstants.SpanAttributes.CONVERSATION_ID)
+            elif trace_id in turn_root_conversations:
+                # Child span of a conversation turn: inherit
+                # conversation_id
+                conversation_id = turn_root_conversations[trace_id]
+
             # Convert events
             events = []
             if span.events:
@@ -233,7 +265,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
                         SpanEvent(
                             name=event.name,
                             timestamp=self._timestamp_to_datetime(event.timestamp),
-                            attributes=dict(event.attributes) if event.attributes else {},
+                            attributes=(dict(event.attributes) if event.attributes else {}),
                         )
                     )
 
@@ -245,27 +277,28 @@ class RhesisOTLPExporter(OTLPSpanExporter):
                         SpanLink(
                             trace_id=format(link.context.trace_id, "032x"),
                             span_id=format(link.context.span_id, "016x"),
-                            attributes=dict(link.attributes) if link.attributes else {},
+                            attributes=(dict(link.attributes) if link.attributes else {}),
                         )
                     )
 
-            # Create SDK OTELSpan model (validates automatically via Pydantic)
+            # Create SDK OTELSpan model
             otel_span = OTELSpan(
                 trace_id=trace_id,
                 span_id=span_id,
                 parent_span_id=parent_span_id,
                 project_id=self.project_id,
                 environment=self.environment,
+                conversation_id=conversation_id,
                 span_name=span.name,
                 span_kind=span.kind.name,
                 start_time=self._timestamp_to_datetime(span.start_time),
                 end_time=self._timestamp_to_datetime(span.end_time),
                 status_code=span.status.status_code.name,
                 status_message=span.status.description,
-                attributes=dict(span.attributes) if span.attributes else {},
+                attributes=attrs,
                 events=events,
                 links=links,
-                resource=dict(span.resource.attributes) if span.resource else {},
+                resource=(dict(span.resource.attributes) if span.resource else {}),
             )
 
             converted_spans.append(otel_span)

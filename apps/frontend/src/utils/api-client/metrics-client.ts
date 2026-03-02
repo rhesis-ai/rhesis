@@ -35,6 +35,29 @@ export class MetricsClient extends BaseApiClient {
     );
   }
 
+  async getAllMetrics(
+    params?: Omit<MetricQueryParams, 'skip' | 'limit'>
+  ): Promise<MetricDetail[]> {
+    const pageSize = 100;
+    const allData: MetricDetail[] = [];
+    let skip = 0;
+    let totalCount = Infinity;
+
+    while (skip < totalCount) {
+      const response = await this.getMetrics({
+        ...params,
+        skip,
+        limit: pageSize,
+      });
+      if (response.data.length === 0) break;
+      allData.push(...response.data);
+      totalCount = response.pagination.totalCount;
+      skip += pageSize;
+    }
+
+    return allData;
+  }
+
   async getMetric(id: UUID): Promise<MetricDetail> {
     return this.fetch<MetricDetail>(`${API_ENDPOINTS.metrics}/${id}`);
   }

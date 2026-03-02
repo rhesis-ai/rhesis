@@ -6,3 +6,5 @@ terraform {
     }
   }
 }
+
+# placeholder to allow search_replace

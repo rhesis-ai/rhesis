@@ -152,7 +152,7 @@ def example_1_simple_agent():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=True,
-        max_iterations=8,
+        max_turns=8,
     )
 
     # Test the agent
@@ -198,7 +198,7 @@ def example_2_multi_node_agent():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=True,
-        max_iterations=10,
+        max_turns=10,
     )
 
     # Test context maintenance
@@ -246,7 +246,7 @@ def example_3_with_restrictions():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=True,
-        max_iterations=12,
+        max_turns=12,
     )
 
     # Test with restrictions

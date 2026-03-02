@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import ListIcon from '@mui/icons-material/List';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -67,6 +73,21 @@ export default function TestsTable({
   const [testSetDialogOpen, setTestSetDialogOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Compute whether selected tests have mixed types
+  const selectedTestTypes = useMemo(() => {
+    const selectedTests = tests.filter(t =>
+      selectedRows.includes(t.id as string)
+    );
+    const typeValues = new Set(
+      selectedTests.map(t => t.test_type?.type_value ?? null)
+    );
+    return {
+      isMixed: typeValues.size > 1,
+      commonTypeValue:
+        typeValues.size === 1 ? ([...typeValues][0] ?? undefined) : undefined,
+    };
+  }, [selectedRows, tests]);
 
   useEffect(() => {
     return () => {
@@ -513,6 +534,7 @@ export default function TestsTable({
         icon: <ListIcon />,
         variant: 'contained' as const,
         onClick: handleCreateTestSet,
+        disabled: selectedTestTypes.isMixed,
       });
 
       buttons.push({
@@ -531,6 +553,7 @@ export default function TestsTable({
     handleDeleteTests,
     handleGenerateTests,
     disableAddButton,
+    selectedTestTypes.isMixed,
   ]);
 
   return (
@@ -547,12 +570,17 @@ export default function TestsTable({
             mb: 2,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            gap: 2,
           }}
         >
           <Typography variant="subtitle1" color="primary">
             {selectedRows.length} tests selected
           </Typography>
+          {selectedTestTypes.isMixed && (
+            <Alert severity="warning">
+              Select tests with the same test type
+            </Alert>
+          )}
         </Box>
       )}
 
@@ -601,6 +629,7 @@ export default function TestsTable({
             onClose={() => setTestSetDialogOpen(false)}
             onSelect={handleTestSetSelect}
             sessionToken={sessionToken}
+            testTypeValue={selectedTestTypes.commonTypeValue}
           />
           <DeleteModal
             open={deleteModalOpen}

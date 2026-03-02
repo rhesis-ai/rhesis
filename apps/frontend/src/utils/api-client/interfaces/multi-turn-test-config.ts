@@ -27,6 +27,11 @@ export interface MultiTurnTestConfig {
   scenario?: string;
 
   /**
+   * Minimum turns before early stopping is allowed (default: 80% of max_turns when omitted, range: 1-50)
+   */
+  min_turns?: number;
+
+  /**
    * Maximum number of conversation turns (default: 10, range: 1-50)
    */
   max_turns?: number;
@@ -61,6 +66,10 @@ export function isMultiTurnConfig(
     return false;
   }
 
+  if ('min_turns' in config && typeof config.min_turns !== 'number') {
+    return false;
+  }
+
   if ('max_turns' in config && typeof config.max_turns !== 'number') {
     return false;
   }
@@ -77,6 +86,7 @@ export function createEmptyMultiTurnConfig(): MultiTurnTestConfig {
     instructions: undefined,
     restrictions: undefined,
     scenario: undefined,
+    min_turns: undefined,
     max_turns: 10,
   };
 }

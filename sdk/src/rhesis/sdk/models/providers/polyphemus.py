@@ -2,8 +2,10 @@ import json
 import logging
 import os
 import re
+import time
 from typing import Any, Dict, List, Optional, Type
 
+import jsonfinder
 import requests
 from pydantic import BaseModel
 
@@ -16,6 +18,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["polyphemus"]
 DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 DEFAULT_POLYPHEMUS_URL = os.getenv("DEFAULT_POLYPHEMUS_URL") or "https://polyphemus.rhesis.ai"
+DEFAULT_REQUEST_TIMEOUT = int(os.getenv("RHESIS_LLM_TIMEOUT", "300"))  # 5 minutes
 
 
 class PolyphemusLLM(BaseLLM):
@@ -86,16 +89,19 @@ class PolyphemusLLM(BaseLLM):
             str if no schema provided, dict if schema provided
         """
         try:
-            # If schema is provided, augment the prompt to request JSON output
+            # If schema is provided, augment the system prompt to request JSON output
             if schema:
-                json_schema = schema.model_json_schema()
-                schema_instruction = (
-                    f"\n\nYou must respond with valid JSON matching this schema:\n"
-                    f"```json\n{json.dumps(json_schema, indent=2)}\n```\n"
-                    f"Only return the JSON object, nothing else. "
-                    f"Do not include explanations or markdown."
+                schema_description = json.dumps(schema.model_json_schema(), indent=2)
+                schema_instructions = (
+                    "\nRespond strictly in valid JSON matching this schema"
+                    " and filling all fields\n" + f"{schema_description}"
                 )
-                prompt = prompt + schema_instruction
+
+                # Build system prompt with /no_think prefix, existing prompt and schema instructions
+                if system_prompt:
+                    system_prompt = "/no_think\n" + system_prompt + schema_instructions
+                else:
+                    system_prompt = "/no_think" + schema_instructions
 
             # Build messages array
             messages = []
@@ -107,6 +113,7 @@ class PolyphemusLLM(BaseLLM):
 
             response = self.create_completion(
                 messages=messages,
+                json_schema=schema.model_json_schema() if schema else None,
                 **kwargs,
             )
 
@@ -114,15 +121,18 @@ class PolyphemusLLM(BaseLLM):
             if "choices" in response and len(response["choices"]) > 0:
                 content = response["choices"][0]["message"]["content"]
 
+                # If schema was provided, parse and validate the JSON response
+                if schema:
+                    parsed = self._extract_json(content)
+                    if not parsed:
+                        logger.error("No valid JSON found in response")
+                        return {"error": "No valid JSON found in response."}
+                    validate_llm_response(parsed, schema)
+                    return parsed
+
                 # Strip reasoning tokens if include_reasoning is False
                 if not include_reasoning:
                     content = self._strip_reasoning_tokens(content)
-
-                # If schema was provided, parse and validate the JSON response
-                if schema:
-                    response_dict = json.loads(content)
-                    validate_llm_response(response_dict, schema)
-                    return response_dict
 
                 return content
 
@@ -149,6 +159,17 @@ class PolyphemusLLM(BaseLLM):
     ) -> List[Any]:
         """Batch processing is not implemented for PolyphemusLLM."""
         raise NotImplementedError("generate_batch is not implemented for PolyphemusLLM")
+
+    def _extract_json(self, output: str) -> str:
+        """
+        Extract the JSON part of a text. Return the last found JSON object
+        as a JSON string, or "" if none found.
+        """
+        last = ""
+        for _, _, obj in jsonfinder.jsonfinder(output):
+            if obj is not None:
+                last = obj
+        return last
 
     def _strip_reasoning_tokens(self, content: str) -> str:
         """
@@ -197,13 +218,52 @@ class PolyphemusLLM(BaseLLM):
             request_data["model"] = self.model_name
 
         url = f"{self.base_url}/generate"
+        timeout = kwargs.pop("timeout", DEFAULT_REQUEST_TIMEOUT)
 
+        # Calculate prompt size for debugging
+        total_prompt_chars = sum(len(m.get("content", "")) for m in messages)
+        logger.debug(
+            "[Polyphemus] POST %s | model=%s | messages=%d | prompt_chars=%d",
+            url,
+            request_data.get("model"),
+            len(request_data.get("messages", [])),
+            total_prompt_chars,
+        )
+
+        request_start = time.time()
         response = requests.post(
             url,
             headers=self.headers,
             json=request_data,
+            timeout=timeout,
+        )
+        request_elapsed = time.time() - request_start
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            logger.error(
+                "[Polyphemus] HTTP %s after %.1fs",
+                getattr(response, "status_code", "?"),
+                request_elapsed,
+            )
+            raise
+
+        logger.debug(
+            "[Polyphemus] HTTP 200 in %.1fs",
+            request_elapsed,
         )
 
-        response.raise_for_status()
         result: Dict[str, Any] = response.json()
+
+        # Log usage info if available
+        usage = result.get("usage", {})
+        if usage:
+            logger.debug(
+                "[Polyphemus] Token usage: prompt=%s, completion=%s, total=%s",
+                usage.get("prompt_tokens", "?"),
+                usage.get("completion_tokens", "?"),
+                usage.get("total_tokens", "?"),
+            )
+
         return result

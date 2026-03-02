@@ -10,10 +10,16 @@ import {
   IconButton,
   Paper,
   Stack,
+  Button,
+  ButtonGroup,
+  Dialog,
+  Tooltip,
 } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import ReplayIcon from '@mui/icons-material/Replay';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import CloseIcon from '@mui/icons-material/Close';
 import ReactFlow, {
   Node,
   Edge,
@@ -40,6 +46,8 @@ interface SpanGraphViewProps {
   spans: SpanNode[];
   selectedSpan: SpanNode | null;
   onSpanSelect: (span: SpanNode) => void;
+  isConversationTrace?: boolean;
+  rootSpans?: SpanNode[];
 }
 
 // Node dimensions for layout calculation
@@ -51,6 +59,7 @@ interface StateTransition {
   from: string;
   to: string;
   count: number;
+  turns: number[]; // turn index per occurrence (-1 if no boundary match)
 }
 
 // Interface for timed transition events
@@ -68,6 +77,13 @@ interface TimedAgentEvent {
   spanId: string;
 }
 
+// Interface for turn boundaries in conversation traces
+interface TurnBoundary {
+  turnIndex: number;
+  startTime: number;
+  endTime: number;
+}
+
 // Interface for Markov state (agent or tool)
 interface MarkovState {
   id: string;
@@ -82,7 +98,10 @@ interface MarkovState {
 /**
  * Extract agent and tool states and transitions from spans with timestamps
  */
-function extractMarkovChain(spans: SpanNode[]): {
+function extractMarkovChain(
+  spans: SpanNode[],
+  turnBoundaries?: TurnBoundary[]
+): {
   states: Map<string, MarkovState>;
   transitions: StateTransition[];
   timedTransitions: TimedTransition[];
@@ -90,7 +109,19 @@ function extractMarkovChain(spans: SpanNode[]): {
   timeRange: { start: number; end: number };
 } {
   const states = new Map<string, MarkovState>();
-  const transitionCounts = new Map<string, number>();
+
+  // Helper to find which turn a timestamp belongs to
+  function getTurnIndex(timestamp: number): number {
+    if (!turnBoundaries) return -1;
+    for (const tb of turnBoundaries) {
+      if (timestamp >= tb.startTime && timestamp <= tb.endTime) {
+        return tb.turnIndex;
+      }
+    }
+    return -1;
+  }
+
+  const transitionData = new Map<string, { count: number; turns: number[] }>();
   const entitySequence: {
     name: string;
     timestamp: number;
@@ -293,12 +324,17 @@ function extractMarkovChain(spans: SpanNode[]): {
 
     // Create transitions if we found a calling agent
     if (callingAgent) {
+      const turnIdx = getTurnIndex(tool.startTime);
+
       // Agent -> Tool transition
       const agentToToolKey = `${callingAgent}->${tool.toolId}`;
-      transitionCounts.set(
-        agentToToolKey,
-        (transitionCounts.get(agentToToolKey) || 0) + 1
-      );
+      const atData = transitionData.get(agentToToolKey) || {
+        count: 0,
+        turns: [],
+      };
+      atData.count++;
+      atData.turns.push(turnIdx);
+      transitionData.set(agentToToolKey, atData);
 
       timedTransitions.push({
         from: callingAgent,
@@ -309,10 +345,13 @@ function extractMarkovChain(spans: SpanNode[]): {
 
       // Tool -> Agent return transition
       const toolToAgentKey = `${tool.toolId}->${callingAgent}`;
-      transitionCounts.set(
-        toolToAgentKey,
-        (transitionCounts.get(toolToAgentKey) || 0) + 1
-      );
+      const taData = transitionData.get(toolToAgentKey) || {
+        count: 0,
+        turns: [],
+      };
+      taData.count++;
+      taData.turns.push(turnIdx);
+      transitionData.set(toolToAgentKey, taData);
 
       timedTransitions.push({
         from: tool.toolId,
@@ -326,7 +365,11 @@ function extractMarkovChain(spans: SpanNode[]): {
   // Process handoffs
   for (const handoff of handoffs) {
     const key = `${handoff.from}->${handoff.to}`;
-    transitionCounts.set(key, (transitionCounts.get(key) || 0) + 1);
+    const turnIdx = getTurnIndex(handoff.timestamp);
+    const hData = transitionData.get(key) || { count: 0, turns: [] };
+    hData.count++;
+    hData.turns.push(turnIdx);
+    transitionData.set(key, hData);
 
     timedTransitions.push({
       from: handoff.from,
@@ -375,9 +418,9 @@ function extractMarkovChain(spans: SpanNode[]): {
 
   // Convert to transitions array
   const transitions: StateTransition[] = [];
-  transitionCounts.forEach((count, key) => {
+  transitionData.forEach((data, key) => {
     const [from, to] = key.split('->');
-    transitions.push({ from, to, count });
+    transitions.push({ from, to, count: data.count, turns: data.turns });
   });
 
   return {
@@ -397,16 +440,24 @@ function extractMarkovChain(spans: SpanNode[]): {
  */
 function MarkovStateNode({ data }: NodeProps) {
   const theme = useTheme();
-  const { state, isSelected } = data as {
+  const { state, isSelected, visibleCount } = data as {
     state: MarkovState;
     isSelected: boolean;
+    visibleCount?: number;
   };
 
   const isAgent = state.type === 'agent';
   const stateColor = isAgent
     ? theme.palette.info.main
     : theme.palette.warning.main;
+  const handleStyle = {
+    background: stateColor,
+    border: 'none',
+    width: theme.spacing(1.5),
+    height: theme.spacing(1.5),
+  };
 
+  const displayCount = visibleCount ?? state.invocationCount;
   const avgDuration =
     state.invocationCount > 0
       ? state.totalDurationMs / state.invocationCount
@@ -450,26 +501,31 @@ function MarkovStateNode({ data }: NodeProps) {
         gap: theme.spacing(0.5),
       }}
     >
+      {/* Directional handles: source/target on each side for flexible routing.
+          Every handle has an explicit ID so edges never rely on undefined matching. */}
       <Handle
         type="target"
         position={Position.Top}
-        style={{
-          background: stateColor,
-          border: 'none',
-          width: theme.spacing(1.5),
-          height: theme.spacing(1.5),
-        }}
+        id="top"
+        style={handleStyle}
+      />
+      <Handle
+        type="source"
+        position={Position.Top}
+        id="top-out"
+        style={handleStyle}
       />
       <Handle
         type="target"
         position={Position.Left}
         id="left"
-        style={{
-          background: stateColor,
-          border: 'none',
-          width: theme.spacing(1.5),
-          height: theme.spacing(1.5),
-        }}
+        style={handleStyle}
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left-out"
+        style={handleStyle}
       />
 
       {/* Icon - Agent or Tool */}
@@ -522,7 +578,7 @@ function MarkovStateNode({ data }: NodeProps) {
           }}
         >
           <Chip
-            label={`${state.invocationCount}x`}
+            label={`${displayCount}x`}
             size="small"
             sx={{
               height: theme.spacing(2.5),
@@ -545,23 +601,26 @@ function MarkovStateNode({ data }: NodeProps) {
       <Handle
         type="source"
         position={Position.Bottom}
-        style={{
-          background: stateColor,
-          border: 'none',
-          width: theme.spacing(1.5),
-          height: theme.spacing(1.5),
-        }}
+        id="bottom"
+        style={handleStyle}
+      />
+      <Handle
+        type="target"
+        position={Position.Bottom}
+        id="bottom-in"
+        style={handleStyle}
       />
       <Handle
         type="source"
         position={Position.Right}
         id="right"
-        style={{
-          background: stateColor,
-          border: 'none',
-          width: theme.spacing(1.5),
-          height: theme.spacing(1.5),
-        }}
+        style={handleStyle}
+      />
+      <Handle
+        type="target"
+        position={Position.Right}
+        id="right-in"
+        style={handleStyle}
       />
     </Box>
   );
@@ -582,10 +641,22 @@ function TransitionEdge({
   markerEnd,
   style,
 }: EdgeProps) {
-  const { isSelfLoop, selfLoopIndex } = data as {
+  const theme = useTheme();
+  const { isSelfLoop, selfLoopIndex, turnLabel, lateralOffset } = data as {
     isSelfLoop: boolean;
     selfLoopIndex?: number;
+    turnLabel?: string;
+    lateralOffset?: number; // -1 or 1 for bidirectional edge separation
   };
+
+  const labelFontSize = theme.typography.caption.fontSize;
+  const labelFontSizePx = parseFloat(String(labelFontSize)) * 16; // rem to px
+  const labelCharWidth = labelFontSizePx * 0.65;
+  const labelPadX = parseFloat(theme.spacing(0.5));
+  const labelPadY = parseFloat(theme.spacing(0.25));
+  const labelColor = theme.palette.text.secondary;
+  const labelBg = theme.palette.background.paper;
+  const labelFontFamily = theme.typography.fontFamily;
 
   // For self-loops, create a custom path with offset based on index
   // All loops start and end at the same points, but curve outward at different radii
@@ -597,10 +668,19 @@ function TransitionEdge({
 
     // All arrows start and end at the same position
     // Only the control points (curve apex) are offset
-    const path = `M ${sourceX} ${sourceY} 
-                  C ${sourceX + loopRadius * 2} ${sourceY - loopRadius} 
-                    ${sourceX + loopRadius * 2} ${sourceY + loopRadius} 
+    const path = `M ${sourceX} ${sourceY}
+                  C ${sourceX + loopRadius * 2} ${sourceY - loopRadius}
+                    ${sourceX + loopRadius * 2} ${sourceY + loopRadius}
                     ${targetX} ${targetY}`;
+
+    // Label position: at the apex of the loop curve
+    const lblX = sourceX + loopRadius * 2 + labelPadX;
+    const lblY = (sourceY + targetY) / 2;
+    const lblWidth = turnLabel
+      ? turnLabel.length * labelCharWidth + labelPadX * 2
+      : 0;
+    const lblHeight = labelFontSizePx + labelPadY * 2;
+    const lblRadius = parseFloat(theme.spacing(0.5));
 
     return (
       <>
@@ -625,19 +705,81 @@ function TransitionEdge({
           }}
           markerEnd={markerEnd}
         />
+        {turnLabel && (
+          <>
+            <rect
+              x={lblX - labelPadX}
+              y={lblY - lblHeight / 2}
+              width={lblWidth}
+              height={lblHeight}
+              rx={lblRadius}
+              fill={labelBg}
+              fillOpacity={0.9}
+            />
+            <text
+              x={lblX}
+              y={lblY}
+              style={{
+                fontSize: labelFontSize,
+                fill: labelColor,
+                dominantBaseline: 'central',
+                pointerEvents: 'none',
+                fontFamily: labelFontFamily,
+              }}
+            >
+              {turnLabel}
+            </text>
+          </>
+        )}
       </>
     );
   }
 
-  const [edgePath, _labelX, _labelY] = getBezierPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    curvature: 0.25,
-  });
+  // For bidirectional edges, compute a custom path with lateral offset
+  // so the two directions arc to opposite sides and don't overlap
+  let edgePath: string;
+  let edgeLabelX: number;
+  let edgeLabelY: number;
+
+  if (lateralOffset && lateralOffset !== 0) {
+    const offsetAmount = 25 * lateralOffset;
+    // Perpendicular vector to the source→target line
+    const dx = targetX - sourceX;
+    const dy = targetY - sourceY;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const px = -dy / len; // perpendicular x
+    const py = dx / len; // perpendicular y
+
+    // Control points offset perpendicularly at 1/4 and 3/4 along the line
+    const cp1x = sourceX + dx * 0.25 + px * offsetAmount;
+    const cp1y = sourceY + dy * 0.25 + py * offsetAmount;
+    const cp2x = sourceX + dx * 0.75 + px * offsetAmount;
+    const cp2y = sourceY + dy * 0.75 + py * offsetAmount;
+
+    edgePath =
+      `M ${sourceX} ${sourceY} ` +
+      `C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${targetX} ${targetY}`;
+
+    // Label at the midpoint of the arc
+    edgeLabelX = sourceX + dx * 0.5 + px * offsetAmount;
+    edgeLabelY = sourceY + dy * 0.5 + py * offsetAmount;
+  } else {
+    [edgePath, edgeLabelX, edgeLabelY] = getBezierPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      curvature: 0.25,
+    });
+  }
+
+  const lblW = turnLabel
+    ? turnLabel.length * labelCharWidth + labelPadX * 2
+    : 0;
+  const lblH = labelFontSizePx + labelPadY * 2;
+  const lblR = parseFloat(theme.spacing(0.5));
 
   return (
     <>
@@ -662,6 +804,33 @@ function TransitionEdge({
         }}
         markerEnd={markerEnd}
       />
+      {turnLabel && (
+        <>
+          <rect
+            x={edgeLabelX - lblW / 2}
+            y={edgeLabelY - lblH / 2}
+            width={lblW}
+            height={lblH}
+            rx={lblR}
+            fill={labelBg}
+            fillOpacity={0.9}
+          />
+          <text
+            x={edgeLabelX}
+            y={edgeLabelY}
+            style={{
+              fontSize: labelFontSize,
+              fill: labelColor,
+              dominantBaseline: 'central',
+              textAnchor: 'middle',
+              pointerEvents: 'none',
+              fontFamily: labelFontFamily,
+            }}
+          >
+            {turnLabel}
+          </text>
+        </>
+      )}
     </>
   );
 }
@@ -678,6 +847,17 @@ const edgeTypes = {
 /**
  * Convert agent/tool graph to ReactFlow elements
  */
+/**
+ * Format turn label for an edge from turn indices.
+ * Returns undefined if no valid turns (all -1) or empty.
+ */
+function formatTurnLabel(turns: number[]): string | undefined {
+  const valid = turns.filter(t => t >= 0);
+  if (valid.length === 0) return undefined;
+  const unique = [...new Set(valid)].sort((a, b) => a - b);
+  return unique.map(t => `T${t + 1}`).join(', ');
+}
+
 function convertToFlowElements(
   states: Map<string, MarkovState>,
   transitions: StateTransition[],
@@ -700,6 +880,11 @@ function convertToFlowElements(
     });
   });
 
+  // Detect bidirectional pairs (A→B and B→A) to offset their curves
+  const edgeKeys = new Set(transitions.map(t => `${t.from}->${t.to}`));
+  const hasBidirectional = (from: string, to: string) =>
+    edgeKeys.has(`${to}->${from}`);
+
   // Create edges for transitions
   transitions.forEach(t => {
     const isSelfLoop = t.from === t.to;
@@ -708,9 +893,19 @@ function convertToFlowElements(
     const involvesTool = t.from.startsWith('tool:') || t.to.startsWith('tool:');
     const edgeColor = involvesTool ? toolEdgeColor : agentEdgeColor;
 
+    // For bidirectional pairs (handoffs and tool calls), both edges use
+    // default handles (bottom source → top target) and arc to opposite
+    // sides via lateral offset. Both get lateralOffset=1 because the
+    // reversed direction naturally flips the perpendicular vector.
+    const isBidirectional = !isSelfLoop && hasBidirectional(t.from, t.to);
+    const lateralOffset = isBidirectional ? 1 : 0;
+
     if (isSelfLoop && t.count > 1) {
       // Create multiple self-loop edges with different offsets
       for (let i = 0; i < t.count; i++) {
+        // Per-edge turn label from the i-th occurrence
+        const singleTurn = t.turns[i];
+        const turnLabel = singleTurn >= 0 ? `T${singleTurn + 1}` : undefined;
         edges.push({
           id: `${t.from}->${t.to}-${i}`,
           source: t.from,
@@ -723,6 +918,7 @@ function convertToFlowElements(
             selfLoopIndex: i,
             selfLoopTotal: t.count,
             involvesTool,
+            turnLabel,
           },
           style: {
             stroke: edgeColor,
@@ -748,6 +944,8 @@ function convertToFlowElements(
           selfLoopIndex: 0,
           selfLoopTotal: 1,
           involvesTool,
+          turnLabel: undefined as string | undefined,
+          lateralOffset,
         },
         style: {
           stroke: edgeColor,
@@ -822,8 +1020,33 @@ export default function SpanGraphView({
   spans,
   selectedSpan: _selectedSpan,
   onSpanSelect,
+  isConversationTrace,
+  rootSpans,
 }: SpanGraphViewProps) {
   const theme = useTheme();
+
+  // Turn navigation state for conversation traces
+  const [activeTurn, setActiveTurn] = useState<number | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Determine effective spans based on active turn filter
+  const effectiveSpans = useMemo(() => {
+    if (
+      activeTurn === null ||
+      !isConversationTrace ||
+      !rootSpans ||
+      rootSpans.length <= 1
+    ) {
+      return spans;
+    }
+    if (activeTurn >= 0 && activeTurn < rootSpans.length) {
+      return [rootSpans[activeTurn]];
+    }
+    return spans;
+  }, [spans, activeTurn, isConversationTrace, rootSpans]);
+
+  const showTurnNavigation =
+    isConversationTrace && rootSpans && rootSpans.length > 1;
 
   // Extract graph data from spans with time data
   const {
@@ -836,13 +1059,23 @@ export default function SpanGraphView({
     timeRange,
     defaultViewport,
   } = useMemo(() => {
+    // Compute turn boundaries for conversation traces (all modes)
+    const turnBoundaries =
+      isConversationTrace && rootSpans && rootSpans.length > 1
+        ? rootSpans.map((span, i) => ({
+            turnIndex: i,
+            startTime: new Date(span.start_time).getTime(),
+            endTime: new Date(span.end_time).getTime(),
+          }))
+        : undefined;
+
     const {
       states,
       transitions,
       timedTransitions,
       timedAgentEvents,
       timeRange,
-    } = extractMarkovChain(spans);
+    } = extractMarkovChain(effectiveSpans, turnBoundaries);
     const agentEdgeColor = theme.palette.info.main;
     const toolEdgeColor = theme.palette.warning.main;
     const { nodes, edges } = convertToFlowElements(
@@ -852,6 +1085,57 @@ export default function SpanGraphView({
       toolEdgeColor
     );
     const layoutedNodes = applyDagreLayout(nodes, edges);
+
+    // Route edge handles based on the dominant direction between nodes.
+    // Arrows depart from the side of the source facing the target,
+    // and arrive at the side of the target facing the source.
+    const nodeCenters = new Map(
+      layoutedNodes.map(n => {
+        const isTool = n.id.startsWith('tool:');
+        const w = isTool ? TOOL_WIDTH : NODE_WIDTH;
+        const h = isTool ? TOOL_HEIGHT : NODE_HEIGHT;
+        return [n.id, { cx: n.position.x + w / 2, cy: n.position.y + h / 2 }];
+      })
+    );
+    const adjustedEdges = edges.map(edge => {
+      if (edge.data?.isSelfLoop) return edge;
+
+      const src = nodeCenters.get(edge.source);
+      const tgt = nodeCenters.get(edge.target);
+      if (!src || !tgt) return edge;
+
+      const dx = tgt.cx - src.cx;
+      const dy = tgt.cy - src.cy;
+
+      let sourceHandle: string;
+      let targetHandle: string;
+
+      if (Math.abs(dy) >= Math.abs(dx)) {
+        // Primarily vertical
+        if (dy >= 0) {
+          // Target below: bottom → top
+          sourceHandle = 'bottom';
+          targetHandle = 'top';
+        } else {
+          // Target above: top → bottom
+          sourceHandle = 'top-out';
+          targetHandle = 'bottom-in';
+        }
+      } else {
+        // Primarily horizontal
+        if (dx >= 0) {
+          // Target to the right: right → left
+          sourceHandle = 'right';
+          targetHandle = 'left';
+        } else {
+          // Target to the left: left → right
+          sourceHandle = 'left-out';
+          targetHandle = 'right-in';
+        }
+      }
+
+      return { ...edge, sourceHandle, targetHandle };
+    });
 
     // Calculate viewport that fits all nodes (for initial zoom level)
     // This ensures the graph is properly zoomed even when starting at time zero
@@ -905,16 +1189,37 @@ export default function SpanGraphView({
       states,
       transitions,
       initialNodes: layoutedNodes,
-      initialEdges: edges,
+      initialEdges: adjustedEdges,
       timedTransitions,
       timedAgentEvents,
       timeRange,
       defaultViewport,
     };
-  }, [spans, theme.palette.info.main, theme.palette.warning.main]);
+  }, [
+    effectiveSpans,
+    theme.palette.info.main,
+    theme.palette.warning.main,
+    activeTurn,
+    isConversationTrace,
+    rootSpans,
+  ]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Turn boundary lookup for progressive edge labels
+  const getTurnForTimestamp = useCallback(
+    (timestamp: number): number => {
+      if (!showTurnNavigation || !rootSpans) return -1;
+      for (let i = 0; i < rootSpans.length; i++) {
+        const start = new Date(rootSpans[i].start_time).getTime();
+        const end = new Date(rootSpans[i].end_time).getTime();
+        if (timestamp >= start && timestamp <= end) return i;
+      }
+      return -1;
+    },
+    [showTurnNavigation, rootSpans]
+  );
 
   // Time slider state
   const [currentTime, setCurrentTime] = useState(timeRange.start);
@@ -930,7 +1235,7 @@ export default function SpanGraphView({
   useEffect(() => {
     setCurrentTime(timeRange.start);
     setIsPlaying(false);
-  }, [spans, timeRange.start]);
+  }, [effectiveSpans, timeRange.start]);
 
   // Animation loop for playback
   useEffect(() => {
@@ -979,16 +1284,23 @@ export default function SpanGraphView({
 
   // Update visible nodes and edges based on current time
   useEffect(() => {
-    // Find which agents have appeared by current time
+    // Find which agents have appeared by current time and count appearances
     const visibleAgents = new Set<string>();
+    const agentCounts = new Map<string, number>();
     timedAgentEvents.forEach(event => {
       if (event.timestamp <= currentTime) {
         visibleAgents.add(event.agentName);
+        agentCounts.set(
+          event.agentName,
+          (agentCounts.get(event.agentName) || 0) + 1
+        );
       }
     });
 
     // Find which transitions have occurred by current time and track the last one
     const transitionCounts = new Map<string, number>();
+    // Track which turn indices have been seen per edge (for progressive labels)
+    const visibleTurns = new Map<string, number[]>();
     let lastTransition: { from: string; to: string; index: number } | null =
       null;
 
@@ -1003,14 +1315,25 @@ export default function SpanGraphView({
           to: t.to,
           index: currentCount, // 0-based index for this specific transition
         };
+        // Track turn indices for this edge
+        const turnIdx = getTurnForTimestamp(t.timestamp);
+        if (turnIdx >= 0) {
+          const arr = visibleTurns.get(key) || [];
+          arr.push(turnIdx);
+          visibleTurns.set(key, arr);
+        }
       }
     });
 
-    // Update nodes visibility
+    // Update nodes visibility and progressive invocation count
     setNodes(prevNodes =>
       prevNodes.map(node => ({
         ...node,
         hidden: !visibleAgents.has(node.id),
+        data: {
+          ...node.data,
+          visibleCount: agentCounts.get(node.id) || 0,
+        },
         style: {
           ...node.style,
           opacity: visibleAgents.has(node.id) ? 1 : 0,
@@ -1056,10 +1379,21 @@ export default function SpanGraphView({
         const shouldAnimate = Boolean(
           isLastTransition && !edge.data?.isSelfLoop
         );
+
+        // Progressively build turn label from visible transitions
+        const edgeTurns = visibleTurns.get(baseKey);
+        const visibleTurnLabel = edgeTurns
+          ? formatTurnLabel(edgeTurns)
+          : undefined;
+
         return {
           ...edge,
           hidden: !shouldShow,
           animated: shouldAnimate,
+          data: {
+            ...edge.data,
+            turnLabel: visibleTurnLabel,
+          },
           style: {
             ...edge.style,
             opacity: shouldShow ? 1 : 0,
@@ -1067,7 +1401,14 @@ export default function SpanGraphView({
         };
       })
     );
-  }, [currentTime, timedAgentEvents, timedTransitions, setNodes, setEdges]);
+  }, [
+    currentTime,
+    timedAgentEvents,
+    timedTransitions,
+    setNodes,
+    setEdges,
+    getTurnForTimestamp,
+  ]);
 
   // Playback controls
   const handlePlayPause = () => {
@@ -1215,6 +1556,15 @@ export default function SpanGraphView({
     [spans, onSpanSelect]
   );
 
+  // Compute turn marks for the time slider in "All" conversation mode
+  const turnMarks =
+    showTurnNavigation && activeTurn === null && rootSpans
+      ? rootSpans.map((span, i) => ({
+          value: new Date(span.start_time).getTime(),
+          label: `T${i + 1}`,
+        }))
+      : [];
+
   // Show message if no agent data
   if (states.size === 0) {
     return (
@@ -1242,12 +1592,12 @@ export default function SpanGraphView({
     );
   }
 
-  return (
+  const graphContent = (
     <Box
       sx={{
         width: '100%',
         height: '100%',
-        minHeight: theme.spacing(50),
+        minHeight: isFullscreen ? '100vh' : theme.spacing(50),
         display: 'flex',
         flexDirection: 'column',
         '& .react-flow__attribution': {
@@ -1255,6 +1605,37 @@ export default function SpanGraphView({
         },
       }}
     >
+      {/* Turn Navigation (for conversation traces) */}
+      {showTurnNavigation && (
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            py: 1,
+            backgroundColor: theme.palette.background.default,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => setActiveTurn(null)}
+              variant={activeTurn === null ? 'contained' : 'outlined'}
+            >
+              All
+            </Button>
+            {rootSpans!.map((_, i) => (
+              <Button
+                key={i}
+                onClick={() => setActiveTurn(i)}
+                variant={activeTurn === i ? 'contained' : 'outlined'}
+              >
+                Turn {i + 1}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </Box>
+      )}
+
       {/* Time Slider Controls */}
       <Paper
         elevation={0}
@@ -1327,6 +1708,7 @@ export default function SpanGraphView({
             min={timeRange.start}
             max={timeRange.end}
             onChange={handleSliderChange}
+            marks={turnMarks}
             sx={{
               flex: 1,
               mx: theme.spacing(1),
@@ -1343,6 +1725,16 @@ export default function SpanGraphView({
               '& .MuiSlider-rail': {
                 height: theme.spacing(0.5),
               },
+              // Turn mark labels
+              '& .MuiSlider-markLabel': {
+                fontSize: theme.typography.caption.fontSize,
+                color: theme.palette.text.secondary,
+                top: theme.spacing(3),
+              },
+              '& .MuiSlider-mark': {
+                height: theme.spacing(1),
+                backgroundColor: theme.palette.text.secondary,
+              },
             }}
           />
 
@@ -1358,6 +1750,21 @@ export default function SpanGraphView({
           >
             {formatTime(timeRange.end)}
           </Typography>
+
+          {/* Fullscreen Toggle */}
+          <Tooltip title={isFullscreen ? 'Exit full view' : 'Full view'}>
+            <IconButton
+              size="small"
+              onClick={() => setIsFullscreen(prev => !prev)}
+              sx={{ color: theme.palette.text.secondary }}
+            >
+              {isFullscreen ? (
+                <CloseIcon fontSize="small" />
+              ) : (
+                <FullscreenIcon fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
         </Stack>
       </Paper>
 
@@ -1459,4 +1866,18 @@ export default function SpanGraphView({
       </Box>
     </Box>
   );
+
+  if (isFullscreen) {
+    return (
+      <Dialog
+        fullScreen
+        open={isFullscreen}
+        onClose={() => setIsFullscreen(false)}
+      >
+        {graphContent}
+      </Dialog>
+    );
+  }
+
+  return graphContent;
 }

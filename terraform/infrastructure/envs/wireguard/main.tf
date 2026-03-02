@@ -7,7 +7,9 @@ terraform {
       version = "~> 6.0"
     }
   }
-  backend "local" {}
+  backend "gcs" {
+    prefix = "terraform/infrastructure/envs/wireguard"
+  }
 }
 
 provider "google" {

@@ -179,16 +179,10 @@ export default function TestResultTab({
                 </Typography>
                 <Box sx={{ mt: 0.5 }}>
                   <Chip
-                    label={
-                      testResult.test_output?.goal
-                        ? 'Multi-turn'
-                        : 'Single-turn'
-                    }
+                    label={trace.conversation_id ? 'Multi-turn' : 'Single-turn'}
                     size="medium"
                     variant="outlined"
-                    color={
-                      testResult.test_output?.goal ? 'primary' : 'secondary'
-                    }
+                    color={trace.conversation_id ? 'primary' : 'secondary'}
                   />
                 </Box>
               </Box>

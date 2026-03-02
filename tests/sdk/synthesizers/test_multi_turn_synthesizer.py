@@ -119,6 +119,25 @@ def test_prompt_template_renders_config():
     assert "42" in rendered
 
 
+def test_prompt_template_includes_turn_configuration():
+    """Test that the template includes turn configuration guidance."""
+    mock_model = Mock(spec=BaseLLM)
+    config = GenerationConfig(generation_prompt="Test")
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model)
+
+    template = synthesizer.load_prompt_template("base.jinja")
+    rendered = template.render(
+        {
+            "num_tests": 5,
+            **config.model_dump(),
+        }
+    )
+
+    assert "min_turns" in rendered
+    assert "max_turns" in rendered
+    assert "Turn Configuration" in rendered
+
+
 # --- _generate_batch tests ---
 
 
@@ -137,6 +156,8 @@ def test_generate_batch_returns_nested_structure():
                 "test_configuration_instructions": "Step 1, Step 2",
                 "test_configuration_restrictions": "No PII",
                 "test_configuration_scenario": "Customer support",
+                "test_configuration_min_turns": 3,
+                "test_configuration_max_turns": 7,
                 "behavior": "Compliance",
                 "category": "Harmful",
                 "topic": "data privacy",
@@ -146,6 +167,8 @@ def test_generate_batch_returns_nested_structure():
                 "test_configuration_instructions": "",
                 "test_configuration_restrictions": "",
                 "test_configuration_scenario": "",
+                "test_configuration_min_turns": 5,
+                "test_configuration_max_turns": 12,
                 "behavior": "Reliability",
                 "category": "Harmless",
                 "topic": "product info",
@@ -164,6 +187,8 @@ def test_generate_batch_returns_nested_structure():
     assert result[0]["test_configuration"]["instructions"] == "Step 1, Step 2"
     assert result[0]["test_configuration"]["restrictions"] == "No PII"
     assert result[0]["test_configuration"]["scenario"] == "Customer support"
+    assert result[0]["test_configuration"]["min_turns"] == 3
+    assert result[0]["test_configuration"]["max_turns"] == 7
     assert result[0]["behavior"] == "Compliance"
     assert result[0]["category"] == "Harmful"
     assert result[0]["topic"] == "data privacy"
@@ -174,6 +199,8 @@ def test_generate_batch_returns_nested_structure():
     assert result[1]["test_configuration"]["instructions"] == ""
     assert result[1]["test_configuration"]["restrictions"] == ""
     assert result[1]["test_configuration"]["scenario"] == ""
+    assert result[1]["test_configuration"]["min_turns"] == 5
+    assert result[1]["test_configuration"]["max_turns"] == 12
     assert result[1]["behavior"] == "Reliability"
     assert result[1]["category"] == "Harmless"
     assert result[1]["topic"] == "product info"
@@ -191,6 +218,8 @@ def test_generate_batch_sets_multi_turn_type():
                 "test_configuration_instructions": "",
                 "test_configuration_restrictions": "",
                 "test_configuration_scenario": "",
+                "test_configuration_min_turns": 3,
+                "test_configuration_max_turns": 7,
                 "behavior": "Robustness",
                 "category": "Harmful",
                 "topic": "security",
@@ -203,6 +232,54 @@ def test_generate_batch_sets_multi_turn_type():
     result = synthesizer._generate_batch()
 
     assert result[0]["test_type"] == "Multi-Turn"
+
+
+# --- _flat_test_to_nested tests ---
+
+
+def test_flat_test_to_nested_includes_turn_config():
+    """Test that _flat_test_to_nested repacks min_turns and max_turns."""
+    mock_model = Mock(spec=BaseLLM)
+    config = GenerationConfig(generation_prompt="Test")
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model)
+
+    flat = {
+        "test_configuration_goal": "Goal",
+        "test_configuration_instructions": "Steps",
+        "test_configuration_restrictions": "None",
+        "test_configuration_scenario": "Context",
+        "test_configuration_min_turns": 4,
+        "test_configuration_max_turns": 15,
+        "behavior": "Reliability",
+        "category": "Harmless",
+        "topic": "general",
+    }
+    result = synthesizer._flat_test_to_nested(flat)
+
+    assert result["test_configuration"]["min_turns"] == 4
+    assert result["test_configuration"]["max_turns"] == 15
+    assert result["test_configuration"]["goal"] == "Goal"
+
+
+def test_flat_test_to_nested_omits_none_turn_config():
+    """Test that _flat_test_to_nested omits turn fields when None."""
+    mock_model = Mock(spec=BaseLLM)
+    config = GenerationConfig(generation_prompt="Test")
+    synthesizer = MultiTurnSynthesizer(config=config, model=mock_model)
+
+    flat = {
+        "test_configuration_goal": "Goal",
+        "test_configuration_instructions": "",
+        "test_configuration_restrictions": "",
+        "test_configuration_scenario": "",
+        "behavior": "Compliance",
+        "category": "Harmful",
+        "topic": "security",
+    }
+    result = synthesizer._flat_test_to_nested(flat)
+
+    assert "min_turns" not in result["test_configuration"]
+    assert "max_turns" not in result["test_configuration"]
 
 
 def test_generate_batch_passes_flat_schema_to_model():

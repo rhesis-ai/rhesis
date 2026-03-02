@@ -203,7 +203,7 @@ def main():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=args.verbose,
-        max_iterations=30,
+        max_turns=30,
     )
 
     target = EndpointTarget(endpoint_id=args.endpoint_id)

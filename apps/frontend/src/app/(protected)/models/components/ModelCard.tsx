@@ -7,12 +7,16 @@ import {
   IconButton,
   Chip,
   Tooltip,
+  Button,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CloseIcon from '@mui/icons-material/Close';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import EditIcon from '@mui/icons-material/Edit';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import WarningIcon from '@mui/icons-material/Warning';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import SendIcon from '@mui/icons-material/Send';
 import { DeleteIcon, AddIcon } from '@/components/icons';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
@@ -22,17 +26,21 @@ import type { ValidationStatus } from '../types';
 interface ConnectedModelCardProps {
   model: Model;
   userSettings?: UserSettings | null;
+  isVerified?: boolean;
   validationStatus?: ValidationStatus;
   onEdit: (model: Model, e: React.MouseEvent) => void;
   onDelete: (model: Model, e: React.MouseEvent) => void;
+  onRequestAccess?: (model: Model) => void;
 }
 
 export function ConnectedModelCard({
   model,
   userSettings,
+  isVerified = false,
   validationStatus,
   onEdit,
   onDelete,
+  onRequestAccess,
 }: ConnectedModelCardProps) {
   // Check if this model is set as default for generation, evaluation, or embedding
   const isGenerationDefault =
@@ -48,6 +56,31 @@ export function ConnectedModelCard({
     validationStatus &&
     !validationStatus.isValid &&
     !validationStatus.isValidating;
+
+  // Check if this is the Polyphemus model
+  const isPolyphemus =
+    model.provider_type?.type_value === 'polyphemus' ||
+    model.icon === 'polyphemus' ||
+    model.name?.toLowerCase().includes('polyphemus');
+
+  // Determine Polyphemus access state
+  const polyphemusAccess = userSettings?.polyphemus_access;
+
+  // is_verified is the source of truth - set by the grant_polyphemus_access stored procedure
+  const hasAccess = isPolyphemus ? isVerified : true;
+
+  // Show restricted state for Polyphemus if not verified
+  const showPolyphemusRestricted = isPolyphemus && !isVerified;
+
+  // Show "Request Submitted" if:
+  // - Request has been made (requested_at exists)
+  // - User is not yet verified
+  // - Either no revocation, OR request was made after revocation (user requested again)
+  const hasRequestedAccess =
+    !!polyphemusAccess?.requested_at &&
+    !isVerified &&
+    (!polyphemusAccess?.revoked_at ||
+      polyphemusAccess.requested_at > polyphemusAccess.revoked_at);
 
   const card = (
     <Card
@@ -84,21 +117,23 @@ export function ConnectedModelCard({
             zIndex: 1,
           }}
         >
-          {/* Allow editing settings for all models, but only show delete for non-protected */}
-          <IconButton
-            size="small"
-            onClick={e => onEdit(model, e)}
-            sx={{
-              padding: '2px',
-              '& .MuiSvgIcon-root': {
-                fontSize: theme =>
-                  theme?.typography?.helperText?.fontSize || '0.75rem',
-                color: 'currentColor',
-              },
-            }}
-          >
-            <EditIcon fontSize="inherit" />
-          </IconButton>
+          {/* Hide edit button for Polyphemus until access is granted */}
+          {!showPolyphemusRestricted && (
+            <IconButton
+              size="small"
+              onClick={e => onEdit(model, e)}
+              sx={{
+                padding: '2px',
+                '& .MuiSvgIcon-root': {
+                  fontSize: theme =>
+                    theme?.typography?.helperText?.fontSize || '0.75rem',
+                  color: 'currentColor',
+                },
+              }}
+            >
+              <EditIcon fontSize="inherit" />
+            </IconButton>
+          )}
           {!model.is_protected && (
             <IconButton
               size="small"
@@ -205,18 +240,52 @@ export function ConnectedModelCard({
             Model: {model.model_name}
           </Typography>
 
+          {/* Request Access button for Polyphemus */}
+          {showPolyphemusRestricted && onRequestAccess && (
+            <Button
+              variant="outlined"
+              size="small"
+              fullWidth
+              disabled={hasRequestedAccess}
+              onClick={() => onRequestAccess(model)}
+              color={hasRequestedAccess ? 'info' : 'primary'}
+              startIcon={hasRequestedAccess ? <SendIcon /> : <VpnKeyIcon />}
+              sx={{ mb: 1.5 }}
+            >
+              {hasRequestedAccess ? 'Request Submitted' : 'Request Access'}
+            </Button>
+          )}
+
           {/* Connected status or System badge */}
           <Chip
-            icon={<CheckCircleIcon />}
-            label={model.is_protected ? 'Rhesis Managed' : 'Connected'}
+            icon={
+              showPolyphemusRestricted ? <CloseIcon /> : <CheckCircleIcon />
+            }
+            label={
+              showPolyphemusRestricted
+                ? 'Access Required'
+                : model.is_protected
+                  ? 'Rhesis Managed'
+                  : 'Connected'
+            }
             size="small"
             variant="outlined"
             sx={{
               width: '100%',
-              color: 'text.secondary',
-              borderColor: model.is_protected ? 'info.main' : 'divider',
+              color: showPolyphemusRestricted
+                ? 'warning.main'
+                : 'text.secondary',
+              borderColor: showPolyphemusRestricted
+                ? 'warning.main'
+                : model.is_protected
+                  ? 'info.main'
+                  : 'divider',
               '& .MuiChip-icon': {
-                color: model.is_protected ? 'info.main' : 'primary.main',
+                color: showPolyphemusRestricted
+                  ? 'warning.main'
+                  : model.is_protected
+                    ? 'info.main'
+                    : 'primary.main',
                 opacity: 0.7,
               },
             }}

@@ -174,4 +174,52 @@ export default {
   "temperature": {
     display: "hidden",
   },
+  "polyphemus": {
+    display: "hidden",
+  },
+  "trace": {
+    display: "hidden",
+  },
+  "connector": {
+    display: "hidden",
+  },
+  "playground": {
+    display: "hidden",
+  },
+  "adaptive-testing": {
+    display: "hidden",
+  },
+  "test-set-type": {
+    display: "hidden",
+  },
+  "agent": {
+    display: "hidden",
+  },
+  "goal-achievement": {
+    display: "hidden",
+  },
+  "garak": {
+    display: "hidden",
+  },
+  "jailbreak": {
+    display: "hidden",
+  },
+  "rescoring": {
+    display: "hidden",
+  },
+  "auto-configure": {
+    display: "hidden",
+  },
+  "synthesizer": {
+    display: "hidden",
+  },
+  "source": {
+    display: "hidden",
+  },
+  "opentelemetry": {
+    display: "hidden",
+  },
+  "test-type": {
+    display: "hidden",
+  },
 };

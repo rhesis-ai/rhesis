@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rhesis.penelope.agent import PenelopeAgent, _create_default_model
-from rhesis.penelope.context import TestContext, TestState
+from rhesis.penelope.context import ExecutionStatus, TestContext, TestState
 from rhesis.penelope.targets.base import Target
 from rhesis.sdk.metrics.providers.native import GoalAchievementJudge
 from rhesis.sdk.models.base import BaseLLM
@@ -161,18 +161,18 @@ class TestPenelopeAgentInitialization:
 
         # Verify defaults
         assert agent.model == mock_model
-        assert agent.max_iterations == 10  # Default from PenelopeConfig
+        assert agent.max_turns == 10  # Default from PenelopeConfig
         assert agent.timeout_seconds is None
         assert agent.enable_transparency is True
         assert agent.verbose is False
         assert len(agent.metrics) == 1  # Auto-created GoalAchievementJudge
         assert isinstance(agent.goal_metric, GoalAchievementJudge)
 
-    def test_init_with_custom_max_iterations(self, mock_model):
-        """Test initialization with custom max_iterations."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=20)
+    def test_init_with_custom_max_turns(self, mock_model):
+        """Test initialization with custom max_turns."""
+        agent = PenelopeAgent(model=mock_model, max_turns=20)
 
-        assert agent.max_iterations == 20
+        assert agent.max_turns == 20
 
     def test_init_with_explicit_goal_metric(self, mock_model):
         """Test initialization with explicit goal_metric parameter."""
@@ -257,15 +257,13 @@ class TestPenelopeAgentInitialization:
         with pytest.raises(ValueError, match="must have an 'evaluate' method"):
             PenelopeAgent(model=mock_model, goal_metric=invalid_metric)
 
-    def test_evaluator_initialized_with_goal_metric(self, mock_model):
-        """Test that GoalEvaluator is initialized with goal_metric."""
+    def test_goal_metric_stored_on_agent(self, mock_model):
+        """Test that goal_metric is stored on agent for direct evaluation."""
         goal_metric = GoalAchievementJudge(name="test", model=mock_model)
 
         agent = PenelopeAgent(model=mock_model, goal_metric=goal_metric)
 
-        # Verify evaluator exists and has the goal_metric
-        assert hasattr(agent, "evaluator")
-        assert agent.evaluator.goal_metric == goal_metric
+        assert agent.goal_metric == goal_metric
 
     def test_executor_initialized(self, mock_model):
         """Test that TurnExecutor is initialized."""
@@ -318,7 +316,7 @@ class TestPenelopeAgentHelperMethods:
 
     def test_create_stopping_conditions(self, mock_model):
         """Test _create_stopping_conditions creates all conditions."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=15, timeout_seconds=120.0)
+        agent = PenelopeAgent(model=mock_model, max_turns=15, timeout_seconds=120.0)
 
         conditions = agent._create_stopping_conditions()
 
@@ -326,7 +324,7 @@ class TestPenelopeAgentHelperMethods:
         assert len(conditions) == 4  # MaxToolExecutions, MaxIterations, GoalAchieved, Timeout
         condition_types = [type(c).__name__ for c in conditions]
         assert "MaxToolExecutionsCondition" in condition_types
-        assert "MaxIterationsCondition" in condition_types
+        assert "MaxTurnsCondition" in condition_types
         assert "GoalAchievedCondition" in condition_types
         assert "TimeoutCondition" in condition_types
 
@@ -356,14 +354,15 @@ class TestPenelopeAgentHelperMethods:
         state = TestState(context=context)
 
         conditions = agent._create_stopping_conditions()
-        should_stop, reason = agent._should_stop(state, conditions)
+        result = agent._should_stop(state, conditions)
 
-        assert should_stop is False
-        assert reason == ""
+        assert result.should_stop is False
+        assert result.status is None
+        assert result.reason == ""
 
     def test_should_stop_returns_true_when_condition_met(self, mock_model, mock_target):
         """Test _should_stop returns True when condition is met."""
-        agent = PenelopeAgent(model=mock_model, max_iterations=1)
+        agent = PenelopeAgent(model=mock_model, max_turns=1)
 
         # Create test state with 1 turn already
         context = TestContext(
@@ -376,10 +375,12 @@ class TestPenelopeAgentHelperMethods:
         state.current_turn = 1
 
         conditions = agent._create_stopping_conditions()
-        should_stop, reason = agent._should_stop(state, conditions)
+        result = agent._should_stop(state, conditions)
 
-        assert should_stop is True
-        assert "maximum iterations" in reason.lower() or "1" in reason
+        assert result.should_stop is True
+        assert result.status == ExecutionStatus.MAX_TURNS
+        assert result.goal_achieved is False
+        assert "maximum" in result.reason.lower() or "1" in result.reason
 
 
 class TestCreateDefaultModel:

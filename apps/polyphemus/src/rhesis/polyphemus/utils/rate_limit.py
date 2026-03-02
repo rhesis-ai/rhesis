@@ -6,10 +6,10 @@ Reuses authentication and rate limiting patterns from rhesis.backend.
 
 import logging
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, status
 from limits import parse
 from slowapi import Limiter
-from slowapi.util import get_remote_address
+from starlette.requests import Request
 
 from rhesis.backend.app.models.user import User
 from rhesis.polyphemus.services.auth import require_api_key
@@ -17,41 +17,27 @@ from rhesis.polyphemus.services.auth import require_api_key
 logger = logging.getLogger("rhesis-polyphemus")
 
 
-def get_rate_limit_identifier(request: Request) -> str:
+def _user_key_func(request: Request) -> str:
+    """Extract user ID from request state for rate limiting.
+
+    Falls back to client IP when user info is unavailable (e.g. before
+    authentication runs).
     """
-    Get a unique identifier for rate limiting.
-
-    For authenticated requests (with user_id set by auth dependency):
-      Returns: "user:{user_id}"
-    For unauthenticated requests:
-      Returns: "ip:{ip_address}"
-
-    Args:
-        request: FastAPI Request object
-
-    Returns:
-        str: Unique rate limit identifier
-    """
-    # Try to get user ID from request state (set by require_api_key dependency)
-    user_id = getattr(request.state, "user_id", None)
-    if user_id:
-        logger.debug(f"Rate limiting by user: {user_id}")
-        return f"user:{user_id}"
-
-    # Fall back to IP address for unauthenticated requests
-    ip = get_remote_address(request)
-    logger.debug(f"Rate limiting by IP: {ip}")
-    return f"ip:{ip}"
+    user: User | None = getattr(request.state, "current_user", None)
+    if user is not None:
+        return f"user:{user.id}"
+    return request.client.host if request.client else "unknown"
 
 
-# Initialize limiter with custom key function
-limiter = Limiter(key_func=get_rate_limit_identifier)
+# Initialize limiter with user-based key function
+limiter = Limiter(key_func=_user_key_func)
+RATE_LIMIT_PER_DAY = "10000/day"
+RATE_LIMIT_PER_MINUTE = "100/minute"
 
-# Rate limits for different tiers
-RATE_LIMIT_AUTHENTICATED = "100/day"  # 100 requests per day per authenticated user
+_rate_limit_per_day = parse(RATE_LIMIT_PER_DAY)
+_rate_limit_per_minute = parse(RATE_LIMIT_PER_MINUTE)
 
-# Parse the rate limit string into a RateLimitItem for manual checking
-_rate_limit_item = parse(RATE_LIMIT_AUTHENTICATED)
+RATE_LIMIT_ERROR_DETAIL = "Rate limit exceeded. Try again later."
 
 
 async def check_rate_limit(
@@ -61,24 +47,32 @@ async def check_rate_limit(
     """
     Rate limit dependency that runs after authentication.
 
-    This ensures request.state.user_id is set before rate limiting is checked.
+    Stores the authenticated user on request.state so that _user_key_func
+    can produce a consistent user-based key for SlowAPI's decorator path.
+    Enforces daily then per-minute limits using hit() which atomically
+    checks and increments each counter.
     """
+    request.state.current_user = current_user
+
     user_id = str(current_user.id)
     identifier = f"user:{user_id}"
 
-    # Manually perform rate limit check using slowapi's internal limiter
     try:
-        # Use the limiter's internal _limiter.hit() method
-        # Returns True if allowed, False if rate limit would be exceeded
-        allowed = limiter._limiter.hit(_rate_limit_item, identifier)
-
-        if not allowed:
-            logger.warning(f"Rate limit exceeded for user {user_id}")
+        # Check daily limit first so a daily-capped user doesn't waste
+        # per-minute tokens on every rejected request.
+        # hit() atomically checks and increments; returns False if limit exceeded.
+        if not limiter._limiter.hit(_rate_limit_per_day, identifier):
+            logger.warning(f"Daily rate limit exceeded for user {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Rate limit exceeded. Try again later.",
+                detail=RATE_LIMIT_ERROR_DETAIL,
             )
-
+        if not limiter._limiter.hit(_rate_limit_per_minute, identifier):
+            logger.warning(f"Per-minute rate limit exceeded for user {user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=RATE_LIMIT_ERROR_DETAIL,
+            )
         logger.info(f"Rate limit check passed for user {user_id}")
     except HTTPException:
         raise

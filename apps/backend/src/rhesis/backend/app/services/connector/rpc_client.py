@@ -27,7 +27,7 @@ class SDKRpcClient:
         """
         try:
             redis_url = os.getenv("BROKER_URL", "redis://localhost:6379/0")
-            logger.info(f"🔌 Initializing RPC client with Redis URL: {redis_url}")
+            logger.info("🔌 Initializing RPC client with Redis")
             self._redis = await redis.from_url(redis_url, decode_responses=True)
             logger.info("✅ RPC client connected to Redis successfully")
             # Test the connection

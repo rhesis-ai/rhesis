@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app import crud
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import (
     EndpointAuthType,
@@ -19,8 +20,8 @@ from rhesis.backend.app.models.enums import (
 from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
 from rhesis.backend.app.services.invokers.conversation import (
-    CONVERSATION_FIELD_NAMES,
     ConversationTracker,
+    find_conversation_id,
     get_conversation_store,
 )
 
@@ -166,6 +167,12 @@ class EndpointService:
                     endpoint=endpoint,
                 )
 
+            # Determine conversation_id for trace linking.
+            # For stateless endpoints it was set above; for stateful
+            # endpoints we scan the input for recognized field names
+            # (session_id, thread_id, etc.).
+            trace_conversation_id = stateless_conversation_id or find_conversation_id(input_data)
+
             # Check if invoker needs explicit tracing (REST/WebSocket)
             if not invoker.automatic_tracing:
                 # Import here to avoid circular imports
@@ -175,7 +182,12 @@ class EndpointService:
 
                 # Wrap invocation with trace creation
                 async with create_invocation_trace(
-                    db, endpoint, organization_id, test_execution_context
+                    db,
+                    endpoint,
+                    organization_id,
+                    test_execution_context,
+                    conversation_id=trace_conversation_id,
+                    input_data=enriched_input_data,
                 ) as trace_ctx:
                     result = await invoker.invoke(
                         db, endpoint, enriched_input_data, test_execution_context
@@ -222,14 +234,29 @@ class EndpointService:
             # from the request).  If no recognised field is present,
             # we echo back the caller's conversation_id so the chain
             # is never broken.
-            if (
-                not is_stateless
-                and isinstance(result, dict)
-                and not any(f in result for f in CONVERSATION_FIELD_NAMES)
-            ):
-                incoming_cid = input_data.get("conversation_id")
-                if incoming_cid:
-                    result["conversation_id"] = incoming_cid
+            if not is_stateless and isinstance(result, dict) and not find_conversation_id(result):
+                incoming_conversation_id = input_data.get("conversation_id")
+                if incoming_conversation_id:
+                    result["conversation_id"] = incoming_conversation_id
+
+            # -------------------------------------------------------
+            # First-turn trace linking
+            # -------------------------------------------------------
+            # For stateful endpoints, the first turn has no
+            # conversation_id at invocation time — the endpoint
+            # generates it in its response.  Now that we know the
+            # conversation_id from the response, stamp it onto the
+            # trace so future turns can find and reuse its trace_id.
+            if not trace_conversation_id and isinstance(result, dict) and result.get("trace_id"):
+                response_conversation_id = find_conversation_id(result)
+
+                if response_conversation_id:
+                    self._link_first_turn_trace(
+                        db=db,
+                        trace_id=result["trace_id"],
+                        conversation_id=response_conversation_id,
+                        organization_id=organization_id,
+                    )
 
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")
             return result
@@ -239,6 +266,41 @@ class EndpointService:
         except Exception as e:
             logger.error(f"Exception invoking endpoint: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
+
+    @staticmethod
+    def _link_first_turn_trace(
+        db: Session,
+        trace_id: str,
+        conversation_id: str,
+        organization_id: str,
+    ) -> None:
+        """Retroactively set conversation_id on a first-turn trace.
+
+        For stateful endpoints the first turn has no conversation_id at
+        invocation time — the endpoint generates it in its response.
+        This stamps the discovered ID onto the already-stored trace
+        spans so future turns can find and reuse the same trace_id.
+
+        If the immediate UPDATE matches 0 rows (SDK spans not yet
+        ingested), the mapping is parked for deferred application
+        when the spans arrive at the telemetry ingest endpoint.
+        """
+        updated_count = crud.update_conversation_id_for_trace(
+            db=db,
+            trace_id=trace_id,
+            conversation_id=conversation_id,
+            organization_id=organization_id,
+        )
+        if updated_count == 0:
+            from rhesis.backend.app.services.telemetry.conversation_linking import (
+                register_pending_conversation_link,
+            )
+
+            register_pending_conversation_link(
+                trace_id=trace_id,
+                conversation_id=conversation_id,
+                organization_id=organization_id,
+            )
 
     def _get_endpoint(self, db: Session, endpoint_id: str, organization_id: str = None) -> Endpoint:
         """

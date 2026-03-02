@@ -32,6 +32,40 @@ Conversational metrics (multi-turn metrics) evaluate the quality of interactions
 
 [**View Conversational Metrics Documentation →**](./conversational)
 
+## Metric Scopes
+
+Every metric has a `metric_scope` that controls which test types it can be used with. The scope can be `Single-Turn`, `Multi-Turn`, or both.
+
+| Metric Class | Default Scope | Notes |
+| --- | --- | --- |
+| `NumericJudge` | Single-Turn, Multi-Turn | See note below on multi-turn behavior |
+| `CategoricalJudge` | Single-Turn, Multi-Turn | See note below on multi-turn behavior |
+| `ConversationalJudge` | Single-Turn, Multi-Turn | Receives structured `ConversationHistory` |
+| `GoalAchievementJudge` | Single-Turn, Multi-Turn | Receives structured `ConversationHistory` |
+| `GarakDetectorMetric` | Single-Turn only | Operates on individual prompt/response pairs |
+
+<Callout type="info">
+
+**How single-turn metrics work in multi-turn tests**: When a `NumericJudge` or `CategoricalJudge` is used in a multi-turn evaluation, the full conversation is serialized to plain text and passed as the `output` parameter. The metric does not receive a structured `ConversationHistory` object -- it evaluates the conversation as a single text blob. This means the evaluation quality depends entirely on the `evaluation_prompt` you write. For turn-aware evaluation (e.g., analyzing coherence between specific turns), use a `ConversationalJudge` instead, which receives the full structured conversation with individual turns.
+
+</Callout>
+
+You can override the default scope when creating a metric:
+
+<CodeBlock filename="metric_scope.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge, MetricScope
+
+# Restrict a NumericJudge to single-turn only
+metric = NumericJudge(
+    name="response_clarity",
+    evaluation_prompt="Rate how clear the response is.",
+    metric_scope=[MetricScope.SINGLE_TURN],
+    min_score=0.0,
+    max_score=10.0,
+    threshold=7.0,
+)`}
+</CodeBlock>
+
 ## Framework Integration
 
 <Callout type="info">

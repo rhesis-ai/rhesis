@@ -26,7 +26,7 @@ from fastapi.testclient import TestClient
 
 from .base import BaseEntityRouteTests, BaseEntityTests
 from .endpoints import APIEndpoints
-from .fixtures.data_factories import BehaviorDataFactory, CommentDataFactory
+from .fixtures.data_factories import BehaviorDataFactory, CommentDataFactory, StatusDataFactory
 
 # Initialize Faker
 fake = Faker()
@@ -583,12 +583,11 @@ class TestCommentPerformance(CommentTestMixin, BaseEntityTests):
         comment = comment_factory.create(comment_data)
         comment_id = comment["id"]
 
-        # Get a default status for the task
-        status_response = authenticated_client.get("/statuses/")
+        # Create a status for the task
+        status_data = StatusDataFactory.sample_data()
+        status_response = authenticated_client.post("/statuses/", json=status_data)
         assert status_response.status_code == status.HTTP_200_OK
-        statuses = status_response.json()
-        assert len(statuses) > 0
-        default_status_id = statuses[0]["id"]
+        default_status_id = status_response.json()["id"]
 
         # Create a task that references this comment in task_metadata
         task_data = {

@@ -5,8 +5,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
+import jwt
 from fastapi import HTTPException, status
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 
 from rhesis.backend.app.auth.constants import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -17,6 +18,7 @@ from rhesis.backend.app.utils.redact import redact_email
 from rhesis.backend.logging import logger
 
 # Token expiry defaults (in minutes)
+SERVICE_DELEGATION_EXPIRE_MINUTES = 5  # 5 minutes, short-lived for service-to-service calls
 EMAIL_VERIFICATION_EXPIRE_MINUTES = 60 * 24  # 24 hours
 PASSWORD_RESET_EXPIRE_MINUTES = 60  # 1 hour
 MAGIC_LINK_EXPIRE_MINUTES = 15  # 15 minutes
@@ -63,6 +65,34 @@ def create_session_token(user: User) -> str:
     return encoded_jwt
 
 
+def create_service_delegation_token(
+    user: User,
+    target_service: str,
+    expires_minutes: int = SERVICE_DELEGATION_EXPIRE_MINUTES,
+) -> str:
+    """Create a short-lived delegation token for service-to-service calls on behalf of a user."""
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(minutes=expires_minutes)
+
+    organization_id = str(user.organization_id) if user.organization_id else None
+
+    to_encode = {
+        "sub": str(user.id),
+        "iat": now,
+        "nbf": now,
+        "exp": expire,
+        "type": "service_delegation",
+        "target_service": target_service,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "organization_id": organization_id,
+        },
+    }
+
+    return jwt.encode(to_encode, get_secret_key(), algorithm=ALGORITHM)
+
+
 def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) -> Dict[str, Any]:
     """
     Verify and decode a JWT token with explicit expiration checks.
@@ -76,8 +106,7 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
             options={
                 "verify_exp": True,
                 "verify_iat": True,
-                "require_exp": True,
-                "require_iat": True,
+                "require": ["exp", "iat"],
             },
         )
 
@@ -97,10 +126,11 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
 
         return payload
 
+    except jwt.ExpiredSignatureError:
+        logger.warning("JWT token has expired")
+        raise
     except JWTError as e:
         logger.error(f"JWT validation error: {str(e)}")
-        if "Expired token" in str(e):
-            logger.warning("JWT token has expired")
         raise
 
 
@@ -203,12 +233,18 @@ def verify_email_flow_token(token: str, expected_type: str) -> Dict[str, Any]:
             options={
                 "verify_exp": True,
                 "verify_iat": True,
-                "require_exp": True,
-                "require_iat": True,
+                "require": ["exp", "iat"],
             },
         )
+    except jwt.ExpiredSignatureError:
+        detail = "Token has expired"
+        logger.warning("Email flow token expired")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail,
+        )
     except JWTError as e:
-        detail = "Token has expired" if "Expired" in str(e) else ("Invalid token")
+        detail = "Invalid token"
         logger.warning(f"Email flow token error: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

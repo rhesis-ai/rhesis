@@ -40,7 +40,7 @@ Penelope follows a clean, modular architecture designed for extensibility and re
 Main orchestrator coordinating test execution:
 
 <CodeBlock filename="agent_flow.py" language="python">
-{`agent = PenelopeAgent(model=model, max_iterations=10)
+{`agent = PenelopeAgent(model=model, max_turns=10)
 
 result = agent.execute_test(
     target=target,
@@ -90,7 +90,7 @@ Penelope includes three core tools:
 ## Execution Flow
 
 1. **Initialize** - Agent receives goal, instructions, and context
-2. **Turn Loop** - For each turn up to max_iterations:
+2. **Turn Loop** - For each turn up to max_turns:
    - Agent reasons about current state
    - Selects and executes tool
    - Processes result
@@ -114,7 +114,7 @@ Tests stop when any condition is met:
 
 <CodeBlock filename="stopping.py" language="python">
 {`agent = PenelopeAgent(
-    max_iterations=20,  # Stop after 20 turns
+    max_turns=20,  # Stop after 20 turns
     timeout_seconds=300,  # Stop after 5 minutes
 )
 
@@ -318,7 +318,7 @@ security_tool = SecurityScannerTool()
 agent = PenelopeAgent(
     tools=[db_tool, api_tool, security_tool],
     enable_transparency=True,
-    max_iterations=20,
+    max_turns=20,
 )
 
 result = agent.execute_test(

@@ -1,0 +1,13 @@
+# Virtual environment
+.venv/
+
+# Ruff cache
+.ruff_cache/
+
+# Python bytecode
+__pycache__/
+
+# Environment files
+.env
+.env.*
+!.env.example

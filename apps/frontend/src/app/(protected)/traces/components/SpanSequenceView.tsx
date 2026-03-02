@@ -1,7 +1,14 @@
 'use client';
 
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
-import { Box, Typography, Tooltip, useTheme } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Tooltip,
+  Button,
+  ButtonGroup,
+  useTheme,
+} from '@mui/material';
 import { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import { getSpanIcon, getSpanColor } from '@/utils/span-icon-mapper';
 import { formatDuration } from '@/utils/format-duration';
@@ -10,6 +17,8 @@ interface SpanSequenceViewProps {
   spans: SpanNode[];
   selectedSpan: SpanNode | null;
   onSpanSelect: (span: SpanNode) => void;
+  isConversationTrace?: boolean;
+  rootSpans?: SpanNode[];
 }
 
 interface FlattenedSpan {
@@ -177,8 +186,29 @@ export default function SpanSequenceView({
   spans,
   selectedSpan,
   onSpanSelect,
+  isConversationTrace,
+  rootSpans,
 }: SpanSequenceViewProps) {
   const theme = useTheme();
+  const [activeTurn, setActiveTurn] = useState<number | null>(null);
+
+  const effectiveSpans = useMemo(() => {
+    if (
+      activeTurn === null ||
+      !isConversationTrace ||
+      !rootSpans ||
+      rootSpans.length <= 1
+    ) {
+      return spans;
+    }
+    if (activeTurn >= 0 && activeTurn < rootSpans.length) {
+      return [rootSpans[activeTurn]];
+    }
+    return spans;
+  }, [spans, activeTurn, isConversationTrace, rootSpans]);
+
+  const showTurnNavigation =
+    isConversationTrace && rootSpans && rootSpans.length > 1;
 
   // Layout constants derived from theme spacing
   const PARTICIPANT_WIDTH = Number(theme.spacing(19).replace('px', '')); // ~150px
@@ -216,7 +246,7 @@ export default function SpanSequenceView({
   // Flatten and process spans
   const { flattenedSpans, participants, sequenceEvents, timelineStart } =
     useMemo(() => {
-      const flattened = flattenSpans(spans);
+      const flattened = flattenSpans(effectiveSpans);
       const parts = extractParticipants(flattened);
       const events = generateSequenceEvents(flattened);
 
@@ -236,7 +266,7 @@ export default function SpanSequenceView({
         sequenceEvents: events,
         timelineStart: start,
       };
-    }, [spans]);
+    }, [effectiveSpans]);
 
   // Calculate total width needed
   const totalWidth = Math.max(
@@ -284,6 +314,38 @@ export default function SpanSequenceView({
         backgroundColor: theme.palette.background.default,
       }}
     >
+      {showTurnNavigation && (
+        <Box
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: theme.zIndex.appBar + 1,
+            display: 'flex',
+            justifyContent: 'center',
+            py: 1,
+            backgroundColor: theme.palette.background.default,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => setActiveTurn(null)}
+              variant={activeTurn === null ? 'contained' : 'outlined'}
+            >
+              All
+            </Button>
+            {rootSpans!.map((_, i) => (
+              <Button
+                key={i}
+                onClick={() => setActiveTurn(i)}
+                variant={activeTurn === i ? 'contained' : 'outlined'}
+              >
+                Turn {i + 1}
+              </Button>
+            ))}
+          </ButtonGroup>
+        </Box>
+      )}
       <Box
         sx={{
           minWidth: totalWidth,

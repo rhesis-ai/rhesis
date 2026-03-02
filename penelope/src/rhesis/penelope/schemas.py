@@ -125,24 +125,20 @@ class SendMessageParams(BaseModel):
         """
         Get the first non-None, non-empty conversation field and its value.
 
+        Delegates to conversation.py for consistent field priority ordering.
+
         Returns:
             Tuple of (field_name, field_value) or (None, None) if no conversation field is set
         """
-        conversation_fields = [
-            ("conversation_id", self.conversation_id),
-            ("session_id", self.session_id),
-            ("thread_id", self.thread_id),
-            ("chat_id", self.chat_id),
-            ("dialog_id", self.dialog_id),
-            ("dialogue_id", self.dialogue_id),
-            ("context_id", self.context_id),
-            ("interaction_id", self.interaction_id),
-        ]
+        from rhesis.penelope.conversation import (
+            extract_conversation_id,
+            get_conversation_field_name,
+        )
 
-        for field_name, field_value in conversation_fields:
-            if field_value is not None and field_value != "":
-                return field_name, field_value
-
+        data = self.model_dump(exclude={"message"}, exclude_none=True)
+        field_name = get_conversation_field_name(data)
+        if field_name is not None:
+            return field_name, extract_conversation_id(data)
         return None, None
 
 

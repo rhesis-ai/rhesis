@@ -27,6 +27,8 @@ TARGET_FIELDS = [
     "instructions",
     "restrictions",
     "scenario",
+    "min_turns",
+    "max_turns",
     "metadata",
 ]
 
@@ -118,6 +120,18 @@ _ALIASES: Dict[str, List[str]] = {
         "situation",
         "setting",
         "test_scenario",
+    ],
+    "min_turns": [
+        "min_turns",
+        "min turns",
+        "minimum_turns",
+        "minimum turns",
+    ],
+    "max_turns": [
+        "max_turns",
+        "max turns",
+        "maximum_turns",
+        "maximum turns",
     ],
     "metadata": [
         "metadata",
@@ -212,7 +226,8 @@ class ImportMappingOutput(BaseModel):
             "Map from source column name to target field name. "
             "Target fields: category, topic, behavior, "
             "prompt_content, expected_response, language_code, "
-            "test_type, test_configuration, goal, instructions, restrictions, scenario, metadata"
+            "test_type, test_configuration, goal, instructions, "
+            "restrictions, scenario, min_turns, max_turns, metadata"
         )
     )
     confidence: float = Field(

@@ -26,6 +26,7 @@ import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import { pollForTestRun } from '@/utils/test-run-utils';
+import { getApiErrorMessage } from '@/utils/error-utils';
 
 interface TestRunDrawerProps {
   open: boolean;
@@ -272,14 +273,14 @@ export default function TestRunDrawer({
       }
 
       // Show success notification
-      notifications.show('Test execution started successfully', {
+      notifications.show('Test execution queued successfully', {
         severity: 'success',
       });
 
       onSuccess?.();
       onClose();
-    } catch (_err) {
-      setError('Failed to execute test run');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Failed to execute test run'));
     } finally {
       setLoading(false);
     }

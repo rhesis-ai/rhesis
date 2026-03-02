@@ -7,7 +7,9 @@ terraform {
       version = "~> 6.0"
     }
   }
-  backend "local" {}
+  backend "gcs" {
+    prefix = "terraform/infrastructure/envs/dev"
+  }
 }
 
 provider "google" {
@@ -21,11 +23,32 @@ module "dev" {
   project_id         = var.project_id
   environment        = "dev"
   region             = var.region
-  network_cidr       = "10.2.0.0/15"
+  network_cidr       = local.cidrs.dev.network
   create_gke_subnets = true
-  node_cidr         = "10.2.0.0/23"
-  ilb_cidr          = "10.2.2.0/23"
-  master_cidr       = "10.2.4.0/28"
-  pod_cidr          = "10.3.0.0/17"
-  service_cidr      = "10.3.128.0/17"
+  node_cidr          = local.cidrs.dev.nodes
+  ilb_cidr           = local.cidrs.dev.ilb
+  master_cidr        = local.cidrs.dev.master
+  pod_cidr           = local.cidrs.dev.pods
+  service_cidr       = local.cidrs.dev.services
+}
+
+module "gke_dev" {
+  source = "../../modules/kubernetes/gcp"
+
+  project_id             = var.project_id
+  environment            = "dev"
+  region                 = var.region
+  vpc_name               = module.dev.vpc_name
+  nodes_subnet_self_link = module.dev.subnet_self_links["nodes"]
+  master_cidr            = local.cidrs.dev.master
+  node_cidr              = local.cidrs.dev.nodes
+  pod_cidr               = local.cidrs.dev.pods
+  service_cidr           = local.cidrs.dev.services
+  wireguard_cidr         = local.cidrs.wireguard.network
+  machine_type           = "e2-medium"
+  min_node_count         = 1
+  max_node_count         = 2
+  deletion_protection    = false
+
+  depends_on = [module.dev]
 }

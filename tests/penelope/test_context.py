@@ -282,7 +282,7 @@ def test_execution_status_enum_values():
     assert ExecutionStatus.FAILURE == "failure"
     assert ExecutionStatus.ERROR == "error"
     assert ExecutionStatus.TIMEOUT == "timeout"
-    assert ExecutionStatus.MAX_ITERATIONS == "max_iterations"
+    assert ExecutionStatus.MAX_TURNS == "max_turns"
 
 
 def test_test_context_with_restrictions():

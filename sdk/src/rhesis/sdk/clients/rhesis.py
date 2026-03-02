@@ -1,3 +1,4 @@
+import asyncio
 import os
 from typing import Optional, Union
 
@@ -73,6 +74,10 @@ class DisabledClient:
     def environment(self) -> str:
         """Return empty string for environment property."""
         return ""
+
+    def connect(self) -> None:
+        """No-op when connector is disabled; returns immediately."""
+        return
 
 
 class RhesisClient:
@@ -287,3 +292,51 @@ class RhesisClient:
         """
         connector = self._ensure_connector()  # Lazy init
         connector.register_function(name, func, metadata)
+
+    async def _run_async(self) -> None:
+        """
+        Run the connector (WebSocket) and block until shutdown.
+
+        Ensures the connector is initialized and the connection task is started,
+        then waits indefinitely. On cancellation or interrupt, shuts down cleanly.
+        """
+        self._ensure_connector()
+        _green = "\033[92m"
+        _dim = "\033[2m"
+        _reset = "\033[0m"
+        print(f"{_green}Connector running.{_reset} {_dim}Press Ctrl+C to stop.{_reset}")
+        self._connector_manager._ensure_connection()
+        shutdown_event = asyncio.Event()
+        try:
+            await shutdown_event.wait()
+        except asyncio.CancelledError:
+            pass
+        finally:
+            await self._connector_manager.shutdown()
+
+    def connect(self) -> None:
+        """
+        Block until interrupted (e.g. Ctrl+C); run the connector and receive
+        execute-test messages over WebSocket.
+
+        For sync scripts that only define endpoints and do not run a web server.
+        Raises RuntimeError if called from a context that already has a running
+        event loop (e.g. Jupyter); use an async entry point or run the connector
+        as a task in that loop instead.
+        """
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop: safe to call asyncio.run()
+            pass
+        else:
+            raise RuntimeError(
+                "connect() is for sync scripts only. You already have a "
+                "running event loop; run the connector as a task in that loop "
+                "or use an async entry point instead."
+            )
+        try:
+            asyncio.run(self._run_async())
+        except KeyboardInterrupt:
+            print("Stopped.")
+            return

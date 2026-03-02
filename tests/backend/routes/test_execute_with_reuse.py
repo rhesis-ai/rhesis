@@ -402,7 +402,7 @@ class TestExecuteWithReuse:
         # Mock the task launcher to return a fake result
         mock_task_result = MagicMock()
         mock_task_result.id = str(uuid.uuid4())
-        mock_submit.return_value = mock_task_result
+        mock_submit.return_value = (mock_task_result, str(uuid.uuid4()))
 
         # Build a mock user
         user = MagicMock()
@@ -447,7 +447,7 @@ class TestExecuteWithReuse:
         is_rescore."""
         mock_task_result = MagicMock()
         mock_task_result.id = str(uuid.uuid4())
-        mock_submit.return_value = mock_task_result
+        mock_submit.return_value = (mock_task_result, str(uuid.uuid4()))
 
         user = MagicMock()
         user.id = uuid.UUID(authenticated_user_id)

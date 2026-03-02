@@ -82,7 +82,6 @@ class TestTag(Base):
 # Test schemas
 class TestBase(Base):
     prompt_id: Optional[UUID4] = None  # Optional for Multi-Turn tests
-    test_set_id: Optional[UUID4] = None
     test_type_id: Optional[UUID4] = None
     priority: Optional[int] = None
     user_id: Optional[UUID4] = None
@@ -99,7 +98,21 @@ class TestBase(Base):
     test_metadata: Optional[Dict[str, Any]] = None
 
 
+class TestPromptCreate(BaseModel):
+    content: str
+    language_code: str = "en"
+    demographic: Optional[str] = None
+    dimension: Optional[str] = None
+    expected_response: Optional[str] = None
+
+
 class TestCreate(TestBase):
+    category: Optional[str] = None
+    topic: Optional[str] = None
+    behavior: Optional[str] = None
+    prompt: Optional[TestPromptCreate] = None
+    test_type: Optional[str] = None
+
     @field_validator("test_configuration")
     @classmethod
     def validate_test_configuration(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -134,6 +147,11 @@ class TestCreate(TestBase):
 
 class TestUpdate(TestBase):
     prompt_id: Optional[UUID4] = None
+    category: Optional[str] = None
+    topic: Optional[str] = None
+    behavior: Optional[str] = None
+    prompt: Optional[TestPromptCreate] = None
+    test_type: Optional[str] = None
 
     @field_validator("test_configuration")
     @classmethod
@@ -193,14 +211,6 @@ class TestDetail(Test):
 
 
 # Bulk creation models
-class TestPromptCreate(BaseModel):
-    content: str
-    language_code: str = "en"
-    demographic: Optional[str] = None
-    dimension: Optional[str] = None
-    expected_response: Optional[str] = None
-
-
 class TestBulkCreate(BaseModel):
     prompt: Optional[TestPromptCreate] = None  # Optional for Multi-Turn tests
     behavior: str

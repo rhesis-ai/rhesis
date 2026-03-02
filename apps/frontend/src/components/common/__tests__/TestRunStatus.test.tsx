@@ -28,6 +28,11 @@ describe('getTestRunStatusColor', () => {
     expect(getTestRunStatusColor('Progress')).toBe('info');
   });
 
+  it('returns "default" for queued', () => {
+    expect(getTestRunStatusColor('queued')).toBe('default');
+    expect(getTestRunStatusColor('Queued')).toBe('default');
+  });
+
   it('returns "default" for unknown status', () => {
     expect(getTestRunStatusColor('unknown')).toBe('default');
     expect(getTestRunStatusColor('cancelled')).toBe('default');
@@ -70,6 +75,14 @@ describe('getTestRunStatusIcon', () => {
     const { container } = render(<>{icon}</>);
     expect(
       container.querySelector('[data-testid="PlayCircleOutlineIcon"]')
+    ).toBeInTheDocument();
+  });
+
+  it('renders HourglassEmptyIcon for queued', () => {
+    const icon = getTestRunStatusIcon('queued');
+    const { container } = render(<>{icon}</>);
+    expect(
+      container.querySelector('[data-testid="HourglassEmptyIcon"]')
     ).toBeInTheDocument();
   });
 

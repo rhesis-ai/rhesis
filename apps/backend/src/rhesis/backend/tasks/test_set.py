@@ -139,10 +139,21 @@ def _save_test_set_to_database(
 
         converted_tests.append(TestData(**test_dict))
 
+    # Determine test_set_type string for schema validation
+    from rhesis.backend.app.constants import TestType as BackendTestType
+
+    if test_set.test_set_type:
+        test_set_type_str = BackendTestType.get_value(
+            BackendTestType.from_string(test_set.test_set_type)
+        )
+    else:
+        test_set_type_str = BackendTestType.SINGLE_TURN.value
+
     test_set_data = {
         "name": custom_name if custom_name else test_set.name,
         "description": test_set.description,
         "short_description": test_set.short_description,
+        "test_set_type": test_set_type_str,
         "metadata": test_set.metadata,
         "tests": converted_tests,
     }
@@ -301,11 +312,20 @@ def generate_and_save_test_set(
     try:
         # Generate test set
         self.update_state(state="PROGRESS", meta={"status": f"Generating {num_tests} tests"})
+        self.log_with_context(
+            "info",
+            "Creating synthesizer",
+            test_type=test_type,
+            batch_size=batch_size,
+            num_tests=num_tests,
+            has_sources=bool(source_specifications),
+            num_sources=len(source_specifications),
+        )
 
         # Create synthesizer with full config
         if test_type == "single_turn":
             synthesizer = ConfigSynthesizer(
-                config=generation_config,  # ✅ Full config including all fields
+                config=generation_config,  # Full config including all fields
                 batch_size=batch_size,
                 model=model,
                 sources=source_specifications if source_specifications else None,
@@ -316,13 +336,26 @@ def generate_and_save_test_set(
                 model=model,
             )
 
+        self.log_with_context(
+            "info",
+            "Starting synthesizer.generate() - this may take a while for large test counts",
+            num_tests=num_tests,
+            batch_size=batch_size,
+            estimated_batches=(num_tests + batch_size - 1) // batch_size,
+        )
+
+        import time
+
+        gen_start = time.time()
         test_set = synthesizer.generate(num_tests=num_tests)
+        gen_elapsed = time.time() - gen_start
 
         self.log_with_context(
             "info",
             "Test set generated",
             actual_tests_generated=len(test_set.tests),
             requested_tests=num_tests,
+            generation_time_seconds=round(gen_elapsed, 1),
         )
 
         # Note: Source IDs are already embedded in test metadata via SourceSpecification

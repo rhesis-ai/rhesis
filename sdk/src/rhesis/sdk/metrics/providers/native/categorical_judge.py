@@ -32,6 +32,7 @@ class CategoricalJudge(JudgeBase):
         requires_ground_truth: bool = True,
         requires_context: bool = False,
         metric_scope: Optional[List[Union[str, "MetricScope"]]] = None,
+        id: Optional[str] = None,
     ):
         # Set default metric_scope to both Single-Turn and Multi-Turn if not provided
         if metric_scope is None:
@@ -82,6 +83,7 @@ class CategoricalJudge(JudgeBase):
             requires_context=requires_context,
             metric_scope=metric_scope,
             class_name=self.__class__.__name__,
+            id=id,
         )
 
         super().__init__(config=self.config, model=model)

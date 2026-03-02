@@ -3,6 +3,7 @@
 import pytest
 
 from rhesis.sdk.metrics.providers.native.categorical_judge import CategoricalJudge
+from rhesis.sdk.metrics.providers.native.conversational_judge import ConversationalJudge
 from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
 from rhesis.sdk.metrics.providers.native.goal_achievement_judge import GoalAchievementJudge
 from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
@@ -21,9 +22,10 @@ class TestFactoryListMetrics:
         """Test that factory lists all supported metrics."""
         metrics = factory.list_supported_metrics()
         assert isinstance(metrics, list)
-        assert len(metrics) == 3
+        assert len(metrics) == 4
         assert "NumericJudge" in metrics
         assert "CategoricalJudge" in metrics
+        assert "ConversationalJudge" in metrics
         assert "GoalAchievementJudge" in metrics
 
 
@@ -186,6 +188,45 @@ class TestFactoryCreateCategoricalJudge:
             )
 
 
+class TestFactoryCreateConversationalJudge:
+    """Tests for creating ConversationalJudge instances."""
+
+    def test_create_conversational_judge_minimal(self, factory):
+        """Test creating ConversationalJudge with minimal parameters."""
+        metric = factory.create(
+            "ConversationalJudge",
+            model="gemini",
+        )
+        assert isinstance(metric, ConversationalJudge)
+        assert metric.name == "conversationaljudge"
+        assert metric.min_score == 0.0
+        assert metric.max_score == 1.0
+        assert metric.threshold == 0.5
+
+    def test_create_conversational_judge_with_custom_params(self, factory):
+        """Test creating ConversationalJudge with custom parameters."""
+        metric = factory.create(
+            "ConversationalJudge",
+            evaluation_prompt="Custom prompt",
+            min_score=0.0,
+            max_score=5.0,
+            threshold=3.0,
+            name="custom_conv_judge",
+            description="Custom conversational judge",
+            model="gemini",
+        )
+        assert isinstance(metric, ConversationalJudge)
+        assert metric.name == "custom_conv_judge"
+        assert metric.min_score == 0.0
+        assert metric.max_score == 5.0
+        assert metric.threshold == 3.0
+
+    def test_create_conversational_judge_no_required_params(self, factory):
+        """Test that ConversationalJudge has no required params besides model."""
+        metric = factory.create("ConversationalJudge", model="gemini")
+        assert isinstance(metric, ConversationalJudge)
+
+
 class TestFactoryCreateGoalAchievementJudge:
     """Tests for creating GoalAchievementJudge instances."""
 
@@ -243,6 +284,7 @@ class TestFactoryErrorHandling:
             error_msg = str(e)
             assert "NumericJudge" in error_msg
             assert "CategoricalJudge" in error_msg
+            assert "ConversationalJudge" in error_msg
             assert "GoalAchievementJudge" in error_msg
 
 
@@ -335,6 +377,13 @@ class TestFactoryIntegration:
         )
         assert isinstance(categorical, CategoricalJudge)
 
+        # Create ConversationalJudge
+        conversational = factory.create(
+            "ConversationalJudge",
+            model="gemini",
+        )
+        assert isinstance(conversational, ConversationalJudge)
+
         # Create GoalAchievementJudge
         goal = factory.create(
             "GoalAchievementJudge",
@@ -344,7 +393,8 @@ class TestFactoryIntegration:
 
         # All should be different instances
         assert numeric != categorical
-        assert categorical != goal
+        assert categorical != conversational
+        assert conversational != goal
         assert numeric != goal
 
     def test_factory_instances_are_independent(self, factory):

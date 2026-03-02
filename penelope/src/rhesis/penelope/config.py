@@ -6,6 +6,7 @@ environment variables or programmatically.
 """
 
 import logging
+import math
 import os
 from typing import Optional
 
@@ -28,34 +29,37 @@ class PenelopeConfig:
         - PENELOPE_LOG_LEVEL: Set log level (default: INFO)
         - PENELOPE_DEFAULT_MODEL: Set model provider (default: vertex_ai)
         - PENELOPE_DEFAULT_MODEL_NAME: Set model name (default: gemini-2.0-flash)
-        - PENELOPE_DEFAULT_MAX_ITERATIONS: Set max iterations (default: 10)
+        - PENELOPE_DEFAULT_MAX_TURNS: Set max iterations (default: 10)
 
     Example:
         # Via environment variable
         export PENELOPE_LOG_LEVEL=DEBUG
         export PENELOPE_DEFAULT_MODEL=anthropic
         export PENELOPE_DEFAULT_MODEL_NAME=claude-4
-        export PENELOPE_DEFAULT_MAX_ITERATIONS=30
+        export PENELOPE_DEFAULT_MAX_TURNS=30
 
         # Via code
         from rhesis.penelope import PenelopeConfig
         PenelopeConfig.set_log_level("DEBUG")
         PenelopeConfig.set_default_model("anthropic", "claude-4")
-        PenelopeConfig.set_default_max_iterations(30)
+        PenelopeConfig.set_default_max_turns(30)
     """
 
     # Configuration constants
-    DEFAULT_MAX_ITERATIONS = 10
+    DEFAULT_MAX_TURNS = 10
     DEFAULT_CONTEXT_WINDOW_MESSAGES = 10  # Last N messages for context
     DEFAULT_MODEL_PROVIDER = "rhesis"
     DEFAULT_MODEL_NAME = "default"
-    DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER = 5  # 5x max_iterations
+    DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER = 5  # 5x max_turns
+    DEFAULT_EARLY_STOP_THRESHOLD = 0.8  # Fraction of max_turns before early stop
+    DEFAULT_IMPOSSIBLE_SCORE_THRESHOLD = 0.3  # Score below which goal is impossible
+    DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD = 0.7  # Score above which goal is achieved
 
     # Default values
     _log_level: Optional[str] = None
     _default_model: Optional[str] = None
     _default_model_name: Optional[str] = None
-    _default_max_iterations: Optional[int] = None
+    _default_max_turns: Optional[int] = None
     _initialized: bool = False
 
     @classmethod
@@ -113,54 +117,103 @@ class PenelopeConfig:
         return os.getenv("PENELOPE_DEFAULT_MODEL_NAME", cls.DEFAULT_MODEL_NAME)
 
     @classmethod
-    def get_default_max_iterations(cls) -> int:
+    def get_default_max_turns(cls) -> int:
         """
         Get the default max iterations for Penelope.
 
         Checks (in order):
         1. Programmatically set value
-        2. PENELOPE_DEFAULT_MAX_ITERATIONS env var
+        2. PENELOPE_DEFAULT_MAX_TURNS env var
         3. Default: 10
 
         Returns:
             Maximum number of iterations before stopping
         """
-        if cls._default_max_iterations is not None:
-            return cls._default_max_iterations
+        if cls._default_max_turns is not None:
+            return cls._default_max_turns
 
-        env_value = os.getenv("PENELOPE_DEFAULT_MAX_ITERATIONS")
-        if env_value is not None:
-            try:
-                return int(env_value)
-            except ValueError:
-                # Invalid value in env var, use default
-                return cls.DEFAULT_MAX_ITERATIONS
-
-        return cls.DEFAULT_MAX_ITERATIONS
+        return cls._parse_env("PENELOPE_DEFAULT_MAX_TURNS", cls.DEFAULT_MAX_TURNS, int, min_val=1)
 
     @classmethod
     def get_max_tool_executions_multiplier(cls) -> int:
         """
-        Get multiplier for calculating max_tool_executions from max_iterations.
+        Get multiplier for calculating max_tool_executions from max_turns.
 
-        This multiplier is used to set a proportional limit on total tool executions
-        to prevent infinite loops. For example, with max_iterations=10 and multiplier=5,
-        the max_tool_executions would be 50.
-
-        Checks (in order):
-        1. PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER env var
-        2. Default: 5
-
-        Returns:
-            Multiplier for calculating max tool executions
+        Environment variable: PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER
+        Default: 5
         """
-        env_value = os.getenv("PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER")
-        if env_value is not None:
-            try:
-                return int(env_value)
-            except ValueError:
-                return cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER
-        return cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER
+        return cls._parse_env(
+            "PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER",
+            cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER,
+            int,
+            min_val=1,
+        )
+
+    @staticmethod
+    def _parse_env(env_var, default, type_fn, min_val=None, max_val=None):
+        """Parse a typed env var, falling back to default if absent, invalid, or out of range."""
+        env_value = os.getenv(env_var)
+        if env_value is None:
+            return default
+        try:
+            value = type_fn(env_value)
+        except (ValueError, TypeError):
+            return default
+        if isinstance(value, float) and not math.isfinite(value):
+            return default
+        if min_val is not None and value < min_val:
+            return default
+        if max_val is not None and value > max_val:
+            return default
+        return value
+
+    @classmethod
+    def get_early_stop_threshold(cls) -> float:
+        """
+        Fraction of max_turns before early stopping is allowed.
+
+        Environment variable: PENELOPE_EARLY_STOP_THRESHOLD
+        Default: 0.8
+        """
+        return cls._parse_env(
+            "PENELOPE_EARLY_STOP_THRESHOLD",
+            cls.DEFAULT_EARLY_STOP_THRESHOLD,
+            float,
+            min_val=0.0,
+            max_val=1.0,
+        )
+
+    @classmethod
+    def get_impossible_score_threshold(cls) -> float:
+        """
+        Score below which the goal is considered impossible.
+
+        Environment variable: PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD
+        Default: 0.3
+        """
+        return cls._parse_env(
+            "PENELOPE_IMPOSSIBLE_SCORE_THRESHOLD",
+            cls.DEFAULT_IMPOSSIBLE_SCORE_THRESHOLD,
+            float,
+            min_val=0.0,
+            max_val=1.0,
+        )
+
+    @classmethod
+    def get_goal_achievement_threshold(cls) -> float:
+        """
+        Score above which the goal is considered achieved.
+
+        Environment variable: PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD
+        Default: 0.7
+        """
+        return cls._parse_env(
+            "PENELOPE_GOAL_ACHIEVEMENT_THRESHOLD",
+            cls.DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
+            float,
+            min_val=0.0,
+            max_val=1.0,
+        )
 
     @classmethod
     def set_log_level(cls, level: str):
@@ -193,22 +246,22 @@ class PenelopeConfig:
         cls._default_model_name = model_name
 
     @classmethod
-    def set_default_max_iterations(cls, max_iterations: int):
+    def set_default_max_turns(cls, max_turns: int):
         """
         Programmatically set the default max iterations.
 
         Args:
-            max_iterations: Maximum number of turns before stopping (must be positive)
+            max_turns: Maximum number of turns before stopping (must be positive)
 
         Raises:
-            ValueError: If max_iterations is not positive
+            ValueError: If max_turns is not positive
 
         Example:
-            >>> PenelopeConfig.set_default_max_iterations(30)
+            >>> PenelopeConfig.set_default_max_turns(30)
         """
-        if max_iterations <= 0:
-            raise ValueError("max_iterations must be positive")
-        cls._default_max_iterations = max_iterations
+        if max_turns <= 0:
+            raise ValueError("max_turns must be positive")
+        cls._default_max_turns = max_turns
 
     @classmethod
     def initialize(cls):
@@ -287,7 +340,7 @@ class PenelopeConfig:
         cls._log_level = None
         cls._default_model = None
         cls._default_model_name = None
-        cls._default_max_iterations = None
+        cls._default_max_turns = None
         cls._initialized = False
 
 

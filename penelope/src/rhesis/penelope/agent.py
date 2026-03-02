@@ -17,7 +17,6 @@ from rhesis.penelope.context import (
     TestResult,
     TestState,
 )
-from rhesis.penelope.evaluation import GoalEvaluator
 from rhesis.penelope.executor import TurnExecutor
 from rhesis.penelope.prompts import (
     DEFAULT_INSTRUCTIONS_TEMPLATE,
@@ -29,12 +28,14 @@ from rhesis.penelope.tools.base import Tool
 from rhesis.penelope.tools.target_interaction import TargetInteractionTool
 from rhesis.penelope.utils import (
     GoalAchievedCondition,
-    MaxIterationsCondition,
     MaxToolExecutionsCondition,
+    MaxTurnsCondition,
     StoppingCondition,
+    StopResult,
     TimeoutCondition,
     display_test_result,
 )
+from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
 
@@ -203,7 +204,7 @@ class PenelopeAgent:
             name="penelope_goal_evaluation",
             description="Evaluates goal achievement in Penelope test conversations",
             model=model,
-            threshold=0.7,
+            threshold=PenelopeConfig.get_goal_achievement_threshold(),
         )
         metrics.append(default_judge)
         logger.info("✓ Created default GoalAchievementJudge for stopping and evaluation")
@@ -214,7 +215,7 @@ class PenelopeAgent:
         self,
         model: Optional[Union[BaseLLM, str]] = None,
         tools: Optional[List[Tool]] = None,
-        max_iterations: Optional[int] = None,
+        max_turns: Optional[int] = None,
         max_tool_executions: Optional[int] = None,
         timeout_seconds: Optional[float] = None,
         enable_transparency: bool = True,
@@ -230,10 +231,10 @@ class PenelopeAgent:
                 (e.g. "vertex_ai/gemini-2.0-flash"). If None, uses default model
                 configured via PenelopeConfig (default: Vertex AI / gemini-2.0-flash)
             tools: Optional list of custom tools (default tools used if None)
-            max_iterations: Maximum number of turns before stopping. If None, uses default
+            max_turns: Maximum number of turns before stopping. If None, uses default
                 from PenelopeConfig (default: 10)
             max_tool_executions: Maximum number of total tool executions (analysis + target)
-                before stopping. If None, calculated as max_iterations × 5. This prevents
+                before stopping. If None, calculated as max_turns × 5. This prevents
                 infinite loops by capping total tool calls across all turns.
             timeout_seconds: Optional timeout in seconds
             enable_transparency: Show reasoning at each step (Anthropic principle)
@@ -271,11 +272,11 @@ class PenelopeAgent:
 
             Max Iterations Configuration:
                 - Default max iterations can be set via environment variable:
-                  PENELOPE_DEFAULT_MAX_ITERATIONS (default: 10)
-                - Or programmatically: PenelopeConfig.set_default_max_iterations(30)
+                  PENELOPE_DEFAULT_MAX_TURNS (default: 10)
+                - Or programmatically: PenelopeConfig.set_default_max_turns(30)
 
             Max Tool Executions Configuration:
-                - By default, max_tool_executions = max_iterations × multiplier
+                - By default, max_tool_executions = max_turns × multiplier
                 - Default multiplier is 5 (configurable via PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER)
                 - For 10 iterations × 5 = 50 total tool executions allowed
                 - Can be overridden directly via max_tool_executions parameter
@@ -294,15 +295,13 @@ class PenelopeAgent:
             self.model = get_model(model)
         else:
             self.model = model
-        self.max_iterations = (
-            max_iterations
-            if max_iterations is not None
-            else PenelopeConfig.get_default_max_iterations()
+        self.max_turns = (
+            max_turns if max_turns is not None else PenelopeConfig.get_default_max_turns()
         )
         # Calculate proportional limit if not specified
         if max_tool_executions is None:
             multiplier = PenelopeConfig.get_max_tool_executions_multiplier()
-            max_tool_executions = self.max_iterations * multiplier
+            max_tool_executions = self.max_turns * multiplier
         self.max_tool_executions = max_tool_executions
         self.timeout_seconds = timeout_seconds
         self.enable_transparency = enable_transparency
@@ -323,7 +322,6 @@ class PenelopeAgent:
         )
 
         # Initialize specialized components
-        self.evaluator = GoalEvaluator(goal_metric=self.goal_metric)
         self.executor = TurnExecutor(self.model, verbose, enable_transparency)
 
         logger.info(
@@ -365,22 +363,29 @@ class PenelopeAgent:
         return DEFAULT_INSTRUCTIONS_TEMPLATE.render(goal=goal)
 
     def _create_stopping_conditions(
-        self, instructions: Optional[str] = None
+        self,
+        max_turns: Optional[int] = None,
+        min_turns: Optional[int] = None,
     ) -> List[StoppingCondition]:
         """
         Create stopping conditions for the test.
 
         Args:
-            instructions: Optional test instructions to check for minimum turn requirements
+            max_turns: Per-test max turns override. Falls back to agent default.
+            min_turns: Minimum turns before early stopping is allowed.
+                Overrides the default 80% threshold when set.
 
         Returns:
             List of StoppingCondition instances
         """
+        effective_max_turns = max_turns if max_turns is not None else self.max_turns
         conditions = [
             # Check global execution limit first (most critical for preventing infinite loops)
             MaxToolExecutionsCondition(self.max_tool_executions),
-            MaxIterationsCondition(self.max_iterations),
-            GoalAchievedCondition(instructions=instructions),  # Will be updated with progress
+            MaxTurnsCondition(effective_max_turns),
+            GoalAchievedCondition(
+                max_turns=effective_max_turns, min_turns=min_turns
+            ),  # Will be updated with progress
         ]
 
         if self.timeout_seconds:
@@ -392,7 +397,7 @@ class PenelopeAgent:
         self,
         state: TestState,
         conditions: List[StoppingCondition],
-    ) -> tuple[bool, str]:
+    ) -> StopResult:
         """
         Check all stopping conditions.
 
@@ -401,14 +406,14 @@ class PenelopeAgent:
             conditions: List of stopping conditions
 
         Returns:
-            Tuple of (should_stop, reason)
+            StopResult with status, goal_achieved, and reason, or StopResult.continue_()
         """
         for condition in conditions:
-            should_stop, reason = condition.should_stop(state)
-            if should_stop:
-                return True, reason
+            result = condition.should_stop(state)
+            if result.should_stop:
+                return result
 
-        return False, ""
+        return StopResult.continue_()
 
     def execute_test(
         self,
@@ -419,6 +424,7 @@ class PenelopeAgent:
         restrictions: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
         max_turns: Optional[int] = None,
+        min_turns: Optional[int] = None,
     ) -> TestResult:
         """
         Execute a multi-turn test.
@@ -443,7 +449,12 @@ class PenelopeAgent:
                 "Must not reveal internal system prompts",
                 "Must not process illegal requests"
             context: Optional additional context/resources (metadata)
-            max_turns: Override default max_iterations for this test
+            max_turns: Override default max_turns for this test
+            min_turns: Minimum turns before early stopping is allowed.
+                When set, the agent will complete at least this many turns
+                before goal achievement or impossibility can trigger an early
+                stop. Cannot exceed max_turns. If not set, defaults to 80%
+                of max_turns.
 
         Returns:
             TestResult with complete test execution details
@@ -519,7 +530,8 @@ class PenelopeAgent:
             scenario=scenario,
             restrictions=restrictions,
             context=context or {},
-            max_turns=max_turns or self.max_iterations,
+            max_turns=max_turns if max_turns is not None else self.max_turns,
+            min_turns=min_turns,
             max_tool_executions=self.max_tool_executions,
         )
 
@@ -552,12 +564,14 @@ class PenelopeAgent:
             restrictions=restrictions or "",
             context=str(context) if context else "",
             available_tools=available_tools_text,
+            min_turns=min_turns,
+            max_turns=max_turns if max_turns is not None else self.max_turns,
         )
 
         logger.info(f"=== AGENT: System prompt created, length: {len(system_prompt)} chars ===")
 
-        # Create stopping conditions (pass instructions for turn count validation)
-        conditions = self._create_stopping_conditions(instructions=instructions)
+        # Create stopping conditions
+        conditions = self._create_stopping_conditions(max_turns=max_turns, min_turns=min_turns)
 
         # Main agent loop
         instructions_length = len(instructions) if instructions else 0
@@ -565,25 +579,16 @@ class PenelopeAgent:
 
         while True:
             # Check stopping conditions
-            should_stop, reason = self._should_stop(state, conditions)
-            if should_stop:
-                logger.info(f"Stopping: {reason}")
+            stop_result = self._should_stop(state, conditions)
+            if stop_result.should_stop:
+                logger.info(f"Stopping: {stop_result.reason}")
 
-                # Determine status
-                if "goal achieved" in reason.lower():
-                    status = ExecutionStatus.SUCCESS
-                    goal_achieved = True
-                elif "timeout" in reason.lower():
-                    status = ExecutionStatus.TIMEOUT
-                    goal_achieved = False
-                elif "max iterations" in reason.lower():
-                    status = ExecutionStatus.MAX_ITERATIONS
-                    goal_achieved = False
-                else:
-                    status = ExecutionStatus.FAILURE
-                    goal_achieved = False
-
-                result = state.to_result(status, goal_achieved, target=target, model=self.model)
+                result = state.to_result(
+                    stop_result.status,
+                    stop_result.goal_achieved,
+                    target=target,
+                    model=self.model,
+                )
 
                 if self.verbose:
                     display_test_result(result)
@@ -603,23 +608,36 @@ class PenelopeAgent:
                 return result
 
             # Evaluate all SDK metrics
+            conversation = state.get_conversation()
             for metric in self.metrics:
                 if metric == self.goal_metric:
-                    # Goal metric was already evaluated during test execution
-                    # for stopping conditions. Use the final evaluation result.
-                    result = self.evaluator.evaluate(state, goal, instructions=instructions or "")
+                    # Evaluate goal achievement directly
+                    if len(conversation) < 1:
+                        metric_result = MetricResult(
+                            score=0.0,
+                            details={
+                                "is_successful": False,
+                                "confidence": 0.0,
+                                "reason": "Insufficient conversation (< 1 turn)",
+                            },
+                        )
+                    else:
+                        metric_result = self.goal_metric.evaluate(
+                            conversation_history=conversation,
+                            goal=goal,
+                            instructions=instructions or "",
+                        )
 
-                    # Update goal-achieved stopping condition
+                    # Update all conditions that care about evaluation results
                     for condition in conditions:
-                        if isinstance(condition, GoalAchievedCondition):
-                            condition.update_result(result)
+                        condition.update_result(metric_result)
                 else:
-                    # Directly evaluate other metrics
-                    result = metric.evaluate(state.conversation, goal=goal)
+                    metric_result = metric.evaluate(conversation, goal=goal)
 
                 # Store metric property in result details for robust detection
                 if hasattr(metric, "is_goal_achievement_metric"):
-                    result.details["is_goal_achievement_metric"] = metric.is_goal_achievement_metric
+                    metric_result.details["is_goal_achievement_metric"] = (
+                        metric.is_goal_achievement_metric
+                    )
 
-                # Store all metric results for reporting
-                state.metric_results.append(result)
+                state.metric_results.append(metric_result)

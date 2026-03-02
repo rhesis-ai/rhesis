@@ -303,7 +303,7 @@ def main():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=args.verbose,
-        max_iterations=max(args.max_iterations, 20),
+        max_turns=max(args.max_turns, 20),
     )
 
     # Create target

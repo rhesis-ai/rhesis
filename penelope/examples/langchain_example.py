@@ -161,7 +161,7 @@ def example_1_simple_chain():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=True,
-        max_iterations=5,
+        max_turns=5,
     )
 
     # Test the chain
@@ -205,7 +205,7 @@ def example_2_conversational_chain():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=True,
-        max_iterations=8,
+        max_turns=8,
     )
 
     # Test context maintenance
@@ -250,7 +250,7 @@ def example_3_with_restrictions():
     agent = PenelopeAgent(
         enable_transparency=True,
         verbose=True,
-        max_iterations=7,
+        max_turns=7,
     )
 
     # Test with restrictions

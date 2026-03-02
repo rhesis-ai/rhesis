@@ -275,6 +275,9 @@ jobs:
             --from-literal=SQLALCHEMY_DB_HOST="${{ secrets.SQLALCHEMY_DB_HOST || '127.0.0.1' }}" \
             --from-literal=SQLALCHEMY_DB_NAME="${{ secrets.SQLALCHEMY_DB_NAME }}" \
             --from-literal=DB_ENCRYPTION_KEY="${{ secrets.DB_ENCRYPTION_KEY }}" \
+            --from-literal=JWT_SECRET_KEY="${{ secrets.JWT_SECRET_KEY }}" \
+            --from-literal=JWT_ALGORITHM="${{ secrets.JWT_ALGORITHM }}" \
+            --from-literal=JWT_ACCESS_TOKEN_EXPIRE_MINUTES="${{ secrets.JWT_ACCESS_TOKEN_EXPIRE_MINUTES }}" \
             --from-literal=LOG_LEVEL="${{ secrets.LOG_LEVEL }}" \
             --from-literal=CELERY_WORKER_LOGLEVEL="${{ secrets.LOG_LEVEL || 'INFO' }}" \
             --from-literal=CELERY_WORKER_CONCURRENCY="${{ secrets.CELERY_WORKER_CONCURRENCY || '2' }}" \
@@ -303,6 +306,7 @@ jobs:
             --from-literal=STORAGE_SERVICE_ACCOUNT_KEY=${{ secrets.STORAGE_SERVICE_ACCOUNT_KEY }} \
             --from-literal=LOCAL_STORAGE_PATH="${{ secrets.LOCAL_STORAGE_PATH }}" \
             --from-literal=RHESIS_CONNECTOR_DISABLED="${{ secrets.RHESIS_CONNECTOR_DISABLED }}" \
+            --from-literal=DEFAULT_POLYPHEMUS_URL="${{ secrets.DEFAULT_POLYPHEMUS_URL }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
           # Clean up temporary files
@@ -355,8 +359,8 @@ jobs:
 
           # Set environment-specific replica counts
           if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
-            sed -i 's/replicas: 4/replicas: 2/g' deployment.yaml
-            echo "  ✅ Production: Deploying with 2 initial replicas (4 total workers with concurrency=2)"
+            sed -i 's/replicas: 4/replicas: 4/g' deployment.yaml
+            echo "  ✅ Production: Deploying with 4 initial replicas (8 total workers with concurrency=2)"
           elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
             sed -i 's/replicas: 4/replicas: 1/g' deployment.yaml
             echo "  ✅ Staging: Deploying with 1 initial replica (2 total workers with concurrency=2)"
@@ -373,10 +377,10 @@ jobs:
           # Configure HPA based on environment with optimized concurrency=2
           echo "🌍 Configuring for ${{ env.ENV_VALUE }} environment (concurrency=2 optimized)..."
           if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
-            MIN_REPLICAS="2"
-            MAX_REPLICAS="4"
+            MIN_REPLICAS="4"
+            MAX_REPLICAS="8"
             NAMESPACE_NAME="rhesis-worker"
-            echo "  - Production: Min 2, Max 4 replicas (4-8 total workers)"
+            echo "  - Production: Min 4, Max 8 replicas (8-16 total workers)"
           elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
             MIN_REPLICAS="1"
             MAX_REPLICAS="2"
@@ -507,7 +511,7 @@ jobs:
           echo "  ✅ Resource optimization: Applied (4Gi/6Gi memory, 250m CPU)"
           echo "  ✅ Concurrency: Optimized 2 workers per pod (minimal memory usage)"
           if [ "${{ env.ENV_VALUE }}" = "prd" ]; then
-            echo "  ✅ Autoscaling: Enabled with HPA (2-4 pods, 4-8 total workers)"
+            echo "  ✅ Autoscaling: Enabled with HPA (4-8 pods, 8-16 total workers)"
           elif [ "${{ env.ENV_VALUE }}" = "stg" ]; then
             echo "  ✅ Autoscaling: Enabled with HPA (1-2 pods, 2-4 total workers)"
           else

@@ -281,6 +281,10 @@ const getDesignTokens = (mode: PaletteMode) => ({
             '&:hover': {
               backgroundColor: '#50B9E0', // Primary Blue on hover
             },
+            '&.Mui-disabled': {
+              backgroundColor: 'unset',
+              color: 'unset',
+            },
           },
           // Secondary button styling
           '&.MuiButton-containedSecondary': {

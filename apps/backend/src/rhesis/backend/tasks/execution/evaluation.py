@@ -19,6 +19,7 @@ from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.execution.constants import MetricScope
 from rhesis.sdk.metrics import MetricConfig
+from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
 from .response_extractor import extract_response_with_fallback
 
@@ -134,20 +135,23 @@ def evaluate_multi_turn_metrics(
         return {}
 
     # Evaluate each metric on the conversation using the MetricEvaluator
-    # For multi-turn, we reconstruct the conversation as a single prompt/response
-    # pair and evaluate with the standard evaluator pipeline.
-    # This approach reuses the existing evaluator infrastructure.
     metrics_evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
 
-    # Build a prompt/response pair from the conversation for evaluation
+    # Build ConversationHistory from conversation_summary for conversational metrics
+    conversation_summary = stored_output.get("conversation_summary", [])
+    messages = []
     conversation_text = ""
-    for turn in stored_output.get("conversation_summary", []):
+    for turn in conversation_summary:
         penelope_msg = turn.get("penelope_message", "")
         target_resp = turn.get("target_response", "")
         if penelope_msg:
+            messages.append({"role": "user", "content": penelope_msg})
             conversation_text += f"User: {penelope_msg}\n"
         if target_resp:
+            messages.append({"role": "assistant", "content": target_resp})
             conversation_text += f"Assistant: {target_resp}\n"
+
+    conversation_history = ConversationHistory.from_messages(messages) if messages else None
 
     try:
         results = metrics_evaluator.evaluate(
@@ -156,6 +160,7 @@ def evaluate_multi_turn_metrics(
             expected_output="",
             context=[],
             metrics=metric_configs,
+            conversation_history=conversation_history,
         )
     except Exception as e:
         logger.warning(f"Error evaluating multi-turn metrics: {str(e)}")

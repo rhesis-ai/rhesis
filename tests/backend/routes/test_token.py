@@ -297,7 +297,7 @@ class TestTokenRoutes(TokenTestMixin, BaseEntityTests):
 
         # Verify tokens are obfuscated in list view
         for token in tokens:
-            if "token_obfuscated" in token:
+            if token.get("token_obfuscated"):
                 assert "..." in token["token_obfuscated"]
             # Full token value should NOT be in list responses
             assert "token" not in token or "..." in str(token.get("token", ""))

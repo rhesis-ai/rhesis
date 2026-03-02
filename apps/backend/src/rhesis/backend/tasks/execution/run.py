@@ -17,12 +17,17 @@ class TestExecutionError(Exception):
 
 
 def create_test_run(
-    session: Session, test_config: TestConfiguration, task_info: Dict, current_user_id: str = None
+    session: Session,
+    test_config: TestConfiguration,
+    task_info: Dict = None,
+    current_user_id: str = None,
+    initial_status: RunStatus = RunStatus.QUEUED,
 ) -> TestRun:
     """Create a new test run with initial status and metadata."""
-    initial_status = get_or_create_status(
+    task_info = task_info or {}
+    status = get_or_create_status(
         session,
-        RunStatus.PROGRESS.value,
+        initial_status.value,
         "TestRun",
         organization_id=str(test_config.organization_id),
     )
@@ -31,17 +36,36 @@ def create_test_run(
     # Use current_user_id if provided (for re-runs), otherwise fall back to test_config.user_id
     executor_user_id = current_user_id if current_user_id else test_config.user_id
 
+    # Count tests from the test set so the UI can show the total immediately
+    total_tests = 0
+    if test_config.test_set_id:
+        from sqlalchemy import func
+
+        from rhesis.backend.app.models.test_set import test_test_set_association
+
+        total_tests = (
+            session.query(func.count())
+            .select_from(test_test_set_association)
+            .filter(test_test_set_association.c.test_set_id == test_config.test_set_id)
+            .scalar()
+        ) or 0
+
+    attributes = {
+        "configuration_id": str(test_config.id),
+        "task_state": initial_status.value,
+        "total_tests": total_tests,
+    }
+    if task_info.get("id"):
+        attributes["task_id"] = task_info["id"]
+    if initial_status == RunStatus.PROGRESS:
+        attributes["started_at"] = datetime.utcnow().isoformat()
+
     test_run_data = {
         "test_configuration_id": test_config.id,
         "user_id": executor_user_id,
         "organization_id": test_config.organization_id,
-        "status_id": initial_status.id,
-        "attributes": {
-            "started_at": datetime.utcnow().isoformat(),
-            "configuration_id": str(test_config.id),
-            "task_id": task_info.get("id"),
-            "task_state": RunStatus.PROGRESS.value,
-        },
+        "status_id": status.id,
+        "attributes": attributes,
     }
 
     test_run = crud.create_test_run(
@@ -73,6 +97,9 @@ def update_test_run_status(
     # Build update data
     update_data = {"status_id": new_status.id}
 
+    # Guard against nullable attributes
+    test_run.attributes = test_run.attributes or {}
+
     # Update attributes in memory before saving
     if error:
         test_run.attributes["error"] = error
@@ -88,6 +115,8 @@ def update_test_run_status(
             test_run.attributes["task_state"] = RunStatus.PARTIAL.value
         elif status_name == RunStatus.PROGRESS.value:
             test_run.attributes["task_state"] = RunStatus.PROGRESS.value
+        elif status_name == RunStatus.QUEUED.value:
+            test_run.attributes["task_state"] = RunStatus.QUEUED.value
 
         # Update the status attribute consistently
         test_run.attributes["status"] = status_name
@@ -95,10 +124,13 @@ def update_test_run_status(
     # Always update the timestamp
     test_run.attributes["updated_at"] = datetime.utcnow().isoformat()
 
-    # If this is a final status (not Progress), add completed_at if not already present
+    # If this is a final status (not Queued/Progress), add completed_at if not already present
     # This preserves the completed_at set by collect_results while ensuring it gets set
     # if update_test_run_status is called directly
-    if status_name != RunStatus.PROGRESS.value and "completed_at" not in test_run.attributes:
+    if (
+        status_name not in (RunStatus.QUEUED.value, RunStatus.PROGRESS.value)
+        and "completed_at" not in test_run.attributes
+    ):
         test_run.attributes["completed_at"] = datetime.utcnow().isoformat()
 
     update_data["attributes"] = test_run.attributes

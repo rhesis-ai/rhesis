@@ -137,6 +137,10 @@ Once running, access the platform at:
 
 The local setup works out-of-the-box, but to enable test generation, you need an AI provider. Two options:
 
+<Callout type="info">
+By default, the system uses `rhesis/rhesis-default` as the AI model, which requires a `RHESIS_API_KEY`. If you prefer to use your own provider (e.g., OpenAI, Gemini), you must also set `DEFAULT_GENERATION_MODEL` and `DEFAULT_EVALUATION_MODEL` to that provider — otherwise the system will still try to use the Rhesis model and fail.
+</Callout>
+
 **Option 1: Use Rhesis API (Recommended)**
 
 1. Get your API key from https://app.rhesis.ai/
@@ -148,23 +152,27 @@ The local setup works out-of-the-box, but to enable test generation, you need an
 
 **Option 2: Use Your Own AI Provider**
 
-Add your provider's credentials to `.env.docker.local`:
+Add your provider's credentials **and set the default models** to use that provider in `.env.docker.local`:
 
 <CodeBlock filename=".env.docker.local" language="bash">
 {`# Google Gemini
 GEMINI_API_KEY=your-gemini-api-key
-GEMINI_MODEL_NAME=gemini-2.0-flash-001
 GOOGLE_API_KEY=your-google-api-key
+DEFAULT_GENERATION_MODEL=gemini/gemini-2.0-flash-001
+DEFAULT_EVALUATION_MODEL=gemini/gemini-2.0-flash-001
 
 # Or Azure OpenAI
 AZURE_OPENAI_ENDPOINT=your-endpoint
 AZURE_OPENAI_API_KEY=your-key
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
 AZURE_OPENAI_API_VERSION=your-version
+DEFAULT_GENERATION_MODEL=azure/gpt-4o
+DEFAULT_EVALUATION_MODEL=azure/gpt-4o
 
 # Or OpenAI
 OPENAI_API_KEY=your-openai-key
-OPENAI_MODEL_NAME=gpt-4o`}
+DEFAULT_GENERATION_MODEL=openai/gpt-4o
+DEFAULT_EVALUATION_MODEL=openai/gpt-4o`}
 </CodeBlock>
 
 After updating, restart services:

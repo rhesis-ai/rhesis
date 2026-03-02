@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.test import create_test_set_associations
-from rhesis.backend.app.utils.crud_utils import get_or_create_topic
+from rhesis.backend.app.utils.crud_utils import get_or_create_topic, get_or_create_type_lookup
 from rhesis.backend.logging import logger
 from rhesis.sdk.adaptive_testing.schemas import (
     TestTreeData,
@@ -278,10 +278,18 @@ def create_adaptive_test_set(
     attributes = {
         "metadata": {"behaviors": [ADAPTIVE_TESTING_BEHAVIOR]},
     }
+    test_set_type_lookup = get_or_create_type_lookup(
+        db=db,
+        type_name="TestType",
+        type_value="Single-Turn",
+        organization_id=organization_id,
+        user_id=user_id,
+    )
     test_set_data = schemas.TestSetCreate(
         name=name,
         description=description,
         attributes=attributes,
+        test_set_type_id=test_set_type_lookup.id,
     )
     return crud.create_test_set(
         db=db,

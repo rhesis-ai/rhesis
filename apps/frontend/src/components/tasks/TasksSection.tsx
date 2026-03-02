@@ -41,7 +41,7 @@ export function TasksSection({
   currentUserName: _currentUserName,
 }: TasksSectionProps) {
   const router = useRouter();
-  const notifications = useNotifications();
+  const { show: showNotification } = useNotifications();
 
   // Component state
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -52,6 +52,13 @@ export function TasksSection({
     page: 0,
     pageSize: 10,
   });
+
+  // Use a ref for the notification function to avoid including it
+  // as an effect dependency, which could cause re-fetch loops.
+  const showNotificationRef = React.useRef(showNotification);
+  React.useEffect(() => {
+    showNotificationRef.current = showNotification;
+  }, [showNotification]);
 
   // Handle pagination changes
   const handlePaginationModelChange = useCallback(
@@ -106,7 +113,7 @@ export function TasksSection({
           const errorMessage =
             err instanceof Error ? err.message : 'Failed to fetch tasks';
           setError(errorMessage);
-          notifications.show(errorMessage, { severity: 'error' });
+          showNotificationRef.current(errorMessage, { severity: 'error' });
           setLoading(false);
         }
       }
@@ -117,14 +124,7 @@ export function TasksSection({
     return () => {
       abortController.abort();
     };
-  }, [
-    currentPage,
-    currentPageSize,
-    entityType,
-    entityId,
-    sessionToken,
-    notifications,
-  ]);
+  }, [currentPage, currentPageSize, entityType, entityId, sessionToken]);
 
   const _handleDeleteTask = async (taskId: string) => {
     if (onDeleteTask) {

@@ -81,6 +81,11 @@ class BaseLLM(BaseModel):
         super().__init__(model_name, *args, **kwargs)
         self.model = self.load_model(*args, **kwargs)
 
+        # Wrap generate with retry for transient errors and error responses
+        from rhesis.sdk.models.utils import llm_retry
+
+        self.generate = llm_retry(self.generate)
+
     @abstractmethod
     def load_model(self, *args, **kwargs):
         """Loads a model

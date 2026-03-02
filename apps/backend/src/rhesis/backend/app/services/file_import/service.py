@@ -226,19 +226,20 @@ class ImportService:
 
         test_set_name = name or f"Import: {session.filename}"
 
-        payload = {
-            "name": test_set_name,
-            "description": description,
-            "short_description": short_description,
-            "tests": tests_payload,
-        }
-
         # Determine test set type from session
         from rhesis.backend.app.constants import TestType
 
         test_set_type = (
             TestType.MULTI_TURN if session.test_type == "Multi-Turn" else TestType.SINGLE_TURN
         )
+
+        payload = {
+            "name": test_set_name,
+            "description": description,
+            "short_description": short_description,
+            "test_set_type": test_set_type.value,
+            "tests": tests_payload,
+        }
 
         logger.info(
             f"Confirming import {import_id}: {len(tests_payload)} tests ({session.test_type})"
@@ -482,6 +483,12 @@ def _rows_to_test_data(
                 test_config["restrictions"] = row["restrictions"]
             if row.get("scenario"):
                 test_config["scenario"] = row["scenario"]
+            raw_min = row.get("min_turns")
+            if raw_min is not None and str(raw_min).strip():
+                test_config["min_turns"] = int(raw_min)
+            raw_max = row.get("max_turns")
+            if raw_max is not None and str(raw_max).strip():
+                test_config["max_turns"] = int(raw_max)
             if test_config:
                 test["test_configuration"] = test_config
 

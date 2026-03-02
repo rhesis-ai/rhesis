@@ -6,6 +6,7 @@ for different purposes (generation, evaluation, embedding, etc.)
 """
 
 import logging
+import os
 from typing import Union
 
 from sqlalchemy.orm import Session
@@ -124,6 +125,7 @@ def validate_user_evaluation_model(db: Session, user: User) -> None:
             model_id=str(model_id),
             organization_id=str(user.organization_id),
             default_model=DEFAULT_EVALUATION_MODEL,
+            user=user,
         )
         logger.info("[LLM_UTILS] ✓ Evaluation model validation successful")
     except ValueError:
@@ -169,6 +171,7 @@ def validate_user_generation_model(db: Session, user: User) -> None:
             model_id=str(model_id),
             organization_id=str(user.organization_id),
             default_model=DEFAULT_GENERATION_MODEL,
+            user=user,
         )
         logger.info("[LLM_UTILS] ✓ Generation model validation successful")
     except ValueError:
@@ -192,8 +195,57 @@ def _is_rhesis_system_model(provider: str, api_key: str) -> bool:
     return provider == "rhesis" and not api_key
 
 
+def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
+    """
+    Create Polyphemus client with delegation token.
+
+    Uses service delegation tokens to allow the backend to call Polyphemus
+    on behalf of a user while maintaining user attribution.
+
+    Args:
+        user: User on whose behalf the request is made
+        model_name: Polyphemus model name (e.g., "default")
+        **kwargs: Additional arguments to pass to PolyphemusLLM
+
+    Returns:
+        Configured PolyphemusLLM instance
+
+    Raises:
+        ValueError: If user is not active or not verified
+    """
+    from rhesis.backend.app.auth.token_utils import create_service_delegation_token
+    from rhesis.sdk.models.providers.polyphemus import PolyphemusLLM
+
+    # Verify user is active and verified before creating delegation token
+    if not user.is_active:
+        logger.error(f"[LLM_UTILS] Cannot create delegation token: user {user.email} is inactive")
+        raise ValueError("User account is inactive")
+
+    if not user.is_verified:
+        logger.error(
+            f"[LLM_UTILS] Cannot create delegation token: user {user.email} is not verified"
+        )
+        raise ValueError("User account is not verified")
+
+    delegation_token = create_service_delegation_token(user, "polyphemus")
+    polyphemus_url = os.environ.get("DEFAULT_POLYPHEMUS_URL", "https://polyphemus.rhesis.ai")
+
+    logger.info(f"[LLM_UTILS] Creating Polyphemus client with delegation for user: {user.email}")
+
+    return PolyphemusLLM(
+        model_name=model_name,
+        api_key=delegation_token,
+        base_url=polyphemus_url,
+        **kwargs,
+    )
+
+
 def _fetch_and_configure_model(
-    db: Session, model_id: str, organization_id: str, default_model: str
+    db: Session,
+    model_id: str,
+    organization_id: str,
+    default_model: str,
+    user: User = None,
 ) -> Union[str, BaseLLM]:
     """
     Fetch a model from the database and configure it for use.
@@ -234,6 +286,19 @@ def _fetch_and_configure_model(
         )
         logger.info(f"[LLM_UTILS] ✓ Falling back to default model: {default_model}")
         return default_model
+
+    # Special handling for Polyphemus models without API keys (use delegation tokens)
+    if provider == "polyphemus" and not api_key and user:
+        logger.info(
+            "[LLM_UTILS] Polyphemus system model detected - "
+            "using delegation token for authentication"
+        )
+        configured_model = _call_polyphemus_with_delegation(user, model_name)
+        model_type_name = type(configured_model).__name__
+        logger.info(
+            f"[LLM_UTILS] ✓ Returning Polyphemus instance with delegation: {model_type_name}"
+        )
+        return configured_model
 
     # Use SDK's get_model to create configured instance with error handling
     try:
@@ -327,6 +392,7 @@ def _get_user_model(
         model_id=str(model_id),
         organization_id=str(user.organization_id),
         default_model=default_model,
+        user=user,
     )
 
 

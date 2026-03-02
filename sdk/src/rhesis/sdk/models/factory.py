@@ -5,9 +5,10 @@ This module provides a unified way to create model instances with smart
 defaults and comprehensive error handling.
 """
 
+import importlib
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Dict, Literal, Optional, Union, overload
+from typing import Callable, Dict, Literal, NamedTuple, Optional, Union, overload
 
 from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
 from rhesis.sdk.models.defaults import (
@@ -86,54 +87,67 @@ DEFAULT_LANGUAGE_MODEL_PROVIDER = parse_model_id(DEFAULT_LANGUAGE_MODEL)[0]
 DEFAULT_EMBEDDING_MODEL_PROVIDER = parse_model_id(DEFAULT_EMBEDDING_MODEL)[0]
 
 
-# Factory functions for each provider, the are used to create the model instance and
-# avoid circular imports
+# =============================================================================
+# Registry-driven Model Creation
+# =============================================================================
+
+_PROVIDERS_MODULE = "rhesis.sdk.models.providers"
 
 
-def _create_rhesis_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for RhesisLLM."""
-    from rhesis.sdk.models.providers.native import RhesisLLM
+class _ProviderSpec(NamedTuple):
+    """Specification for lazily importing and instantiating a provider class.
 
-    return RhesisLLM(model_name=model_name, api_key=api_key, **kwargs)
+    Flags control which standard arguments are forwarded to the constructor:
+      pass_api_key    -- set False for local-only providers (ollama, huggingface, ...)
+      pass_dimensions -- set False for embedders that ignore the dimensions param
+    """
 
-
-def _create_rhesis_embedding_model(
-    model_name: str, api_key: Optional[str], dimensions: Optional[int], **kwargs
-) -> BaseEmbedder:
-    """Factory function for Rhesis embedding model."""
-    from rhesis.sdk.models.providers.native import RhesisEmbedder
-
-    return RhesisEmbedder(model_name=model_name, api_key=api_key, **kwargs)
+    module: str
+    class_name: str
+    pass_api_key: bool = True
+    pass_dimensions: bool = True
 
 
-def _create_openai_embedding_model(
-    model_name: str, api_key: Optional[str], dimensions: Optional[int], **kwargs
-) -> BaseEmbedder:
-    """Factory function for OpenAI embedding model."""
-    from rhesis.sdk.models.providers.openai import OpenAIEmbedder
+def _create_from_spec(
+    spec: _ProviderSpec,
+    model_type: ModelType,
+    model_name: str,
+    api_key: Optional[str],
+    dimensions: Optional[int] = None,
+    **kwargs,
+) -> Union[BaseLLM, BaseEmbedder]:
+    """Generic model creator that lazily imports and instantiates a provider class."""
+    mod = importlib.import_module(spec.module)
+    cls = getattr(mod, spec.class_name)
 
-    return OpenAIEmbedder(model_name=model_name, api_key=api_key, dimensions=dimensions, **kwargs)
+    call_kwargs: dict = {"model_name": model_name, **kwargs}
+    if spec.pass_api_key:
+        call_kwargs["api_key"] = api_key
+    if model_type == ModelType.EMBEDDING and spec.pass_dimensions:
+        call_kwargs["dimensions"] = dimensions
+
+    return cls(**call_kwargs)
 
 
-def _create_gemini_embedding_model(
-    model_name: str, api_key: Optional[str], dimensions: Optional[int], **kwargs
-) -> BaseEmbedder:
-    """Factory function for Gemini embedding model."""
-    from rhesis.sdk.models.providers.gemini import GeminiEmbedder
+# Vertex AI requires special constructor handling (no api_key, service-account auth)
 
-    return GeminiEmbedder(model_name=model_name, api_key=api_key, dimensions=dimensions, **kwargs)
+
+def _create_vertex_ai_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
+    """Factory wrapper for VertexAILLM (api_key ignored, uses service account)."""
+    from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
+
+    return VertexAILLM(model_name=model_name, **kwargs)
 
 
 def _create_vertex_ai_embedding_model(
-    model_name: str, api_key: Optional[str], dimensions: Optional[int], **kwargs
+    model_name: str,
+    api_key: Optional[str],
+    dimensions: Optional[int],
+    **kwargs,
 ) -> BaseEmbedder:
-    """Factory function for Vertex AI embedding model.
-
-    Note: api_key is ignored for Vertex AI, which uses service account credentials.
-    """
+    """Factory wrapper for VertexAIEmbedder (api_key ignored, uses service account)."""
     from rhesis.sdk.models.providers.vertex_ai import VertexAIEmbedder
 
-    # Extract Vertex AI-specific parameters from kwargs
     credentials = kwargs.pop("credentials", None)
     location = kwargs.pop("location", None)
     project = kwargs.pop("project", None)
@@ -148,182 +162,80 @@ def _create_vertex_ai_embedding_model(
     )
 
 
-def _create_gemini_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for GeminiLLM."""
-    from rhesis.sdk.models.providers.gemini import GeminiLLM
-
-    return GeminiLLM(model_name=model_name, api_key=api_key, **kwargs)
-
-
-def _create_ollama_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for OllamaLLM."""
-    from rhesis.sdk.models.providers.ollama import OllamaLLM
-
-    return OllamaLLM(model_name=model_name, **kwargs)
-
-
-def _create_openai_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for OpenAILLM."""
-    from rhesis.sdk.models.providers.openai import OpenAILLM
-
-    return OpenAILLM(model_name=model_name, api_key=api_key)
-
-
-def _create_vertex_ai_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for VertexAILLM."""
-    from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
-
-    # Note: api_key is ignored for Vertex AI as it uses service account credentials
-    return VertexAILLM(model_name=model_name, **kwargs)
-
-
-def _create_anthropic_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for AnthropicLLM."""
-    from rhesis.sdk.models.providers.anthropic import AnthropicLLM
-
-    return AnthropicLLM(model_name=model_name, api_key=api_key, **kwargs)
-
-
-def _create_cohere_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for CohereLLM."""
-    from rhesis.sdk.models.providers.cohere import CohereLLM
-
-    return CohereLLM(model_name=model_name, api_key=api_key, **kwargs)
-
-
-def _create_groq_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for GroqLLM."""
-    from rhesis.sdk.models.providers.groq import GroqLLM
-
-    return GroqLLM(model_name=model_name, api_key=api_key, **kwargs)
-
-
-def _create_huggingface_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for HuggingFaceLLM."""
-    from rhesis.sdk.models.providers.huggingface import HuggingFaceLLM
-
-    # Note: api_key is ignored for HuggingFace as it uses local models
-    return HuggingFaceLLM(model_name=model_name, **kwargs)
-
-
-def _create_lmformatenforcer_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for LMFormatEnforcerLLM."""
-    from rhesis.sdk.models.providers.lmformatenforcer import LMFormatEnforcerLLM
-
-    # Note: api_key is ignored for LMFormatEnforcer as it uses local models
-    return LMFormatEnforcerLLM(model_name=model_name, **kwargs)
-
-
-def _create_meta_llama_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for MetaLlamaLLM."""
-    from rhesis.sdk.models.providers.meta_llama import MetaLlamaLLM
-
-    return MetaLlamaLLM(model_name=model_name, api_key=api_key, **kwargs)
-
-
-def _create_mistral_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for MistralLLM."""
-    from rhesis.sdk.models.providers.mistral import MistralLLM
-
-    return MistralLLM(model_name=model_name, api_key=api_key, **kwargs)
-
-
-def _create_perplexity_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for PerplexityLLM."""
-    from rhesis.sdk.models.providers.perplexity import PerplexityLLM
-
-    return PerplexityLLM(model_name=model_name, api_key=api_key, **kwargs)
-
-
-def _create_replicate_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for ReplicateLLM."""
-    from rhesis.sdk.models.providers.replicate import ReplicateLLM
-
-    return ReplicateLLM(model_name=model_name, api_key=api_key, **kwargs)
-
-
-def _create_together_ai_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for TogetherAILLM."""
-    from rhesis.sdk.models.providers.together_ai import TogetherAILLM
-
-    return TogetherAILLM(model_name=model_name, api_key=api_key, **kwargs)
-
-
-def _create_openrouter_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for OpenRouterLLM."""
-    from rhesis.sdk.models.providers.openrouter import OpenRouterLLM
-
-    return OpenRouterLLM(model_name=model_name, api_key=api_key, **kwargs)
-
-
-def _create_polyphemus_llm(model_name: str, api_key: Optional[str], **kwargs) -> BaseLLM:
-    """Factory function for PolyphemusLLM."""
-    from rhesis.sdk.models.providers.polyphemus import PolyphemusLLM
-
-    return PolyphemusLLM(model_name=model_name, api_key=api_key, **kwargs)
-
-
 # =============================================================================
 # Unified Model Registry
 # =============================================================================
 
-# Unified registry: provider -> model_type -> factory_func
-UNIFIED_MODEL_REGISTRY: Dict[str, Dict[ModelType, Callable]] = {
+# provider -> model_type -> _ProviderSpec (data) or Callable (special-case wrapper)
+UNIFIED_MODEL_REGISTRY: Dict[str, Dict[ModelType, Union[_ProviderSpec, Callable]]] = {
     "rhesis": {
-        ModelType.LANGUAGE: _create_rhesis_llm,
-        ModelType.EMBEDDING: _create_rhesis_embedding_model,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.native", "RhesisLLM"),
+        ModelType.EMBEDDING: _ProviderSpec(
+            f"{_PROVIDERS_MODULE}.native",
+            "RhesisEmbedder",
+            pass_dimensions=False,
+        ),
     },
     "openai": {
-        ModelType.LANGUAGE: _create_openai_llm,
-        ModelType.EMBEDDING: _create_openai_embedding_model,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.openai", "OpenAILLM"),
+        ModelType.EMBEDDING: _ProviderSpec(f"{_PROVIDERS_MODULE}.openai", "OpenAIEmbedder"),
     },
     "gemini": {
-        ModelType.LANGUAGE: _create_gemini_llm,
-        ModelType.EMBEDDING: _create_gemini_embedding_model,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.gemini", "GeminiLLM"),
+        ModelType.EMBEDDING: _ProviderSpec(f"{_PROVIDERS_MODULE}.gemini", "GeminiEmbedder"),
     },
     "vertex_ai": {
         ModelType.LANGUAGE: _create_vertex_ai_llm,
         ModelType.EMBEDDING: _create_vertex_ai_embedding_model,
     },
-    # Language-only providers
     "anthropic": {
-        ModelType.LANGUAGE: _create_anthropic_llm,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.anthropic", "AnthropicLLM"),
     },
     "cohere": {
-        ModelType.LANGUAGE: _create_cohere_llm,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.cohere", "CohereLLM"),
     },
     "groq": {
-        ModelType.LANGUAGE: _create_groq_llm,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.groq", "GroqLLM"),
     },
     "huggingface": {
-        ModelType.LANGUAGE: _create_huggingface_llm,
+        ModelType.LANGUAGE: _ProviderSpec(
+            f"{_PROVIDERS_MODULE}.huggingface", "HuggingFaceLLM", pass_api_key=False
+        ),
     },
     "lmformatenforcer": {
-        ModelType.LANGUAGE: _create_lmformatenforcer_llm,
+        ModelType.LANGUAGE: _ProviderSpec(
+            f"{_PROVIDERS_MODULE}.lmformatenforcer",
+            "LMFormatEnforcerLLM",
+            pass_api_key=False,
+        ),
     },
     "meta_llama": {
-        ModelType.LANGUAGE: _create_meta_llama_llm,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.meta_llama", "MetaLlamaLLM"),
     },
     "mistral": {
-        ModelType.LANGUAGE: _create_mistral_llm,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.mistral", "MistralLLM"),
     },
     "ollama": {
-        ModelType.LANGUAGE: _create_ollama_llm,
+        ModelType.LANGUAGE: _ProviderSpec(
+            f"{_PROVIDERS_MODULE}.ollama",
+            "OllamaLLM",
+            pass_api_key=False,
+        ),
     },
     "openrouter": {
-        ModelType.LANGUAGE: _create_openrouter_llm,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.openrouter", "OpenRouterLLM"),
     },
     "perplexity": {
-        ModelType.LANGUAGE: _create_perplexity_llm,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.perplexity", "PerplexityLLM"),
     },
     "polyphemus": {
-        ModelType.LANGUAGE: _create_polyphemus_llm,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.polyphemus", "PolyphemusLLM"),
     },
     "replicate": {
-        ModelType.LANGUAGE: _create_replicate_llm,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.replicate", "ReplicateLLM"),
     },
     "together_ai": {
-        ModelType.LANGUAGE: _create_together_ai_llm,
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.together_ai", "TogetherAILLM"),
     },
 }
 
@@ -515,22 +427,24 @@ def get_model(
         available = ", ".join(sorted(UNIFIED_MODEL_REGISTRY.keys()))
         raise ValueError(f"Provider '{provider}' not supported. Available providers: {available}")
 
-    # Look up factory function in unified registry
+    # Look up factory in unified registry
     provider_factories = UNIFIED_MODEL_REGISTRY.get(provider, {})
-    factory_func = provider_factories.get(resolved_type)
+    factory = provider_factories.get(resolved_type)
 
-    if factory_func is None:
+    if factory is None:
         supported_types = [t.value for t in provider_factories.keys()]
         raise ValueError(
             f"Provider '{provider}' does not support model type "
             f"'{resolved_type.value}'. Supported types: {supported_types}"
         )
 
-    # Call factory with appropriate parameters
-    if resolved_type == ModelType.EMBEDDING:
-        return factory_func(model_name, api_key, dimensions, **kwargs)
+    # Dispatch: _ProviderSpec uses generic creator, callables are invoked directly
+    if isinstance(factory, _ProviderSpec):
+        return _create_from_spec(factory, resolved_type, model_name, api_key, dimensions, **kwargs)
+    elif resolved_type == ModelType.EMBEDDING:
+        return factory(model_name, api_key, dimensions, **kwargs)
     else:
-        return factory_func(model_name, api_key, **kwargs)
+        return factory(model_name, api_key, **kwargs)
 
 
 # =============================================================================
@@ -624,6 +538,36 @@ get_embedder = get_embedding_model
 # Helper Functions for Listing Available Models
 # =============================================================================
 
+# Providers that support listing available models, keyed by (module, class_name)
+_LISTABLE_LLM_PROVIDERS: Dict[str, tuple[str, str]] = {
+    "anthropic": (f"{_PROVIDERS_MODULE}.anthropic", "AnthropicLLM"),
+    "cohere": (f"{_PROVIDERS_MODULE}.cohere", "CohereLLM"),
+    "gemini": (f"{_PROVIDERS_MODULE}.gemini", "GeminiLLM"),
+    "groq": (f"{_PROVIDERS_MODULE}.groq", "GroqLLM"),
+    "meta_llama": (f"{_PROVIDERS_MODULE}.meta_llama", "MetaLlamaLLM"),
+    "mistral": (f"{_PROVIDERS_MODULE}.mistral", "MistralLLM"),
+    "ollama": (f"{_PROVIDERS_MODULE}.ollama", "OllamaLLM"),
+    "openai": (f"{_PROVIDERS_MODULE}.openai", "OpenAILLM"),
+    "openrouter": (f"{_PROVIDERS_MODULE}.openrouter", "OpenRouterLLM"),
+    "perplexity": (f"{_PROVIDERS_MODULE}.perplexity", "PerplexityLLM"),
+    "replicate": (f"{_PROVIDERS_MODULE}.replicate", "ReplicateLLM"),
+    "together_ai": (f"{_PROVIDERS_MODULE}.together_ai", "TogetherAILLM"),
+    "vertex_ai": (f"{_PROVIDERS_MODULE}.vertex_ai", "VertexAILLM"),
+}
+
+_LISTABLE_EMBEDDING_PROVIDERS: Dict[str, tuple[str, str]] = {
+    "openai": (f"{_PROVIDERS_MODULE}.openai", "OpenAIEmbedder"),
+    "gemini": (f"{_PROVIDERS_MODULE}.gemini", "GeminiEmbedder"),
+    "vertex_ai": (f"{_PROVIDERS_MODULE}.vertex_ai", "VertexAIEmbedder"),
+}
+
+
+def _list_models(module_path: str, class_name: str) -> list[str]:
+    """Import a provider class and call its get_available_models() class method."""
+    mod = importlib.import_module(module_path)
+    cls = getattr(mod, class_name)
+    return cls.get_available_models()
+
 
 def get_available_language_models(provider: str) -> list[str]:
     """Get the list of available language models for a specific provider.
@@ -659,36 +603,19 @@ def get_available_language_models(provider: str) -> list[str]:
             f"Provider '{provider}' not supported. Available providers: {available_providers}"
         )
 
-    # Check if provider supports language models
     if ModelType.LANGUAGE not in UNIFIED_MODEL_REGISTRY.get(provider, {}):
         raise ValueError(f"Provider '{provider}' does not support language models.")
 
-    # Map of providers that support get_available_models (LiteLLM-based providers)
-    litellm_providers = {
-        "anthropic": _get_anthropic_models,
-        "cohere": _get_cohere_models,
-        "gemini": _get_gemini_models,
-        "groq": _get_groq_models,
-        "meta_llama": _get_meta_llama_models,
-        "mistral": _get_mistral_models,
-        "ollama": _get_ollama_models,
-        "openai": _get_openai_models,
-        "openrouter": _get_openrouter_models,
-        "perplexity": _get_perplexity_models,
-        "replicate": _get_replicate_models,
-        "together_ai": _get_together_ai_models,
-        "vertex_ai": _get_vertex_ai_models,
-    }
-
-    if provider not in litellm_providers:
+    if provider not in _LISTABLE_LLM_PROVIDERS:
         raise ValueError(
-            f"Provider '{provider}' does not support listing available models. "
-            f"Only the following providers support this feature: "
-            f"{', '.join(sorted(litellm_providers.keys()))}"
+            f"Provider '{provider}' does not support listing "
+            f"available models. Only the following providers support "
+            f"this feature: "
+            f"{', '.join(sorted(_LISTABLE_LLM_PROVIDERS.keys()))}"
         )
 
-    # Call the provider-specific function to get models
-    return litellm_providers[provider]()
+    module_path, class_name = _LISTABLE_LLM_PROVIDERS[provider]
+    return _list_models(module_path, class_name)
 
 
 def get_available_embedding_models(provider: str) -> list[str]:
@@ -727,137 +654,16 @@ def get_available_embedding_models(provider: str) -> list[str]:
             f"Available providers: {available_providers}"
         )
 
-    # Check if provider supports embedding models
     if ModelType.EMBEDDING not in UNIFIED_MODEL_REGISTRY.get(provider, {}):
         raise ValueError(f"Provider '{provider}' does not support embedding models.")
 
-    # Map of providers that support embedding model listing
-    embedding_model_providers = {
-        "openai": _get_openai_embedding_models,
-        "gemini": _get_gemini_embedding_models,
-        "vertex_ai": _get_vertex_ai_embedding_models,
-    }
-
-    if provider not in embedding_model_providers:
+    if provider not in _LISTABLE_EMBEDDING_PROVIDERS:
         raise ValueError(
-            f"Provider '{provider}' does not support listing available embedding models. "
-            f"Only the following providers support this feature: "
-            f"{', '.join(sorted(embedding_model_providers.keys()))}"
+            f"Provider '{provider}' does not support listing "
+            f"available embedding models. Only the following providers "
+            f"support this feature: "
+            f"{', '.join(sorted(_LISTABLE_EMBEDDING_PROVIDERS.keys()))}"
         )
 
-    # Call the provider-specific function to get embedding models
-    return embedding_model_providers[provider]()
-
-
-# Provider-specific functions to get available embedding models
-def _get_openai_embedding_models() -> list[str]:
-    """Get available OpenAI embedding models."""
-    from rhesis.sdk.models.providers.openai import OpenAIEmbedder
-
-    return OpenAIEmbedder.get_available_models()
-
-
-def _get_gemini_embedding_models() -> list[str]:
-    """Get available Gemini embedding models."""
-    from rhesis.sdk.models.providers.gemini import GeminiEmbedder
-
-    return GeminiEmbedder.get_available_models()
-
-
-def _get_vertex_ai_embedding_models() -> list[str]:
-    """Get available Vertex AI embedding models."""
-    from rhesis.sdk.models.providers.vertex_ai import VertexAIEmbedder
-
-    return VertexAIEmbedder.get_available_models()
-
-
-# Provider-specific functions to get available models
-def _get_anthropic_models() -> list[str]:
-    """Get available Anthropic models."""
-    from rhesis.sdk.models.providers.anthropic import AnthropicLLM
-
-    return AnthropicLLM.get_available_models()
-
-
-def _get_cohere_models() -> list[str]:
-    """Get available Cohere models."""
-    from rhesis.sdk.models.providers.cohere import CohereLLM
-
-    return CohereLLM.get_available_models()
-
-
-def _get_gemini_models() -> list[str]:
-    """Get available Gemini models."""
-    from rhesis.sdk.models.providers.gemini import GeminiLLM
-
-    return GeminiLLM.get_available_models()
-
-
-def _get_groq_models() -> list[str]:
-    """Get available Groq models."""
-    from rhesis.sdk.models.providers.groq import GroqLLM
-
-    return GroqLLM.get_available_models()
-
-
-def _get_meta_llama_models() -> list[str]:
-    """Get available Meta Llama models."""
-    from rhesis.sdk.models.providers.meta_llama import MetaLlamaLLM
-
-    return MetaLlamaLLM.get_available_models()
-
-
-def _get_mistral_models() -> list[str]:
-    """Get available Mistral models."""
-    from rhesis.sdk.models.providers.mistral import MistralLLM
-
-    return MistralLLM.get_available_models()
-
-
-def _get_ollama_models() -> list[str]:
-    """Get available Ollama models."""
-    from rhesis.sdk.models.providers.ollama import OllamaLLM
-
-    return OllamaLLM.get_available_models()
-
-
-def _get_openai_models() -> list[str]:
-    """Get available OpenAI models."""
-    from rhesis.sdk.models.providers.openai import OpenAILLM
-
-    return OpenAILLM.get_available_models()
-
-
-def _get_perplexity_models() -> list[str]:
-    """Get available Perplexity models."""
-    from rhesis.sdk.models.providers.perplexity import PerplexityLLM
-
-    return PerplexityLLM.get_available_models()
-
-
-def _get_replicate_models() -> list[str]:
-    """Get available Replicate models."""
-    from rhesis.sdk.models.providers.replicate import ReplicateLLM
-
-    return ReplicateLLM.get_available_models()
-
-
-def _get_together_ai_models() -> list[str]:
-    """Get available Together AI models."""
-    from rhesis.sdk.models.providers.together_ai import TogetherAILLM
-
-    return TogetherAILLM.get_available_models()
-
-
-def _get_vertex_ai_models() -> list[str]:
-    """Get available Vertex AI models."""
-    from rhesis.sdk.models.providers.vertex_ai import VertexAILLM
-
-    return VertexAILLM.get_available_models()
-
-
-def _get_openrouter_models() -> list[str]:
-    """Get available OpenRouter models."""
-    from rhesis.sdk.models.providers.openrouter import OpenRouterLLM
-
-    return OpenRouterLLM.get_available_models()
+    module_path, class_name = _LISTABLE_EMBEDDING_PROVIDERS[provider]
+    return _list_models(module_path, class_name)

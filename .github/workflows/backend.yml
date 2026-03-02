@@ -483,6 +483,7 @@ jobs:
           OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
+          DEFAULT_POLYPHEMUS_URL=${{ secrets.DEFAULT_POLYPHEMUS_URL }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -555,6 +556,7 @@ jobs:
           OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
+          DEFAULT_POLYPHEMUS_URL=${{ secrets.DEFAULT_POLYPHEMUS_URL }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -747,6 +749,7 @@ jobs:
           OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
+          DEFAULT_POLYPHEMUS_URL=${{ secrets.DEFAULT_POLYPHEMUS_URL }},
           SKIP_MIGRATIONS=true
           EOF
           )"
@@ -826,6 +829,7 @@ jobs:
           OTEL_DEPLOYMENT_TYPE=${{ secrets.OTEL_DEPLOYMENT_TYPE || 'cloud' }},
           OTEL_RHESIS_TELEMETRY_ENABLED=${{ secrets.OTEL_RHESIS_TELEMETRY_ENABLED || 'true' }},
           RHESIS_CONNECTOR_DISABLED=${{ secrets.RHESIS_CONNECTOR_DISABLED || 'true' }},
+          DEFAULT_POLYPHEMUS_URL=${{ secrets.DEFAULT_POLYPHEMUS_URL }},
           SKIP_MIGRATIONS=true
           EOF
           )"

@@ -9,10 +9,15 @@ from importlib.metadata import PackageNotFoundError, version
 from typing import Any, Optional
 
 from opentelemetry import trace
+from opentelemetry.trace import NonRecordingSpan, SpanContext, TraceFlags
 
 from rhesis.sdk.telemetry.attributes import AIAttributes
+from rhesis.sdk.telemetry.constants import ConversationContext as ConvContextConstants
 from rhesis.sdk.telemetry.constants import TestExecutionContext as TestContextConstants
 from rhesis.sdk.telemetry.context import (
+    get_conversation_id,
+    get_conversation_mapped_input,
+    get_conversation_trace_id,
     get_root_trace_id,
     get_test_execution_context,
     set_root_trace_id,
@@ -320,6 +325,34 @@ class Tracer:
                 f"run={test_context.get(TestContextConstants.Fields.TEST_RUN_ID)}"
             )
 
+    def _build_conversation_parent_context(self, conv_trace_id: str) -> Optional[trace.Context]:
+        """
+        Build a synthetic OTEL parent context using the conversation trace_id.
+
+        This forces the new span to inherit the conversation's trace_id
+        instead of generating a fresh one.
+
+        Args:
+            conv_trace_id: 32-char hex trace ID from the conversation
+
+        Returns:
+            OTEL Context with synthetic parent, or None on error
+        """
+        try:
+            trace_id_int = int(conv_trace_id, 16)
+            # Use a placeholder span_id (stripped by the exporter)
+            synthetic_span_ctx = SpanContext(
+                trace_id=trace_id_int,
+                span_id=ConvContextConstants.SYNTHETIC_PARENT_SPAN_ID,
+                is_remote=True,
+                trace_flags=TraceFlags(TraceFlags.SAMPLED),
+            )
+            parent_span = NonRecordingSpan(synthetic_span_ctx)
+            return trace.set_span_in_context(parent_span)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid conversation trace_id: {conv_trace_id}")
+            return None
+
     def trace_execution(
         self,
         function_name: str,
@@ -347,26 +380,56 @@ class Tracer:
         # Determine span name
         final_span_name = span_name or f"function.{function_name}"
 
-        # Start OTEL span
+        # Check for conversation context before starting span
+        conv_trace_id = get_conversation_trace_id()
+        conv_id = get_conversation_id()
+        parent_context = None
+        if conv_trace_id and get_root_trace_id() is None:
+            parent_context = self._build_conversation_parent_context(conv_trace_id)
+
+        # Start OTEL span (with optional conversation parent context)
         with self.tracer.start_as_current_span(
             name=final_span_name,
             kind=trace.SpanKind.INTERNAL,
+            context=parent_context,
         ) as span:
-            # Set root trace_id if this is the root span (no existing trace_id in context)
-            # This allows the executor to return trace_id for frontend trace linking
+            # Set root trace_id if this is the root span
             is_root = get_root_trace_id() is None
             trace_id = None
             if is_root:
                 try:
                     raw_trace_id = span.get_span_context().trace_id
-                    # Only format if it's a real integer trace_id (not a mock)
                     if isinstance(raw_trace_id, int):
-                        trace_id = format(raw_trace_id, "032x")
+                        if conv_trace_id:
+                            # Use conversation trace_id
+                            trace_id = conv_trace_id
+                        else:
+                            trace_id = format(raw_trace_id, "032x")
                         set_root_trace_id(trace_id)
                         logger.debug(f"[Tracer] Set root trace_id: {trace_id} for {function_name}")
                 except (TypeError, AttributeError):
-                    # Mock objects or invalid spans - skip trace_id extraction
                     pass
+
+            # Mark as conversation turn root if in conversation
+            if conv_id and is_root:
+                span.set_attribute(
+                    ConvContextConstants.SpanAttributes.IS_TURN_ROOT,
+                    True,
+                )
+                span.set_attribute(
+                    ConvContextConstants.SpanAttributes.CONVERSATION_ID,
+                    conv_id,
+                )
+
+            # Set mapped input on the turn-root span (independent of conv_id
+            # so first-turn captures input even before conversation_id exists)
+            if is_root:
+                mapped_input = get_conversation_mapped_input()
+                if mapped_input:
+                    span.set_attribute(
+                        ConvContextConstants.SpanAttributes.CONVERSATION_INPUT,
+                        mapped_input[: ConvContextConstants.MAX_IO_LENGTH],
+                    )
 
             # Set up span attributes
             self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
@@ -384,8 +447,12 @@ class Tracer:
                 span.set_status(trace.Status(trace.StatusCode.OK))
                 self._capture_function_result(span, result)
 
-                # For sync functions running in thread pools, context variables don't
-                # propagate back. Store trace_id in thread-safe dict keyed by result id.
+                # CONVERSATION_OUTPUT is backfilled by the backend with the
+                # mapped output (after response_mapping), so we don't set it
+                # here where we only have the raw function return value.
+
+                # For sync functions running in thread pools, context variables
+                # don't propagate back. Store trace_id in thread-safe dict.
                 if is_root and result is not None and trace_id:
                     store_result_trace_id(result, trace_id)
 
@@ -424,24 +491,55 @@ class Tracer:
         # Determine span name
         final_span_name = span_name or f"function.{function_name}"
 
-        # Start OTEL span
+        # Check for conversation context before starting span
+        conv_trace_id = get_conversation_trace_id()
+        conv_id = get_conversation_id()
+        parent_context = None
+        if conv_trace_id and get_root_trace_id() is None:
+            parent_context = self._build_conversation_parent_context(conv_trace_id)
+
+        # Start OTEL span (with optional conversation parent context)
         with self.tracer.start_as_current_span(
             name=final_span_name,
             kind=trace.SpanKind.INTERNAL,
+            context=parent_context,
         ) as span:
-            # Set root trace_id if this is the root span (no existing trace_id in context)
-            # This allows the executor to return trace_id for frontend trace linking
+            # Set root trace_id if this is the root span
             is_root = get_root_trace_id() is None
             trace_id = None
             if is_root:
                 try:
                     raw_trace_id = span.get_span_context().trace_id
                     if isinstance(raw_trace_id, int):
-                        trace_id = format(raw_trace_id, "032x")
+                        if conv_trace_id:
+                            trace_id = conv_trace_id
+                        else:
+                            trace_id = format(raw_trace_id, "032x")
                         set_root_trace_id(trace_id)
                         logger.debug(f"[Tracer] Set root trace_id: {trace_id} for {function_name}")
                 except (TypeError, AttributeError):
                     pass
+
+            # Mark as conversation turn root if in conversation
+            if conv_id and is_root:
+                span.set_attribute(
+                    ConvContextConstants.SpanAttributes.IS_TURN_ROOT,
+                    True,
+                )
+                span.set_attribute(
+                    ConvContextConstants.SpanAttributes.CONVERSATION_ID,
+                    conv_id,
+                )
+
+            # Set mapped input on the turn-root span (independent of conv_id
+            # so first-turn captures input even before conversation_id exists)
+            if is_root:
+                mapped_input = get_conversation_mapped_input()
+                if mapped_input:
+                    span.set_attribute(
+                        ConvContextConstants.SpanAttributes.CONVERSATION_INPUT,
+                        mapped_input[: ConvContextConstants.MAX_IO_LENGTH],
+                    )
 
             # Set up span attributes
             self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
@@ -454,7 +552,11 @@ class Tracer:
                 span.set_status(trace.Status(trace.StatusCode.OK))
                 self._capture_function_result(span, result)
 
-                # Store trace_id in thread-safe dict for consistency with sync version
+                # CONVERSATION_OUTPUT is backfilled by the backend with the
+                # mapped output (after response_mapping), so we don't set it
+                # here where we only have the raw function return value.
+
+                # Store trace_id for consistency with sync version
                 if is_root and result is not None and trace_id:
                     store_result_trace_id(result, trace_id)
 
