@@ -10,7 +10,7 @@ DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 class OpenRouterLLM(LiteLLM):
     PROVIDER = "openrouter"
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None):
+    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         """
         OpenRouterLLM: OpenRouter LLM Provider
 
