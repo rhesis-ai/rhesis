@@ -82,7 +82,6 @@ class TestTag(Base):
 # Test schemas
 class TestBase(Base):
     prompt_id: Optional[UUID4] = None  # Optional for Multi-Turn tests
-    test_set_id: Optional[UUID4] = None
     test_type_id: Optional[UUID4] = None
     priority: Optional[int] = None
     user_id: Optional[UUID4] = None
