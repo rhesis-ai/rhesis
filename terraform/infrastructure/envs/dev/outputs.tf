@@ -21,3 +21,7 @@ output "cluster_endpoint" {
   value     = module.gke_dev.cluster_endpoint
   sensitive = true
 }
+
+output "eso_service_account_email" {
+  value = module.eso_dev.service_account_email
+}
