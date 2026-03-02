@@ -9,6 +9,7 @@ from rhesis.sdk.models.factory import (
     LanguageModelConfig,
     ModelType,
     get_embedding_model,
+    get_language_model,
     get_model,
 )
 
@@ -314,6 +315,86 @@ class TestUnifiedGetModel:
 
         assert isinstance(embedder, BaseEmbedder)
         mock_embedder_class.assert_called_once()
+
+
+class TestVertexAIPassthrough:
+    """Test that Vertex AI-specific kwargs are passed through correctly."""
+
+    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAIEmbedder")
+    def test_vertex_ai_embedder_receives_credentials(self, mock_cls):
+        """Vertex AI embedder receives credentials, location, project from kwargs."""
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_cls.return_value = mock_instance
+
+        result = get_model(
+            "vertex_ai/text-embedding-005",
+            model_type="embedding",
+            dimensions=256,
+            credentials="sa.json",
+            location="us-central1",
+            project="my-project",
+        )
+
+        mock_cls.assert_called_once_with(
+            model_name="text-embedding-005",
+            credentials="sa.json",
+            location="us-central1",
+            project="my-project",
+            dimensions=256,
+        )
+        assert result == mock_instance
+
+    @patch("rhesis.sdk.models.providers.vertex_ai.VertexAILLM")
+    def test_vertex_ai_llm_ignores_api_key(self, mock_cls):
+        """Vertex AI LLM does not receive api_key."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_cls.return_value = mock_instance
+
+        result = get_model(
+            "vertex_ai/gemini-2.0-flash",
+            api_key="should-be-ignored",
+            model_type="language",
+        )
+
+        mock_cls.assert_called_once_with(model_name="gemini-2.0-flash")
+        assert result == mock_instance
+
+
+class TestAdditionalProviders:
+    """Test that additional providers are wired correctly in the registry."""
+
+    @patch("rhesis.sdk.models.providers.anthropic.AnthropicLLM")
+    def test_anthropic_llm_creation(self, mock_cls):
+        """Anthropic LLM is created with correct args."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_cls.return_value = mock_instance
+
+        result = get_model("anthropic", "claude-4", api_key="sk-ant-123")
+
+        mock_cls.assert_called_once_with(model_name="claude-4", api_key="sk-ant-123")
+        assert result == mock_instance
+
+    @patch("rhesis.sdk.models.providers.gemini.GeminiLLM")
+    def test_gemini_llm_creation(self, mock_cls):
+        """Gemini LLM is created via shorthand."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_cls.return_value = mock_instance
+
+        result = get_model("gemini/gemini-2.0-flash")
+
+        mock_cls.assert_called_once_with(model_name="gemini-2.0-flash", api_key=None)
+        assert result == mock_instance
+
+    @patch("rhesis.sdk.models.providers.anthropic.AnthropicLLM")
+    def test_get_language_model_typed_helper(self, mock_cls):
+        """get_language_model() typed helper works for anthropic."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_cls.return_value = mock_instance
+
+        result = get_language_model("anthropic/claude-4")
+
+        assert isinstance(result, BaseLLM)
+        mock_cls.assert_called_once()
 
 
 class TestModelTypeClassification:
