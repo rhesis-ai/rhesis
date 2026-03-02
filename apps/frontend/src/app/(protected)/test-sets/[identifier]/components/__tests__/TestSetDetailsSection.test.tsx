@@ -249,4 +249,69 @@ describe('TestSetDetailsSection', () => {
       screen.getByRole('button', { name: /sync from garak/i })
     ).toBeInTheDocument();
   });
+
+  describe('focus retention while typing', () => {
+    it('description edit field retains focus after each keystroke', async () => {
+      render(
+        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      );
+      const editButtons = screen.getAllByRole('button', { name: /edit/i });
+      await userEvent.click(editButtons[editButtons.length - 1]);
+
+      const textarea = screen.getByRole('textbox');
+      await userEvent.click(textarea);
+      await userEvent.clear(textarea);
+
+      for (const char of 'typing test') {
+        await userEvent.type(textarea, char);
+        expect(textarea).toHaveFocus();
+      }
+    });
+
+    it('description edit field accumulates full typed value', async () => {
+      render(
+        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      );
+      const editButtons = screen.getAllByRole('button', { name: /edit/i });
+      await userEvent.click(editButtons[editButtons.length - 1]);
+
+      const textarea = screen.getByRole('textbox');
+      await userEvent.clear(textarea);
+      await userEvent.type(textarea, 'full description text');
+
+      expect(textarea).toHaveValue('full description text');
+    });
+
+    it('title edit field retains focus after each keystroke', async () => {
+      render(
+        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      );
+      // Title edit button is the first edit button
+      const editButtons = screen.getAllByRole('button', { name: /edit/i });
+      await userEvent.click(editButtons[0]);
+
+      const titleInput = screen.getByRole('textbox');
+      await userEvent.click(titleInput);
+      await userEvent.clear(titleInput);
+
+      for (const char of 'new title') {
+        await userEvent.type(titleInput, char);
+        expect(titleInput).toHaveFocus();
+      }
+    });
+
+    it('title edit field accumulates full typed value', async () => {
+      render(
+        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      );
+      const editButtons = screen.getAllByRole('button', { name: /edit/i });
+      await userEvent.click(editButtons[0]);
+
+      const titleInput = screen.getByRole('textbox');
+      await userEvent.clear(titleInput);
+      await userEvent.type(titleInput, 'New Test Set Name');
+
+      expect(titleInput).toHaveValue('New Test Set Name');
+    });
+  });
 });

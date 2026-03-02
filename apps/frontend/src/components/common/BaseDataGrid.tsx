@@ -174,6 +174,14 @@ const StyledDataGrid = styled(DataGrid)({
   border: 'none',
 });
 
+function QuickFilterToolbar() {
+  return (
+    <Box sx={{ p: 1, display: 'flex', justifyContent: 'flex-end' }}>
+      <GridToolbarQuickFilter debounceMs={300} />
+    </Box>
+  );
+}
+
 export default function BaseDataGrid({
   columns,
   rows,
@@ -470,14 +478,6 @@ export default function BaseDataGrid({
       newStates[index] = false;
       return newStates;
     });
-  };
-
-  const CustomToolbar = () => {
-    return (
-      <Box sx={{ p: 1, display: 'flex', justifyContent: 'flex-end' }}>
-        <GridToolbarQuickFilter debounceMs={300} />
-      </Box>
-    );
   };
 
   // Refs for server-side filtering with stable toolbar
@@ -841,7 +841,7 @@ export default function BaseDataGrid({
           })}
           {...(enableQuickFilter &&
             !serverSideFiltering && {
-              slots: { toolbar: CustomToolbar },
+              slots: { toolbar: QuickFilterToolbar },
             })}
           {...(enableEditing && {
             editMode,
@@ -906,7 +906,7 @@ export default function BaseDataGrid({
             })}
             {...(enableQuickFilter &&
               !serverSideFiltering && {
-                slots: { toolbar: CustomToolbar },
+                slots: { toolbar: QuickFilterToolbar },
               })}
             {...(enableEditing && {
               editMode,
