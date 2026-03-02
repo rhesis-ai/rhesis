@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-03-02
+
+### Added
+- Added support for specifying custom HTTP headers in Polyphemus requests. This allows users to authenticate with APIs that require specific header-based authentication schemes.
+- Added a new `--timeout` option to the Polyphemus CLI to allow users to configure the request timeout duration.
+
+### Changed
+- Improved error handling for network connectivity issues. Polyphemus now provides more informative error messages when encountering connection errors.
+- Updated the default user agent string to include the Polyphemus version number.
+
+### Fixed
+- Fixed an issue where Polyphemus would incorrectly parse URLs containing special characters.
+- Resolved a bug that caused Polyphemus to crash when encountering malformed JSON responses.
+
+
 ## [0.2.6] - 2026-02-26
 
 ### Added

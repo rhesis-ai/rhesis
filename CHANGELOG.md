@@ -13,6 +13,51 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-03-02
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.6**
+- **Frontend 0.6.7**
+- **SDK 0.6.7**
+- **Polyphemus 0.2.7**
+
+### Summary of Changes
+
+**Backend v0.6.6:**
+- Added explicit `min_turns` parameter to test configuration, allowing control over early stopping behavior.
+- Improved turn budget handling in Penelope, including turn-aware prompts and deepening strategies, and preventing premature stopping.
+- Enhanced metric handling, including pagination on the frontend and passing `conversation_history` to conversational metrics.
+- Added methods to TestSet for bulk association/disassociation of tests.
+
+
+**Frontend v0.6.7:**
+- Enhanced multi-turn evaluation with accurate turn counting (user-assistant pairs), `min_turns`/`max_turns` configuration, and SDK improvements for metric handling.
+- Added explicit `min_turns` parameter for early stop control in conversational tests, configurable through a range slider in the frontend.
+- Improved metric handling in the SDK with create-or-update support, ID preservation, and fixes for null value overwrites.
+- Added methods to associate/disassociate tests with TestSets without recreating them.
+- Fixed metrics page pagination to display all backend type tabs.
+
+
+**SDK v0.6.7:**
+- Added explicit `min_turns` parameter to control early stopping in tests, replacing instruction-based regex parsing.
+- Improved turn budget handling in Penelope, including turn-aware prompts, explicit min/max turn labeling, and preventing spurious turn count criteria in goal judging.
+- Enhanced metric handling in the SDK, including create-or-update support for metric push, preservation of IDs on pull, and fixes for conversational metric evaluation.
+- Added methods to TestSet for bulk association/disassociation of tests, improving test set management.
+
+
+**Polyphemus v0.2.7:**
+Initial release or no significant changes.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.6.6] - 2026-02-26
 
 ### Platform Release

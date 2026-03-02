@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-03-02
+
+### Added
+- Added explicit `min_turns` parameter for early stop control in tests.
+- Added `min_turns` and `max_turns` support to import/export and synthesizer features.
+- Added test association methods (`add_tests()`, `remove_tests()`) to the SDK's `TestSet` class for bulk test linking.
+- Added client-side pagination to the metrics grid in the frontend.
+
+### Changed
+- Replaced the maximum turns input in the frontend with a turn configuration range slider, allowing users to set both `min_turns` and `max_turns`.
+- Standardized naming: `max_iterations` has been renamed to `max_turns` across the backend, SDK, and documentation to reflect the actual semantics of conversation turns.
+- Updated the frontend to use an 80% default for `min_turns` in the test detail slider, matching the backend/Penelope default when `min_turns` is not explicitly set.
+- Improved turn budget awareness and deepening strategies in Penelope, ensuring every turn contributes substantive testing value.
+- Refactored Penelope's orchestration to simplify the codebase and improve evaluator voice.
+
+### Fixed
+- Fixed an issue where the goal judge was creating spurious turn count criteria, leading to incorrect test failures.
+- Fixed premature stopping issues in Penelope by decoupling goal-impossible conditions from `min_turns` and clarifying turn budget.
+- Fixed a bug where metric updates could overwrite existing data with null values.
+- Fixed focus loss and stale save button issues in the metric editor in the frontend.
+- Fixed an issue where conversational metrics were not receiving the `conversation_history`, causing errors.
+- Fixed metrics page pagination to show all backend type tabs, even with a large number of metrics.
+- Fixed an issue where the conversational judge was incorrectly counting turns.
+- Fixed an issue preventing early stopping before reaching `max_turns`.
+- Fixed an issue where the push() method was discarding the backend response, leaving metric.id as None after creation.
+- Fixed max-turns stop reason detection to check for "maximum turns" instead of the stale "max iterations" string.
+
+### Removed
+- Removed unnecessary indirection layers in Penelope's orchestration, simplifying the codebase.
+
+
 ## [0.6.5] - 2026-02-26
 
 ### Added

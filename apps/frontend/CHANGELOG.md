@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-03-02
+
+### Added
+
+- Added explicit `min_turns` parameter for early stop control in conversational evaluations.
+- Added `add_tests()` and `remove_tests()` methods to the SDK `TestSet` for bulk test association.
+- Added `min_turns` and `max_turns` support to test configuration import/export and synthesizer.
+- Added client-side pagination to the metrics grid.
+
+### Changed
+
+- Replaced the single "max turns" input with a turn configuration range slider on the test detail page and dual number inputs in the manual test writer, allowing configuration of both `min_turns` and `max_turns`.
+- Renamed `max_iterations` to `max_turns` throughout the codebase to better reflect the semantics of conversation turns.
+- Updated the conversational judge to count turns as user-assistant pairs instead of individual messages.
+- Improved early stopping behavior in conversational evaluations, preventing early termination before reaching 80% of `max_turns`.
+- The `push()` method in the SDK now supports both creating (POST) and updating (PUT) metrics.
+- Updated metrics page to paginate metrics fetch to show all backend type tabs.
+
+### Fixed
+
+- Fixed focus loss and stale save button in the metric editor.
+- Fixed metric update overwriting with null values in the backend.
+- Fixed an issue where conversational metrics were not receiving the `conversation_history` parameter during evaluation.
+- Fixed an issue where the metrics page was not displaying all backend type tabs due to a fetch limit.
+- Fixed an issue where the max-turns stop reason detection was using a stale "max iterations" string.
+
 ## [0.6.6] - 2026-02-26
 
 ### Added
