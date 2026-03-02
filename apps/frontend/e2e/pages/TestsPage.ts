@@ -29,9 +29,13 @@ export class TestsPage {
   }
 
   async waitForContent() {
-    // Wait for the data grid to become visible rather than relying on
-    // networkidle, which can be flaky on pages with background polling requests.
-    await this.dataGrid.waitFor({ state: 'visible', timeout: 15_000 });
+    // Wait for the main content area to be rendered — it is always present
+    // whether the grid has data or shows an empty state, and is a more reliable
+    // signal than networkidle on pages with background polling requests.
+    await this.page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
   }
 
   /** Returns true when the data grid is visible (data loaded). */
@@ -54,7 +58,11 @@ export class TestsPage {
   async searchFor(text: string) {
     const searchInput = this.page.getByPlaceholder(/search|filter/i).first();
     await searchInput.fill(text);
-    // Wait for the grid to reflect the search rather than relying on networkidle.
-    await this.dataGrid.waitFor({ state: 'visible', timeout: 15_000 });
+    // Wait for the main content to remain visible (the grid may be empty after
+    // filtering) rather than relying on networkidle.
+    await this.page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
   }
 }

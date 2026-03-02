@@ -29,9 +29,13 @@ export class EndpointsPage {
   }
 
   async waitForContent() {
-    // Wait for the data grid to become visible rather than relying on
-    // networkidle, which can be flaky on pages with background polling requests.
-    await this.dataGrid.waitFor({ state: 'visible', timeout: 15_000 });
+    // Wait for the main content area to be rendered — it is always present
+    // whether the grid has data or shows an empty state, and is a more reliable
+    // signal than networkidle on pages with background polling requests.
+    await this.page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
   }
 
   async hasDataGrid(): Promise<boolean> {
