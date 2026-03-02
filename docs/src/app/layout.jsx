@@ -9,83 +9,93 @@ import { generateOrganizationSchema, generateWebsiteSchema } from '../lib/metada
 import 'nextra-theme-docs/style.css'
 import '../styles/globals.css'
 
-export const metadata = {
-  metadataBase: new URL(siteConfig.siteUrl),
-  title: {
-    template: '%s – Rhesis',
-    default: siteConfig.siteName,
-  },
-  description: siteConfig.siteDescription,
-  keywords: siteConfig.keywords,
-  authors: [{ name: siteConfig.author.name, url: siteConfig.author.url }],
-  creator: siteConfig.author.name,
-  publisher: siteConfig.organization.name,
+export async function generateMetadata() {
+  const isNoIndex = process.env.ROBOTS_NOINDEX === 'true'
 
-  // Icons
-  icons: {
-    icon: [
-      {
-        url: '/logo/rhesis-logo-favicon.svg',
-        type: 'image/svg+xml',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/logo/rhesis-logo-favicon-white.svg',
-        type: 'image/svg+xml',
-        media: '(prefers-color-scheme: dark)',
-      },
-    ],
-    apple: '/logo/rhesis-logo-favicon.svg',
-  },
-
-  // Manifest
-  manifest: '/manifest.json',
-
-  // OpenGraph
-  openGraph: {
-    type: 'website',
-    locale: siteConfig.locale,
-    url: siteConfig.siteUrl,
-    siteName: siteConfig.siteName,
-    title: siteConfig.siteName,
-    description: siteConfig.siteDescription,
-    images: [
-      {
-        url: `${siteConfig.siteUrl}${siteConfig.defaultImage}`,
-        width: 1200,
-        height: 630,
-        alt: siteConfig.defaultImageAlt,
-      },
-    ],
-  },
-
-  // Twitter
-  twitter: {
-    card: 'summary_large_image',
-    site: siteConfig.twitterSite,
-    creator: siteConfig.twitterHandle,
-    title: siteConfig.siteName,
-    description: siteConfig.siteDescription,
-    images: [`${siteConfig.siteUrl}${siteConfig.defaultImage}`],
-  },
-
-  // Robots
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-video-preview': -1,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+  return {
+    metadataBase: new URL(siteConfig.siteUrl),
+    title: {
+      template: '%s – Rhesis',
+      default: siteConfig.siteName,
     },
-  },
+    description: siteConfig.siteDescription,
+    keywords: siteConfig.keywords,
+    authors: [{ name: siteConfig.author.name, url: siteConfig.author.url }],
+    creator: siteConfig.author.name,
+    publisher: siteConfig.organization.name,
 
-  // Verification (add when needed)
-  // verification: {
-  //   google: 'google-site-verification-code',
-  // },
+    // Icons
+    icons: {
+      icon: [
+        {
+          url: '/logo/rhesis-logo-favicon.svg',
+          type: 'image/svg+xml',
+          media: '(prefers-color-scheme: light)',
+        },
+        {
+          url: '/logo/rhesis-logo-favicon-white.svg',
+          type: 'image/svg+xml',
+          media: '(prefers-color-scheme: dark)',
+        },
+      ],
+      apple: '/logo/rhesis-logo-favicon.svg',
+    },
+
+    // Manifest
+    manifest: '/manifest.json',
+
+    // OpenGraph
+    openGraph: {
+      type: 'website',
+      locale: siteConfig.locale,
+      url: siteConfig.siteUrl,
+      siteName: siteConfig.siteName,
+      title: siteConfig.siteName,
+      description: siteConfig.siteDescription,
+      images: [
+        {
+          url: `${siteConfig.siteUrl}${siteConfig.defaultImage}`,
+          width: 1200,
+          height: 630,
+          alt: siteConfig.defaultImageAlt,
+        },
+      ],
+    },
+
+    // Twitter
+    twitter: {
+      card: 'summary_large_image',
+      site: siteConfig.twitterSite,
+      creator: siteConfig.twitterHandle,
+      title: siteConfig.siteName,
+      description: siteConfig.siteDescription,
+      images: [`${siteConfig.siteUrl}${siteConfig.defaultImage}`],
+    },
+
+    // Robots
+    robots: isNoIndex
+      ? {
+          index: false,
+          follow: false,
+          googleBot: { index: false, follow: false },
+        }
+      : {
+          index: true,
+          follow: true,
+          googleBot: {
+            index: true,
+            follow: true,
+            'max-video-preview': -1,
+            'max-image-preview': 'large',
+            'max-snippet': -1,
+          },
+        },
+
+    // Verification (add when needed)
+    // verification: {
+    //   google: 'google-site-verification-code',
+    // },
+  }
 }
 
 export const viewport = {

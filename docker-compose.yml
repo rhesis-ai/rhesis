@@ -216,9 +216,12 @@ services:
     build:
       context: ./docs
       dockerfile: src/Dockerfile
+      args:
+        ROBOTS_NOINDEX: ${ROBOTS_NOINDEX:-false}
     environment:
       <<: [*common-environment]
       PORT: 3001
+      ROBOTS_NOINDEX: ${ROBOTS_NOINDEX:-false}
     ports:
       - "3001:3001"
     networks:

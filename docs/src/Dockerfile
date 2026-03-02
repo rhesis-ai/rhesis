@@ -39,6 +39,11 @@ COPY scripts /scripts
 # Set build environment variables
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Allow ROBOTS_NOINDEX to be passed at build time so Next.js bakes
+# the correct noindex meta tags into pre-rendered pages.
+ARG ROBOTS_NOINDEX=false
+ENV ROBOTS_NOINDEX=$ROBOTS_NOINDEX
+
 # Build the Next.js application (this will also run postbuild with pagefind)
 RUN npm run build
 
