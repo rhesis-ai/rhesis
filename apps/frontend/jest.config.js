@@ -29,10 +29,10 @@ const customJestConfig = {
   // Increase these values as more tests are added.
   coverageThreshold: {
     global: {
-      statements: 11,
+      statements: 12,
       branches: 62,
       functions: 24,
-      lines: 11,
+      lines: 12,
     },
   },
   testPathIgnorePatterns: [
