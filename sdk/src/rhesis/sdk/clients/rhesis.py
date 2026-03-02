@@ -75,7 +75,7 @@ class DisabledClient:
         """Return empty string for environment property."""
         return ""
 
-    def run_connector(self) -> None:
+    def connect(self) -> None:
         """No-op when connector is disabled; returns immediately."""
         return
 
@@ -293,7 +293,7 @@ class RhesisClient:
         connector = self._ensure_connector()  # Lazy init
         connector.register_function(name, func, metadata)
 
-    async def _run_connector_async(self) -> None:
+    async def _run_async(self) -> None:
         """
         Run the connector (WebSocket) and block until shutdown.
 
@@ -310,7 +310,7 @@ class RhesisClient:
         finally:
             await self._connector_manager.shutdown()
 
-    def run_connector(self) -> None:
+    def connect(self) -> None:
         """
         Block until interrupted (e.g. Ctrl+C); run the connector and receive
         execute-test messages over WebSocket.
@@ -320,10 +320,19 @@ class RhesisClient:
         event loop (e.g. Jupyter); use an async entry point or run the connector
         as a task in that loop instead.
         """
-        if asyncio.get_running_loop() is not None:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop: safe to call asyncio.run()
+            pass
+        else:
             raise RuntimeError(
-                "run_connector() is for sync scripts only. You already have a "
+                "connect() is for sync scripts only. You already have a "
                 "running event loop; run the connector as a task in that loop "
                 "or use an async entry point instead."
             )
-        asyncio.run(self._run_connector_async())
+        _green = "\033[92m"
+        _dim = "\033[2m"
+        _reset = "\033[0m"
+        print(f"{_green}Connector running.{_reset} {_dim}Press Ctrl+C to stop.{_reset}")
+        asyncio.run(self._run_async())

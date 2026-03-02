@@ -305,8 +305,8 @@ def test_normal_client_when_connector_enabled(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_run_connector_raises_when_event_loop_running(monkeypatch):
-    """run_connector() raises RuntimeError when called from a context with a running event loop."""
+async def test_connect_raises_when_event_loop_running(monkeypatch):
+    """connect() raises RuntimeError when called from a context with a running event loop."""
     import importlib
 
     import rhesis.sdk.clients.rhesis
@@ -322,17 +322,17 @@ async def test_run_connector_raises_when_event_loop_running(monkeypatch):
     client = RhesisClient.from_environment()
     assert client.__class__.__name__ == "RhesisClient"
 
-    with pytest.raises(RuntimeError, match="run_connector.*sync scripts only"):
-        client.run_connector()
+    with pytest.raises(RuntimeError, match="connect.*sync scripts only"):
+        client.connect()
 
     importlib.reload(rhesis.sdk.clients.rhesis)
 
 
-def test_disabled_client_run_connector_returns_immediately():
-    """DisabledClient.run_connector() returns immediately without blocking."""
+def test_disabled_client_connect_returns_immediately():
+    """DisabledClient.connect() returns immediately without blocking."""
     from rhesis.sdk.clients.rhesis import DisabledClient
 
     client = DisabledClient()
     # Should return immediately (no-op)
-    result = client.run_connector()
+    result = client.connect()
     assert result is None
