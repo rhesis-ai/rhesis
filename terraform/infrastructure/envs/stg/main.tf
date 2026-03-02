@@ -52,3 +52,12 @@ module "gke_stg" {
 
   depends_on = [module.stg]
 }
+
+module "eso_stg" {
+  source = "../../modules/external-secrets/gcp"
+
+  project_id  = var.project_id
+  environment = "stg"
+
+  depends_on = [module.gke_stg]
+}

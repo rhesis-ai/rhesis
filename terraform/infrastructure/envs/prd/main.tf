@@ -52,3 +52,12 @@ module "gke_prd" {
 
   depends_on = [module.prd]
 }
+
+module "eso_prd" {
+  source = "../../modules/external-secrets/gcp"
+
+  project_id  = var.project_id
+  environment = "prd"
+
+  depends_on = [module.gke_prd]
+}

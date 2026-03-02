@@ -52,3 +52,12 @@ module "gke_dev" {
 
   depends_on = [module.dev]
 }
+
+module "eso_dev" {
+  source = "../../modules/external-secrets/gcp"
+
+  project_id  = var.project_id
+  environment = "dev"
+
+  depends_on = [module.gke_dev]
+}

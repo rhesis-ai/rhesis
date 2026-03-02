@@ -235,6 +235,34 @@ module "gke_prd" {
 }
 
 
+# External Secrets Operator (ESO) service accounts + Workload Identity
+module "eso_dev" {
+  source = "./modules/external-secrets/gcp"
+
+  project_id  = var.project_id
+  environment = "dev"
+
+  depends_on = [module.gke_dev]
+}
+
+module "eso_stg" {
+  source = "./modules/external-secrets/gcp"
+
+  project_id  = var.project_id
+  environment = "stg"
+
+  depends_on = [module.gke_stg]
+}
+
+module "eso_prd" {
+  source = "./modules/external-secrets/gcp"
+
+  project_id  = var.project_id
+  environment = "prd"
+
+  depends_on = [module.gke_prd]
+}
+
 # WireGuard VPN server (multi-NIC: WireGuard VPC + one NIC per env for kubectl routing)
 # GCP allows max 2 vNICs for 2-or-fewer vCPUs; 4 vCPUs → 4 vNICs. So we need e2-standard-4.
 module "wireguard_server" {
