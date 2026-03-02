@@ -81,15 +81,15 @@ def generate_test_set_attributes(
     Returns:
         Dict containing the complete attributes structure
     """
-    # Get all unique IDs and names for each dimension
-    topics = list(set(str(test.topic_id) for test in test_set.tests))
-    behaviors = list(set(str(test.behavior_id) for test in test_set.tests))
-    categories = list(set(str(test.category_id) for test in test_set.tests))
+    # Get all unique IDs and names for each dimension (skip tests with None values)
+    topics = list(set(str(test.topic_id) for test in test_set.tests if test.topic_id))
+    behaviors = list(set(str(test.behavior_id) for test in test_set.tests if test.behavior_id))
+    categories = list(set(str(test.category_id) for test in test_set.tests if test.category_id))
 
-    # Get all unique names for metadata
-    topic_names = list(set(test.topic.name for test in test_set.tests))
-    behavior_names = list(set(test.behavior.name for test in test_set.tests))
-    category_names = list(set(test.category.name for test in test_set.tests))
+    # Get all unique names for metadata (skip tests with None relationships)
+    topic_names = list(set(test.topic.name for test in test_set.tests if test.topic))
+    behavior_names = list(set(test.behavior.name for test in test_set.tests if test.behavior))
+    category_names = list(set(test.category.name for test in test_set.tests if test.category))
 
     # Get a random prompt's content for the sample (now through tests)
     sample = None
