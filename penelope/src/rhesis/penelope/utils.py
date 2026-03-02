@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from rhesis.penelope.context import TestState
+from rhesis.penelope.context import ExecutionStatus, TestState
 
 if TYPE_CHECKING:
     from rhesis.sdk.metrics.base import MetricResult
@@ -22,10 +22,41 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
+class StopResult:
+    """Structured result from a stopping condition check."""
+
+    # Singleton for "don't stop"
+    _CONTINUE = None
+
+    def __init__(
+        self,
+        status: Optional[ExecutionStatus],
+        goal_achieved: bool,
+        reason: str,
+    ):
+        self.status = status
+        self.goal_achieved = goal_achieved
+        self.reason = reason
+
+    @classmethod
+    def continue_(cls) -> "StopResult":
+        """Return a sentinel meaning 'do not stop'."""
+        if cls._CONTINUE is None:
+            cls._CONTINUE = cls.__new__(cls)
+            cls._CONTINUE.status = None
+            cls._CONTINUE.goal_achieved = False
+            cls._CONTINUE.reason = ""
+        return cls._CONTINUE
+
+    @property
+    def should_stop(self) -> bool:
+        return self.status is not None
+
+
 class StoppingCondition:
     """Base class for stopping conditions."""
 
-    def should_stop(self, state: TestState) -> tuple[bool, str]:
+    def should_stop(self, state: TestState) -> StopResult:
         """
         Check if the agent should stop.
 
@@ -33,9 +64,12 @@ class StoppingCondition:
             state: Current test state
 
         Returns:
-            Tuple of (should_stop, reason)
+            StopResult with status and reason, or StopResult.continue_()
         """
         raise NotImplementedError
+
+    def update_result(self, result: "MetricResult") -> None:
+        """Update condition with a new evaluation result. No-op by default."""
 
 
 class MaxTurnsCondition(StoppingCondition):
@@ -44,10 +78,14 @@ class MaxTurnsCondition(StoppingCondition):
     def __init__(self, max_turns: int):
         self.max_turns = max_turns
 
-    def should_stop(self, state: TestState) -> tuple[bool, str]:
+    def should_stop(self, state: TestState) -> StopResult:
         if state.current_turn >= self.max_turns:
-            return True, f"Maximum turns reached ({self.max_turns})"
-        return False, ""
+            return StopResult(
+                ExecutionStatus.MAX_TURNS,
+                False,
+                f"Maximum turns reached ({self.max_turns})",
+            )
+        return StopResult.continue_()
 
 
 class MaxToolExecutionsCondition(StoppingCondition):
@@ -56,10 +94,9 @@ class MaxToolExecutionsCondition(StoppingCondition):
     def __init__(self, max_tool_executions: int):
         self.max_tool_executions = max_tool_executions
 
-    def should_stop(self, state: TestState) -> tuple[bool, str]:
+    def should_stop(self, state: TestState) -> StopResult:
         total_executions = len(state.all_executions)
         if total_executions >= self.max_tool_executions:
-            # Calculate statistics for helpful error message
             avg_tools_per_turn = total_executions / max(state.current_turn, 1)
 
             message = (
@@ -77,8 +114,8 @@ class MaxToolExecutionsCondition(StoppingCondition):
                 "Ensure your agent is making progress."
             )
 
-            return True, message
-        return False, ""
+            return StopResult(ExecutionStatus.FAILURE, False, message)
+        return StopResult.continue_()
 
 
 class TimeoutCondition(StoppingCondition):
@@ -87,26 +124,29 @@ class TimeoutCondition(StoppingCondition):
     def __init__(self, timeout_seconds: float):
         self.timeout_seconds = timeout_seconds
 
-    def should_stop(self, state: TestState) -> tuple[bool, str]:
+    def should_stop(self, state: TestState) -> StopResult:
         from datetime import datetime
 
         elapsed = (datetime.now() - state.start_time).total_seconds()
         if elapsed >= self.timeout_seconds:
-            return True, f"Timeout reached ({self.timeout_seconds}s)"
-        return False, ""
+            return StopResult(
+                ExecutionStatus.TIMEOUT,
+                False,
+                f"Timeout reached ({self.timeout_seconds}s)",
+            )
+        return StopResult.continue_()
 
 
 class GoalAchievedCondition(StoppingCondition):
     """Stop when goal is achieved or determined impossible."""
-
-    # Fraction of max_turns that must complete before goal-achieved early stop
-    EARLY_STOP_THRESHOLD = 0.8
 
     def __init__(
         self,
         result: Optional["MetricResult"] = None,
         max_turns: Optional[int] = None,
         min_turns: Optional[int] = None,
+        early_stop_threshold: Optional[float] = None,
+        impossible_score_threshold: Optional[float] = None,
     ):
         """
         Initialize with SDK MetricResult.
@@ -114,100 +154,109 @@ class GoalAchievedCondition(StoppingCondition):
         Args:
             result: Optional initial MetricResult
             max_turns: Maximum turns configured for the test. Used to compute
-                the default early-stop floor (80% of max_turns).
+                the default early-stop floor.
             min_turns: Explicit minimum turns before early stopping is allowed.
-                When set, overrides the 80% default. Cannot exceed max_turns.
+                When set, overrides the threshold-based default.
+                Cannot exceed max_turns.
+            early_stop_threshold: Fraction of max_turns before early stop
+                is allowed (default from PenelopeConfig, typically 0.8).
+            impossible_score_threshold: Score below which the goal is
+                considered impossible (default from PenelopeConfig,
+                typically 0.3).
         """
+        from rhesis.penelope.config import PenelopeConfig
+
         self.result = result
         self.max_turns = max_turns
         self.min_turns = min_turns
+        self.early_stop_threshold = (
+            early_stop_threshold
+            if early_stop_threshold is not None
+            else PenelopeConfig.get_early_stop_threshold()
+        )
+        self.impossible_score_threshold = (
+            impossible_score_threshold
+            if impossible_score_threshold is not None
+            else PenelopeConfig.get_impossible_score_threshold()
+        )
 
     def update_result(self, result: "MetricResult"):
         """Update with new SDK evaluation result."""
         self.result = result
 
-    def _get_min_turns_before_stop(self) -> int:
+    def _get_early_stop_floor(self, strict: bool = False) -> int:
         """
-        Compute the minimum number of turns before early stopping is allowed.
+        Compute minimum turns before early stopping is allowed.
 
-        Priority:
-        1. Explicit min_turns parameter (capped at max_turns)
-        2. Fraction of max_turns (EARLY_STOP_THRESHOLD, default 80%)
-        3. Fallback to 0 (no floor, for backward compatibility)
+        Args:
+            strict: When False (goal achieved), min_turns can lower
+                the threshold-based floor, saving remaining budget.
+                When True (goal impossible), the floor is always at
+                least the threshold fraction, ensuring the agent
+                exhausts most of its budget before giving up.
 
         Returns:
             Minimum number of turns before early stopping
         """
-        if self.min_turns is not None:
-            # Explicit min_turns, but never exceed max_turns
-            if self.max_turns is not None:
-                return min(self.min_turns, self.max_turns)
-            return self.min_turns
+        threshold_floor = (
+            max(1, math.ceil(self.max_turns * self.early_stop_threshold))
+            if self.max_turns is not None
+            else 0
+        )
+
+        if self.min_turns is None:
+            return threshold_floor
+
+        if strict:
+            # Goal impossible: never stop before either floor
+            return max(threshold_floor, self.min_turns)
+
+        # Goal achieved: min_turns overrides threshold, capped at max_turns
+        floor = self.min_turns
         if self.max_turns is not None:
-            return max(1, math.ceil(self.max_turns * self.EARLY_STOP_THRESHOLD))
-        return 0
+            floor = min(floor, self.max_turns)
+        return floor
 
-    def _get_impossible_floor(self) -> int:
-        """
-        Compute minimum turns before "goal impossible" can trigger.
-
-        The "impossible" floor is always at least 80% of max_turns and
-        never less than min_turns. This ensures the agent exhausts most
-        of its turn budget before giving up, even when min_turns is set
-        lower (e.g., min_turns=8, max_turns=15 → impossible at turn 12,
-        not turn 8).
-
-        Returns:
-            Minimum number of turns before goal-impossible early stopping
-        """
-        if self.max_turns is not None:
-            floor = max(1, math.ceil(self.max_turns * self.EARLY_STOP_THRESHOLD))
-            if self.min_turns is not None:
-                return max(floor, self.min_turns)
-            return floor
-        if self.min_turns is not None:
-            return self.min_turns
-        return 0
-
-    def should_stop(self, state: TestState) -> tuple[bool, str]:
+    def should_stop(self, state: TestState) -> StopResult:
         """
         Check if we should stop based on SDK evaluation.
 
         Two early-stop scenarios with different thresholds:
         - Goal achieved: allowed after min_turns (saves remaining budget)
         - Goal impossible: allowed only near max_turns (exhausts attempts)
-
-        Note: This accesses the MetricResult object directly (which has
-        .score and .details). This is different from the flattened metrics
-        in TestResult.metrics (output format).
         """
         if not self.result:
-            return False, ""
+            return StopResult.continue_()
 
         current_turns = len(state.turns)
-        min_turns = self._get_min_turns_before_stop()
+        success_floor = self._get_early_stop_floor(strict=False)
 
         # Enforce minimum turn requirement before goal-achieved early stopping
-        if current_turns < min_turns:
+        if current_turns < success_floor:
             logger.debug(
-                f"Early stop blocked: {current_turns}/{min_turns} turns "
+                f"Early stop blocked: {current_turns}/{success_floor} turns "
                 "completed. Continuing test execution."
             )
-            return False, ""
+            return StopResult.continue_()
 
         # Check if goal achieved (from SDK MetricResult.details)
         if self.result.details.get("is_successful", False):
             reason = self.result.details.get("reason", "Goal achieved")
-            return True, f"Goal achieved: {reason}"
+            return StopResult(ExecutionStatus.SUCCESS, True, f"Goal achieved: {reason}")
 
         # Check if goal is impossible (very low score after exhausting budget)
-        # Uses a HIGHER floor than goal-achieved: 80% of max_turns.
-        # This prevents giving up at min_turns when many turns remain.
-        if isinstance(self.result.score, (int, float)) and self.result.score < 0.3:
-            impossible_floor = self._get_impossible_floor()
+        if (
+            isinstance(self.result.score, (int, float))
+            and self.result.score < self.impossible_score_threshold
+        ):
+            impossible_floor = self._get_early_stop_floor(strict=True)
             if current_turns >= impossible_floor:
                 reason = self.result.details.get("reason", "Low score after multiple attempts")
-                return True, f"Goal determined impossible: {reason}"
+                return StopResult(
+                    ExecutionStatus.FAILURE,
+                    False,
+                    f"Goal determined impossible: {reason}",
+                )
             else:
                 logger.debug(
                     f"Low score ({self.result.score:.2f}) but only "
@@ -215,7 +264,7 @@ class GoalAchievedCondition(StoppingCondition):
                     f"Continuing to allow more attempts."
                 )
 
-        return False, ""
+        return StopResult.continue_()
 
 
 def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):

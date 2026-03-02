@@ -1,9 +1,16 @@
 """Shared fixtures for Penelope tests."""
 
 import os
+import sys
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+
+# Add tests/penelope to sys.path so helpers.py can be imported by test modules
+_test_dir = str(Path(__file__).parent)
+if _test_dir not in sys.path:
+    sys.path.insert(0, _test_dir)
 
 # Mock OpenAI API key to prevent DeepEval from failing during imports
 # This is needed because the SDK imports DeepEval metrics which try to initialize OpenAI clients

@@ -1,12 +1,63 @@
 """Tests for goal evaluation logic (inlined in agent.py)."""
 
+import json
 from unittest.mock import Mock
 
 import pytest
 
-from rhesis.penelope.context import TestContext, TestState
+from rhesis.penelope.context import TestContext, TestState, ToolExecution, Turn
+from rhesis.penelope.schemas import (
+    AssistantMessage as PenelopeAssistantMessage,
+)
+from rhesis.penelope.schemas import (
+    FunctionCall,
+    MessageToolCall,
+    ToolMessage,
+)
 from rhesis.sdk.metrics.base import MetricResult
-from rhesis.sdk.metrics.conversational import AssistantMessage, ConversationHistory, UserMessage
+from rhesis.sdk.metrics.conversational import ConversationHistory
+
+
+def _add_conversation_turn(state, message, response, turn_number=None):
+    """Add a turn to state that produces a conversation entry."""
+    if turn_number is None:
+        turn_number = len(state.turns) + 1
+    tool_result = json.dumps(
+        {
+            "success": True,
+            "output": {"response": response},
+        }
+    )
+    assistant_msg = PenelopeAssistantMessage(
+        content="Test",
+        tool_calls=[
+            MessageToolCall(
+                id=f"call_turn_{turn_number}",
+                type="function",
+                function=FunctionCall(
+                    name="send_message_to_target",
+                    arguments=json.dumps({"message": message}),
+                ),
+            )
+        ],
+    )
+    tool_msg = ToolMessage(
+        tool_call_id=f"call_turn_{turn_number}",
+        name="send_message_to_target",
+        content=tool_result,
+    )
+    execution = ToolExecution(
+        tool_name="send_message_to_target",
+        reasoning="Test",
+        assistant_message=assistant_msg,
+        tool_message=tool_msg,
+    )
+    turn = Turn(
+        turn_number=turn_number,
+        executions=[execution],
+        target_interaction=execution,
+    )
+    state.turns.append(turn)
 
 
 @pytest.fixture
@@ -32,7 +83,7 @@ def mock_goal_metric():
 
 @pytest.fixture
 def test_state():
-    """Create test state with conversation."""
+    """Create test state with one conversation turn."""
     context = TestContext(
         target_id="test",
         target_type="test",
@@ -40,12 +91,7 @@ def test_state():
         goal="Test goal",
     )
     state = TestState(context=context)
-    state.conversation = ConversationHistory.from_messages(
-        [
-            UserMessage(role="user", content="Hello"),
-            AssistantMessage(role="assistant", content="Hi there"),
-        ]
-    )
+    _add_conversation_turn(state, "Hello", "Hi there")
     return state
 
 
@@ -67,7 +113,8 @@ def _evaluate_goal(goal_metric, state, goal, instructions=""):
 
     This is the exact logic that was previously in GoalEvaluator.evaluate().
     """
-    if len(state.conversation) < 1:
+    conversation = state.get_conversation()
+    if len(conversation) < 1:
         return MetricResult(
             score=0.0,
             details={
@@ -77,7 +124,7 @@ def _evaluate_goal(goal_metric, state, goal, instructions=""):
             },
         )
     return goal_metric.evaluate(
-        conversation_history=state.conversation,
+        conversation_history=conversation,
         goal=goal,
         instructions=instructions,
     )
@@ -117,9 +164,7 @@ class TestGoalEvaluation:
 
     def test_evaluate_with_instructions(self, mock_goal_metric, test_state):
         """Test evaluate passes instructions to goal_metric."""
-        _evaluate_goal(
-            mock_goal_metric, test_state, "Test goal", instructions="Do X then Y"
-        )
+        _evaluate_goal(mock_goal_metric, test_state, "Test goal", instructions="Do X then Y")
 
         call_args = mock_goal_metric.evaluate.call_args
         assert call_args[1]["instructions"] == "Do X then Y"
@@ -153,19 +198,14 @@ class TestGoalEvaluationEdgeCases:
         )
         state = TestState(context=context)
 
-        messages = []
         for i in range(100):
-            messages.append(UserMessage(role="user", content=f"Message {i}"))
-            messages.append(
-                AssistantMessage(role="assistant", content=f"Response {i}")
-            )
-        state.conversation = ConversationHistory.from_messages(messages)
+            _add_conversation_turn(state, f"Message {i}", f"Response {i}")
 
         _evaluate_goal(mock_goal_metric, state, "Test goal")
 
         mock_goal_metric.evaluate.assert_called_once()
         call_args = mock_goal_metric.evaluate.call_args
-        assert len(call_args[1]["conversation_history"].messages) == 200
+        assert len(call_args[1]["conversation_history"].messages) == 100
 
     def test_evaluate_preserves_metric_details(self, test_state):
         """Test evaluate preserves all details from metric result."""

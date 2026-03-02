@@ -31,6 +31,7 @@ from rhesis.penelope.utils import (
     MaxToolExecutionsCondition,
     MaxTurnsCondition,
     StoppingCondition,
+    StopResult,
     TimeoutCondition,
     display_test_result,
 )
@@ -203,7 +204,7 @@ class PenelopeAgent:
             name="penelope_goal_evaluation",
             description="Evaluates goal achievement in Penelope test conversations",
             model=model,
-            threshold=0.7,
+            threshold=PenelopeConfig.get_goal_achievement_threshold(),
         )
         metrics.append(default_judge)
         logger.info("✓ Created default GoalAchievementJudge for stopping and evaluation")
@@ -396,7 +397,7 @@ class PenelopeAgent:
         self,
         state: TestState,
         conditions: List[StoppingCondition],
-    ) -> tuple[bool, str]:
+    ) -> StopResult:
         """
         Check all stopping conditions.
 
@@ -405,14 +406,14 @@ class PenelopeAgent:
             conditions: List of stopping conditions
 
         Returns:
-            Tuple of (should_stop, reason)
+            StopResult with status, goal_achieved, and reason, or StopResult.continue_()
         """
         for condition in conditions:
-            should_stop, reason = condition.should_stop(state)
-            if should_stop:
-                return True, reason
+            result = condition.should_stop(state)
+            if result.should_stop:
+                return result
 
-        return False, ""
+        return StopResult.continue_()
 
     def execute_test(
         self,
@@ -578,25 +579,16 @@ class PenelopeAgent:
 
         while True:
             # Check stopping conditions
-            should_stop, reason = self._should_stop(state, conditions)
-            if should_stop:
-                logger.info(f"Stopping: {reason}")
+            stop_result = self._should_stop(state, conditions)
+            if stop_result.should_stop:
+                logger.info(f"Stopping: {stop_result.reason}")
 
-                # Determine status
-                if "goal achieved" in reason.lower():
-                    status = ExecutionStatus.SUCCESS
-                    goal_achieved = True
-                elif "timeout" in reason.lower():
-                    status = ExecutionStatus.TIMEOUT
-                    goal_achieved = False
-                elif "maximum turns" in reason.lower():
-                    status = ExecutionStatus.MAX_TURNS
-                    goal_achieved = False
-                else:
-                    status = ExecutionStatus.FAILURE
-                    goal_achieved = False
-
-                result = state.to_result(status, goal_achieved, target=target, model=self.model)
+                result = state.to_result(
+                    stop_result.status,
+                    stop_result.goal_achieved,
+                    target=target,
+                    model=self.model,
+                )
 
                 if self.verbose:
                     display_test_result(result)
@@ -616,11 +608,12 @@ class PenelopeAgent:
                 return result
 
             # Evaluate all SDK metrics
+            conversation = state.get_conversation()
             for metric in self.metrics:
                 if metric == self.goal_metric:
                     # Evaluate goal achievement directly
-                    if len(state.conversation) < 1:
-                        result = MetricResult(
+                    if len(conversation) < 1:
+                        metric_result = MetricResult(
                             score=0.0,
                             details={
                                 "is_successful": False,
@@ -629,23 +622,22 @@ class PenelopeAgent:
                             },
                         )
                     else:
-                        result = self.goal_metric.evaluate(
-                            conversation_history=state.conversation,
+                        metric_result = self.goal_metric.evaluate(
+                            conversation_history=conversation,
                             goal=goal,
                             instructions=instructions or "",
                         )
 
-                    # Update goal-achieved stopping condition
+                    # Update all conditions that care about evaluation results
                     for condition in conditions:
-                        if isinstance(condition, GoalAchievedCondition):
-                            condition.update_result(result)
+                        condition.update_result(metric_result)
                 else:
-                    # Directly evaluate other metrics
-                    result = metric.evaluate(state.conversation, goal=goal)
+                    metric_result = metric.evaluate(conversation, goal=goal)
 
                 # Store metric property in result details for robust detection
                 if hasattr(metric, "is_goal_achievement_metric"):
-                    result.details["is_goal_achievement_metric"] = metric.is_goal_achievement_metric
+                    metric_result.details["is_goal_achievement_metric"] = (
+                        metric.is_goal_achievement_metric
+                    )
 
-                # Store all metric results for reporting
-                state.metric_results.append(result)
+                state.metric_results.append(metric_result)

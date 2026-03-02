@@ -4,11 +4,14 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
+from helpers import add_turns_to_state
 
+from rhesis.penelope.context import ExecutionStatus
 from rhesis.penelope.utils import (
     GoalAchievedCondition,
     MaxTurnsCondition,
     StoppingCondition,
+    StopResult,
     TimeoutCondition,
 )
 
@@ -37,10 +40,11 @@ def test_max_turns_condition_should_not_stop(sample_test_state):
     """Test MaxTurnsCondition doesn't stop before limit."""
     condition = MaxTurnsCondition(max_turns=10)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is False
-    assert reason == ""
+    assert result.should_stop is False
+    assert result.status is None
+    assert result.reason == ""
 
 
 def test_max_turns_condition_should_stop(sample_test_state):
@@ -51,11 +55,12 @@ def test_max_turns_condition_should_stop(sample_test_state):
     for _ in range(5):
         sample_test_state.current_turn += 1
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is True
-    assert "Maximum turns" in reason
-    assert "5" in reason
+    assert result.should_stop is True
+    assert result.status == ExecutionStatus.MAX_TURNS
+    assert "Maximum turns" in result.reason
+    assert "5" in result.reason
 
 
 def test_timeout_condition_initialization():
@@ -69,10 +74,10 @@ def test_timeout_condition_should_not_stop(sample_test_state):
     """Test TimeoutCondition doesn't stop before timeout."""
     condition = TimeoutCondition(timeout_seconds=60.0)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is False
-    assert reason == ""
+    assert result.should_stop is False
+    assert result.status is None
 
 
 def test_timeout_condition_should_stop(sample_test_state):
@@ -82,10 +87,11 @@ def test_timeout_condition_should_stop(sample_test_state):
     # Simulate time passing
     sample_test_state.start_time = datetime.now() - timedelta(seconds=2)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is True
-    assert "Timeout" in reason
+    assert result.should_stop is True
+    assert result.status == ExecutionStatus.TIMEOUT
+    assert "Timeout" in result.reason
 
 
 def test_goal_achieved_condition_initialization():
@@ -110,10 +116,10 @@ def test_goal_achieved_condition_should_not_stop_no_result(sample_test_state):
     """Test GoalAchievedCondition doesn't stop without result."""
     condition = GoalAchievedCondition()
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is False
-    assert reason == ""
+    assert result.should_stop is False
+    assert result.status is None
 
 
 def test_goal_achieved_condition_should_not_stop_goal_not_achieved(
@@ -126,10 +132,10 @@ def test_goal_achieved_condition_should_not_stop_goal_not_achieved(
 
     condition = GoalAchievedCondition(result=mock_result)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is False
-    assert reason == ""
+    assert result.should_stop is False
+    assert result.status is None
 
 
 def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
@@ -143,53 +149,12 @@ def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
 
     condition = GoalAchievedCondition(result=mock_result)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is True
-    assert "Goal achieved" in reason
-    assert "successfully achieved" in reason
-
-
-def _add_turns_to_state(state, count):
-    """Helper to add N turns to a test state."""
-    from rhesis.penelope.context import ToolExecution, Turn
-    from rhesis.penelope.schemas import (
-        AssistantMessage,
-        FunctionCall,
-        MessageToolCall,
-        ToolMessage,
-    )
-
-    for i in range(count):
-        assistant_msg = AssistantMessage(
-            content=f"Turn {i + 1}",
-            tool_calls=[
-                MessageToolCall(
-                    id=f"call_{i}",
-                    type="function",
-                    function=FunctionCall(
-                        name="send_message_to_target", arguments="{}"
-                    ),
-                )
-            ],
-        )
-        tool_msg = ToolMessage(
-            tool_call_id=f"call_{i}",
-            name="send_message_to_target",
-            content="result",
-        )
-        target_execution = ToolExecution(
-            tool_name="send_message_to_target",
-            reasoning="test",
-            assistant_message=assistant_msg,
-            tool_message=tool_msg,
-        )
-        turn = Turn(
-            turn_number=i + 1,
-            executions=[target_execution],
-            target_interaction=target_execution,
-        )
-        state.turns.append(turn)
+    assert result.should_stop is True
+    assert result.status == ExecutionStatus.SUCCESS
+    assert "Goal achieved" in result.reason
+    assert "successfully achieved" in result.reason
 
 
 def test_goal_achieved_condition_should_stop_goal_impossible(
@@ -204,12 +169,13 @@ def test_goal_achieved_condition_should_stop_goal_impossible(
     }
 
     condition = GoalAchievedCondition(result=mock_result)
-    _add_turns_to_state(sample_test_state, 5)
+    add_turns_to_state(sample_test_state, 5)
 
-    should_stop, reason = condition.should_stop(sample_test_state)
+    result = condition.should_stop(sample_test_state)
 
-    assert should_stop is True
-    assert "impossible" in reason.lower()
+    assert result.should_stop is True
+    assert result.status == ExecutionStatus.FAILURE
+    assert "impossible" in result.reason.lower()
 
 
 def test_goal_achieved_condition_update_result():
@@ -236,14 +202,12 @@ def test_min_turns_blocks_early_stop(sample_test_state):
         "reason": "Goal achieved",
     }
 
-    condition = GoalAchievedCondition(
-        result=mock_result, max_turns=10, min_turns=8
-    )
-    _add_turns_to_state(sample_test_state, 5)
+    condition = GoalAchievedCondition(result=mock_result, max_turns=10, min_turns=8)
+    add_turns_to_state(sample_test_state, 5)
 
     # At 5 turns with min_turns=8, should NOT stop
-    should_stop, reason = condition.should_stop(sample_test_state)
-    assert should_stop is False
+    result = condition.should_stop(sample_test_state)
+    assert result.should_stop is False
 
 
 def test_min_turns_allows_stop_after_threshold(sample_test_state):
@@ -255,15 +219,14 @@ def test_min_turns_allows_stop_after_threshold(sample_test_state):
         "reason": "Goal achieved",
     }
 
-    condition = GoalAchievedCondition(
-        result=mock_result, max_turns=10, min_turns=5
-    )
-    _add_turns_to_state(sample_test_state, 5)
+    condition = GoalAchievedCondition(result=mock_result, max_turns=10, min_turns=5)
+    add_turns_to_state(sample_test_state, 5)
 
     # At 5 turns with min_turns=5, should stop
-    should_stop, reason = condition.should_stop(sample_test_state)
-    assert should_stop is True
-    assert "Goal achieved" in reason
+    result = condition.should_stop(sample_test_state)
+    assert result.should_stop is True
+    assert result.status == ExecutionStatus.SUCCESS
+    assert "Goal achieved" in result.reason
 
 
 def test_min_turns_capped_at_max_turns(sample_test_state):
@@ -271,7 +234,7 @@ def test_min_turns_capped_at_max_turns(sample_test_state):
     condition = GoalAchievedCondition(max_turns=10, min_turns=15)
 
     # min_turns=15 should be capped to max_turns=10
-    assert condition._get_min_turns_before_stop() == 10
+    assert condition._get_early_stop_floor(strict=False) == 10
 
 
 def test_default_threshold_when_no_min_turns():
@@ -279,11 +242,30 @@ def test_default_threshold_when_no_min_turns():
     condition = GoalAchievedCondition(max_turns=10)
 
     # 80% of 10 = 8
-    assert condition._get_min_turns_before_stop() == 8
+    assert condition._get_early_stop_floor(strict=False) == 8
 
 
 def test_no_floor_when_neither_set():
     """Test fallback to 0 when neither max_turns nor min_turns is set."""
     condition = GoalAchievedCondition()
 
-    assert condition._get_min_turns_before_stop() == 0
+    assert condition._get_early_stop_floor(strict=False) == 0
+
+
+def test_stop_result_continue():
+    """Test StopResult.continue_() sentinel."""
+    result = StopResult.continue_()
+
+    assert result.should_stop is False
+    assert result.status is None
+    assert result.reason == ""
+
+
+def test_stop_result_with_status():
+    """Test StopResult with a status."""
+    result = StopResult(ExecutionStatus.SUCCESS, True, "Test reason")
+
+    assert result.should_stop is True
+    assert result.status == ExecutionStatus.SUCCESS
+    assert result.goal_achieved is True
+    assert result.reason == "Test reason"

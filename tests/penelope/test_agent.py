@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rhesis.penelope.agent import PenelopeAgent, _create_default_model
-from rhesis.penelope.context import TestContext, TestState
+from rhesis.penelope.context import ExecutionStatus, TestContext, TestState
 from rhesis.penelope.targets.base import Target
 from rhesis.sdk.metrics.providers.native import GoalAchievementJudge
 from rhesis.sdk.models.base import BaseLLM
@@ -354,10 +354,11 @@ class TestPenelopeAgentHelperMethods:
         state = TestState(context=context)
 
         conditions = agent._create_stopping_conditions()
-        should_stop, reason = agent._should_stop(state, conditions)
+        result = agent._should_stop(state, conditions)
 
-        assert should_stop is False
-        assert reason == ""
+        assert result.should_stop is False
+        assert result.status is None
+        assert result.reason == ""
 
     def test_should_stop_returns_true_when_condition_met(self, mock_model, mock_target):
         """Test _should_stop returns True when condition is met."""
@@ -374,10 +375,12 @@ class TestPenelopeAgentHelperMethods:
         state.current_turn = 1
 
         conditions = agent._create_stopping_conditions()
-        should_stop, reason = agent._should_stop(state, conditions)
+        result = agent._should_stop(state, conditions)
 
-        assert should_stop is True
-        assert "maximum iterations" in reason.lower() or "1" in reason
+        assert result.should_stop is True
+        assert result.status == ExecutionStatus.MAX_TURNS
+        assert result.goal_achieved is False
+        assert "maximum" in result.reason.lower() or "1" in result.reason
 
 
 class TestCreateDefaultModel:
