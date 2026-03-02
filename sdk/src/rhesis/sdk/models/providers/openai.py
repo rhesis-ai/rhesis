@@ -16,7 +16,7 @@ DEFAULT_EMBEDDING_MODEL = model_name_from_id(DEFAULT_EMBEDDING_MODELS["openai"])
 class OpenAILLM(LiteLLM):
     PROVIDER = "openai"
 
-    def __init__(self, model_name=DEFAULT_MODEL_NAME, api_key=None):
+    def __init__(self, model_name=DEFAULT_MODEL_NAME, api_key=None, **kwargs):
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         if api_key is None:
             raise ValueError("OPENAI_API_KEY is not set")
@@ -44,6 +44,7 @@ class OpenAIEmbedder(LiteLLMEmbedder):
         model_name: str = DEFAULT_EMBEDDING_MODEL,
         api_key: Optional[str] = None,
         dimensions: Optional[int] = None,
+        **kwargs,
     ):
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         if api_key is None:
