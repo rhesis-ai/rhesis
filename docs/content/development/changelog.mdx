@@ -8,6 +8,68 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.6.7] - 2026-03-02
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.6**
+- **Frontend 0.6.7**
+- **SDK 0.6.7**
+- **Polyphemus 0.2.7**
+
+### Summary
+
+This release introduces **explicit `min_turns` control for early stopping in conversational tests**, **improved turn budget handling in Penelope**, and **enhanced metric handling** across the platform. It also adds bulk association/disassociation of tests with TestSets.
+
+### Featured Capabilities
+
+**Min Turns Control for Conversational Tests**
+
+Fine-grained control over early stopping behavior:
+
+- **Explicit `min_turns` Parameter**: Configure the minimum number of turns before early stopping is allowed, via backend, frontend, and SDK
+- **Range Slider UI**: Configurable through a range slider in the frontend for intuitive setup
+- **Turn-Aware Prompts**: Penelope now uses turn-aware prompts and deepening strategies to prevent premature stopping
+
+**Enhanced Metric Handling**
+
+Improvements across the metric lifecycle:
+
+- **Create-or-Update Support**: Metric push now supports create-or-update semantics in the SDK
+- **ID Preservation**: IDs are preserved when pulling metrics, preventing duplicates
+- **Null Value Fix**: Fixed null value overwrites in metric handling
+- **Conversational Metric Evaluation**: `conversation_history` is now passed to conversational metrics
+- **Pagination Fix**: Metrics page now correctly displays all backend type tabs
+
+**TestSet Bulk Operations**
+
+Improved test set management:
+
+- **Bulk Association**: Associate multiple tests with a TestSet in a single operation
+- **Bulk Disassociation**: Disassociate multiple tests from a TestSet without recreating them
+- **SDK and Backend Support**: Available across both the SDK and backend
+
+### Backend Highlights
+- Added explicit `min_turns` parameter to test configuration for early stopping control
+- Improved turn budget handling in Penelope with turn-aware prompts and deepening strategies
+- Added `conversation_history` passing to conversational metrics
+- Added methods to TestSet for bulk association/disassociation of tests
+
+### Frontend Highlights
+- Added `min_turns`/`max_turns` configuration with a range slider for conversational test setup
+- Enhanced multi-turn evaluation with accurate turn counting (user-assistant pairs)
+- Fixed metrics page pagination to display all backend type tabs
+
+### SDK Highlights
+- Added explicit `min_turns` parameter replacing instruction-based regex parsing for early stopping
+- Improved turn budget handling with turn-aware prompts and explicit min/max turn labeling
+- Enhanced metric handling: create-or-update support, ID preservation, and null value fixes
+- Added methods to TestSet for bulk association/disassociation of tests
+
+### Polyphemus Highlights
+- No significant changes in this release
+
 ## [0.6.6] - 2026-02-26
 
 ### Platform Release
@@ -17,6 +79,19 @@ This release includes the following component versions:
 - **Frontend 0.6.6**
 - **SDK 0.6.6**
 - **Polyphemus 0.2.6**
+
+### Video Overview
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/KWnFfA-K2YA"
+    title="Release 0.6.6 | Rhesis AI"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
 
 ### Summary
 
