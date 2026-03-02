@@ -350,7 +350,7 @@ def update_test(
         raise HTTPException(status_code=404, detail="Test not found")
 
     test_data = resolve_test_entity_names(
-        db, test.model_dump(exclude_unset=True), organization_id, user_id
+        db, test.model_dump(exclude_unset=True), organization_id, user_id, is_create=False
     )
     return crud.update_test(
         db=db, test_id=test_id, test=test_data, organization_id=organization_id, user_id=user_id

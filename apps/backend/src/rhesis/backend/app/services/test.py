@@ -444,8 +444,9 @@ def resolve_test_entity_names(
     test_data: Dict[str, Any],
     organization_id: str,
     user_id: str,
+    is_create: bool = True,
 ) -> Dict[str, Any]:
-    """Resolve string name fields to entity IDs for single-test creation.
+    """Resolve string name fields to entity IDs for single-test create/update.
 
     Handles the same name-resolution that the bulk endpoint does:
     - ``category``, ``topic``, ``behavior`` → ``*_id`` via get-or-create
@@ -453,7 +454,15 @@ def resolve_test_entity_names(
     - ``test_type`` (string) → ``test_type_id`` via get-or-create TypeLookup
 
     String names take precedence only when the corresponding ``_id`` field
-    is not already set.  Returns the mutated *test_data* dict.
+    is not already set.
+
+    Args:
+        is_create: When True (default), auto-detects and defaults
+            ``test_type_id`` if not provided. When False (updates),
+            only resolves ``test_type`` if explicitly included in the
+            payload to avoid overwriting the existing value.
+
+    Returns the mutated *test_data* dict.
     """
     defaults = load_defaults()
 
@@ -490,9 +499,11 @@ def resolve_test_entity_names(
         if prompt:
             test_data["prompt_id"] = prompt.id
 
-    # Resolve test_type string → test_type_id (with auto-detection)
+    # Resolve test_type string → test_type_id
+    # On create: auto-detect from content if not explicitly provided
+    # On update: only resolve if test_type was explicitly included
     test_type_value = test_data.pop("test_type", None)
-    if not test_type_value and not test_data.get("test_type_id"):
+    if is_create and not test_type_value and not test_data.get("test_type_id"):
         # Auto-detect from content, matching bulk endpoint logic
         test_config = test_data.get("test_configuration")
         if test_config and isinstance(test_config, dict) and "goal" in test_config:
