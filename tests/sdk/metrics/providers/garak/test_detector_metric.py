@@ -100,6 +100,7 @@ class TestGarakDetectorMetricDetectorLoading:
         mock_import.return_value = mock_module
 
         metric = GarakDetectorMetric(detector_class="mitigation.MitigationBypass")
+        mock_import.reset_mock()
 
         # Access the detector to trigger loading
         _ = metric.detector
@@ -116,6 +117,7 @@ class TestGarakDetectorMetricDetectorLoading:
         mock_import.return_value = mock_module
 
         metric = GarakDetectorMetric(detector_class="garak.detectors.xss.XSSDetector")
+        mock_import.reset_mock()
 
         _ = metric.detector
 
