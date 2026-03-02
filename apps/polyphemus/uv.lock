@@ -5309,7 +5309,7 @@ wheels = [
 
 [[package]]
 name = "polyphemus"
-version = "0.2.6"
+version = "0.2.7"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
@@ -6712,7 +6712,7 @@ wheels = [
 
 [[package]]
 name = "rhesis-backend"
-version = "0.6.5"
+version = "0.6.6"
 source = { editable = "../backend" }
 dependencies = [
     { name = "alembic" },
@@ -6907,7 +6907,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.6.6"
+version = "0.6.7"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },

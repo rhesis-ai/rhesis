@@ -13,6 +13,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-03-02
+
+### Added
+- Added explicit `min_turns` parameter for early stop control in test configurations.
+- Added test association methods (`add_tests()`, `remove_tests()`) to `TestSet` for bulk linking tests to test sets.
+- Added `min_turns` and `max_turns` to import/export functionality (CSV, JSON, JSONL) and synthesizer.
+
+### Changed
+- Replaced instruction-based regex parsing for minimum turns with an explicit `min_turns` parameter on `execute_test()`.
+- Replaced the max turns input on the frontend with a turn configuration range slider, allowing control of both `min_turns` and `max_turns`.
+- Standardized naming: `max_iterations` is now `max_turns` throughout the SDK and backend.
+- Improved turn budget awareness and deepening strategies for the Penelope agent.
+- Enhanced metric update functionality to prevent overwriting with null values.
+- Updated metrics page to paginate metrics fetch, ensuring all backend type tabs are displayed.
+- Improved client-side pagination for the metrics grid.
+
+### Fixed
+- Prevented the goal judge from creating spurious turn count criteria.
+- Addressed premature stopping and turn budget confusion in the Penelope agent.
+- Stopped leaking turn budget into goal judge instructions.
+- Corrected turn counting in conversational metrics to count user-assistant pairs.
+- Prevented early stopping before reaching `max_turns`.
+- Fixed focus loss and stale save button in the metric editor.
+- Handled `None` turn parameters in test configuration.
+- Fixed max-turns stop reason detection.
+- Ensured conversational metrics receive `conversation_history` during evaluation.
+- Fixed metric ID not being set after creation.
+- Fixed default metric_scope for ConversationalJudge and GoalAchievementJudge.
+- Fixed pagination robustness guards in the frontend.
+
+
 ## [0.6.6] - 2026-02-26
 
 ### Added
