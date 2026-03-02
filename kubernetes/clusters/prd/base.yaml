@@ -11,6 +11,7 @@ spec:
     path: kubernetes/clusters/prd
     directory:
       recurse: true
+      exclude: 'external-secrets/*'
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:

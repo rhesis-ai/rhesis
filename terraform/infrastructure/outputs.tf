@@ -45,6 +45,16 @@ output "gke_prd_cluster_endpoint" {
   sensitive = true
 }
 
+output "eso_dev_service_account_email" {
+  value = module.eso_dev.service_account_email
+}
+output "eso_stg_service_account_email" {
+  value = module.eso_stg.service_account_email
+}
+output "eso_prd_service_account_email" {
+  value = module.eso_prd.service_account_email
+}
+
 output "wireguard_public_ip" {
   description = "WireGuard server public IP"
   value       = module.wireguard_server.server_external_ip
