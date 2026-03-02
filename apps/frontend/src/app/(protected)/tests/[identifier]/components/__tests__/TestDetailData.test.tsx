@@ -2,8 +2,12 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import type { UUID } from 'crypto';
 import TestDetailData from '../TestDetailData';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
+
+const u = (n: number): UUID =>
+  `00000000-0000-0000-0000-${String(n).padStart(12, '0')}` as UUID;
 
 // ---- Navigation ----
 
@@ -118,16 +122,24 @@ jest.mock('../MultiTurnConfigFields', () => ({
 // ---- Fixtures ----
 
 const makeTest = (overrides: Partial<TestDetail> = {}): TestDetail => ({
-  id: 't-1',
-  prompt_id: 'p-1',
-  prompt: { content: 'Is this safe?', expected_response: 'Yes, it is safe.' },
-  behavior: { id: 'b-1', name: 'Safety' },
-  topic: { id: 'tp-1', name: 'Topic A' },
-  category: { id: 'cat-1', name: 'Cat 1' },
-  test_type: { id: 'tt-1', type_value: 'adversarial' },
+  id: u(1),
+  prompt_id: u(2),
+  prompt: {
+    id: u(2),
+    content: 'Is this safe?',
+    expected_response: 'Yes, it is safe.',
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    language_code: 'en',
+  },
+  behavior: { id: u(3), name: 'Safety' },
+  topic: { id: u(4), name: 'Topic A' },
+  category: { id: u(5), name: 'Cat 1' },
+  test_type: { id: u(6), type_name: 'Adversarial', type_value: 'adversarial' },
   tags: [],
   counts: { comments: 0, tasks: 0 },
   created_at: '2024-01-01T00:00:00Z',
+  updated_at: '2024-01-01T00:00:00Z',
   ...overrides,
 });
 
@@ -216,7 +228,7 @@ describe('TestDetailData', () => {
     );
 
     await waitFor(() =>
-      expect(mockUpdateTest).toHaveBeenCalledWith('t-1', {
+      expect(mockUpdateTest).toHaveBeenCalledWith(u(1), {
         behavior_id: 'b-2',
       })
     );

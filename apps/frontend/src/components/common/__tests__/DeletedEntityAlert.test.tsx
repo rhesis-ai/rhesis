@@ -96,11 +96,14 @@ describe('DeletedEntityAlert', () => {
   });
 
   it('shows an error message when restore fails', async () => {
-    MockedRecycleClient.mockImplementation(() => ({
-      restoreItem: jest
-        .fn()
-        .mockRejectedValue(new Error('Restore failed: permission denied')),
-    }));
+    MockedRecycleClient.mockImplementation(
+      () =>
+        ({
+          restoreItem: jest
+            .fn()
+            .mockRejectedValue(new Error('Restore failed: permission denied')),
+        }) as unknown as RecycleClient
+    );
 
     const user = userEvent.setup();
 

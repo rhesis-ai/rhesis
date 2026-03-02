@@ -4,6 +4,10 @@ import '@testing-library/jest-dom';
 import TestRunHeader from '../TestRunHeader';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import type { UUID } from 'crypto';
+
+const u = (n: number): UUID =>
+  `00000000-0000-0000-0000-${String(n).padStart(12, '0')}` as UUID;
 
 jest.mock('next/link', () => ({
   __esModule: true,
@@ -18,19 +22,40 @@ jest.mock('next/link', () => ({
 
 // ---- Fixtures ----
 
+let _resultCounter = 0;
+
 const makeTestRun = (
   overrides: Partial<TestRunDetail> = {}
 ): TestRunDetail => ({
-  id: 'run-1',
+  id: u(1),
   name: 'My Test Run',
-  status: { id: 's1', name: 'Completed' },
+  status: { id: u(2), name: 'Completed' },
   test_configuration: {
+    id: u(6),
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    endpoint_id: u(5),
+    test_set_id: u(3),
+    user_id: u(7),
     test_set: {
-      id: 'ts-1',
+      id: u(3),
       name: 'Safety Set',
-      test_set_type: { type_value: 'evaluation' },
+      status: 'active',
+      is_published: false,
+      test_set_type: {
+        id: u(4),
+        type_name: 'Evaluation',
+        type_value: 'evaluation',
+      },
     },
-    endpoint: { id: 'ep-1', name: 'Production API' },
+    endpoint: {
+      id: u(5),
+      name: 'Production API',
+      connection_type: 'REST',
+      environment: 'production',
+      config_source: 'manual',
+      response_format: 'json',
+    },
   },
   attributes: {
     started_at: '2024-01-01T10:00:00Z',
@@ -44,21 +69,30 @@ const makeTestRun = (
   ...overrides,
 });
 
-const makeResult = (status: 'pass' | 'fail' | 'error'): TestResultDetail => ({
-  id: `r-${Math.random()}`,
-  test_metrics: {
-    metrics: [
-      {
-        is_successful:
-          status === 'pass' ? true : status === 'fail' ? false : null,
+const makeResult = (status: 'pass' | 'fail' | 'error'): TestResultDetail =>
+  ({
+    id: u(++_resultCounter),
+    test_configuration_id: u(11),
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z',
+    test_metrics: {
+      execution_time: 0,
+      metrics: {
+        result: {
+          score: status === 'pass' ? 1 : 0,
+          reason: '',
+          backend: 'test',
+          description: '',
+          is_successful: status === 'pass',
+        },
       },
-    ],
-  },
-  test_output: null,
-  status: {
-    name: status === 'pass' ? 'Pass' : status === 'fail' ? 'Fail' : 'Error',
-  },
-});
+    },
+    test_output: undefined,
+    status: {
+      id: u(10),
+      name: status === 'pass' ? 'Pass' : status === 'fail' ? 'Fail' : 'Error',
+    },
+  }) as unknown as TestResultDetail;
 
 // ---- Tests ----
 
@@ -130,7 +164,7 @@ describe('TestRunHeader', () => {
 
   it('renders Completed status chip from backend status', () => {
     const testRun = makeTestRun({
-      status: { id: 's1', name: 'Completed' },
+      status: { id: u(20), name: 'Completed' },
     });
     render(<TestRunHeader testRun={testRun} testResults={[]} />);
     expect(screen.getByText('Completed')).toBeInTheDocument();
@@ -138,7 +172,7 @@ describe('TestRunHeader', () => {
 
   it('renders In Progress status chip from backend "progress" status', () => {
     const testRun = makeTestRun({
-      status: { id: 's1', name: 'progress' },
+      status: { id: u(20), name: 'progress' },
       attributes: { started_at: '2024-01-01T10:00:00Z' },
     });
     render(<TestRunHeader testRun={testRun} testResults={[]} />);
@@ -148,7 +182,7 @@ describe('TestRunHeader', () => {
   });
 
   it('renders Failed status chip from backend status', () => {
-    const testRun = makeTestRun({ status: { id: 's1', name: 'failed' } });
+    const testRun = makeTestRun({ status: { id: u(20), name: 'failed' } });
     render(<TestRunHeader testRun={testRun} testResults={[]} />);
     expect(screen.getByText('Failed')).toBeInTheDocument();
   });
@@ -156,7 +190,7 @@ describe('TestRunHeader', () => {
   it('renders test set name as a link to the test set', () => {
     render(<TestRunHeader testRun={makeTestRun()} testResults={[]} />);
     const link = screen.getByRole('link', { name: /safety set/i });
-    expect(link).toHaveAttribute('href', '/test-sets/ts-1');
+    expect(link).toHaveAttribute('href', `/test-sets/${u(3)}`);
   });
 
   it('renders endpoint name as a link to the endpoint', () => {

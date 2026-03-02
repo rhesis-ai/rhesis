@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TestSetsGrid from '../TestSetsGrid';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
+import type { UUID } from 'crypto';
 
 // ---- Navigation + Auth ----
 
@@ -165,8 +166,10 @@ jest.mock('@/components/common/DeleteModal', () => ({
 
 // ---- Fixtures ----
 
-const makeTestSet = (id: string, name = 'Test Set'): TestSet => ({
+const makeTestSet = (id: UUID, name = 'Test Set'): TestSet => ({
   id,
+  status: 'active',
+  is_published: false,
   name,
   description: 'A test set',
   owner: { id: 'u1', name: 'Alice', email: 'alice@example.com' },
@@ -212,13 +215,20 @@ describe('TestSetsGrid', () => {
 
   it('renders rows returned by the fetch', async () => {
     mockGetTestSets.mockResolvedValue(
-      makePaginatedResponse([makeTestSet('ts-1'), makeTestSet('ts-2')])
+      makePaginatedResponse([
+        makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
+        makeTestSet('00000000-0000-0000-0000-000000000002' as UUID),
+      ])
     );
     render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
     await waitFor(() =>
-      expect(screen.getByTestId('row-ts-1')).toBeInTheDocument()
+      expect(
+        screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
+      ).toBeInTheDocument()
     );
-    expect(screen.getByTestId('row-ts-2')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('row-00000000-0000-0000-0000-000000000002')
+    ).toBeInTheDocument();
   });
 
   it('renders "New Test Set" action button after loading', async () => {
@@ -236,26 +246,40 @@ describe('TestSetsGrid', () => {
 
   it('navigates to test-set detail on row click', async () => {
     mockGetTestSets.mockResolvedValue(
-      makePaginatedResponse([makeTestSet('ts-99')])
+      makePaginatedResponse([
+        makeTestSet('00000000-0000-0000-0000-000000000099' as UUID),
+      ])
     );
     render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
     await waitFor(() =>
-      expect(screen.getByTestId('row-ts-99')).toBeInTheDocument()
+      expect(
+        screen.getByTestId('row-00000000-0000-0000-0000-000000000099')
+      ).toBeInTheDocument()
     );
-    await userEvent.click(screen.getByTestId('row-ts-99'));
-    expect(mockPush).toHaveBeenCalledWith('/test-sets/ts-99');
+    await userEvent.click(
+      screen.getByTestId('row-00000000-0000-0000-0000-000000000099')
+    );
+    expect(mockPush).toHaveBeenCalledWith(
+      '/test-sets/00000000-0000-0000-0000-000000000099'
+    );
   });
 
   it('shows "Delete Test Sets" button when rows are selected', async () => {
     mockGetTestSets.mockResolvedValue(
-      makePaginatedResponse([makeTestSet('ts-1')])
+      makePaginatedResponse([
+        makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
+      ])
     );
     render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
     await waitFor(() =>
-      expect(screen.getByTestId('row-ts-1')).toBeInTheDocument()
+      expect(
+        screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
+      ).toBeInTheDocument()
     );
 
-    await userEvent.click(screen.getByLabelText('select-ts-1'));
+    await userEvent.click(
+      screen.getByLabelText('select-00000000-0000-0000-0000-000000000001')
+    );
     await waitFor(() =>
       expect(screen.getByTestId('action-Delete Test Sets')).toBeInTheDocument()
     );
@@ -271,14 +295,20 @@ describe('TestSetsGrid', () => {
 
   it('opens delete modal when "Delete Test Sets" is clicked', async () => {
     mockGetTestSets.mockResolvedValue(
-      makePaginatedResponse([makeTestSet('ts-1')])
+      makePaginatedResponse([
+        makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
+      ])
     );
     render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
     await waitFor(() =>
-      expect(screen.getByTestId('row-ts-1')).toBeInTheDocument()
+      expect(
+        screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
+      ).toBeInTheDocument()
     );
 
-    await userEvent.click(screen.getByLabelText('select-ts-1'));
+    await userEvent.click(
+      screen.getByLabelText('select-00000000-0000-0000-0000-000000000001')
+    );
     await waitFor(() =>
       expect(screen.getByTestId('action-Delete Test Sets')).toBeInTheDocument()
     );
@@ -289,14 +319,20 @@ describe('TestSetsGrid', () => {
   it('calls deleteTestSet and shows success on confirm', async () => {
     mockDeleteTestSet.mockResolvedValue(undefined);
     mockGetTestSets.mockResolvedValue(
-      makePaginatedResponse([makeTestSet('ts-1')])
+      makePaginatedResponse([
+        makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
+      ])
     );
     render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
     await waitFor(() =>
-      expect(screen.getByTestId('row-ts-1')).toBeInTheDocument()
+      expect(
+        screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
+      ).toBeInTheDocument()
     );
 
-    await userEvent.click(screen.getByLabelText('select-ts-1'));
+    await userEvent.click(
+      screen.getByLabelText('select-00000000-0000-0000-0000-000000000001')
+    );
     await waitFor(() =>
       expect(screen.getByTestId('action-Delete Test Sets')).toBeInTheDocument()
     );
@@ -305,7 +341,11 @@ describe('TestSetsGrid', () => {
       screen.getByRole('button', { name: /confirm delete/i })
     );
 
-    await waitFor(() => expect(mockDeleteTestSet).toHaveBeenCalledWith('ts-1'));
+    await waitFor(() =>
+      expect(mockDeleteTestSet).toHaveBeenCalledWith(
+        '00000000-0000-0000-0000-000000000001'
+      )
+    );
     await waitFor(() =>
       expect(mockShow).toHaveBeenCalledWith(
         expect.stringContaining('deleted'),
@@ -316,14 +356,20 @@ describe('TestSetsGrid', () => {
 
   it('cancels deletion without calling API', async () => {
     mockGetTestSets.mockResolvedValue(
-      makePaginatedResponse([makeTestSet('ts-1')])
+      makePaginatedResponse([
+        makeTestSet('00000000-0000-0000-0000-000000000001' as UUID),
+      ])
     );
     render(<TestSetsGrid testSets={[]} loading={false} sessionToken="tok" />);
     await waitFor(() =>
-      expect(screen.getByTestId('row-ts-1')).toBeInTheDocument()
+      expect(
+        screen.getByTestId('row-00000000-0000-0000-0000-000000000001')
+      ).toBeInTheDocument()
     );
 
-    await userEvent.click(screen.getByLabelText('select-ts-1'));
+    await userEvent.click(
+      screen.getByLabelText('select-00000000-0000-0000-0000-000000000001')
+    );
     await waitFor(() =>
       expect(screen.getByTestId('action-Delete Test Sets')).toBeInTheDocument()
     );

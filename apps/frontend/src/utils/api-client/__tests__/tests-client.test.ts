@@ -160,7 +160,11 @@ describe('TestsClient', () => {
         }) as unknown as Response
       );
 
-      await client.getTests({ filter: "behavior eq 'safety'" });
+      await client.getTests({
+        filter: "behavior eq 'safety'",
+        skip: 0,
+        limit: 25,
+      });
 
       // $filter is URL-encoded as %24filter in query strings
       const calledUrl = fetchMock.mock.calls[0][0] as string;

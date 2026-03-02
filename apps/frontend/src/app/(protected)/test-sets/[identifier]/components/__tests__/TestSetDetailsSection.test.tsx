@@ -4,6 +4,10 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TestSetDetailsSection from '../TestSetDetailsSection';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
+import type { UUID } from 'crypto';
+
+const u = (n: number): UUID =>
+  `00000000-0000-0000-0000-${String(n).padStart(12, '0')}` as UUID;
 
 // ---- Auth ----
 
@@ -53,12 +57,18 @@ jest.mock('../TestSetMetrics', () => ({
 // ---- Fixtures ----
 
 const makeTestSet = (overrides: Partial<TestSet> = {}): TestSet => ({
-  id: 'ts-1',
+  id: u(1),
   name: 'My Test Set',
   description: 'A description of the test set.',
   owner: { id: 'u1', name: 'Alice', email: 'alice@example.com' },
   user: { id: 'u1', name: 'Alice', email: 'alice@example.com' },
-  test_set_type: { type_value: 'evaluation' },
+  status: 'active',
+  is_published: false,
+  test_set_type: {
+    id: u(2),
+    type_name: 'Evaluation',
+    type_value: 'evaluation',
+  },
   attributes: {
     metadata: {
       total_tests: 5,
@@ -195,7 +205,7 @@ describe('TestSetDetailsSection', () => {
       await userEvent.click(screen.getByRole('button', { name: /confirm/i }));
 
       await waitFor(() =>
-        expect(mockUpdateTestSet).toHaveBeenCalledWith('ts-1', {
+        expect(mockUpdateTestSet).toHaveBeenCalledWith(u(1), {
           description: 'Updated description',
         })
       );

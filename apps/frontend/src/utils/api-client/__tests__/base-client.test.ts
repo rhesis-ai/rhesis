@@ -8,10 +8,14 @@ class TestableClient extends BaseApiClient {
 
   async fetchPaginatedPublic<T>(
     endpoint: string,
-    params = {},
+    params: Record<string, unknown> = {},
     options?: RequestInit
   ) {
-    return this.fetchPaginated<T>(endpoint, params, options);
+    return this.fetchPaginated<T>(
+      endpoint,
+      params as Parameters<typeof this.fetchPaginated>[1],
+      options
+    );
   }
 
   getHeadersPublic(): HeadersInit {
