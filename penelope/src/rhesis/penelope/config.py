@@ -132,7 +132,7 @@ class PenelopeConfig:
         if cls._default_max_turns is not None:
             return cls._default_max_turns
 
-        return cls._parse_env("PENELOPE_DEFAULT_MAX_TURNS", cls.DEFAULT_MAX_TURNS, int)
+        return cls._parse_env("PENELOPE_DEFAULT_MAX_TURNS", cls.DEFAULT_MAX_TURNS, int, min_val=1)
 
     @classmethod
     def get_max_tool_executions_multiplier(cls) -> int:
@@ -146,6 +146,7 @@ class PenelopeConfig:
             "PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER",
             cls.DEFAULT_MAX_TOOL_EXECUTIONS_MULTIPLIER,
             int,
+            min_val=1,
         )
 
     @staticmethod

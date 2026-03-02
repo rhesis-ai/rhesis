@@ -350,11 +350,12 @@ class TestMultiToolExecution:
         assert success is True
 
         # Conversation should have one entry (combined user + assistant message)
-        assert len(test_state.conversation.messages) == 1
-        
+        conversation = test_state.get_conversation()
+        assert len(conversation.messages) == 1
+
         # Should contain the combined conversation entry
-        conversation_msg = test_state.conversation.messages[0]
-        
+        conversation_msg = conversation.messages[0]
+
         # The conversation contains both the user message and assistant response
         assert "Hi there!" in conversation_msg.content
         assert "Hello back!" in conversation_msg.content

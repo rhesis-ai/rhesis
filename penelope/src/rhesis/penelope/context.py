@@ -15,6 +15,11 @@ from pydantic import BaseModel, Field, field_serializer
 from rhesis.penelope.schemas import AssistantMessage, ConversationHistory, ToolMessage
 
 
+def _serialize_dt(dt: Optional[datetime], _info) -> Optional[str]:
+    """Serialize datetime to ISO format string."""
+    return dt.isoformat() if dt else None
+
+
 class ToolType(str, Enum):
     """
     Enumeration of tool types for reliable tool classification.
@@ -121,9 +126,8 @@ class ToolExecution(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
 
     @field_serializer("timestamp")
-    def serialize_timestamp(self, timestamp: datetime, _info):
-        """Serialize datetime to ISO format string."""
-        return timestamp.isoformat()
+    def serialize_timestamp(self, timestamp, _info):
+        return _serialize_dt(timestamp, _info)
 
     def get_tool_call_arguments(self, tool_name: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -196,9 +200,8 @@ class Turn(BaseModel):
     )
 
     @field_serializer("timestamp")
-    def serialize_timestamp(self, timestamp: datetime, _info):
-        """Serialize datetime to ISO format string."""
-        return timestamp.isoformat()
+    def serialize_timestamp(self, timestamp, _info):
+        return _serialize_dt(timestamp, _info)
 
 
 class ConversationTurn(BaseModel):
@@ -312,9 +315,8 @@ class TestResult(BaseModel):
         return None
 
     @field_serializer("start_time", "end_time", when_used="json")
-    def serialize_datetime(self, dt: Optional[datetime], _info):
-        """Serialize datetime to ISO format string."""
-        return dt.isoformat() if dt else None
+    def serialize_datetime(self, dt, _info):
+        return _serialize_dt(dt, _info)
 
 
 @dataclass
@@ -345,7 +347,6 @@ class TestState:
     Current state of a test execution.
 
     Tracks conversation history, turn count, and session information.
-    Uses SDK's ConversationHistory for zero-conversion metric evaluation.
 
     CORRECT TURN DEFINITION:
     - A turn = One complete Penelope request → Target response cycle
@@ -353,17 +354,11 @@ class TestState:
     - A turn is complete when a target interaction occurs and target responds
     - current_turn: Number of completed turns (complete request-response cycles)
     - len(turns): Number of completed turns (same as current_turn)
-    - len(conversation): Number of SDK conversation messages (same as current_turn)
     - current_turn_executions: Tool executions in the current (incomplete) turn
     """
 
     context: TestContext
     turns: List[Turn] = field(default_factory=list)  # Completed turns only
-
-    # Native SDK conversation tracking - built incrementally as turns complete
-    conversation: ConversationHistory = field(
-        default_factory=lambda: ConversationHistory.from_messages([])
-    )
 
     current_turn: int = 0  # Number of completed turns
     current_turn_executions: List[ToolExecution] = field(
@@ -435,9 +430,6 @@ class TestState:
             # Add completed turn to turns list
             self.turns.append(turn)
 
-            # Update SDK conversation
-            self._update_conversation_from_turn(turn)
-
             # Clear current turn executions for next turn
             self.current_turn_executions.clear()
 
@@ -461,39 +453,39 @@ class TestState:
         """
         return ToolType.is_target_interaction(tool_name)
 
-    def _update_conversation_from_turn(self, turn: Turn) -> None:
+    def get_conversation(self) -> ConversationHistory:
         """
-        Update the conversation history from a completed turn.
+        Build SDK ConversationHistory from completed turns.
 
-        Creates a single conversation entry that represents the complete
-        Penelope-target interaction as one turn.
+        Converts the internal turn history into a format the SDK metrics expect.
+        Each turn becomes one conversation entry with "User: ... Assistant: ..." format.
 
-        This ensures that SDK metrics see 1 conversation entry per Penelope turn,
-        making turn counting consistent between Penelope and SDK evaluations.
-
-        Args:
-            turn: The completed turn to extract conversation from
+        Returns:
+            ConversationHistory built from all completed turns
         """
         from rhesis.penelope.schemas import UserMessage
 
-        # Only process turns with target interactions
-        if turn.target_interaction.tool_name == ToolType.SEND_MESSAGE_TO_TARGET:
-            # Extract user message from target interaction
+        messages = []
+        for turn in self.turns:
+            if turn.target_interaction.tool_name != ToolType.SEND_MESSAGE_TO_TARGET:
+                continue
             target_args = turn.target_interaction.get_tool_call_arguments()
             user_msg = target_args.get("message", "")
 
-            # Extract assistant response from target interaction result
-            result = json.loads(turn.target_interaction.tool_message.content)
+            try:
+                result = json.loads(turn.target_interaction.tool_message.content)
+            except json.JSONDecodeError:
+                continue
             assistant_resp = ""
             if isinstance(result, dict) and result.get("success"):
                 resp = result.get("output", {})
                 assistant_resp = resp.get("response", "") if isinstance(resp, dict) else str(resp)
 
-            # Create a single conversation entry that represents the complete turn
-            # Format: "User: {message}\n\nAssistant: {response}"
             if user_msg and assistant_resp:
                 turn_content = f"User: {user_msg}\n\nAssistant: {assistant_resp}"
-                self.conversation.messages.append(UserMessage(role="user", content=turn_content))
+                messages.append(UserMessage(role="user", content=turn_content))
+
+        return ConversationHistory.from_messages(messages)
 
     def add_finding(self, finding: str) -> None:
         """Add a finding to the findings list."""

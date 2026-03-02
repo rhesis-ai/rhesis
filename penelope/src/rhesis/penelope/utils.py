@@ -30,7 +30,7 @@ class StopResult:
 
     def __init__(
         self,
-        status: ExecutionStatus,
+        status: Optional[ExecutionStatus],
         goal_achieved: bool,
         reason: str,
     ):

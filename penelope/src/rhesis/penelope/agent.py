@@ -406,7 +406,7 @@ class PenelopeAgent:
             conditions: List of stopping conditions
 
         Returns:
-            StopResult with category and reason, or StopResult.continue_()
+            StopResult with status, goal_achieved, and reason, or StopResult.continue_()
         """
         for condition in conditions:
             result = condition.should_stop(state)
@@ -608,10 +608,11 @@ class PenelopeAgent:
                 return result
 
             # Evaluate all SDK metrics
+            conversation = state.get_conversation()
             for metric in self.metrics:
                 if metric == self.goal_metric:
                     # Evaluate goal achievement directly
-                    if len(state.conversation) < 1:
+                    if len(conversation) < 1:
                         metric_result = MetricResult(
                             score=0.0,
                             details={
@@ -622,7 +623,7 @@ class PenelopeAgent:
                         )
                     else:
                         metric_result = self.goal_metric.evaluate(
-                            conversation_history=state.conversation,
+                            conversation_history=conversation,
                             goal=goal,
                             instructions=instructions or "",
                         )
@@ -631,7 +632,7 @@ class PenelopeAgent:
                     for condition in conditions:
                         condition.update_result(metric_result)
                 else:
-                    metric_result = metric.evaluate(state.conversation, goal=goal)
+                    metric_result = metric.evaluate(conversation, goal=goal)
 
                 # Store metric property in result details for robust detection
                 if hasattr(metric, "is_goal_achievement_metric"):

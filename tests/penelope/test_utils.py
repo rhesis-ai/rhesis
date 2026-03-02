@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
+from helpers import add_turns_to_state
 
 from rhesis.penelope.context import ExecutionStatus
 from rhesis.penelope.utils import (
@@ -156,46 +157,6 @@ def test_goal_achieved_condition_should_stop_goal_achieved(sample_test_state):
     assert "successfully achieved" in result.reason
 
 
-def _add_turns_to_state(state, count):
-    """Helper to add N turns to a test state."""
-    from rhesis.penelope.context import ToolExecution, Turn
-    from rhesis.penelope.schemas import (
-        AssistantMessage,
-        FunctionCall,
-        MessageToolCall,
-        ToolMessage,
-    )
-
-    for i in range(count):
-        assistant_msg = AssistantMessage(
-            content=f"Turn {i + 1}",
-            tool_calls=[
-                MessageToolCall(
-                    id=f"call_{i}",
-                    type="function",
-                    function=FunctionCall(name="send_message_to_target", arguments="{}"),
-                )
-            ],
-        )
-        tool_msg = ToolMessage(
-            tool_call_id=f"call_{i}",
-            name="send_message_to_target",
-            content="result",
-        )
-        target_execution = ToolExecution(
-            tool_name="send_message_to_target",
-            reasoning="test",
-            assistant_message=assistant_msg,
-            tool_message=tool_msg,
-        )
-        turn = Turn(
-            turn_number=i + 1,
-            executions=[target_execution],
-            target_interaction=target_execution,
-        )
-        state.turns.append(turn)
-
-
 def test_goal_achieved_condition_should_stop_goal_impossible(
     sample_test_state,
 ):
@@ -208,7 +169,7 @@ def test_goal_achieved_condition_should_stop_goal_impossible(
     }
 
     condition = GoalAchievedCondition(result=mock_result)
-    _add_turns_to_state(sample_test_state, 5)
+    add_turns_to_state(sample_test_state, 5)
 
     result = condition.should_stop(sample_test_state)
 
@@ -242,7 +203,7 @@ def test_min_turns_blocks_early_stop(sample_test_state):
     }
 
     condition = GoalAchievedCondition(result=mock_result, max_turns=10, min_turns=8)
-    _add_turns_to_state(sample_test_state, 5)
+    add_turns_to_state(sample_test_state, 5)
 
     # At 5 turns with min_turns=8, should NOT stop
     result = condition.should_stop(sample_test_state)
@@ -259,7 +220,7 @@ def test_min_turns_allows_stop_after_threshold(sample_test_state):
     }
 
     condition = GoalAchievedCondition(result=mock_result, max_turns=10, min_turns=5)
-    _add_turns_to_state(sample_test_state, 5)
+    add_turns_to_state(sample_test_state, 5)
 
     # At 5 turns with min_turns=5, should stop
     result = condition.should_stop(sample_test_state)

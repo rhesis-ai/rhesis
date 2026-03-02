@@ -267,6 +267,15 @@ def test_config_default_max_turns_invalid_env_variable(monkeypatch):
     PenelopeConfig.reset()
 
 
+@pytest.mark.parametrize("bad_value", ["0", "-1", "-100"])
+def test_config_default_max_turns_non_positive_env_falls_back(monkeypatch, bad_value):
+    """Test that zero or negative env values fall back to default."""
+    PenelopeConfig.reset()
+    monkeypatch.setenv("PENELOPE_DEFAULT_MAX_TURNS", bad_value)
+    assert PenelopeConfig.get_default_max_turns() == 10
+    PenelopeConfig.reset()
+
+
 def test_config_programmatic_overrides_env_max_turns(monkeypatch):
     """Test that programmatic setting overrides environment variable for max iterations."""
     PenelopeConfig.reset()

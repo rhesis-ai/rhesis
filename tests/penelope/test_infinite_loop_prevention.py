@@ -3,17 +3,12 @@
 from unittest.mock import Mock
 
 import pytest
+from helpers import create_tool_execution
 
 from rhesis.penelope.agent import PenelopeAgent
 from rhesis.penelope.config import PenelopeConfig
-from rhesis.penelope.context import TestContext, TestState, ToolExecution
+from rhesis.penelope.context import TestContext, TestState
 from rhesis.penelope.executor import TurnExecutor
-from rhesis.penelope.schemas import (
-    AssistantMessage,
-    FunctionCall,
-    MessageToolCall,
-    ToolMessage,
-)
 from rhesis.penelope.tools.base import Tool, ToolResult
 from rhesis.penelope.utils import MaxToolExecutionsCondition
 from rhesis.penelope.workflow import WorkflowManager
@@ -72,8 +67,7 @@ class TestGlobalExecutionLimit:
 
         # Add 5 executions to state
         for i in range(5):
-            execution = self._create_execution(f"tool_{i}")
-            test_state.current_turn_executions.append(execution)
+            test_state.current_turn_executions.append(create_tool_execution(f"tool_{i}"))
 
         result = condition.should_stop(test_state)
         assert result.should_stop is True
@@ -86,8 +80,7 @@ class TestGlobalExecutionLimit:
 
         # Add 3 executions
         for i in range(3):
-            execution = self._create_execution(f"tool_{i}")
-            test_state.current_turn_executions.append(execution)
+            test_state.current_turn_executions.append(create_tool_execution(f"tool_{i}"))
 
         result = condition.should_stop(test_state)
         assert result.should_stop is False
@@ -100,8 +93,7 @@ class TestGlobalExecutionLimit:
         # Simulate 2 completed turns with 5 executions each
         test_state.current_turn = 2
         for i in range(10):
-            execution = self._create_execution(f"tool_{i}")
-            test_state.current_turn_executions.append(execution)
+            test_state.current_turn_executions.append(create_tool_execution(f"tool_{i}"))
 
         result = condition.should_stop(test_state)
         assert result.should_stop is True
@@ -114,38 +106,13 @@ class TestGlobalExecutionLimit:
         condition = MaxToolExecutionsCondition(max_tool_executions=5)
 
         for i in range(5):
-            execution = self._create_execution(f"tool_{i}")
-            test_state.current_turn_executions.append(execution)
+            test_state.current_turn_executions.append(create_tool_execution(f"tool_{i}"))
 
         result = condition.should_stop(test_state)
         assert result.should_stop is True
         assert "max_tool_executions=100" in result.reason
         assert "export PENELOPE_MAX_TOOL_EXECUTIONS=100" in result.reason
         assert "Warning" in result.reason
-
-    def _create_execution(self, tool_name: str) -> ToolExecution:
-        """Helper to create a ToolExecution."""
-        assistant_msg = AssistantMessage(
-            content="Test",
-            tool_calls=[
-                MessageToolCall(
-                    id=f"call_{tool_name}",
-                    type="function",
-                    function=FunctionCall(name=tool_name, arguments="{}"),
-                )
-            ],
-        )
-        tool_msg = ToolMessage(
-            tool_call_id=f"call_{tool_name}",
-            name=tool_name,
-            content='{"success": true, "output": {}}',
-        )
-        return ToolExecution(
-            tool_name=tool_name,
-            reasoning="Test",
-            assistant_message=assistant_msg,
-            tool_message=tool_msg,
-        )
 
 
 class TestWorkflowValidationBlocking:
@@ -173,8 +140,9 @@ class TestWorkflowValidationBlocking:
                 ],
             }
             # Record executions in workflow manager
-            execution = self._create_execution("analyze_response")
-            executor.workflow_manager.record_tool_execution(execution)
+            executor.workflow_manager.record_tool_execution(
+                create_tool_execution("analyze_response")
+            )
 
         # 6th consecutive analysis should be blocked
         mock_model.generate.return_value = {
@@ -205,14 +173,12 @@ class TestWorkflowValidationBlocking:
         mock_tool.name = "analyze_response"
 
         # Need to add a target interaction first to avoid "no target interaction" error
-        target_execution = self._create_execution("send_message_to_target")
-        manager.record_tool_execution(target_execution)
+        manager.record_tool_execution(create_tool_execution("send_message_to_target"))
 
         # Record 5 × analyze_response, 1 × extract_information (another analysis tool)
         tools = ["analyze_response"] * 5 + ["extract_information"]
         for tool_name in tools:
-            execution = self._create_execution(tool_name)
-            manager.record_tool_execution(execution)
+            manager.record_tool_execution(create_tool_execution(tool_name))
 
         # Try to use analyze_response again (would be 6th in last 7)
         is_valid, reason = manager.validate_tool_usage(mock_tool)
@@ -239,8 +205,7 @@ class TestWorkflowValidationBlocking:
         tool_b.name = "extract_information"
 
         # Need target interaction first
-        target_execution = self._create_execution("send_message_to_target")
-        manager.record_tool_execution(target_execution)
+        manager.record_tool_execution(create_tool_execution("send_message_to_target"))
 
         # Record oscillation: A, B, A, B
         for tool_name in [
@@ -249,8 +214,7 @@ class TestWorkflowValidationBlocking:
             "analyze_response",
             "extract_information",
         ]:
-            execution = self._create_execution(tool_name)
-            manager.record_tool_execution(execution)
+            manager.record_tool_execution(create_tool_execution(tool_name))
 
         # Try analyze_response again (would continue oscillation)
         is_valid, reason = manager.validate_tool_usage(tool_a)
@@ -258,30 +222,6 @@ class TestWorkflowValidationBlocking:
         # But with only 4 analysis tools so far, it may pass until the 5th
         # Let's verify the mechanism works by checking the state
         assert manager.state.consecutive_analysis_tools == 4
-
-    def _create_execution(self, tool_name: str) -> ToolExecution:
-        """Helper to create a ToolExecution."""
-        assistant_msg = AssistantMessage(
-            content="Test",
-            tool_calls=[
-                MessageToolCall(
-                    id=f"call_{tool_name}",
-                    type="function",
-                    function=FunctionCall(name=tool_name, arguments="{}"),
-                )
-            ],
-        )
-        tool_msg = ToolMessage(
-            tool_call_id=f"call_{tool_name}",
-            name=tool_name,
-            content='{"success": true, "output": {}}',
-        )
-        return ToolExecution(
-            tool_name=tool_name,
-            reasoning="Test",
-            assistant_message=assistant_msg,
-            tool_message=tool_msg,
-        )
 
 
 class TestConfigurationSupport:
@@ -306,6 +246,12 @@ class TestConfigurationSupport:
         multiplier = PenelopeConfig.get_max_tool_executions_multiplier()
         assert multiplier == 5
 
+    @pytest.mark.parametrize("bad_value", ["0", "-1", "-10"])
+    def test_multiplier_non_positive_env_falls_back(self, monkeypatch, bad_value):
+        """Verify zero or negative multiplier falls back to default."""
+        monkeypatch.setenv("PENELOPE_MAX_TOOL_EXECUTIONS_MULTIPLIER", bad_value)
+        assert PenelopeConfig.get_max_tool_executions_multiplier() == 5
+
 
 class TestExecutionProgressWarnings:
     """Tests for execution progress warnings.
@@ -316,13 +262,12 @@ class TestExecutionProgressWarnings:
 
     def test_warning_logic_at_60_percent(self, mock_model, test_state):
         """Verify warning logic triggers at 60% of limit."""
-        executor = TurnExecutor(model=mock_model)
+        TurnExecutor(model=mock_model)
 
         # Set limit to 10, add 6 executions (60%)
         test_state.context.max_tool_executions = 10
         for i in range(6):
-            execution = self._create_execution(f"tool_{i}")
-            test_state.current_turn_executions.append(execution)
+            test_state.current_turn_executions.append(create_tool_execution(f"tool_{i}"))
 
         # Verify we're at the threshold
         assert len(test_state.all_executions) == 6
@@ -331,42 +276,17 @@ class TestExecutionProgressWarnings:
 
     def test_warning_logic_at_80_percent(self, mock_model, test_state):
         """Verify warning logic triggers at 80% of limit."""
-        executor = TurnExecutor(model=mock_model)
+        TurnExecutor(model=mock_model)
 
         # Set limit to 10, add 8 executions (80%)
         test_state.context.max_tool_executions = 10
         for i in range(8):
-            execution = self._create_execution(f"tool_{i}")
-            test_state.current_turn_executions.append(execution)
+            test_state.current_turn_executions.append(create_tool_execution(f"tool_{i}"))
 
         # Verify we're at the threshold
         assert len(test_state.all_executions) == 8
         assert test_state.context.max_tool_executions == 10
         # At 80%, warning should trigger (verified by manual inspection of stderr)
-
-    def _create_execution(self, tool_name: str) -> ToolExecution:
-        """Helper to create a ToolExecution."""
-        assistant_msg = AssistantMessage(
-            content="Test",
-            tool_calls=[
-                MessageToolCall(
-                    id=f"call_{tool_name}",
-                    type="function",
-                    function=FunctionCall(name=tool_name, arguments="{}"),
-                )
-            ],
-        )
-        tool_msg = ToolMessage(
-            tool_call_id=f"call_{tool_name}",
-            name=tool_name,
-            content='{"success": true, "output": {}}',
-        )
-        return ToolExecution(
-            tool_name=tool_name,
-            reasoning="Test",
-            assistant_message=assistant_msg,
-            tool_message=tool_msg,
-        )
 
 
 class TestInfiniteLoopPrevention:
