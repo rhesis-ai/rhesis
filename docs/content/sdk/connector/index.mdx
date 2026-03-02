@@ -47,6 +47,29 @@ When your app starts, functions are automatically registered as endpoints. View 
 
 </Steps>
 
+### Running the connector
+
+For a script that only defines endpoints and does not run a web server, call `client.run_connector()` at the end of the script. It blocks until the process is interrupted (e.g. Ctrl+C). While the script is running, you can run tests from the Rhesis platform against your registered endpoint(s).
+
+<CodeBlock filename="main.py" language="python">
+{`from rhesis.sdk import RhesisClient, endpoint
+
+client = RhesisClient.from_environment()
+
+@endpoint()
+def chat(input: str, session_id: str = None) -> dict:
+    """Handle chat messages."""
+    return {
+        "output": "Echo: " + input,
+        "session_id": session_id or "default-session",
+    }
+
+if __name__ == "__main__":
+    client.run_connector()`}
+</CodeBlock>
+
+If you already have a running event loop (e.g. in an async REPL or Jupyter), do not call `run_connector()`. Run the connector as a task in that loop instead.
+
 ### See It in Action
 
 Watch this video to see how the Rhesis SDK connector integrates an LLM application in under a minute using a single decorator:
