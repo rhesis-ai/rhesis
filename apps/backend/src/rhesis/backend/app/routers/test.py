@@ -18,6 +18,7 @@ from rhesis.backend.app.services.test import (
     bulk_create_tests,
     create_test_from_conversation,
     extract_test_from_conversation,
+    resolve_test_entity_names,
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -55,7 +56,12 @@ def create_test(
     - Direct tenant context injection
     """
     organization_id, user_id = tenant_context
-    return crud.create_test(db=db, test=test, organization_id=organization_id, user_id=user_id)
+    test_data = resolve_test_entity_names(
+        db, test.model_dump(), organization_id, user_id
+    )
+    return crud.create_test(
+        db=db, test=test_data, organization_id=organization_id, user_id=user_id
+    )
 
 
 @router.post("/bulk", response_model=schemas.TestBulkCreateResponse)
@@ -347,8 +353,11 @@ def update_test(
     if db_test is None:
         raise HTTPException(status_code=404, detail="Test not found")
 
+    test_data = resolve_test_entity_names(
+        db, test.model_dump(exclude_unset=True), organization_id, user_id
+    )
     return crud.update_test(
-        db=db, test_id=test_id, test=test, organization_id=organization_id, user_id=user_id
+        db=db, test_id=test_id, test=test_data, organization_id=organization_id, user_id=user_id
     )
 
 

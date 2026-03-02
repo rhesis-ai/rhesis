@@ -91,7 +91,7 @@ def test_push_without_id(mock_request, test_entity_without_id):
             "Authorization": "Bearer rh-test-token",
             "Content-Type": "application/json",
         },
-        json={"name": "Test", "description": "Test", "id": None},
+        json={"name": "Test", "description": "Test"},
         params=None,
     )
 
