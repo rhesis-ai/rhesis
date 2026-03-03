@@ -426,9 +426,11 @@ class MetricEvaluator:
                 else:
                     score = sdk_result.get("score", 0.0)
                     details = sdk_result.get("details", {})
+                    threshold_op = self._get_config_value(config, "threshold_operator", ">=")
                     is_successful = self.score_evaluator.evaluate_score(
                         score=score,
                         threshold=threshold,
+                        threshold_operator=threshold_op,
                     )
 
                     results[metric_name or class_name] = {
