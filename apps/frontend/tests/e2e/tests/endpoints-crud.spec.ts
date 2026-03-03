@@ -23,14 +23,12 @@ test.describe('Endpoints — CRUD @crud', () => {
     );
     await expect(page.locator('body')).not.toContainText('Application error');
 
-    // The "Basic Information" tab should be visible (default tab).
-    // Use name-attribute selectors — more reliable than getByLabel for
-    // MUI required TextFields whose label renders as "Name *".
-    const nameField = page.locator('input[name="name"]');
-    const urlField = page.locator('input[name="url"]');
+    // The "Basic Information" tab should be visible (default tab)
+    const nameField = page.getByLabel('Name');
+    const urlField = page.getByLabel('URL');
 
-    await expect(nameField).toBeVisible({ timeout: 15_000 });
-    await expect(urlField).toBeVisible({ timeout: 15_000 });
+    await expect(nameField).toBeVisible({ timeout: 10_000 });
+    await expect(urlField).toBeVisible({ timeout: 10_000 });
 
     // Fill required text fields
     await nameField.fill(UNIQUE_NAME);
@@ -51,8 +49,8 @@ test.describe('Endpoints — CRUD @crud', () => {
     await page.waitForLoadState('networkidle');
 
     // Fill required text fields
-    await page.locator('input[name="name"]').fill(UNIQUE_NAME);
-    await page.locator('input[name="url"]').fill(TEST_URL);
+    await page.getByLabel('Name').fill(UNIQUE_NAME);
+    await page.getByLabel('URL').fill(TEST_URL);
 
     // The project select (#project-select) is required
     // Wait to see if any project options are available
@@ -87,12 +85,11 @@ test.describe('Endpoints — CRUD @crud', () => {
     // Click "Create Endpoint"
     await page.getByRole('button', { name: /create endpoint/i }).click();
 
-    // After creation the form navigates back to the endpoints list
-    await page.waitForURL(/\/endpoints/, { timeout: 20_000 });
-    await page.waitForLoadState('networkidle');
+    // After creation we should navigate to the endpoint detail page
+    await page.waitForURL(/\/endpoints\/[^/]+$/, { timeout: 20_000 });
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
-    await expect(page.locator('body')).not.toContainText('Application error');
+    await expect(page.getByText(UNIQUE_NAME)).toBeVisible({ timeout: 10_000 });
   });
 });

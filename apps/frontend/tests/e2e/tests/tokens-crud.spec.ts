@@ -93,11 +93,6 @@ test.describe('API Tokens — CRUD @crud', () => {
     await expect(deleteModal).toBeVisible({ timeout: 5_000 });
     await deleteModal.getByRole('button', { name: /delete/i }).click();
 
-    // Wait for the dialog to close before checking the grid — the dialog
-    // body contains the token name, which would cause a strict-mode violation
-    // if we query getByText() while both the grid row and dialog are present.
-    await expect(deleteModal).not.toBeVisible({ timeout: 10_000 });
-
     // The token should no longer appear in the list
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(TOKEN_TO_DELETE)).not.toBeVisible({

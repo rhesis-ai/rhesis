@@ -19,45 +19,21 @@ test.describe('Test Sets — CRUD @crud', () => {
     // Open the "New Test Set" drawer
     await testSetsPage.openNewTestSetDrawer();
 
-    // The drawer heading should be visible (BaseDrawer renders <Typography variant="h6">)
-    const drawerHeading = page.getByRole('heading', {
-      name: /^new test set$/i,
-    });
-    await expect(drawerHeading).toBeVisible({ timeout: 10_000 });
+    // The drawer should show the "New Test Set" heading
+    await expect(page.getByText('New Test Set').first()).toBeVisible();
 
-    // Fill the required Name field.
-    // Scope to [role="presentation"] (the MUI Drawer portal) so we never
-    // accidentally match a DataGrid filter textbox with the same accessible name.
-    await page
-      .locator('[role="presentation"]')
-      .getByRole('textbox', { name: /^name/i })
-      .fill(UNIQUE_NAME);
+    // Fill the required Name field
+    await page.getByLabel('Name').first().fill(UNIQUE_NAME);
 
-    // Explicitly select the Test Set Type.
-    // MUI Select renders as role="button" with aria-haspopup="listbox" — not
-    // role="combobox".  Scope to the drawer presentation element.
-    const typeSelectBtn = page
-      .locator('[role="presentation"] [aria-haspopup="listbox"]')
-      .first();
-    await typeSelectBtn.click();
-    const singleTurnOption = page.getByRole('option', { name: /single.turn/i });
-    const optionsAvailable = await singleTurnOption
-      .isVisible({ timeout: 8_000 })
-      .catch(() => false);
-    if (!optionsAvailable) {
-      await page.keyboard.press('Escape');
-      test.skip(true, 'Test set type options not available — skipping');
-      return;
-    }
-    await singleTurnOption.click();
+    // The Test Set Type select defaults to "Single-Turn" — leave it as-is
 
-    // Save (button text from BaseDrawer default is "Save Changes")
-    await page.getByRole('button', { name: /save changes/i }).click();
+    // Save
+    await page.getByRole('button', { name: /save/i }).click();
 
-    // Wait for the drawer to close.
-    // BaseDrawer uses keepMounted:true, so the heading stays in the DOM but
-    // becomes CSS-hidden when open=false.  Using the h6 heading is reliable.
-    await expect(drawerHeading).not.toBeVisible({ timeout: 15_000 });
+    // Wait for the drawer to close
+    await expect(
+      page.getByRole('presentation', { name: /new test set/i })
+    ).not.toBeVisible({ timeout: 15_000 });
 
     // The new test set should appear in the list
     await page.waitForLoadState('networkidle');
@@ -74,34 +50,10 @@ test.describe('Test Sets — CRUD @crud', () => {
 
     // --- Setup: create a test set to delete ---
     await testSetsPage.openNewTestSetDrawer();
-    const setupHeading = page.getByRole('heading', { name: /^new test set$/i });
-    await expect(setupHeading).toBeVisible({ timeout: 10_000 });
-
-    await page
-      .locator('[role="presentation"]')
-      .getByRole('textbox', { name: /^name/i })
-      .fill(UNIQUE_NAME);
-
-    // Explicitly select the Test Set Type; skip if options not available
-    const setupTypeSelectBtn = page
-      .locator('[role="presentation"] [aria-haspopup="listbox"]')
-      .first();
-    await setupTypeSelectBtn.click();
-    const setupOption = page.getByRole('option', { name: /single.turn/i });
-    const setupTypeAvailable = await setupOption
-      .isVisible({ timeout: 8_000 })
-      .catch(() => false);
-    if (!setupTypeAvailable) {
-      await page.keyboard.press('Escape');
-      test.skip(true, 'Test set type options not available — skipping');
-      return;
-    }
-    await setupOption.click();
-
-    await page.getByRole('button', { name: /save changes/i }).click();
+    await page.getByLabel('Name').first().fill(UNIQUE_NAME);
+    await page.getByRole('button', { name: /save/i }).click();
 
     // Wait for drawer to close and test set to appear
-    await expect(setupHeading).not.toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(UNIQUE_NAME)).toBeVisible({ timeout: 15_000 });
 

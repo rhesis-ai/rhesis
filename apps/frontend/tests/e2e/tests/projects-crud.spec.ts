@@ -27,11 +27,8 @@ test.describe('Projects — CRUD @crud', () => {
       .getByLabel('Description')
       .fill('Created by Playwright CRUD test');
 
-    // Wait for user-fetch to complete (button is disabled while loadingUsers=true),
-    // then advance to the review step.
-    const continueBtn = page.getByRole('button', { name: /continue/i });
-    await expect(continueBtn).toBeEnabled({ timeout: 15_000 });
-    await continueBtn.click();
+    // Click Continue to advance to the review step
+    await page.getByRole('button', { name: /continue/i }).click();
 
     // Step 1: Finish / Review — verify the project name is shown in the summary
     await expect(page.getByText(UNIQUE_NAME)).toBeVisible({ timeout: 10_000 });
