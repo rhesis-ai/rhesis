@@ -154,7 +154,7 @@
 tsconfig.tsbuildinfo
 
 # Playwright
-e2e/.auth/
+tests/e2e/.auth/
 playwright-report/
 test-results/
 !src/**/test-results/

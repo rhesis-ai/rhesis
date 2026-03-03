@@ -1,8 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import SearchAndFilterBar from '../SearchAndFilterBar';
+
+function ControlledSearchBar(
+  props: Omit<
+    React.ComponentProps<typeof SearchAndFilterBar>,
+    'searchValue' | 'onSearchChange'
+  >
+) {
+  const [value, setValue] = useState('');
+  return (
+    <SearchAndFilterBar
+      {...props}
+      searchValue={value}
+      onSearchChange={setValue}
+    />
+  );
+}
 
 describe('SearchAndFilterBar', () => {
   const defaultProps = {
@@ -135,5 +151,40 @@ describe('SearchAndFilterBar', () => {
     );
 
     expect(screen.getByTestId('custom-filter')).toBeInTheDocument();
+  });
+
+  describe('focus retention while typing', () => {
+    it('retains focus after each keystroke', async () => {
+      render(<ControlledSearchBar />);
+      const input = screen.getByPlaceholderText('Search...');
+
+      await userEvent.click(input);
+      for (const char of 'hello') {
+        await userEvent.type(input, char);
+        expect(input).toHaveFocus();
+      }
+    });
+
+    it('accumulates full typed value without losing characters', async () => {
+      render(<ControlledSearchBar />);
+      const input = screen.getByPlaceholderText('Search...');
+
+      await userEvent.click(input);
+      await userEvent.type(input, 'hello world');
+
+      expect(input).toHaveValue('hello world');
+    });
+
+    it('retains focus when filters are active alongside typing', async () => {
+      const onReset = jest.fn();
+      render(<ControlledSearchBar hasActiveFilters onReset={onReset} />);
+      const input = screen.getByPlaceholderText('Search...');
+
+      await userEvent.click(input);
+      await userEvent.type(input, 'test query');
+
+      expect(input).toHaveFocus();
+      expect(input).toHaveValue('test query');
+    });
   });
 });

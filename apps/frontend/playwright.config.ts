@@ -7,7 +7,7 @@ import { defineConfig, devices } from '@playwright/test';
  * to bypass OAuth and enable local-login flow during tests.
  */
 export default defineConfig({
-  testDir: './e2e',
+  testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -33,7 +33,7 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/user.json',
+        storageState: 'tests/e2e/.auth/user.json',
       },
       dependencies: ['setup'],
     },

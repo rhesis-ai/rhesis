@@ -52,6 +52,61 @@ interface EditData {
   description?: string;
 }
 
+function SectionHeader({ title }: { title: string }) {
+  const theme = useTheme();
+  return (
+    <Typography
+      variant="h6"
+      sx={{
+        fontWeight: theme.typography.fontWeightMedium,
+        color: theme.palette.text.primary,
+      }}
+    >
+      {title}
+    </Typography>
+  );
+}
+
+function InfoRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  const theme = useTheme();
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: theme.spacing(1),
+        py: theme.spacing(1),
+      }}
+    >
+      <Typography
+        variant="subtitle2"
+        sx={{
+          color: theme.palette.text.secondary,
+          fontWeight: theme.typography.fontWeightMedium,
+          letterSpacing: '0.02em',
+        }}
+      >
+        {label}
+      </Typography>
+      <Box
+        sx={{
+          '& .MuiTypography-root': {
+            color: theme.palette.text.primary,
+          },
+        }}
+      >
+        {children}
+      </Box>
+    </Box>
+  );
+}
+
 /**
  * Client component for the Source Preview page
  * Handles displaying source content and managing interactive features
@@ -346,213 +401,6 @@ export default function SourcePreviewClientWrapper({
       setIsSaving(false);
     }
   }, [sessionToken, localSource, collectFieldValues, notifications]);
-
-  // EditableSection component
-  const EditableSection = React.memo(
-    ({
-      title,
-      icon: _icon,
-      section,
-      children,
-      isEditing,
-      onEdit,
-      onCancel,
-      onConfirm,
-      isSaving,
-    }: {
-      title: string;
-      icon: React.ReactNode;
-      section: EditableSectionType;
-      children: React.ReactNode;
-      isEditing: EditableSectionType | null;
-      onEdit: (section: EditableSectionType) => void;
-      onCancel: () => void;
-      onConfirm: () => void;
-      isSaving?: boolean;
-    }) => {
-      return (
-        <Paper
-          sx={{
-            p: theme.spacing(3),
-            position: 'relative',
-            borderRadius: theme.spacing(1),
-            bgcolor: theme.palette.background.paper,
-            boxShadow: theme.shadows[1],
-          }}
-        >
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: theme.spacing(3),
-              pb: theme.spacing(2),
-              borderBottom: `1px solid ${theme.palette.divider}`,
-            }}
-          >
-            <SectionHeader title={title} />
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {section === 'general' && !isEditing && (
-                <Button
-                  startIcon={<DownloadIcon />}
-                  onClick={handleDownloadFile}
-                  variant="outlined"
-                  size="small"
-                  sx={{
-                    color: theme.palette.text.secondary,
-                    borderColor: theme.palette.divider,
-                    '&:hover': {
-                      borderColor: theme.palette.text.secondary,
-                    },
-                  }}
-                >
-                  Download
-                </Button>
-              )}
-              {!isEditing && (
-                <Button
-                  startIcon={<EditIcon />}
-                  onClick={() => onEdit(section)}
-                  variant="outlined"
-                  size="small"
-                  sx={{
-                    color: theme.palette.primary.main,
-                    borderColor: theme.palette.primary.main,
-                    '&:hover': {
-                      backgroundColor: theme.palette.primary.light,
-                      borderColor: theme.palette.primary.main,
-                    },
-                  }}
-                >
-                  Edit Section
-                </Button>
-              )}
-            </Box>
-          </Box>
-
-          {isEditing === section ? (
-            <Box>
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: theme.spacing(3),
-                  p: theme.spacing(2),
-                  bgcolor: theme.palette.action.hover,
-                  borderRadius: theme.spacing(0.5),
-                  mb: theme.spacing(3),
-                  border: `1px solid ${theme.palette.divider}`,
-                }}
-              >
-                {children}
-              </Box>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: theme.spacing(1),
-                  mt: theme.spacing(2),
-                }}
-              >
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<CancelIcon />}
-                  onClick={onCancel}
-                  disabled={isSaving}
-                  sx={{
-                    borderColor: theme.palette.error.main,
-                    '&:hover': {
-                      backgroundColor: theme.palette.error.light,
-                      borderColor: theme.palette.error.main,
-                    },
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<CheckIcon />}
-                  onClick={onConfirm}
-                  disabled={isSaving}
-                  sx={{
-                    bgcolor: theme.palette.primary.main,
-                    '&:hover': {
-                      bgcolor: theme.palette.primary.dark,
-                    },
-                  }}
-                >
-                  {isSaving ? 'Saving...' : 'Save Section'}
-                </Button>
-              </Box>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {children}
-            </Box>
-          )}
-        </Paper>
-      );
-    }
-  );
-
-  EditableSection.displayName = 'EditableSection';
-
-  const SectionHeader = React.memo(({ title }: { title: string }) => {
-    const theme = useTheme();
-    return (
-      <Typography
-        variant="h6"
-        sx={{
-          fontWeight: theme.typography.fontWeightMedium,
-          color: theme.palette.text.primary,
-        }}
-      >
-        {title}
-      </Typography>
-    );
-  });
-
-  SectionHeader.displayName = 'SectionHeader';
-
-  const InfoRow = React.memo(
-    ({ label, children }: { label: string; children: React.ReactNode }) => {
-      const theme = useTheme();
-      return (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing(1),
-            py: theme.spacing(1),
-          }}
-        >
-          <Typography
-            variant="subtitle2"
-            sx={{
-              color: theme.palette.text.secondary,
-              fontWeight: theme.typography.fontWeightMedium,
-              letterSpacing: '0.02em',
-            }}
-          >
-            {label}
-          </Typography>
-          <Box
-            sx={{
-              '& .MuiTypography-root': {
-                color: theme.palette.text.primary,
-              },
-            }}
-          >
-            {children}
-          </Box>
-        </Box>
-      );
-    }
-  );
-
-  InfoRow.displayName = 'InfoRow';
 
   return (
     <PageContainer
