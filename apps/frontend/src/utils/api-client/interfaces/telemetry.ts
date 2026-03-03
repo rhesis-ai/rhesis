@@ -15,6 +15,7 @@ export interface SpanEvent {
  * Span node in trace tree with hierarchical children
  */
 export interface SpanNode {
+  id?: string;
   span_id: string;
   span_name: string;
   span_kind: string;
