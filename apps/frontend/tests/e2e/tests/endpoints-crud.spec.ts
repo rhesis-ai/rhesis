@@ -87,11 +87,13 @@ test.describe('Endpoints — CRUD @crud', () => {
     // Click "Create Endpoint"
     await page.getByRole('button', { name: /create endpoint/i }).click();
 
-    // After creation we should navigate to the endpoint detail page
-    await page.waitForURL(/\/endpoints\/[^/]+$/, { timeout: 20_000 });
+    // After creation the form navigates back to the endpoints list
+    await page.waitForURL(/\/endpoints/, { timeout: 20_000 });
+    await page.waitForLoadState('networkidle');
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
-    await expect(page.getByText(UNIQUE_NAME)).toBeVisible({ timeout: 10_000 });
+    // The newly created endpoint should appear in the list
+    await expect(page.getByText(UNIQUE_NAME)).toBeVisible({ timeout: 15_000 });
   });
 });

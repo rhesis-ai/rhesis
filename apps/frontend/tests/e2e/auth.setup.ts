@@ -17,6 +17,23 @@ setup('authenticate via Quick Start', async ({ page }) => {
   // Verify we landed on the dashboard
   await expect(page).toHaveURL(/\/dashboard/);
 
-  // Persist the authenticated browser state
+  // Mark the onboarding checklist as dismissed so it never overlays test
+  // interactions. The checklist is a fixed-position overlay that intercepts
+  // pointer events; dismissing it here means all tests inherit a clean state.
+  await page.evaluate(() => {
+    try {
+      const key = 'rhesis_onboarding_progress';
+      const stored = localStorage.getItem(key);
+      const progress = stored ? JSON.parse(stored) : {};
+      localStorage.setItem(
+        key,
+        JSON.stringify({ ...progress, dismissed: true })
+      );
+    } catch (_) {
+      // Non-fatal — tests will still work; the overlay may appear
+    }
+  });
+
+  // Persist the authenticated browser state (cookies + localStorage)
   await page.context().storageState({ path: 'tests/e2e/.auth/user.json' });
 });
