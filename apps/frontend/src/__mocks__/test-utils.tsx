@@ -154,6 +154,23 @@ export const createMockComment = (overrides = {}) => ({
   ...overrides,
 });
 
+export const createMockFileResponse = (overrides = {}) => ({
+  id: 'mock-file-id',
+  nano_id: 'abc123',
+  filename: 'test-image.png',
+  content_type: 'image/png',
+  size_bytes: 1024,
+  description: undefined,
+  entity_id: 'test-123',
+  entity_type: 'Test',
+  position: 0,
+  user_id: 'user-1',
+  organization_id: 'org-1',
+  created_at: '2024-01-01T00:00:00Z',
+  updated_at: '2024-01-01T00:00:00Z',
+  ...overrides,
+});
+
 export const createMockTask = (overrides = {}) => ({
   id: 'mock-task-id',
   title: 'Mock Task',

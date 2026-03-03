@@ -19,6 +19,9 @@ import { UUID } from 'crypto';
 import { isMultiTurnTest } from '@/constants/test-types';
 import { useRouter } from 'next/navigation';
 import { formatDate } from '@/utils/date';
+import { useFiles } from '@/hooks/useFiles';
+import FileAttachmentList from '@/components/common/FileAttachmentList';
+import MultiFileUpload from '@/components/common/MultiFileUpload';
 
 interface TestDetailDataProps {
   sessionToken: string;
@@ -41,7 +44,21 @@ export default function TestDetailData({
   const [categories, setCategories] = React.useState<TestDetailOption[]>([]);
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [test, setTest] = React.useState<TestDetail>(initialTest);
+  const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
+  const [isUploading, setIsUploading] = React.useState(false);
   const notifications = useNotifications();
+
+  const {
+    files: attachedFiles,
+    isLoading: filesLoading,
+    totalSizeBytes: existingFilesSize,
+    uploadFiles: uploadFilesToServer,
+    deleteFile: deleteAttachedFile,
+  } = useFiles({
+    entityId: initialTest.id,
+    entityType: 'Test',
+    sessionToken,
+  });
 
   React.useEffect(() => {
     const fetchOptions = async () => {
@@ -230,6 +247,22 @@ export default function TestDetailData({
   )
     ? test.test_metadata.sources
     : [];
+
+  // Auto-upload files when selected on the detail page
+  const handleFilesSelect = React.useCallback(
+    async (files: File[]) => {
+      setPendingFiles([]);
+      setIsUploading(true);
+      try {
+        await uploadFilesToServer(files);
+      } catch {
+        // Notification handled inside the hook
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [uploadFilesToServer]
+  );
 
   return (
     <Grid container spacing={2}>
@@ -446,6 +479,36 @@ export default function TestDetailData({
           </Box>
         </Grid>
       )}
+      {/* Attachments Section */}
+      <Grid size={12}>
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Attachments
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', fontStyle: 'italic' }}
+          >
+            Images, PDFs, or audio files attached to this test
+          </Typography>
+        </Box>
+        <FileAttachmentList
+          files={attachedFiles}
+          sessionToken={sessionToken}
+          isLoading={filesLoading}
+          onDelete={deleteAttachedFile}
+        />
+        <MultiFileUpload
+          selectedFiles={pendingFiles}
+          onFilesSelect={handleFilesSelect}
+          onFileRemove={idx =>
+            setPendingFiles(prev => prev.filter((_, i) => i !== idx))
+          }
+          existingFilesSize={existingFilesSize}
+          disabled={isUploading}
+        />
+      </Grid>
     </Grid>
   );
 }

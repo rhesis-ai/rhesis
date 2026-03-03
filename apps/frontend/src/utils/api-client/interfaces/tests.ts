@@ -81,7 +81,14 @@ export interface TestBase {
   test_metadata?: Record<string, unknown>;
 }
 
-export type TestCreate = TestBase;
+export interface TestCreate extends TestBase {
+  behavior?: string;
+  topic?: string;
+  category?: string;
+  prompt?: TestPromptCreate;
+  test_type?: string;
+  status?: string;
+}
 
 export type TestUpdate = Partial<TestBase>;
 
