@@ -11,7 +11,7 @@ configMapGenerator:
       - domain-filter=PLACEHOLDER_DOMAIN
       - txt-owner-id=prd-external-dns
     options:
-      labels:
+      annotations:
         config.kubernetes.io/local-config: "true"
       disableNameSuffixHash: true
 
