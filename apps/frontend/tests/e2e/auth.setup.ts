@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { test as setup, expect } from '@playwright/test';
 import { LoginPage } from './pages/LoginPage';
 
@@ -33,6 +34,10 @@ setup('authenticate via Quick Start', async ({ page }) => {
       // Non-fatal — tests will still work; the overlay may appear
     }
   });
+
+  // Ensure the .auth directory exists — it is gitignored so it won't be
+  // present on a fresh checkout or in CI without an explicit mkdir step.
+  await fs.promises.mkdir('tests/e2e/.auth', { recursive: true });
 
   // Persist the authenticated browser state (cookies + localStorage)
   await page.context().storageState({ path: 'tests/e2e/.auth/user.json' });
