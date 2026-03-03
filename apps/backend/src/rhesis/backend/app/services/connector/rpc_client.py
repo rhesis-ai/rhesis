@@ -172,3 +172,107 @@ class SDKRpcClient:
             return {"error": "send_failed", "details": str(e)}
         finally:
             await pubsub.close()
+
+    async def send_and_await_metric_result(
+        self,
+        project_id: str,
+        environment: str,
+        metric_run_id: str,
+        metric_name: str,
+        inputs: Dict[str, Any],
+        timeout: float = 30.0,
+    ) -> Dict[str, Any]:
+        """
+        Send metric RPC request to backend and await result.
+
+        Args:
+            project_id: Project identifier
+            environment: Environment name
+            metric_run_id: Unique metric run identifier
+            metric_name: SDK metric to invoke
+            inputs: Metric inputs (input, output, expected_output, context)
+            timeout: Timeout in seconds (default: 30.0)
+
+        Returns:
+            Result dictionary with one of:
+            - {"status": "success", "score": Any, "details": dict, ...}
+            - {"status": "error", "error": str, "duration_ms": float}
+            - {"error": "timeout"}
+            - {"error": "sdk_disconnected"}
+            - {"error": "send_failed", "details": str}
+        """
+        if not self._redis:
+            logger.error("Redis not initialized for metric RPC call")
+            return {
+                "error": "send_failed",
+                "details": "Redis not initialized",
+            }
+
+        environment = environment.lower()
+        connection_id = f"{project_id}:{environment}"
+
+        routing_key = f"ws:routing:{connection_id}"
+        try:
+            worker_id = await self._redis.get(routing_key)
+        except Exception as e:
+            logger.error(f"Failed to check worker routing for {connection_id}: {e}")
+            return {
+                "error": "send_failed",
+                "details": f"Failed to check routing: {e}",
+            }
+
+        if not worker_id:
+            logger.error(f"SDK connection {connection_id} is not available (no worker registered)")
+            return {
+                "error": "sdk_disconnected",
+                "details": f"No connection for {connection_id}",
+            }
+
+        worker_channel = f"ws:rpc:{worker_id}"
+
+        pubsub = self._redis.pubsub()
+        response_channel = f"ws:rpc:response:{metric_run_id}"
+
+        try:
+            await pubsub.subscribe(response_channel)
+            logger.debug(f"Subscribed to metric response channel: {response_channel}")
+
+            request = {
+                "request_id": metric_run_id,
+                "request_type": "execute_metric",
+                "project_id": project_id,
+                "environment": environment,
+                "metric_name": metric_name,
+                "inputs": inputs,
+            }
+
+            await self._redis.rpush(worker_channel, json.dumps(request))
+            logger.debug(
+                f"Routed metric RPC request {metric_run_id} to worker {worker_id} ({metric_name})"
+            )
+
+            async def _wait_for_response():
+                async for message in pubsub.listen():
+                    if message["type"] == "message":
+                        result = json.loads(message["data"])
+                        if "status" in result or "error" in result:
+                            await pubsub.unsubscribe(response_channel)
+                            return result
+                        else:
+                            logger.warning(f"Unexpected metric response format: {result}")
+                            await pubsub.unsubscribe(response_channel)
+                            return result
+
+            try:
+                result = await asyncio.wait_for(_wait_for_response(), timeout=timeout)
+                return result
+            except asyncio.TimeoutError:
+                logger.error(f"Metric RPC request timed out after {timeout}s: {metric_run_id}")
+                await pubsub.unsubscribe(response_channel)
+                return {"error": "timeout"}
+
+        except Exception as e:
+            logger.error(f"Error during metric RPC call for {metric_run_id}: {e}")
+            return {"error": "send_failed", "details": str(e)}
+        finally:
+            await pubsub.close()

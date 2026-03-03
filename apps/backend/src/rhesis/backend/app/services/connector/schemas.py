@@ -14,14 +14,24 @@ class FunctionMetadata(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
+class MetricMetadata(BaseModel):
+    """Metadata about an SDK-registered metric."""
+
+    name: str
+    parameters: List[str] = Field(default_factory=list)
+    return_type: str = "MetricResult"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
 class RegisterMessage(BaseModel):
-    """Message received from SDK to register functions."""
+    """Message received from SDK to register functions and metrics."""
 
     type: str = "register"
     project_id: str
     environment: str
     sdk_version: str
     functions: List[FunctionMetadata]
+    metrics: List[MetricMetadata] = Field(default_factory=list)
 
 
 class ExecuteTestMessage(BaseModel):
@@ -33,6 +43,15 @@ class ExecuteTestMessage(BaseModel):
     inputs: Dict[str, Any]
 
 
+class ExecuteMetricMessage(BaseModel):
+    """Message sent to SDK to execute a metric."""
+
+    type: str = "execute_metric"
+    metric_run_id: str
+    metric_name: str
+    inputs: Dict[str, Any]
+
+
 class TestResultMessage(BaseModel):
     """Message received from SDK with test results."""
 
@@ -40,6 +59,18 @@ class TestResultMessage(BaseModel):
     test_run_id: str
     status: str  # "success" or "error"
     output: Optional[Any] = None
+    error: Optional[str] = None
+    duration_ms: float
+
+
+class MetricResultMessage(BaseModel):
+    """Message received from SDK with metric evaluation results."""
+
+    type: str = "metric_result"
+    metric_run_id: str
+    status: str  # "success" or "error"
+    score: Optional[Any] = None
+    details: Dict[str, Any] = Field(default_factory=dict)
     error: Optional[str] = None
     duration_ms: float
 

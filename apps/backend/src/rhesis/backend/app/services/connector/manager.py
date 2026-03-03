@@ -19,8 +19,10 @@ from rhesis.backend.app.services.connector.handler import message_handler
 from rhesis.backend.app.services.connector.redis_client import redis_manager
 from rhesis.backend.app.services.connector.schemas import (
     ConnectionStatus,
+    ExecuteMetricMessage,
     ExecuteTestMessage,
     FunctionMetadata,
+    MetricMetadata,
     RegisterMessage,
 )
 
@@ -49,8 +51,14 @@ class ConnectionManager:
         # Store function registries: {project_id:environment: [FunctionMetadata]}
         self._registries: Dict[str, List[FunctionMetadata]] = {}
 
+        # Store metric registries: {project_id:environment: [MetricMetadata]}
+        self._metric_registries: Dict[str, List[MetricMetadata]] = {}
+
         # Store completed test results: {test_run_id: result_dict}
         self._test_results: Dict[str, Dict[str, Any]] = {}
+
+        # Store completed metric results: {metric_run_id: result_dict}
+        self._metric_results: Dict[str, Dict[str, Any]] = {}
 
         # Track cancelled/timed-out test runs to prevent storing late results
         # Use OrderedDict to preserve insertion order for proper LRU cleanup
@@ -171,9 +179,11 @@ class ConnectionManager:
         if key in self._connections:
             del self._connections[key]
 
-        # Remove from registry
+        # Remove from registries
         if key in self._registries:
             del self._registries[key]
+        if key in self._metric_registries:
+            del self._metric_registries[key]
 
         # Cancel heartbeat task if exists
         if key in self._heartbeat_tasks:
@@ -253,6 +263,21 @@ class ConnectionManager:
         key = self.get_connection_key(project_id, environment)
         self._registries[key] = functions
         logger.info(f"Registered {len(functions)} function(s) for {key}")
+
+    def register_metrics(
+        self, project_id: str, environment: str, metrics: List[MetricMetadata]
+    ) -> None:
+        """
+        Register metrics for a project.
+
+        Args:
+            project_id: Project identifier
+            environment: Environment name
+            metrics: List of metric metadata
+        """
+        key = self.get_connection_key(project_id, environment)
+        self._metric_registries[key] = metrics
+        logger.info(f"Registered {len(metrics)} metric(s) for {key}")
 
     async def send_test_request(
         self,
@@ -355,6 +380,104 @@ class ConnectionManager:
             # Wait before next poll
             await asyncio.sleep(poll_interval)
 
+    async def send_metric_request(
+        self,
+        project_id: str,
+        environment: str,
+        metric_run_id: str,
+        metric_name: str,
+        inputs: Dict[str, Any],
+    ) -> bool:
+        """
+        Send metric execution request to SDK.
+
+        Args:
+            project_id: Project identifier
+            environment: Environment name
+            metric_run_id: Metric run identifier
+            metric_name: Metric to execute
+            inputs: Metric inputs (input, output, expected_output, context)
+
+        Returns:
+            True if message sent successfully, False otherwise
+        """
+        key = self.get_connection_key(project_id, environment)
+
+        if key not in self._connections:
+            logger.debug(f"No local WebSocket connection for {key} - may be on another instance")
+            return False
+
+        websocket = self._connections[key]
+        message = ExecuteMetricMessage(
+            metric_run_id=metric_run_id,
+            metric_name=metric_name,
+            inputs=inputs,
+        )
+
+        try:
+            await websocket.send_json(message.model_dump())
+            logger.info(f"Sent metric request to {key}: {metric_name}")
+            return True
+        except Exception as e:
+            logger.error(f"Error sending metric request to {key}: {e}")
+            return False
+
+    async def send_and_await_metric_result(
+        self,
+        project_id: str,
+        environment: str,
+        metric_run_id: str,
+        metric_name: str,
+        inputs: Dict[str, Any],
+        timeout: float = 30.0,
+    ) -> Dict[str, Any]:
+        """
+        Send metric request and wait for result.
+
+        Args:
+            project_id: Project identifier
+            environment: Environment name
+            metric_run_id: Metric run identifier
+            metric_name: Metric to execute
+            inputs: Metric inputs (input, output, expected_output, context)
+            timeout: Timeout in seconds (default: 30.0)
+
+        Returns:
+            Result dictionary with one of:
+            - {"status": "success", "score": Any, "details": dict, ...}
+            - {"status": "error", "error": str, "duration_ms": float}
+            - {"error": "send_failed", "details": str}
+            - {"error": "timeout"}
+        """
+        sent = await self.send_metric_request(
+            project_id, environment, metric_run_id, metric_name, inputs
+        )
+
+        if not sent:
+            return {
+                "error": "send_failed",
+                "details": "Failed to send metric message to SDK",
+            }
+
+        start_time = asyncio.get_event_loop().time()
+        poll_interval = 0.1
+
+        while True:
+            elapsed = asyncio.get_event_loop().time() - start_time
+
+            if elapsed > timeout:
+                self.cleanup_metric_result(metric_run_id)
+                logger.error(f"Timeout waiting for SDK metric result: {metric_run_id}")
+                return {"error": "timeout"}
+
+            result = self.get_metric_result(metric_run_id)
+            if result:
+                logger.debug(f"Received SDK metric result for {metric_run_id}")
+                self.cleanup_metric_result(metric_run_id)
+                return result
+
+            await asyncio.sleep(poll_interval)
+
     def _resolve_test_result(self, test_run_id: str, result: Dict[str, Any]) -> None:
         """
         Store test result for synchronous retrieval.
@@ -403,6 +526,33 @@ class ConnectionManager:
             logger.info(f"✅ Successfully published RPC response: {test_run_id}")
         except Exception as e:
             logger.error(f"❌ Failed to publish RPC response for {test_run_id}: {e}", exc_info=True)
+
+    def _resolve_metric_result(self, metric_run_id: str, result: Dict[str, Any]) -> None:
+        """Store metric result for synchronous retrieval."""
+        logger.info(
+            f"Received metric result from SDK: {metric_run_id} "
+            f"(status: {result.get('status', 'unknown')})"
+        )
+        self._metric_results[metric_run_id] = result
+
+        if redis_manager.is_available:
+            try:
+                self._track_background_task(self._publish_rpc_response(metric_run_id, result))
+            except Exception as e:
+                logger.error(
+                    f"Failed to publish metric RPC response: {e}",
+                    exc_info=True,
+                )
+
+    def get_metric_result(self, metric_run_id: str) -> Optional[Dict[str, Any]]:
+        """Get metric result if available (non-destructive)."""
+        return self._metric_results.get(metric_run_id)
+
+    def cleanup_metric_result(self, metric_run_id: str) -> None:
+        """Remove a metric result from memory."""
+        if metric_run_id in self._metric_results:
+            del self._metric_results[metric_run_id]
+            logger.debug(f"Cleaned up metric result: {metric_run_id}")
 
     def get_test_result(self, test_run_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -516,7 +666,7 @@ class ConnectionManager:
         self, project_id: str, environment: str, message: Dict[str, Any]
     ) -> None:
         """
-        Handle registration message from SDK - update local function registry.
+        Handle registration message from SDK - update local registries.
 
         Args:
             project_id: Project identifier
@@ -526,6 +676,8 @@ class ConnectionManager:
         try:
             reg_msg = RegisterMessage(**message)
             self.register_functions(project_id, environment, reg_msg.functions)
+            if reg_msg.metrics:
+                self.register_metrics(project_id, environment, reg_msg.metrics)
         except Exception as e:
             logger.error(f"Error handling registration: {e}")
 
@@ -576,6 +728,12 @@ class ConnectionManager:
 
             # Handle test result via message handler (logging, late validation updates, etc.)
             await message_handler.handle_test_result_message(project_id, environment, message, db)
+            return None
+
+        elif message_type == "metric_result":
+            metric_run_id = message.get("metric_run_id")
+            if metric_run_id:
+                self._resolve_metric_result(metric_run_id, message)
             return None
 
         elif message_type == "pong":
@@ -724,41 +882,43 @@ class ConnectionManager:
         With direct routing, this worker is guaranteed to have the connection.
         If somehow the connection is missing, publish an error response.
 
+        Supports both test (execute_test) and metric (execute_metric) requests
+        via the ``request_type`` field.
+
         Args:
             request: RPC request with keys: request_id, project_id, environment,
-                    function_name, inputs
+                    function_name/metric_name, inputs, and optional request_type
         """
-        # Extract request parameters
         request_id = request.get("request_id")
         project_id = request.get("project_id")
         environment = request.get("environment")
-        function_name = request.get("function_name")
+        request_type = request.get("request_type", "execute_test")
         inputs = request.get("inputs", {})
 
-        logger.debug(f"RPC request received: {request_id} - {function_name}")
+        name = request.get("function_name") or request.get("metric_name", "")
+        logger.debug(f"RPC request received: {request_id} - {name} (type={request_type})")
 
-        # Direct routing guarantees we have the connection
         key = self.get_connection_key(project_id, environment)
 
         if key not in self._connections:
-            # This shouldn't happen with direct routing, but handle gracefully
             logger.error(
-                f"Worker routing mismatch: received RPC for {key} but connection not found. "
-                f"Race condition between routing registration and connection state."
+                f"Worker routing mismatch: received RPC for {key} but connection not found."
             )
             await self._publish_error_response(
                 request_id, key, f"Worker routing mismatch for {key}"
             )
             return
 
-        # Forward request to SDK
-        await self._forward_to_sdk(request_id, key, function_name, inputs)
+        if request_type == "execute_metric":
+            await self._forward_metric_to_sdk(request_id, key, name, inputs)
+        else:
+            await self._forward_to_sdk(request_id, key, name, inputs)
 
     async def _forward_to_sdk(
         self, request_id: str, key: str, function_name: str, inputs: Dict[str, Any]
     ) -> None:
         """
-        Forward RPC request to SDK via local WebSocket connection.
+        Forward test RPC request to SDK via local WebSocket connection.
 
         Args:
             request_id: RPC request ID
@@ -776,13 +936,44 @@ class ConnectionManager:
             await websocket.send_json(message.model_dump())
         except Exception as e:
             logger.error(f"Error forwarding RPC request {request_id}: {e}")
-
-            # Connection is stale - clean it up
             await self._cleanup_stale_connection(key)
-
-            # Publish error response
             await self._publish_error_response(
                 request_id, key, f"Failed to forward to WebSocket: {str(e)}"
+            )
+
+    async def _forward_metric_to_sdk(
+        self,
+        request_id: str,
+        key: str,
+        metric_name: str,
+        inputs: Dict[str, Any],
+    ) -> None:
+        """
+        Forward metric RPC request to SDK via local WebSocket connection.
+
+        Args:
+            request_id: RPC request ID (used as metric_run_id)
+            key: Connection key
+            metric_name: SDK metric to invoke
+            inputs: Metric inputs (input, output, expected_output, context)
+        """
+        websocket = self._connections[key]
+        message = ExecuteMetricMessage(
+            metric_run_id=request_id,
+            metric_name=metric_name,
+            inputs=inputs,
+        )
+
+        try:
+            logger.info(f"Forwarding metric RPC request {request_id} ({metric_name}) to SDK")
+            await websocket.send_json(message.model_dump())
+        except Exception as e:
+            logger.error(f"Error forwarding metric RPC request {request_id}: {e}")
+            await self._cleanup_stale_connection(key)
+            await self._publish_error_response(
+                request_id,
+                key,
+                f"Failed to forward metric to WebSocket: {str(e)}",
             )
 
     async def _cleanup_stale_connection(self, key: str) -> None:
