@@ -61,3 +61,12 @@ module "eso_stg" {
 
   depends_on = [module.gke_stg]
 }
+
+module "external_dns_stg" {
+  source = "../../modules/external-dns/gcp"
+
+  project_id  = var.project_id
+  environment = "stg"
+
+  depends_on = [module.eso_stg]
+}

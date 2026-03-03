@@ -263,6 +263,34 @@ module "eso_prd" {
   depends_on = [module.gke_prd]
 }
 
+# External DNS — GCP Secret Manager secrets for Cloudflare API tokens
+module "external_dns_dev" {
+  source = "./modules/external-dns/gcp"
+
+  project_id  = var.project_id
+  environment = "dev"
+
+  depends_on = [module.eso_dev]
+}
+
+module "external_dns_stg" {
+  source = "./modules/external-dns/gcp"
+
+  project_id  = var.project_id
+  environment = "stg"
+
+  depends_on = [module.eso_stg]
+}
+
+module "external_dns_prd" {
+  source = "./modules/external-dns/gcp"
+
+  project_id  = var.project_id
+  environment = "prd"
+
+  depends_on = [module.eso_prd]
+}
+
 # WireGuard VPN server (multi-NIC: WireGuard VPC + one NIC per env for kubectl routing)
 # GCP allows max 2 vNICs for 2-or-fewer vCPUs; 4 vCPUs → 4 vNICs. So we need e2-standard-4.
 module "wireguard_server" {
