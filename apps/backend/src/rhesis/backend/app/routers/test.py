@@ -502,3 +502,15 @@ async def execute_test_endpoint(
     except Exception as e:
         http_exception = handle_execution_error(e, operation="execute test")
         raise http_exception
+
+
+@router.get("/{test_id}/files", response_model=List[schemas.FileResponse])
+def list_test_files(
+    test_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """List input files attached to a test."""
+    organization_id, user_id = tenant_context
+    return crud.get_files_for_entity(db, test_id, "Test", organization_id, user_id)

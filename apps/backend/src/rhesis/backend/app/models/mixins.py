@@ -70,6 +70,23 @@ class CommentsMixin:
         )
 
 
+class FilesMixin:
+    """Mixin that provides polymorphic file relationships"""
+
+    @declared_attr
+    def files(cls):
+        """Polymorphic file relationship"""
+        return relationship(
+            "File",
+            primaryjoin=(
+                f"and_({cls.__name__}.id == foreign(File.entity_id), "
+                f"File.entity_type == '{cls.__name__}')"
+            ),
+            viewonly=True,
+            uselist=True,
+        )
+
+
 class TasksMixin:
     """Mixin that provides polymorphic task relationships"""
 

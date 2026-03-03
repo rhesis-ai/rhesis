@@ -9,6 +9,7 @@ from .demographic import Demographic
 from .dimension import Dimension
 from .embedding import Embedding
 from .endpoint import Endpoint
+from .file import File
 from .guid import GUID
 from .metric import Metric, behavior_metric_association
 from .mixins import TagsMixin
@@ -52,6 +53,7 @@ __all__ = [
     "Comment",
     "Embedding",
     "Endpoint",
+    "File",
     "GUID",
     "Metric",
     "Model",

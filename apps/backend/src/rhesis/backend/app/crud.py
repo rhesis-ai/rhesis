@@ -3898,3 +3898,96 @@ def update_conversation_id_for_trace(
     )
 
     return count
+
+
+# ============================================================================
+# File CRUD operations
+# ============================================================================
+
+
+def create_file(
+    db: Session,
+    file_data: Union[schemas.FileCreate, dict],
+    organization_id: str = None,
+    user_id: str = None,
+) -> models.File:
+    """Create a file record."""
+    if isinstance(file_data, dict):
+        file_data = schemas.FileCreate(**file_data)
+
+    if hasattr(file_data, "entity_type") and hasattr(file_data.entity_type, "value"):
+        file_data.entity_type = file_data.entity_type.value
+
+    return create_item(db, models.File, file_data, organization_id, user_id)
+
+
+def get_file(
+    db: Session,
+    file_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[models.File]:
+    """Get file metadata (content is deferred, not loaded)."""
+    return get_item(db, models.File, file_id, organization_id, user_id)
+
+
+def get_file_with_content(
+    db: Session,
+    file_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[models.File]:
+    """Get file with content loaded (uses undefer for BYTEA column)."""
+    return get_item_with_deferred(db, models.File, file_id, ["content"], organization_id, user_id)
+
+
+def get_files_for_entity(
+    db: Session,
+    entity_id: uuid.UUID,
+    entity_type: str,
+    organization_id: str = None,
+    user_id: str = None,
+    skip: int = 0,
+    limit: int = 100,
+) -> List[models.File]:
+    """Get all files for a specific entity (content deferred)."""
+    return (
+        QueryBuilder(db, models.File)
+        .with_organization_filter(organization_id)
+        .with_custom_filter(
+            lambda q: q.filter(
+                models.File.entity_id == entity_id,
+                models.File.entity_type == entity_type,
+            )
+        )
+        .with_pagination(skip, limit)
+        .with_sorting("position", "asc")
+        .all()
+    )
+
+
+def get_entity_files_total_size(
+    db: Session,
+    entity_id: uuid.UUID,
+    entity_type: str,
+    organization_id: str = None,
+) -> int:
+    """Get total size in bytes of all files for an entity."""
+    query = db.query(func.coalesce(func.sum(models.File.size_bytes), 0)).filter(
+        models.File.entity_id == entity_id,
+        models.File.entity_type == entity_type,
+        models.File.deleted_at.is_(None),
+    )
+    if organization_id:
+        query = query.filter(models.File.organization_id == organization_id)
+    return query.scalar()
+
+
+def delete_file(
+    db: Session,
+    file_id: uuid.UUID,
+    organization_id: str = None,
+    user_id: str = None,
+) -> Optional[models.File]:
+    """Soft-delete a file."""
+    return delete_item(db, models.File, file_id, organization_id, user_id)

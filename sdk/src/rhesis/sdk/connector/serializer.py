@@ -5,6 +5,7 @@ detection of common patterns (Pydantic, dataclasses, etc.) and support for
 custom serializers.
 """
 
+import base64
 import dataclasses
 import inspect
 import logging
@@ -16,6 +17,8 @@ logger = logging.getLogger(__name__)
 # Order matters - first match wins
 
 DUMP_STRATEGIES: list[tuple[Callable[[Any], bool], Callable[[Any], Any]]] = [
+    # bytes -> base64 string (must be before Pydantic to catch raw bytes)
+    (lambda o: isinstance(o, bytes), lambda o: base64.b64encode(o).decode("ascii")),
     # Pydantic v2 models
     (lambda o: hasattr(o, "model_dump"), lambda o: o.model_dump()),
     # Pydantic v1 models
@@ -100,8 +103,8 @@ class TypeSerializer:
         Returns:
             JSON-serializable representation
         """
-        # Primitives pass through
-        if obj is None or isinstance(obj, (str, int, float, bool, bytes)):
+        # Primitives pass through (bytes handled by DUMP_STRATEGIES for base64)
+        if obj is None or isinstance(obj, (str, int, float, bool)):
             return obj
 
         # Recursively handle dicts

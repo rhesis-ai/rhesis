@@ -1,8 +1,9 @@
 """Result processing and storage utilities."""
 
+import base64
 import copy
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -182,6 +183,9 @@ def create_test_result_record(
     if metadata:
         test_metrics["metadata"] = metadata
 
+    # Extract output files before storing in JSONB (avoid base64 blobs in JSONB)
+    output_files_data = processed_result.pop("output_files", None)
+
     test_result_data = {
         "test_configuration_id": UUID(test_config_id),
         "test_run_id": UUID(test_run_id),
@@ -217,6 +221,17 @@ def create_test_result_record(
             f"for test_id={test_id}, test_run_id={test_run_id}, "
             f"test_config_id={test_config_id}"
         )
+
+        # Store output files on the test result
+        if result_id and output_files_data:
+            try:
+                _store_output_files(db, result_id, output_files_data, organization_id, user_id)
+            except Exception as file_error:
+                logger.error(
+                    f"[TEST_RESULT] Failed to store output files for "
+                    f"test_result_id={result_id}: {file_error}",
+                    exc_info=True,
+                )
 
         # Link traces to this test result
         if result_id:
@@ -256,3 +271,57 @@ def create_test_result_record(
     except Exception as e:
         logger.error(f"[TEST_RESULT] Failed to create test result: {str(e)}", exc_info=True)
         raise
+
+
+def _store_output_files(
+    db: Session,
+    test_result_id: UUID,
+    output_files_data: List[Dict[str, Any]],
+    organization_id: Optional[str],
+    user_id: Optional[str],
+) -> None:
+    """Store output files from endpoint response as File records.
+
+    Each item in output_files_data should have:
+    - content_base64: base64-encoded file content
+    - filename: original filename
+    - content_type: MIME type (optional, defaults to application/octet-stream)
+    """
+    if not isinstance(output_files_data, list):
+        logger.warning(
+            f"[TEST_RESULT] output_files is not a list, skipping: {type(output_files_data)}"
+        )
+        return
+
+    for idx, file_data in enumerate(output_files_data):
+        if not isinstance(file_data, dict):
+            continue
+
+        content_b64 = file_data.get("content_base64")
+        if not content_b64:
+            continue
+
+        try:
+            content = base64.b64decode(content_b64)
+        except Exception:
+            logger.warning(f"[TEST_RESULT] Failed to decode base64 for output file {idx}")
+            continue
+
+        filename = file_data.get("filename", f"output_{idx}")
+        content_type = file_data.get("content_type", "application/octet-stream")
+
+        file_create = schemas.FileCreate(
+            filename=filename,
+            content_type=content_type,
+            size_bytes=len(content),
+            content=content,
+            entity_id=test_result_id,
+            entity_type="TestResult",
+            position=idx,
+        )
+        crud.create_file(db, file_create, organization_id=organization_id, user_id=user_id)
+
+    logger.info(
+        f"[TEST_RESULT] Stored {len(output_files_data)} output files "
+        f"for test_result_id={test_result_id}"
+    )
