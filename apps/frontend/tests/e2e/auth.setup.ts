@@ -7,7 +7,7 @@ import { LoginPage } from './pages/LoginPage';
  * Relies on Quick Start mode (NEXT_PUBLIC_QUICK_START=true) which
  * auto-logs in via the /auth/local-login endpoint and redirects
  * to /dashboard. The resulting browser state (cookies, localStorage)
- * is persisted to e2e/.auth/user.json so every test project that
+ * is persisted to tests/e2e/.auth/user.json so every test project that
  * depends on "setup" starts already authenticated.
  */
 setup('authenticate via Quick Start', async ({ page }) => {
@@ -18,5 +18,5 @@ setup('authenticate via Quick Start', async ({ page }) => {
   await expect(page).toHaveURL(/\/dashboard/);
 
   // Persist the authenticated browser state
-  await page.context().storageState({ path: 'e2e/.auth/user.json' });
+  await page.context().storageState({ path: 'tests/e2e/.auth/user.json' });
 });
