@@ -19,6 +19,7 @@ from . import _state
 from ._state import _register_default_client, get_default_client, is_client_disabled
 from .builders import ObserverBuilder, create_observer
 from .endpoint import collaborate, endpoint
+from .metric import metric
 from .observe import observe
 
 
@@ -65,6 +66,7 @@ __all__ = [
     "observe",
     "endpoint",
     "collaborate",
+    "metric",
     # Builders
     "create_observer",
     "ObserverBuilder",

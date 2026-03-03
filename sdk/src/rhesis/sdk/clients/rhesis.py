@@ -293,6 +293,18 @@ class RhesisClient:
         connector = self._ensure_connector()  # Lazy init
         connector.register_function(name, func, metadata)
 
+    def register_metric(self, name: str, func, metadata: dict) -> None:
+        """
+        Register a function as an SDK-side metric.
+
+        Args:
+            name: Metric name
+            func: Metric callable
+            metadata: Additional metadata (score_type, description, etc.)
+        """
+        connector = self._ensure_connector()
+        connector.register_metric(name, func, metadata)
+
     async def _run_async(self) -> None:
         """
         Run the connector (WebSocket) and block until shutdown.

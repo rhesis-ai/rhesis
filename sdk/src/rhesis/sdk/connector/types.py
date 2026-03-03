@@ -21,10 +21,12 @@ class MessageType(str, Enum):
     # SDK -> Backend
     REGISTER = "register"
     TEST_RESULT = "test_result"
+    METRIC_RESULT = "metric_result"
     PONG = "pong"
 
     # Backend -> SDK
     EXECUTE_TEST = "execute_test"
+    EXECUTE_METRIC = "execute_metric"
     PING = "ping"
 
     # Acknowledgements

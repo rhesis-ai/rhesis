@@ -31,13 +31,14 @@ class FunctionMetadata(BaseModel):
 
 
 class RegisterMessage(BaseModel):
-    """Message sent from SDK to backend to register functions."""
+    """Message sent from SDK to backend to register functions and metrics."""
 
     type: str = "register"
     project_id: str
     environment: str
     sdk_version: str = "0.4.2"
     functions: List[FunctionMetadata]
+    metrics: List["MetricMetadata"] = Field(default_factory=list)
 
 
 class ExecuteTestMessage(BaseModel):
@@ -61,6 +62,38 @@ class TestResultMessage(BaseModel):
     trace_id: Optional[str] = None  # 32-char hex trace ID for linking to traces
 
 
+class MetricMetadata(BaseModel):
+    """Metadata about an SDK-registered metric."""
+
+    name: str
+    parameters: List[str] = Field(
+        description="Parameter names this metric accepts (subset of the allowed set)"
+    )
+    return_type: str = "MetricResult"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ExecuteMetricMessage(BaseModel):
+    """Message sent from backend to SDK to execute a metric."""
+
+    type: str = "execute_metric"
+    metric_run_id: str
+    metric_name: str
+    inputs: Dict[str, Any]
+
+
+class MetricResultMessage(BaseModel):
+    """Message sent from SDK to backend with metric evaluation results."""
+
+    type: str = "metric_result"
+    metric_run_id: str
+    status: TestStatus
+    score: Optional[Any] = None
+    details: Dict[str, Any] = Field(default_factory=dict)
+    error: Optional[str] = None
+    duration_ms: float
+
+
 class PingMessage(BaseModel):
     """Ping message for keepalive."""
 
@@ -71,3 +104,7 @@ class PongMessage(BaseModel):
     """Pong response to ping."""
 
     type: str = "pong"
+
+
+# Resolve forward references for RegisterMessage -> MetricMetadata
+RegisterMessage.model_rebuild()

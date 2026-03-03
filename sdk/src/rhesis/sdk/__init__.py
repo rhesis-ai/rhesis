@@ -9,6 +9,7 @@ from rhesis.sdk.decorators import (
     collaborate,
     create_observer,
     endpoint,
+    metric,
     observe,
 )
 from rhesis.sdk.enums import ExecutionMode, TestType
@@ -30,6 +31,7 @@ __all__ = [
     "CONNECTOR_DISABLED",
     "endpoint",
     "collaborate",  # Backwards compatibility
+    "metric",
     "observe",
     "create_observer",
     "ObserverBuilder",

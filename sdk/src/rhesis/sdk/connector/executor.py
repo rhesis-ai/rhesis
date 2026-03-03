@@ -244,6 +244,77 @@ class TestExecutor:
                 "trace_id": None,
             }
 
+    async def execute_metric(
+        self,
+        metric_func: Callable,
+        metric_name: str,
+        inputs: dict[str, Any],
+        accepted_params: list[str],
+    ) -> dict[str, Any]:
+        """
+        Execute an SDK-side metric with given inputs.
+
+        Args:
+            metric_func: Metric callable
+            metric_name: Name of the metric (for logging)
+            inputs: Metric inputs (input, output, expected_output, context)
+            accepted_params: Parameter names the metric accepts
+
+        Returns:
+            Dictionary with:
+                - status: "success" or "error"
+                - score: Metric score (if successful)
+                - details: Additional details dict (if successful)
+                - error: Error message (if failed)
+                - duration_ms: Execution duration in milliseconds
+        """
+        start_time = time.time()
+
+        try:
+            filtered_inputs = {k: v for k, v in inputs.items() if k in accepted_params}
+
+            if asyncio.iscoroutinefunction(metric_func):
+                result = await metric_func(**filtered_inputs)
+            else:
+                loop = asyncio.get_running_loop()
+                ctx = contextvars.copy_context()
+                result = await loop.run_in_executor(
+                    None, partial(ctx.run, metric_func, **filtered_inputs)
+                )
+
+            # Normalize result to score + details
+            if isinstance(result, dict):
+                score = result.get("score")
+                details = result.get("details", {})
+            elif hasattr(result, "score"):
+                score = result.score
+                details = result.details if hasattr(result, "details") else {}
+            else:
+                score = result
+                details = {}
+
+            duration_ms = (time.time() - start_time) * 1000
+
+            return {
+                "status": TestStatus.SUCCESS,
+                "score": score,
+                "details": details if isinstance(details, dict) else {},
+                "error": None,
+                "duration_ms": duration_ms,
+            }
+
+        except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
+            logger.error(f"Error executing metric {metric_name}: {e}")
+
+            return {
+                "status": TestStatus.ERROR,
+                "score": None,
+                "details": {},
+                "error": str(e),
+                "duration_ms": duration_ms,
+            }
+
     async def _consume_generator(self, result: Any) -> Any:
         """
         Consume generator if result is a generator.
