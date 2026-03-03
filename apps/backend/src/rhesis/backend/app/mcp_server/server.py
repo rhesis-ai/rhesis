@@ -209,7 +209,10 @@ def setup_mcp_server(
                     await response(scope, receive, send)
                     return
 
-            await session_manager.handle_request(scope, receive, send)
+            # Read the session manager from app state so the lifespan
+            # can swap in a fresh instance on each startup.
+            sm = fastapi_app.state.mcp_session_manager
+            await sm.handle_request(scope, receive, send)
 
     fastapi_app.mount("/mcp", _MCPApp())
 

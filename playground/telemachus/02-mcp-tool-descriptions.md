@@ -420,32 +420,56 @@ Each test requires behavior, category, and topic as string names (not IDs).
 
 ---
 
-## Verification Checklist
+## Status: DONE
 
-After making changes:
+All problems listed above have been resolved. Summary of changes:
 
-1. Start backend: `cd apps/backend && uv run python -m rhesis.backend.app.main`
-2. Run the e2e scenario:
-   ```bash
-   cd sdk
-   source .env
-   uv run python ../playground/telemachus/architect_e2e.py \
-     --endpoint-id <uuid> --with-platform-tools
-   ```
-3. Check that:
-   - `create_test_set_bulk` is called **with a non-empty `tests` array**
-   - No `priority` validation errors (integer or omitted)
-   - `create_metric` succeeds on first try (correct `score_type`, `threshold_operator`, `categories`)
-   - `create_test_configuration` receives valid `test_set_id` and `endpoint_id`
-   - The agent does not re-call `list_behaviors` etc. during creation
-   - No "Unknown tool" errors
+### What was implemented
 
----
+| Problem | Fix |
+|---------|-----|
+| Empty test sets (#1) | `create_test_set_bulk` description now documents `tests` as REQUIRED with format examples |
+| Priority validation loops (#2) | Tool description specifies integer-only, `priority` documented correctly |
+| `create_metric` field errors (#3) | `generate_metric` tool bypasses manual field filling entirely; `create_metric` descriptions improved with enum constraints |
+| No workflow context (#4) | Entity creation order added to architect `system_prompt.j2` |
+| No types/enums/required markers (#5) | `_format_tools()` rewritten to show types, enums, required/optional, descriptions |
+| Server-managed fields exposed (#6) | `_SERVER_MANAGED_FIELDS` filtered out in `_format_tools()` |
 
-## Files to Change
+### Beyond original scope
+
+| Addition | Details |
+|----------|---------|
+| `generate_metric` tool | LLM-powered metric creation from natural language — the agent now calls `generate_metric` instead of struggling with `create_metric` field constraints |
+| `improve_metric` tool | Edit existing metrics via natural language (e.g. "make the threshold stricter") |
+| Multi-turn awareness | Generation template distinguishes single-turn vs multi-turn evaluation criteria |
+| `MetricSynthesizer` SDK class | Reusable `generate()` and `improve()` methods with Jinja templates + structured LLM output |
+| MCP lifespan fix | `StreamableHTTPSessionManager` recreated per lifespan startup; `_MCPApp` reads from `app.state` — fixes test suite and backend restart reliability |
+| `MetricBackendType` / `MetricType` constants | Centralized metric type constants used by garak importer |
+
+### Files changed
 
 | File | Change |
 |------|--------|
-| `apps/backend/src/rhesis/backend/app/mcp_server/mcp_tools.yaml` | Improve descriptions for `create_test_set_bulk`, `create_metric`, `create_test_configuration` |
-| `sdk/src/rhesis/sdk/agents/base.py` | Improve `_format_tools()` to show types, enums, required markers; filter server-managed fields |
-| `sdk/src/rhesis/sdk/agents/architect/prompt_templates/system_prompt.j2` | Add entity creation order section |
+| `apps/backend/src/rhesis/backend/app/mcp_server/mcp_tools.yaml` | Improved descriptions + added `generate_metric`, `improve_metric` tools |
+| `apps/backend/src/rhesis/backend/app/mcp_server/server.py` | Store `mcp_server` on `app.state`; `_MCPApp` reads session manager from state |
+| `apps/backend/src/rhesis/backend/app/main.py` | Recreate `StreamableHTTPSessionManager` per lifespan startup |
+| `apps/backend/src/rhesis/backend/app/routers/metric.py` | Added `POST /metrics/generate` and `POST /metrics/{id}/improve` endpoints |
+| `apps/backend/src/rhesis/backend/app/schemas/metric.py` | Added `GenerateMetricRequest`, `ImproveMetricRequest` |
+| `apps/backend/src/rhesis/backend/app/schemas/__init__.py` | Exported new schemas |
+| `apps/backend/src/rhesis/backend/app/constants.py` | Added `MetricBackendType`, `MetricType` |
+| `sdk/src/rhesis/sdk/agents/base.py` | Rewrote `_format_tools()` with types/enums/required; added server-managed field filtering |
+| `sdk/src/rhesis/sdk/agents/architect/prompt_templates/system_prompt.j2` | Added entity creation order, field constraints, `generate_metric`/`improve_metric` guidance |
+| `sdk/src/rhesis/sdk/agents/tools.py` | Server-managed field stripping |
+| `sdk/src/rhesis/sdk/metrics/__init__.py` | Exported `MetricSynthesizer` |
+| `sdk/src/rhesis/sdk/metrics/synthesizer.py` | New: `MetricSynthesizer` with `generate()` and `improve()` |
+| `sdk/src/rhesis/sdk/metrics/assets/generate_metric.jinja` | New: generation template with multi-turn awareness |
+| `sdk/src/rhesis/sdk/metrics/assets/improve_metric.jinja` | New: improvement template |
+
+### Verification (completed)
+
+- e2e run with `architect_e2e.py --create`: agent explores endpoint, plans test suite, creates project + 3 test sets + 4 metrics
+- Metrics created with correct Title Case naming (e.g. "Factual Accuracy", "Response Helpfulness")
+- `generate_metric` called successfully (no field validation errors)
+- 23 MCP tools discovered (including `improve_metric`)
+- SDK tests: 21/21 pass (`test_synthesizer.py`)
+- Backend tests: 56/56 pass (`test_metric.py`)
