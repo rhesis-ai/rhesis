@@ -10,6 +10,7 @@ from .base import Base
 class FileEntityType(str, Enum):
     TEST = "Test"
     TEST_RESULT = "TestResult"
+    TRACE = "Trace"
 
 
 class FileResponse(Base):
