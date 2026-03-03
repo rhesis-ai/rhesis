@@ -1,103 +1,94 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import { getTestRunStatusColor, getTestRunStatusIcon } from '../TestRunStatus';
 
 describe('getTestRunStatusColor', () => {
-  it('returns "default" for undefined status', () => {
-    expect(getTestRunStatusColor(undefined)).toBe('default');
+  it.each([
+    ['completed', 'success'],
+    ['partial', 'warning'],
+    ['failed', 'error'],
+    ['progress', 'info'],
+    ['queued', 'default'],
+  ])('returns "%s" for status "%s"', (status, expected) => {
+    expect(getTestRunStatusColor(status)).toBe(expected);
   });
 
-  it('returns "success" for completed', () => {
-    expect(getTestRunStatusColor('completed')).toBe('success');
+  it('is case-insensitive', () => {
     expect(getTestRunStatusColor('Completed')).toBe('success');
-  });
-
-  it('returns "warning" for partial', () => {
-    expect(getTestRunStatusColor('partial')).toBe('warning');
-    expect(getTestRunStatusColor('Partial')).toBe('warning');
-  });
-
-  it('returns "error" for failed', () => {
-    expect(getTestRunStatusColor('failed')).toBe('error');
-    expect(getTestRunStatusColor('Failed')).toBe('error');
-  });
-
-  it('returns "info" for progress', () => {
-    expect(getTestRunStatusColor('progress')).toBe('info');
+    expect(getTestRunStatusColor('FAILED')).toBe('error');
     expect(getTestRunStatusColor('Progress')).toBe('info');
   });
 
-  it('returns "default" for queued', () => {
-    expect(getTestRunStatusColor('queued')).toBe('default');
-    expect(getTestRunStatusColor('Queued')).toBe('default');
+  it('returns "default" for undefined', () => {
+    expect(getTestRunStatusColor(undefined)).toBe('default');
   });
 
-  it('returns "default" for unknown status', () => {
-    expect(getTestRunStatusColor('unknown')).toBe('default');
-    expect(getTestRunStatusColor('cancelled')).toBe('default');
+  it('returns "default" for an unrecognised status', () => {
+    expect(getTestRunStatusColor('running')).toBe('default');
+    expect(getTestRunStatusColor('')).toBe('default');
   });
 });
 
 describe('getTestRunStatusIcon', () => {
-  it('renders an icon for undefined status', () => {
+  it.each([
+    ['completed', CheckCircleOutlineIcon],
+    ['partial', WarningAmberOutlinedIcon],
+    ['failed', CancelOutlinedIcon],
+    ['progress', PlayCircleOutlineIcon],
+    ['queued', HourglassEmptyIcon],
+  ])(
+    'returns the correct icon component for status "%s"',
+    (status, IconComponent) => {
+      const icon = getTestRunStatusIcon(status);
+      expect(icon.type).toBe(IconComponent);
+    }
+  );
+
+  it('returns PlayArrowIcon for undefined status', () => {
     const icon = getTestRunStatusIcon(undefined);
-    const { container } = render(<>{icon}</>);
-    expect(container.querySelector('svg')).toBeInTheDocument();
+    expect(icon.type).toBe(PlayArrowIcon);
   });
 
-  it('renders CheckCircleOutlineIcon for completed', () => {
+  it('returns PlayArrowIcon for an unrecognised status', () => {
+    const icon = getTestRunStatusIcon('running');
+    expect(icon.type).toBe(PlayArrowIcon);
+  });
+
+  it('is case-insensitive', () => {
+    expect(getTestRunStatusIcon('Completed').type).toBe(CheckCircleOutlineIcon);
+    expect(getTestRunStatusIcon('FAILED').type).toBe(CancelOutlinedIcon);
+  });
+
+  it('defaults to "small" font size', () => {
     const icon = getTestRunStatusIcon('completed');
-    const { container } = render(<>{icon}</>);
-    expect(
-      container.querySelector('[data-testid="CheckCircleOutlineIcon"]')
-    ).toBeInTheDocument();
+    expect(icon.props.fontSize).toBe('small');
   });
 
-  it('renders WarningAmberOutlinedIcon for partial', () => {
-    const icon = getTestRunStatusIcon('partial');
-    const { container } = render(<>{icon}</>);
-    expect(
-      container.querySelector('[data-testid="WarningAmberOutlinedIcon"]')
-    ).toBeInTheDocument();
-  });
-
-  it('renders CancelOutlinedIcon for failed', () => {
-    const icon = getTestRunStatusIcon('failed');
-    const { container } = render(<>{icon}</>);
-    expect(
-      container.querySelector('[data-testid="CancelOutlinedIcon"]')
-    ).toBeInTheDocument();
-  });
-
-  it('renders PlayCircleOutlineIcon for progress', () => {
-    const icon = getTestRunStatusIcon('progress');
-    const { container } = render(<>{icon}</>);
-    expect(
-      container.querySelector('[data-testid="PlayCircleOutlineIcon"]')
-    ).toBeInTheDocument();
-  });
-
-  it('renders HourglassEmptyIcon for queued', () => {
-    const icon = getTestRunStatusIcon('queued');
-    const { container } = render(<>{icon}</>);
-    expect(
-      container.querySelector('[data-testid="HourglassEmptyIcon"]')
-    ).toBeInTheDocument();
-  });
-
-  it('renders default PlayArrowIcon for unknown status', () => {
-    const icon = getTestRunStatusIcon('unknown');
-    const { container } = render(<>{icon}</>);
-    expect(
-      container.querySelector('[data-testid="PlayArrowIcon"]')
-    ).toBeInTheDocument();
-  });
-
-  it('supports size parameter', () => {
+  it('forwards a custom size to the icon', () => {
     const icon = getTestRunStatusIcon('completed', 'medium');
-    const { container } = render(<>{icon}</>);
-    const svg = container.querySelector('svg');
-    expect(svg).toHaveClass('MuiSvgIcon-fontSizeMedium');
+    expect(icon.props.fontSize).toBe('medium');
+  });
+
+  it('renders an SVG element for every status', () => {
+    const statuses = [
+      'completed',
+      'partial',
+      'failed',
+      'progress',
+      'queued',
+      undefined,
+    ];
+    statuses.forEach(status => {
+      const icon = getTestRunStatusIcon(status);
+      const { container } = render(<>{icon}</>);
+      expect(container.querySelector('svg')).not.toBeNull();
+    });
   });
 });
