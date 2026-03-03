@@ -22,8 +22,10 @@ test.describe('Test Sets — CRUD @crud', () => {
     // The drawer should show the "New Test Set" heading
     await expect(page.getByText('New Test Set').first()).toBeVisible();
 
-    // Fill the required Name field
-    await page.getByLabel('Name').first().fill(UNIQUE_NAME);
+    // Fill the required Name field.
+    // Use getByRole('textbox') to avoid matching the DataGrid column-menu
+    // button whose aria-label "Name column menu" is a partial getByLabel hit.
+    await page.getByRole('textbox', { name: /^name/i }).fill(UNIQUE_NAME);
 
     // The Test Set Type select defaults to "Single-Turn" — leave it as-is
 
@@ -50,7 +52,7 @@ test.describe('Test Sets — CRUD @crud', () => {
 
     // --- Setup: create a test set to delete ---
     await testSetsPage.openNewTestSetDrawer();
-    await page.getByLabel('Name').first().fill(UNIQUE_NAME);
+    await page.getByRole('textbox', { name: /^name/i }).fill(UNIQUE_NAME);
     await page.getByRole('button', { name: /save/i }).click();
 
     // Wait for drawer to close and test set to appear
