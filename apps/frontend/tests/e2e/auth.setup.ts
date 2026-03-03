@@ -35,6 +35,10 @@ setup('authenticate via Quick Start', async ({ page }) => {
     }
   });
 
+  // Ensure the .auth directory exists — it is gitignored so it won't be
+  // present on a fresh checkout or in CI without an explicit mkdir step.
+  await fs.promises.mkdir('tests/e2e/.auth', { recursive: true });
+
   // Persist the authenticated browser state (cookies + localStorage)
   await page.context().storageState({ path: 'tests/e2e/.auth/user.json' });
 });
