@@ -258,9 +258,10 @@ jobs:
       - name: Deploy to Cloud Run
         id: deploy
         run: |
-          ROBOTS_NOINDEX_FLAG=""
           if [ -n "$ROBOTS_NOINDEX" ]; then
             ROBOTS_NOINDEX_FLAG="--update-env-vars ROBOTS_NOINDEX=$ROBOTS_NOINDEX"
+          else
+            ROBOTS_NOINDEX_FLAG="--remove-env-vars ROBOTS_NOINDEX"
           fi
 
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
