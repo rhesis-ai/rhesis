@@ -5,6 +5,7 @@ import {
   WebSocketMessage,
   ChatResponsePayload,
   ChatErrorPayload,
+  FileAttachment,
 } from '@/utils/websocket';
 
 /**
@@ -23,6 +24,10 @@ export interface ChatMessage {
   timestamp: Date;
   /** Whether the message is an error */
   isError?: boolean;
+  /** File attachments on user messages */
+  files?: FileAttachment[];
+  /** Output files on assistant messages */
+  outputFiles?: FileAttachment[];
 }
 
 /**
@@ -48,7 +53,7 @@ interface UsePlaygroundChatResult {
   /** Current session ID for multi-turn conversations (if any) */
   sessionId: string | null;
   /** Send a message to the endpoint */
-  sendMessage: (message: string) => void;
+  sendMessage: (message: string, files?: FileAttachment[]) => void;
   /** Clear all messages and reset conversation */
   clearMessages: () => void;
 }
@@ -141,6 +146,9 @@ export function usePlaygroundChat(
             content: payload?.output || '',
             traceId: payload?.trace_id,
             timestamp: new Date(),
+            ...(payload?.output_files?.length && {
+              outputFiles: payload.output_files,
+            }),
           };
 
           setMessages(prev => [...prev, assistantMessage]);
@@ -186,7 +194,7 @@ export function usePlaygroundChat(
    * Send a message to the endpoint.
    */
   const sendMessage = useCallback(
-    (message: string) => {
+    (message: string, files?: FileAttachment[]) => {
       if (!endpointId) {
         setError('No endpoint selected');
         return;
@@ -219,6 +227,7 @@ export function usePlaygroundChat(
         role: 'user',
         content: trimmedMessage,
         timestamp: new Date(),
+        ...(files?.length && { files }),
       };
       setMessages(prev => [...prev, userMessage]);
 
@@ -233,6 +242,7 @@ export function usePlaygroundChat(
           endpoint_id: endpointId,
           message: trimmedMessage,
           ...(sessionId && { conversation_id: sessionId }),
+          ...(files?.length && { files }),
         },
       });
 

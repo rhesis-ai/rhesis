@@ -10,15 +10,18 @@ import {
   Alert,
   CircularProgress,
   Snackbar,
+  Chip,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import Tooltip from '@mui/material/Tooltip';
 import { useSession } from 'next-auth/react';
 import { usePlaygroundChat } from '@/hooks/usePlaygroundChat';
+import { FileAttachment } from '@/utils/websocket';
 import MessageBubble, { MessageBubbleSkeleton } from './MessageBubble';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
 import CreateTestFromConversationDrawer from './CreateTestFromConversationDrawer';
@@ -55,6 +58,7 @@ export default function PlaygroundChat({
   const { data: session } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     messages,
@@ -66,6 +70,7 @@ export default function PlaygroundChat({
   } = usePlaygroundChat({ endpointId });
 
   const [inputValue, setInputValue] = useState('');
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
   const [traceDrawerOpen, setTraceDrawerOpen] = useState(false);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<{
@@ -95,10 +100,45 @@ export default function PlaygroundChat({
     }
   }, [isLoading]);
 
-  const handleSend = () => {
+  // Clear staged files when endpoint changes
+  useEffect(() => {
+    setStagedFiles([]);
+  }, [endpointId]);
+
+  const convertFilesToAttachments = async (
+    files: File[]
+  ): Promise<FileAttachment[]> => {
+    return Promise.all(
+      files.map(
+        (file) =>
+          new Promise<FileAttachment>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const dataUrl = reader.result as string;
+              // data:image/png;base64,XXXX -> extract base64 part
+              const base64 = dataUrl.split(',')[1];
+              resolve({
+                filename: file.name,
+                content_type: file.type || 'application/octet-stream',
+                data: base64,
+              });
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          })
+      )
+    );
+  };
+
+  const handleSend = async () => {
     if (inputValue.trim() && !isLoading) {
-      sendMessage(inputValue);
+      let fileAttachments: FileAttachment[] | undefined;
+      if (stagedFiles.length > 0) {
+        fileAttachments = await convertFilesToAttachments(stagedFiles);
+      }
+      sendMessage(inputValue, fileAttachments);
       setInputValue('');
+      setStagedFiles([]);
     }
   };
 
@@ -107,6 +147,18 @@ export default function PlaygroundChat({
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setStagedFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+    }
+    // Reset so the same file can be selected again
+    e.target.value = '';
+  };
+
+  const handleRemoveStagedFile = (index: number) => {
+    setStagedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleViewTrace = (traceId: string) => {
@@ -311,6 +363,39 @@ export default function PlaygroundChat({
             bgcolor: 'background.paper',
           }}
         >
+          {/* Staged Files */}
+          {stagedFiles.length > 0 && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 0.5,
+                mb: 1,
+              }}
+            >
+              {stagedFiles.map((file, idx) => (
+                <Chip
+                  key={`${file.name}-${idx}`}
+                  icon={<AttachFileIcon />}
+                  label={file.name}
+                  size="small"
+                  onDelete={() => handleRemoveStagedFile(idx)}
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          )}
+
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+            style={{ display: 'none' }}
+            onChange={handleFileSelect}
+          />
+
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
             {/* Reset Conversation Button */}
             {messages.length > 0 && (
@@ -353,6 +438,27 @@ export default function PlaygroundChat({
                 },
               }}
             />
+
+            {/* Attach File Button */}
+            <Tooltip title="Attach file">
+              <IconButton
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!isConnected || isLoading}
+                sx={{
+                  color: 'text.secondary',
+                  bgcolor: 'action.hover',
+                  '&:hover': {
+                    bgcolor: 'action.selected',
+                  },
+                  '&:disabled': {
+                    bgcolor: 'action.disabledBackground',
+                    color: 'action.disabled',
+                  },
+                }}
+              >
+                <AttachFileIcon />
+              </IconButton>
+            </Tooltip>
 
             {/* Send Button */}
             <IconButton

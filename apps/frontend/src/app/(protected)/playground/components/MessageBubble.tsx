@@ -8,6 +8,7 @@ import {
   Tooltip,
   Skeleton,
   IconButton,
+  Chip,
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -15,6 +16,8 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import DownloadIcon from '@mui/icons-material/Download';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
@@ -60,6 +63,17 @@ export default function MessageBubble({
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const handleDownloadFile = (
+    filename: string,
+    contentType: string,
+    contentBase64: string
+  ) => {
+    const link = document.createElement('a');
+    link.href = `data:${contentType};base64,${contentBase64}`;
+    link.download = filename;
+    link.click();
   };
 
   return (
@@ -250,6 +264,84 @@ export default function MessageBubble({
                 )}
               </Box>
             </Box>
+
+            {/* User message: show attached file names */}
+            {isUser && message.files && message.files.length > 0 && (
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 0.5,
+                  mt: 1,
+                }}
+              >
+                {message.files.map((file, idx) => (
+                  <Chip
+                    key={`${file.filename}-${idx}`}
+                    icon={<AttachFileIcon />}
+                    label={file.filename}
+                    size="small"
+                    variant="outlined"
+                    sx={{
+                      color: 'primary.contrastText',
+                      borderColor: 'primary.contrastText',
+                      '& .MuiChip-icon': {
+                        color: 'primary.contrastText',
+                      },
+                      opacity: 0.85,
+                    }}
+                  />
+                ))}
+              </Box>
+            )}
+
+            {/* Assistant message: show output files */}
+            {!isUser &&
+              message.outputFiles &&
+              message.outputFiles.length > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  {message.outputFiles.map((file, idx) =>
+                    file.content_type.startsWith('image/') ? (
+                      <Box key={`${file.filename}-${idx}`} sx={{ mt: 1 }}>
+                        <img
+                          src={`data:${file.content_type};base64,${file.data}`}
+                          alt={file.filename}
+                          style={{
+                            maxWidth: '100%',
+                            maxHeight: 300,
+                            borderRadius: 4,
+                          }}
+                        />
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                        >
+                          {file.filename}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Chip
+                        key={`${file.filename}-${idx}`}
+                        icon={<DownloadIcon />}
+                        label={file.filename}
+                        size="small"
+                        variant="outlined"
+                        clickable
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadFile(
+                            file.filename,
+                            file.content_type,
+                            file.data
+                          );
+                        }}
+                        sx={{ mr: 0.5, mt: 0.5 }}
+                      />
+                    )
+                  )}
+                </Box>
+              )}
           </Paper>
         </Tooltip>
       </Box>
