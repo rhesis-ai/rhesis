@@ -387,10 +387,12 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
         // Create tests individually to get IDs for file uploads
         const filesClient = apiFactory.getFilesClient();
         let uploadFailures = 0;
+        const createdTestIds: string[] = [];
 
         for (const tc of nonEmptyTestCases) {
-          const payload = buildTestPayload(tc, testSetId);
+          const payload = buildTestPayload(tc);
           const created = await testsClient.createTest(payload);
+          createdTestIds.push(created.id);
 
           const rowFiles = pendingFilesMap[tc.id];
           if (rowFiles?.length) {
@@ -404,6 +406,15 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
               uploadFailures++;
             }
           }
+        }
+
+        // Associate created tests with the test set
+        if (testSetId && createdTestIds.length > 0) {
+          const testSetsClient = apiFactory.getTestSetsClient();
+          await testSetsClient.associateTestsWithTestSet(
+            testSetId,
+            createdTestIds
+          );
         }
 
         const msg =
@@ -440,8 +451,12 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
         sessionStorage.removeItem('testType');
       }
 
-      // Navigate back to tests list
-      router.push('/tests');
+      // Navigate to test set detail page if created, otherwise tests list
+      if (testSetId) {
+        router.push(`/test-sets/${testSetId}`);
+      } else {
+        router.push('/tests');
+      }
     } catch (error) {
       notifications.show(
         error instanceof Error ? error.message : 'Failed to save test cases',
@@ -453,22 +468,17 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
   };
 
   /** Build payload for single createTest (returns ID for file upload). */
-  const buildTestPayload = (
-    tc: TestCase,
-    testSetId?: string
-  ) => {
+  const buildTestPayload = (tc: TestCase) => {
     if (tc.testType === 'single_turn') {
       const prompt: TestPromptCreate = {
         content: tc.prompt,
         expected_response: tc.expectedOutput || undefined,
       };
       return {
-        prompt_id: '' as UUID,
         prompt,
         behavior: tc.behavior,
         category: tc.category,
         topic: tc.topic,
-        ...(testSetId ? { test_set_id: testSetId } : {}),
       };
     }
     const config: MultiTurnTestConfig = {
@@ -480,12 +490,10 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
       max_turns: tc.maxTurns,
     };
     return {
-      prompt_id: '' as UUID,
       behavior: tc.behavior,
       category: tc.category,
       topic: tc.topic,
       test_configuration: config as unknown as Record<string, unknown>,
-      ...(testSetId ? { test_set_id: testSetId } : {}),
     };
   };
 
