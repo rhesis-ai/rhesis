@@ -1,0 +1,48 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/external-dns
+
+configMapGenerator:
+  - name: external-dns-config
+    literals:
+      - cloudflare-api-token-gcp-secret=cloudflare-api-token-prd
+      - domain-filter=PLACEHOLDER_DOMAIN
+      - txt-owner-id=prd-external-dns
+    options:
+      labels:
+        config.kubernetes.io/local-config: "true"
+      disableNameSuffixHash: true
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: external-dns-config
+      fieldPath: data.cloudflare-api-token-gcp-secret
+    targets:
+      - select:
+          kind: ExternalSecret
+          name: cloudflare-api-token
+        fieldPaths:
+          - spec.data.0.remoteRef.key
+  - source:
+      kind: ConfigMap
+      name: external-dns-config
+      fieldPath: data.domain-filter
+    targets:
+      - select:
+          kind: Application
+          name: external-dns
+        fieldPaths:
+          - spec.source.helm.valuesObject.domainFilters.0
+  - source:
+      kind: ConfigMap
+      name: external-dns-config
+      fieldPath: data.txt-owner-id
+    targets:
+      - select:
+          kind: Application
+          name: external-dns
+        fieldPaths:
+          - spec.source.helm.valuesObject.txtOwnerId

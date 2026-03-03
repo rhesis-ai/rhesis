@@ -55,6 +55,16 @@ output "eso_prd_service_account_email" {
   value = module.eso_prd.service_account_email
 }
 
+output "external_dns_dev_secret_id" {
+  value = module.external_dns_dev.cloudflare_api_token_secret_id
+}
+output "external_dns_stg_secret_id" {
+  value = module.external_dns_stg.cloudflare_api_token_secret_id
+}
+output "external_dns_prd_secret_id" {
+  value = module.external_dns_prd.cloudflare_api_token_secret_id
+}
+
 output "wireguard_public_ip" {
   description = "WireGuard server public IP"
   value       = module.wireguard_server.server_external_ip
