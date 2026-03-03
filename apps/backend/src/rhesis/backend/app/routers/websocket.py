@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["websocket"])
 
-# Security: Maximum message size (64KB) to prevent DoS attacks
-MAX_MESSAGE_SIZE = 65536
+# Security: Maximum message size (10MB) to accommodate base64-encoded file attachments
+MAX_MESSAGE_SIZE = 10 * 1024 * 1024
 
 
 class WebSocketTokenResponse(BaseModel):
@@ -186,7 +186,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     await websocket.send_json(
                         {
                             "type": EventType.ERROR.value,
-                            "payload": {"error": "Message exceeds maximum size (64KB)"},
+                            "payload": {"error": "Message exceeds maximum size (10MB)"},
                         }
                     )
                 except Exception:

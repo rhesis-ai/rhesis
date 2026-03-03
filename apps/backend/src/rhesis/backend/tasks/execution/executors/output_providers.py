@@ -128,7 +128,7 @@ class SingleTurnOutput(OutputProvider):
                 {
                     "filename": f.filename,
                     "content_type": f.content_type,
-                    "content_base64": base64.b64encode(f.content).decode("ascii"),
+                    "data": base64.b64encode(f.content).decode("ascii"),
                 }
                 for f in files
                 if f.content

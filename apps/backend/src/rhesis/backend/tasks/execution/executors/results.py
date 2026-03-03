@@ -283,7 +283,7 @@ def _store_output_files(
     """Store output files from endpoint response as File records.
 
     Each item in output_files_data should have:
-    - content_base64: base64-encoded file content
+    - data: base64-encoded file content
     - filename: original filename
     - content_type: MIME type (optional, defaults to application/octet-stream)
     """
@@ -297,7 +297,7 @@ def _store_output_files(
         if not isinstance(file_data, dict):
             continue
 
-        content_b64 = file_data.get("content_base64")
+        content_b64 = file_data.get("data")
         if not content_b64:
             continue
 
