@@ -61,3 +61,12 @@ module "eso_prd" {
 
   depends_on = [module.gke_prd]
 }
+
+module "external_dns_prd" {
+  source = "../../modules/external-dns/gcp"
+
+  project_id  = var.project_id
+  environment = "prd"
+
+  depends_on = [module.eso_prd]
+}
