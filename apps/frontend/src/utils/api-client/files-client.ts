@@ -106,11 +106,4 @@ export class FilesClient extends BaseApiClient {
       `${API_ENDPOINTS.tests}/${testId}/files`
     );
   }
-
-  /** List all files attached to a trace span. */
-  async getSpanFiles(spanDbId: string): Promise<FileResponse[]> {
-    return this.fetch<FileResponse[]>(
-      `${API_ENDPOINTS.telemetry}/spans/${spanDbId}/files`
-    );
-  }
 }

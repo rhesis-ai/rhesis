@@ -17,13 +17,13 @@ from sqlalchemy.orm import relationship
 from rhesis.backend.app.constants import AISpanAttributes
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
-from rhesis.backend.app.models.mixins import CommentsMixin, FilesMixin, TagsMixin
+from rhesis.backend.app.models.mixins import CommentsMixin, TagsMixin
 
 if TYPE_CHECKING:
     pass
 
 
-class Trace(Base, TagsMixin, CommentsMixin, FilesMixin):
+class Trace(Base, TagsMixin, CommentsMixin):
     """OpenTelemetry trace span model."""
 
     __tablename__ = "trace"

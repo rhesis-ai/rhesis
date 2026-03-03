@@ -26,9 +26,6 @@ import {
   SpanNode,
   TraceDetailResponse,
 } from '@/utils/api-client/interfaces/telemetry';
-import { FileResponse } from '@/utils/api-client/interfaces/file';
-import { FilesClient } from '@/utils/api-client/files-client';
-import FileAttachmentList from '@/components/common/FileAttachmentList';
 import { format } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
 import TestResultTab from './TestResultTab';
@@ -65,8 +62,6 @@ export default function SpanDetailsPanel({
   sessionToken,
 }: SpanDetailsPanelProps) {
   const [activeTab, setActiveTab] = useState(0);
-  const [spanFiles, setSpanFiles] = useState<FileResponse[]>([]);
-  const [spanFilesLoading, setSpanFilesLoading] = useState(false);
 
   // Determine if Test Result tab should be shown
   const showTestResultTab = trace?.test_result != null;
@@ -77,34 +72,6 @@ export default function SpanDetailsPanel({
       setActiveTab(0);
     }
   }, [showTestResultTab, activeTab]);
-
-  // Fetch files attached to the selected span
-  useEffect(() => {
-    if (!span?.id || !sessionToken) {
-      setSpanFiles([]);
-      return;
-    }
-
-    let cancelled = false;
-    setSpanFilesLoading(true);
-
-    const filesClient = new FilesClient(sessionToken);
-    filesClient
-      .getSpanFiles(span.id)
-      .then((files) => {
-        if (!cancelled) setSpanFiles(files);
-      })
-      .catch(() => {
-        if (!cancelled) setSpanFiles([]);
-      })
-      .finally(() => {
-        if (!cancelled) setSpanFilesLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [span?.id, sessionToken]);
 
   if (!span) {
     return (
@@ -411,35 +378,6 @@ export default function SpanDetailsPanel({
                 </Stack>
               </CardContent>
             </Card>
-
-            {/* Per-Turn File Attachments (read-only) */}
-            {(spanFiles.length > 0 || spanFilesLoading) && (
-              <Card
-                variant="outlined"
-                sx={{
-                  mb: theme => theme.spacing(2),
-                  backgroundColor: theme =>
-                    theme.palette.grey[500] + '08',
-                  borderColor: theme =>
-                    theme.palette.grey[500] + '20',
-                }}
-              >
-                <CardContent>
-                  <Typography
-                    variant="subtitle2"
-                    color="text.secondary"
-                    sx={{ mb: 1 }}
-                  >
-                    Attachments
-                  </Typography>
-                  <FileAttachmentList
-                    files={spanFiles}
-                    sessionToken={sessionToken}
-                    isLoading={spanFilesLoading}
-                  />
-                </CardContent>
-              </Card>
-            )}
 
             {/* Function Input/Output Card - Featured prominently */}
             {(parsedArgs || parsedKwargs || parsedOutput) && (

@@ -189,7 +189,6 @@ class TraceListResponse(BaseModel):
 class SpanNode(BaseModel):
     """Span node in trace tree."""
 
-    id: Optional[str] = None
     span_id: str
     span_name: str
     span_kind: str

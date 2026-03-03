@@ -3,12 +3,11 @@
 import logging
 from datetime import datetime
 from typing import List, Optional
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, schemas
+from rhesis.backend.app import crud
 from rhesis.backend.app.constants import EnrichedDataKeys
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.schemas.telemetry import (
@@ -544,20 +543,6 @@ async def get_trace(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve trace details: {error_msg}",
         )
-
-
-@router.get(
-    "/spans/{span_db_id}/files",
-    response_model=List[schemas.FileResponse],
-)
-def list_span_files(
-    span_db_id: UUID,
-    db: Session = Depends(get_tenant_db_session),
-    tenant_context=Depends(get_tenant_context),
-):
-    """List files attached to a trace span."""
-    organization_id, user_id = tenant_context
-    return crud.get_files_for_entity(db, span_db_id, "Trace", organization_id, user_id)
 
 
 @router.get("/metrics", response_model=TraceMetricsResponse)
