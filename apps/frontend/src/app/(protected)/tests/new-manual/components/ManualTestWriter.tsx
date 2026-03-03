@@ -610,7 +610,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
           Manual Test Writer
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Creating {testType === 'single_turn' ? 'Single-Turn' : 'Multi-Turn'}{' '}
+          Creating {testType === 'single_turn' ? TEST_TYPES.SINGLE_TURN : TEST_TYPES.MULTI_TURN}{' '}
           Tests
         </Typography>
 

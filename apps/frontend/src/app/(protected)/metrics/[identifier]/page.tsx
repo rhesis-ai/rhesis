@@ -42,6 +42,7 @@ import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { generateCopyName } from '@/utils/entity-helpers';
+import { TEST_TYPES } from '@/constants/test-types';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 
@@ -1538,7 +1539,7 @@ export default function MetricDetailPage() {
                       one required):
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {(['Single-Turn', 'Multi-Turn'] as MetricScope[]).map(
+                      {([TEST_TYPES.SINGLE_TURN, TEST_TYPES.MULTI_TURN] as MetricScope[]).map(
                         scope => {
                           const currentScope =
                             editData.metric_scope || metric.metric_scope || [];

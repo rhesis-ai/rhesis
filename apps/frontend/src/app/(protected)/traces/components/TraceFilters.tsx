@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { TEST_TYPES } from '@/constants/test-types';
 import {
   Box,
   TextField,
@@ -317,7 +318,9 @@ export default function TraceFilters({
     // Trace type filter
     if (filters.trace_type && filters.trace_type !== 'all') {
       const typeLabel =
-        filters.trace_type === 'multi_turn' ? 'Multi-Turn' : 'Single-Turn';
+        filters.trace_type === 'multi_turn'
+          ? TEST_TYPES.MULTI_TURN
+          : TEST_TYPES.SINGLE_TURN;
       chips.push({
         key: 'trace_type',
         label: `Type: ${typeLabel}`,

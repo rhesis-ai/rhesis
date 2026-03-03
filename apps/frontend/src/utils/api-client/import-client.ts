@@ -1,4 +1,6 @@
 import { BaseApiClient } from './base-client';
+import { TEST_TYPES } from '@/constants/test-types';
+import type { TestTypeValue } from '@/constants/test-types';
 import type {
   AnalyzeResponse,
   CancelResponse,
@@ -74,7 +76,7 @@ export class ImportClient extends BaseApiClient {
   async parseWithMapping(
     importId: string,
     mapping: Record<string, string>,
-    testType: 'Single-Turn' | 'Multi-Turn' = 'Single-Turn',
+    testType: TestTypeValue = TEST_TYPES.SINGLE_TURN,
     signal?: AbortSignal
   ): Promise<ParseResponse> {
     const body: ParseRequest = { mapping, test_type: testType };

@@ -36,6 +36,7 @@ import { UUID } from 'crypto';
 import { Model } from '@/utils/api-client/interfaces/model';
 import CircularProgress from '@mui/material/CircularProgress';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
+import { TEST_TYPES } from '@/constants/test-types';
 
 // Add session type augmentation
 declare module 'next-auth' {
@@ -77,7 +78,7 @@ const initialFormData: MetricFormData = {
   threshold_operator: '>=',
   explanation: '',
   model_id: '',
-  metric_scope: ['Single-Turn'],
+  metric_scope: [TEST_TYPES.SINGLE_TURN],
 };
 
 const steps = ['Metric Information and Criteria', 'Confirmation'];
@@ -710,7 +711,7 @@ export default function NewMetricPage() {
             required):
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {(['Single-Turn', 'Multi-Turn'] as MetricScope[]).map(scope => {
+            {([TEST_TYPES.SINGLE_TURN, TEST_TYPES.MULTI_TURN] as MetricScope[]).map(scope => {
               const isSelected = formData.metric_scope.includes(scope);
 
               return (

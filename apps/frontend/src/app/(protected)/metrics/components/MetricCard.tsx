@@ -16,6 +16,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
+import { TEST_TYPES } from '@/constants/test-types';
 
 // Custom Rhesis AI icon component using inline SVG
 const RhesisAIIcon = ({
@@ -130,9 +131,9 @@ const getMetricScopeDisplay = (scope: string): string => {
 
 const getMetricScopeIcon = (scope: string) => {
   switch (scope) {
-    case 'Single-Turn':
+    case TEST_TYPES.SINGLE_TURN:
       return <ChatBubbleOutlineIcon fontSize="small" />;
-    case 'Multi-Turn':
+    case TEST_TYPES.MULTI_TURN:
       return <MessageIcon fontSize="small" />;
     default:
       return <TurnedInIcon fontSize="small" />;

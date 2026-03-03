@@ -47,6 +47,8 @@ import type {
   PreviewRow,
   ConfirmResponse,
 } from '@/utils/api-client/interfaces/import';
+import { TEST_TYPES } from '@/constants/test-types';
+import type { TestTypeValue } from '@/constants/test-types';
 
 interface FileImportDialogProps {
   open: boolean;
@@ -78,8 +80,8 @@ export default function FileImportDialog({
   const [activeStep, setActiveStep] = React.useState(0);
 
   // Step 1: Upload & Map
-  const [testType, setTestType] = React.useState<'Single-Turn' | 'Multi-Turn'>(
-    'Single-Turn'
+  const [testType, setTestType] = React.useState<TestTypeValue>(
+    TEST_TYPES.SINGLE_TURN
   );
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [analyzing, setAnalyzing] = React.useState(false);
@@ -152,7 +154,7 @@ export default function FileImportDialog({
 
   const resetState = () => {
     setActiveStep(0);
-    setTestType('Single-Turn');
+    setTestType(TEST_TYPES.SINGLE_TURN);
     setSelectedFile(null);
     setAnalyzing(false);
     setAnalyzeResult(null);
@@ -386,7 +388,7 @@ export default function FileImportDialog({
       { value: 'prompt_content', label: 'Prompt Content' },
       { value: 'expected_response', label: 'Expected Response' },
       { value: 'language_code', label: 'Language Code' },
-      ...(testType === 'Multi-Turn'
+      ...(testType === TEST_TYPES.MULTI_TURN
         ? [{ value: 'test_configuration', label: 'Test Configuration' }]
         : []),
       { value: 'metadata', label: 'Metadata' },
@@ -509,21 +511,21 @@ export default function FileImportDialog({
         </Typography>
         <Stack direction="row" spacing={1}>
           <Chip
-            label="Single-Turn"
-            color={testType === 'Single-Turn' ? 'primary' : 'default'}
-            variant={testType === 'Single-Turn' ? 'filled' : 'outlined'}
-            onClick={() => setTestType('Single-Turn')}
+            label={TEST_TYPES.SINGLE_TURN}
+            color={testType === TEST_TYPES.SINGLE_TURN ? 'primary' : 'default'}
+            variant={testType === TEST_TYPES.SINGLE_TURN ? 'filled' : 'outlined'}
+            onClick={() => setTestType(TEST_TYPES.SINGLE_TURN)}
             sx={{
-              fontWeight: testType === 'Single-Turn' ? 'bold' : 'normal',
+              fontWeight: testType === TEST_TYPES.SINGLE_TURN ? 'bold' : 'normal',
             }}
           />
           <Chip
-            label="Multi-Turn"
-            color={testType === 'Multi-Turn' ? 'primary' : 'default'}
-            variant={testType === 'Multi-Turn' ? 'filled' : 'outlined'}
-            onClick={() => setTestType('Multi-Turn')}
+            label={TEST_TYPES.MULTI_TURN}
+            color={testType === TEST_TYPES.MULTI_TURN ? 'primary' : 'default'}
+            variant={testType === TEST_TYPES.MULTI_TURN ? 'filled' : 'outlined'}
+            onClick={() => setTestType(TEST_TYPES.MULTI_TURN)}
             sx={{
-              fontWeight: testType === 'Multi-Turn' ? 'bold' : 'normal',
+              fontWeight: testType === TEST_TYPES.MULTI_TURN ? 'bold' : 'normal',
             }}
           />
         </Stack>
@@ -531,7 +533,7 @@ export default function FileImportDialog({
 
       {/* Expected data structure (adapts to selected test type) */}
       <Alert severity="info" variant="outlined">
-        {testType === 'Single-Turn' ? (
+        {testType === TEST_TYPES.SINGLE_TURN ? (
           <Typography variant="body2">
             <strong>Single-turn tests:</strong> Each row should have a prompt,
             category, topic, and behavior. Optionally include expected_response

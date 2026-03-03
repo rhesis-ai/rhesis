@@ -17,6 +17,8 @@ import {
   Button,
   IconButton,
 } from '@mui/material';
+import { TEST_TYPES } from '@/constants/test-types';
+import type { MetricScope } from '@/utils/api-client/interfaces/metric';
 import {
   ArrowForward as ArrowForwardIcon,
   CallSplit as CallSplitIcon,
@@ -734,8 +736,9 @@ export default function ExecuteTestSetDrawer({
                 title="Add Metric to Execution"
                 subtitle="Select a metric to use for this test run"
                 scopeFilter={
-                  testSetType === 'Single-Turn' || testSetType === 'Multi-Turn'
-                    ? (testSetType as 'Single-Turn' | 'Multi-Turn')
+                  testSetType === TEST_TYPES.SINGLE_TURN ||
+                  testSetType === TEST_TYPES.MULTI_TURN
+                    ? (testSetType as MetricScope)
                     : undefined
                 }
               />

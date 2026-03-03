@@ -23,6 +23,8 @@ import MessageBubble, { MessageBubbleSkeleton } from './MessageBubble';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
 import CreateTestFromConversationDrawer from './CreateTestFromConversationDrawer';
 import { ConversationMessage } from '@/utils/api-client/interfaces/tests';
+import { TEST_TYPES } from '@/constants/test-types';
+import type { TestTypeValue } from '@/constants/test-types';
 
 interface PlaygroundChatProps {
   /** The endpoint ID to chat with */
@@ -74,9 +76,9 @@ export default function PlaygroundChat({
 
   // Test creation drawer state
   const [testDrawerOpen, setTestDrawerOpen] = useState(false);
-  const [testDrawerType, setTestDrawerType] = useState<
-    'Single-Turn' | 'Multi-Turn'
-  >('Multi-Turn');
+  const [testDrawerType, setTestDrawerType] = useState<TestTypeValue>(
+    TEST_TYPES.MULTI_TURN
+  );
   const [testDrawerMessages, setTestDrawerMessages] = useState<
     ConversationMessage[]
   >([]);
@@ -125,7 +127,7 @@ export default function PlaygroundChat({
       .map(msg => ({ role: msg.role, content: msg.content }));
 
     setTestDrawerMessages(conversationMessages);
-    setTestDrawerType('Multi-Turn');
+    setTestDrawerType(TEST_TYPES.MULTI_TURN);
     setTestDrawerOpen(true);
   }, [messages]);
 
@@ -153,7 +155,7 @@ export default function PlaygroundChat({
       }
 
       setTestDrawerMessages(conversationMessages);
-      setTestDrawerType('Single-Turn');
+      setTestDrawerType(TEST_TYPES.SINGLE_TURN);
       setTestDrawerOpen(true);
     },
     [messages]

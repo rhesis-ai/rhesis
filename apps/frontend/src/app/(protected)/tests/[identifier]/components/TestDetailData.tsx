@@ -8,6 +8,7 @@ import BaseFreesoloAutocomplete, {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { TYPE_NAMES } from '@/constants/test-types';
 import TestExecutableField from './TestExecutableField';
 import FilePreview from '@/components/common/FilePreview';
 import MultiTurnConfigFields from './MultiTurnConfigFields';
@@ -87,7 +88,7 @@ export default function TestDetailData({
         const typesData = await typeLookupClient.getTypeLookups({
           sort_by: 'type_value',
           sort_order: 'asc',
-          $filter: "type_name eq 'TestType'",
+          $filter: `type_name eq '${TYPE_NAMES.TEST_TYPE}'`,
         });
         setTypes(
           typesData.map((t: { id: UUID; type_value: string }) => ({

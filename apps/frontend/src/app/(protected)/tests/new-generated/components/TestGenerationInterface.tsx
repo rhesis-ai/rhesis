@@ -44,6 +44,7 @@ import ActionBar from '@/components/common/ActionBar';
 import EndpointSelector from './shared/EndpointSelector';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { TEST_TYPES } from '@/constants/test-types';
 
 interface TestGenerationInterfaceProps {
   testType: TestType;
@@ -990,8 +991,8 @@ export default function TestGenerationInterface({
                     <Chip
                       label={
                         testType === 'single_turn'
-                          ? 'Single-Turn'
-                          : 'Multi-Turn'
+                          ? TEST_TYPES.SINGLE_TURN
+                          : TEST_TYPES.MULTI_TURN
                       }
                       size="small"
                       color={

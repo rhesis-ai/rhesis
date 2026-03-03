@@ -19,7 +19,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import { AutoGraphIcon } from '@/components/icons';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import type { MetricDetail, MetricScope } from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
 
 interface SelectMetricsDialogProps {
@@ -31,7 +31,7 @@ interface SelectMetricsDialogProps {
   title?: string;
   subtitle?: string;
   /** Filter metrics by scope (Single-Turn or Multi-Turn) */
-  scopeFilter?: 'Single-Turn' | 'Multi-Turn';
+  scopeFilter?: MetricScope;
 }
 
 export default function SelectMetricsDialog({

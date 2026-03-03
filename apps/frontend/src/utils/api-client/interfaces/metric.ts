@@ -6,12 +6,13 @@ import { Tag } from './tag';
 import { PaginationParams } from './pagination';
 import { Model } from './model';
 import { Organization } from './organization';
+import { TestTypeValue } from '@/constants/test-types';
 
 export type ScoreType = 'numeric' | 'categorical';
 
 export type ThresholdOperator = '=' | '<' | '>' | '<=' | '>=' | '!=';
 
-export type MetricScope = 'Single-Turn' | 'Multi-Turn';
+export type MetricScope = TestTypeValue;
 
 export interface Metric {
   id: UUID;
