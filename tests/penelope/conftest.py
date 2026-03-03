@@ -51,7 +51,7 @@ def mock_target():
         def description(self) -> str:
             return "Mock target for testing"
 
-        def send_message(self, message: str, conversation_id=None, **kwargs):
+        def send_message(self, message: str, conversation_id=None, files=None, **kwargs):
             return TargetResponse(
                 success=True,
                 content="Mock response",

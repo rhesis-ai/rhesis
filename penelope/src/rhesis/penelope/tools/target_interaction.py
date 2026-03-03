@@ -86,10 +86,15 @@ class TargetInteractionTool(Tool):
             # Extract the actual conversation ID from any field
             final_conversation_id = extract_conversation_id(params)
 
+            # Extract files from params before passing to target
+            files = params.pop("files", None)
+
             # Send message to target (conversation_id is passed as positional arg, not in kwargs)
             # Remove conversation fields from params to avoid duplication
             target_params = {k: v for k, v in params.items() if k not in CONVERSATION_FIELD_NAMES}
-            response = self.target.send_message(message, final_conversation_id, **target_params)
+            response = self.target.send_message(
+                message, final_conversation_id, files=files, **target_params
+            )
 
             # Convert TargetResponse to ToolResult
             if response.success:

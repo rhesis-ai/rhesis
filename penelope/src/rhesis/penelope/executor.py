@@ -278,6 +278,12 @@ class TurnExecutor:
                 else:
                     logger.debug("Using existing conversation_id from params")
 
+            # Inject files when include_files=True and files are available
+            if action_name == "send_message_to_target":
+                if action_params.pop("include_files", False) and state.context.files:
+                    action_params["files"] = state.context.files
+                    logger.debug("Injected %d file(s) into params", len(state.context.files))
+
             # Debug: Log structured response
             if self.verbose:
                 logger.debug(

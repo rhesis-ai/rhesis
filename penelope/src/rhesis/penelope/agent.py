@@ -425,6 +425,7 @@ class PenelopeAgent:
         context: Optional[Dict[str, Any]] = None,
         max_turns: Optional[int] = None,
         min_turns: Optional[int] = None,
+        files: Optional[List[Dict[str, str]]] = None,
     ) -> TestResult:
         """
         Execute a multi-turn test.
@@ -455,6 +456,10 @@ class PenelopeAgent:
                 before goal achievement or impossibility can trigger an early
                 stop. Cannot exceed max_turns. If not set, defaults to 80%
                 of max_turns.
+            files: Optional list of file attachments for the test. Each file
+                is a dict with keys: filename, content_type, data (base64).
+                When provided, Penelope can include these files with messages
+                sent to the target by setting include_files=True.
 
         Returns:
             TestResult with complete test execution details
@@ -533,6 +538,7 @@ class PenelopeAgent:
             max_turns=max_turns if max_turns is not None else self.max_turns,
             min_turns=min_turns,
             max_tool_executions=self.max_tool_executions,
+            files=files or [],
         )
 
         # Initialize state
@@ -557,12 +563,28 @@ class PenelopeAgent:
         logger.info(f"Agent received - scenario: {scenario}")
         logger.info(f"Agent received - restrictions: {restrictions}")
 
+        # Build context string, including file attachment info if present
+        context_str = str(context) if context else ""
+        if files:
+            file_descriptions = []
+            for f in files:
+                file_descriptions.append(
+                    f"- {f.get('filename', 'unknown')} ({f.get('content_type', 'unknown')})"
+                )
+            files_info = (
+                "\n\nAttached files available for this test:\n"
+                + "\n".join(file_descriptions)
+                + "\n\nTo include these files with a message to the target, "
+                "set include_files=true in send_message_to_target parameters."
+            )
+            context_str = (context_str + files_info) if context_str else files_info
+
         system_prompt = get_system_prompt(
             instructions=instructions,
             goal=goal,
             scenario=scenario or "",
             restrictions=restrictions or "",
-            context=str(context) if context else "",
+            context=context_str,
             available_tools=available_tools_text,
             min_turns=min_turns,
             max_turns=max_turns if max_turns is not None else self.max_turns,

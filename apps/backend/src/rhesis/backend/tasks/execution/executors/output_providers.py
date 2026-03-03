@@ -171,6 +171,9 @@ class MultiTurnOutput(OutputProvider):
         max_turns = test_config.get("max_turns") or 10
         min_turns = test_config.get("min_turns")
 
+        # Load files attached to the test (reuse SingleTurnOutput's static method)
+        input_files = SingleTurnOutput._load_input_files(db, test.id, organization_id)
+
         # Reuse existing PenelopeAgent and BackendEndpointTarget
         from rhesis.penelope import PenelopeAgent
 
@@ -193,6 +196,7 @@ class MultiTurnOutput(OutputProvider):
             context=context,
             max_turns=max_turns,
             min_turns=min_turns,
+            files=input_files if input_files else None,
         )
         execution_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
