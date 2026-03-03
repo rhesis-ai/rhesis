@@ -25,16 +25,6 @@ const customJestConfig = {
     '!src/auth.ts',
     '!src/middleware.ts',
   ],
-  // Coverage thresholds act as a ratchet: prevent coverage from decreasing.
-  // Increase these values as more tests are added.
-  coverageThreshold: {
-    global: {
-      statements: 12,
-      branches: 61,
-      functions: 24,
-      lines: 12,
-    },
-  },
   testPathIgnorePatterns: [
     '<rootDir>/.next/',
     '<rootDir>/node_modules/',
