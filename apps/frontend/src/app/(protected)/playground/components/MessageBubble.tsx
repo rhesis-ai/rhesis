@@ -16,7 +16,6 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
-import AttachFileIcon from '@mui/icons-material/AttachFile';
 import DownloadIcon from '@mui/icons-material/Download';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import { ChatMessage } from '@/hooks/usePlaygroundChat';
@@ -265,7 +264,7 @@ export default function MessageBubble({
               </Box>
             </Box>
 
-            {/* User message: show attached file names */}
+            {/* User message: show attached file names (clickable for download) */}
             {isUser && message.files && message.files.length > 0 && (
               <Box
                 sx={{
@@ -278,10 +277,19 @@ export default function MessageBubble({
                 {message.files.map((file, idx) => (
                   <Chip
                     key={`${file.filename}-${idx}`}
-                    icon={<AttachFileIcon />}
+                    icon={<DownloadIcon />}
                     label={file.filename}
                     size="small"
                     variant="outlined"
+                    clickable
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownloadFile(
+                        file.filename,
+                        file.content_type,
+                        file.data
+                      );
+                    }}
                     sx={{
                       color: 'primary.contrastText',
                       borderColor: 'primary.contrastText',
@@ -302,16 +310,34 @@ export default function MessageBubble({
                 <Box sx={{ mt: 1 }}>
                   {message.outputFiles.map((file, idx) =>
                     file.content_type.startsWith('image/') ? (
-                      <Box key={`${file.filename}-${idx}`} sx={{ mt: 1 }}>
-                        <img
-                          src={`data:${file.content_type};base64,${file.data}`}
-                          alt={file.filename}
-                          style={{
-                            maxWidth: '100%',
-                            maxHeight: 300,
-                            borderRadius: 4,
-                          }}
-                        />
+                      <Box
+                        key={`${file.filename}-${idx}`}
+                        sx={{
+                          mt: 1,
+                          cursor: 'pointer',
+                          '&:hover': { opacity: 0.85 },
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadFile(
+                            file.filename,
+                            file.content_type,
+                            file.data
+                          );
+                        }}
+                      >
+                        <Tooltip title={`Download ${file.filename}`}>
+                          <Box
+                            component="img"
+                            src={`data:${file.content_type};base64,${file.data}`}
+                            alt={file.filename}
+                            sx={{
+                              maxWidth: '100%',
+                              maxHeight: theme => theme.spacing(37.5),
+                              borderRadius: 0.5,
+                            }}
+                          />
+                        </Tooltip>
                         <Typography
                           variant="caption"
                           color="text.secondary"

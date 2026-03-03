@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
   IconButton,
   List,
   ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
   Skeleton,
@@ -13,6 +14,7 @@ import {
   type Theme,
 } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import DownloadIcon from '@mui/icons-material/Download';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import AudioFileIcon from '@mui/icons-material/AudioFile';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -112,6 +114,25 @@ export default function FileAttachmentList({
   isLoading = false,
   onDelete,
 }: FileAttachmentListProps) {
+  const handleDownload = useCallback(
+    async (file: FileResponse) => {
+      try {
+        const factory = new ApiClientFactory(sessionToken);
+        const client = factory.getFilesClient();
+        const blob = await client.getFileContent(file.id);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.filename;
+        link.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Failed to download file:', err);
+      }
+    },
+    [sessionToken]
+  );
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -129,47 +150,65 @@ export default function FileAttachmentList({
   if (files.length === 0) return null;
 
   return (
-    <List dense>
+    <List dense disablePadding>
       {files.map(file => {
         const isImage = file.content_type.startsWith('image/');
 
         return (
           <ListItem
             key={file.id}
+            disablePadding
             secondaryAction={
-              onDelete ? (
-                <Tooltip title="Delete file">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Tooltip title="Download">
                   <IconButton
                     edge="end"
                     size="small"
-                    onClick={() => onDelete(file.id)}
+                    onClick={() => handleDownload(file)}
                   >
-                    <DeleteOutlineIcon fontSize="small" />
+                    <DownloadIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
-              ) : undefined
+                {onDelete && (
+                  <Tooltip title="Delete file">
+                    <IconButton
+                      edge="end"
+                      size="small"
+                      onClick={() => onDelete(file.id)}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Box>
             }
           >
-            <ListItemIcon sx={(theme: Theme) => ({ minWidth: theme.spacing(6) })}>
-              {isImage ? (
-                <AuthImage
-                  fileId={file.id}
-                  filename={file.filename}
-                  sessionToken={sessionToken}
-                />
-              ) : (
-                getFileIcon(file.content_type)
-              )}
-            </ListItemIcon>
-            <ListItemText
-              primary={file.filename}
-              secondary={formatFileSize(file.size_bytes)}
-              primaryTypographyProps={{
-                variant: 'body2',
-                noWrap: true,
-              }}
-              secondaryTypographyProps={{ variant: 'caption' }}
-            />
+            <ListItemButton
+              dense
+              onClick={() => handleDownload(file)}
+              sx={{ borderRadius: 1 }}
+            >
+              <ListItemIcon sx={(theme: Theme) => ({ minWidth: theme.spacing(6) })}>
+                {isImage ? (
+                  <AuthImage
+                    fileId={file.id}
+                    filename={file.filename}
+                    sessionToken={sessionToken}
+                  />
+                ) : (
+                  getFileIcon(file.content_type)
+                )}
+              </ListItemIcon>
+              <ListItemText
+                primary={file.filename}
+                secondary={formatFileSize(file.size_bytes)}
+                primaryTypographyProps={{
+                  variant: 'body2',
+                  noWrap: true,
+                }}
+                secondaryTypographyProps={{ variant: 'caption' }}
+              />
+            </ListItemButton>
           </ListItem>
         );
       })}
