@@ -11,6 +11,7 @@ import {
   CircularProgress,
   Snackbar,
   Chip,
+  InputAdornment,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -401,10 +402,11 @@ export default function PlaygroundChat({
             {messages.length > 0 && (
               <Tooltip title="Reset conversation">
                 <IconButton
-                  size="small"
                   onClick={clearMessages}
                   disabled={isLoading}
                   sx={{
+                    width: theme => theme.spacing(5.5),
+                    height: theme => theme.spacing(5.5),
                     color: 'text.secondary',
                     '&:hover': {
                       color: 'error.main',
@@ -432,35 +434,30 @@ export default function PlaygroundChat({
               onKeyDown={handleKeyDown}
               disabled={!isConnected || isLoading}
               size="small"
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start" sx={{ alignSelf: 'flex-end' }}>
+                      <Tooltip title="Attach file">
+                        <IconButton
+                          size="small"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={!isConnected || isLoading}
+                          sx={{ color: 'text.secondary' }}
+                        >
+                          <AttachFileIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  ),
+                },
+              }}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: theme => theme.shape.borderRadius,
                 },
               }}
             />
-
-            {/* Attach File Button */}
-            <Tooltip title="Attach file">
-              <IconButton
-                onClick={() => fileInputRef.current?.click()}
-                disabled={!isConnected || isLoading}
-                sx={{
-                  width: theme => theme.spacing(5),
-                  height: theme => theme.spacing(5),
-                  color: 'text.secondary',
-                  bgcolor: 'action.hover',
-                  '&:hover': {
-                    bgcolor: 'action.selected',
-                  },
-                  '&:disabled': {
-                    bgcolor: 'action.disabledBackground',
-                    color: 'action.disabled',
-                  },
-                }}
-              >
-                <AttachFileIcon />
-              </IconButton>
-            </Tooltip>
 
             {/* Send Button */}
             <IconButton
@@ -482,7 +479,7 @@ export default function PlaygroundChat({
               }}
             >
               {isLoading ? (
-                <CircularProgress size="1.25rem" color="inherit" />
+                <CircularProgress size={20} color="inherit" />
               ) : (
                 <SendIcon />
               )}
