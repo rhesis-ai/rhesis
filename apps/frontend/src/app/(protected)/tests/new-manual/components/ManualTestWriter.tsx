@@ -698,9 +698,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                           </TableCell>
                         </>
                       )}
-                      {testType === 'single_turn' && (
-                        <TableCell sx={(theme) => ({ width: theme.spacing(7.5) })}>Files</TableCell>
-                      )}
+                      <TableCell sx={(theme) => ({ width: theme.spacing(7.5) })}>Files</TableCell>
                       <TableCell sx={{ width: 80 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
@@ -1130,29 +1128,27 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                             </TableCell>
                           </>
                         )}
-                        {testType === 'single_turn' && (
-                          <TableCell sx={{ textAlign: 'center' }}>
-                            <Tooltip title="Attach files">
-                              <IconButton
-                                size="small"
-                                onClick={() =>
-                                  setAttachDialogRowId(testCase.id)
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          <Tooltip title="Attach files">
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                setAttachDialogRowId(testCase.id)
+                              }
+                              disabled={loading}
+                            >
+                              <Badge
+                                badgeContent={
+                                  pendingFilesMap[testCase.id]?.length ?? 0
                                 }
-                                disabled={loading}
+                                color="primary"
+                                max={9}
                               >
-                                <Badge
-                                  badgeContent={
-                                    pendingFilesMap[testCase.id]?.length ?? 0
-                                  }
-                                  color="primary"
-                                  max={9}
-                                >
-                                  <AttachFileIcon fontSize="small" />
-                                </Badge>
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        )}
+                                <AttachFileIcon fontSize="small" />
+                              </Badge>
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
                         <TableCell>
                           <IconButton
                             onClick={() => deleteRow(testCase.id)}
