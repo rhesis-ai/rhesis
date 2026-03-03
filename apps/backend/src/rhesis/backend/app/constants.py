@@ -58,6 +58,23 @@ class TestType(Enum):
         return None
 
 
+# Metric TypeLookup values — aligned with initial_data.json and the frontend
+class MetricBackendType:
+    """Values for the BackendType type_lookup used on metrics."""
+
+    CUSTOM = "custom"
+    RHESIS = "rhesis"
+    DEEPEVAL = "deepeval"
+    RAGAS = "ragas"
+    GARAK = "garak"
+
+
+class MetricType:
+    """Values for the MetricType type_lookup used on metrics."""
+
+    CUSTOM_PROMPT = "custom-prompt"
+
+
 # Error messages
 ERROR_INVALID_UUID = "Invalid UUID format in input parameters: {error}"
 ERROR_TEST_SET_NOT_FOUND = "Test set with ID {test_set_id} not found"

@@ -27,6 +27,23 @@ from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger(__name__)
 
+# Fields managed by the server — agents should never send these.
+_SERVER_MANAGED_FIELDS: frozenset[str] = frozenset(
+    {
+        "id",
+        "user_id",
+        "organization_id",
+        "created_at",
+        "updated_at",
+        "owner_id",
+        "assignee_id",
+        "status_id",
+        "model_id",
+        "backend_type_id",
+        "metric_type_id",
+    }
+)
+
 
 # ── MCP content extraction ─────────────────────────────────────────
 
@@ -341,17 +358,64 @@ class BaseAgent:
             history_text=history_text,
         )
 
+    @staticmethod
+    def _schema_type(prop: Dict[str, Any]) -> str:
+        """Derive a human-readable type string from a JSON Schema property."""
+        # Enum values → show literals
+        if "enum" in prop:
+            return " | ".join(f'"{v}"' for v in prop["enum"])
+
+        # anyOf / oneOf (e.g. Optional[ScoreType])
+        for key in ("anyOf", "oneOf"):
+            if key in prop:
+                parts: List[str] = []
+                for variant in prop[key]:
+                    if variant.get("type") == "null":
+                        continue
+                    parts.append(BaseAgent._schema_type(variant))
+                return " | ".join(parts) if parts else "any"
+
+        typ = prop.get("type", "any")
+
+        if typ == "array":
+            items = prop.get("items", {})
+            inner = BaseAgent._schema_type(items)
+            return f"array[{inner}]"
+
+        return str(typ)
+
     def _format_tools(self, tools: List[Dict[str, Any]]) -> str:
+        """Build a rich tool description for the LLM.
+
+        Each parameter shows its type, whether it is required, and its
+        description.  Server-managed fields are excluded so the LLM
+        never tries to send them.
+        """
         if not tools:
             return "(no tools available)"
-        descriptions = []
+
+        descriptions: List[str] = []
         for tool in tools:
             desc = f"- {tool['name']}: {tool.get('description', 'No description')}"
-            if "inputSchema" in tool and tool["inputSchema"]:
-                schema = tool["inputSchema"]
-                if "properties" in schema:
-                    params = ", ".join(schema["properties"].keys())
-                    desc += f"\n  Parameters: {params}"
+            schema = tool.get("inputSchema") or {}
+            properties = schema.get("properties", {})
+            required_set = set(schema.get("required", []))
+
+            if properties:
+                param_lines: List[str] = []
+                for pname, pschema in properties.items():
+                    if pname in _SERVER_MANAGED_FIELDS:
+                        continue
+                    type_str = self._schema_type(pschema)
+                    req = " (required)" if pname in required_set else ""
+                    pdesc = pschema.get("description", "")
+                    line = f"    {pname}: {type_str}{req}"
+                    if pdesc:
+                        line += f"  -- {pdesc}"
+                    param_lines.append(line)
+                if param_lines:
+                    desc += "\n  Parameters:\n" + "\n".join(param_lines)
+
             descriptions.append(desc)
         return "\n".join(descriptions)
 

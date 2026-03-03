@@ -26,24 +26,31 @@ tools:
     method: POST
     path: /test_sets/bulk
     description: >
-      Create a test set with its tests in a single operation. This is
-      the preferred way to create test sets — always include tests.
+      Create a test set with its tests in a single operation. The "tests"
+      array is REQUIRED and must contain at least one test object.
+      Do NOT send server-managed fields (id, user_id, organization_id,
+      created_at, updated_at).
     parameters:
       name:
-        description: "Test set name"
+        description: "Test set name (required, string)"
       description:
-        description: "Detailed description of the test set's purpose"
+        description: "Detailed description of the test set's purpose (string)"
       short_description:
-        description: "Brief summary (one line)"
+        description: "Brief summary, one line (string)"
+      priority:
+        description: >
+          Integer priority value (e.g. 1, 2, 3). Must be an integer, NOT
+          a string like "High" or "Low". Omit if unsure.
       tests:
         description: >
-          Array of test objects. Each: {"prompt": {"content": "...",
+          REQUIRED array of test objects (must not be empty). Each object:
+          {"prompt": {"content": "the test prompt text",
           "language_code": "en", "expected_response": "optional expected
           answer"}, "behavior": "behavior name", "category": "category
-          name", "topic": "topic name"}. Behavior/category/topic are
-          strings (names, not IDs) — they are resolved or created
-          automatically. Use list_behaviors, list_categories, and
-          list_topics to discover existing values.
+          name", "topic": "topic name"}. behavior/category/topic are
+          plain-text names (not UUIDs) — the server resolves or creates
+          them automatically. Use list_behaviors, list_categories, and
+          list_topics to discover existing values first.
 
   # ── Tests ─────────────────────────────────────────────────
   - name: list_tests
@@ -73,8 +80,12 @@ tools:
     path: /test_configurations/
     description: >
       Create a test configuration that links a test set to an endpoint.
-      Required: endpoint_id (UUID). Optional: test_set_id, category_id,
-      topic_id, prompt_id, attributes (dict).
+      Required: endpoint_id (UUID string), test_set_id (UUID string).
+      Optional: category_id, topic_id, prompt_id (all UUID strings),
+      attributes (object). After creating a test configuration, call
+      execute_test_configuration to run the tests. Do NOT send
+      server-managed fields (id, user_id, organization_id, created_at,
+      updated_at).
 
   - name: execute_test_configuration
     method: POST
@@ -153,32 +164,89 @@ tools:
     method: POST
     path: /metrics/
     description: >
-      Create a new metric for evaluating test results.
+      Create a new evaluation metric. Do NOT send server-managed fields
+      (id, user_id, organization_id, created_at, updated_at, owner_id,
+      assignee_id, status_id, model_id, backend_type_id, metric_type_id).
+      If you only have a natural-language description, prefer
+      generate_metric instead.
     parameters:
+      name:
+        description: "Metric name, unique within the organization (required, string)"
+      metric_type:
+        description: >
+          Must be "custom-prompt" for user-defined metrics. Always
+          include this field.
+      backend_type:
+        description: >
+          Must be "custom" for user-defined metrics. Always include
+          this field.
       score_type:
-        description: "Either 'numeric' or 'categorical'"
+        description: >
+          REQUIRED. Must be exactly "numeric" or "categorical" (string
+          enum). No other values are accepted.
+      evaluation_prompt:
+        description: >
+          REQUIRED. The prompt template used to evaluate endpoint
+          responses. May reference {{prompt}}, {{response}}, and
+          {{expected_response}} placeholders (string).
       metric_scope:
         description: >
-          List containing 'Single-Turn' and/or 'Multi-Turn' — always
-          include this field
-      evaluation_prompt:
-        description: "The prompt template used to evaluate endpoint responses"
-      name:
-        description: "Metric name (unique within the organization)"
+          List of strings. Each value must be exactly "Single-Turn" or
+          "Multi-Turn". Always include this field.
       min_score:
-        description: "Minimum score value (numeric metrics only)"
+        description: "Minimum score value, number (numeric metrics only)"
       max_score:
-        description: "Maximum score value (numeric metrics only)"
+        description: "Maximum score value, number (numeric metrics only)"
       threshold:
-        description: "Pass/fail threshold value (numeric metrics only)"
+        description: "Pass/fail threshold, number (numeric metrics only)"
       threshold_operator:
         description: >
-          Comparison operator for threshold: '=', '<', '>', '<=',
-          '>=', or '!=' (numeric metrics only)
+          Comparison operator for the threshold. Must be exactly one of:
+          "=", "<", ">", "<=", ">=", "!=". Default is ">=".
+          Only used for numeric metrics.
       categories:
-        description: "List of category strings (categorical metrics only)"
+        description: >
+          List of category label strings (categorical metrics only).
+          Must be a non-empty list when score_type is "categorical".
       passing_categories:
-        description: "Categories that count as passing (categorical metrics only)"
+        description: >
+          Subset of categories that indicate a pass (categorical metrics
+          only). Must be a non-empty list of strings that also appear in
+          "categories".
+
+  - name: generate_metric
+    method: POST
+    path: /metrics/generate
+    description: >
+      Auto-generate a complete metric from a natural-language description.
+      An LLM produces all required fields (name, evaluation_prompt,
+      score_type, thresholds, categories, etc.) and the metric is
+      persisted automatically. Use this when you know WHAT to measure
+      but don't want to fill every field manually. Returns the created
+      metric object.
+    parameters:
+      prompt:
+        description: >
+          REQUIRED. Natural-language description of what the metric
+          should evaluate (e.g. "measure whether responses are factually
+          accurate, on a 1-5 numeric scale").
+
+  - name: improve_metric
+    method: POST
+    path: /metrics/{metric_id}/improve
+    description: >
+      Improve an existing metric using natural-language edit instructions.
+      The LLM reads the current metric fields and applies the requested
+      changes (e.g. "make the threshold stricter", "add multi-turn
+      support"). The metric is updated in place and returned.
+    parameters:
+      metric_id:
+        description: "REQUIRED. UUID of the metric to improve (path parameter)."
+      prompt:
+        description: >
+          REQUIRED. Natural-language instructions describing what to change
+          (e.g. "lower the threshold to 2", "switch to categorical with
+          pass/fail categories").
 
   - name: list_endpoints
     method: GET

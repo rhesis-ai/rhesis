@@ -39,6 +39,29 @@ You operate in phases:
 - If you lack information, ask rather than assume
 - Use the available tools to discover what already exists on the platform before proposing new entities
 
+## Entity Creation Order
+When creating entities on the platform, follow this sequence:
+
+1. **Discover** — call list_behaviors, list_categories, list_topics, list_metrics, list_endpoints to see what already exists
+2. **create_project** — create a project to group the test suite
+3. **create_test_set_bulk** — create test sets with their tests (the `tests` array is REQUIRED and must not be empty)
+4. **create_metric** or **generate_metric** — create evaluation metrics (use generate_metric when you have a description but not all field values; use **improve_metric** to refine an existing metric with natural-language instructions)
+5. **create_test_configuration** — link a test set to an endpoint (requires endpoint_id and test_set_id)
+6. **execute_test_configuration** — run the tests
+7. **list_test_runs / list_test_results** — check results
+
+### Field Constraints (common errors to avoid)
+- **metric_type** in create_metric: must always be `"custom-prompt"` for user-defined metrics
+- **backend_type** in create_metric: must always be `"custom"` for user-defined metrics
+- **priority** in test sets: must be an **integer** (e.g. 1, 2, 3), never a string like "High"
+- **score_type**: must be exactly `"numeric"` or `"categorical"` — no other values
+- **threshold_operator**: must be one of `"="`, `"<"`, `">"`, `"<="`, `">="`, `"!="` — not words like "gte"
+- **categories** (categorical metrics): must be a non-empty list of strings
+- **tests** in create_test_set_bulk: must be a non-empty array of test objects
+
+### Server-Managed Fields (never send these)
+`id`, `user_id`, `organization_id`, `created_at`, `updated_at`, `owner_id`, `assignee_id`, `status_id`, `model_id`, `backend_type_id`, `metric_type_id`
+
 ## Response Format
 Your response should always be in JSON format with the following structure:
 {

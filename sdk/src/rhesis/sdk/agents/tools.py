@@ -202,7 +202,7 @@ class ExploreEndpointTool(BaseTool):
         target = EndpointTarget(endpoint=self._endpoint)
         agent = PenelopeAgent(
             model=self._model,
-            max_iterations=self._max_turns,
+            max_turns=self._max_turns,
         )
         return agent.execute_test(
             target=target,

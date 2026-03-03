@@ -12,7 +12,16 @@ from .endpoint import (
     EndpointTestRequest,
     EndpointUpdate,
 )
-from .metric import Metric, MetricBase, MetricCreate, MetricDetail, MetricUpdate, ScoreType
+from .metric import (
+    GenerateMetricRequest,
+    ImproveMetricRequest,
+    Metric,
+    MetricBase,
+    MetricCreate,
+    MetricDetail,
+    MetricUpdate,
+    ScoreType,
+)
 from .model import Model, ModelBase, ModelCreate, ModelRead, ModelUpdate
 from .organization import Organization, OrganizationBase, OrganizationCreate, OrganizationUpdate
 from .project import Project, ProjectBase, ProjectCreate, ProjectUpdate
@@ -301,6 +310,8 @@ __all__ = [
     "MetricCreate",
     "MetricUpdate",
     "MetricDetail",
+    "GenerateMetricRequest",
+    "ImproveMetricRequest",
     "ScoreType",
     # Task schemas
     "TaskList",

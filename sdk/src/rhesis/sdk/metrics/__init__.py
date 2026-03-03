@@ -33,6 +33,7 @@ from rhesis.sdk.metrics.providers.ragas.metrics import (
     RagasContextRelevance,
     RagasFaithfulness,
 )
+from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
 
 __all__ = [
     # Base metrics
@@ -42,6 +43,7 @@ __all__ = [
     "MetricScope",
     "MetricConfigLoader",
     "MetricFactory",
+    "MetricSynthesizer",
     # Conversational metrics
     "ConversationalMetricBase",
     "ConversationHistory",

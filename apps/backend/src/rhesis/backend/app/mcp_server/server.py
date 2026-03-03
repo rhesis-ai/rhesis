@@ -213,7 +213,10 @@ def setup_mcp_server(
 
     fastapi_app.mount("/mcp", _MCPApp())
 
-    # Store reference so the parent app's lifespan can start it
+    # Store the MCP server so the lifespan can create a fresh session
+    # manager on each startup (StreamableHTTPSessionManager.run() can
+    # only be called once per instance).
+    fastapi_app.state.mcp_server = mcp_server
     fastapi_app.state.mcp_session_manager = session_manager
 
     logger.info("MCP endpoint mounted at /mcp")

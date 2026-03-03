@@ -261,11 +261,25 @@ async def lifespan(app: FastAPI):
 
     garak_cache_task.add_done_callback(_log_task_exception)
 
-    # Start MCP session manager (Mount doesn't propagate lifespan)
-    mcp_sm = getattr(app.state, "mcp_session_manager", None)
+    # Start MCP session manager (Mount doesn't propagate lifespan).
+    # StreamableHTTPSessionManager.run() can only be called once per
+    # instance, so create a fresh one each time the lifespan starts
+    # (matters for test suites that restart the app multiple times).
     mcp_ctx = None
-    if mcp_sm is not None:
-        mcp_ctx = mcp_sm.run()
+    mcp_server_obj = getattr(app.state, "mcp_server", None)
+    if mcp_server_obj is not None:
+        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+        from mcp.server.transport_security import TransportSecuritySettings
+
+        fresh_sm = StreamableHTTPSessionManager(
+            app=mcp_server_obj,
+            stateless=True,
+            security_settings=TransportSecuritySettings(
+                enable_dns_rebinding_protection=False,
+            ),
+        )
+        app.state.mcp_session_manager = fresh_sm
+        mcp_ctx = fresh_sm.run()
         await mcp_ctx.__aenter__()
         logger.info("MCP session manager started")
 

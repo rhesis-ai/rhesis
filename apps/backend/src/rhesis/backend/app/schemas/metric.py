@@ -93,3 +93,21 @@ class MetricDetail(Metric):
     status: Optional[Status] = None
     assignee: Optional[UserReference] = None
     owner: Optional[UserReference] = None
+
+
+class GenerateMetricRequest(Base):
+    """Request body for POST /metrics/generate.
+
+    The LLM uses the prompt to produce all required metric fields.
+    """
+
+    prompt: str
+
+
+class ImproveMetricRequest(Base):
+    """Request body for POST /metrics/{metric_id}/improve.
+
+    The LLM uses the prompt to update the existing metric fields.
+    """
+
+    prompt: str

@@ -115,12 +115,22 @@ class MetricEndpoints(BaseEntityEndpoints):
         # Initialize base endpoints
         super().__post_init__()
 
+        # Generate endpoint
+        self.generate = f"/{self._base_entity}/generate"
+
+        # Improve endpoint
+        self.improve_path = f"/{self._base_entity}/{{{self._id_param}}}/improve"
+
         # Metric-specific relationship endpoints
         self.get_behaviors = f"/{self._base_entity}/{{{self._id_param}}}/behaviors/"
         self.add_behavior = f"/{self._base_entity}/{{{self._id_param}}}/behaviors/{{behavior_id}}"
         self.remove_behavior = (
             f"/{self._base_entity}/{{{self._id_param}}}/behaviors/{{behavior_id}}"
         )
+
+    def improve(self, entity_id: str) -> str:
+        """Improve metric endpoint"""
+        return self.format_path(self.improve_path, **{self._id_param: entity_id})
 
     def behaviors(self, entity_id: str) -> str:
         """Get metric behaviors endpoint"""
