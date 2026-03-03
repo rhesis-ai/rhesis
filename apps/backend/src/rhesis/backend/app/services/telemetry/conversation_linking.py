@@ -1,6 +1,6 @@
 """Deferred linking for conversation traces.
 
-Two separate concerns are handled here, each with its own cache:
+Three separate concerns are handled here, each with its own cache:
 
 1. **Conversation ID linking** (first-turn only)
    Stateful endpoints generate a session/conversation ID in their
@@ -18,6 +18,13 @@ Two separate concerns are handled here, each with its own cache:
    into the span's attributes *before* storage, when the SDK spans
    arrive at the telemetry ingest endpoint.
 
+3. **Input file linking** (SDK turns with file attachments)
+   When a test includes file attachments, the files are available at
+   invocation time but the SDK trace record hasn't been created yet.
+   The backend parks the file metadata after invocation and creates
+   ``File`` records linked to the stored ``Trace`` when the SDK spans
+   arrive at the telemetry ingest endpoint — after storage.
+
 Caches are stored in Redis (shared across workers/replicas) with an
 automatic in-memory fallback when Redis is unavailable (e.g. local
 development without Redis).
@@ -30,7 +37,7 @@ SDK endpoints, however, emit spans asynchronously via the SDK's
 ``BatchSpanProcessor``.  The backend receives the mapped output after
 ``invoke()`` returns, but the SDK spans haven't arrived at the
 ``/telemetry/traces`` ingest endpoint yet.  This module bridges that
-gap by parking the output and injecting it when the spans arrive.
+gap by parking the output/files and injecting them when the spans arrive.
 """
 
 import json
@@ -75,6 +82,14 @@ class PendingOutput(NamedTuple):
     registered_at: float  # time.monotonic() timestamp
 
 
+class PendingFiles(NamedTuple):
+    """Input files waiting to be linked to a Trace when SDK spans arrive."""
+
+    files_json: str  # JSON-serialized list of file dicts
+    organization_id: str
+    registered_at: float  # time.monotonic() timestamp
+
+
 # ---------------------------------------------------------------
 # Cache class (Redis primary, in-memory fallback)
 # ---------------------------------------------------------------
@@ -83,6 +98,7 @@ class PendingOutput(NamedTuple):
 _PREFIX_PENDING = "convlink:pending:"
 _PREFIX_REVERSE = "convlink:reverse:"
 _PREFIX_OUTPUT = "convlink:output:"
+_PREFIX_FILES = "convlink:files:"
 
 
 class ConversationLinkingCache:
@@ -98,6 +114,7 @@ class ConversationLinkingCache:
         # In-memory fallback caches (used when Redis unavailable)
         self._pending_links: Dict[str, PendingConversationLink] = {}
         self._pending_outputs: Dict[str, PendingOutput] = {}
+        self._pending_files: Dict[str, PendingFiles] = {}
         self._lock = threading.Lock()
 
     @property
@@ -324,6 +341,91 @@ class ConversationLinkingCache:
 
         return matched
 
+    # -----------------------------------------------------------
+    # File methods
+    # -----------------------------------------------------------
+
+    def register_files(
+        self,
+        trace_id: str,
+        files_json: str,
+        organization_id: str,
+    ) -> None:
+        """Park input files for deferred creation when SDK spans arrive."""
+        if self._using_redis:
+            try:
+                payload = json.dumps(
+                    {
+                        "files": files_json,
+                        "organization_id": organization_id,
+                    }
+                )
+                self._redis.set(
+                    f"{_PREFIX_FILES}{trace_id}",
+                    payload,
+                    ex=_CACHE_TTL,
+                )
+                return
+            except Exception as exc:
+                logger.warning(
+                    f"Redis write failed for register_files, falling back to memory: {exc}"
+                )
+
+        # In-memory fallback
+        with self._lock:
+            self._pending_files[trace_id] = PendingFiles(
+                files_json=files_json,
+                organization_id=organization_id,
+                registered_at=time.monotonic(),
+            )
+            _evict_stale(self._pending_files)
+
+    def pop_files_for_traces(self, trace_ids: List[str]) -> Dict[str, tuple]:
+        """Pop and return pending files matching any of the given trace_ids.
+
+        Returns dict of {trace_id: (files_json, organization_id)}.
+        """
+        if self._using_redis:
+            try:
+                return self._pop_files_redis(trace_ids)
+            except Exception as exc:
+                logger.warning(
+                    f"Redis read failed for pop_files_for_traces, falling back to memory: {exc}"
+                )
+
+        # In-memory fallback
+        matched = {}
+        with self._lock:
+            for tid in trace_ids:
+                entry = self._pending_files.pop(tid, None)
+                if entry is not None:
+                    matched[tid] = (
+                        entry.files_json,
+                        entry.organization_id,
+                    )
+        return matched
+
+    def _pop_files_redis(self, trace_ids: List[str]) -> Dict[str, tuple]:
+        """Atomically fetch and delete pending file keys from Redis."""
+        keys = [f"{_PREFIX_FILES}{tid}" for tid in trace_ids]
+        values = self._redis.mget(keys)
+
+        matched = {}
+        delete_keys = []
+        for tid, val in zip(trace_ids, values):
+            if val is not None:
+                data = json.loads(val)
+                matched[tid] = (
+                    data["files"],
+                    data["organization_id"],
+                )
+                delete_keys.append(f"{_PREFIX_FILES}{tid}")
+
+        if delete_keys:
+            self._redis.delete(*delete_keys)
+
+        return matched
+
 
 # ---------------------------------------------------------------
 # Module-level singleton and public API
@@ -492,6 +594,106 @@ def inject_pending_output(
             )
 
     return injected_count
+
+
+# ---------------------------------------------------------------
+# 3. Input file linking (post-storage, when SDK spans arrive)
+# ---------------------------------------------------------------
+
+
+def register_pending_files(
+    trace_id: str,
+    files: List[Dict[str, Any]],
+    organization_id: str,
+) -> None:
+    """Park input files for deferred creation when SDK spans arrive.
+
+    Called by ``SdkEndpointInvoker.invoke()`` when ``input_data``
+    contains files.  The file metadata (including base64 content) is
+    serialized to JSON and stored in the cache.  When the SDK spans
+    arrive at ``/telemetry/traces``, ``apply_pending_files()`` pops
+    the cached data and creates ``File`` records linked to the stored
+    ``Trace`` record.
+    """
+    files_json = json.dumps(files)
+    _cache.register_files(trace_id, files_json, organization_id)
+    logger.debug(f"[FILE_LINKING] Parked {len(files)} pending file(s) for trace_id={trace_id}")
+
+
+def apply_pending_files(
+    db: Session,
+    stored_spans: List[models.Trace],
+) -> int:
+    """Create File records for parked input files after span storage.
+
+    Called by the telemetry ingest endpoint after spans are committed.
+    For each stored span whose ``trace_id`` has parked files, creates
+    ``File`` records with ``entity_type='Trace'`` and
+    ``entity_id=span.id`` (the DB primary key).
+
+    Returns the total number of files created.
+    """
+    if not stored_spans:
+        return 0
+
+    unique_trace_ids = list({span.trace_id for span in stored_spans})
+    matched = _cache.pop_files_for_traces(unique_trace_ids)
+
+    if not matched:
+        return 0
+
+    import base64
+
+    from rhesis.backend.app import schemas
+    from rhesis.backend.app.database import set_session_variables
+
+    total = 0
+    for span in stored_spans:
+        entry = matched.get(span.trace_id)
+        if entry is None:
+            continue
+
+        # Only create files on the root span (no parent)
+        if span.parent_span_id:
+            continue
+
+        files_json, organization_id = entry
+        files = json.loads(files_json)
+
+        set_session_variables(db, organization_id, "")
+
+        for idx, file_data in enumerate(files):
+            if not isinstance(file_data, dict):
+                continue
+
+            content_b64 = file_data.get("data")
+            if not content_b64:
+                continue
+
+            try:
+                content = base64.b64decode(content_b64)
+            except Exception:
+                logger.warning(f"Failed to decode base64 for pending file {idx}")
+                continue
+
+            file_create = schemas.FileCreate(
+                filename=file_data.get("filename", f"file_{idx}"),
+                content_type=file_data.get("content_type", "application/octet-stream"),
+                size_bytes=len(content),
+                content=content,
+                entity_id=span.id,
+                entity_type="Trace",
+                position=idx,
+            )
+            crud.create_file(db, file_create, organization_id=organization_id)
+            total += 1
+
+        logger.info(
+            f"[FILE_LINKING] Created {len(files)} file(s) for "
+            f"trace_id={span.trace_id}, span_id={span.id}"
+        )
+
+    return total
 
 
 # ---------------------------------------------------------------

@@ -43,6 +43,7 @@ These variables are available in your request body templates using Jinja2 syntax
 | Variable | Required | Description |
 |---|---|---|
 | `input` | Yes | The user query or test prompt. This is the primary text sent to your AI endpoint. |
+| `files` | No | Array of file attachments included with the test. Each file is an object with `filename`, `content_type`, and `data` (base64-encoded). Use [file format filters](/platform/endpoints/single-turn#file-format-filters) to convert files into provider-specific formats. |
 | `conversation_id` | No | Conversation tracking identifier for multi-turn endpoints (both stateful and stateless). Rhesis uses this to track conversations across turns. |
 | `messages` | No | Full conversation history as an array of message objects. Used for stateless endpoints that require the entire history with every request. |
 | `system_prompt` | No | System prompt text. Rhesis prepends it to the `messages` array and strips it from the final request body before sending. |

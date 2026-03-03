@@ -95,6 +95,7 @@ async def ingest_trace(
     # invocation and injects it here — before the span is stored.
     from rhesis.backend.app.services.telemetry.conversation_linking import (
         apply_pending_conversation_links,
+        apply_pending_files,
         inject_pending_output,
     )
 
@@ -161,6 +162,17 @@ async def ingest_trace(
                     f"trace_id={trace_id}: {conversation_error}"
                 )
                 logger.debug("Conversation linking traceback:", exc_info=True)
+
+            # 3. Input file linking (SDK turns with file attachments)
+            try:
+                files_created = apply_pending_files(db, stored_spans)
+                if files_created > 0:
+                    logger.info(f"Created {files_created} pending file(s) for trace_id={trace_id}")
+            except Exception as file_error:
+                logger.warning(
+                    f"Failed to apply pending files for trace_id={trace_id}: {file_error}"
+                )
+                logger.debug("File linking traceback:", exc_info=True)
 
         return TraceResponse(
             status="received",

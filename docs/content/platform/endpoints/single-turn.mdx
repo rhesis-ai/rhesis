@@ -76,6 +76,67 @@ The `tojson` filter ensures values are properly formatted as JSON:
 - Strings are properly quoted
 - Objects and arrays are serialized correctly
 
+### File Format Filters
+
+When tests include file attachments (images, PDFs, or other documents), the
+`files` variable contains an array of file objects. Each provider expects files
+in a different format, so Rhesis provides built-in filters to handle the
+conversion:
+
+| Filter | Provider | Description |
+|---|---|---|
+| `to_anthropic` | Anthropic Claude | Images as `type: "image"`, PDFs as `type: "document"`, with `base64` source |
+| `to_openai` | OpenAI | Files as `type: "image_url"` with `data:` URI |
+| `to_gemini` | Google Gemini | Files as `inline_data` with `mime_type` and `data` |
+
+Apply a filter using the pipe syntax:
+
+<CodeBlock filename="anthropic-files-request.json" language="json">
+  {`{
+  "model": "claude-sonnet-4-6",
+  "max_tokens": 1024,
+  "messages": [
+    {
+      "role": "user",
+      "content": {{ files | to_anthropic | tojson }}
+    }
+  ]
+}`}
+</CodeBlock>
+
+<CodeBlock filename="openai-files-request.json" language="json">
+  {`{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "user",
+      "content": {{ files | to_openai | tojson }}
+    }
+  ]
+}`}
+</CodeBlock>
+
+<CodeBlock filename="gemini-files-request.json" language="json">
+  {`{
+  "contents": [
+    {
+      "role": "user",
+      "parts": {{ files | to_gemini | tojson }}
+    }
+  ]
+}`}
+</CodeBlock>
+
+When no files are attached, all filters return an empty array (`[]`).
+
+If your endpoint uses a custom file format, you can pass `files` directly
+using `\{\{ files \}\}` and handle the transformation on your side.
+
+<Callout type="info">
+  See [Mapping Examples](/platform/endpoints/mapping-examples#file-attachments)
+  for complete request and response configurations with file attachments.
+</Callout>
+
 ### Custom Static Fields
 
 You can include any static values alongside platform variables. These are sent
