@@ -445,6 +445,8 @@ export default function PlaygroundChat({
                 onClick={() => fileInputRef.current?.click()}
                 disabled={!isConnected || isLoading}
                 sx={{
+                  width: theme => theme.spacing(5),
+                  height: theme => theme.spacing(5),
                   color: 'text.secondary',
                   bgcolor: 'action.hover',
                   '&:hover': {
@@ -466,6 +468,8 @@ export default function PlaygroundChat({
               onClick={handleSend}
               disabled={!inputValue.trim() || !isConnected || isLoading}
               sx={{
+                width: theme => theme.spacing(5),
+                height: theme => theme.spacing(5),
                 bgcolor: 'primary.main',
                 color: 'primary.contrastText',
                 '&:hover': {
@@ -478,7 +482,7 @@ export default function PlaygroundChat({
               }}
             >
               {isLoading ? (
-                <CircularProgress size={20} color="inherit" />
+                <CircularProgress size="1.25rem" color="inherit" />
               ) : (
                 <SendIcon />
               )}
