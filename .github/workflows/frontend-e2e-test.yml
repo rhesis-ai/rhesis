@@ -34,7 +34,7 @@ jobs:
         working-directory: apps/frontend
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox
         working-directory: apps/frontend
 
       - name: Set up Docker Buildx

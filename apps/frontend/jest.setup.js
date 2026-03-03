@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom';
+import { toHaveNoViolations } from 'jest-axe';
+
+// Extend Jest matchers with accessibility assertions
+expect.extend(toHaveNoViolations);
 
 // Set environment variables for tests
 process.env.NEXT_PUBLIC_API_BASE_URL = 'http://localhost:8080/api/v1';
