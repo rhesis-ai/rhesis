@@ -244,6 +244,9 @@ jobs:
         run: |
           echo "PROJECT_ID=${{ secrets.PROJECT_ID }}" >> $GITHUB_ENV
           echo "REGION=${{ secrets.REGION || secrets.TF_VAR_REGION || 'us-central1' }}" >> $GITHUB_ENV
+          if [ "${{ env.ENVIRONMENT }}" = "dev" ]; then
+            echo "ROBOTS_NOINDEX=true" >> $GITHUB_ENV
+          fi
 
       - name: Setup service environment
         uses: ./.github/actions/setup-service-env
@@ -255,6 +258,11 @@ jobs:
       - name: Deploy to Cloud Run
         id: deploy
         run: |
+          ROBOTS_NOINDEX_FLAG=""
+          if [ -n "$ROBOTS_NOINDEX" ]; then
+            ROBOTS_NOINDEX_FLAG="--update-env-vars ROBOTS_NOINDEX=$ROBOTS_NOINDEX"
+          fi
+
           if [ "${{ env.IS_PREVIEW }}" = "true" ]; then
             # Preview deployment with commit SHA
             IMAGE_TAG="${{ env.COMMIT_SHA }}"
@@ -275,7 +283,8 @@ jobs:
               --concurrency=80 \
               --timeout=300s \
               --no-traffic \
-              --revision-suffix=${{ env.COMMIT_SHA }}
+              --revision-suffix=${{ env.COMMIT_SHA }} \
+              $ROBOTS_NOINDEX_FLAG
 
             echo "✅ Preview revision deployed successfully"
           else
@@ -295,7 +304,8 @@ jobs:
               --min-instances=0 \
               --max-instances=5 \
               --concurrency=80 \
-              --timeout=300s
+              --timeout=300s \
+              $ROBOTS_NOINDEX_FLAG
 
             echo "✅ Regular deployment completed successfully"
 
