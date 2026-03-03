@@ -64,6 +64,10 @@ class ConnectionManager:
         # Use OrderedDict to preserve insertion order for proper LRU cleanup
         self._cancelled_tests: OrderedDict = OrderedDict()
 
+        # Track cancelled/timed-out metric runs to prevent storing late results
+        # Use OrderedDict to preserve insertion order for periodic trimming
+        self._cancelled_metrics: OrderedDict = OrderedDict()
+
         # Track background tasks to prevent silent failures
         self._background_tasks: set = set()
 
@@ -529,6 +533,11 @@ class ConnectionManager:
 
     def _resolve_metric_result(self, metric_run_id: str, result: Dict[str, Any]) -> None:
         """Store metric result for synchronous retrieval."""
+        # Check if metric run was cancelled/timed out - don't store late results
+        if metric_run_id in self._cancelled_metrics:
+            logger.warning(f"Ignoring late result for cancelled metric run: {metric_run_id}")
+            return
+
         logger.info(
             f"Received metric result from SDK: {metric_run_id} "
             f"(status: {result.get('status', 'unknown')})"
@@ -549,10 +558,28 @@ class ConnectionManager:
         return self._metric_results.get(metric_run_id)
 
     def cleanup_metric_result(self, metric_run_id: str) -> None:
-        """Remove a metric result from memory."""
+        """
+        Remove a metric result from memory and mark as cancelled to prevent memory leaks.
+
+        Should be called when a metric times out, errors, or is no longer needed.
+        Marking as cancelled prevents late-arriving results from being stored.
+
+        Args:
+            metric_run_id: Metric run identifier to clean up
+        """
+        # Mark as cancelled to prevent late results from being stored
+        self._cancelled_metrics[metric_run_id] = True
+
+        # Remove any existing result
         if metric_run_id in self._metric_results:
             del self._metric_results[metric_run_id]
             logger.debug(f"Cleaned up metric result: {metric_run_id}")
+        else:
+            logger.debug(f"Marked metric run as cancelled: {metric_run_id}")
+
+        # Periodic cleanup if the cancelled set grows too large
+        if len(self._cancelled_metrics) > 10000:
+            self._cleanup_old_cancelled_metrics()
 
     def get_test_result(self, test_run_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -607,6 +634,18 @@ class ConnectionManager:
         removed_count = len(cancelled_items) - 5000
         self._cancelled_tests = OrderedDict(cancelled_items[-5000:])
         logger.info(f"Cleaned up old cancelled tests. Removed {removed_count} entries, kept 5000")
+
+    def _cleanup_old_cancelled_metrics(self) -> None:
+        """
+        Clean up old cancelled metric entries to prevent unbounded memory growth.
+
+        Keeps only the most recent 5000 entries. This is called when the dict
+        grows beyond 10000 entries to trim it back down to a reasonable size.
+        """
+        cancelled_items = list(self._cancelled_metrics.items())
+        removed_count = len(cancelled_items) - 5000
+        self._cancelled_metrics = OrderedDict(cancelled_items[-5000:])
+        logger.info(f"Cleaned up old cancelled metrics. Removed {removed_count} entries, kept 5000")
 
     def get_connection_status(self, project_id: str, environment: str) -> ConnectionStatus:
         """
