@@ -67,19 +67,19 @@ describe('Accessibility — common components', () => {
 
   describe('StatusChip', () => {
     it('has no axe violations for a "Pass" status', async () => {
-      const { container } = render(<StatusChip status="Pass" />);
+      const { container } = render(<StatusChip status="Pass" label="Pass" />);
       const results = await axe(container);
       expect(results).toHaveNoViolations();
     });
 
     it('has no axe violations for a "Fail" status', async () => {
-      const { container } = render(<StatusChip status="Fail" />);
+      const { container } = render(<StatusChip status="Fail" label="Fail" />);
       const results = await axe(container);
       expect(results).toHaveNoViolations();
     });
 
     it('has no axe violations for an "Error" status', async () => {
-      const { container } = render(<StatusChip status="Error" />);
+      const { container } = render(<StatusChip status="Error" label="Error" />);
       const results = await axe(container);
       expect(results).toHaveNoViolations();
     });
