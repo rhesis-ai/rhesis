@@ -98,10 +98,21 @@ class ResponseGenerator:
 
     @observe()
     def _build_conversation_prompt(
-        self, prompt: str, conversation_history: List[dict] = None
+        self,
+        prompt: str,
+        conversation_history: List[dict] = None,
+        file_contents: list[dict] | None = None,
     ) -> str:
-        """Build the full prompt with conversation history."""
+        """Build the full prompt with file contents and conversation history."""
         full_prompt = self.use_case_system_prompt + "\n\n"
+
+        # Inject file contents between system prompt and conversation
+        if file_contents:
+            full_prompt += "The user has provided the following files:\n\n"
+            for fc in file_contents:
+                filename = fc.get("filename", "unknown")
+                content = fc.get("content", "")
+                full_prompt += f"--- {filename} ---\n{content}\n--- end of {filename} ---\n\n"
 
         # Add conversation history if provided
         if conversation_history:
@@ -145,7 +156,10 @@ class ResponseGenerator:
 
     @observe()
     def stream_assistant_response(
-        self, prompt: str, conversation_history: List[dict] = None
+        self,
+        prompt: str,
+        conversation_history: List[dict] = None,
+        file_contents: list[dict] | None = None,
     ) -> Generator[str, None, None]:
         """Stream the assistant's response using SDK model with conversation history.
 
@@ -153,10 +167,14 @@ class ResponseGenerator:
             prompt: The current user message
             conversation_history: List of previous messages in format
                 [{"role": "user/assistant", "content": "..."}]
+            file_contents: Extracted file contents as list of dicts with
+                'filename' and 'content' keys.
         """
         try:
-            # Build the full prompt with conversation history
-            full_prompt = self._build_conversation_prompt(prompt, conversation_history)
+            # Build the full prompt with conversation history and file contents
+            full_prompt = self._build_conversation_prompt(
+                prompt, conversation_history, file_contents
+            )
 
             # Invoke LLM
             response = self._invoke_llm(full_prompt)
@@ -432,15 +450,23 @@ def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
 
 
 def get_assistant_response(
-    prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
+    prompt: str,
+    use_case: str = "insurance",
+    conversation_history: List[dict] = None,
+    file_contents: list[dict] | None = None,
 ) -> str:
     """Get a complete response from the assistant with optional conversation history."""
     response_generator = get_response_generator(use_case)
-    return "".join(response_generator.stream_assistant_response(prompt, conversation_history))
+    return "".join(
+        response_generator.stream_assistant_response(prompt, conversation_history, file_contents)
+    )
 
 
 def stream_assistant_response(
-    prompt: str, use_case: str = "insurance", conversation_history: List[dict] = None
+    prompt: str,
+    use_case: str = "insurance",
+    conversation_history: List[dict] = None,
+    file_contents: list[dict] | None = None,
 ) -> Generator[str, None, None]:
     """Stream the assistant's response with optional conversation history.
 
@@ -452,6 +478,8 @@ def stream_assistant_response(
         use_case: The use case to use for the system prompt
         conversation_history: List of previous messages in format
             [{"role": "user/assistant", "content": "..."}]
+        file_contents: Extracted file contents as list of dicts with
+            'filename' and 'content' keys.
     """
     logger.info("=" * 80)
     logger.info("🔵 REMOTE TEST EXECUTION STARTED")
@@ -465,7 +493,7 @@ def stream_assistant_response(
         logger.info("Response generator created successfully")
 
         result_generator = response_generator.stream_assistant_response(
-            prompt, conversation_history
+            prompt, conversation_history, file_contents
         )
         logger.info("Starting to stream response...")
 
