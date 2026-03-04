@@ -18,7 +18,7 @@ from alembic import op
 import rhesis.backend.app.models.guid
 
 revision: str = "b3f7a9c2d1e4"
-down_revision: Union[str, None] = "aef6c47a8faa"
+down_revision: Union[str, None] = "a7b8c9d0e1f2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
