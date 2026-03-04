@@ -113,6 +113,8 @@ class TestAzureOpenAILLMGenerate:
             messages=[{"role": "user", "content": "Hello"}],
             response_format=None,
             api_key="test_key",
+            api_base="https://resource.openai.azure.com/",
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -136,6 +138,8 @@ class TestAzureOpenAILLMGenerate:
             ],
             response_format=None,
             api_key="test_key",
+            api_base="https://resource.openai.azure.com/",
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -195,6 +199,8 @@ class TestAzureOpenAILLMGenerate:
             messages=[{"role": "user", "content": "Test"}],
             response_format=None,
             api_key="test_key",
+            api_base="https://resource.openai.azure.com/",
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -215,6 +221,8 @@ class TestAzureOpenAILLMGenerate:
             messages=[{"role": "user", "content": "Test"}],
             response_format=None,
             api_key="test_key",
+            api_base="https://resource.openai.azure.com/",
+            api_version=None,
             temperature=0.7,
             max_tokens=100,
         )

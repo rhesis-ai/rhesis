@@ -91,6 +91,8 @@ class TestAzureAILLMGenerate:
             messages=[{"role": "user", "content": "Hello"}],
             response_format=None,
             api_key="test_key",
+            api_base="https://endpoint.inference.ai.azure.com/",
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -114,6 +116,8 @@ class TestAzureAILLMGenerate:
             ],
             response_format=None,
             api_key="test_key",
+            api_base="https://endpoint.inference.ai.azure.com/",
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -173,6 +177,8 @@ class TestAzureAILLMGenerate:
             messages=[{"role": "user", "content": "Test"}],
             response_format=None,
             api_key="test_key",
+            api_base="https://endpoint.inference.ai.azure.com/",
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -193,6 +199,8 @@ class TestAzureAILLMGenerate:
             messages=[{"role": "user", "content": "Test"}],
             response_format=None,
             api_key="test_key",
+            api_base="https://endpoint.inference.ai.azure.com/",
+            api_version=None,
             temperature=0.7,
             max_tokens=100,
         )

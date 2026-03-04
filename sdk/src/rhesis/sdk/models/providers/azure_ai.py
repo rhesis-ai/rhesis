@@ -49,11 +49,12 @@ class AzureAILLM(LiteLLM):
         if api_key is None:
             raise ValueError("AZURE_AI_API_KEY is not set")
 
-        self.api_base = api_base or os.getenv("AZURE_AI_API_BASE")
-        if self.api_base is None:
+        api_base = api_base or os.getenv("AZURE_AI_API_BASE")
+        if api_base is None:
             raise ValueError("AZURE_AI_API_BASE is not set")
 
         super().__init__(
             self.PROVIDER + "/" + model_name,
             api_key=api_key,
+            api_base=api_base,
         )

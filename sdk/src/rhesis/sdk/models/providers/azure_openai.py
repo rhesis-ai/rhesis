@@ -50,13 +50,15 @@ class AzureOpenAILLM(LiteLLM):
         if api_key is None:
             raise ValueError("AZURE_API_KEY is not set")
 
-        self.api_base = api_base or os.getenv("AZURE_API_BASE")
-        if self.api_base is None:
+        api_base = api_base or os.getenv("AZURE_API_BASE")
+        if api_base is None:
             raise ValueError("AZURE_API_BASE is not set")
 
-        self.api_version = api_version or os.getenv("AZURE_API_VERSION")
+        api_version = api_version or os.getenv("AZURE_API_VERSION")
 
         super().__init__(
             self.PROVIDER + "/" + model_name,
             api_key=api_key,
+            api_base=api_base,
+            api_version=api_version,
         )
