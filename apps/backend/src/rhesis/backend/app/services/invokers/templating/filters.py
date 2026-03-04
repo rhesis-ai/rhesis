@@ -1,10 +1,15 @@
-"""Jinja2 filters for transforming files to provider-specific content formats."""
+"""Jinja2 filters for transforming files to provider-specific content formats.
 
-import json
+Filters return Python objects (list[dict]) so they compose correctly with
+Jinja's built-in ``|tojson`` filter when templates need JSON serialization.
+"""
+
 from typing import Any, Dict, List, Optional
 
 
-def to_anthropic(files: Optional[List[Dict[str, Any]]]) -> str:
+def to_anthropic(
+    files: Optional[List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
     """Transform files to Anthropic content blocks.
 
     Images -> {"type": "image", "source": {"type": "base64", ...}}
@@ -24,13 +29,15 @@ def to_anthropic(files: Optional[List[Dict[str, Any]]]) -> str:
                 },
             }
         )
-    return json.dumps(content)
+    return content
 
 
-def to_openai(files: Optional[List[Dict[str, Any]]]) -> str:
+def to_openai(
+    files: Optional[List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
     """Transform files to OpenAI content blocks.
 
-    Each file -> {"type": "image_url", "image_url": {"url": "data:...;base64,..."}}
+    Each file -> {"type": "image_url", "image_url": {"url": "data:…;base64,…"}}
     """
     content = []
     for f in files or []:
@@ -42,13 +49,15 @@ def to_openai(files: Optional[List[Dict[str, Any]]]) -> str:
                 "image_url": {"url": f"data:{ct};base64,{data}"},
             }
         )
-    return json.dumps(content)
+    return content
 
 
-def to_gemini(files: Optional[List[Dict[str, Any]]]) -> str:
+def to_gemini(
+    files: Optional[List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
     """Transform files to Google Gemini inline_data parts.
 
-    Each file -> {"inline_data": {"mime_type": "...", "data": "..."}}
+    Each file -> {"inline_data": {"mime_type": "…", "data": "…"}}
     """
     parts = []
     for f in files or []:
@@ -60,7 +69,7 @@ def to_gemini(files: Optional[List[Dict[str, Any]]]) -> str:
                 },
             }
         )
-    return json.dumps(parts)
+    return parts
 
 
 FILE_FILTERS = {

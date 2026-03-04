@@ -35,7 +35,7 @@ class TestFileExecutionIntegration:
             {
                 "filename": "input.png",
                 "content_type": "image/png",
-                "content_base64": base64.b64encode(png_bytes).decode("ascii"),
+                "data": base64.b64encode(png_bytes).decode("ascii"),
             }
         ]
 
@@ -70,7 +70,7 @@ class TestFileExecutionIntegration:
                 assert input_data["files"][0]["filename"] == "input.png"
 
                 # Verify base64 roundtrip
-                decoded = base64.b64decode(input_data["files"][0]["content_base64"])
+                decoded = base64.b64decode(input_data["files"][0]["data"])
                 assert decoded == png_bytes
 
         # Verify the output is valid
@@ -88,7 +88,7 @@ class TestFileExecutionIntegration:
             {
                 "filename": "generated.png",
                 "content_type": "image/png",
-                "content_base64": base64.b64encode(generated_content).decode("ascii"),
+                "data": base64.b64encode(generated_content).decode("ascii"),
             }
         ]
 
@@ -110,7 +110,7 @@ class TestFileExecutionIntegration:
             "output_files": [
                 {
                     "filename": "result.png",
-                    "content_base64": base64.b64encode(b"data").decode("ascii"),
+                    "data": base64.b64encode(b"data").decode("ascii"),
                 }
             ],
         }

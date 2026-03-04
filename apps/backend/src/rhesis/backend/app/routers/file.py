@@ -10,9 +10,10 @@ from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud, schemas
+from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
@@ -71,6 +72,18 @@ async def upload_files(
         db, entity_id, entity_type.value, organization_id
     )
 
+    # Determine starting position for append semantics
+    max_position = (
+        db.query(func.coalesce(func.max(models.File.position), -1))
+        .filter(
+            models.File.entity_id == entity_id,
+            models.File.entity_type == entity_type.value,
+            models.File.deleted_at.is_(None),
+        )
+        .scalar()
+    )
+    next_position = max_position + 1
+
     created_files = []
     upload_total = 0
 
@@ -112,7 +125,7 @@ async def upload_files(
             content=file_bytes,
             entity_id=entity_id,
             entity_type=entity_type,
-            position=idx,
+            position=next_position + idx,
         )
 
         db_file = crud.create_file(db, file_data, organization_id=organization_id, user_id=user_id)

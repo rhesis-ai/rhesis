@@ -47,7 +47,7 @@ class TestSingleTurnOutputWithFiles:
                 {
                     "filename": "test.png",
                     "content_type": "image/png",
-                    "content_base64": base64.b64encode(file_content).decode("ascii"),
+                    "data": base64.b64encode(file_content).decode("ascii"),
                 }
             ],
         ):
@@ -81,7 +81,7 @@ class TestSingleTurnOutputWithFiles:
                 assert "files" in input_data
                 assert len(input_data["files"]) == 1
                 assert input_data["files"][0]["filename"] == "test.png"
-                assert input_data["files"][0]["content_base64"] == base64.b64encode(
+                assert input_data["files"][0]["data"] == base64.b64encode(
                     file_content
                 ).decode("ascii")
 
@@ -134,7 +134,7 @@ class TestOutputFileCapture:
             {
                 "filename": "output.txt",
                 "content_type": "application/octet-stream",
-                "content_base64": base64.b64encode(file_content).decode("ascii"),
+                "data": base64.b64encode(file_content).decode("ascii"),
             }
         ]
 
@@ -165,7 +165,7 @@ class TestOutputFileCapture:
         output_files = [
             {
                 "filename": "bad.txt",
-                "content_base64": "not-valid-base64!!!",
+                "data": "not-valid-base64!!!",
             }
         ]
 
