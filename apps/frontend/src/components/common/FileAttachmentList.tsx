@@ -94,7 +94,7 @@ function AuthImage({
         width: theme.spacing(4.5),
         height: theme.spacing(4.5),
         objectFit: 'cover',
-        borderRadius: 1,
+        borderRadius: `${theme.shape.borderRadius}px`,
       })}
     />
   );
@@ -186,7 +186,7 @@ export default function FileAttachmentList({
             <ListItemButton
               dense
               onClick={() => handleDownload(file)}
-              sx={{ borderRadius: 1 }}
+              sx={(theme: Theme) => ({ borderRadius: `${theme.shape.borderRadius}px` })}
             >
               <ListItemIcon sx={(theme: Theme) => ({ minWidth: theme.spacing(6) })}>
                 {isImage ? (

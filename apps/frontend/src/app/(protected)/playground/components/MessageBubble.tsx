@@ -334,7 +334,7 @@ export default function MessageBubble({
                             sx={{
                               maxWidth: '100%',
                               maxHeight: theme => theme.spacing(37.5),
-                              borderRadius: 0.5,
+                              borderRadius: theme => `${theme.shape.borderRadius}px`,
                             }}
                           />
                         </Tooltip>
