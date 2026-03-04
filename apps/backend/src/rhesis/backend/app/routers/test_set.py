@@ -390,7 +390,12 @@ async def update_test_set(
         raise HTTPException(status_code=404, detail="Test Set not found")
 
     try:
-        update_test_set_attributes(db=db, test_set_id=str(test_set_id))
+        update_test_set_attributes(
+            db=db,
+            test_set_id=str(test_set_id),
+            organization_id=organization_id,
+            user_id=user_id,
+        )
     except Exception as e:
         logger.warning(f"Failed to regenerate test set attributes for {test_set_id}: {e}")
 

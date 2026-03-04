@@ -1804,7 +1804,12 @@ def delete_test(
 
     # Update attributes for all affected test sets
     for test_set_id in affected_test_set_ids:
-        update_test_set_attributes(db=db, test_set_id=str(test_set_id))
+        update_test_set_attributes(
+            db=db,
+            test_set_id=str(test_set_id),
+            organization_id=organization_id,
+            user_id=user_id,
+        )
 
     # Return the soft-deleted test
     return db_test
