@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: main
+    targetRevision: feat/deployment-automation-agrocd
     path: kubernetes/clusters/dev
     directory:
       recurse: true
