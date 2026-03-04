@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field
 from rhesis.sdk import RhesisClient, endpoint, observe
 from rhesis.sdk.models.factory import get_model
 
+# Output mode type
+OutputMode = Literal["text", "json"]
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -43,6 +46,12 @@ _provider, _model_name = (
     if "/" in DEFAULT_GENERATION_MODEL
     else (DEFAULT_GENERATION_MODEL, "default")
 )
+
+
+class ChatResponse(BaseModel):
+    """Schema for structured JSON chat response."""
+
+    response: str = Field(description="The assistant's response text")
 
 
 class IntentClassification(BaseModel):
@@ -92,9 +101,14 @@ class ResponseGenerator:
             logger.error(f"Error loading system prompt: {str(e)}")
             return "You are a helpful assistant. Please provide clear and helpful responses."
 
-    def get_assistant_response(self, prompt: str, conversation_history: List[dict] = None) -> str:
+    def get_assistant_response(
+        self,
+        prompt: str,
+        conversation_history: List[dict] = None,
+        mode: OutputMode = "text",
+    ) -> str:
         """Get a complete response from the assistant with optional conversation history."""
-        return "".join(self.stream_assistant_response(prompt, conversation_history))
+        return "".join(self.stream_assistant_response(prompt, conversation_history, mode=mode))
 
     @observe()
     def _build_conversation_prompt(
@@ -133,16 +147,25 @@ class ResponseGenerator:
         provider=_provider,
         model=_model_name,
     )
-    def _invoke_llm(self, full_prompt: str) -> str:
+    def _invoke_llm(self, full_prompt: str, mode: OutputMode = "text"):
         """Invoke the language model to generate a response."""
         # Vertex AI via LiteLLM has issues with streaming (CustomStreamWrapper)
         # Use non-streaming response which works reliably
-        response = self.model.generate(full_prompt, stream=False)
+        kwargs = {"stream": False}
+        if mode == "json":
+            kwargs["schema"] = ChatResponse
+        response = self.model.generate(full_prompt, **kwargs)
         return response
 
     @observe()
-    def _extract_response_content(self, response) -> str:
+    def _extract_response_content(self, response, mode: OutputMode = "text") -> str:
         """Extract text content from LLM response."""
+        if mode == "json":
+            if isinstance(response, ChatResponse):
+                return response.model_dump()
+            if isinstance(response, dict):
+                return response
+
         if isinstance(response, str):
             return response
 
@@ -160,6 +183,7 @@ class ResponseGenerator:
         prompt: str,
         conversation_history: List[dict] = None,
         file_contents: list[dict] | None = None,
+        mode: OutputMode = "text",
     ) -> Generator[str, None, None]:
         """Stream the assistant's response using SDK model with conversation history.
 
@@ -169,6 +193,8 @@ class ResponseGenerator:
                 [{"role": "user/assistant", "content": "..."}]
             file_contents: Extracted file contents as list of dicts with
                 'filename' and 'content' keys.
+            mode: Output mode - "text" for plain text, "json" for structured
+                JSON output.
         """
         try:
             # Build the full prompt with conversation history and file contents
@@ -177,10 +203,10 @@ class ResponseGenerator:
             )
 
             # Invoke LLM
-            response = self._invoke_llm(full_prompt)
+            response = self._invoke_llm(full_prompt, mode=mode)
 
             # Extract and yield content
-            content = self._extract_response_content(response)
+            content = self._extract_response_content(response, mode=mode)
             yield content
 
         except Exception as e:
@@ -454,11 +480,14 @@ def get_assistant_response(
     use_case: str = "insurance",
     conversation_history: List[dict] = None,
     file_contents: list[dict] | None = None,
+    mode: OutputMode = "text",
 ) -> str:
     """Get a complete response from the assistant with optional conversation history."""
     response_generator = get_response_generator(use_case)
     return "".join(
-        response_generator.stream_assistant_response(prompt, conversation_history, file_contents)
+        response_generator.stream_assistant_response(
+            prompt, conversation_history, file_contents, mode=mode
+        )
     )
 
 
@@ -467,6 +496,7 @@ def stream_assistant_response(
     use_case: str = "insurance",
     conversation_history: List[dict] = None,
     file_contents: list[dict] | None = None,
+    mode: OutputMode = "text",
 ) -> Generator[str, None, None]:
     """Stream the assistant's response with optional conversation history.
 
@@ -480,11 +510,14 @@ def stream_assistant_response(
             [{"role": "user/assistant", "content": "..."}]
         file_contents: Extracted file contents as list of dicts with
             'filename' and 'content' keys.
+        mode: Output mode - "text" for plain text, "json" for structured
+            JSON output using schema-based generation.
     """
     logger.info("=" * 80)
     logger.info("🔵 REMOTE TEST EXECUTION STARTED")
     logger.info(f"Prompt: {prompt}")
     logger.info(f"Use case: {use_case}")
+    logger.info(f"Mode: {mode}")
     logger.info(f"Conversation history: {conversation_history}")
     logger.info("=" * 80)
 
@@ -493,7 +526,7 @@ def stream_assistant_response(
         logger.info("Response generator created successfully")
 
         result_generator = response_generator.stream_assistant_response(
-            prompt, conversation_history, file_contents
+            prompt, conversation_history, file_contents, mode=mode
         )
         logger.info("Starting to stream response...")
 

@@ -5,7 +5,7 @@ import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 # Import endpoint module first to initialize RhesisClient
 # This ensures only ONE tracer provider exists (critical for proper trace nesting)
@@ -326,6 +326,7 @@ class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     use_case: Optional[str] = "insurance"  # Default to insurance for backward compatibility
+    mode: Optional[str] = "text"  # Output mode: "text" or "json"
     files: Optional[List[FileInput]] = None
 
     @field_validator("files", mode="before")
@@ -338,7 +339,7 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    message: str
+    message: Union[str, dict]
     session_id: str
     context: List[str]
     metadata: dict
@@ -363,6 +364,7 @@ def extract_file_content(file_input: FileInput) -> dict:
         "message": "{{ input }}",
         "session_id": "{{ session_id | default(none) }}",
         "use_case": "{{ use_case | default('insurance') }}",
+        "mode": "{{ mode | default('text') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
         "file_contents": "{{ file_contents | default(none) }}",
     },
@@ -377,6 +379,7 @@ async def chat(
     message: str,
     session_id: Optional[str] = None,
     use_case: str = "insurance",
+    mode: str = "text",
     conversation_history: Optional[List[dict]] = None,
     file_contents: Optional[List[dict]] = None,
 ) -> ChatResponse:
@@ -424,24 +427,31 @@ async def chat(
     intent_result = response_generator.recognize_intent(message)
 
     # Get assistant response using the same instance
-    response_text = "".join(
+    chunks = list(
         response_generator.stream_assistant_response(
             message,
             conversation_history=conversation_history,
             file_contents=file_contents,
+            mode=mode,
         )
     )
 
+    if mode == "json":
+        # In JSON mode, the generator yields dicts
+        response_message = chunks[0] if chunks else {}
+    else:
+        response_message = "".join(chunks)
+
     # Persist the exchange in the session store
     sessions[session_id].messages.append({"role": "user", "content": message})
-    sessions[session_id].messages.append({"role": "assistant", "content": response_text})
+    sessions[session_id].messages.append({"role": "assistant", "content": response_message})
 
     # Return Pydantic model
     return ChatResponse(
-        message=response_text,
+        message=response_message,
         session_id=session_id,
         context=context_fragments,
-        metadata={"use_case": use_case, "intent": intent_result},
+        metadata={"use_case": use_case, "mode": mode, "intent": intent_result},
     )
 
 
@@ -506,6 +516,7 @@ async def chat_endpoint(
             message=chat_request.message,
             session_id=chat_request.session_id,
             use_case=use_case,
+            mode=chat_request.mode or "text",
             file_contents=file_contents,
         )
 
