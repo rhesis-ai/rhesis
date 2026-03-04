@@ -37,6 +37,7 @@ import { Model } from '@/utils/api-client/interfaces/model';
 import CircularProgress from '@mui/material/CircularProgress';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { TEST_TYPES } from '@/constants/test-types';
+import { SCORE_TYPES, ScoreTypeValue } from '@/constants/score-types';
 
 // Add session type augmentation
 declare module 'next-auth' {
@@ -53,7 +54,7 @@ interface MetricFormData {
   evaluation_prompt: string;
   evaluation_steps: string[];
   reasoning: string;
-  score_type: 'categorical' | 'numeric';
+  score_type: ScoreTypeValue;
   categories: string[];
   passing_categories: string[];
   min_score?: number;
@@ -72,7 +73,7 @@ const initialFormData: MetricFormData = {
   evaluation_prompt: '',
   evaluation_steps: [''],
   reasoning: '',
-  score_type: 'numeric',
+  score_type: SCORE_TYPES.NUMERIC,
   categories: [],
   passing_categories: [],
   threshold_operator: '>=',
@@ -98,6 +99,7 @@ export default function NewMetricPage() {
   const [models, setModels] = React.useState<Model[]>([]);
   const [isLoadingModels, setIsLoadingModels] = React.useState(true);
   const [isCreating, setIsCreating] = React.useState(false);
+  const [showErrors, setShowErrors] = React.useState(false);
 
   // Redirect if no type is selected
   React.useEffect(() => {
@@ -139,7 +141,7 @@ export default function NewMetricPage() {
     (
       event:
         | React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-        | SelectChangeEvent<string | 'binary' | 'numeric'>
+        | SelectChangeEvent<string>
     ) => {
       const value = event.target.value;
       setFormData(prev => ({
@@ -173,44 +175,36 @@ export default function NewMetricPage() {
     }));
   };
 
+  const isStepValid = React.useCallback((): boolean => {
+    // Common required fields
+    if (!formData.name.trim()) return false;
+    if (!formData.evaluation_prompt.trim()) return false;
+    if (formData.metric_scope.length === 0) return false;
+
+    // Score type conditional validation
+    if (formData.score_type === SCORE_TYPES.NUMERIC) {
+      if (formData.min_score == null || String(formData.min_score) === '')
+        return false;
+      if (formData.max_score == null || String(formData.max_score) === '')
+        return false;
+      if (formData.threshold == null || String(formData.threshold) === '')
+        return false;
+    }
+
+    if (formData.score_type === SCORE_TYPES.CATEGORICAL) {
+      if (!formData.categories || formData.categories.length < 2) return false;
+      if (!formData.passing_categories || formData.passing_categories.length < 1)
+        return false;
+    }
+
+    return true;
+  }, [formData]);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (activeStep !== steps.length - 1) {
       // If not on the final step, don't submit
       return;
-    }
-
-    // Validate metric scope - at least one must be selected
-    if (formData.metric_scope.length === 0) {
-      notifications.show(
-        'Please select at least one metric scope (Single-Turn or Multi-Turn)',
-        {
-          severity: 'error',
-          autoHideDuration: 4000,
-        }
-      );
-      return;
-    }
-
-    // Validate categorical metric fields
-    if (formData.score_type === 'categorical') {
-      if (!formData.categories || formData.categories.length < 2) {
-        notifications.show(
-          'Please add at least 2 categories for categorical metrics',
-          { severity: 'error', autoHideDuration: 4000 }
-        );
-        return;
-      }
-      if (
-        !formData.passing_categories ||
-        formData.passing_categories.length === 0
-      ) {
-        notifications.show('Please select at least one passing category', {
-          severity: 'error',
-          autoHideDuration: 4000,
-        });
-        return;
-      }
     }
 
     setIsCreating(true);
@@ -267,28 +261,28 @@ export default function NewMetricPage() {
         score_type: formData.score_type,
         // Categorical metric fields
         categories:
-          formData.score_type === 'categorical'
+          formData.score_type === SCORE_TYPES.CATEGORICAL
             ? formData.categories
             : undefined,
         passing_categories:
-          formData.score_type === 'categorical'
+          formData.score_type === SCORE_TYPES.CATEGORICAL
             ? formData.passing_categories
             : undefined,
         // Numeric metric fields
         min_score:
-          formData.score_type === 'numeric'
+          formData.score_type === SCORE_TYPES.NUMERIC
             ? parseFloat(String(formData.min_score))
             : undefined,
         max_score:
-          formData.score_type === 'numeric'
+          formData.score_type === SCORE_TYPES.NUMERIC
             ? parseFloat(String(formData.max_score))
             : undefined,
         threshold:
-          formData.score_type === 'numeric'
+          formData.score_type === SCORE_TYPES.NUMERIC
             ? parseFloat(String(formData.threshold))
             : undefined,
         threshold_operator:
-          formData.score_type === 'numeric'
+          formData.score_type === SCORE_TYPES.NUMERIC
             ? formData.threshold_operator
             : undefined,
         explanation: formData.explanation || '',
@@ -341,11 +335,17 @@ export default function NewMetricPage() {
 
   const handleNext = (event: React.MouseEvent) => {
     event.preventDefault(); // Prevent any form submission
+    if (!isStepValid()) {
+      setShowErrors(true);
+      return;
+    }
+    setShowErrors(false);
     setActiveStep(prevStep => prevStep + 1);
   };
 
   const handleBack = (event: React.MouseEvent) => {
     event.preventDefault(); // Prevent any form submission
+    setShowErrors(false);
     setActiveStep(prevStep => prevStep - 1);
   };
 
@@ -363,7 +363,12 @@ export default function NewMetricPage() {
           placeholder="e.g. Helpfulness"
           value={formData.name}
           onChange={handleChange('name')}
-          helperText="Your custom metric name is simply for identification purposes only. It must not be one of Rhesis AI's default metric name, and cannot already be taken by another custom metric."
+          error={showErrors && !formData.name.trim()}
+          helperText={
+            showErrors && !formData.name.trim()
+              ? 'Name is required'
+              : "Your custom metric name is simply for identification purposes only. It must not be one of Rhesis AI's default metric name, and cannot already be taken by another custom metric."
+          }
           sx={{ mb: 3 }}
         />
 
@@ -400,7 +405,7 @@ export default function NewMetricPage() {
         </Typography>
 
         <FormControl fullWidth sx={{ mb: 3 }}>
-          <InputLabel required>Evaluation Model</InputLabel>
+          <InputLabel>Evaluation Model</InputLabel>
           <Select
             value={formData.model_id}
             label="Evaluation Model"
@@ -444,7 +449,12 @@ export default function NewMetricPage() {
           label="Evaluation Prompt"
           value={formData.evaluation_prompt}
           onChange={handleChange('evaluation_prompt')}
-          helperText="The main prompt that will guide the evaluation process. This should clearly state what needs to be evaluated."
+          error={showErrors && !formData.evaluation_prompt.trim()}
+          helperText={
+            showErrors && !formData.evaluation_prompt.trim()
+              ? 'Evaluation prompt is required'
+              : 'The main prompt that will guide the evaluation process. This should clearly state what needs to be evaluated.'
+          }
           sx={{ mb: 3 }}
         />
 
@@ -459,7 +469,6 @@ export default function NewMetricPage() {
             <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
               <TextField
                 fullWidth
-                required
                 multiline
                 rows={2}
                 label={`Step ${index + 1}`}
@@ -483,7 +492,6 @@ export default function NewMetricPage() {
 
         <TextField
           fullWidth
-          required
           multiline
           rows={3}
           label="Reasoning Instructions"
@@ -512,19 +520,20 @@ export default function NewMetricPage() {
             Choose how this metric will be scored:
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {(['numeric', 'categorical'] as const).map(type => {
-              const isSelected = formData.score_type === type;
+            {([SCORE_TYPES.NUMERIC, SCORE_TYPES.CATEGORICAL] as const).map(
+              scoreType => {
+              const isSelected = formData.score_type === scoreType;
               return (
                 <Chip
-                  key={type}
-                  label={type === 'numeric' ? 'Numeric' : 'Categorical'}
+                  key={scoreType}
+                  label={scoreType === SCORE_TYPES.NUMERIC ? 'Numeric' : 'Categorical'}
                   clickable
                   color={isSelected ? 'primary' : 'default'}
                   variant={isSelected ? 'filled' : 'outlined'}
                   onClick={() => {
                     setFormData(prev => ({
                       ...prev,
-                      score_type: type,
+                      score_type: scoreType,
                     }));
                   }}
                   sx={{
@@ -537,10 +546,11 @@ export default function NewMetricPage() {
                 />
               );
             })}
+
           </Box>
         </Box>
 
-        {formData.score_type === 'categorical' && (
+        {formData.score_type === SCORE_TYPES.CATEGORICAL && (
           <>
             {/* Categories Input */}
             <Box sx={{ mb: 3 }}>
@@ -550,9 +560,20 @@ export default function NewMetricPage() {
                   *
                 </Typography>
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Define the possible categorical values the LLM can return
-                (minimum 2 required)
+              <Typography
+                variant="body2"
+                color={
+                  showErrors &&
+                  (!formData.categories || formData.categories.length < 2)
+                    ? 'error'
+                    : 'text.secondary'
+                }
+                sx={{ mb: 2 }}
+              >
+                {showErrors &&
+                (!formData.categories || formData.categories.length < 2)
+                  ? 'At least 2 categories are required'
+                  : 'Define the possible categorical values the LLM can return (minimum 2 required)'}
               </Typography>
               <BaseTag
                 value={formData.categories || []}
@@ -590,11 +611,20 @@ export default function NewMetricPage() {
                 </Typography>
                 <Typography
                   variant="body2"
-                  color="text.secondary"
+                  color={
+                    showErrors &&
+                    (!formData.passing_categories ||
+                      formData.passing_categories.length < 1)
+                      ? 'error'
+                      : 'text.secondary'
+                  }
                   sx={{ mb: 2 }}
                 >
-                  Select which categories indicate a successful/passing result
-                  (at least one required)
+                  {showErrors &&
+                  (!formData.passing_categories ||
+                    formData.passing_categories.length < 1)
+                    ? 'At least one passing category must be selected'
+                    : 'Select which categories indicate a successful/passing result (at least one required)'}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   {(formData.categories || []).map(category => {
@@ -636,7 +666,7 @@ export default function NewMetricPage() {
           </>
         )}
 
-        {formData.score_type === 'numeric' && (
+        {formData.score_type === SCORE_TYPES.NUMERIC && (
           <>
             <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
               <TextField
@@ -645,6 +675,18 @@ export default function NewMetricPage() {
                 label="Minimum Score"
                 value={formData.min_score || ''}
                 onChange={handleChange('min_score')}
+                error={
+                  showErrors &&
+                  (formData.min_score == null ||
+                    String(formData.min_score) === '')
+                }
+                helperText={
+                  showErrors &&
+                  (formData.min_score == null ||
+                    String(formData.min_score) === '')
+                    ? 'Required'
+                    : undefined
+                }
                 fullWidth
               />
               <TextField
@@ -653,6 +695,18 @@ export default function NewMetricPage() {
                 label="Maximum Score"
                 value={formData.max_score || ''}
                 onChange={handleChange('max_score')}
+                error={
+                  showErrors &&
+                  (formData.max_score == null ||
+                    String(formData.max_score) === '')
+                }
+                helperText={
+                  showErrors &&
+                  (formData.max_score == null ||
+                    String(formData.max_score) === '')
+                    ? 'Required'
+                    : undefined
+                }
                 fullWidth
               />
             </Box>
@@ -668,6 +722,18 @@ export default function NewMetricPage() {
                   label="Threshold Value"
                   value={formData.threshold || ''}
                   onChange={handleChange('threshold')}
+                  error={
+                    showErrors &&
+                    (formData.threshold == null ||
+                      String(formData.threshold) === '')
+                  }
+                  helperText={
+                    showErrors &&
+                    (formData.threshold == null ||
+                      String(formData.threshold) === '')
+                      ? 'Required'
+                      : undefined
+                  }
                   fullWidth
                 />
                 <FormControl fullWidth>
@@ -702,9 +768,18 @@ export default function NewMetricPage() {
               *
             </Typography>
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select which test types this metric applies to (at least one
-            required):
+          <Typography
+            variant="body2"
+            color={
+              showErrors && formData.metric_scope.length === 0
+                ? 'error'
+                : 'text.secondary'
+            }
+            sx={{ mb: 2 }}
+          >
+            {showErrors && formData.metric_scope.length === 0
+              ? 'At least one metric scope must be selected'
+              : 'Select which test types this metric applies to (at least one required):'}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {([TEST_TYPES.SINGLE_TURN, TEST_TYPES.MULTI_TURN] as MetricScope[]).map(scope => {
@@ -741,7 +816,6 @@ export default function NewMetricPage() {
 
         <TextField
           fullWidth
-          required
           multiline
           rows={3}
           label="Result Explanation"
@@ -958,14 +1032,14 @@ export default function NewMetricPage() {
           </Typography>
           <Chip
             label={
-              formData.score_type === 'categorical' ? 'Categorical' : 'Numeric'
+              formData.score_type === SCORE_TYPES.CATEGORICAL ? 'Categorical' : 'Numeric'
             }
             color="primary"
             variant="filled"
           />
         </Box>
 
-        {formData.score_type === 'categorical' && (
+        {formData.score_type === SCORE_TYPES.CATEGORICAL && (
           <>
             <Box sx={{ mb: 3 }}>
               <Typography
@@ -1022,7 +1096,7 @@ export default function NewMetricPage() {
           </>
         )}
 
-        {formData.score_type === 'numeric' && (
+        {formData.score_type === SCORE_TYPES.NUMERIC && (
           <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
             <Box>
               <Typography
@@ -1227,7 +1301,11 @@ export default function NewMetricPage() {
                   {isCreating ? 'Creating...' : 'Create Metric'}
                 </Button>
               ) : (
-                <Button variant="contained" onClick={handleNext} type="button">
+                <Button
+                  variant="contained"
+                  onClick={handleNext}
+                  type="button"
+                >
                   Next
                 </Button>
               )}

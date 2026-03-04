@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional, Union
 
-from pydantic import UUID4, ConfigDict
+from pydantic import UUID4, ConfigDict, model_validator
 
 from rhesis.backend.app.schemas import Base
 from rhesis.backend.app.schemas.status import Status
@@ -67,7 +67,21 @@ class MetricBase(Base):
 
 
 class MetricCreate(MetricBase):
-    pass
+    @model_validator(mode="after")
+    def validate_score_type_fields(self) -> "MetricCreate":
+        if self.score_type == ScoreType.NUMERIC:
+            if self.min_score is None:
+                raise ValueError("min_score is required for numeric metrics")
+            if self.max_score is None:
+                raise ValueError("max_score is required for numeric metrics")
+            if self.threshold is None:
+                raise ValueError("threshold is required for numeric metrics")
+        elif self.score_type == ScoreType.CATEGORICAL:
+            if not self.categories or len(self.categories) < 2:
+                raise ValueError("at least 2 categories are required for categorical metrics")
+            if not self.passing_categories or len(self.passing_categories) < 1:
+                raise ValueError("at least 1 passing category is required for categorical metrics")
+        return self
 
 
 class MetricUpdate(MetricBase):
