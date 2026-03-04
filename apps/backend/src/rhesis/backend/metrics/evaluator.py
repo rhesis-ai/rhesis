@@ -144,6 +144,7 @@ class MetricEvaluator:
         metrics: List[Union[Dict[str, Any], MetricConfig, MetricModel]],
         max_workers: int = 5,
         conversation_history: Optional[ConversationHistory] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Compute metrics using the configured backends in parallel.
@@ -179,8 +180,9 @@ class MetricEvaluator:
         Returns:
             Dictionary containing scores and details for each metric
         """
-        # Store conversation history for conversational metrics
+        # Store conversation history and metadata for metrics that accept them
         self._conversation_history = conversation_history
+        self._metadata = metadata
 
         if not metrics:
             logger.warning("No metrics provided for evaluation")
@@ -900,6 +902,8 @@ class MetricEvaluator:
             kwargs["context"] = context
         if "conversation_history" in params and self._conversation_history is not None:
             kwargs["conversation_history"] = self._conversation_history
+        if "metadata" in params and self._metadata is not None:
+            kwargs["metadata"] = self._metadata
         if "goal" in params:
             kwargs["goal"] = input_text
 
