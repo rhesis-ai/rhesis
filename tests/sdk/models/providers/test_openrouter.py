@@ -62,6 +62,8 @@ class TestOpenRouterLLM:
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key="test_key",
+            api_base=None,
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -95,6 +97,8 @@ class TestOpenRouterLLM:
             messages=[{"role": "user", "content": prompt}],
             response_format=TestSchema,
             api_key="test_key",
+            api_base=None,
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -136,6 +140,8 @@ class TestOpenRouterLLM:
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key="test_key",
+            api_base=None,
+            api_version=None,
             temperature=0.7,
             max_tokens=100,
         )
@@ -159,6 +165,8 @@ class TestOpenRouterLLM:
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key="test_key",
+            api_base=None,
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -183,4 +191,6 @@ class TestOpenRouterLLM:
             ],
             response_format=None,
             api_key="test_key",
+            api_base=None,
+            api_version=None,
         )

@@ -1,6 +1,4 @@
-from typing import Optional, Type, Union
-
-from pydantic import BaseModel
+from typing import Optional
 
 from rhesis.sdk.models.defaults import DEFAULT_LANGUAGE_MODELS, model_name_from_id
 from rhesis.sdk.models.providers.litellm import LiteLLM
@@ -18,7 +16,12 @@ DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 class OllamaLLM(LiteLLM):
     PROVIDER = "ollama_chat"
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, **kwargs):
+    def __init__(
+        self,
+        model_name: str = DEFAULT_MODEL_NAME,
+        api_base: Optional[str] = None,
+        **kwargs,
+    ):
         """
         OllamaLLM: Ollama LLM Provider
 
@@ -32,6 +35,8 @@ class OllamaLLM(LiteLLM):
 
         Args:
             model_name (str): The name of the Ollama model to use (default: "llama3.1").
+            api_base (Optional[str]): The Ollama server URL.
+                Defaults to http://localhost:11434.
             **kwargs: Additional parameters passed to the underlying LiteLLM completion call.
 
         Usage:
@@ -41,17 +46,8 @@ class OllamaLLM(LiteLLM):
 
         If a Pydantic schema is provided to `generate`, the response will be validated and returned
         as a dict.
-
-        Raises:
-            ValueError: If the API key is not set.
         """
-        self.api_base = kwargs.get("api_base", "http://localhost:11434")
-        super().__init__(self.PROVIDER + "/" + model_name)
-
-    def generate(
-        self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        schema: Optional[Type[BaseModel]] = None,
-    ) -> Union[str, dict]:
-        return super().generate(prompt, system_prompt, schema, api_base=self.api_base)
+        super().__init__(
+            self.PROVIDER + "/" + model_name,
+            api_base=api_base or "http://localhost:11434",
+        )

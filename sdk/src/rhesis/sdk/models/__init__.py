@@ -8,8 +8,11 @@ from rhesis.sdk.models.factory import (
     get_language_model,
     get_model,
 )
+from rhesis.sdk.models.providers.azure_ai import AzureAILLM
+from rhesis.sdk.models.providers.azure_openai import AzureOpenAILLM
 from rhesis.sdk.models.providers.gemini import GeminiEmbedder, GeminiLLM
 from rhesis.sdk.models.providers.litellm import LiteLLM
+from rhesis.sdk.models.providers.litellm_proxy import LiteLLMProxy
 from rhesis.sdk.models.providers.native import RhesisLLM
 from rhesis.sdk.models.providers.openai import OpenAIEmbedder, OpenAILLM
 from rhesis.sdk.models.providers.openrouter import OpenRouterLLM
@@ -31,6 +34,8 @@ except ImportError:
     LMFORMATENFORCER_AVAILABLE = False
 
 __all__ = [
+    "AzureAILLM",
+    "AzureOpenAILLM",
     "BaseEmbedder",
     "BaseLLM",
     "BaseModel",
@@ -38,6 +43,7 @@ __all__ = [
     "GeminiEmbedder",
     "GeminiLLM",
     "LiteLLM",
+    "LiteLLMProxy",
     "OpenAIEmbedder",
     "OpenAILLM",
     "OpenRouterLLM",

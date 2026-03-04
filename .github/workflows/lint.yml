@@ -83,7 +83,7 @@ jobs:
       if: steps.filter.outputs.frontend == 'true' || steps.filter.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+          node-version: '24'
 
     - name: Install frontend dependencies
       if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
