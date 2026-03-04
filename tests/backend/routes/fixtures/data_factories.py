@@ -226,8 +226,12 @@ class TopicDataFactory(BaseDataFactory):
     def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
         """Generate topic edge case data"""
         if case_type == "long_name":
+            # Generate a name guaranteed to be > 100 chars
+            name = fake.text(max_nb_chars=500).replace("\n", " ")
+            while len(name) <= 100:
+                name += " " + fake.text(max_nb_chars=200).replace("\n", " ")
             return {
-                "name": fake.text(max_nb_chars=500).replace("\n", " "),
+                "name": name,
                 "description": fake.text(max_nb_chars=100),
             }
         elif case_type == "special_chars":
@@ -303,18 +307,31 @@ class MetricDataFactory(BaseDataFactory):
     """Factory for generating metric test data"""
 
     @classmethod
+    def _add_score_type_fields(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Add required fields based on score_type."""
+        if data.get("score_type") == "categorical":
+            data.setdefault("categories", ["pass", "fail", "partial"])
+            data.setdefault("passing_categories", ["pass"])
+        elif data.get("score_type") == "numeric":
+            data.setdefault("min_score", 0)
+            data.setdefault("max_score", 10)
+            data.setdefault("threshold", 5)
+        return data
+
+    @classmethod
     def minimal_data(cls) -> Dict[str, Any]:
         """Generate minimal metric data (only required fields)"""
-        return {
+        data = {
             "name": fake.word().title() + " Metric",
             "evaluation_prompt": fake.sentence(nb_words=8),
             "score_type": fake.random_element(elements=("numeric", "categorical")),
         }
+        return cls._add_score_type_fields(data)
 
     @classmethod
     def sample_data(cls) -> Dict[str, Any]:
         """Generate sample metric data"""
-        return {
+        data = {
             "name": fake.word().title() + " " + fake.word().title() + " Metric",
             "description": fake.text(max_nb_chars=150),
             "evaluation_prompt": fake.sentence(nb_words=8),
@@ -330,6 +347,7 @@ class MetricDataFactory(BaseDataFactory):
             "context_required": fake.boolean(),
             "evaluation_examples": fake.text(max_nb_chars=200),
         }
+        return cls._add_score_type_fields(data)
 
     @classmethod
     def update_data(cls) -> Dict[str, Any]:
@@ -356,13 +374,17 @@ class MetricDataFactory(BaseDataFactory):
                 "name": f"{fake.word()} 📊 émoji & metrics! @#$%^&*()",
                 "evaluation_prompt": "How well does this handle special chars? 🤔",
                 "score_type": "categorical",
+                "categories": ["pass", "fail", "partial"],
+                "passing_categories": ["pass"],
                 "description": fake.text(max_nb_chars=100),
             }
         elif case_type == "unicode":
             return {
                 "name": f"Test 测试 тест テスト {fake.word()} Metric",
-                "evaluation_prompt": "Unicode evaluation: 测试 тест테スト",
+                "evaluation_prompt": "Unicode evaluation: 测试 тест テスト",
                 "score_type": "categorical",
+                "categories": ["pass", "fail", "partial"],
+                "passing_categories": ["pass"],
                 "description": "Unicode description: 测试 тест テスト",
             }
         elif case_type == "sql_injection":
@@ -1570,8 +1592,12 @@ class TopicDataFactory(BaseDataFactory):
     def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
         """Generate topic edge case data"""
         if case_type == "long_name":
+            # Generate a name guaranteed to be > 100 chars
+            name = fake.text(max_nb_chars=200).replace("\n", " ")
+            while len(name) <= 100:
+                name += " " + fake.text(max_nb_chars=200).replace("\n", " ")
             return {
-                "name": fake.text(max_nb_chars=200).replace("\n", " "),
+                "name": name,
                 "description": fake.paragraph(nb_sentences=3),
             }
         elif case_type == "hierarchical_topics":
