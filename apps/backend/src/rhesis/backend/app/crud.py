@@ -3988,6 +3988,23 @@ def get_entity_files_total_size(
     return query.scalar()
 
 
+def get_entity_files_max_position(
+    db: Session,
+    entity_id: uuid.UUID,
+    entity_type: str,
+    organization_id: str = None,
+) -> int:
+    """Get the maximum position of files for an entity, or -1 if none exist."""
+    query = db.query(func.coalesce(func.max(models.File.position), -1)).filter(
+        models.File.entity_id == entity_id,
+        models.File.entity_type == entity_type,
+        models.File.deleted_at.is_(None),
+    )
+    if organization_id:
+        query = query.filter(models.File.organization_id == organization_id)
+    return query.scalar()
+
+
 def delete_file(
     db: Session,
     file_id: uuid.UUID,
