@@ -15,7 +15,13 @@ litellm.suppress_debug_info = True
 class LiteLLM(BaseLLM):
     PROVIDER: str
 
-    def __init__(self, model_name: str, api_key: Optional[str] = None):
+    def __init__(
+        self,
+        model_name: str,
+        api_key: Optional[str] = None,
+        api_base: Optional[str] = None,
+        api_version: Optional[str] = None,
+    ):
         """
         LiteLLM: LiteLLM Provider for Model inference
 
@@ -25,6 +31,11 @@ class LiteLLM(BaseLLM):
             model_name (str): The name of the model to use including the provider.
             api_key (Optional[str]): The API key for authentication.
              If not provided, LiteLLM will handle it internally.
+            api_base (Optional[str]): The base URL for the API endpoint.
+                If not provided, LiteLLM uses its default or env vars.
+            api_version (Optional[str]): The API version string
+                (e.g. for Azure). If not provided, LiteLLM uses its
+                default or env vars.
 
         Usage:
             >>> llm = LiteLLM(model_name="provider/model", api_key="your_api_key")
@@ -34,7 +45,9 @@ class LiteLLM(BaseLLM):
         If a Pydantic schema is provided to `generate`, the response will be validated and returned
         as a dict.
         """
-        self.api_key = api_key  # LiteLLM will handle Environment Retrieval
+        self.api_key = api_key
+        self.api_base = api_base
+        self.api_version = api_version
         if not model_name or not isinstance(model_name, str) or model_name.strip() == "":
             raise ValueError(NO_MODEL_NAME_PROVIDED)
         super().__init__(model_name)
@@ -77,12 +90,13 @@ class LiteLLM(BaseLLM):
         # LiteLLM can handle both Pydantic models and OpenAI-wrapped dicts directly
         response_format = schema
 
-        # Call the completion function passing given arguments
         response = completion(
             model=self.model_name,
             messages=messages,
             response_format=response_format,
             api_key=self.api_key,
+            api_base=self.api_base,
+            api_version=self.api_version,
             *args,
             **kwargs,
         )
@@ -133,12 +147,13 @@ class LiteLLM(BaseLLM):
         # Handle schema format for LiteLLM
         response_format = schema
 
-        # Use litellm batch_completion
         responses = batch_completion(
             model=self.model_name,
             messages=messages,
             response_format=response_format,
             api_key=self.api_key,
+            api_base=self.api_base,
+            api_version=self.api_version,
             n=n,
             *args,
             **kwargs,

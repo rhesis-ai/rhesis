@@ -1,0 +1,26 @@
+---
+globs:
+  - playground/**
+description: Rules for files in the playground directory
+alwaysApply: false
+---
+
+# Playground Rules
+
+The `playground/` directory at the project root contains ad-hoc scripts for manual testing, experimentation, and prototyping. These scripts are **not** part of the production codebase or the automated test suite.
+
+## Path
+`<project_root>/playground/`
+
+## Running playground scripts
+Playground scripts import from the SDK, so they must be run from the `sdk/` directory with `uv`:
+
+```bash
+cd sdk && uv run python ../playground/<script_name>.py
+```
+
+## Guidelines
+1. Each script should have a docstring at the top explaining what it does, any prerequisites (e.g. a running backend or proxy), and how to run it.
+2. Playground scripts may hardcode local URLs, API keys, and test data — they are not meant for production use.
+3. Do not add playground scripts to the automated test suite.
+4. Keep scripts self-contained: prefer inline configuration over shared state between scripts.

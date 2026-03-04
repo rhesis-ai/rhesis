@@ -49,6 +49,8 @@ class TestLiteLLM:
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key=None,
+            api_base=None,
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -73,6 +75,8 @@ class TestLiteLLM:
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key=api_key,
+            api_base=None,
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -107,6 +111,8 @@ class TestLiteLLM:
             messages=[{"role": "user", "content": prompt}],
             response_format=TestSchema,
             api_key=None,
+            api_base=None,
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -142,6 +148,8 @@ class TestLiteLLM:
             messages=[{"role": "user", "content": prompt}],
             response_format=TestSchema,
             api_key=api_key,
+            api_base=None,
+            api_version=None,
         )
 
     @patch("rhesis.sdk.models.providers.litellm.completion")
@@ -185,6 +193,8 @@ class TestLiteLLM:
             messages=[{"role": "user", "content": prompt}],
             response_format=None,
             api_key=None,
+            api_base=None,
+            api_version=None,
             temperature=0.7,
             max_tokens=100,
         )
@@ -220,6 +230,8 @@ class TestLiteLLM:
             ],
             response_format=None,
             api_key=None,
+            api_base=None,
+            api_version=None,
             n=1,
         )
 
@@ -244,6 +256,8 @@ class TestLiteLLM:
             messages=[[{"role": "user", "content": "Test prompt"}]],
             response_format=None,
             api_key=api_key,
+            api_base=None,
+            api_version=None,
             n=1,
         )
 
@@ -273,6 +287,8 @@ class TestLiteLLM:
             ],
             response_format=None,
             api_key=None,
+            api_base=None,
+            api_version=None,
             n=1,
         )
 
@@ -312,6 +328,8 @@ class TestLiteLLM:
             ],
             response_format=TestSchema,
             api_key=None,
+            api_base=None,
+            api_version=None,
             n=1,
         )
 
@@ -341,6 +359,8 @@ class TestLiteLLM:
             messages=[[{"role": "user", "content": "Test prompt"}]],
             response_format=None,
             api_key=None,
+            api_base=None,
+            api_version=None,
             n=2,
         )
 
@@ -413,6 +433,8 @@ class TestLiteLLM:
             messages=[[{"role": "user", "content": "Test prompt"}]],
             response_format=None,
             api_key=None,
+            api_base=None,
+            api_version=None,
             n=1,
             temperature=0.7,
             max_tokens=100,
@@ -435,6 +457,8 @@ class TestLiteLLM:
             messages=[],
             response_format=None,
             api_key=None,
+            api_base=None,
+            api_version=None,
             n=1,
         )
 
@@ -468,5 +492,7 @@ class TestLiteLLM:
             ],
             response_format=TestSchema,
             api_key=None,
+            api_base=None,
+            api_version=None,
             n=1,
         )

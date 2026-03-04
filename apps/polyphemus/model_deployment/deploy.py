@@ -1,7 +1,7 @@
 """Main deployment script for deploying models to Vertex AI."""
 
 import logging
-from typing import Optional, Tuple
+from typing import Optional
 
 from google.cloud import aiplatform
 
@@ -35,7 +35,7 @@ def deploy_model_vllm(
     enable_lora: bool = False,
     enforce_eager: bool = False,
     guided_decoding_backend: str = "auto",
-) -> Tuple[aiplatform.Model, aiplatform.Endpoint]:
+) -> tuple[aiplatform.Model, aiplatform.Endpoint]:
     """Deploy a model with vLLM on Vertex AI.
 
     Args:
@@ -107,7 +107,8 @@ def deploy_model_vllm(
             "Call get_or_create_endpoint() first."
         )
 
-    # Deploy to endpoint
+    # Deploy to endpoint with 100% traffic to automatically shift
+    # traffic away from any existing deployments
     model.deploy(
         endpoint=endpoint,
         machine_type=model_config["machine_type"],
@@ -115,56 +116,69 @@ def deploy_model_vllm(
         accelerator_count=model_config["accelerator_count"],
         deploy_request_timeout=1800,  # 30 minutes
         service_account=service_account,
+        traffic_percentage=100,
     )
 
     logger.info(f"✓ Successfully deployed {model_config['model_name']}")
     return model, endpoint
 
 
-def get_or_create_endpoint(
-    model_config: ModelConfig, force_create: bool = False
-) -> aiplatform.Endpoint:
+def get_or_create_endpoint() -> aiplatform.Endpoint:
     """Get an existing endpoint or create a new one.
 
     Endpoint display name is environment-based: polyphemus-endpoint-dev,
     polyphemus-endpoint-stg, or polyphemus-endpoint (prd).
-
-    Args:
-        model_config: Model configuration dictionary
-        force_create: Force creation of a new endpoint even if one exists
 
     Returns:
         Endpoint object
     """
     endpoint_name = get_endpoint_display_name()
 
-    if not force_create:
-        # Try to find existing endpoint
-        endpoints = aiplatform.Endpoint.list(
-            filter=f'display_name="{endpoint_name}"', order_by="create_time desc"
-        )
+    # Try to find existing endpoint
+    endpoints = aiplatform.Endpoint.list(
+        filter=f'display_name="{endpoint_name}"',
+        order_by="create_time desc",
+    )
 
-        if endpoints:
-            endpoint = endpoints[0]
-            logger.info(f"✓ Retrieved existing endpoint: {endpoint_name}")
-
-            # Check if already deployed
-            deployed_models = endpoint.list_models()
-            if deployed_models:
-                logger.info(
-                    f"⊘ Endpoint {endpoint_name} already has deployed models. "
-                    f"Found {len(deployed_models)} model(s)."
-                )
-                for deployed_model in deployed_models:
-                    logger.info(f"  - {deployed_model.display_name}")
-
-            return endpoint
+    if endpoints:
+        endpoint = endpoints[0]
+        logger.info(f"Retrieved existing endpoint: {endpoint_name}")
+        return endpoint
 
     # Create new endpoint
     logger.info(f"Creating new endpoint: {endpoint_name}")
     endpoint = aiplatform.Endpoint.create(display_name=endpoint_name)
-    logger.info(f"✓ Created endpoint: {endpoint_name}")
+    logger.info(f"Created endpoint: {endpoint_name}")
     return endpoint
+
+
+def undeploy_old_models(
+    endpoint: aiplatform.Endpoint,
+    old_deployed_model_ids: list[str],
+) -> None:
+    """Undeploy old models from an endpoint after a rolling replacement.
+
+    Called after a new model has been successfully deployed with 100%
+    traffic. Old models are at 0% traffic and only consume GPU resources.
+
+    Args:
+        endpoint: The Vertex AI endpoint
+        old_deployed_model_ids: IDs of previously deployed models to remove
+    """
+    for deployed_model_id in old_deployed_model_ids:
+        try:
+            logger.info(
+                f"Undeploying old model {deployed_model_id} "
+                f"from endpoint {endpoint.display_name}..."
+            )
+            endpoint.undeploy(deployed_model_id=deployed_model_id)
+            logger.info(f"Successfully undeployed old model {deployed_model_id}")
+        except Exception as e:
+            logger.warning(
+                f"Failed to undeploy old model {deployed_model_id}: {e}. "
+                "Old model remains at 0% traffic but still consumes "
+                "GPU resources. Manual cleanup may be needed."
+            )
 
 
 def deploy_models(
@@ -180,7 +194,8 @@ def deploy_models(
     Args:
         models: List of model configurations (defaults to MODELS from config)
         service_account: Service account email (defaults to SERVICE_ACCOUNT from config)
-        skip_existing: Skip models that are already deployed
+        skip_existing: Skip if models already deployed; when False, perform
+            rolling replacement (deploy new model, undeploy old)
         enable_lora: Enable LoRA support
         enforce_eager: Enforce eager execution
         guided_decoding_backend: Guided decoding backend
@@ -232,19 +247,31 @@ def deploy_models(
 
         try:
             # Get or create endpoint
-            endpoint = get_or_create_endpoint(model_config)
+            endpoint = get_or_create_endpoint()
             model_config["endpoint"] = endpoint
 
-            # Check if already deployed
-            if skip_existing:
-                deployed_models = endpoint.list_models()
-                if deployed_models:
-                    logger.info(f"⊘ Skipping {model_name} - already deployed to endpoint\n")
-                    skipped_count += 1
-                    continue
+            # Capture existing deployed model IDs before deployment
+            existing_models = endpoint.list_models()
+            old_deployed_model_ids = [m.id for m in existing_models]
 
-            # Deploy model
-            logger.info(f"→ Deploying {model_name}...")
+            if old_deployed_model_ids:
+                logger.info(
+                    f"Endpoint has {len(old_deployed_model_ids)} "
+                    f"existing model(s): {old_deployed_model_ids}"
+                )
+
+            # Skip if models already exist and not forcing replacement
+            if skip_existing and old_deployed_model_ids:
+                logger.info(
+                    f"Skipping {model_name} - already deployed "
+                    f"to endpoint (use --force to replace)\n"
+                )
+                skipped_count += 1
+                continue
+
+            # Deploy new model (with traffic_percentage=100, existing
+            # models are automatically set to 0% traffic)
+            logger.info(f"Deploying {model_name}...")
             deploy_model_vllm(
                 model_config=model_config,
                 service_account=service_account,
@@ -252,6 +279,13 @@ def deploy_models(
                 enforce_eager=enforce_eager,
                 guided_decoding_backend=guided_decoding_backend,
             )
+
+            # After successful deployment, undeploy old models
+            if old_deployed_model_ids:
+                logger.info(
+                    f"Undeploying {len(old_deployed_model_ids)} old model(s) from endpoint..."
+                )
+                undeploy_old_models(endpoint, old_deployed_model_ids)
 
             # Print deployment summary
             print(
@@ -265,7 +299,10 @@ def deploy_models(
             deployed_count += 1
 
         except Exception as e:
-            logger.error(f"❌ Failed to deploy {model_name}: {e}", exc_info=True)
+            logger.error(
+                f"Failed to deploy {model_name}: {e}",
+                exc_info=True,
+            )
             continue
 
     # Final summary
@@ -286,7 +323,7 @@ def main():
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Force deployment even if models are already deployed",
+        help="Perform rolling replacement if models are already deployed",
     )
     parser.add_argument("--enable-lora", action="store_true", help="Enable LoRA support")
     parser.add_argument("--enforce-eager", action="store_true", help="Enforce eager execution")
