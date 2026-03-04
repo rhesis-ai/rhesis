@@ -53,6 +53,7 @@ export interface TestOutput {
   // Single-turn fields
   output: string;
   context: string[];
+  metadata?: Record<string, unknown>;
   session_id: string;
 
   // Multi-turn (Penelope) fields

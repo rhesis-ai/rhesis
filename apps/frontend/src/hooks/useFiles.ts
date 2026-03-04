@@ -31,9 +31,9 @@ export function useFiles({ entityId, entityType, sessionToken }: UseFilesProps) 
       let fetched: FileResponse[];
       if (entityType === 'Test') {
         fetched = await filesClient.getTestFiles(entityId);
+      } else if (entityType === 'TestResult') {
+        fetched = await filesClient.getTestResultFiles(entityId);
       } else {
-        // For other entity types, use getFileMetadata per-file
-        // or add a dedicated endpoint. For now, default to empty.
         fetched = [];
       }
       setFiles(fetched);

@@ -107,6 +107,13 @@ export class FilesClient extends BaseApiClient {
     );
   }
 
+  /** List all files attached to a test result. */
+  async getTestResultFiles(testResultId: string): Promise<FileResponse[]> {
+    return this.fetch<FileResponse[]>(
+      `${API_ENDPOINTS.testResults}/${testResultId}/files`
+    );
+  }
+
   /** List all files attached to a trace span. */
   async getSpanFiles(spanDbId: string): Promise<FileResponse[]> {
     return this.fetch<FileResponse[]>(
