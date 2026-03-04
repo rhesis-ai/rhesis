@@ -642,7 +642,7 @@ export function ConnectionDialog({
                         ? 'The URL where Ollama is running (default: http://host.docker.internal:11434)'
                         : provider?.type_value === 'litellm_proxy'
                           ? 'The base URL of your LiteLLM Proxy server (default: http://0.0.0.0:4000)'
-                          :                       provider?.type_value === 'azure_ai'
+                          : provider?.type_value === 'azure_ai'
                             ? 'Your Azure AI inference endpoint URL (e.g. https://your-deployment.inference.ai.azure.com/)'
                             : provider?.type_value === 'azure'
                               ? 'Your Azure OpenAI endpoint URL (e.g. https://your-resource.openai.azure.com/)'
