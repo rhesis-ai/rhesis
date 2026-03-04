@@ -42,8 +42,9 @@ export class FilesClient extends BaseApiClient {
           detail = errorData.detail;
         } else if (Array.isArray(errorData.detail)) {
           detail = errorData.detail
-            .map((e: { msg?: string; loc?: unknown[] }) =>
-              e.msg ?? JSON.stringify(e)
+            .map(
+              (e: { msg?: string; loc?: unknown[] }) =>
+                e.msg ?? JSON.stringify(e)
             )
             .join('; ');
         }
@@ -102,9 +103,7 @@ export class FilesClient extends BaseApiClient {
 
   /** List all files attached to a test. */
   async getTestFiles(testId: string): Promise<FileResponse[]> {
-    return this.fetch<FileResponse[]>(
-      `${API_ENDPOINTS.tests}/${testId}/files`
-    );
+    return this.fetch<FileResponse[]>(`${API_ENDPOINTS.tests}/${testId}/files`);
   }
 
   /** List all files attached to a test result. */

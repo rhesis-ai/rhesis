@@ -249,9 +249,7 @@ export default function TestDetailOverviewTab({
                   },
                 }}
                 endIcon={
-                  <ArrowOutwardIcon
-                    sx={{ fontSize: theme.iconSizes.small }}
-                  />
+                  <ArrowOutwardIcon sx={{ fontSize: theme.iconSizes.small }} />
                 }
               >
                 Go to Test
@@ -339,13 +337,16 @@ export default function TestDetailOverviewTab({
                 onClick={() => setContextExpanded(!contextExpanded)}
               >
                 <Typography variant="subtitle2" fontWeight={600}>
-                  Context ({test.test_output.context.filter(item => item.trim()).length})
+                  Context (
+                  {test.test_output.context.filter(item => item.trim()).length})
                 </Typography>
                 <IconButton
                   size="small"
                   sx={{
                     padding: 0,
-                    transform: contextExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transform: contextExpanded
+                      ? 'rotate(180deg)'
+                      : 'rotate(0deg)',
                     transition: 'transform 0.2s',
                   }}
                 >
@@ -376,9 +377,7 @@ export default function TestDetailOverviewTab({
                           }}
                         >
                           <Typography variant="body2">•</Typography>
-                          <Box sx={{ flex: 1 }}>
-                            {renderTextContent(item)}
-                          </Box>
+                          <Box sx={{ flex: 1 }}>{renderTextContent(item)}</Box>
                         </Box>
                       );
                     })}
@@ -409,7 +408,9 @@ export default function TestDetailOverviewTab({
                   size="small"
                   sx={{
                     padding: 0,
-                    transform: metadataExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transform: metadataExpanded
+                      ? 'rotate(180deg)'
+                      : 'rotate(0deg)',
                     transition: 'transform 0.2s',
                   }}
                 >
@@ -502,7 +503,9 @@ export default function TestDetailOverviewTab({
                 size="small"
                 sx={{
                   padding: 0,
-                  transform: outputFilesExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transform: outputFilesExpanded
+                    ? 'rotate(180deg)'
+                    : 'rotate(0deg)',
                   transition: 'transform 0.2s',
                 }}
               >
@@ -816,7 +819,9 @@ export default function TestDetailOverviewTab({
               size="small"
               sx={{
                 padding: 0,
-                transform: outputFilesExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                transform: outputFilesExpanded
+                  ? 'rotate(180deg)'
+                  : 'rotate(0deg)',
                 transition: 'transform 0.2s',
               }}
             >

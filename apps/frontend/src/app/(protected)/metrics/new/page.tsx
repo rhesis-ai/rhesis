@@ -193,7 +193,10 @@ export default function NewMetricPage() {
 
     if (formData.score_type === SCORE_TYPES.CATEGORICAL) {
       if (!formData.categories || formData.categories.length < 2) return false;
-      if (!formData.passing_categories || formData.passing_categories.length < 1)
+      if (
+        !formData.passing_categories ||
+        formData.passing_categories.length < 1
+      )
         return false;
     }
 
@@ -466,26 +469,26 @@ export default function NewMetricPage() {
           step should be specific and actionable.
         </Typography>
         {formData.evaluation_steps?.map((step, index) => (
-            <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                label={`Step ${index + 1}`}
-                placeholder="Describe this evaluation step..."
-                value={step}
-                onChange={handleStepChange(index)}
-              />
-              <IconButton
-                onClick={() => removeStep(index)}
-                disabled={formData.evaluation_steps.length === 1}
-                sx={{ mt: 1 }}
-                color="error"
-              >
-                <DeleteIcon />
-              </IconButton>
-            </Box>
-          ))}
+          <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <TextField
+              fullWidth
+              multiline
+              rows={2}
+              label={`Step ${index + 1}`}
+              placeholder="Describe this evaluation step..."
+              value={step}
+              onChange={handleStepChange(index)}
+            />
+            <IconButton
+              onClick={() => removeStep(index)}
+              disabled={formData.evaluation_steps.length === 1}
+              sx={{ mt: 1 }}
+              color="error"
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Box>
+        ))}
         <Button startIcon={<AddIcon />} onClick={addStep} sx={{ mb: 3 }}>
           Add Step
         </Button>
@@ -522,31 +525,35 @@ export default function NewMetricPage() {
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {([SCORE_TYPES.NUMERIC, SCORE_TYPES.CATEGORICAL] as const).map(
               scoreType => {
-              const isSelected = formData.score_type === scoreType;
-              return (
-                <Chip
-                  key={scoreType}
-                  label={scoreType === SCORE_TYPES.NUMERIC ? 'Numeric' : 'Categorical'}
-                  clickable
-                  color={isSelected ? 'primary' : 'default'}
-                  variant={isSelected ? 'filled' : 'outlined'}
-                  onClick={() => {
-                    setFormData(prev => ({
-                      ...prev,
-                      score_type: scoreType,
-                    }));
-                  }}
-                  sx={{
-                    '&:hover': {
-                      backgroundColor: isSelected
-                        ? 'primary.dark'
-                        : 'action.hover',
-                    },
-                  }}
-                />
-              );
-            })}
-
+                const isSelected = formData.score_type === scoreType;
+                return (
+                  <Chip
+                    key={scoreType}
+                    label={
+                      scoreType === SCORE_TYPES.NUMERIC
+                        ? 'Numeric'
+                        : 'Categorical'
+                    }
+                    clickable
+                    color={isSelected ? 'primary' : 'default'}
+                    variant={isSelected ? 'filled' : 'outlined'}
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        score_type: scoreType,
+                      }));
+                    }}
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: isSelected
+                          ? 'primary.dark'
+                          : 'action.hover',
+                      },
+                    }}
+                  />
+                );
+              }
+            )}
           </Box>
         </Box>
 
@@ -782,7 +789,9 @@ export default function NewMetricPage() {
               : 'Select which test types this metric applies to (at least one required):'}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {([TEST_TYPES.SINGLE_TURN, TEST_TYPES.MULTI_TURN] as MetricScope[]).map(scope => {
+            {(
+              [TEST_TYPES.SINGLE_TURN, TEST_TYPES.MULTI_TURN] as MetricScope[]
+            ).map(scope => {
               const isSelected = formData.metric_scope.includes(scope);
 
               return (
@@ -948,40 +957,40 @@ export default function NewMetricPage() {
             {formData.evaluation_steps
               ?.filter(step => step.trim())
               .map((step, index) => (
-                  <Box
-                    key={index}
+                <Box
+                  key={index}
+                  sx={{
+                    p: 2,
+                    bgcolor: 'action.hover',
+                    borderRadius: theme.shape.borderRadius / 4,
+                    position: 'relative',
+                    pl: 4,
+                    border: 1,
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Typography
                     sx={{
-                      p: 2,
-                      bgcolor: 'action.hover',
-                      borderRadius: theme.shape.borderRadius / 4,
-                      position: 'relative',
-                      pl: 4,
-                      border: 1,
-                      borderColor: 'divider',
+                      position: 'absolute',
+                      left: 12,
+                      top: 12,
+                      color: 'text.secondary',
+                      fontWeight: 'bold',
+                      fontSize: theme.typography.body2.fontSize,
                     }}
                   >
-                    <Typography
-                      sx={{
-                        position: 'absolute',
-                        left: 12,
-                        top: 12,
-                        color: 'text.secondary',
-                        fontWeight: 'bold',
-                        fontSize: theme.typography.body2.fontSize,
-                      }}
-                    >
-                      {index + 1}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: 'text.primary',
-                      }}
-                    >
-                      {step}
-                    </Typography>
-                  </Box>
-                ))}
+                    {index + 1}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'text.primary',
+                    }}
+                  >
+                    {step}
+                  </Typography>
+                </Box>
+              ))}
           </Box>
         </Box>
 
@@ -1032,7 +1041,9 @@ export default function NewMetricPage() {
           </Typography>
           <Chip
             label={
-              formData.score_type === SCORE_TYPES.CATEGORICAL ? 'Categorical' : 'Numeric'
+              formData.score_type === SCORE_TYPES.CATEGORICAL
+                ? 'Categorical'
+                : 'Numeric'
             }
             color="primary"
             variant="filled"
@@ -1301,11 +1312,7 @@ export default function NewMetricPage() {
                   {isCreating ? 'Creating...' : 'Create Metric'}
                 </Button>
               ) : (
-                <Button
-                  variant="contained"
-                  onClick={handleNext}
-                  type="button"
-                >
+                <Button variant="contained" onClick={handleNext} type="button">
                   Next
                 </Button>
               )}

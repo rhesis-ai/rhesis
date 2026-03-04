@@ -47,7 +47,8 @@ export default function TestDetailConversationTab({
         });
         // Sort by start_time to align with turn order
         const sorted = [...response.traces].sort(
-          (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+          (a, b) =>
+            new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
         );
         setTraces(sorted);
       } catch {
@@ -64,10 +65,11 @@ export default function TestDetailConversationTab({
     const map = new Map<number, TraceSummary>();
     if (traces.length > 0) {
       const trace = traces[0];
-      const conversationTurns = test.test_output?.conversation_summary?.filter(
-        t => t.target_response
-      ) || [];
-      conversationTurns.forEach((turn) => {
+      const conversationTurns =
+        test.test_output?.conversation_summary?.filter(
+          t => t.target_response
+        ) || [];
+      conversationTurns.forEach(turn => {
         map.set(turn.turn, trace);
       });
     }

@@ -1,5 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
-import { FileResponse, FileEntityType } from '@/utils/api-client/interfaces/file';
+import {
+  FileResponse,
+  FileEntityType,
+} from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 
@@ -9,7 +12,11 @@ interface UseFilesProps {
   sessionToken: string;
 }
 
-export function useFiles({ entityId, entityType, sessionToken }: UseFilesProps) {
+export function useFiles({
+  entityId,
+  entityType,
+  sessionToken,
+}: UseFilesProps) {
   const [files, setFiles] = useState<FileResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

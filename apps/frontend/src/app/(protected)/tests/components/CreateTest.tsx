@@ -282,8 +282,9 @@ export default function CreateTest({
 
         // Helper function to validate UUID
         const isValidUUID = (str: string) =>
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-            .test(str);
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            str
+          );
 
         // Build payload for single-test creation
         const payload: TestCreatePayload = {
@@ -301,8 +302,7 @@ export default function CreateTest({
             : {}),
           ...(formData.status_id
             ? {
-                status: statuses.find(s => s.id === formData.status_id)
-                  ?.name,
+                status: statuses.find(s => s.id === formData.status_id)?.name,
               }
             : {}),
         };
@@ -313,11 +313,7 @@ export default function CreateTest({
         if (pendingFiles.length > 0) {
           try {
             const filesClient = apiFactory.getFilesClient();
-            await filesClient.uploadFiles(
-              pendingFiles,
-              createdTest.id,
-              'Test'
-            );
+            await filesClient.uploadFiles(pendingFiles, createdTest.id, 'Test');
           } catch (_uploadErr) {
             // Test was created — notify but don't block
             onError?.('Test created but file upload failed');
@@ -536,9 +532,7 @@ export default function CreateTest({
 
       <MultiFileUpload
         selectedFiles={pendingFiles}
-        onFilesSelect={files =>
-          setPendingFiles(prev => [...prev, ...files])
-        }
+        onFilesSelect={files => setPendingFiles(prev => [...prev, ...files])}
         onFileRemove={idx =>
           setPendingFiles(prev => prev.filter((_, i) => i !== idx))
         }

@@ -513,10 +513,13 @@ export default function FileImportDialog({
           <Chip
             label={TEST_TYPES.SINGLE_TURN}
             color={testType === TEST_TYPES.SINGLE_TURN ? 'primary' : 'default'}
-            variant={testType === TEST_TYPES.SINGLE_TURN ? 'filled' : 'outlined'}
+            variant={
+              testType === TEST_TYPES.SINGLE_TURN ? 'filled' : 'outlined'
+            }
             onClick={() => setTestType(TEST_TYPES.SINGLE_TURN)}
             sx={{
-              fontWeight: testType === TEST_TYPES.SINGLE_TURN ? 'bold' : 'normal',
+              fontWeight:
+                testType === TEST_TYPES.SINGLE_TURN ? 'bold' : 'normal',
             }}
           />
           <Chip
@@ -525,7 +528,8 @@ export default function FileImportDialog({
             variant={testType === TEST_TYPES.MULTI_TURN ? 'filled' : 'outlined'}
             onClick={() => setTestType(TEST_TYPES.MULTI_TURN)}
             sx={{
-              fontWeight: testType === TEST_TYPES.MULTI_TURN ? 'bold' : 'normal',
+              fontWeight:
+                testType === TEST_TYPES.MULTI_TURN ? 'bold' : 'normal',
             }}
           />
         </Stack>

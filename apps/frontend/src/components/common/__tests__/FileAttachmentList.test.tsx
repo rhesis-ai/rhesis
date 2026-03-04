@@ -32,9 +32,7 @@ describe('FileAttachmentList', () => {
 
   describe('rendering', () => {
     it('returns null when no files are provided', () => {
-      const { container } = render(
-        <FileAttachmentList {...defaultProps} />
-      );
+      const { container } = render(<FileAttachmentList {...defaultProps} />);
       expect(container.firstChild).toBeNull();
     });
 
@@ -198,9 +196,7 @@ describe('FileAttachmentList', () => {
         />
       );
 
-      await user.click(
-        screen.getByRole('button', { name: /delete file/i })
-      );
+      await user.click(screen.getByRole('button', { name: /delete file/i }));
 
       expect(onDelete).toHaveBeenCalledWith('file-to-delete');
     });

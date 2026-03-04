@@ -186,9 +186,13 @@ export default function FileAttachmentList({
             <ListItemButton
               dense
               onClick={() => handleDownload(file)}
-              sx={(theme: Theme) => ({ borderRadius: `${theme.shape.borderRadius}px` })}
+              sx={(theme: Theme) => ({
+                borderRadius: `${theme.shape.borderRadius}px`,
+              })}
             >
-              <ListItemIcon sx={(theme: Theme) => ({ minWidth: theme.spacing(6) })}>
+              <ListItemIcon
+                sx={(theme: Theme) => ({ minWidth: theme.spacing(6) })}
+              >
                 {isImage ? (
                   <AuthImage
                     fileId={file.id}

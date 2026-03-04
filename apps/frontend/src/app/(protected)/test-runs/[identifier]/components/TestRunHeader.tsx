@@ -323,9 +323,7 @@ export default function TestRunHeader({
           <SummaryCard
             title="Tests Executed"
             value={
-              totalExpected
-                ? `${stats.total}/${totalExpected}`
-                : stats.total
+              totalExpected ? `${stats.total}/${totalExpected}` : stats.total
             }
             subtitle={
               isMultiTurn

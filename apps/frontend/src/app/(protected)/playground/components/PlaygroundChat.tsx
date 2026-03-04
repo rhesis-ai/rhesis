@@ -111,7 +111,7 @@ export default function PlaygroundChat({
   ): Promise<FileAttachment[]> => {
     return Promise.all(
       files.map(
-        (file) =>
+        file =>
           new Promise<FileAttachment>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => {
@@ -152,14 +152,14 @@ export default function PlaygroundChat({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setStagedFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+      setStagedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
     }
     // Reset so the same file can be selected again
     e.target.value = '';
   };
 
   const handleRemoveStagedFile = (index: number) => {
-    setStagedFiles((prev) => prev.filter((_, i) => i !== index));
+    setStagedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleViewTrace = (traceId: string) => {
@@ -437,7 +437,10 @@ export default function PlaygroundChat({
               slotProps={{
                 input: {
                   startAdornment: (
-                    <InputAdornment position="start" sx={{ alignSelf: 'flex-end' }}>
+                    <InputAdornment
+                      position="start"
+                      sx={{ alignSelf: 'flex-end' }}
+                    >
                       <Tooltip title="Attach file">
                         <IconButton
                           size="small"

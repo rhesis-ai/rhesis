@@ -286,9 +286,7 @@ describe('FilesClient', () => {
     });
 
     it('sends Authorization header', async () => {
-      fetchMock.mockResolvedValue(
-        makeFetchResponse([]) as unknown as Response
-      );
+      fetchMock.mockResolvedValue(makeFetchResponse([]) as unknown as Response);
 
       await client.getTestFiles('test-1');
 

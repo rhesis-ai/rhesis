@@ -114,8 +114,7 @@ export default function MultiFileUpload({
         accepted.push(file);
       }
 
-      const errorMsg =
-        rejected.length > 0 ? rejected.join('. ') : null;
+      const errorMsg = rejected.length > 0 ? rejected.join('. ') : null;
       return { valid: accepted, errorMsg };
     },
     [
@@ -162,9 +161,7 @@ export default function MultiFileUpload({
     [disabled, handleIncoming]
   );
 
-  const handleFileInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       handleIncoming(Array.from(e.target.files));
     }
@@ -224,8 +221,7 @@ export default function MultiFileUpload({
             : 'Drag & drop or click to attach files'}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          Images, PDFs, or audio. Max {formatFileSize(maxFileSize)} per
-          file.
+          Images, PDFs, or audio. Max {formatFileSize(maxFileSize)} per file.
         </Typography>
       </Paper>
 
@@ -245,7 +241,9 @@ export default function MultiFileUpload({
                 </IconButton>
               }
             >
-              <ListItemIcon sx={(theme: Theme) => ({ minWidth: theme.spacing(4.5) })}>
+              <ListItemIcon
+                sx={(theme: Theme) => ({ minWidth: theme.spacing(4.5) })}
+              >
                 {getFileIcon(file.type)}
               </ListItemIcon>
               <ListItemText

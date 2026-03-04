@@ -21,17 +21,15 @@ describe('MultiFileUpload', () => {
       expect(
         screen.getByText('Drag & drop or click to attach files')
       ).toBeInTheDocument();
-      expect(
-        screen.getByText(/Images, PDFs, or audio/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Images, PDFs, or audio/)).toBeInTheDocument();
     });
 
     it('renders with disabled state', () => {
       render(<MultiFileUpload {...defaultProps} disabled />);
 
-      const dropZone = screen.getByText(
-        'Drag & drop or click to attach files'
-      ).closest('div[class*="MuiPaper"]');
+      const dropZone = screen
+        .getByText('Drag & drop or click to attach files')
+        .closest('div[class*="MuiPaper"]');
       expect(dropZone).toBeInTheDocument();
     });
 

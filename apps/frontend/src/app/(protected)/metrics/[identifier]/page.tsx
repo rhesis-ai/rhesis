@@ -522,24 +522,18 @@ export default function MetricDetailPage() {
 
   // Returns a stable ref callback for each step ID so React doesn't
   // detach/reattach the ref on re-renders (which causes focus loss).
-  const getStepRef = React.useCallback(
-    (stepId: string) => {
-      if (!stepRefCallbacks.current.has(stepId)) {
-        stepRefCallbacks.current.set(
-          stepId,
-          (el: HTMLTextAreaElement | null) => {
-            if (el) {
-              stepRefs.current.set(stepId, el);
-            } else {
-              stepRefs.current.delete(stepId);
-            }
-          }
-        );
-      }
-      return stepRefCallbacks.current.get(stepId)!;
-    },
-    []
-  );
+  const getStepRef = React.useCallback((stepId: string) => {
+    if (!stepRefCallbacks.current.has(stepId)) {
+      stepRefCallbacks.current.set(stepId, (el: HTMLTextAreaElement | null) => {
+        if (el) {
+          stepRefs.current.set(stepId, el);
+        } else {
+          stepRefs.current.delete(stepId);
+        }
+      });
+    }
+    return stepRefCallbacks.current.get(stepId)!;
+  }, []);
 
   // Helper function to populate refs with initial values when entering edit mode
   const populateFieldRefs = React.useCallback(
@@ -828,14 +822,16 @@ export default function MetricDetailPage() {
       const newStep = { id: `step-${Date.now()}-${prev.length}`, content: '' };
       return [...prev, newStep];
     });
-    textFieldsDirtyRef.current = true; setBlurRevision(c => c + 1);
+    textFieldsDirtyRef.current = true;
+    setBlurRevision(c => c + 1);
   }, []);
 
   const removeStep = React.useCallback((stepId: string) => {
     setStepsWithIds(prev => prev.filter(step => step.id !== stepId));
     stepRefs.current.delete(stepId);
     stepRefCallbacks.current.delete(stepId);
-    textFieldsDirtyRef.current = true; setBlurRevision(c => c + 1);
+    textFieldsDirtyRef.current = true;
+    setBlurRevision(c => c + 1);
   }, []);
 
   const [isDuplicating, setIsDuplicating] = React.useState(false);
@@ -1577,39 +1573,42 @@ export default function MetricDetailPage() {
                       one required):
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {([TEST_TYPES.SINGLE_TURN, TEST_TYPES.MULTI_TURN] as MetricScope[]).map(
-                        scope => {
-                          const currentScope =
-                            editData.metric_scope || metric.metric_scope || [];
-                          const isSelected = currentScope.includes(scope);
+                      {(
+                        [
+                          TEST_TYPES.SINGLE_TURN,
+                          TEST_TYPES.MULTI_TURN,
+                        ] as MetricScope[]
+                      ).map(scope => {
+                        const currentScope =
+                          editData.metric_scope || metric.metric_scope || [];
+                        const isSelected = currentScope.includes(scope);
 
-                          return (
-                            <Chip
-                              key={scope}
-                              label={scope}
-                              clickable
-                              color={isSelected ? 'primary' : 'default'}
-                              variant={isSelected ? 'filled' : 'outlined'}
-                              onClick={() => {
-                                const newScope = isSelected
-                                  ? currentScope.filter(s => s !== scope)
-                                  : [...currentScope, scope];
-                                setEditData(prev => ({
-                                  ...prev,
-                                  metric_scope: newScope as MetricScope[],
-                                }));
-                              }}
-                              sx={{
-                                '&:hover': {
-                                  backgroundColor: isSelected
-                                    ? 'primary.dark'
-                                    : 'action.hover',
-                                },
-                              }}
-                            />
-                          );
-                        }
-                      )}
+                        return (
+                          <Chip
+                            key={scope}
+                            label={scope}
+                            clickable
+                            color={isSelected ? 'primary' : 'default'}
+                            variant={isSelected ? 'filled' : 'outlined'}
+                            onClick={() => {
+                              const newScope = isSelected
+                                ? currentScope.filter(s => s !== scope)
+                                : [...currentScope, scope];
+                              setEditData(prev => ({
+                                ...prev,
+                                metric_scope: newScope as MetricScope[],
+                              }));
+                            }}
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: isSelected
+                                  ? 'primary.dark'
+                                  : 'action.hover',
+                              },
+                            }}
+                          />
+                        );
+                      })}
                     </Box>
                   </Box>
                 ) : (

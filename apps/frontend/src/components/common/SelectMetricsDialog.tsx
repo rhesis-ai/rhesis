@@ -19,7 +19,10 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import { AutoGraphIcon } from '@/components/icons';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import type { MetricDetail, MetricScope } from '@/utils/api-client/interfaces/metric';
+import type {
+  MetricDetail,
+  MetricScope,
+} from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
 
 interface SelectMetricsDialogProps {

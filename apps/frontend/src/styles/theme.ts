@@ -93,7 +93,8 @@ const getDesignTokens = (mode: PaletteMode) => ({
   },
   typography: {
     fontFamily: '"Be Vietnam Pro", "Roboto", "Helvetica", "Arial", sans-serif',
-    fontFamilyCode: '"SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", monospace',
+    fontFamilyCode:
+      '"SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", monospace',
     h1: {
       fontFamily: '"Sora", "Be Vietnam Pro", sans-serif',
       fontWeight: 600, // Semibold

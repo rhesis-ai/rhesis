@@ -91,7 +91,7 @@ export default function SpanDetailsPanel({
     const filesClient = new FilesClient(sessionToken);
     filesClient
       .getSpanFiles(span.id)
-      .then((files) => {
+      .then(files => {
         if (!cancelled) setSpanFiles(files);
       })
       .catch(() => {
@@ -418,10 +418,8 @@ export default function SpanDetailsPanel({
                 variant="outlined"
                 sx={{
                   mb: theme => theme.spacing(2),
-                  backgroundColor: theme =>
-                    theme.palette.grey[500] + '08',
-                  borderColor: theme =>
-                    theme.palette.grey[500] + '20',
+                  backgroundColor: theme => theme.palette.grey[500] + '08',
+                  borderColor: theme => theme.palette.grey[500] + '20',
                 }}
               >
                 <CardContent>

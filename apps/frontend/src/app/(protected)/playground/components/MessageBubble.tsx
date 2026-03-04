@@ -282,7 +282,7 @@ export default function MessageBubble({
                     size="small"
                     variant="outlined"
                     clickable
-                    onClick={(e) => {
+                    onClick={e => {
                       e.stopPropagation();
                       handleDownloadFile(
                         file.filename,
@@ -317,7 +317,7 @@ export default function MessageBubble({
                           cursor: 'pointer',
                           '&:hover': { opacity: 0.85 },
                         }}
-                        onClick={(e) => {
+                        onClick={e => {
                           e.stopPropagation();
                           handleDownloadFile(
                             file.filename,
@@ -334,7 +334,8 @@ export default function MessageBubble({
                             sx={{
                               maxWidth: '100%',
                               maxHeight: theme => theme.spacing(37.5),
-                              borderRadius: theme => `${theme.shape.borderRadius}px`,
+                              borderRadius: theme =>
+                                `${theme.shape.borderRadius}px`,
                             }}
                           />
                         </Tooltip>
@@ -354,7 +355,7 @@ export default function MessageBubble({
                         size="small"
                         variant="outlined"
                         clickable
-                        onClick={(e) => {
+                        onClick={e => {
                           e.stopPropagation();
                           handleDownloadFile(
                             file.filename,
