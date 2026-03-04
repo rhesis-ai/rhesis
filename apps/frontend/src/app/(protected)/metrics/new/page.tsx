@@ -455,11 +455,8 @@ export default function NewMetricPage() {
           Break down the evaluation process into clear, sequential steps. Each
           step should be specific and actionable.
         </Typography>
-        {formData.evaluation_steps?.map((step, index) => {
-          // Create stable key from step content and index
-          const stepKey = `step-${index}-${step.substring(0, 20).replace(/\s+/g, '-')}`;
-          return (
-            <Box key={stepKey} sx={{ display: 'flex', gap: 1, mb: 2 }}>
+        {formData.evaluation_steps?.map((step, index) => (
+            <Box key={index} sx={{ display: 'flex', gap: 1, mb: 2 }}>
               <TextField
                 fullWidth
                 required
@@ -479,8 +476,7 @@ export default function NewMetricPage() {
                 <DeleteIcon />
               </IconButton>
             </Box>
-          );
-        })}
+          ))}
         <Button startIcon={<AddIcon />} onClick={addStep} sx={{ mb: 3 }}>
           Add Step
         </Button>
@@ -877,12 +873,9 @@ export default function NewMetricPage() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {formData.evaluation_steps
               ?.filter(step => step.trim())
-              .map((step, index) => {
-                // Create stable key from step content
-                const stepKey = `preview-step-${index}-${step.substring(0, 30).replace(/\s+/g, '-')}`;
-                return (
+              .map((step, index) => (
                   <Box
-                    key={stepKey}
+                    key={index}
                     sx={{
                       p: 2,
                       bgcolor: 'action.hover',
@@ -914,8 +907,7 @@ export default function NewMetricPage() {
                       {step}
                     </Typography>
                   </Box>
-                );
-              })}
+                ))}
           </Box>
         </Box>
 
