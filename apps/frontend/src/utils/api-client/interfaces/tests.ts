@@ -83,6 +83,7 @@ export interface TestBase {
 }
 
 export interface TestCreate extends TestBase {
+  prompt_id?: UUID; // Optional when providing inline prompt
   behavior?: string;
   topic?: string;
   category?: string;

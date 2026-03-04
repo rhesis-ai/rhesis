@@ -4,9 +4,7 @@ import {
   SiGoogle,
   SiHuggingface,
   SiMeta,
-  SiMistralai,
   SiOllama,
-  SiOpenrouter,
   SiPerplexity,
   SiReplicate,
 } from '@icons-pack/react-simple-icons';
@@ -82,10 +80,10 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   huggingface: <SiHuggingface className="h-8 w-8" />,
   lmformatenforcer: <SiHuggingface className="h-8 w-8" />,
   meta_llama: <SiMeta className="h-8 w-8" />,
-  mistral: <SiMistralai className="h-8 w-8" />,
+  mistral: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   ollama: <SiOllama className="h-8 w-8" />,
   openai: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
-  openrouter: <SiOpenrouter className="h-8 w-8" />,
+  openrouter: <HubIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   perplexity: <SiPerplexity className="h-8 w-8" />,
   polyphemus: (
     <Image

@@ -43,7 +43,11 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Behavior } from '@/utils/api-client/interfaces/behavior';
 import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Category } from '@/utils/api-client/interfaces/category';
-import { TestBulkCreate, TestPromptCreate } from '@/utils/api-client/interfaces/tests';
+import {
+  TestBulkCreate,
+  TestCreate,
+  TestPromptCreate,
+} from '@/utils/api-client/interfaces/tests';
 import { UUID } from 'crypto';
 import { MultiTurnTestConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { TEST_TYPES, TYPE_NAMES } from '@/constants/test-types';
@@ -397,11 +401,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
           const rowFiles = pendingFilesMap[tc.id];
           if (rowFiles?.length) {
             try {
-              await filesClient.uploadFiles(
-                rowFiles,
-                created.id,
-                'Test'
-              );
+              await filesClient.uploadFiles(rowFiles, created.id, 'Test');
             } catch {
               uploadFailures++;
             }
@@ -428,8 +428,9 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
         });
       } else {
         // No files — use efficient bulk creation
-        const testsToCreate: TestBulkCreate[] =
-          nonEmptyTestCases.map(tc => buildBulkPayload(tc));
+        const testsToCreate: TestBulkCreate[] = nonEmptyTestCases.map(tc =>
+          buildBulkPayload(tc)
+        );
 
         await testsClient.createTestsBulk({
           tests: testsToCreate,
@@ -468,7 +469,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
   };
 
   /** Build payload for single createTest (returns ID for file upload). */
-  const buildTestPayload = (tc: TestCase) => {
+  const buildTestPayload = (tc: TestCase): TestCreate => {
     if (tc.testType === 'single_turn') {
       const prompt: TestPromptCreate = {
         content: tc.prompt,
@@ -618,7 +619,10 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
           Manual Test Writer
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Creating {testType === 'single_turn' ? TEST_TYPES.SINGLE_TURN : TEST_TYPES.MULTI_TURN}{' '}
+          Creating{' '}
+          {testType === 'single_turn'
+            ? TEST_TYPES.SINGLE_TURN
+            : TEST_TYPES.MULTI_TURN}{' '}
           Tests
         </Typography>
 
@@ -698,7 +702,9 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                           </TableCell>
                         </>
                       )}
-                      <TableCell sx={(theme) => ({ width: theme.spacing(7.5) })}>Files</TableCell>
+                      <TableCell sx={theme => ({ width: theme.spacing(7.5) })}>
+                        Files
+                      </TableCell>
                       <TableCell sx={{ width: 80 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
@@ -1132,9 +1138,7 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                           <Tooltip title="Attach files">
                             <IconButton
                               size="small"
-                              onClick={() =>
-                                setAttachDialogRowId(testCase.id)
-                              }
+                              onClick={() => setAttachDialogRowId(testCase.id)}
                               disabled={loading}
                             >
                               <Badge
@@ -1266,14 +1270,10 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             <Typography variant="h6">
               Attach Files to Test Case #
               {attachDialogRowId
-                ? testCases.findIndex(tc => tc.id === attachDialogRowId) +
-                  1
+                ? testCases.findIndex(tc => tc.id === attachDialogRowId) + 1
                 : ''}
             </Typography>
-            <IconButton
-              size="small"
-              onClick={() => setAttachDialogRowId(null)}
-            >
+            <IconButton size="small" onClick={() => setAttachDialogRowId(null)}>
               <CloseIcon />
             </IconButton>
           </Box>
@@ -1294,9 +1294,9 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
               onFileRemove={idx =>
                 setPendingFilesMap(prev => ({
                   ...prev,
-                  [attachDialogRowId]: (
-                    prev[attachDialogRowId] ?? []
-                  ).filter((_, i) => i !== idx),
+                  [attachDialogRowId]: (prev[attachDialogRowId] ?? []).filter(
+                    (_, i) => i !== idx
+                  ),
                 }))
               }
             />
