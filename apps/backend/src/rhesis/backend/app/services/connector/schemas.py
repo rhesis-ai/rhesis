@@ -1,8 +1,24 @@
 """Pydantic schemas for connector service."""
 
+import uuid
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+
+@dataclass(frozen=True)
+class WebSocketConnectionContext:
+    """Immutable context for an authenticated WebSocket connection.
+
+    Created at connection time from the authenticated user. The organization_id
+    and user_id cannot be overridden by subsequent messages — they are derived
+    solely from the authentication token.
+    """
+
+    connection_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    user_id: str = ""
+    organization_id: str = ""
 
 
 class FunctionMetadata(BaseModel):

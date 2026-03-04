@@ -24,6 +24,7 @@ from rhesis.backend.app.services.connector.schemas import (
     FunctionMetadata,
     MetricMetadata,
     RegisterMessage,
+    WebSocketConnectionContext,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,13 @@ class ConnectionManager:
 
         # Store active connections: {project_id:environment: WebSocket}
         self._connections: Dict[str, WebSocket] = {}
+
+        # Connection-id-based storage (Phase 1 bridge — will replace
+        # _connections in Phase 2)
+        self._ws_by_connection_id: Dict[str, WebSocket] = {}
+        self._contexts: Dict[str, WebSocketConnectionContext] = {}
+        # Reverse lookup: connection_id -> project:env key (set after register)
+        self._connection_project_key: Dict[str, str] = {}
 
         # Store function registries: {project_id:environment: [FunctionMetadata]}
         self._registries: Dict[str, List[FunctionMetadata]] = {}
@@ -117,60 +125,94 @@ class ConnectionManager:
         task.add_done_callback(log_exception)
         return task
 
-    async def connect(self, project_id: str, environment: str, websocket: WebSocket) -> None:
-        """
-        Register a new WebSocket connection.
+    async def connect(
+        self,
+        connection_id: str,
+        context: WebSocketConnectionContext,
+        websocket: WebSocket,
+    ) -> None:
+        """Register a new WebSocket connection by connection_id.
+
+        Stores the websocket and its immutable context. Redis routing for
+        project:environment is deferred until a ``register`` message is
+        received and authorized (Phase 2).
 
         Args:
-            project_id: Project identifier
-            environment: Environment name
-            websocket: WebSocket connection
+            connection_id: Unique identifier for this connection.
+            context: Immutable authentication context.
+            websocket: The accepted WebSocket.
+        """
+        self._ws_by_connection_id[connection_id] = websocket
+        self._contexts[connection_id] = context
+        logger.info(f"Connected: connection_id={connection_id}")
+
+    async def _connect_legacy(
+        self, project_id: str, environment: str, websocket: WebSocket
+    ) -> None:
+        """Legacy connect path keyed by project:environment.
+
+        Retained for internal callers that still use the old interface.
+        Will be removed in Phase 2.
         """
         key = self.get_connection_key(project_id, environment)
         self._connections[key] = websocket
-        logger.info(f"Connected: {key}")
+        logger.info(f"Connected (legacy): {key}")
 
-        # Store in Redis for worker visibility with short TTL and heartbeat
         if redis_manager.is_available:
             try:
                 redis_key = f"ws:connection:{key}"
-                # Use 30-second TTL - will be refreshed by heartbeat every 10 seconds
                 await redis_manager.client.setex(
                     redis_key,
-                    30,  # 30 seconds TTL - heartbeat will refresh
+                    30,
                     "active",
                 )
                 logger.debug(f"Stored connection in Redis: {redis_key}")
 
-                # Register this worker as handler for the connection (for direct routing)
                 await self._register_worker_for_connection(key)
 
-                # Start heartbeat task to keep Redis key alive
                 heartbeat_task = self._track_background_task(self._heartbeat_loop(key))
                 self._heartbeat_tasks[key] = heartbeat_task
             except Exception as e:
                 logger.error(f"Failed to store connection in Redis for {key}: {e}")
 
     def disconnect(self, project_id: str, environment: str) -> None:
-        """
-        Unregister a WebSocket connection.
+        """Unregister a WebSocket connection (legacy, keyed by project:env).
 
-        Args:
-            project_id: Project identifier
-            environment: Environment name
+        Will be removed in Phase 2.
         """
         key = self.get_connection_key(project_id, environment)
         logger.info(f"Disconnected: {key}")
 
-        # Perform local cleanup (sync)
         self._cleanup_local_connection(key)
 
-        # Schedule async Redis cleanup in background
         if redis_manager.is_available:
             try:
                 self._track_background_task(self._cleanup_redis_connection(key))
             except Exception as e:
                 logger.warning(f"Failed to schedule Redis cleanup for {key}: {e}")
+
+    def disconnect_by_connection_id(self, connection_id: str) -> None:
+        """Disconnect and clean up by connection_id.
+
+        Removes the connection from local state. If a project:env key was
+        associated (via registration), it also cleans up the legacy
+        ``_connections`` dict and Redis routing.
+        """
+        logger.info(f"Disconnected: connection_id={connection_id}")
+
+        # Clean up connection-id-based state
+        self._ws_by_connection_id.pop(connection_id, None)
+        self._contexts.pop(connection_id, None)
+
+        # If the connection was registered for a project:env, clean that up too
+        project_key = self._connection_project_key.pop(connection_id, None)
+        if project_key:
+            self._cleanup_local_connection(project_key)
+            if redis_manager.is_available:
+                try:
+                    self._track_background_task(self._cleanup_redis_connection(project_key))
+                except Exception as e:
+                    logger.warning(f"Failed to schedule Redis cleanup for {project_key}: {e}")
 
     def _cleanup_local_connection(self, key: str) -> None:
         """
@@ -722,37 +764,61 @@ class ConnectionManager:
 
     async def handle_message(
         self,
-        project_id: str,
-        environment: str,
-        message: Dict[str, Any],
+        connection_id: str = "",
+        message: Dict[str, Any] = None,
         db: Optional[Session] = None,
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,
+        *,
+        project_id: str = "",
+        environment: str = "",
     ) -> Optional[Dict[str, Any]]:
-        """
-        Handle incoming WebSocket message from SDK.
+        """Handle incoming WebSocket message from SDK.
 
-        Args:
-            project_id: Project identifier
-            environment: Environment name
-            message: Message data
-            db: Optional database session for registration
-            organization_id: Optional organization ID for metadata updates
-            user_id: Optional user ID for metadata updates
+        Called from the router with ``connection_id``. For ``register``
+        messages the project_id/environment are taken from the message
+        payload. For other messages they are resolved from the connection's
+        previously-registered project key.
+
+        The ``project_id`` / ``environment`` keyword-only args exist solely
+        for backward compatibility with internal callers (RPC handler) and
+        will be removed in Phase 2.
 
         Returns:
-            Response message to send back, or None if no response needed
+            Response message to send back, or None if no response needed.
         """
+        if message is None:
+            message = {}
+
         message_type = message.get("type")
-        logger.info(f"Processing message type: {message_type} from {project_id}:{environment}")
+
+        # Resolve project_id/environment from message or connection state
+        msg_project_id = project_id or message.get("project_id", "")
+        msg_environment = environment or message.get("environment", "")
+
+        if not msg_project_id and connection_id:
+            pk = self._connection_project_key.get(connection_id, "")
+            if pk and ":" in pk:
+                msg_project_id, msg_environment = pk.split(":", 1)
+
+        logger.info(
+            f"Processing message type: {message_type} "
+            f"from connection={connection_id or 'rpc'} "
+            f"({msg_project_id}:{msg_environment})"
+        )
 
         if message_type == "register":
-            # Update local function registry
-            await self.handle_registration(project_id, environment, message)
-            # Handle registration via message handler (includes DB updates)
+            reg_project_id = message.get("project_id", "")
+            reg_environment = message.get("environment", "")
+
+            # Bridge: store project:env association and populate legacy dicts
+            if connection_id and reg_project_id and reg_environment:
+                await self._bridge_registration(connection_id, reg_project_id, reg_environment)
+
+            await self.handle_registration(reg_project_id, reg_environment, message)
             return await message_handler.handle_register_message(
-                project_id=project_id,
-                environment=environment,
+                project_id=reg_project_id,
+                environment=reg_environment,
                 message=message,
                 db=db,
                 organization_id=organization_id,
@@ -760,13 +826,13 @@ class ConnectionManager:
             )
 
         elif message_type == "test_result":
-            # Resolve pending future if awaiting result
             test_run_id = message.get("test_run_id")
             if test_run_id:
                 self._resolve_test_result(test_run_id, message)
 
-            # Handle test result via message handler (logging, late validation updates, etc.)
-            await message_handler.handle_test_result_message(project_id, environment, message, db)
+            await message_handler.handle_test_result_message(
+                msg_project_id, msg_environment, message, db
+            )
             return None
 
         elif message_type == "metric_result":
@@ -776,13 +842,48 @@ class ConnectionManager:
             return None
 
         elif message_type == "pong":
-            # Handle pong via message handler
-            await message_handler.handle_pong_message(project_id, environment)
+            await message_handler.handle_pong_message(msg_project_id, msg_environment)
             return None
 
         else:
             logger.warning(f"Unknown message type: {message_type}")
             return None
+
+    async def _bridge_registration(
+        self,
+        connection_id: str,
+        project_id: str,
+        environment: str,
+    ) -> None:
+        """Bridge a registration into the legacy connection dicts.
+
+        Called during Phase 1 to keep the old ``_connections[project:env]``
+        dict populated so that existing dispatch code (send_test_request,
+        RPC handler, etc.) continues to work unchanged.
+
+        Will be removed in Phase 2 when routing is fully separated.
+        """
+        key = self.get_connection_key(project_id, environment)
+        self._connection_project_key[connection_id] = key
+
+        websocket = self._ws_by_connection_id.get(connection_id)
+        if not websocket:
+            return
+
+        # Populate legacy dict
+        self._connections[key] = websocket
+
+        # Set up Redis routing (same as old connect)
+        if redis_manager.is_available:
+            try:
+                redis_key = f"ws:connection:{key}"
+                await redis_manager.client.setex(redis_key, 30, "active")
+                await self._register_worker_for_connection(key)
+
+                heartbeat_task = self._track_background_task(self._heartbeat_loop(key))
+                self._heartbeat_tasks[key] = heartbeat_task
+            except Exception as e:
+                logger.error(f"Failed to store connection in Redis for {key}: {e}")
 
     async def _listen_for_rpc_requests(self) -> None:
         """
