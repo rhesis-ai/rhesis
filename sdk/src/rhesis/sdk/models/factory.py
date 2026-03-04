@@ -237,6 +237,9 @@ UNIFIED_MODEL_REGISTRY: Dict[str, Dict[ModelType, Union[_ProviderSpec, Callable]
     "together_ai": {
         ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.together_ai", "TogetherAILLM"),
     },
+    "litellm_proxy": {
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.litellm_proxy", "LiteLLMProxy"),
+    },
 }
 
 

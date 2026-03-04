@@ -10,6 +10,7 @@ from rhesis.sdk.models.factory import (
 )
 from rhesis.sdk.models.providers.gemini import GeminiEmbedder, GeminiLLM
 from rhesis.sdk.models.providers.litellm import LiteLLM
+from rhesis.sdk.models.providers.litellm_proxy import LiteLLMProxy
 from rhesis.sdk.models.providers.native import RhesisLLM
 from rhesis.sdk.models.providers.openai import OpenAIEmbedder, OpenAILLM
 from rhesis.sdk.models.providers.openrouter import OpenRouterLLM
@@ -38,6 +39,7 @@ __all__ = [
     "GeminiEmbedder",
     "GeminiLLM",
     "LiteLLM",
+    "LiteLLMProxy",
     "OpenAIEmbedder",
     "OpenAILLM",
     "OpenRouterLLM",

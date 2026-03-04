@@ -403,6 +403,11 @@
             "description": "Google Vertex AI"
         },
         {
+            "type_name": "ProviderType",
+            "type_value": "litellm_proxy",
+            "description": "LiteLLM Proxy for unified model access"
+        },
+        {
             "type_name": "MetricType",
             "type_value": "grading",
             "description": "LLM-based grading using rubrics or classification prompts"

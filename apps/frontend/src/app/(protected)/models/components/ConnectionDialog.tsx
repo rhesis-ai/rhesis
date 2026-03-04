@@ -36,6 +36,7 @@ import {
   DEFAULT_ENDPOINTS,
   PROVIDER_ICONS,
   LOCAL_PROVIDERS,
+  PROVIDERS_WITH_OPTIONAL_API_KEY,
 } from '@/config/model-providers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
@@ -106,6 +107,14 @@ export function ConnectionDialog({
       ? LOCAL_PROVIDERS.includes(model.provider_type.type_value)
       : provider
         ? LOCAL_PROVIDERS.includes(provider.type_value)
+        : false;
+
+  // Determine if this provider has an optional API key (e.g. self-hosted proxies)
+  const hasOptionalApiKey =
+    isEditMode && model?.provider_type
+      ? PROVIDERS_WITH_OPTIONAL_API_KEY.includes(model.provider_type.type_value)
+      : provider
+        ? PROVIDERS_WITH_OPTIONAL_API_KEY.includes(provider.type_value)
         : false;
 
   // Reset form when dialog opens
@@ -278,18 +287,26 @@ export function ConnectionDialog({
     const hasApiKey =
       apiKey && apiKey !== '************' && apiKey.trim().length > 0;
 
+    const currentHasOptionalApiKey = currentProvider
+      ? PROVIDERS_WITH_OPTIONAL_API_KEY.includes(currentProvider.type_value)
+      : false;
+
     if (
       !currentProvider ||
       !modelName ||
-      (!currentIsLocalProvider && !hasApiKey && !canUseStoredKey)
+      (!currentIsLocalProvider &&
+        !currentHasOptionalApiKey &&
+        !hasApiKey &&
+        !canUseStoredKey)
     ) {
       setTestResult({
         success: false,
-        message: currentIsLocalProvider
-          ? 'Please fill in provider and model name'
-          : canUseStoredKey
+        message:
+          currentIsLocalProvider || currentHasOptionalApiKey
             ? 'Please fill in provider and model name'
-            : 'Please fill in provider, model name, and API key',
+            : canUseStoredKey
+              ? 'Please fill in provider and model name'
+              : 'Please fill in provider, model name, and API key',
       });
       return;
     }
@@ -432,7 +449,7 @@ export function ConnectionDialog({
         provider &&
         name &&
         modelName &&
-        (isLocalProvider || apiKey) &&
+        (isLocalProvider || hasOptionalApiKey || apiKey) &&
         (!requiresEndpoint || endpoint);
 
       if (isValid && onConnect && provider) {
@@ -623,7 +640,9 @@ export function ConnectionDialog({
                     helperText={
                       provider?.type_value === 'ollama'
                         ? 'The URL where Ollama is running (default: http://host.docker.internal:11434)'
-                        : 'The base URL for your self-hosted model endpoint'
+                        : provider?.type_value === 'litellm_proxy'
+                          ? 'The base URL of your LiteLLM Proxy server (default: http://0.0.0.0:4000)'
+                          : 'The base URL for your self-hosted model endpoint'
                     }
                   />
                 )}
@@ -634,9 +653,11 @@ export function ConnectionDialog({
                     sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}
                   >
                     <TextField
-                      label="API Key"
+                      label={
+                        hasOptionalApiKey ? 'API Key (optional)' : 'API Key'
+                      }
                       fullWidth
-                      required={!isEditMode}
+                      required={!isEditMode && !hasOptionalApiKey}
                       type={showApiKey ? 'text' : 'password'}
                       value={apiKey}
                       onChange={e => setApiKey(e.target.value)}
@@ -657,9 +678,11 @@ export function ConnectionDialog({
                           ? apiKey !== '************' && apiKey !== ''
                             ? 'New API key will replace the current one'
                             : 'Click to update the API key'
-                          : isCustomProvider
-                            ? 'Authentication key for your deployment (if required)'
-                            : "Your API key from the model provider's dashboard"
+                          : hasOptionalApiKey
+                            ? 'Optional authentication key for the proxy server'
+                            : isCustomProvider
+                              ? 'Authentication key for your deployment (if required)'
+                              : "Your API key from the model provider's dashboard"
                       }
                       InputProps={{
                         endAdornment:
@@ -686,7 +709,8 @@ export function ConnectionDialog({
                       variant="outlined"
                       disabled={
                         !modelName ||
-                        ((!apiKey || apiKey === '************') &&
+                        (!hasOptionalApiKey &&
+                          (!apiKey || apiKey === '************') &&
                           !(isEditMode && model?.id)) ||
                         (requiresEndpoint && !endpoint) ||
                         testingConnection ||
@@ -908,13 +932,17 @@ export function ConnectionDialog({
               !name ||
               !modelName ||
               (!isEditMode && isCustomProvider && !providerName) ||
-              (!isEditMode && !isLocalProvider && !apiKey) ||
+              (!isEditMode &&
+                !isLocalProvider &&
+                !hasOptionalApiKey &&
+                !apiKey) ||
               (requiresEndpoint && !endpoint) ||
               (!isEditMode && !connectionTested) ||
               (isEditMode &&
                 !isLocalProvider &&
+                !hasOptionalApiKey &&
                 apiKey !== '************' &&
-                !connectionTested) || // Require test if key changed in edit mode (but not for local providers)
+                !connectionTested) ||
               loading
             }
             size="large"
