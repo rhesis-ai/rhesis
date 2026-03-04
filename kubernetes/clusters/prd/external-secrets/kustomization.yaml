@@ -10,7 +10,7 @@ configMapGenerator:
       - gcp-project-id=rhesis-dev-sandbox
       - eso-service-account-email=eso-prd@rhesis-dev-sandbox.iam.gserviceaccount.com
     options:
-      labels:
+      annotations:
         config.kubernetes.io/local-config: "true"
       disableNameSuffixHash: true
 
