@@ -288,7 +288,6 @@ export default function CreateTest({
 
         // Build payload for single-test creation
         const payload: TestCreatePayload = {
-          prompt_id: '' as UUID, // will be ignored; prompt obj is used
           prompt: promptData,
           behavior: behaviorName,
           category: categoryName,

@@ -65,7 +65,7 @@ export interface Organization {
 
 // Test interfaces
 export interface TestBase {
-  prompt_id: UUID;
+  prompt_id?: UUID;
   test_type_id?: UUID;
   priority?: number;
   user_id?: UUID;
@@ -83,7 +83,6 @@ export interface TestBase {
 }
 
 export interface TestCreate extends TestBase {
-  prompt_id?: UUID; // Optional when providing inline prompt
   behavior?: string;
   topic?: string;
   category?: string;
