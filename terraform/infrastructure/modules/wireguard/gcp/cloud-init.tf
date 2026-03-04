@@ -33,9 +33,31 @@ locals {
     ]])
   ))
 
+  # Collect all CIDRs that should be allowed to query BIND9
+  bind9_allow_query_cidrs = concat(
+    values(var.subnet_cidrs),
+    [var.wireguard_peer_cidr]
+  )
+
+  # Render BIND9 named.conf
+  bind9_named_conf = length(var.bind9_tsig_keys) > 0 ? templatefile(
+    "${path.module}/templates/named.conf.tpl", {
+      tsig_keys         = var.bind9_tsig_keys
+      allow_query_cidrs = local.bind9_allow_query_cidrs
+    }
+  ) : ""
+
+  # Render BIND9 zone file
+  bind9_zone_file = length(var.bind9_tsig_keys) > 0 ? templatefile(
+    "${path.module}/templates/rhesis.internal.zone.tpl", {}
+  ) : ""
+
   # Render cloud-init configuration (use base64 for binary/structured files to avoid YAML parsing issues)
   cloud_init = templatefile("${path.module}/templates/cloud-init.yaml.tpl", {
     wireguard_config_b64   = base64encode(local.wireguard_config)
     gke_routing_script_b64 = base64encode(local.gke_routing_script)
+    bind9_enabled          = length(var.bind9_tsig_keys) > 0
+    bind9_named_conf_b64   = base64encode(local.bind9_named_conf)
+    bind9_zone_file_b64    = base64encode(local.bind9_zone_file)
   })
 }

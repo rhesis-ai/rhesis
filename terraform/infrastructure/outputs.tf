@@ -65,6 +65,16 @@ output "external_dns_prd_secret_id" {
   value = module.external_dns_prd.cloudflare_api_token_secret_id
 }
 
+output "internal_dns_dev_tsig_key_secret_id" {
+  value = module.internal_dns_dev.tsig_key_secret_id
+}
+output "internal_dns_stg_tsig_key_secret_id" {
+  value = module.internal_dns_stg.tsig_key_secret_id
+}
+output "internal_dns_prd_tsig_key_secret_id" {
+  value = module.internal_dns_prd.tsig_key_secret_id
+}
+
 output "wireguard_public_ip" {
   description = "WireGuard server public IP"
   value       = module.wireguard_server.server_external_ip
