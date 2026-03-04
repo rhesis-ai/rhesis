@@ -10,6 +10,7 @@ import behaviorsFixture from '../fixtures/behaviors.json';
 import endpointsFixture from '../fixtures/endpoints.json';
 import tasksFixture from '../fixtures/tasks.json';
 import tokensFixture from '../fixtures/tokens.json';
+import tracesFixture from '../fixtures/traces.json';
 import projectDetailFixture from '../fixtures/project-detail.json';
 import knowledgeDetailFixture from '../fixtures/knowledge-detail.json';
 import testDetailFixture from '../fixtures/test-detail.json';
@@ -149,10 +150,14 @@ test('API Tokens — visual baseline @visual', async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
-// Pages that don't depend on list data (snapshot against live state)
+// Pages that need their own API mocks for stable baselines
 // ---------------------------------------------------------------------------
 
 test('Dashboard — visual baseline @visual', async ({ page }) => {
+  // Dashboard fetches test-runs and test-results for KPI widgets
+  const mock = new MockApiHelper(page);
+  await mock.mockList('/test_runs', testRunsFixture as any[]);
+  await mock.mockList('/test_results', testResultsFixture as any[]);
   await page.goto('/dashboard');
   await page.waitForLoadState('networkidle');
 
@@ -163,6 +168,9 @@ test('Dashboard — visual baseline @visual', async ({ page }) => {
 });
 
 test('Playground — visual baseline @visual', async ({ page }) => {
+  // Playground fetches the endpoints list for the selector dropdown
+  const mock = new MockApiHelper(page);
+  await mock.mockList('/endpoints', endpointsFixture as any[]);
   await page.goto('/playground');
   await page.waitForLoadState('networkidle');
 
@@ -173,6 +181,10 @@ test('Playground — visual baseline @visual', async ({ page }) => {
 });
 
 test('Test Results — visual baseline @visual', async ({ page }) => {
+  // Test Results dashboard fetches both test-results and test-runs
+  const mock = new MockApiHelper(page);
+  await mock.mockList('/test_results', testResultsFixture as any[]);
+  await mock.mockList('/test_runs', testRunsFixture as any[]);
   await page.goto('/test-results');
   await page.waitForLoadState('networkidle');
 
@@ -183,6 +195,9 @@ test('Test Results — visual baseline @visual', async ({ page }) => {
 });
 
 test('Traces — visual baseline @visual', async ({ page }) => {
+  // Traces page fetches telemetry/trace entries
+  const mock = new MockApiHelper(page);
+  await mock.mockList('/telemetry', tracesFixture as any[]);
   await page.goto('/traces');
   await page.waitForLoadState('networkidle');
 
@@ -193,21 +208,32 @@ test('Traces — visual baseline @visual', async ({ page }) => {
 });
 
 test('Org Settings — visual baseline @visual', async ({ page }) => {
+  // Org settings form loads from the session — no list endpoint to mock.
+  // Mask all input values so org-specific data doesn't break the baseline.
   await page.goto('/organizations/settings');
   await page.waitForLoadState('networkidle');
 
   await expect(page).toHaveScreenshot('org-settings.png', {
-    mask: getDynamicMasks(page),
+    mask: [
+      ...getDynamicMasks(page),
+      page.locator('input[type="text"]'),
+      page.locator('input[type="email"]'),
+    ],
     ...SNAPSHOT_OPTIONS,
   });
 });
 
 test('Org Team — visual baseline @visual', async ({ page }) => {
+  // Org team page loads members from the API — mask member rows so user-specific
+  // names/emails don't break the baseline.
   await page.goto('/organizations/team');
   await page.waitForLoadState('networkidle');
 
   await expect(page).toHaveScreenshot('org-team.png', {
-    mask: getDynamicMasks(page),
+    mask: [
+      ...getDynamicMasks(page),
+      page.locator('[role="row"]:not([aria-rowindex="1"])'),
+    ],
     ...SNAPSHOT_OPTIONS,
   });
 });

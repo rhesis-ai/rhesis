@@ -50,16 +50,19 @@ for (const route of perfRoutes) {
     const metrics = await measurePagePerf(page);
     const lcp = await measureLCP(page);
 
-    expect(metrics.ttfb, `${route.name} TTFB`).toBeLessThan(
-      PERF_THRESHOLDS.ttfb
-    );
-    expect(
-      metrics.domContentLoaded,
-      `${route.name} DomContentLoaded`
-    ).toBeLessThan(PERF_THRESHOLDS.domContentLoaded);
-    expect(metrics.load, `${route.name} Load`).toBeLessThan(
-      PERF_THRESHOLDS.load
-    );
+    // Navigation timing may be unavailable on redirect pages — skip gracefully
+    if (metrics !== null) {
+      expect(metrics.ttfb, `${route.name} TTFB`).toBeLessThan(
+        PERF_THRESHOLDS.ttfb
+      );
+      expect(
+        metrics.domContentLoaded,
+        `${route.name} DomContentLoaded`
+      ).toBeLessThan(PERF_THRESHOLDS.domContentLoaded);
+      expect(metrics.load, `${route.name} Load`).toBeLessThan(
+        PERF_THRESHOLDS.load
+      );
+    }
 
     // LCP of 0 means no LCP candidate was observed (e.g. on redirect pages)
     if (lcp > 0) {

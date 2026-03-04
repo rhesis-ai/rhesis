@@ -28,7 +28,8 @@ export default defineConfig({
       testMatch: /auth\.setup\.ts/,
     },
 
-    // Full test suite on Chromium (@sanity + @crud + @mocked)
+    // PR suite on Chromium: @sanity + @crud + @mocked only.
+    // Excludes @visual and @performance which are run on a nightly schedule.
     {
       name: 'chromium',
       use: {
@@ -36,6 +37,7 @@ export default defineConfig({
         storageState: 'tests/e2e/.auth/user.json',
       },
       dependencies: ['setup'],
+      grepInvert: /@visual|@performance/,
     },
 
     // Smoke-only run on Firefox — keeps cross-browser coverage fast

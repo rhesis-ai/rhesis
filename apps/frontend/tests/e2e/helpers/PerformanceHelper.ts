@@ -9,12 +9,20 @@ export interface PagePerfMetrics {
 /**
  * Measures standard navigation timing metrics for the currently loaded page.
  * Must be called after page.goto() and page.waitForLoadState('networkidle').
+ *
+ * Returns null if navigation timing data is unavailable (e.g. on redirect
+ * pages where the final URL differs from the navigated URL and the browser
+ * has not yet committed a new navigation entry).
  */
-export async function measurePagePerf(page: Page): Promise<PagePerfMetrics> {
+export async function measurePagePerf(
+  page: Page
+): Promise<PagePerfMetrics | null> {
   return page.evaluate(() => {
-    const nav = performance.getEntriesByType(
-      'navigation'
-    )[0] as PerformanceNavigationTiming;
+    const entries = performance.getEntriesByType('navigation');
+    if (entries.length === 0) {
+      return null;
+    }
+    const nav = entries[0] as PerformanceNavigationTiming;
     return {
       ttfb: nav.responseStart - nav.startTime,
       domContentLoaded: nav.domContentLoadedEventEnd - nav.startTime,
