@@ -230,11 +230,11 @@ export class BaseApiClient {
             };
             if (logLevel === 'error') {
               console.error(
-                `${logPrefix} [DEBUG] API Response Error:`,
+                `${logPrefix} API Response Error:`,
                 logData
               );
             } else {
-              console.warn(`${logPrefix} [DEBUG] API Response Error:`, logData);
+              console.warn(`${logPrefix} API Response Error:`, logData);
             }
           }
 
@@ -273,12 +273,12 @@ export class BaseApiClient {
             };
             if (logLevel === 'error') {
               console.error(
-                `${logPrefix} [DEBUG] Full error details:`,
+                `${logPrefix} Full error details:`,
                 errorDetails
               );
             } else {
               console.warn(
-                `${logPrefix} [DEBUG] Full error details:`,
+                `${logPrefix} Full error details:`,
                 errorDetails
               );
             }
