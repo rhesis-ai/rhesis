@@ -1,6 +1,7 @@
 """Trace creation for REST/WebSocket endpoint invocations."""
 
 import base64
+import json
 import logging
 import secrets
 from contextlib import asynccontextmanager
@@ -202,9 +203,9 @@ async def create_invocation_trace(
             # Truncate output for storage
             output = result.get("output")
             if output:
-                output_preview = str(output)[:1000]
-                attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW] = output_preview
-                attributes[EndpointAttributes.RESPONSE_SIZE] = len(str(output))
+                output_str = json.dumps(output) if isinstance(output, (dict, list)) else str(output)
+                attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW] = output_str[:1000]
+                attributes[EndpointAttributes.RESPONSE_SIZE] = len(output_str)
 
         # Inject mapped conversation I/O directly into span attributes.
         # This is possible because REST/WebSocket spans are created synchronously —
@@ -221,7 +222,10 @@ async def create_invocation_trace(
                     : ConversationConstants.MAX_IO_LENGTH
                 ]
         if result and isinstance(result, dict):
-            mapped_output = str(result.get("output", ""))
+            raw_output = result.get("output", "")
+            mapped_output = (
+                json.dumps(raw_output) if isinstance(raw_output, (dict, list)) else str(raw_output)
+            )
             if mapped_output:
                 attributes[EndpointAttributes.CONVERSATION_OUTPUT] = mapped_output[
                     : ConversationConstants.MAX_IO_LENGTH

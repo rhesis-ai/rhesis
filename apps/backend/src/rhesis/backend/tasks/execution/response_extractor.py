@@ -60,6 +60,9 @@ def extract_response_with_fallback(result: Union[Dict, Any]) -> str:
 
     # Check if we have a valid output
     if actual_response and str(actual_response).strip():
+        # Serialize dicts/lists as proper JSON instead of Python repr
+        if isinstance(actual_response, (dict, list)):
+            return json.dumps(actual_response)
         return str(actual_response)
 
     # No valid output found, try metadata fallback

@@ -1,6 +1,7 @@
 """SDK endpoint invoker for WebSocket-connected SDK functions."""
 
 import asyncio
+import json
 import os
 import uuid
 from typing import Any, Dict, Optional, Union
@@ -422,7 +423,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         the span's attributes when the SDK exports it to the telemetry ingest
         endpoint — before storage.
         """
-        mapped_output = str(mapped_response.get("output", "")) or None
+        raw_output = mapped_response.get("output", "")
+        if isinstance(raw_output, (dict, list)):
+            mapped_output = json.dumps(raw_output)
+        else:
+            mapped_output = str(raw_output) or None
         if result.get("trace_id") and endpoint.project_id and mapped_output:
             from rhesis.backend.app.services.telemetry.conversation_linking import (
                 register_pending_output,

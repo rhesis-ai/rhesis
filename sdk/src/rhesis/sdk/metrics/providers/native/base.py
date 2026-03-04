@@ -55,7 +55,10 @@ class JudgeBase(BaseMetric, SerializationMixin, BackendSyncMixin):
             raise ValueError("input must be a non-empty string")
 
         if not isinstance(output, str):
-            raise ValueError("output must be a string")
+            raise ValueError(
+                "output must be a string. For dict/list output, serialize with "
+                "json.dumps() before passing to evaluate()."
+            )
 
         if expected_output is None and self.requires_ground_truth is True:
             raise ValueError(f"{self.name} metric requires ground truth but none was provided")
