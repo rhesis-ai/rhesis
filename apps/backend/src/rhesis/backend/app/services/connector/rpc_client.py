@@ -58,9 +58,8 @@ class SDKRpcClient:
             return False
 
         try:
-            # Normalize environment to lowercase for consistent key lookup
             environment = environment.lower()
-            key = f"ws:connection:{project_id}:{environment}"
+            key = f"ws:routing:{project_id}:{environment}"
             exists = await self._redis.exists(key)
             return exists > 0
         except Exception as e:

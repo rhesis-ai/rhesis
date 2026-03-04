@@ -129,9 +129,11 @@ class ConnectionManager:
     ) -> None:
         """Register a new WebSocket connection.
 
-        Stores the websocket and its immutable context. Project routing
-        is set up later when a ``register`` message arrives and is
-        authorized against the connection context.
+        Stores the websocket and its immutable context.  A connection-level
+        Redis key (``ws:conn:{connection_id}``) is created immediately so
+        that other instances can discover this connection for non-project
+        scoped operations (e.g. metrics).  Project routing is set up later
+        when a ``register`` message arrives.
 
         Args:
             connection_id: Unique identifier for this connection.
@@ -141,15 +143,31 @@ class ConnectionManager:
         self._connections[connection_id] = websocket
         self._contexts[connection_id] = context
         self._connection_projects[connection_id] = set()
+
+        if redis_manager.is_available:
+            try:
+                await redis_manager.client.setex(f"ws:conn:{connection_id}", 30, self.worker_id)
+            except Exception as e:
+                logger.warning(f"Failed to set Redis conn key for {connection_id}: {e}")
+
+        heartbeat = self._track_background_task(self._heartbeat_loop(connection_id))
+        self._heartbeat_tasks[connection_id] = heartbeat
+
         logger.info(f"Connected: connection_id={connection_id}")
 
     def disconnect_by_connection_id(self, connection_id: str) -> None:
         """Disconnect and clean up all state for a connection.
 
-        Removes the connection from transport dicts and cleans up every
-        project:environment routing entry that was registered through it.
+        Cancels the heartbeat, removes the connection-level Redis key,
+        and cleans up every project:environment routing entry that was
+        registered through it.
         """
         logger.info(f"Disconnected: connection_id={connection_id}")
+
+        # Cancel the per-connection heartbeat first
+        heartbeat = self._heartbeat_tasks.pop(connection_id, None)
+        if heartbeat and not heartbeat.done():
+            heartbeat.cancel()
 
         self._connections.pop(connection_id, None)
         self._contexts.pop(connection_id, None)
@@ -157,11 +175,14 @@ class ConnectionManager:
         project_keys = self._connection_projects.pop(connection_id, set())
         for pk in project_keys:
             self._cleanup_project_routing(pk)
-            if redis_manager.is_available:
-                try:
-                    self._track_background_task(self._cleanup_redis_connection(pk))
-                except Exception as e:
-                    logger.warning(f"Failed to schedule Redis cleanup for {pk}: {e}")
+
+        if redis_manager.is_available:
+            try:
+                self._track_background_task(
+                    self._cleanup_redis_for_connection(connection_id, project_keys)
+                )
+            except Exception as e:
+                logger.warning(f"Failed to schedule Redis cleanup for {connection_id}: {e}")
 
     def _cleanup_project_routing(self, project_env_key: str) -> None:
         """Remove project:env routing and associated registries.
@@ -173,58 +194,58 @@ class ConnectionManager:
         self._registries.pop(project_env_key, None)
         self._metric_registries.pop(project_env_key, None)
 
-        if project_env_key in self._heartbeat_tasks:
-            heartbeat_task = self._heartbeat_tasks.pop(project_env_key)
-            if not heartbeat_task.done():
-                heartbeat_task.cancel()
+    async def _cleanup_redis_for_connection(self, connection_id: str, project_keys: set) -> None:
+        """Remove all Redis keys for a disconnected connection.
 
-    async def _cleanup_redis_connection(self, key: str) -> None:
-        """
-        Remove connection from Redis (async operations).
-
-        Removes both routing key (ws:routing:{key}) and connection key (ws:connection:{key}).
-
-        Args:
-            key: Connection key
+        Deletes the connection-level key and all project routing keys.
         """
         try:
-            # Unregister worker routing to prevent RPC requests to this worker
-            await self._unregister_worker_for_connection(key)
-
-            # Remove connection key
-            redis_key = f"ws:connection:{key}"
-            await redis_manager.client.delete(redis_key)
-            logger.debug(f"Removed connection from Redis: {redis_key}")
+            await redis_manager.client.delete(f"ws:conn:{connection_id}")
+            for pk in project_keys:
+                await redis_manager.client.delete(f"ws:routing:{pk}")
+            logger.debug(
+                f"Cleaned Redis for connection {connection_id} ({len(project_keys)} project key(s))"
+            )
         except Exception as e:
-            logger.warning(f"Failed to remove connection from Redis for {key}: {e}")
+            logger.warning(f"Failed to clean Redis for {connection_id}: {e}")
 
-    async def _heartbeat_loop(self, project_env_key: str) -> None:
-        """Periodically refresh Redis keys for a project:env routing entry.
+    async def _heartbeat_loop(self, connection_id: str) -> None:
+        """Refresh Redis keys for a connection and its project routes.
 
-        Args:
-            project_env_key: The ``project_id:environment`` routing key.
+        Runs every 10 s while the connection is alive.  Refreshes the
+        connection-level key (``ws:conn:{connection_id}``) and every
+        project routing key registered through this connection.
         """
-        connection_key = f"ws:connection:{project_env_key}"
-        routing_key = f"ws:routing:{project_env_key}"
-
         try:
-            while project_env_key in self._project_routing:
+            while connection_id in self._connections:
                 await asyncio.sleep(10)
 
-                if project_env_key not in self._project_routing:
+                if connection_id not in self._connections:
                     break
 
+                if not redis_manager.is_available:
+                    continue
+
                 try:
-                    await redis_manager.client.setex(connection_key, 30, "active")
-                    await redis_manager.client.setex(routing_key, 30, self.worker_id)
-                    logger.debug(f"Heartbeat refreshed for {project_env_key}")
+                    await redis_manager.client.setex(
+                        f"ws:conn:{connection_id}",
+                        30,
+                        self.worker_id,
+                    )
+                    for pk in self._connection_projects.get(connection_id, set()):
+                        await redis_manager.client.setex(
+                            f"ws:routing:{pk}",
+                            30,
+                            self.worker_id,
+                        )
+                    logger.debug(f"Heartbeat refreshed for {connection_id}")
                 except Exception as e:
-                    logger.warning(f"Heartbeat failed for {project_env_key}: {e}")
+                    logger.warning(f"Heartbeat failed for {connection_id}: {e}")
 
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            logger.error(f"Unexpected error in heartbeat loop for {project_env_key}: {e}")
+            logger.error(f"Unexpected error in heartbeat for {connection_id}: {e}")
 
     def register_functions(
         self, project_id: str, environment: str, functions: List[FunctionMetadata]
@@ -623,8 +644,8 @@ class ConnectionManager:
     async def is_connected(self, project_id: str, environment: str) -> bool:
         """Check if a project:environment has an active connection.
 
-        Checks local routing table first, then Redis for connections
-        on other instances.
+        Checks local routing table first, then the ``ws:routing:`` key
+        in Redis for connections on other instances.
         """
         key = self.get_connection_key(project_id, environment)
 
@@ -633,11 +654,10 @@ class ConnectionManager:
 
         if redis_manager.is_available:
             try:
-                redis_key = f"ws:connection:{key}"
-                exists = await redis_manager.client.exists(redis_key)
+                exists = await redis_manager.client.exists(f"ws:routing:{key}")
                 return exists > 0
             except Exception as e:
-                logger.warning(f"Failed to check Redis for connection {key}: {e}")
+                logger.warning(f"Failed to check Redis for routing {key}: {e}")
 
         return False
 
@@ -816,17 +836,13 @@ class ConnectionManager:
         self._project_routing[key] = connection_id
         self._connection_projects.setdefault(connection_id, set()).add(key)
 
-        # Set up Redis routing
+        # Set the project routing key in Redis; the per-connection
+        # heartbeat (started in connect()) will keep it alive.
         if redis_manager.is_available:
             try:
-                redis_key = f"ws:connection:{key}"
-                await redis_manager.client.setex(redis_key, 30, "active")
-                await self._register_worker_for_connection(key)
-
-                heartbeat_task = self._track_background_task(self._heartbeat_loop(key))
-                self._heartbeat_tasks[key] = heartbeat_task
+                await redis_manager.client.setex(f"ws:routing:{key}", 30, self.worker_id)
             except Exception as e:
-                logger.error(f"Failed to store connection in Redis for {key}: {e}")
+                logger.error(f"Failed to set Redis routing for {key}: {e}")
 
         return True
 
@@ -924,41 +940,6 @@ class ConnectionManager:
             logger.debug(f"Published error response for {request_id}")
         except Exception as e:
             logger.error(f"Failed to publish error response: {e}")
-
-    async def _register_worker_for_connection(self, connection_id: str) -> None:
-        """
-        Register this worker as handler for a connection.
-
-        Sets initial TTL to 30s, which is then refreshed by _heartbeat_loop
-        every 10 seconds to keep the routing alive for long-lived connections.
-
-        Args:
-            connection_id: Connection key (project_id:environment)
-        """
-        routing_key = f"ws:routing:{connection_id}"
-        try:
-            await redis_manager.client.setex(
-                routing_key,
-                30,  # 30s TTL, refreshed by heartbeat every 10s
-                self.worker_id,
-            )
-            logger.debug(f"Registered worker {self.worker_id} for connection {connection_id}")
-        except Exception as e:
-            logger.error(f"Failed to register worker for connection {connection_id}: {e}")
-
-    async def _unregister_worker_for_connection(self, connection_id: str) -> None:
-        """
-        Remove worker registration for a connection.
-
-        Args:
-            connection_id: Connection key (project_id:environment)
-        """
-        routing_key = f"ws:routing:{connection_id}"
-        try:
-            await redis_manager.client.delete(routing_key)
-            logger.debug(f"Unregistered worker for connection {connection_id}")
-        except Exception as e:
-            logger.warning(f"Failed to unregister worker for connection {connection_id}: {e}")
 
     async def _handle_rpc_request(self, request: Dict[str, Any]) -> None:
         """Handle RPC request from a Celery worker.
@@ -1059,7 +1040,10 @@ class ConnectionManager:
         self._cleanup_project_routing(project_env_key)
 
         if redis_manager.is_available:
-            await self._cleanup_redis_connection(project_env_key)
+            try:
+                await redis_manager.client.delete(f"ws:routing:{project_env_key}")
+            except Exception as e:
+                logger.warning(f"Failed to remove stale routing key: {e}")
 
 
 # Global connection manager instance
