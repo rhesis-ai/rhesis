@@ -30,6 +30,8 @@ DEFAULT_LANGUAGE_MODELS = {
     "replicate": "replicate/llama-2-70b-chat",
     "together_ai": "together_ai/togethercomputer/llama-2-70b-chat",
     "vertex_ai": "vertex_ai/gemini-2.0-flash",
+    "azure_ai": "azure_ai/command-r-plus",
+    "azure": "azure/gpt-4o",
 }
 
 # Per-provider default embedding models (full id: provider/name)

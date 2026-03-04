@@ -240,6 +240,12 @@ UNIFIED_MODEL_REGISTRY: Dict[str, Dict[ModelType, Union[_ProviderSpec, Callable]
     "litellm_proxy": {
         ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.litellm_proxy", "LiteLLMProxy"),
     },
+    "azure_ai": {
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.azure_ai", "AzureAILLM"),
+    },
+    "azure": {
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.azure_openai", "AzureOpenAILLM"),
+    },
 }
 
 
@@ -556,6 +562,8 @@ _LISTABLE_LLM_PROVIDERS: Dict[str, tuple[str, str]] = {
     "replicate": (f"{_PROVIDERS_MODULE}.replicate", "ReplicateLLM"),
     "together_ai": (f"{_PROVIDERS_MODULE}.together_ai", "TogetherAILLM"),
     "vertex_ai": (f"{_PROVIDERS_MODULE}.vertex_ai", "VertexAILLM"),
+    "azure_ai": (f"{_PROVIDERS_MODULE}.azure_ai", "AzureAILLM"),
+    "azure": (f"{_PROVIDERS_MODULE}.azure_openai", "AzureOpenAILLM"),
 }
 
 _LISTABLE_EMBEDDING_PROVIDERS: Dict[str, tuple[str, str]] = {

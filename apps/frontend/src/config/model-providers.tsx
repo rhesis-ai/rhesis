@@ -10,6 +10,7 @@ import {
   SiPerplexity,
   SiReplicate,
 } from '@icons-pack/react-simple-icons';
+import CloudIcon from '@mui/icons-material/Cloud';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import HubIcon from '@mui/icons-material/Hub';
 import Image from 'next/image';
@@ -43,6 +44,8 @@ export const SUPPORTED_PROVIDERS = [
   'lmformatenforcer',
   'meta_llama',
   'litellm_proxy',
+  'azure_ai',
+  'azure',
 ];
 
 export const LOCAL_PROVIDERS = ['huggingface', 'lmformatenforcer', 'ollama'];
@@ -56,6 +59,8 @@ export const PROVIDERS_REQUIRING_ENDPOINT = [
   'huggingface',
   'lmformatenforcer',
   'litellm_proxy',
+  'azure_ai',
+  'azure',
 ];
 
 // Default endpoints for providers that need them
@@ -107,6 +112,8 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   vertex_ai: <SiGoogle className="h-8 w-8" />,
   vllm: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   litellm_proxy: <HubIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  azure_ai: <CloudIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  azure: <CloudIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
 };
 
 // Provider information interface

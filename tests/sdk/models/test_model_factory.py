@@ -396,6 +396,60 @@ class TestAdditionalProviders:
         assert isinstance(result, BaseLLM)
         mock_cls.assert_called_once()
 
+    @patch("rhesis.sdk.models.providers.azure_ai.AzureAILLM")
+    def test_azure_ai_llm_creation(self, mock_cls):
+        """Azure AI LLM is created with correct args via shorthand."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_cls.return_value = mock_instance
+
+        result = get_model("azure_ai/command-r-plus", api_key="az-key")
+
+        mock_cls.assert_called_once_with(model_name="command-r-plus", api_key="az-key")
+        assert result == mock_instance
+
+    @patch("rhesis.sdk.models.providers.azure_ai.AzureAILLM")
+    def test_azure_ai_llm_explicit_type(self, mock_cls):
+        """Azure AI LLM creation with explicit model_type='language'."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_cls.return_value = mock_instance
+
+        result = get_model("azure_ai", "mistral-large-latest", model_type="language")
+
+        mock_cls.assert_called_once_with(model_name="mistral-large-latest", api_key=None)
+        assert result == mock_instance
+
+    def test_azure_ai_no_embedding_support(self):
+        """Azure AI provider does not support embedding model type."""
+        with pytest.raises(ValueError, match="does not support model type 'embedding'"):
+            get_model("azure_ai", "some-embedding", model_type="embedding")
+
+    @patch("rhesis.sdk.models.providers.azure_openai.AzureOpenAILLM")
+    def test_azure_openai_llm_creation(self, mock_cls):
+        """Azure OpenAI LLM is created with correct args via shorthand."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_cls.return_value = mock_instance
+
+        result = get_model("azure/my-gpt4-deployment", api_key="az-key")
+
+        mock_cls.assert_called_once_with(model_name="my-gpt4-deployment", api_key="az-key")
+        assert result == mock_instance
+
+    @patch("rhesis.sdk.models.providers.azure_openai.AzureOpenAILLM")
+    def test_azure_openai_llm_explicit_type(self, mock_cls):
+        """Azure OpenAI LLM creation with explicit model_type='language'."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_cls.return_value = mock_instance
+
+        result = get_model("azure", "gpt-4o", model_type="language")
+
+        mock_cls.assert_called_once_with(model_name="gpt-4o", api_key=None)
+        assert result == mock_instance
+
+    def test_azure_openai_no_embedding_support(self):
+        """Azure OpenAI provider does not support embedding model type."""
+        with pytest.raises(ValueError, match="does not support model type 'embedding'"):
+            get_model("azure", "text-embedding-ada-002", model_type="embedding")
+
 
 class TestModelTypeClassification:
     """Test ModelType enum and classification logic."""

@@ -1,7 +1,7 @@
-"""add_litellm_proxy_provider_type
+"""add_litellm_proxy_azure_ai_and_azure_openai_provider_types
 
-Adds 'litellm_proxy' as a new ProviderType to support LiteLLM Proxy
-for unified model access via OpenAI-compatible endpoints.
+Adds 'litellm_proxy', 'azure_ai', and 'azure' as new ProviderType entries
+to support LiteLLM Proxy, Azure AI Studio, and Azure OpenAI model access.
 
 Revision ID: a7b8c9d0e1f2
 Revises: aef6c47a8faa
@@ -26,14 +26,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Add 'litellm_proxy' provider type for LiteLLM Proxy unified model access."""
-    provider_type_values = (
+    """Add 'litellm_proxy', 'azure_ai', and 'azure' provider types."""
+    litellm_proxy_values = (
         "('ProviderType', 'litellm_proxy', 'LiteLLM Proxy for unified model access')"
     )
-    op.execute(load_type_lookup_template(provider_type_values))
+    op.execute(load_type_lookup_template(litellm_proxy_values))
+
+    azure_ai_values = "('ProviderType', 'azure_ai', 'Azure AI Studio model provider')"
+    op.execute(load_type_lookup_template(azure_ai_values))
+
+    azure_openai_values = "('ProviderType', 'azure', 'Azure OpenAI model provider')"
+    op.execute(load_type_lookup_template(azure_openai_values))
 
 
 def downgrade() -> None:
-    """Remove 'litellm_proxy' provider type from all organizations."""
-    provider_type_value = "'litellm_proxy'"
-    op.execute(load_cleanup_type_lookup_template("ProviderType", provider_type_value))
+    """Remove 'litellm_proxy', 'azure_ai', and 'azure' provider types."""
+    op.execute(load_cleanup_type_lookup_template("ProviderType", "'litellm_proxy'"))
+    op.execute(load_cleanup_type_lookup_template("ProviderType", "'azure_ai'"))
+    op.execute(load_cleanup_type_lookup_template("ProviderType", "'azure'"))
