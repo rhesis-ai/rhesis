@@ -141,7 +141,9 @@ export default function MarkdownContent({
           },
         }}
       >
-        {content}
+        {typeof content === 'string'
+          ? content
+          : '```json\n' + JSON.stringify(content, null, 2) + '\n```'}
       </Markdown>
     </Box>
   );
