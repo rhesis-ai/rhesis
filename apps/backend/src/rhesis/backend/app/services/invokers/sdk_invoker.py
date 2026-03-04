@@ -83,8 +83,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         from rhesis.backend.app.services.connector.manager import connection_manager
 
-        connection_key = connection_manager.get_connection_key(project_id, environment)
-        has_local_connection = connection_key in connection_manager._connections
+        has_local_connection = connection_manager.has_local_route(project_id, environment)
 
         # Determine invocation method:
         # - Workers: always use RPC (they never have WebSocket connections)

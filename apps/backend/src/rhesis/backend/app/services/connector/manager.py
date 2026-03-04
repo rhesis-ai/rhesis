@@ -46,15 +46,15 @@ class ConnectionManager:
         short_uuid = str(uuid.uuid4())[:8]  # First 8 chars sufficient for uniqueness
         self.worker_id = f"backend@{socket.gethostname()}-{short_uuid}"
 
-        # Store active connections: {project_id:environment: WebSocket}
+        # --- Transport layer (connection-id keyed) ---
         self._connections: Dict[str, WebSocket] = {}
-
-        # Connection-id-based storage (Phase 1 bridge — will replace
-        # _connections in Phase 2)
-        self._ws_by_connection_id: Dict[str, WebSocket] = {}
         self._contexts: Dict[str, WebSocketConnectionContext] = {}
-        # Reverse lookup: connection_id -> project:env key (set after register)
-        self._connection_project_key: Dict[str, str] = {}
+
+        # --- Routing layer (project:env keyed) ---
+        # Maps project:env -> connection_id for dispatch
+        self._project_routing: Dict[str, str] = {}
+        # Reverse: connection_id -> set of project:env keys
+        self._connection_projects: Dict[str, set] = {}
 
         # Store function registries: {project_id:environment: [FunctionMetadata]}
         self._registries: Dict[str, List[FunctionMetadata]] = {}
@@ -131,112 +131,56 @@ class ConnectionManager:
         context: WebSocketConnectionContext,
         websocket: WebSocket,
     ) -> None:
-        """Register a new WebSocket connection by connection_id.
+        """Register a new WebSocket connection.
 
-        Stores the websocket and its immutable context. Redis routing for
-        project:environment is deferred until a ``register`` message is
-        received and authorized (Phase 2).
+        Stores the websocket and its immutable context. Project routing
+        is set up later when a ``register`` message arrives and is
+        authorized against the connection context.
 
         Args:
             connection_id: Unique identifier for this connection.
             context: Immutable authentication context.
             websocket: The accepted WebSocket.
         """
-        self._ws_by_connection_id[connection_id] = websocket
+        self._connections[connection_id] = websocket
         self._contexts[connection_id] = context
+        self._connection_projects[connection_id] = set()
         logger.info(f"Connected: connection_id={connection_id}")
 
-    async def _connect_legacy(
-        self, project_id: str, environment: str, websocket: WebSocket
-    ) -> None:
-        """Legacy connect path keyed by project:environment.
-
-        Retained for internal callers that still use the old interface.
-        Will be removed in Phase 2.
-        """
-        key = self.get_connection_key(project_id, environment)
-        self._connections[key] = websocket
-        logger.info(f"Connected (legacy): {key}")
-
-        if redis_manager.is_available:
-            try:
-                redis_key = f"ws:connection:{key}"
-                await redis_manager.client.setex(
-                    redis_key,
-                    30,
-                    "active",
-                )
-                logger.debug(f"Stored connection in Redis: {redis_key}")
-
-                await self._register_worker_for_connection(key)
-
-                heartbeat_task = self._track_background_task(self._heartbeat_loop(key))
-                self._heartbeat_tasks[key] = heartbeat_task
-            except Exception as e:
-                logger.error(f"Failed to store connection in Redis for {key}: {e}")
-
-    def disconnect(self, project_id: str, environment: str) -> None:
-        """Unregister a WebSocket connection (legacy, keyed by project:env).
-
-        Will be removed in Phase 2.
-        """
-        key = self.get_connection_key(project_id, environment)
-        logger.info(f"Disconnected: {key}")
-
-        self._cleanup_local_connection(key)
-
-        if redis_manager.is_available:
-            try:
-                self._track_background_task(self._cleanup_redis_connection(key))
-            except Exception as e:
-                logger.warning(f"Failed to schedule Redis cleanup for {key}: {e}")
-
     def disconnect_by_connection_id(self, connection_id: str) -> None:
-        """Disconnect and clean up by connection_id.
+        """Disconnect and clean up all state for a connection.
 
-        Removes the connection from local state. If a project:env key was
-        associated (via registration), it also cleans up the legacy
-        ``_connections`` dict and Redis routing.
+        Removes the connection from transport dicts and cleans up every
+        project:environment routing entry that was registered through it.
         """
         logger.info(f"Disconnected: connection_id={connection_id}")
 
-        # Clean up connection-id-based state
-        self._ws_by_connection_id.pop(connection_id, None)
+        self._connections.pop(connection_id, None)
         self._contexts.pop(connection_id, None)
 
-        # If the connection was registered for a project:env, clean that up too
-        project_key = self._connection_project_key.pop(connection_id, None)
-        if project_key:
-            self._cleanup_local_connection(project_key)
+        project_keys = self._connection_projects.pop(connection_id, set())
+        for pk in project_keys:
+            self._cleanup_project_routing(pk)
             if redis_manager.is_available:
                 try:
-                    self._track_background_task(self._cleanup_redis_connection(project_key))
+                    self._track_background_task(self._cleanup_redis_connection(pk))
                 except Exception as e:
-                    logger.warning(f"Failed to schedule Redis cleanup for {project_key}: {e}")
+                    logger.warning(f"Failed to schedule Redis cleanup for {pk}: {e}")
 
-    def _cleanup_local_connection(self, key: str) -> None:
-        """
-        Remove connection from local state (sync operations only).
+    def _cleanup_project_routing(self, project_env_key: str) -> None:
+        """Remove project:env routing and associated registries.
 
         Args:
-            key: Connection key
+            project_env_key: The ``project_id:environment`` key.
         """
-        # Remove from connections dict
-        if key in self._connections:
-            del self._connections[key]
+        self._project_routing.pop(project_env_key, None)
+        self._registries.pop(project_env_key, None)
+        self._metric_registries.pop(project_env_key, None)
 
-        # Remove from registries
-        if key in self._registries:
-            del self._registries[key]
-        if key in self._metric_registries:
-            del self._metric_registries[key]
-
-        # Cancel heartbeat task if exists
-        if key in self._heartbeat_tasks:
-            heartbeat_task = self._heartbeat_tasks[key]
+        if project_env_key in self._heartbeat_tasks:
+            heartbeat_task = self._heartbeat_tasks.pop(project_env_key)
             if not heartbeat_task.done():
                 heartbeat_task.cancel()
-            del self._heartbeat_tasks[key]
 
     async def _cleanup_redis_connection(self, key: str) -> None:
         """
@@ -258,42 +202,33 @@ class ConnectionManager:
         except Exception as e:
             logger.warning(f"Failed to remove connection from Redis for {key}: {e}")
 
-    async def _heartbeat_loop(self, key: str) -> None:
-        """
-        Periodically refresh the connection and routing keys in Redis to keep them alive.
-
-        Refreshes both ws:connection:{key} and ws:routing:{key} to ensure the connection
-        remains active and routable for long-lived connections.
+    async def _heartbeat_loop(self, project_env_key: str) -> None:
+        """Periodically refresh Redis keys for a project:env routing entry.
 
         Args:
-            key: Connection key (project_id:environment)
+            project_env_key: The ``project_id:environment`` routing key.
         """
-        connection_key = f"ws:connection:{key}"
-        routing_key = f"ws:routing:{key}"
+        connection_key = f"ws:connection:{project_env_key}"
+        routing_key = f"ws:routing:{project_env_key}"
 
         try:
-            while key in self._connections:
-                # Wait 10 seconds between heartbeats (TTL is 30s, so plenty of margin)
+            while project_env_key in self._project_routing:
                 await asyncio.sleep(10)
 
-                # Check if connection still exists
-                if key not in self._connections:
+                if project_env_key not in self._project_routing:
                     break
 
-                # Refresh both Redis keys with same TTL
                 try:
                     await redis_manager.client.setex(connection_key, 30, "active")
                     await redis_manager.client.setex(routing_key, 30, self.worker_id)
-                    logger.debug(f"Heartbeat refreshed for {key}")
+                    logger.debug(f"Heartbeat refreshed for {project_env_key}")
                 except Exception as e:
-                    logger.warning(f"Heartbeat failed for {key}: {e}")
-                    # Continue trying - connection might still be valid
+                    logger.warning(f"Heartbeat failed for {project_env_key}: {e}")
 
         except asyncio.CancelledError:
-            # Task was cancelled (normal during disconnect)
             raise
         except Exception as e:
-            logger.error(f"Unexpected error in heartbeat loop for {key}: {e}")
+            logger.error(f"Unexpected error in heartbeat loop for {project_env_key}: {e}")
 
     def register_functions(
         self, project_id: str, environment: str, functions: List[FunctionMetadata]
@@ -325,6 +260,24 @@ class ConnectionManager:
         self._metric_registries[key] = metrics
         logger.info(f"Registered {len(metrics)} metric(s) for {key}")
 
+    def has_local_route(self, project_id: str, environment: str) -> bool:
+        """Check whether this instance has a local route for a project:env."""
+        key = self.get_connection_key(project_id, environment)
+        conn_id = self._project_routing.get(key)
+        return conn_id is not None and conn_id in self._connections
+
+    def _resolve_websocket(self, project_id: str, environment: str) -> Optional[WebSocket]:
+        """Resolve the WebSocket for a project:env via the routing table.
+
+        Returns None if no local connection is registered for this
+        project:environment.
+        """
+        key = self.get_connection_key(project_id, environment)
+        conn_id = self._project_routing.get(key)
+        if not conn_id:
+            return None
+        return self._connections.get(conn_id)
+
     async def send_test_request(
         self,
         project_id: str,
@@ -333,37 +286,30 @@ class ConnectionManager:
         function_name: str,
         inputs: Dict[str, Any],
     ) -> bool:
-        """
-        Send test execution request to SDK.
-
-        Args:
-            project_id: Project identifier
-            environment: Environment name
-            test_run_id: Test run identifier
-            function_name: Function to execute
-            inputs: Function inputs
+        """Send test execution request to SDK via project:env routing.
 
         Returns:
-            True if message sent successfully, False otherwise
+            True if message sent successfully, False otherwise.
         """
-        key = self.get_connection_key(project_id, environment)
-
-        if key not in self._connections:
-            # Don't log error here - this method is used for direct WebSocket calls only
-            # For RPC-based invocations, the connection may exist on another instance
-            logger.debug(f"No local WebSocket connection for {key} - may be on another instance")
+        websocket = self._resolve_websocket(project_id, environment)
+        if not websocket:
+            key = self.get_connection_key(project_id, environment)
+            logger.debug(f"No local WebSocket for {key} - may be on another instance")
             return False
 
-        websocket = self._connections[key]
         message = ExecuteTestMessage(
-            test_run_id=test_run_id, function_name=function_name, inputs=inputs
+            test_run_id=test_run_id,
+            function_name=function_name,
+            inputs=inputs,
         )
 
         try:
             await websocket.send_json(message.model_dump())
+            key = self.get_connection_key(project_id, environment)
             logger.info(f"Sent test request to {key}: {function_name}")
             return True
         except Exception as e:
+            key = self.get_connection_key(project_id, environment)
             logger.error(f"Error sending test request to {key}: {e}")
             return False
 
@@ -434,26 +380,17 @@ class ConnectionManager:
         metric_name: str,
         inputs: Dict[str, Any],
     ) -> bool:
-        """
-        Send metric execution request to SDK.
-
-        Args:
-            project_id: Project identifier
-            environment: Environment name
-            metric_run_id: Metric run identifier
-            metric_name: Metric to execute
-            inputs: Metric inputs (input, output, expected_output, context)
+        """Send metric execution request to SDK via project:env routing.
 
         Returns:
-            True if message sent successfully, False otherwise
+            True if message sent successfully, False otherwise.
         """
-        key = self.get_connection_key(project_id, environment)
-
-        if key not in self._connections:
-            logger.debug(f"No local WebSocket connection for {key} - may be on another instance")
+        websocket = self._resolve_websocket(project_id, environment)
+        if not websocket:
+            key = self.get_connection_key(project_id, environment)
+            logger.debug(f"No local WebSocket for {key} - may be on another instance")
             return False
 
-        websocket = self._connections[key]
         message = ExecuteMetricMessage(
             metric_run_id=metric_run_id,
             metric_name=metric_name,
@@ -462,9 +399,11 @@ class ConnectionManager:
 
         try:
             await websocket.send_json(message.model_dump())
+            key = self.get_connection_key(project_id, environment)
             logger.info(f"Sent metric request to {key}: {metric_name}")
             return True
         except Exception as e:
+            key = self.get_connection_key(project_id, environment)
             logger.error(f"Error sending metric request to {key}: {e}")
             return False
 
@@ -690,18 +629,9 @@ class ConnectionManager:
         logger.info(f"Cleaned up old cancelled metrics. Removed {removed_count} entries, kept 5000")
 
     def get_connection_status(self, project_id: str, environment: str) -> ConnectionStatus:
-        """
-        Get connection status for a project.
-
-        Args:
-            project_id: Project identifier
-            environment: Environment name
-
-        Returns:
-            Connection status
-        """
+        """Get connection status for a project:environment."""
         key = self.get_connection_key(project_id, environment)
-        connected = key in self._connections
+        connected = key in self._project_routing
         functions = self._registries.get(key, [])
 
         return ConnectionStatus(
@@ -712,27 +642,16 @@ class ConnectionManager:
         )
 
     async def is_connected(self, project_id: str, environment: str) -> bool:
-        """
-        Check if project is connected (checks both local connections and Redis).
+        """Check if a project:environment has an active connection.
 
-        In multi-instance deployments, the WebSocket might be connected to a different
-        backend instance. We check Redis first to see if ANY instance has the connection,
-        then fall back to checking local connections.
-
-        Args:
-            project_id: Project identifier
-            environment: Environment name
-
-        Returns:
-            True if connected (either locally or in another instance), False otherwise
+        Checks local routing table first, then Redis for connections
+        on other instances.
         """
         key = self.get_connection_key(project_id, environment)
 
-        # First check local connections (fast path)
-        if key in self._connections:
+        if key in self._project_routing:
             return True
 
-        # Check Redis for connections on other instances (multi-instance support)
         if redis_manager.is_available:
             try:
                 redis_key = f"ws:connection:{key}"
@@ -762,6 +681,18 @@ class ConnectionManager:
         except Exception as e:
             logger.error(f"Error handling registration: {e}")
 
+    def _resolve_project_for_connection(self, connection_id: str) -> tuple:
+        """Return (project_id, environment) for a registered connection.
+
+        Returns empty strings if the connection has no project routing.
+        """
+        project_keys = self._connection_projects.get(connection_id, set())
+        if project_keys:
+            pk = next(iter(project_keys))
+            if ":" in pk:
+                return pk.split(":", 1)
+        return ("", "")
+
     async def handle_message(
         self,
         connection_id: str = "",
@@ -769,20 +700,13 @@ class ConnectionManager:
         db: Optional[Session] = None,
         organization_id: Optional[str] = None,
         user_id: Optional[str] = None,
-        *,
-        project_id: str = "",
-        environment: str = "",
     ) -> Optional[Dict[str, Any]]:
         """Handle incoming WebSocket message from SDK.
 
-        Called from the router with ``connection_id``. For ``register``
-        messages the project_id/environment are taken from the message
-        payload. For other messages they are resolved from the connection's
-        previously-registered project key.
-
-        The ``project_id`` / ``environment`` keyword-only args exist solely
-        for backward compatibility with internal callers (RPC handler) and
-        will be removed in Phase 2.
+        For ``register`` messages the project_id/environment are taken
+        from the message payload and authorized against the connection's
+        immutable context. For other messages they are resolved from
+        the routing table.
 
         Returns:
             Response message to send back, or None if no response needed.
@@ -792,14 +716,11 @@ class ConnectionManager:
 
         message_type = message.get("type")
 
-        # Resolve project_id/environment from message or connection state
-        msg_project_id = project_id or message.get("project_id", "")
-        msg_environment = environment or message.get("environment", "")
+        msg_project_id = message.get("project_id", "")
+        msg_environment = message.get("environment", "")
 
         if not msg_project_id and connection_id:
-            pk = self._connection_project_key.get(connection_id, "")
-            if pk and ":" in pk:
-                msg_project_id, msg_environment = pk.split(":", 1)
+            msg_project_id, msg_environment = self._resolve_project_for_connection(connection_id)
 
         logger.info(
             f"Processing message type: {message_type} "
@@ -811,9 +732,21 @@ class ConnectionManager:
             reg_project_id = message.get("project_id", "")
             reg_environment = message.get("environment", "")
 
-            # Bridge: store project:env association and populate legacy dicts
             if connection_id and reg_project_id and reg_environment:
-                await self._bridge_registration(connection_id, reg_project_id, reg_environment)
+                authorized = await self._authorize_and_register(
+                    connection_id=connection_id,
+                    project_id=reg_project_id,
+                    environment=reg_environment,
+                    db=db,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
+                if not authorized:
+                    return {
+                        "type": "registered",
+                        "status": "error",
+                        "error": (f"Project {reg_project_id} not found or not accessible"),
+                    }
 
             await self.handle_registration(reg_project_id, reg_environment, message)
             return await message_handler.handle_register_message(
@@ -849,31 +782,62 @@ class ConnectionManager:
             logger.warning(f"Unknown message type: {message_type}")
             return None
 
-    async def _bridge_registration(
+    async def _authorize_and_register(
         self,
         connection_id: str,
         project_id: str,
         environment: str,
-    ) -> None:
-        """Bridge a registration into the legacy connection dicts.
+        db: Optional[Session] = None,
+        organization_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> bool:
+        """Authorize the project and add routing for this connection.
 
-        Called during Phase 1 to keep the old ``_connections[project:env]``
-        dict populated so that existing dispatch code (send_test_request,
-        RPC handler, etc.) continues to work unchanged.
+        Validates that the project exists and belongs to the connection's
+        organization (derived from the immutable authentication context,
+        not from the message). On success, populates the routing table
+        and sets up Redis keys.
 
-        Will be removed in Phase 2 when routing is fully separated.
+        Returns:
+            True if authorized and registered, False otherwise.
         """
+        context = self._contexts.get(connection_id)
+        if not context:
+            logger.error(f"No context for connection {connection_id}")
+            return False
+
+        # Authorization: use org/user from immutable connection context
+        auth_org_id = context.organization_id
+        auth_user_id = context.user_id
+
+        if db and auth_org_id and auth_user_id:
+            from uuid import UUID
+
+            from rhesis.backend.app import crud
+
+            try:
+                project_uuid = UUID(project_id)
+            except ValueError:
+                logger.error(f"Invalid project_id format: {project_id}")
+                return False
+
+            project = crud.get_project(db, project_uuid, auth_org_id, auth_user_id)
+            if not project:
+                logger.error(
+                    f"Project {project_id} not found or not accessible for org {auth_org_id}"
+                )
+                return False
+
+            logger.info(
+                f"Project authorized: {project.name} ({project_id}) for connection {connection_id}"
+            )
+
+        # Populate routing table
         key = self.get_connection_key(project_id, environment)
-        self._connection_project_key[connection_id] = key
+        self._project_routing[key] = connection_id
+        self._connection_projects.setdefault(connection_id, set()).add(key)
 
-        websocket = self._ws_by_connection_id.get(connection_id)
-        if not websocket:
-            return
-
-        # Populate legacy dict
-        self._connections[key] = websocket
-
-        # Set up Redis routing (same as old connect)
+        # Set up Redis routing
         if redis_manager.is_available:
             try:
                 redis_key = f"ws:connection:{key}"
@@ -884,6 +848,8 @@ class ConnectionManager:
                 self._heartbeat_tasks[key] = heartbeat_task
             except Exception as e:
                 logger.error(f"Failed to store connection in Redis for {key}: {e}")
+
+        return True
 
     async def _listen_for_rpc_requests(self) -> None:
         """
@@ -1016,18 +982,10 @@ class ConnectionManager:
             logger.warning(f"Failed to unregister worker for connection {connection_id}: {e}")
 
     async def _handle_rpc_request(self, request: Dict[str, Any]) -> None:
-        """
-        Handle RPC request from worker.
+        """Handle RPC request from a Celery worker.
 
-        With direct routing, this worker is guaranteed to have the connection.
-        If somehow the connection is missing, publish an error response.
-
-        Supports both test (execute_test) and metric (execute_metric) requests
-        via the ``request_type`` field.
-
-        Args:
-            request: RPC request with keys: request_id, project_id, environment,
-                    function_name/metric_name, inputs, and optional request_type
+        Resolves the WebSocket via the routing table and forwards the
+        request to the SDK.
         """
         request_id = request.get("request_id")
         project_id = request.get("project_id")
@@ -1039,8 +997,9 @@ class ConnectionManager:
         logger.debug(f"RPC request received: {request_id} - {name} (type={request_type})")
 
         key = self.get_connection_key(project_id, environment)
+        conn_id = self._project_routing.get(key)
 
-        if key not in self._connections:
+        if not conn_id or conn_id not in self._connections:
             logger.error(
                 f"Worker routing mismatch: received RPC for {key} but connection not found."
             )
@@ -1049,26 +1008,26 @@ class ConnectionManager:
             )
             return
 
+        websocket = self._connections[conn_id]
+
         if request_type == "execute_metric":
-            await self._forward_metric_to_sdk(request_id, key, name, inputs)
+            await self._forward_metric_to_sdk(request_id, key, websocket, name, inputs)
         else:
-            await self._forward_to_sdk(request_id, key, name, inputs)
+            await self._forward_to_sdk(request_id, key, websocket, name, inputs)
 
     async def _forward_to_sdk(
-        self, request_id: str, key: str, function_name: str, inputs: Dict[str, Any]
+        self,
+        request_id: str,
+        project_env_key: str,
+        websocket: WebSocket,
+        function_name: str,
+        inputs: Dict[str, Any],
     ) -> None:
-        """
-        Forward test RPC request to SDK via local WebSocket connection.
-
-        Args:
-            request_id: RPC request ID
-            key: Connection key
-            function_name: SDK function to invoke
-            inputs: Function inputs
-        """
-        websocket = self._connections[key]
+        """Forward test RPC request to SDK via WebSocket."""
         message = ExecuteTestMessage(
-            test_run_id=request_id, function_name=function_name, inputs=inputs
+            test_run_id=request_id,
+            function_name=function_name,
+            inputs=inputs,
         )
 
         try:
@@ -1076,28 +1035,22 @@ class ConnectionManager:
             await websocket.send_json(message.model_dump())
         except Exception as e:
             logger.error(f"Error forwarding RPC request {request_id}: {e}")
-            await self._cleanup_stale_connection(key)
+            await self._cleanup_stale_routing(project_env_key)
             await self._publish_error_response(
-                request_id, key, f"Failed to forward to WebSocket: {str(e)}"
+                request_id,
+                project_env_key,
+                f"Failed to forward to WebSocket: {e}",
             )
 
     async def _forward_metric_to_sdk(
         self,
         request_id: str,
-        key: str,
+        project_env_key: str,
+        websocket: WebSocket,
         metric_name: str,
         inputs: Dict[str, Any],
     ) -> None:
-        """
-        Forward metric RPC request to SDK via local WebSocket connection.
-
-        Args:
-            request_id: RPC request ID (used as metric_run_id)
-            key: Connection key
-            metric_name: SDK metric to invoke
-            inputs: Metric inputs (input, output, expected_output, context)
-        """
-        websocket = self._connections[key]
+        """Forward metric RPC request to SDK via WebSocket."""
         message = ExecuteMetricMessage(
             metric_run_id=request_id,
             metric_name=metric_name,
@@ -1109,31 +1062,25 @@ class ConnectionManager:
             await websocket.send_json(message.model_dump())
         except Exception as e:
             logger.error(f"Error forwarding metric RPC request {request_id}: {e}")
-            await self._cleanup_stale_connection(key)
+            await self._cleanup_stale_routing(project_env_key)
             await self._publish_error_response(
                 request_id,
-                key,
-                f"Failed to forward metric to WebSocket: {str(e)}",
+                project_env_key,
+                f"Failed to forward metric to WebSocket: {e}",
             )
 
-    async def _cleanup_stale_connection(self, key: str) -> None:
+    async def _cleanup_stale_routing(self, project_env_key: str) -> None:
+        """Remove stale project routing and associated Redis keys.
+
+        Called when a send fails, indicating the underlying connection
+        is broken.
         """
-        Remove stale connection from local state and Redis.
+        logger.warning(f"Removing stale routing: {project_env_key}")
 
-        Called when a connection is detected as stale (e.g., send failed).
-        Uses shared cleanup logic to ensure consistency with normal disconnect.
+        self._cleanup_project_routing(project_env_key)
 
-        Args:
-            key: Connection key
-        """
-        logger.warning(f"Removing stale WebSocket connection: {key}")
-
-        # Perform local cleanup (sync)
-        self._cleanup_local_connection(key)
-
-        # Perform Redis cleanup (async)
         if redis_manager.is_available:
-            await self._cleanup_redis_connection(key)
+            await self._cleanup_redis_connection(project_env_key)
 
 
 # Global connection manager instance
