@@ -392,7 +392,7 @@ export default function PlaygroundChat({
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+            accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
             style={{ display: 'none' }}
             onChange={handleFileSelect}
           />
