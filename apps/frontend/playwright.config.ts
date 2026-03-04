@@ -28,7 +28,7 @@ export default defineConfig({
       testMatch: /auth\.setup\.ts/,
     },
 
-    // Full test suite on Chromium (@sanity + @crud)
+    // Full test suite on Chromium (@sanity + @crud + @mocked)
     {
       name: 'chromium',
       use: {
@@ -47,6 +47,42 @@ export default defineConfig({
       },
       dependencies: ['setup'],
       grep: /@sanity/,
+    },
+
+    // API-mocked state tests — deterministic empty/populated/error scenarios
+    {
+      name: 'mocked',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
+      grep: /@mocked/,
+    },
+
+    // Visual regression — screenshot baseline comparisons (run nightly)
+    {
+      name: 'visual',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/e2e/.auth/user.json',
+        viewport: { width: 1280, height: 800 },
+      },
+      dependencies: ['setup'],
+      grep: /@visual/,
+      snapshotPathTemplate:
+        'tests/e2e/snapshots/{projectName}/{testFilePath}/{arg}{ext}',
+    },
+
+    // Performance threshold tests — LCP, TTFB, Load (run nightly)
+    {
+      name: 'performance',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
+      grep: /@performance/,
     },
   ],
 

@@ -1,13 +1,12 @@
-import { type Page, type Locator, expect } from '@playwright/test';
+import { type Page, expect } from '@playwright/test';
+import { BasePage } from './BasePage';
 
 /**
  * Page Object for the Dashboard page (/dashboard).
  */
-export class DashboardPage {
-  readonly heading: Locator;
-
-  constructor(private readonly page: Page) {
-    this.heading = page.getByRole('heading', { name: /dashboard/i });
+export class DashboardPage extends BasePage {
+  constructor(page: Page) {
+    super(page);
   }
 
   async goto() {
@@ -17,10 +16,21 @@ export class DashboardPage {
   /** Assert the dashboard page loaded successfully. */
   async expectLoaded() {
     await expect(this.page).toHaveURL(/\/dashboard/);
-    // The page should have rendered without a server error
-    await expect(this.page.locator('body')).not.toContainText(
-      'Internal Server Error'
-    );
+    await this.expectNoErrors();
+  }
+
+  /**
+   * Assert that the main content area has rendered content.
+   * The dashboard shows a spinner while loading, then KPI widgets + charts.
+   */
+  async expectContentVisible() {
+    await this.page.waitForLoadState('networkidle');
+    const mainContent = this.page.locator('main, [role="main"]').first();
+    await expect(mainContent).toBeVisible();
+
+    // Page body should have substantial content beyond just a spinner
+    const bodyText = await this.page.locator('body').innerText();
+    expect(bodyText.trim().length).toBeGreaterThan(20);
   }
 
   /**
@@ -28,10 +38,26 @@ export class DashboardPage {
    * Works for top-level sidebar items rendered by Toolpad's DashboardLayout.
    */
   async navigateTo(itemText: string) {
-    // Toolpad renders nav items as list item buttons inside the drawer
     const navItem = this.page
       .locator('nav')
       .getByRole('link', { name: itemText });
     await navItem.click();
+  }
+
+  /**
+   * Expand a parent nav item and click a child item.
+   * Used for nested navigation sections such as the Organization submenu.
+   */
+  async navigateToNested(parentText: string, childText: string) {
+    // The parent is a button (collapsible), not a link
+    const parent = this.page
+      .locator('nav')
+      .getByRole('button', { name: new RegExp(parentText, 'i') });
+    await parent.click();
+
+    const child = this.page
+      .locator('nav')
+      .getByRole('link', { name: childText });
+    await child.click();
   }
 }

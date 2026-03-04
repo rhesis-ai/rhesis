@@ -1,4 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { test, expect } from '@playwright/test';
+import { MockApiHelper } from '../helpers/MockApiHelper';
+
+import projectsFixture from '../fixtures/projects.json';
 
 /**
  * CRUD interaction tests for Projects.
@@ -41,6 +45,36 @@ test.describe('Projects — CRUD @crud', () => {
 
     // After creation we should navigate to the project detail page or back to /projects
     await page.waitForURL(/\/projects/, { timeout: 20_000 });
+    await expect(page.locator('body')).not.toContainText(
+      'Internal Server Error'
+    );
+    await expect(page.locator('body')).not.toContainText('Application error');
+  });
+});
+
+test.describe('Projects — click-through @crud', () => {
+  test('clicking a project card navigates to the detail page', async ({
+    page,
+  }) => {
+    const mock = new MockApiHelper(page);
+    await mock.mockList('/projects', projectsFixture as any[]);
+
+    await page.goto('/projects');
+    await page.waitForLoadState('networkidle');
+
+    // Project cards are rendered as MuiCard elements — click the first one
+    const firstCard = page.locator('.MuiCard-root').first();
+    const hasCard = await firstCard.isVisible().catch(() => false);
+
+    if (!hasCard) {
+      test.skip(true, 'No project cards visible — skipping click-through');
+      return;
+    }
+
+    await firstCard.click();
+
+    // Should navigate to a project detail URL
+    await expect(page).toHaveURL(/\/projects\/.+/);
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );

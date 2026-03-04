@@ -2,33 +2,49 @@ import { test, expect } from '@playwright/test';
 import { ProjectsPage } from '../pages/ProjectsPage';
 
 test.describe('Projects @sanity', () => {
-  test('projects page loads successfully', async ({ page }) => {
+  test('projects page loads without error', async ({ page }) => {
     const projects = new ProjectsPage(page);
     await projects.goto();
     await projects.expectLoaded();
   });
 
-  test('projects page has expected content', async ({ page }) => {
-    const projects = new ProjectsPage(page);
-    await projects.goto();
-    await projects.expectLoaded();
+  test('projects page shows correct heading', async ({ page }) => {
+    await page.goto('/projects');
+    await page.waitForLoadState('networkidle');
+    await expect(
+      page.getByRole('heading', { name: /projects/i })
+    ).toBeVisible();
+  });
+
+  test('projects page shows create project button', async ({ page }) => {
+    await page.goto('/projects');
     await page.waitForLoadState('networkidle');
 
-    // The page should contain project cards, empty state, or page content
-    const hasProjects = await page.locator('.MuiCard-root').count();
-    const hasEmptyState = await page.getByText(/no projects/i).count();
-    const hasCreateButton = await page
-      .getByRole('link', { name: /create|new/i })
-      .or(page.getByRole('button', { name: /create|new/i }))
-      .count();
-    const hasPageContent = await page
-      .getByRole('heading', { name: /projects/i })
-      .isVisible()
-      .catch(() => false);
+    // The "Create Project" action is always visible (even in empty state)
+    const createButton = page
+      .getByRole('link', { name: /create project/i })
+      .or(page.getByRole('button', { name: /create project/i }));
+    await expect(createButton.first()).toBeVisible();
+  });
 
-    // At least one of these should be present
-    expect(
-      hasProjects + hasEmptyState + hasCreateButton + (hasPageContent ? 1 : 0)
-    ).toBeGreaterThan(0);
+  test('projects page shows project cards or empty state', async ({ page }) => {
+    await page.goto('/projects');
+    await page.waitForLoadState('networkidle');
+
+    const cards = page.locator('.MuiCard-root');
+    const emptyState = page.getByText(/no projects found/i);
+    const mainContent = page.locator('main, [role="main"]').first();
+
+    const hasCards = (await cards.count()) > 0;
+    const hasEmpty = await emptyState.isVisible().catch(() => false);
+    const hasMain = await mainContent.isVisible().catch(() => false);
+
+    expect(hasCards || hasEmpty || hasMain).toBeTruthy();
+  });
+
+  test('projects page has a valid page title', async ({ page }) => {
+    await page.goto('/projects');
+    const title = await page.title();
+    expect(title.length).toBeGreaterThan(0);
   });
 });

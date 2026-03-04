@@ -23,6 +23,8 @@ const protectedRoutes = [
   { path: '/tasks', name: 'Tasks' },
   { path: '/endpoints', name: 'Endpoints' },
   { path: '/tokens', name: 'API Tokens' },
+  { path: '/organizations/settings', name: 'Org Settings' },
+  { path: '/organizations/team', name: 'Org Team' },
 ];
 
 test.describe('Page Smoke @sanity', () => {

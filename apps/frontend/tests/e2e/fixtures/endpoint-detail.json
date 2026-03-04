@@ -1,0 +1,9 @@
+{
+  "id": "f1a2b3c4-0006-0006-0006-000000000001",
+  "name": "Production GPT-4",
+  "description": "Production endpoint connected to GPT-4 for automated test execution.",
+  "url": "https://api.example.com/v1/chat",
+  "connection_type": "http",
+  "created_at": "2025-01-10T10:00:00Z",
+  "updated_at": "2025-01-30T12:00:00Z"
+}

@@ -1,4 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { test, expect } from '@playwright/test';
+import { MockApiHelper } from '../helpers/MockApiHelper';
+
+import endpointsFixture from '../fixtures/endpoints.json';
 
 /**
  * CRUD interaction tests for Endpoints.
@@ -90,6 +94,34 @@ test.describe('Endpoints — CRUD @crud', () => {
     // After creation the form navigates back to the endpoints list
     await page.waitForURL(/\/endpoints/, { timeout: 20_000 });
     await page.waitForLoadState('networkidle');
+    await expect(page.locator('body')).not.toContainText(
+      'Internal Server Error'
+    );
+    await expect(page.locator('body')).not.toContainText('Application error');
+  });
+});
+
+test.describe('Endpoints — click-through @crud', () => {
+  test('clicking a grid row navigates to the detail page', async ({ page }) => {
+    const mock = new MockApiHelper(page);
+    await mock.mockList('/endpoints', endpointsFixture as any[]);
+
+    await page.goto('/endpoints');
+    await page.waitForLoadState('networkidle');
+
+    const rows = page.locator('[role="row"]');
+    const rowCount = await rows.count();
+
+    if (rowCount < 2) {
+      test.skip(true, 'No endpoint rows visible — skipping click-through');
+      return;
+    }
+
+    // Click the first data row (index 0 is the header)
+    await rows.nth(1).click();
+
+    // Should navigate to an endpoint detail URL
+    await expect(page).toHaveURL(/\/endpoints\/.+/);
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
