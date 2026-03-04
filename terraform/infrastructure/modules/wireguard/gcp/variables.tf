@@ -114,3 +114,12 @@ variable "env_nics" {
   }))
   default = []
 }
+
+variable "bind9_tsig_keys" {
+  description = "TSIG keys for BIND9 dynamic update (env → {keyname, secret})"
+  type = map(object({
+    keyname = string
+    secret  = string
+  }))
+  default = {}
+}
