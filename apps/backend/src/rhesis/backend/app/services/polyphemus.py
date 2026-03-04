@@ -58,7 +58,7 @@ def request_access(
 
     # Already requested and pending
     settings_manager = db_user.settings
-    polyphemus = settings_manager.raw.get("polyphemus_access", {})
+    polyphemus = settings_manager.raw.get("polyphemus_access") or {}
     if polyphemus.get("requested_at") and not polyphemus.get("revoked_at"):
         return True, "Access request already submitted and pending review"
 
