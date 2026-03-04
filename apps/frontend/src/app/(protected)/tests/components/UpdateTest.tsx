@@ -377,7 +377,7 @@ export default function UpdateTest({
       const promptsClient = apiFactory.getPromptsClient();
 
       // First update the prompt if content has changed
-      if (formData.prompt_content !== test.prompt?.content) {
+      if (formData.prompt_content !== test.prompt?.content && test.prompt_id) {
         const promptUpdate: PromptUpdate = {
           content: formData.prompt_content.trim(),
           language_code: 'en', // Maintain existing language code

@@ -407,7 +407,7 @@ export default function TestDetailData({
           <TestExecutableField
             sessionToken={sessionToken}
             testId={test.id}
-            promptId={test.prompt_id}
+            promptId={test.prompt_id ?? ''}
             initialContent={test.prompt?.content || ''}
             onUpdate={refreshTest}
           />
@@ -430,7 +430,7 @@ export default function TestDetailData({
           <TestExecutableField
             sessionToken={sessionToken}
             testId={test.id}
-            promptId={test.prompt_id}
+            promptId={test.prompt_id ?? ''}
             initialContent={test.prompt?.expected_response || ''}
             onUpdate={refreshTest}
             fieldName="expected_response"
