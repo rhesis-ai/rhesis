@@ -122,8 +122,16 @@ export default function TestDetailOverviewTab({
   const [evidenceExpanded, setEvidenceExpanded] = useState(false);
   const [contextExpanded, setContextExpanded] = useState(false);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
+  const [filesExpanded, setFilesExpanded] = useState(false);
+  const [outputFilesExpanded, setOutputFilesExpanded] = useState(false);
 
-  const { files, isLoading: filesLoading } = useFiles({
+  const { files: testFiles, isLoading: testFilesLoading } = useFiles({
+    entityId: (test.test_id as string) || '',
+    entityType: 'Test',
+    sessionToken,
+  });
+
+  const { files: outputFiles, isLoading: outputFilesLoading } = useFiles({
     entityId: test.id as string,
     entityType: 'TestResult',
     sessionToken,
@@ -435,17 +443,79 @@ export default function TestDetailOverviewTab({
             </Box>
           )}
 
-        {/* Files Section */}
-        {(filesLoading || files.length > 0) && (
+        {/* Files Section (collapsible) */}
+        {(testFilesLoading || testFiles.length > 0) && (
           <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-              Files ({files.length})
-            </Typography>
-            <FileAttachmentList
-              files={files}
-              sessionToken={sessionToken}
-              isLoading={filesLoading}
-            />
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                cursor: 'pointer',
+                mb: 1,
+                '&:hover': { opacity: 0.7 },
+              }}
+              onClick={() => setFilesExpanded(!filesExpanded)}
+            >
+              <Typography variant="subtitle2" fontWeight={600}>
+                Files ({testFiles.length})
+              </Typography>
+              <IconButton
+                size="small"
+                sx={{
+                  padding: 0,
+                  transform: filesExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s',
+                }}
+              >
+                <ExpandMoreIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Box>
+            <Collapse in={filesExpanded} timeout="auto" unmountOnExit>
+              <FileAttachmentList
+                files={testFiles}
+                sessionToken={sessionToken}
+                isLoading={testFilesLoading}
+              />
+            </Collapse>
+          </Box>
+        )}
+
+        {/* Output Files Section (collapsible) */}
+        {(outputFilesLoading || outputFiles.length > 0) && (
+          <Box sx={{ mb: 3 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                cursor: 'pointer',
+                mb: 1,
+                '&:hover': { opacity: 0.7 },
+              }}
+              onClick={() => setOutputFilesExpanded(!outputFilesExpanded)}
+            >
+              <Typography variant="subtitle2" fontWeight={600}>
+                Output Files ({outputFiles.length})
+              </Typography>
+              <IconButton
+                size="small"
+                sx={{
+                  padding: 0,
+                  transform: outputFilesExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s',
+                }}
+              >
+                <ExpandMoreIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Box>
+            <Collapse in={outputFilesExpanded} timeout="auto" unmountOnExit>
+              <FileAttachmentList
+                files={outputFiles}
+                sessionToken={sessionToken}
+                isLoading={outputFilesLoading}
+              />
+            </Collapse>
           </Box>
         )}
 
@@ -684,6 +754,82 @@ export default function TestDetailOverviewTab({
           >
             {renderFormattedText(testConfig.scenario)}
           </Paper>
+        </Box>
+      )}
+
+      {/* Files Section (collapsible) */}
+      {(testFilesLoading || testFiles.length > 0) && (
+        <Box sx={{ mb: 3 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              cursor: 'pointer',
+              mb: 1,
+              '&:hover': { opacity: 0.7 },
+            }}
+            onClick={() => setFilesExpanded(!filesExpanded)}
+          >
+            <Typography variant="subtitle2" fontWeight={600}>
+              Files ({testFiles.length})
+            </Typography>
+            <IconButton
+              size="small"
+              sx={{
+                padding: 0,
+                transform: filesExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s',
+              }}
+            >
+              <ExpandMoreIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Box>
+          <Collapse in={filesExpanded} timeout="auto" unmountOnExit>
+            <FileAttachmentList
+              files={testFiles}
+              sessionToken={sessionToken}
+              isLoading={testFilesLoading}
+            />
+          </Collapse>
+        </Box>
+      )}
+
+      {/* Output Files Section (collapsible) */}
+      {(outputFilesLoading || outputFiles.length > 0) && (
+        <Box sx={{ mb: 3 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              cursor: 'pointer',
+              mb: 1,
+              '&:hover': { opacity: 0.7 },
+            }}
+            onClick={() => setOutputFilesExpanded(!outputFilesExpanded)}
+          >
+            <Typography variant="subtitle2" fontWeight={600}>
+              Output Files ({outputFiles.length})
+            </Typography>
+            <IconButton
+              size="small"
+              sx={{
+                padding: 0,
+                transform: outputFilesExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s',
+              }}
+            >
+              <ExpandMoreIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Box>
+          <Collapse in={outputFilesExpanded} timeout="auto" unmountOnExit>
+            <FileAttachmentList
+              files={outputFiles}
+              sessionToken={sessionToken}
+              isLoading={outputFilesLoading}
+            />
+          </Collapse>
         </Box>
       )}
     </Box>

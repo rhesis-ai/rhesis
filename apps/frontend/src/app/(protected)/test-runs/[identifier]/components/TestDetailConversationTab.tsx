@@ -1,13 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ConversationHistory from '@/components/common/ConversationHistory';
+import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
 
 interface TestDetailConversationTabProps {
   test: TestResultDetail;
   testSetType?: string;
+  sessionToken: string;
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
   onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
@@ -18,12 +22,71 @@ interface TestDetailConversationTabProps {
 export default function TestDetailConversationTab({
   test,
   testSetType,
+  sessionToken,
   project,
   projectName,
   onReviewTurn,
   onConfirmAutomatedReview,
   isConfirmingReview = false,
 }: TestDetailConversationTabProps) {
+  const [traces, setTraces] = useState<TraceSummary[]>([]);
+  const [traceDrawerOpen, setTraceDrawerOpen] = useState(false);
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
+
+  // Fetch traces for this test result
+  useEffect(() => {
+    if (!test.id || !sessionToken) return;
+
+    const fetchTraces = async () => {
+      try {
+        const factory = new ApiClientFactory(sessionToken);
+        const client = factory.getTelemetryClient();
+        const response = await client.listTraces({
+          test_result_id: test.id as string,
+          limit: 100,
+        });
+        // Sort by start_time to align with turn order
+        const sorted = [...response.traces].sort(
+          (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+        );
+        setTraces(sorted);
+      } catch {
+        // Silently fail — traces are optional
+      }
+    };
+
+    fetchTraces();
+  }, [test.id, sessionToken]);
+
+  // Map turn numbers to trace — multi-turn conversations share a single trace
+  // with each turn as a root span, so all turns map to the same trace
+  const turnTraceMap = useMemo(() => {
+    const map = new Map<number, TraceSummary>();
+    if (traces.length > 0) {
+      const trace = traces[0];
+      const conversationTurns = test.test_output?.conversation_summary?.filter(
+        t => t.target_response
+      ) || [];
+      conversationTurns.forEach((turn) => {
+        map.set(turn.turn, trace);
+      });
+    }
+    return map;
+  }, [traces, test.test_output?.conversation_summary]);
+
+  const projectId = traces[0]?.project_id || '';
+
+  const handleResponseClick = useCallback(
+    (turnNumber: number) => {
+      const trace = turnTraceMap.get(turnNumber);
+      if (trace) {
+        setSelectedTraceId(trace.trace_id);
+        setTraceDrawerOpen(true);
+      }
+    },
+    [turnTraceMap]
+  );
+
   // Determine if this is a multi-turn test
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
@@ -80,12 +143,20 @@ export default function TestDetailConversationTab({
         goalEvaluation={test.test_output?.goal_evaluation}
         project={project}
         projectName={projectName}
+        onResponseClick={traces.length > 0 ? handleResponseClick : undefined}
         onReviewTurn={onReviewTurn}
         onConfirmAutomatedReview={onConfirmAutomatedReview}
         hasExistingReview={!!test.last_review}
         reviewMatchesAutomated={test.matches_review === true}
         isConfirmingReview={isConfirmingReview}
         maxHeight="100%"
+      />
+      <TraceDrawer
+        open={traceDrawerOpen}
+        onClose={() => setTraceDrawerOpen(false)}
+        traceId={selectedTraceId}
+        projectId={projectId}
+        sessionToken={sessionToken}
       />
     </Box>
   );
