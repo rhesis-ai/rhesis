@@ -291,6 +291,34 @@ module "external_dns_prd" {
   depends_on = [module.eso_prd]
 }
 
+# Internal DNS — TSIG keys + GCP Secret Manager secrets for RFC2136
+module "internal_dns_dev" {
+  source = "./modules/internal-dns/gcp"
+
+  project_id  = var.project_id
+  environment = "dev"
+
+  depends_on = [module.eso_dev]
+}
+
+module "internal_dns_stg" {
+  source = "./modules/internal-dns/gcp"
+
+  project_id  = var.project_id
+  environment = "stg"
+
+  depends_on = [module.eso_stg]
+}
+
+module "internal_dns_prd" {
+  source = "./modules/internal-dns/gcp"
+
+  project_id  = var.project_id
+  environment = "prd"
+
+  depends_on = [module.eso_prd]
+}
+
 # WireGuard VPN server (multi-NIC: WireGuard VPC + one NIC per env for kubectl routing)
 # GCP allows max 2 vNICs for 2-or-fewer vCPUs; 4 vCPUs → 4 vNICs. So we need e2-standard-4.
 module "wireguard_server" {
@@ -307,6 +335,21 @@ module "wireguard_server" {
 
   subnet_cidrs = { for env, cidr in local.cidrs : env => cidr.network if env != "wireguard" }
   master_cidrs = { for env, cidr in local.cidrs : env => cidr.master if env != "wireguard" }
+
+  bind9_tsig_keys = {
+    dev = {
+      keyname = module.internal_dns_dev.tsig_keyname
+      secret  = module.internal_dns_dev.tsig_secret
+    }
+    stg = {
+      keyname = module.internal_dns_stg.tsig_keyname
+      secret  = module.internal_dns_stg.tsig_secret
+    }
+    prd = {
+      keyname = module.internal_dns_prd.tsig_keyname
+      secret  = module.internal_dns_prd.tsig_secret
+    }
+  }
 
   # Extra NICs in each env VPC so the server can forward kubectl traffic to GKE master
   env_nics = [
@@ -331,6 +374,9 @@ module "wireguard_server" {
     module.wireguard,
     google_compute_network_peering.wireguard_to_dev,
     google_compute_network_peering.wireguard_to_stg,
-    google_compute_network_peering.wireguard_to_prd
+    google_compute_network_peering.wireguard_to_prd,
+    module.internal_dns_dev,
+    module.internal_dns_stg,
+    module.internal_dns_prd
   ]
 }

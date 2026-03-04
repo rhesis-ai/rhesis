@@ -11,7 +11,7 @@ spec:
     path: kubernetes/clusters/stg
     directory:
       recurse: true
-      exclude: '{external-secrets/*,external-dns/*}'
+      exclude: '{external-secrets/*,external-dns/*,internal-dns/*}'
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
