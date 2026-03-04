@@ -62,18 +62,14 @@ class ConnectionManager:
         # Store metric registries: {project_id:environment: [MetricMetadata]}
         self._metric_registries: Dict[str, List[MetricMetadata]] = {}
 
-        # Store completed test results: {test_run_id: result_dict}
+        # --- Result layer ---
         self._test_results: Dict[str, Dict[str, Any]] = {}
-
-        # Store completed metric results: {metric_run_id: result_dict}
         self._metric_results: Dict[str, Dict[str, Any]] = {}
+        # Events for instant notification when results arrive
+        self._result_events: Dict[str, asyncio.Event] = {}
 
-        # Track cancelled/timed-out test runs to prevent storing late results
-        # Use OrderedDict to preserve insertion order for proper LRU cleanup
+        # Cancelled/timed-out run tracking (prevents storing late results)
         self._cancelled_tests: OrderedDict = OrderedDict()
-
-        # Track cancelled/timed-out metric runs to prevent storing late results
-        # Use OrderedDict to preserve insertion order for periodic trimming
         self._cancelled_metrics: OrderedDict = OrderedDict()
 
         # Track background tasks to prevent silent failures
@@ -322,55 +318,48 @@ class ConnectionManager:
         inputs: Dict[str, Any],
         timeout: float = 30.0,
     ) -> Dict[str, Any]:
-        """
-        Send test request and wait for result.
-
-        Args:
-            project_id: Project identifier
-            environment: Environment name
-            test_run_id: Test run identifier
-            function_name: Function to execute
-            inputs: Function inputs
-            timeout: Timeout in seconds (default: 30.0)
+        """Send test request and wait for the result using an asyncio.Event.
 
         Returns:
-            Result dictionary with one of:
-            - {"status": "success", "output": {...}, "duration_ms": float}
-            - {"status": "error", "error": str, "duration_ms": float}
-            - {"error": "send_failed", "details": str}
-            - {"error": "timeout"}
+            Result dictionary or an error dict on timeout / send failure.
         """
-        # Send the request
-        sent = await self.send_test_request(
-            project_id, environment, test_run_id, function_name, inputs
-        )
+        event = asyncio.Event()
+        self._result_events[test_run_id] = event
 
-        if not sent:
-            return {"error": "send_failed", "details": "Failed to send message to SDK"}
+        try:
+            sent = await self.send_test_request(
+                project_id,
+                environment,
+                test_run_id,
+                function_name,
+                inputs,
+            )
+            if not sent:
+                return {
+                    "error": "send_failed",
+                    "details": "Failed to send message to SDK",
+                }
 
-        # Wait for result with timeout
-        start_time = asyncio.get_event_loop().time()
-        poll_interval = 0.1  # Poll every 100ms
+            await asyncio.wait_for(event.wait(), timeout=timeout)
 
-        while True:
-            elapsed = asyncio.get_event_loop().time() - start_time
-
-            if elapsed > timeout:
-                # Mark as cancelled immediately to prevent race condition with late results
-                self.cleanup_test_result(test_run_id)
-                logger.error(f"Timeout waiting for SDK result: {test_run_id}")
-                return {"error": "timeout"}
-
-            # Check if result is available
-            result = self.get_test_result(test_run_id)
+            result = self._test_results.get(test_run_id)
             if result:
                 logger.debug(f"Received SDK result for {test_run_id}")
-                # Clean up after successful retrieval
                 self.cleanup_test_result(test_run_id)
                 return result
 
-            # Wait before next poll
-            await asyncio.sleep(poll_interval)
+            return {
+                "error": "send_failed",
+                "details": "Event fired but no result stored",
+            }
+
+        except asyncio.TimeoutError:
+            self.cleanup_test_result(test_run_id)
+            logger.error(f"Timeout waiting for SDK result: {test_run_id}")
+            return {"error": "timeout"}
+
+        finally:
+            self._result_events.pop(test_run_id, None)
 
     async def send_metric_request(
         self,
@@ -416,105 +405,91 @@ class ConnectionManager:
         inputs: Dict[str, Any],
         timeout: float = 30.0,
     ) -> Dict[str, Any]:
-        """
-        Send metric request and wait for result.
-
-        Args:
-            project_id: Project identifier
-            environment: Environment name
-            metric_run_id: Metric run identifier
-            metric_name: Metric to execute
-            inputs: Metric inputs (input, output, expected_output, context)
-            timeout: Timeout in seconds (default: 30.0)
+        """Send metric request and wait for the result using an asyncio.Event.
 
         Returns:
-            Result dictionary with one of:
-            - {"status": "success", "score": Any, "details": dict, ...}
-            - {"status": "error", "error": str, "duration_ms": float}
-            - {"error": "send_failed", "details": str}
-            - {"error": "timeout"}
+            Result dictionary or an error dict on timeout / send failure.
         """
-        sent = await self.send_metric_request(
-            project_id, environment, metric_run_id, metric_name, inputs
-        )
+        event = asyncio.Event()
+        self._result_events[metric_run_id] = event
 
-        if not sent:
-            return {
-                "error": "send_failed",
-                "details": "Failed to send metric message to SDK",
-            }
+        try:
+            sent = await self.send_metric_request(
+                project_id,
+                environment,
+                metric_run_id,
+                metric_name,
+                inputs,
+            )
+            if not sent:
+                return {
+                    "error": "send_failed",
+                    "details": "Failed to send metric message to SDK",
+                }
 
-        start_time = asyncio.get_event_loop().time()
-        poll_interval = 0.1
+            await asyncio.wait_for(event.wait(), timeout=timeout)
 
-        while True:
-            elapsed = asyncio.get_event_loop().time() - start_time
-
-            if elapsed > timeout:
-                self.cleanup_metric_result(metric_run_id)
-                logger.error(f"Timeout waiting for SDK metric result: {metric_run_id}")
-                return {"error": "timeout"}
-
-            result = self.get_metric_result(metric_run_id)
+            result = self._metric_results.get(metric_run_id)
             if result:
                 logger.debug(f"Received SDK metric result for {metric_run_id}")
                 self.cleanup_metric_result(metric_run_id)
                 return result
 
-            await asyncio.sleep(poll_interval)
+            return {
+                "error": "send_failed",
+                "details": "Event fired but no metric result stored",
+            }
+
+        except asyncio.TimeoutError:
+            self.cleanup_metric_result(metric_run_id)
+            logger.error(f"Timeout waiting for SDK metric result: {metric_run_id}")
+            return {"error": "timeout"}
+
+        finally:
+            self._result_events.pop(metric_run_id, None)
 
     def _resolve_test_result(self, test_run_id: str, result: Dict[str, Any]) -> None:
-        """
-        Store test result for synchronous retrieval.
-
-        Args:
-            test_run_id: Test run identifier
-            result: Test result data
-        """
-        # Check if test run was cancelled/timed out - don't store late results
+        """Store a test result and wake up any waiting coroutine."""
         if test_run_id in self._cancelled_tests:
             logger.warning(f"Ignoring late result for cancelled test run: {test_run_id}")
             return
 
         logger.info(
-            f"📨 Received test result from SDK: {test_run_id} "
+            f"Received test result from SDK: {test_run_id} "
             f"(status: {result.get('status', 'unknown')})"
         )
 
-        # Store result in memory for backend process
         self._test_results[test_run_id] = result
-        logger.info(f"💾 Stored result in memory for {test_run_id}")
 
-        # Also publish to Redis for workers
+        # Wake up the local waiter (instant notification)
+        event = self._result_events.get(test_run_id)
+        if event:
+            event.set()
+
+        # Publish to Redis for cross-instance waiters
         if redis_manager.is_available:
-            logger.info(f"📡 Redis available - publishing RPC response for {test_run_id}")
             try:
-                # Publish to response channel for RPC (tracked)
                 self._track_background_task(self._publish_rpc_response(test_run_id, result))
-                logger.info(f"✅ Scheduled RPC response publish task for {test_run_id}")
             except Exception as e:
-                logger.error(f"❌ Failed to schedule RPC response publish: {e}", exc_info=True)
-        else:
-            logger.warning(
-                f"⚠️  Redis NOT available - cannot publish RPC response for {test_run_id}"
-            )
+                logger.error(
+                    f"Failed to schedule RPC response publish: {e}",
+                    exc_info=True,
+                )
 
-    async def _publish_rpc_response(self, test_run_id: str, result: Dict[str, Any]) -> None:
-        """Publish RPC response to Redis (async helper)."""
+    async def _publish_rpc_response(self, run_id: str, result: Dict[str, Any]) -> None:
+        """Publish RPC response to Redis for cross-instance waiters."""
         try:
-            channel = f"ws:rpc:response:{test_run_id}"
-            json_payload = json.dumps(result)
-            logger.info(
-                f"📤 Publishing to channel: {channel} (payload size: {len(json_payload)} bytes)"
-            )
-            await redis_manager.client.publish(channel, json_payload)
-            logger.info(f"✅ Successfully published RPC response: {test_run_id}")
+            channel = f"ws:rpc:response:{run_id}"
+            await redis_manager.client.publish(channel, json.dumps(result))
+            logger.debug(f"Published RPC response: {run_id}")
         except Exception as e:
-            logger.error(f"❌ Failed to publish RPC response for {test_run_id}: {e}", exc_info=True)
+            logger.error(
+                f"Failed to publish RPC response for {run_id}: {e}",
+                exc_info=True,
+            )
 
     def _resolve_metric_result(self, metric_run_id: str, result: Dict[str, Any]) -> None:
-        """Store metric result for synchronous retrieval."""
-        # Check if metric run was cancelled/timed out - don't store late results
+        """Store a metric result and wake up any waiting coroutine."""
         if metric_run_id in self._cancelled_metrics:
             logger.warning(f"Ignoring late result for cancelled metric run: {metric_run_id}")
             return
@@ -524,6 +499,10 @@ class ConnectionManager:
             f"(status: {result.get('status', 'unknown')})"
         )
         self._metric_results[metric_run_id] = result
+
+        event = self._result_events.get(metric_run_id)
+        if event:
+            event.set()
 
         if redis_manager.is_available:
             try:
