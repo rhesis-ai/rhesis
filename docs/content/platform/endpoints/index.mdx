@@ -56,7 +56,7 @@ These variables are extracted from your API response using JSONPath or Jinja2 ex
 |---|---|---|
 | `output` | Yes | The main response text from your API. This is what Rhesis evaluates against your metrics. |
 | `context` | No | Additional context or reasoning provided by the response (e.g., retrieved documents, sources). |
-| `metadata` | No | Arbitrary metadata about the response (e.g., model version, token counts). Stored but not actively evaluated. |
+| `metadata` | No | Structured data about the response (e.g., model version, token counts, confidence scores). Stored with the test result and available to [custom metrics](/platform/metrics#using-metadata-in-evaluation) during evaluation. |
 | `tool_calls` | No | Tool or function call results returned by the API. |
 | Conversation ID fields | For conversational | Any of the recognized conversation identifiers: `conversation_id`, `session_id`, `thread_id`, `chat_id`, `dialog_id`, `dialogue_id`, `context_id`, `interaction_id`. Map one of these for both stateful and stateless multi-turn endpoints so Rhesis can track conversations across turns. |
 

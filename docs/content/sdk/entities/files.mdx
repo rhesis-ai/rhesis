@@ -1,0 +1,135 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Files
+
+Files are binary attachments (images, PDFs, audio) that can be associated with Tests and TestResults. They are managed through a dedicated upload API rather than the standard `push()` method.
+
+## File
+
+A `File` represents a binary attachment stored on the platform.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `id` | `str` | Unique identifier (assigned on upload) |
+| `filename` | `str` | Original file name |
+| `content_type` | `str` | MIME type (e.g., `image/png`) |
+| `size_bytes` | `int` | File size in bytes |
+| `description` | `str` | Optional description |
+| `entity_id` | `str` | ID of the parent entity |
+| `entity_type` | `str` | Parent type (`Test` or `TestResult`) |
+| `position` | `int` | Ordering position within the entity |
+
+### Limits
+
+- **Max file size:** 10 MB per file
+- **Max total per entity:** 20 MB
+- **Max files per request:** 10
+- **Allowed types:** images, PDFs, audio files
+
+## Uploading Files
+
+### Via Test Entity
+
+The simplest way to attach files is through the `Test` entity:
+
+<CodeBlock filename="test_with_files.py" language="python">
+{`from rhesis.sdk.entities import Test, Prompt
+
+# Attach files during creation
+test = Test(
+    category="Safety",
+    topic="Image Analysis",
+    behavior="Identifies harmful images",
+    prompt=Prompt(content="Describe this image"),
+    files=["./screenshot.png", "./document.pdf"],
+)
+
+# push() uploads the test, then uploads the files
+test.push()
+
+# Or add files to an existing test
+test.add_files(["./another_image.jpg"])`}
+</CodeBlock>
+
+### Via File.add()
+
+Use `File.add()` directly for more control:
+
+<CodeBlock filename="file_add.py" language="python">
+{`from rhesis.sdk.entities import File
+
+# Upload from file paths
+files = File.add(
+    sources=["./image.png", "./audio.wav"],
+    entity_id="test-uuid-here",
+    entity_type="Test",
+)
+
+print(f"Uploaded {len(files)} files")
+for f in files:
+    print(f"  {f.filename} ({f.size_bytes} bytes)")`}
+</CodeBlock>
+
+### Base64 Upload
+
+For programmatic uploads without local files:
+
+<CodeBlock filename="file_base64.py" language="python">
+{`from rhesis.sdk.entities import File
+
+files = File.add(
+    sources=[
+        {
+            "filename": "generated.png",
+            "content_type": "image/png",
+            "data": "<base64-encoded-content>",
+        }
+    ],
+    entity_id="test-uuid-here",
+    entity_type="Test",
+)`}
+</CodeBlock>
+
+## Downloading Files
+
+Download file content to a local directory:
+
+<CodeBlock filename="download_file.py" language="python">
+{`# Get files attached to a test
+files = test.get_files()
+
+for f in files:
+    path = f.download(directory="./downloads")
+    print(f"Saved: {path}")`}
+</CodeBlock>
+
+## Managing Files
+
+### Listing Files
+
+<CodeBlock filename="list_files.py" language="python">
+{`# Get all files for a test
+files = test.get_files()
+
+for f in files:
+    print(f"{f.filename} - {f.content_type} ({f.size_bytes} bytes)")`}
+</CodeBlock>
+
+### Deleting Files
+
+<CodeBlock filename="delete_file.py" language="python">
+{`# Delete via test helper
+test.delete_file(file_id="file-uuid-here")
+
+# Or delete directly
+file = files[0]
+file.delete()`}
+</CodeBlock>
+
+---
+
+<Callout type="default">
+  **Note** - `File.push()` is not supported. Use `File.add()` or `test.add_files()` to upload files.
+</Callout>
