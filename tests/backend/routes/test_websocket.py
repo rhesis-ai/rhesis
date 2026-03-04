@@ -219,30 +219,32 @@ class TestAuthenticateWebSocketToken:
 class TestMessageSizeLimits:
     """Security tests for WebSocket message size limits."""
 
+    # Use a small limit (1KB) for tests to avoid allocating huge payloads
+    TEST_MAX_SIZE = 1024
+
     def test_message_at_size_limit_accepted(
         self,
         authenticated_client: TestClient,
         mock_authenticate_token,
         mock_ws_manager,
     ):
-        """Test that messages at the 64KB limit are accepted."""
-        with authenticated_client.websocket_connect("/ws?token=valid_token") as ws:
-            # Receive connected message
-            ws.receive_json()
+        """Test that messages within the size limit are accepted."""
+        with patch("rhesis.backend.app.routers.websocket.MAX_MESSAGE_SIZE", self.TEST_MAX_SIZE):
+            with authenticated_client.websocket_connect("/ws?token=valid_token") as ws:
+                # Receive connected message
+                ws.receive_json()
 
-            # Create a message close to but within the limit
-            # 64KB = 65536 bytes
-            # We need to account for JSON overhead
-            payload_size = 60000  # Leave room for JSON structure
-            message = {
-                "type": "ping",
-                "payload": {"data": "x" * payload_size},
-            }
+                # Create a message within the limit
+                payload_size = 500  # Well within 1KB
+                message = {
+                    "type": "ping",
+                    "payload": {"data": "x" * payload_size},
+                }
 
-            # Send message - should be accepted
-            ws.send_json(message)
+                # Send message - should be accepted
+                ws.send_json(message)
 
-            # Connection should remain open (no exception)
+                # Connection should remain open (no exception)
 
     def test_oversized_message_rejected(
         self,
@@ -250,25 +252,26 @@ class TestMessageSizeLimits:
         mock_authenticate_token,
         mock_ws_manager,
     ):
-        """Test that messages exceeding 64KB are rejected."""
-        with authenticated_client.websocket_connect("/ws?token=valid_token") as ws:
-            # Receive connected message
-            ws.receive_json()
+        """Test that messages exceeding the size limit are rejected."""
+        with patch("rhesis.backend.app.routers.websocket.MAX_MESSAGE_SIZE", self.TEST_MAX_SIZE):
+            with authenticated_client.websocket_connect("/ws?token=valid_token") as ws:
+                # Receive connected message
+                ws.receive_json()
 
-            # Create an oversized message (> 64KB)
-            payload_size = 70000  # Clearly over 64KB
-            message = {
-                "type": "ping",
-                "payload": {"data": "x" * payload_size},
-            }
+                # Create an oversized message (> 1KB test limit)
+                payload_size = 2000
+                message = {
+                    "type": "ping",
+                    "payload": {"data": "x" * payload_size},
+                }
 
-            # Send oversized message
-            ws.send_json(message)
+                # Send oversized message
+                ws.send_json(message)
 
-            # Should receive error response
-            error_response = ws.receive_json()
-            assert error_response["type"] == EventType.ERROR.value
-            assert "64KB" in error_response["payload"]["error"]
+                # Should receive error response
+                error_response = ws.receive_json()
+                assert error_response["type"] == EventType.ERROR.value
+                assert "10MB" in error_response["payload"]["error"]
 
     def test_server_stable_after_oversized_message(
         self,
@@ -277,26 +280,27 @@ class TestMessageSizeLimits:
         mock_ws_manager,
     ):
         """Test that server remains stable after receiving oversized message."""
-        with authenticated_client.websocket_connect("/ws?token=valid_token") as ws:
-            # Receive connected message
-            ws.receive_json()
+        with patch("rhesis.backend.app.routers.websocket.MAX_MESSAGE_SIZE", self.TEST_MAX_SIZE):
+            with authenticated_client.websocket_connect("/ws?token=valid_token") as ws:
+                # Receive connected message
+                ws.receive_json()
 
-            # Send oversized message
-            payload_size = 70000
-            oversized_message = {
-                "type": "ping",
-                "payload": {"data": "x" * payload_size},
-            }
-            ws.send_json(oversized_message)
+                # Send oversized message
+                payload_size = 2000
+                oversized_message = {
+                    "type": "ping",
+                    "payload": {"data": "x" * payload_size},
+                }
+                ws.send_json(oversized_message)
 
-            # Receive error response
-            error_response = ws.receive_json()
-            assert error_response["type"] == EventType.ERROR.value
+                # Receive error response
+                error_response = ws.receive_json()
+                assert error_response["type"] == EventType.ERROR.value
 
-            # Send a normal message - should still work
-            ws.send_json({"type": "ping"})
+                # Send a normal message - should still work
+                ws.send_json({"type": "ping"})
 
-            # Connection should remain open (no exception)
+                # Connection should remain open (no exception)
 
 
 @pytest.mark.integration
