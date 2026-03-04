@@ -31,23 +31,52 @@ def _get_endpoint_routing(
     endpoint_id: str,
     organization_id: str,
 ) -> Tuple[Optional[str], Optional[str]]:
-    """
-    Look up project_id and environment from an endpoint for SDK metric routing.
-
-    Returns:
-        Tuple of (project_id, environment), both may be None
-    """
+    """Look up project_id and environment from an endpoint."""
     try:
         from rhesis.backend.app import models
         from rhesis.backend.app.utils.query_utils import QueryBuilder
 
-        query_builder = QueryBuilder(db, models.Endpoint).with_organization_filter(organization_id)
-        endpoint = query_builder.query.filter(models.Endpoint.id == endpoint_id).first()
+        qb = QueryBuilder(db, models.Endpoint).with_organization_filter(organization_id)
+        endpoint = qb.query.filter(models.Endpoint.id == endpoint_id).first()
         if endpoint:
             return str(endpoint.project_id), endpoint.environment
     except Exception as e:
         logger.warning(f"Could not resolve endpoint routing: {e}")
     return None, None
+
+
+def _build_sdk_metric_sender(
+    project_id: Optional[str],
+    environment: Optional[str],
+):
+    """Build an async callable that dispatches SDK metrics via RPC.
+
+    Returns None when project/environment are unavailable, which tells
+    the evaluator to skip SDK metrics.
+    """
+    if not project_id or not environment:
+        return None
+
+    async def _send(metric_run_id, metric_name, inputs):
+        from rhesis.backend.app.services.connector.rpc_client import (
+            SDKRpcClient,
+        )
+
+        rpc = SDKRpcClient()
+        try:
+            await rpc.initialize()
+            return await rpc.send_and_await_metric_result(
+                project_id=project_id,
+                environment=environment,
+                metric_run_id=metric_run_id,
+                metric_name=metric_name,
+                inputs=inputs,
+                timeout=30.0,
+            )
+        finally:
+            await rpc.close()
+
+    return _send
 
 
 class BaseRunner(ABC):
@@ -180,15 +209,13 @@ class SingleTurnRunner(BaseRunner):
             raw_context = processed_result.get("context") if processed_result else None
             context = normalize_context_to_list(raw_context)
 
-            # Resolve project_id/environment for SDK metric routing
             ep_project_id, ep_environment = _get_endpoint_routing(db, endpoint_id, organization_id)
 
             metrics_evaluator = MetricEvaluator(
                 model=model,
                 db=db,
                 organization_id=organization_id,
-                project_id=ep_project_id,
-                environment=ep_environment,
+                sdk_metric_sender=_build_sdk_metric_sender(ep_project_id, ep_environment),
             )
 
             if model:

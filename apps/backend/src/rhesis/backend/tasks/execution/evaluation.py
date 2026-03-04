@@ -138,13 +138,15 @@ def evaluate_multi_turn_metrics(
     if not metric_configs:
         return {}
 
-    # Evaluate each metric on the conversation using the MetricEvaluator
+    from rhesis.backend.tasks.execution.executors.runners import (
+        _build_sdk_metric_sender,
+    )
+
     metrics_evaluator = MetricEvaluator(
         model=model,
         db=db,
         organization_id=organization_id,
-        project_id=project_id,
-        environment=environment,
+        sdk_metric_sender=_build_sdk_metric_sender(project_id, environment),
     )
 
     # Build ConversationHistory from conversation_summary for conversational metrics

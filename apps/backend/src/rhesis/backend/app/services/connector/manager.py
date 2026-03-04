@@ -382,23 +382,22 @@ class ConnectionManager:
         finally:
             self._result_events.pop(test_run_id, None)
 
-    async def send_metric_request(
+    # --- Metric dispatch (connection-scoped, no project:env needed) ---
+
+    async def send_metric_by_connection(
         self,
-        project_id: str,
-        environment: str,
+        connection_id: str,
         metric_run_id: str,
         metric_name: str,
         inputs: Dict[str, Any],
     ) -> bool:
-        """Send metric execution request to SDK via project:env routing.
+        """Send a metric request directly to a connection_id.
 
-        Returns:
-            True if message sent successfully, False otherwise.
+        Returns True if sent, False if the connection is not local.
         """
-        websocket = self._resolve_websocket(project_id, environment)
+        websocket = self._connections.get(connection_id)
         if not websocket:
-            key = self.get_connection_key(project_id, environment)
-            logger.debug(f"No local WebSocket for {key} - may be on another instance")
+            logger.debug(f"No local WebSocket for connection {connection_id}")
             return False
 
         message = ExecuteMetricMessage(
@@ -409,24 +408,21 @@ class ConnectionManager:
 
         try:
             await websocket.send_json(message.model_dump())
-            key = self.get_connection_key(project_id, environment)
-            logger.info(f"Sent metric request to {key}: {metric_name}")
+            logger.info(f"Sent metric request to conn:{connection_id}: {metric_name}")
             return True
         except Exception as e:
-            key = self.get_connection_key(project_id, environment)
-            logger.error(f"Error sending metric request to {key}: {e}")
+            logger.error(f"Error sending metric to conn:{connection_id}: {e}")
             return False
 
-    async def send_and_await_metric_result(
+    async def send_and_await_metric_by_connection(
         self,
-        project_id: str,
-        environment: str,
+        connection_id: str,
         metric_run_id: str,
         metric_name: str,
         inputs: Dict[str, Any],
         timeout: float = 30.0,
     ) -> Dict[str, Any]:
-        """Send metric request and wait for the result using an asyncio.Event.
+        """Send metric request by connection_id and await the result.
 
         Returns:
             Result dictionary or an error dict on timeout / send failure.
@@ -435,9 +431,8 @@ class ConnectionManager:
         self._result_events[metric_run_id] = event
 
         try:
-            sent = await self.send_metric_request(
-                project_id,
-                environment,
+            sent = await self.send_metric_by_connection(
+                connection_id,
                 metric_run_id,
                 metric_name,
                 inputs,
@@ -445,14 +440,16 @@ class ConnectionManager:
             if not sent:
                 return {
                     "error": "send_failed",
-                    "details": "Failed to send metric message to SDK",
+                    "details": (
+                        f"Failed to send metric message to SDK (connection {connection_id})"
+                    ),
                 }
 
             await asyncio.wait_for(event.wait(), timeout=timeout)
 
             result = self._metric_results.get(metric_run_id)
             if result:
-                logger.debug(f"Received SDK metric result for {metric_run_id}")
+                logger.debug(f"Received metric result for {metric_run_id}")
                 self.cleanup_metric_result(metric_run_id)
                 return result
 
@@ -463,7 +460,7 @@ class ConnectionManager:
 
         except asyncio.TimeoutError:
             self.cleanup_metric_result(metric_run_id)
-            logger.error(f"Timeout waiting for SDK metric result: {metric_run_id}")
+            logger.error(f"Timeout waiting for metric result: {metric_run_id}")
             return {"error": "timeout"}
 
         finally:
@@ -944,31 +941,48 @@ class ConnectionManager:
     async def _handle_rpc_request(self, request: Dict[str, Any]) -> None:
         """Handle RPC request from a Celery worker.
 
-        Resolves the WebSocket via the routing table and forwards the
-        request to the SDK.
+        Supports two dispatch modes:
+        - **project:env** — test execution and project-scoped metrics
+        - **connection_id** — connection-scoped metrics (no project needed)
+
+        The dispatch mode is determined by the presence of ``connection_id``
+        in the request payload.
         """
         request_id = request.get("request_id")
-        project_id = request.get("project_id")
-        environment = request.get("environment")
         request_type = request.get("request_type", "execute_test")
         inputs = request.get("inputs", {})
-
         name = request.get("function_name") or request.get("metric_name", "")
         logger.debug(f"RPC request received: {request_id} - {name} (type={request_type})")
 
-        key = self.get_connection_key(project_id, environment)
-        conn_id = self._project_routing.get(key)
+        # Connection-scoped dispatch (metrics by connection_id)
+        conn_id = request.get("connection_id")
+        if conn_id:
+            websocket = self._connections.get(conn_id)
+            if not websocket:
+                logger.error(f"Connection {conn_id} not found for RPC {request_id}")
+                await self._publish_error_response(
+                    request_id,
+                    conn_id,
+                    f"Connection {conn_id} not found",
+                )
+                return
+            await self._forward_metric_to_sdk(request_id, conn_id, websocket, name, inputs)
+            return
 
-        if not conn_id or conn_id not in self._connections:
-            logger.error(
-                f"Worker routing mismatch: received RPC for {key} but connection not found."
-            )
+        # Project-scoped dispatch (resolves connection locally)
+        project_id = request.get("project_id")
+        environment = request.get("environment")
+        key = self.get_connection_key(project_id, environment)
+        routed_conn_id = self._project_routing.get(key)
+
+        if not routed_conn_id or routed_conn_id not in self._connections:
+            logger.error(f"Worker routing mismatch: RPC for {key} but connection not found.")
             await self._publish_error_response(
                 request_id, key, f"Worker routing mismatch for {key}"
             )
             return
 
-        websocket = self._connections[conn_id]
+        websocket = self._connections[routed_conn_id]
 
         if request_type == "execute_metric":
             await self._forward_metric_to_sdk(request_id, key, websocket, name, inputs)

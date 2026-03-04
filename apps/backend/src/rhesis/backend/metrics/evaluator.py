@@ -1,7 +1,7 @@
 import concurrent.futures
 import inspect
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -43,33 +43,36 @@ METRIC_RETRY_MAX_WAIT = 10  # seconds
 class MetricEvaluator:
     """Evaluator class that handles metric computation using configured backends."""
 
+    # Type alias for the injected SDK metric sender.
+    # Signature: (metric_run_id, metric_name, inputs) -> result dict
+    SdkMetricSender = Callable[
+        [str, str, Dict[str, Any]],
+        Awaitable[Dict[str, Any]],
+    ]
+
     def __init__(
         self,
         model: Optional[Any] = None,
         db: Optional[Session] = None,
         organization_id: Optional[str] = None,
-        project_id: Optional[str] = None,
-        environment: Optional[str] = None,
+        sdk_metric_sender: Optional["MetricEvaluator.SdkMetricSender"] = None,
     ):
         """
         Initialize evaluator with factory and score evaluator.
 
         Args:
-            model: Optional default model for metrics evaluation. Can be:
-                   - None: Use default model from constants
-                   - str: Provider name (e.g., "gemini", "openai")
-                   - BaseLLM instance: Fully configured model
-            db: Optional database session for fetching metric-specific models
-            organization_id: Optional organization ID for secure model lookups
-            project_id: Optional project ID for SDK metric routing
-            environment: Optional environment for SDK metric routing
+            model: Optional default model for metrics evaluation.
+            db: Optional database session for fetching metric-specific models.
+            organization_id: Optional organization ID for secure model lookups.
+            sdk_metric_sender: Optional async callable for dispatching SDK
+                metrics.  Signature: (metric_run_id, metric_name, inputs)
+                -> result dict.  When *None*, SDK-backend metrics are skipped.
         """
         self.score_evaluator = ScoreEvaluator()
-        self.model = model  # Store default model for passing to metrics
-        self.db = db  # Database session for fetching metric-specific models
-        self.organization_id = organization_id  # For secure model lookups
-        self.project_id = project_id  # For SDK metric routing
-        self.environment = environment  # For SDK metric routing
+        self.model = model
+        self.db = db
+        self.organization_id = organization_id
+        self._sdk_metric_sender = sdk_metric_sender
         self._conversation_history: Optional[ConversationHistory] = None
 
     @staticmethod
@@ -325,17 +328,17 @@ class MetricEvaluator:
         Returns:
             Dictionary of metric results keyed by metric name
         """
-        if not self.project_id or not self.environment:
-            logger.warning("Cannot evaluate SDK metrics: project_id or environment not set")
+        if not self._sdk_metric_sender:
+            logger.warning("Cannot evaluate SDK metrics: no sdk_metric_sender configured")
             return {
                 self._get_config_value(c, "name", f"SDKMetric_{i}"): {
                     "score": 0.0,
-                    "reason": "SDK metric routing context not available",
+                    "reason": "SDK metric sender not configured",
                     "is_successful": False,
                     "backend": "sdk",
                     "name": self._get_config_value(c, "name", f"SDKMetric_{i}"),
                     "class_name": self._get_config_value(c, "class_name", "Unknown"),
-                    "error": "project_id or environment not configured",
+                    "error": "sdk_metric_sender not configured",
                 }
                 for i, c in enumerate(sdk_configs)
             }
@@ -361,40 +364,19 @@ class MetricEvaluator:
             }
 
             try:
-                from rhesis.backend.app.services.connector.rpc_client import (
-                    SDKRpcClient,
-                )
-
-                rpc_client = SDKRpcClient()
-
                 loop = None
                 try:
                     loop = asyncio.get_running_loop()
                 except RuntimeError:
                     pass
 
-                if loop and loop.is_running():
-                    import concurrent.futures
+                coro = self._sdk_metric_sender(metric_run_id, class_name, inputs)
 
+                if loop and loop.is_running():
                     with concurrent.futures.ThreadPoolExecutor() as pool:
-                        sdk_result = pool.submit(
-                            asyncio.run,
-                            self._call_sdk_metric(
-                                rpc_client,
-                                metric_run_id,
-                                class_name,
-                                inputs,
-                            ),
-                        ).result(timeout=60)
+                        sdk_result = pool.submit(asyncio.run, coro).result(timeout=60)
                 else:
-                    sdk_result = asyncio.run(
-                        self._call_sdk_metric(
-                            rpc_client,
-                            metric_run_id,
-                            class_name,
-                            inputs,
-                        )
-                    )
+                    sdk_result = asyncio.run(coro)
 
                 if "error" in sdk_result and "status" not in sdk_result:
                     results[metric_name or class_name] = {
@@ -463,39 +445,6 @@ class MetricEvaluator:
                 }
 
         return results
-
-    async def _call_sdk_metric(
-        self,
-        rpc_client,
-        metric_run_id: str,
-        metric_name: str,
-        inputs: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        """
-        Call an SDK metric via the RPC client.
-
-        Args:
-            rpc_client: SDKRpcClient instance
-            metric_run_id: Unique run identifier
-            metric_name: Name of the SDK metric
-            inputs: Metric inputs dict
-
-        Returns:
-            Result dictionary from the SDK
-        """
-        try:
-            await rpc_client.initialize()
-            result = await rpc_client.send_and_await_metric_result(
-                project_id=self.project_id,
-                environment=self.environment,
-                metric_run_id=metric_run_id,
-                metric_name=metric_name,
-                inputs=inputs,
-                timeout=30.0,
-            )
-            return result
-        finally:
-            await rpc_client.close()
 
     def _prepare_metrics(
         self,
