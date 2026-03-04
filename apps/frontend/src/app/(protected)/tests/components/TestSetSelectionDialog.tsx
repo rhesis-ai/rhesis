@@ -10,6 +10,7 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { TYPE_NAMES } from '@/constants/test-types';
 
 interface TestSetSelectionDialogProps {
   open: boolean;
@@ -53,7 +54,8 @@ export default function TestSetSelectionDialog({
         const escaped = testTypeValue.replace(/'/g, "''");
         const types = await typeLookupClient.getTypeLookups({
           $filter:
-            `type_name eq 'TestSetType' and ` + `type_value eq '${escaped}'`,
+            `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and ` +
+            `type_value eq '${escaped}'`,
           limit: 1,
         });
         setResolvedTestSetTypeId(

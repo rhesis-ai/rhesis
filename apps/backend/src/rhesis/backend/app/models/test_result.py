@@ -9,10 +9,10 @@ from sqlalchemy.orm import relationship
 
 from .base import Base
 from .guid import GUID
-from .mixins import CommentsMixin, CountsMixin, TagsMixin, TasksMixin
+from .mixins import CommentsMixin, CountsMixin, FilesMixin, TagsMixin, TasksMixin
 
 
-class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin):
+class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesMixin):
     __tablename__ = "test_result"
     test_configuration_id = Column(GUID(), ForeignKey("test_configuration.id"))
     test_run_id = Column(GUID(), ForeignKey("test_run.id"))

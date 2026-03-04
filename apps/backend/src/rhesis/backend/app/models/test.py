@@ -9,6 +9,7 @@ from .mixins import (
     CommentsMixin,
     CountsMixin,
     EmbeddableMixin,
+    FilesMixin,
     OrganizationMixin,
     TagsMixin,
     TasksMixin,
@@ -34,6 +35,7 @@ class Test(
     CommentsMixin,
     TasksMixin,
     CountsMixin,
+    FilesMixin,
 ):
     __tablename__ = "test"
 

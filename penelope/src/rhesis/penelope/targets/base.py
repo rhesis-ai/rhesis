@@ -5,7 +5,7 @@ A Target represents any system that Penelope can test through interaction.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -59,7 +59,11 @@ class Target(ABC):
 
     @abstractmethod
     def send_message(
-        self, message: str, conversation_id: Optional[str] = None, **kwargs
+        self,
+        message: str,
+        conversation_id: Optional[str] = None,
+        files: Optional[List[Dict[str, str]]] = None,
+        **kwargs,
     ) -> TargetResponse:
         """
         Send a message to the target and receive a response.
@@ -69,6 +73,8 @@ class Target(ABC):
         Args:
             message: The message to send
             conversation_id: Optional conversation ID for maintaining conversation context
+            files: Optional list of file attachments. Each dict has keys:
+                filename, content_type, data (base64-encoded content)
             **kwargs: Additional target-specific parameters
 
         Returns:

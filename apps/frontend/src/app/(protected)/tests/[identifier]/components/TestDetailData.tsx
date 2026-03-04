@@ -8,6 +8,7 @@ import BaseFreesoloAutocomplete, {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { TYPE_NAMES } from '@/constants/test-types';
 import TestExecutableField from './TestExecutableField';
 import FilePreview from '@/components/common/FilePreview';
 import MultiTurnConfigFields from './MultiTurnConfigFields';
@@ -19,6 +20,9 @@ import { UUID } from 'crypto';
 import { isMultiTurnTest } from '@/constants/test-types';
 import { useRouter } from 'next/navigation';
 import { formatDate } from '@/utils/date';
+import { useFiles } from '@/hooks/useFiles';
+import FileAttachmentList from '@/components/common/FileAttachmentList';
+import MultiFileUpload from '@/components/common/MultiFileUpload';
 
 interface TestDetailDataProps {
   sessionToken: string;
@@ -41,7 +45,21 @@ export default function TestDetailData({
   const [categories, setCategories] = React.useState<TestDetailOption[]>([]);
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [test, setTest] = React.useState<TestDetail>(initialTest);
+  const [pendingFiles, setPendingFiles] = React.useState<File[]>([]);
+  const [isUploading, setIsUploading] = React.useState(false);
   const notifications = useNotifications();
+
+  const {
+    files: attachedFiles,
+    isLoading: filesLoading,
+    totalSizeBytes: existingFilesSize,
+    uploadFiles: uploadFilesToServer,
+    deleteFile: deleteAttachedFile,
+  } = useFiles({
+    entityId: initialTest.id,
+    entityType: 'Test',
+    sessionToken,
+  });
 
   React.useEffect(() => {
     const fetchOptions = async () => {
@@ -70,7 +88,7 @@ export default function TestDetailData({
         const typesData = await typeLookupClient.getTypeLookups({
           sort_by: 'type_value',
           sort_order: 'asc',
-          $filter: "type_name eq 'TestType'",
+          $filter: `type_name eq '${TYPE_NAMES.TEST_TYPE}'`,
         });
         setTypes(
           typesData.map((t: { id: UUID; type_value: string }) => ({
@@ -231,6 +249,22 @@ export default function TestDetailData({
     ? test.test_metadata.sources
     : [];
 
+  // Auto-upload files when selected on the detail page
+  const handleFilesSelect = React.useCallback(
+    async (files: File[]) => {
+      setPendingFiles([]);
+      setIsUploading(true);
+      try {
+        await uploadFilesToServer(files);
+      } catch {
+        // Notification handled inside the hook
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [uploadFilesToServer]
+  );
+
   return (
     <Grid container spacing={2}>
       <Grid
@@ -373,7 +407,7 @@ export default function TestDetailData({
           <TestExecutableField
             sessionToken={sessionToken}
             testId={test.id}
-            promptId={test.prompt_id}
+            promptId={test.prompt_id ?? ''}
             initialContent={test.prompt?.content || ''}
             onUpdate={refreshTest}
           />
@@ -396,7 +430,7 @@ export default function TestDetailData({
           <TestExecutableField
             sessionToken={sessionToken}
             testId={test.id}
-            promptId={test.prompt_id}
+            promptId={test.prompt_id ?? ''}
             initialContent={test.prompt?.expected_response || ''}
             onUpdate={refreshTest}
             fieldName="expected_response"
@@ -446,6 +480,36 @@ export default function TestDetailData({
           </Box>
         </Grid>
       )}
+      {/* Attachments Section */}
+      <Grid size={12}>
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Attachments
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', fontStyle: 'italic' }}
+          >
+            Images, PDFs, or audio files attached to this test
+          </Typography>
+        </Box>
+        <FileAttachmentList
+          files={attachedFiles}
+          sessionToken={sessionToken}
+          isLoading={filesLoading}
+          onDelete={deleteAttachedFile}
+        />
+        <MultiFileUpload
+          selectedFiles={pendingFiles}
+          onFilesSelect={handleFilesSelect}
+          onFileRemove={idx =>
+            setPendingFiles(prev => prev.filter((_, i) => i !== idx))
+          }
+          existingFilesSize={existingFilesSize}
+          disabled={isUploading}
+        />
+      </Grid>
     </Grid>
   );
 }

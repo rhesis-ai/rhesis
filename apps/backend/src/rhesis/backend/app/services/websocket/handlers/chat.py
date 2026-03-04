@@ -94,6 +94,11 @@ async def handle_chat_message(
                 "input": user_message,
             }
 
+            # Pass file attachments to input_data if present
+            files = payload.get("files")
+            if files:
+                input_data["files"] = files
+
             # Extract conversation ID from any recognized field name
             # (conversation_id, session_id, thread_id, chat_id, etc.)
             # This makes the API flexible for different client conventions.
@@ -145,6 +150,11 @@ async def handle_chat_message(
                 "trace_id": trace_id,
                 "endpoint_id": endpoint_id,
             }
+
+            # Include output files if the endpoint returned any
+            output_files = result.get("output_files")
+            if output_files:
+                response_payload["output_files"] = output_files
 
             # Extract conversation ID from response
             # Primary: Use canonical conversation_id from result

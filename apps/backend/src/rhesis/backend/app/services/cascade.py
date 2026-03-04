@@ -63,6 +63,10 @@ def cascade_soft_delete(
                 getattr(rel.child_model, rel.foreign_key) == parent_id
             )
 
+            # Apply extra filters for polymorphic relationships
+            for key, value in rel.extra_filters.items():
+                query = query.filter(getattr(rel.child_model, key) == value)
+
             # Apply organization filter if the child model supports it
             if organization_id and hasattr(rel.child_model, "organization_id"):
                 query = query.filter(rel.child_model.organization_id == organization_id)
@@ -123,6 +127,10 @@ def cascade_restore(
                 getattr(rel.child_model, rel.foreign_key) == parent_id,
                 rel.child_model.deleted_at.isnot(None),  # Only restore deleted ones
             )
+
+            # Apply extra filters for polymorphic relationships
+            for key, value in rel.extra_filters.items():
+                query = query.filter(getattr(rel.child_model, key) == value)
 
             # Apply organization filter if the child model supports it
             if organization_id and hasattr(rel.child_model, "organization_id"):

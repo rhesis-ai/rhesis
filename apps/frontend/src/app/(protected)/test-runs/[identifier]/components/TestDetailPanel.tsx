@@ -335,6 +335,7 @@ export default function TestDetailPanel({
             <TestDetailConversationTab
               test={test}
               testSetType={testSetType}
+              sessionToken={sessionToken}
               project={project}
               projectName={projectName}
               onReviewTurn={handleReviewTurn}

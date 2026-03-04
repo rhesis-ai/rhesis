@@ -226,8 +226,12 @@ class TopicDataFactory(BaseDataFactory):
     def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
         """Generate topic edge case data"""
         if case_type == "long_name":
+            # Generate a name guaranteed to be > 100 chars
+            name = fake.text(max_nb_chars=500).replace("\n", " ")
+            while len(name) <= 100:
+                name += " " + fake.text(max_nb_chars=200).replace("\n", " ")
             return {
-                "name": fake.text(max_nb_chars=500).replace("\n", " "),
+                "name": name,
                 "description": fake.text(max_nb_chars=100),
             }
         elif case_type == "special_chars":
@@ -303,18 +307,31 @@ class MetricDataFactory(BaseDataFactory):
     """Factory for generating metric test data"""
 
     @classmethod
+    def _add_score_type_fields(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Add required fields based on score_type."""
+        if data.get("score_type") == "categorical":
+            data.setdefault("categories", ["pass", "fail", "partial"])
+            data.setdefault("passing_categories", ["pass"])
+        elif data.get("score_type") == "numeric":
+            data.setdefault("min_score", 0)
+            data.setdefault("max_score", 10)
+            data.setdefault("threshold", 5)
+        return data
+
+    @classmethod
     def minimal_data(cls) -> Dict[str, Any]:
         """Generate minimal metric data (only required fields)"""
-        return {
+        data = {
             "name": fake.word().title() + " Metric",
             "evaluation_prompt": fake.sentence(nb_words=8),
             "score_type": fake.random_element(elements=("numeric", "categorical")),
         }
+        return cls._add_score_type_fields(data)
 
     @classmethod
     def sample_data(cls) -> Dict[str, Any]:
         """Generate sample metric data"""
-        return {
+        data = {
             "name": fake.word().title() + " " + fake.word().title() + " Metric",
             "description": fake.text(max_nb_chars=150),
             "evaluation_prompt": fake.sentence(nb_words=8),
@@ -330,6 +347,7 @@ class MetricDataFactory(BaseDataFactory):
             "context_required": fake.boolean(),
             "evaluation_examples": fake.text(max_nb_chars=200),
         }
+        return cls._add_score_type_fields(data)
 
     @classmethod
     def update_data(cls) -> Dict[str, Any]:
@@ -356,13 +374,17 @@ class MetricDataFactory(BaseDataFactory):
                 "name": f"{fake.word()} 📊 émoji & metrics! @#$%^&*()",
                 "evaluation_prompt": "How well does this handle special chars? 🤔",
                 "score_type": "categorical",
+                "categories": ["pass", "fail", "partial"],
+                "passing_categories": ["pass"],
                 "description": fake.text(max_nb_chars=100),
             }
         elif case_type == "unicode":
             return {
                 "name": f"Test 测试 тест テスト {fake.word()} Metric",
-                "evaluation_prompt": "Unicode evaluation: 测试 тест테スト",
+                "evaluation_prompt": "Unicode evaluation: 测试 тест テスト",
                 "score_type": "categorical",
+                "categories": ["pass", "fail", "partial"],
+                "passing_categories": ["pass"],
                 "description": "Unicode description: 测试 тест テスト",
             }
         elif case_type == "sql_injection":
@@ -854,6 +876,87 @@ class EndpointDataFactory(BaseDataFactory):
         return base_data
 
 
+@dataclass
+class FileDataFactory(BaseDataFactory):
+    """Factory for generating file test data"""
+
+    # Minimal 1x1 PNG pixel (89 bytes)
+    SAMPLE_PNG = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+        b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00"
+        b"\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00"
+        b"\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+    # Minimal valid PDF
+    SAMPLE_PDF = (
+        b"%PDF-1.0\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
+        b"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
+        b"3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R>>endobj\n"
+        b"xref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n"
+        b"0000000058 00000 n \n0000000115 00000 n \n"
+        b"trailer<</Size 4/Root 1 0 R>>\nstartxref\n190\n%%EOF"
+    )
+
+    @classmethod
+    def minimal_data(cls) -> Dict[str, Any]:
+        return {
+            "filename": "test.png",
+            "content_type": "image/png",
+        }
+
+    @classmethod
+    def sample_data(cls) -> Dict[str, Any]:
+        return {
+            "filename": f"{fake.word()}.png",
+            "content_type": "image/png",
+            "description": fake.sentence(),
+            "position": 0,
+        }
+
+    @classmethod
+    def update_data(cls) -> Dict[str, Any]:
+        return {
+            "description": fake.sentence(),
+            "position": 1,
+        }
+
+    @classmethod
+    def sample_file_bytes(cls, content_type: str = "image/png") -> bytes:
+        if content_type.startswith("image/"):
+            return cls.SAMPLE_PNG
+        elif content_type == "application/pdf":
+            return cls.SAMPLE_PDF
+        elif content_type.startswith("audio/"):
+            # Minimal WAV header
+            return (
+                b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00"
+                b"\x44\xac\x00\x00\x88X\x01\x00\x02\x00\x10\x00"
+                b"data\x00\x00\x00\x00"
+            )
+        return b"\x00" * 10
+
+    @classmethod
+    def invalid_data(cls) -> Dict[str, Any]:
+        return {
+            "filename": "test.mp4",
+            "content_type": "video/mp4",
+        }
+
+    @classmethod
+    def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
+        if case_type == "empty_filename":
+            return {"filename": "", "content_type": "image/png"}
+        elif case_type == "unicode_filename":
+            return {
+                "filename": "tëst_\u0444\u0430\u0439\u043b_\u6587\u4ef6.png",
+                "content_type": "image/png",
+            }
+        elif case_type == "max_size":
+            return {"filename": "large.png", "content_type": "image/png"}
+        return cls.sample_data()
+
+
 # Factory registry for dynamic access - moved after all factory definitions
 FACTORY_REGISTRY = {
     "behavior": BehaviorDataFactory,
@@ -866,6 +969,7 @@ FACTORY_REGISTRY = {
     "project": ProjectDataFactory,
     "prompt": PromptDataFactory,
     "endpoint": EndpointDataFactory,
+    "file": FileDataFactory,
 }
 
 
@@ -1488,8 +1592,12 @@ class TopicDataFactory(BaseDataFactory):
     def edge_case_data(cls, case_type: str) -> Dict[str, Any]:
         """Generate topic edge case data"""
         if case_type == "long_name":
+            # Generate a name guaranteed to be > 100 chars
+            name = fake.text(max_nb_chars=200).replace("\n", " ")
+            while len(name) <= 100:
+                name += " " + fake.text(max_nb_chars=200).replace("\n", " ")
             return {
-                "name": fake.text(max_nb_chars=200).replace("\n", " "),
+                "name": name,
                 "description": fake.paragraph(nb_sentences=3),
             }
         elif case_type == "hierarchical_topics":
@@ -2397,6 +2505,7 @@ __all__ = [
     "CategoryDataFactory",
     "CommentDataFactory",
     "EndpointDataFactory",
+    "FileDataFactory",
     "MetricDataFactory",
     "ModelDataFactory",
     "OrganizationDataFactory",

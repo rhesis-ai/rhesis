@@ -53,6 +53,7 @@ def evaluate_single_turn_metrics(
 
     # Extract actual_response using the fallback hierarchy
     actual_response = extract_response_with_fallback(result)
+    metadata = result.get("metadata") if isinstance(result, dict) else None
 
     try:
         metrics_results = metrics_evaluator.evaluate(
@@ -61,6 +62,7 @@ def evaluate_single_turn_metrics(
             output_text=actual_response,
             context=context,
             metrics=metrics,
+            metadata=metadata,
         )
     except Exception as e:
         logger.warning(f"Error evaluating metrics: {str(e)}")

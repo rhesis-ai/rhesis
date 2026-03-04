@@ -22,6 +22,8 @@ import {
   ConversationMessage,
   TestBulkCreate,
 } from '@/utils/api-client/interfaces/tests';
+import { TEST_TYPES } from '@/constants/test-types';
+import type { TestTypeValue } from '@/constants/test-types';
 
 interface CreateTestFromConversationDrawerProps {
   open: boolean;
@@ -30,7 +32,7 @@ interface CreateTestFromConversationDrawerProps {
   /** Conversation messages to extract the test from */
   messages: ConversationMessage[];
   /** "Single-Turn" or "Multi-Turn" */
-  testType: 'Single-Turn' | 'Multi-Turn';
+  testType: TestTypeValue;
   /** Endpoint ID from the playground */
   endpointId?: string;
   /** Called after the test is successfully created */
@@ -149,7 +151,7 @@ export default function CreateTestFromConversationDrawer({
       category: extraction.category || '',
     };
 
-    if (extraction.test_type === 'Single-Turn') {
+    if (extraction.test_type === TEST_TYPES.SINGLE_TURN) {
       data.prompt_content = extraction.prompt_content || '';
       data.expected_response = extraction.expected_response || '';
     } else {
@@ -206,7 +208,7 @@ export default function CreateTestFromConversationDrawer({
         topic: formData.topic,
       };
 
-      if (testType === 'Single-Turn') {
+      if (testType === TEST_TYPES.SINGLE_TURN) {
         if (!formData.prompt_content?.trim()) {
           throw new Error('Prompt content is required');
         }
@@ -247,7 +249,7 @@ export default function CreateTestFromConversationDrawer({
   }, [formData, sessionToken, testType, onSuccess, onClose]);
 
   const drawerTitle =
-    testType === 'Single-Turn'
+    testType === TEST_TYPES.SINGLE_TURN
       ? 'Create Single-Turn Test'
       : 'Create Multi-Turn Test';
 
@@ -316,7 +318,7 @@ export default function CreateTestFromConversationDrawer({
             Content
           </Typography>
 
-          {testType === 'Single-Turn' ? (
+          {testType === TEST_TYPES.SINGLE_TURN ? (
             <>
               <FormControl fullWidth>
                 <TextField

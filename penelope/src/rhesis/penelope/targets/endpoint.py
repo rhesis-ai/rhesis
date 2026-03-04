@@ -9,7 +9,7 @@ Rhesis backend - Penelope simply uses the SDK to invoke endpoints.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from rhesis.penelope.targets.base import Target, TargetResponse
 from rhesis.sdk.entities import Endpoint
@@ -114,6 +114,7 @@ class EndpointTarget(Target):
         self,
         message: str,
         conversation_id: Optional[str] = None,
+        files: Optional[List[Dict[str, str]]] = None,
         **kwargs: Any,
     ) -> TargetResponse:
         """
@@ -122,6 +123,7 @@ class EndpointTarget(Target):
         Args:
             message: The message to send
             conversation_id: Optional conversation ID for multi-turn conversations
+            files: Optional list of file attachments
             **kwargs: Additional parameters (ignored for endpoints)
 
         Returns:
@@ -143,10 +145,13 @@ class EndpointTarget(Target):
 
         try:
             # Use SDK to invoke the endpoint
-            response_data = self.endpoint.invoke(
-                input=message,
-                conversation_id=conversation_id,
-            )
+            invoke_kwargs = {
+                "input": message,
+                "conversation_id": conversation_id,
+            }
+            if files:
+                invoke_kwargs["files"] = files
+            response_data = self.endpoint.invoke(**invoke_kwargs)
 
             if response_data is None:
                 return TargetResponse(

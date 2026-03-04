@@ -14,6 +14,8 @@ import {
   IconButton,
   TextField,
 } from '@mui/material';
+import { TEST_TYPES } from '@/constants/test-types';
+import type { MetricScope } from '@/utils/api-client/interfaces/metric';
 import {
   Add as AddIcon,
   Close as CloseIcon,
@@ -539,9 +541,9 @@ export default function RerunTestRunDrawer({
                 title="Add Metric to Execution"
                 subtitle="Select a metric to use for this test run"
                 scopeFilter={
-                  rerunConfig.testSetType === 'Single-Turn' ||
-                  rerunConfig.testSetType === 'Multi-Turn'
-                    ? (rerunConfig.testSetType as 'Single-Turn' | 'Multi-Turn')
+                  rerunConfig.testSetType === TEST_TYPES.SINGLE_TURN ||
+                  rerunConfig.testSetType === TEST_TYPES.MULTI_TURN
+                    ? (rerunConfig.testSetType as MetricScope)
                     : undefined
                 }
               />

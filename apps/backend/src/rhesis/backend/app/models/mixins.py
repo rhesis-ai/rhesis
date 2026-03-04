@@ -1,7 +1,42 @@
+import functools
+
 from sqlalchemy import Column, ForeignKey, and_
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declared_attr, relationship
+from sqlalchemy.orm.exc import DetachedInstanceError
+
+from rhesis.backend.logging import logger
 
 from .guid import GUID
+
+
+def safe_relationship(default_factory=list):
+    """Decorator for properties that access relationship attributes.
+
+    After delete_item() commits, the RLS session variable
+    (app.current_organization) may no longer be set on the DB connection.
+    Any lazy-load of a relationship during response serialization would
+    then fail.  This decorator catches those errors and returns a safe
+    default so the response can still be serialized.
+    """
+
+    def decorator(method):
+        @functools.wraps(method)
+        def wrapper(self):
+            try:
+                return method(self)
+            except (DetachedInstanceError, SQLAlchemyError) as exc:
+                logger.warning(
+                    "Suppressed lazy-load error on %s.%s: %s",
+                    type(self).__name__,
+                    method.__name__,
+                    exc,
+                )
+                return default_factory()
+
+        return wrapper
+
+    return decorator
 
 
 class TagsMixin:
@@ -20,6 +55,7 @@ class TagsMixin:
         )
 
     @property
+    @safe_relationship(default_factory=list)
     def tags(self):
         # Deduplicate tags by ID to handle duplicate TaggedItem records
         seen_tag_ids = set()
@@ -70,6 +106,23 @@ class CommentsMixin:
         )
 
 
+class FilesMixin:
+    """Mixin that provides polymorphic file relationships"""
+
+    @declared_attr
+    def files(cls):
+        """Polymorphic file relationship"""
+        return relationship(
+            "File",
+            primaryjoin=(
+                f"and_({cls.__name__}.id == foreign(File.entity_id), "
+                f"File.entity_type == '{cls.__name__}')"
+            ),
+            viewonly=True,
+            uselist=True,
+        )
+
+
 class TasksMixin:
     """Mixin that provides polymorphic task relationships"""
 
@@ -91,16 +144,19 @@ class CountsMixin:
     """Mixin that provides count properties for comments and tasks"""
 
     @property
+    @safe_relationship(default_factory=int)
     def comments_count(self):
         """Get the count of comments for this entity"""
         return len(self.comments) if hasattr(self, "comments") and self.comments else 0
 
     @property
+    @safe_relationship(default_factory=int)
     def tasks_count(self):
         """Get the count of tasks for this entity"""
         return len(self.tasks) if hasattr(self, "tasks") and self.tasks else 0
 
     @property
+    @safe_relationship(default_factory=dict)
     def counts(self):
         """Get the counts of comments and tasks for this entity"""
         counts = {}

@@ -106,10 +106,43 @@ class TestDump:
         assert s.dump(True) is True
         assert s.dump(False) is False
 
-    def test_dump_bytes_passthrough(self):
-        """Bytes pass through unchanged."""
+    def test_dump_bytes_to_base64(self):
+        """Bytes are base64-encoded."""
+        import base64
+
         s = TypeSerializer()
-        assert s.dump(b"hello") == b"hello"
+        result = s.dump(b"\x89PNG\r\n\x1a\n")
+        assert isinstance(result, str)
+        assert base64.b64decode(result) == b"\x89PNG\r\n\x1a\n"
+
+    def test_dump_bytes_hello(self):
+        """Simple bytes are base64-encoded."""
+        import base64
+
+        s = TypeSerializer()
+        result = s.dump(b"hello")
+        assert isinstance(result, str)
+        assert base64.b64decode(result) == b"hello"
+
+    def test_dump_nested_bytes(self):
+        """Bytes inside dicts are also base64-encoded."""
+        import base64
+
+        s = TypeSerializer()
+        data = {"file": b"binary data", "name": "test"}
+        result = s.dump(data)
+        assert isinstance(result["file"], str)
+        assert base64.b64decode(result["file"]) == b"binary data"
+        assert result["name"] == "test"
+
+    def test_dump_bytes_roundtrip(self):
+        """Dump bytes, verify base64.b64decode returns original."""
+        import base64
+
+        s = TypeSerializer()
+        original = b"\x00\x01\x02\xff\xfe\xfd"
+        encoded = s.dump(original)
+        assert base64.b64decode(encoded) == original
 
     def test_dump_dict_recursive(self):
         """Dicts are recursively processed."""
@@ -427,6 +460,7 @@ class TestCustomSerializers:
 
     def test_custom_serializer_error_falls_back(self):
         """Custom serializer errors fall back to auto-detection."""
+
         # Custom dump that raises an error
         def bad_dump(obj):
             raise ValueError("Custom dump failed")

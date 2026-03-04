@@ -622,6 +622,7 @@ export default function TestRunMainView({
           testRun={testRun}
           testResults={testResults}
           loading={loading}
+          onRefresh={() => router.refresh()}
         />
       )}
 

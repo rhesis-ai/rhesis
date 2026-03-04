@@ -1,3 +1,4 @@
+import json
 from dataclasses import fields
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -132,6 +133,7 @@ class CategoricalJudge(JudgeBase):
         output: str,
         expected_output: Optional[str],
         context: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> MetricResult:
         """
         Evaluate the output using the LLM with the custom prompt template.
@@ -179,8 +181,23 @@ class CategoricalJudge(JudgeBase):
         # Validate inputs using shared method
         self._validate_evaluate_inputs(input, output, expected_output, context)
 
+        # Serialize metadata for template
+        metadata_text = (
+            json.dumps(metadata, indent=2)
+            if isinstance(metadata, (dict, list))
+            else str(metadata)
+            if metadata
+            else None
+        )
+
         # Generate the evaluation prompt
-        prompt = self._get_prompt_template(input, output, expected_output or "", context or [])
+        prompt = self._get_prompt_template(
+            input,
+            output,
+            expected_output or "",
+            context or [],
+            metadata_text=metadata_text,
+        )
 
         # Initialize common details fields
         details = self._get_base_details(prompt)

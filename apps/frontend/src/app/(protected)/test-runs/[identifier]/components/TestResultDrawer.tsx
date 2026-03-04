@@ -381,6 +381,7 @@ export default function TestResultDrawer({
               <TestDetailConversationTab
                 test={test}
                 testSetType={testSetType}
+                sessionToken={sessionToken}
                 project={project}
                 projectName={projectName}
                 onReviewTurn={handleReviewTurn}

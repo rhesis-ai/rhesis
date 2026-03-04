@@ -31,6 +31,8 @@ import {
   Download as DownloadIcon,
   ArrowBack as ArrowBackIcon,
   NavigateNext as NavigateNextIcon,
+  AttachFile as AttachFileIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -41,9 +43,16 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Behavior } from '@/utils/api-client/interfaces/behavior';
 import { Topic } from '@/utils/api-client/interfaces/topic';
 import { Category } from '@/utils/api-client/interfaces/category';
-import { TestBulkCreate } from '@/utils/api-client/interfaces/tests';
+import {
+  TestBulkCreate,
+  TestCreate,
+  TestPromptCreate,
+} from '@/utils/api-client/interfaces/tests';
 import { UUID } from 'crypto';
 import { MultiTurnTestConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
+import { TEST_TYPES, TYPE_NAMES } from '@/constants/test-types';
+import MultiFileUpload from '@/components/common/MultiFileUpload';
+import { Badge, Tooltip } from '@mui/material';
 
 type TestType = 'single_turn' | 'multi_turn';
 
@@ -127,6 +136,17 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // File attachments per row
+  const [pendingFilesMap, setPendingFilesMap] = useState<
+    Record<string, File[]>
+  >({});
+  const [attachDialogRowId, setAttachDialogRowId] = useState<string | null>(
+    null
+  );
+
+  // Test set type ID resolved from testType
+  const [testSetTypeId, setTestSetTypeId] = useState<UUID | undefined>();
+
   // Dialogs
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [testSetName, setTestSetName] = useState('');
@@ -171,6 +191,19 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
           sort_order: 'asc',
         });
         setCategories(categoriesData);
+
+        // Fetch test set type ID based on selected test type
+        const typeLookupClient = apiFactory.getTypeLookupClient();
+        const typeValue =
+          testType === 'single_turn'
+            ? TEST_TYPES.SINGLE_TURN
+            : TEST_TYPES.MULTI_TURN;
+        const testSetTypes = await typeLookupClient.getTypeLookups({
+          $filter: `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${typeValue}'`,
+        });
+        if (testSetTypes.length > 0) {
+          setTestSetTypeId(testSetTypes[0].id as UUID);
+        }
       } catch (_error) {
         notifications.show('Failed to load test dimensions', {
           severity: 'error',
@@ -214,6 +247,11 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
   const deleteRow = (id: string) => {
     if (testCases.length > 1) {
       setTestCases(testCases.filter(tc => tc.id !== id));
+      setPendingFilesMap(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
     }
   };
 
@@ -338,63 +376,88 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
         const testSetsClient = apiFactory.getTestSetsClient();
         const newTestSet = await testSetsClient.createTestSet({
           name: testSetName.trim(),
+          test_set_type_id: testSetTypeId,
         });
         testSetId = newTestSet.id;
       }
 
-      // Prepare bulk test creation with only non-empty test cases
-      const testsToCreate: TestBulkCreate[] = nonEmptyTestCases.map(tc => {
-        if (tc.testType === 'single_turn') {
-          return {
-            prompt: {
-              content: tc.prompt,
-              expected_response: tc.expectedOutput || undefined,
-            },
-            behavior: tc.behavior,
-            category: tc.category,
-            topic: tc.topic,
-          };
-        } else {
-          // Multi-turn test - do NOT include prompt field
-          // The backend determines test type by checking if test_configuration has 'goal'
-          const config: MultiTurnTestConfig = {
-            goal: tc.goal,
-            instructions: tc.instructions || undefined,
-            restrictions: tc.restrictions || undefined,
-            scenario: tc.scenario || undefined,
-            min_turns: tc.minTurns ?? undefined,
-            max_turns: tc.maxTurns,
-          };
-          return {
-            behavior: tc.behavior,
-            category: tc.category,
-            topic: tc.topic,
-            test_configuration: config as unknown as Record<string, unknown>,
-          };
-        }
-      });
+      const hasAnyFiles = nonEmptyTestCases.some(
+        tc => (pendingFilesMap[tc.id]?.length ?? 0) > 0
+      );
 
       const testsClient = apiFactory.getTestsClient();
-      await testsClient.createTestsBulk({
-        tests: testsToCreate,
-        test_set_id: testSetId as UUID,
-      });
 
-      notifications.show(
-        `Successfully created ${nonEmptyTestCases.length} test case${nonEmptyTestCases.length !== 1 ? 's' : ''}${testSetName.trim() ? ' and test set' : ''}`,
-        { severity: 'success' }
-      );
+      if (hasAnyFiles) {
+        // Create tests individually to get IDs for file uploads
+        const filesClient = apiFactory.getFilesClient();
+        let uploadFailures = 0;
+        const createdTestIds: string[] = [];
+
+        for (const tc of nonEmptyTestCases) {
+          const payload = buildTestPayload(tc);
+          const created = await testsClient.createTest(payload);
+          createdTestIds.push(created.id);
+
+          const rowFiles = pendingFilesMap[tc.id];
+          if (rowFiles?.length) {
+            try {
+              await filesClient.uploadFiles(rowFiles, created.id, 'Test');
+            } catch {
+              uploadFailures++;
+            }
+          }
+        }
+
+        // Associate created tests with the test set
+        if (testSetId && createdTestIds.length > 0) {
+          const testSetsClient = apiFactory.getTestSetsClient();
+          await testSetsClient.associateTestsWithTestSet(
+            testSetId,
+            createdTestIds
+          );
+        }
+
+        const msg =
+          `Successfully created ${nonEmptyTestCases.length} test case${nonEmptyTestCases.length !== 1 ? 's' : ''}` +
+          (testSetName.trim() ? ' and test set' : '') +
+          (uploadFailures > 0
+            ? ` (${uploadFailures} file upload${uploadFailures !== 1 ? 's' : ''} failed)`
+            : '');
+        notifications.show(msg, {
+          severity: uploadFailures > 0 ? 'warning' : 'success',
+        });
+      } else {
+        // No files — use efficient bulk creation
+        const testsToCreate: TestBulkCreate[] = nonEmptyTestCases.map(tc =>
+          buildBulkPayload(tc)
+        );
+
+        await testsClient.createTestsBulk({
+          tests: testsToCreate,
+          test_set_id: testSetId as UUID,
+        });
+
+        notifications.show(
+          `Successfully created ${nonEmptyTestCases.length} test case${nonEmptyTestCases.length !== 1 ? 's' : ''}${testSetName.trim() ? ' and test set' : ''}`,
+          { severity: 'success' }
+        );
+      }
 
       setShowSaveDialog(false);
       setTestSetName('');
+      setPendingFilesMap({});
 
       // Clear sessionStorage
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('testType');
       }
 
-      // Navigate back to tests list
-      router.push('/tests');
+      // Navigate to test set detail page if created, otherwise tests list
+      if (testSetId) {
+        router.push(`/test-sets/${testSetId}`);
+      } else {
+        router.push('/tests');
+      }
     } catch (error) {
       notifications.show(
         error instanceof Error ? error.message : 'Failed to save test cases',
@@ -403,6 +466,65 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
     } finally {
       setSaving(false);
     }
+  };
+
+  /** Build payload for single createTest (returns ID for file upload). */
+  const buildTestPayload = (tc: TestCase): TestCreate => {
+    if (tc.testType === 'single_turn') {
+      const prompt: TestPromptCreate = {
+        content: tc.prompt,
+        expected_response: tc.expectedOutput || undefined,
+      };
+      return {
+        prompt,
+        behavior: tc.behavior,
+        category: tc.category,
+        topic: tc.topic,
+      };
+    }
+    const config: MultiTurnTestConfig = {
+      goal: tc.goal,
+      instructions: tc.instructions || undefined,
+      restrictions: tc.restrictions || undefined,
+      scenario: tc.scenario || undefined,
+      min_turns: tc.minTurns ?? undefined,
+      max_turns: tc.maxTurns,
+    };
+    return {
+      behavior: tc.behavior,
+      category: tc.category,
+      topic: tc.topic,
+      test_configuration: config as unknown as Record<string, unknown>,
+    };
+  };
+
+  /** Build payload for bulk createTestsBulk (no file support). */
+  const buildBulkPayload = (tc: TestCase): TestBulkCreate => {
+    if (tc.testType === 'single_turn') {
+      return {
+        prompt: {
+          content: tc.prompt,
+          expected_response: tc.expectedOutput || undefined,
+        },
+        behavior: tc.behavior,
+        category: tc.category,
+        topic: tc.topic,
+      };
+    }
+    const config: MultiTurnTestConfig = {
+      goal: tc.goal,
+      instructions: tc.instructions || undefined,
+      restrictions: tc.restrictions || undefined,
+      scenario: tc.scenario || undefined,
+      min_turns: tc.minTurns ?? undefined,
+      max_turns: tc.maxTurns,
+    };
+    return {
+      behavior: tc.behavior,
+      category: tc.category,
+      topic: tc.topic,
+      test_configuration: config as unknown as Record<string, unknown>,
+    };
   };
 
   const handleCancelSave = () => {
@@ -497,7 +619,10 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
           Manual Test Writer
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          Creating {testType === 'single_turn' ? 'Single-Turn' : 'Multi-Turn'}{' '}
+          Creating{' '}
+          {testType === 'single_turn'
+            ? TEST_TYPES.SINGLE_TURN
+            : TEST_TYPES.MULTI_TURN}{' '}
           Tests
         </Typography>
 
@@ -577,6 +702,9 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                           </TableCell>
                         </>
                       )}
+                      <TableCell sx={theme => ({ width: theme.spacing(7.5) })}>
+                        Files
+                      </TableCell>
                       <TableCell sx={{ width: 80 }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
@@ -1006,6 +1134,25 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
                             </TableCell>
                           </>
                         )}
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          <Tooltip title="Attach files">
+                            <IconButton
+                              size="small"
+                              onClick={() => setAttachDialogRowId(testCase.id)}
+                              disabled={loading}
+                            >
+                              <Badge
+                                badgeContent={
+                                  pendingFilesMap[testCase.id]?.length ?? 0
+                                }
+                                color="primary"
+                                max={9}
+                              >
+                                <AttachFileIcon fontSize="small" />
+                              </Badge>
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
                         <TableCell>
                           <IconButton
                             onClick={() => deleteRow(testCase.id)}
@@ -1101,6 +1248,66 @@ export default function ManualTestWriter({ onBack }: ManualTestWriterProps) {
             disabled={saving}
           >
             {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Attach Files Dialog */}
+      <Dialog
+        open={attachDialogRowId !== null}
+        onClose={() => setAttachDialogRowId(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Typography variant="h6">
+              Attach Files to Test Case #
+              {attachDialogRowId
+                ? testCases.findIndex(tc => tc.id === attachDialogRowId) + 1
+                : ''}
+            </Typography>
+            <IconButton size="small" onClick={() => setAttachDialogRowId(null)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {attachDialogRowId && (
+            <MultiFileUpload
+              selectedFiles={pendingFilesMap[attachDialogRowId] ?? []}
+              onFilesSelect={files =>
+                setPendingFilesMap(prev => ({
+                  ...prev,
+                  [attachDialogRowId]: [
+                    ...(prev[attachDialogRowId] ?? []),
+                    ...files,
+                  ],
+                }))
+              }
+              onFileRemove={idx =>
+                setPendingFilesMap(prev => ({
+                  ...prev,
+                  [attachDialogRowId]: (prev[attachDialogRowId] ?? []).filter(
+                    (_, i) => i !== idx
+                  ),
+                }))
+              }
+            />
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            variant="contained"
+            onClick={() => setAttachDialogRowId(null)}
+          >
+            Done
           </Button>
         </DialogActions>
       </Dialog>

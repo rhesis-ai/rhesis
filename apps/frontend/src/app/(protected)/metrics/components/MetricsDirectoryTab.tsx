@@ -9,7 +9,7 @@ import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ButtonGroup from '@mui/material/ButtonGroup';
@@ -951,7 +951,7 @@ export default function MetricsDirectoryTab({
                         },
                       }}
                     >
-                      <OpenInNewIcon fontSize="inherit" />
+                      <EditIcon fontSize="inherit" />
                     </IconButton>
                   )}
                   <IconButton

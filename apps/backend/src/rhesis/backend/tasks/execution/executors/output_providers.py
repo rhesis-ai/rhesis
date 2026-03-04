@@ -11,10 +11,11 @@ All providers return a TestOutput dataclass, enabling the runner to evaluate
 metrics uniformly regardless of how the output was obtained.
 """
 
+import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from rhesis.backend.app import crud
@@ -71,16 +72,25 @@ class SingleTurnOutput(OutputProvider):
         organization_id,
         user_id,
         test_execution_context=None,
+        test_id=None,
         **kwargs,
     ) -> TestOutput:
         start_time = datetime.now(timezone.utc)
+
+        input_data = {"input": prompt_content}
+
+        # Inject file data if the test has attached files
+        if test_id:
+            input_files = self._load_input_files(db, test_id, organization_id)
+            if input_files:
+                input_data["files"] = input_files
 
         # Reuse existing EndpointService singleton
         endpoint_service = get_endpoint_service()
         result = await endpoint_service.invoke_endpoint(
             db=db,
             endpoint_id=endpoint_id,
-            input_data={"input": prompt_content},
+            input_data=input_data,
             organization_id=organization_id,
             user_id=user_id,
             test_execution_context=test_execution_context,
@@ -90,6 +100,42 @@ class SingleTurnOutput(OutputProvider):
         # Reuse existing result processing (ErrorResponse handling, output extraction)
         processed = process_endpoint_result(result)
         return TestOutput(response=processed, execution_time=execution_time)
+
+    @staticmethod
+    def _load_input_files(db, test_id, organization_id) -> List[Dict[str, str]]:
+        """Load files attached to a test and encode as base64."""
+        from sqlalchemy.orm import undefer
+
+        from rhesis.backend.app.models.file import File
+
+        try:
+            files = (
+                db.query(File)
+                .filter(
+                    File.entity_id == test_id,
+                    File.entity_type == "Test",
+                    File.deleted_at.is_(None),
+                )
+                .options(undefer(File.content))
+                .order_by(File.position)
+                .all()
+            )
+
+            if not files:
+                return []
+
+            return [
+                {
+                    "filename": f.filename,
+                    "content_type": f.content_type,
+                    "data": base64.b64encode(f.content).decode("ascii"),
+                }
+                for f in files
+                if f.content
+            ]
+        except Exception as e:
+            logger.warning(f"Failed to load input files for test {test_id}: {e}")
+            return []
 
 
 class MultiTurnOutput(OutputProvider):
@@ -125,6 +171,9 @@ class MultiTurnOutput(OutputProvider):
         max_turns = test_config.get("max_turns") or 10
         min_turns = test_config.get("min_turns")
 
+        # Load files attached to the test (reuse SingleTurnOutput's static method)
+        input_files = SingleTurnOutput._load_input_files(db, test.id, organization_id)
+
         # Reuse existing PenelopeAgent and BackendEndpointTarget
         from rhesis.penelope import PenelopeAgent
 
@@ -147,6 +196,7 @@ class MultiTurnOutput(OutputProvider):
             context=context,
             max_turns=max_turns,
             min_turns=min_turns,
+            files=input_files if input_files else None,
         )
         execution_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 

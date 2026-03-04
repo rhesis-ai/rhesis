@@ -464,18 +464,24 @@ def remove_test_set_associations(
         }
 
 
-def update_test_set_attributes(db: Session, test_set_id: str) -> None:
+def update_test_set_attributes(
+    db: Session,
+    test_set_id: str,
+    organization_id: str = None,
+    user_id: str = None,
+) -> None:
     """
     Regenerate and update the attributes for a test set based on its current associated tests.
 
     Args:
         db: Database session
         test_set_id: UUID string of the test set to update
-
-    Raises:
-        ValueError: If test set not found or invalid UUID
+        organization_id: Organization ID for tenant context
+        user_id: User ID for tenant context
     """
     from uuid import UUID
+
+    from rhesis.backend.app.crud import get_test_set
 
     # Validate UUID
     try:
@@ -483,16 +489,11 @@ def update_test_set_attributes(db: Session, test_set_id: str) -> None:
     except ValueError:
         raise ValueError(ERROR_INVALID_UUID.format(entity="test set", id=test_set_id))
 
-    # Get test set with relationships - UUID is globally unique, no organization filtering needed
-    test_set = (
-        db.query(models.TestSet)
-        .options(joinedload(models.TestSet.tests))
-        .filter(models.TestSet.id == test_set_uuid)
-        .first()
-    )
+    test_set = get_test_set(db, test_set_uuid, organization_id, user_id)
 
     if not test_set:
-        raise ValueError(ERROR_TEST_SET_NOT_FOUND.format(test_set_id=test_set_id))
+        # Test set may have been soft-deleted; nothing to update.
+        return
 
     # Get defaults and license type - use test_set's organization context
     defaults = load_defaults()

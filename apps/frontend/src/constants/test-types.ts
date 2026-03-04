@@ -1,4 +1,12 @@
 /**
+ * Type lookup type_name constants matching the backend type_lookup table
+ */
+export const TYPE_NAMES = {
+  TEST_TYPE: 'TestType',
+  TEST_SET_TYPE: 'TestSetType',
+} as const;
+
+/**
  * Test type constants aligned with backend initial_data.json
  * These values match the type_lookup table entries for TestType
  */

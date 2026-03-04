@@ -3,11 +3,12 @@
 import logging
 from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app import crud
+from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.constants import EnrichedDataKeys
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.schemas.telemetry import (
@@ -94,6 +95,7 @@ async def ingest_trace(
     # invocation and injects it here — before the span is stored.
     from rhesis.backend.app.services.telemetry.conversation_linking import (
         apply_pending_conversation_links,
+        apply_pending_files,
         inject_pending_output,
     )
 
@@ -160,6 +162,17 @@ async def ingest_trace(
                     f"trace_id={trace_id}: {conversation_error}"
                 )
                 logger.debug("Conversation linking traceback:", exc_info=True)
+
+            # 3. Input file linking (SDK turns with file attachments)
+            try:
+                files_created = apply_pending_files(db, stored_spans)
+                if files_created > 0:
+                    logger.info(f"Created {files_created} pending file(s) for trace_id={trace_id}")
+            except Exception as file_error:
+                logger.warning(
+                    f"Failed to apply pending files for trace_id={trace_id}: {file_error}"
+                )
+                logger.debug("File linking traceback:", exc_info=True)
 
         return TraceResponse(
             status="received",
@@ -543,6 +556,20 @@ async def get_trace(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve trace details: {error_msg}",
         )
+
+
+@router.get(
+    "/spans/{span_db_id}/files",
+    response_model=List[schemas.FileResponse],
+)
+def list_span_files(
+    span_db_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    """List files attached to a trace span."""
+    organization_id, user_id = tenant_context
+    return crud.get_files_for_entity(db, span_db_id, "Trace", organization_id, user_id)
 
 
 @router.get("/metrics", response_model=TraceMetricsResponse)

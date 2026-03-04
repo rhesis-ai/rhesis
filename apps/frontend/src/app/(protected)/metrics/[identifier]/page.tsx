@@ -42,6 +42,7 @@ import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { generateCopyName } from '@/utils/entity-helpers';
+import { TEST_TYPES } from '@/constants/test-types';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 
@@ -297,7 +298,8 @@ export default function MetricDetailPage() {
   const [stepsWithIds, setStepsWithIds] = useState<StepWithId[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const dataFetchedRef = useRef(false);
-  const [textFieldsTouched, setTextFieldsTouched] = useState(0);
+  const textFieldsDirtyRef = useRef(false);
+  const [blurRevision, setBlurRevision] = useState(0);
 
   // Set document title dynamically
   useDocumentTitle(metric?.name || null);
@@ -309,6 +311,9 @@ export default function MetricDetailPage() {
   const reasoningRef = useRef<HTMLTextAreaElement>(null);
   const explanationRef = useRef<HTMLTextAreaElement>(null);
   const stepRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
+  const stepRefCallbacks = useRef(
+    new Map<string, (el: HTMLTextAreaElement | null) => void>()
+  );
 
   useEffect(() => {
     const fetchData = async () => {
@@ -385,7 +390,7 @@ export default function MetricDetailPage() {
   const checkForChanges = React.useCallback((): boolean => {
     if (!metric || !isEditing) return false;
 
-    if (textFieldsTouched) {
+    if (textFieldsDirtyRef.current) {
       const fieldValues = collectFieldValues();
 
       if (isEditing === 'general') {
@@ -502,7 +507,33 @@ export default function MetricDetailPage() {
     }
 
     return false;
-  }, [metric, isEditing, textFieldsTouched, editData, collectFieldValues]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metric, isEditing, blurRevision, editData, collectFieldValues]);
+
+  const markTextFieldDirty = React.useCallback(() => {
+    textFieldsDirtyRef.current = true;
+  }, []);
+
+  const handleTextFieldBlur = React.useCallback(() => {
+    if (textFieldsDirtyRef.current) {
+      setBlurRevision(c => c + 1);
+    }
+  }, []);
+
+  // Returns a stable ref callback for each step ID so React doesn't
+  // detach/reattach the ref on re-renders (which causes focus loss).
+  const getStepRef = React.useCallback((stepId: string) => {
+    if (!stepRefCallbacks.current.has(stepId)) {
+      stepRefCallbacks.current.set(stepId, (el: HTMLTextAreaElement | null) => {
+        if (el) {
+          stepRefs.current.set(stepId, el);
+        } else {
+          stepRefs.current.delete(stepId);
+        }
+      });
+    }
+    return stepRefCallbacks.current.get(stepId)!;
+  }, []);
 
   // Helper function to populate refs with initial values when entering edit mode
   const populateFieldRefs = React.useCallback(
@@ -558,7 +589,7 @@ export default function MetricDetailPage() {
       if (!metric) return;
 
       setIsEditing(section);
-      setTextFieldsTouched(0);
+      textFieldsDirtyRef.current = false;
 
       populateFieldRefs(section, metric);
 
@@ -619,7 +650,7 @@ export default function MetricDetailPage() {
     setIsEditing(null);
     setEditData({});
     setStepsWithIds([]);
-    setTextFieldsTouched(0);
+    textFieldsDirtyRef.current = false;
     // Clear step refs
     stepRefs.current.clear();
   }, []);
@@ -763,7 +794,7 @@ export default function MetricDetailPage() {
       setIsEditing(null);
       setEditData({});
       setStepsWithIds([]);
-      setTextFieldsTouched(0);
+      textFieldsDirtyRef.current = false;
 
       notifications.show('Metric updated successfully', {
         severity: 'success',
@@ -791,13 +822,16 @@ export default function MetricDetailPage() {
       const newStep = { id: `step-${Date.now()}-${prev.length}`, content: '' };
       return [...prev, newStep];
     });
-    setTextFieldsTouched(c => c + 1);
+    textFieldsDirtyRef.current = true;
+    setBlurRevision(c => c + 1);
   }, []);
 
   const removeStep = React.useCallback((stepId: string) => {
     setStepsWithIds(prev => prev.filter(step => step.id !== stepId));
     stepRefs.current.delete(stepId);
-    setTextFieldsTouched(c => c + 1);
+    stepRefCallbacks.current.delete(stepId);
+    textFieldsDirtyRef.current = true;
+    setBlurRevision(c => c + 1);
   }, []);
 
   const [isDuplicating, setIsDuplicating] = React.useState(false);
@@ -934,7 +968,8 @@ export default function MetricDetailPage() {
                     inputRef={nameRef}
                     defaultValue={metric.name || ''}
                     placeholder="Enter metric name"
-                    onChange={() => setTextFieldsTouched(c => c + 1)}
+                    onChange={markTextFieldDirty}
+                    onBlur={handleTextFieldBlur}
                   />
                 ) : (
                   <Typography>{metric.name}</Typography>
@@ -951,7 +986,8 @@ export default function MetricDetailPage() {
                     inputRef={descriptionRef}
                     defaultValue={metric.description || ''}
                     placeholder="Enter metric description"
-                    onChange={() => setTextFieldsTouched(c => c + 1)}
+                    onChange={markTextFieldDirty}
+                    onBlur={handleTextFieldBlur}
                   />
                 ) : (
                   <Typography>{metric.description || '-'}</Typography>
@@ -1057,7 +1093,8 @@ export default function MetricDetailPage() {
                     inputRef={evaluationPromptRef}
                     defaultValue={metric.evaluation_prompt || ''}
                     placeholder="Enter evaluation prompt"
-                    onChange={() => setTextFieldsTouched(c => c + 1)}
+                    onChange={markTextFieldDirty}
+                    onBlur={handleTextFieldBlur}
                   />
                 ) : (
                   <Typography
@@ -1089,14 +1126,11 @@ export default function MetricDetailPage() {
                           fullWidth
                           multiline
                           rows={2}
-                          inputRef={el => {
-                            if (el) {
-                              stepRefs.current.set(step.id, el);
-                            }
-                          }}
+                          inputRef={getStepRef(step.id)}
                           defaultValue={step.content}
                           placeholder={`Step ${index + 1}: Describe this evaluation step...`}
-                          onChange={() => setTextFieldsTouched(c => c + 1)}
+                          onChange={markTextFieldDirty}
+                          onBlur={handleTextFieldBlur}
                         />
                         <IconButton
                           onClick={() => removeStep(step.id)}
@@ -1170,7 +1204,8 @@ export default function MetricDetailPage() {
                     inputRef={reasoningRef}
                     defaultValue={metric.reasoning || ''}
                     placeholder="Enter reasoning instructions"
-                    onChange={() => setTextFieldsTouched(c => c + 1)}
+                    onChange={markTextFieldDirty}
+                    onBlur={handleTextFieldBlur}
                   />
                 ) : (
                   <Typography
@@ -1538,39 +1573,42 @@ export default function MetricDetailPage() {
                       one required):
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {(['Single-Turn', 'Multi-Turn'] as MetricScope[]).map(
-                        scope => {
-                          const currentScope =
-                            editData.metric_scope || metric.metric_scope || [];
-                          const isSelected = currentScope.includes(scope);
+                      {(
+                        [
+                          TEST_TYPES.SINGLE_TURN,
+                          TEST_TYPES.MULTI_TURN,
+                        ] as MetricScope[]
+                      ).map(scope => {
+                        const currentScope =
+                          editData.metric_scope || metric.metric_scope || [];
+                        const isSelected = currentScope.includes(scope);
 
-                          return (
-                            <Chip
-                              key={scope}
-                              label={scope}
-                              clickable
-                              color={isSelected ? 'primary' : 'default'}
-                              variant={isSelected ? 'filled' : 'outlined'}
-                              onClick={() => {
-                                const newScope = isSelected
-                                  ? currentScope.filter(s => s !== scope)
-                                  : [...currentScope, scope];
-                                setEditData(prev => ({
-                                  ...prev,
-                                  metric_scope: newScope as MetricScope[],
-                                }));
-                              }}
-                              sx={{
-                                '&:hover': {
-                                  backgroundColor: isSelected
-                                    ? 'primary.dark'
-                                    : 'action.hover',
-                                },
-                              }}
-                            />
-                          );
-                        }
-                      )}
+                        return (
+                          <Chip
+                            key={scope}
+                            label={scope}
+                            clickable
+                            color={isSelected ? 'primary' : 'default'}
+                            variant={isSelected ? 'filled' : 'outlined'}
+                            onClick={() => {
+                              const newScope = isSelected
+                                ? currentScope.filter(s => s !== scope)
+                                : [...currentScope, scope];
+                              setEditData(prev => ({
+                                ...prev,
+                                metric_scope: newScope as MetricScope[],
+                              }));
+                            }}
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: isSelected
+                                  ? 'primary.dark'
+                                  : 'action.hover',
+                              },
+                            }}
+                          />
+                        );
+                      })}
                     </Box>
                   </Box>
                 ) : (
@@ -1613,7 +1651,8 @@ export default function MetricDetailPage() {
                     inputRef={explanationRef}
                     defaultValue={metric.explanation || ''}
                     placeholder="Enter result explanation"
-                    onChange={() => setTextFieldsTouched(c => c + 1)}
+                    onChange={markTextFieldDirty}
+                    onBlur={handleTextFieldBlur}
                   />
                 ) : (
                   <Typography

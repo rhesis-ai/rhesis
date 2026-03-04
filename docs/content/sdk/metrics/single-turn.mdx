@@ -233,6 +233,41 @@ result = metric.evaluate(
 )`}
 </CodeBlock>
 
+#### Using Metadata in Evaluation
+
+Both `NumericJudge` and `CategoricalJudge` accept an optional `metadata` parameter. When provided, the metadata JSON is included in the evaluation prompt as "Response Metadata", allowing the judge model to reason about structured data alongside the text response.
+
+This is useful for evaluating aspects like token efficiency, latency, confidence scores, or any structured data returned by your endpoint.
+
+<CodeBlock filename="metadata_evaluation.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge
+
+metric = NumericJudge(
+    name="token_efficiency",
+    evaluation_prompt="""Rate the token efficiency of the response.
+Check the metadata for token counts. Penalize responses that use
+excessive tokens relative to the information provided.""",
+    min_score=0.0,
+    max_score=10.0,
+    threshold=6.0,
+)
+
+result = metric.evaluate(
+    input="What is 2+2?",
+    output="The answer to your question about adding 2 and 2 is 4.",
+    metadata={
+        "prompt_tokens": 12,
+        "completion_tokens": 87,
+        "model": "gpt-4",
+    },
+)
+
+print(f"Score: {result.score}")
+print(f"Reason: {result.details['reason']}")`}
+</CodeBlock>
+
+When running tests through the platform, metadata is extracted automatically from your endpoint's response using the `metadata` field in the [response mapping](/platform/endpoints). The metadata is then passed to each metric during evaluation.
+
 #### Categorical Judge
 
 `CategoricalJudge` returns a categorical value and requires you to specify `categories` and `passing_categories`.

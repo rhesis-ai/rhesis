@@ -51,6 +51,7 @@ def build_span_tree(spans: List[Trace]) -> List[SpanNode]:
     # Convert all spans to SpanNode objects
     for span in spans:
         node = SpanNode(
+            id=str(span.id),
             span_id=span.span_id,
             span_name=span.span_name,
             span_kind=span.span_kind,

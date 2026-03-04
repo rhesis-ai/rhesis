@@ -1,6 +1,7 @@
 /**
  * TypeScript interfaces for the file import API.
  */
+import { TestTypeValue } from '@/constants/test-types';
 
 // ── Analyze (Step 1) ──────────────────────────────────────────────
 
@@ -24,7 +25,7 @@ export interface AnalyzeResponse {
 
 export interface ParseRequest {
   mapping: Record<string, string>;
-  test_type: 'Single-Turn' | 'Multi-Turn';
+  test_type: TestTypeValue;
 }
 
 export interface ValidationSummary {

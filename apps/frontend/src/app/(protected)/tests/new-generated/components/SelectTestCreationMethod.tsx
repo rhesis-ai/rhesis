@@ -16,6 +16,7 @@ import { TestTemplate, TestType } from './shared/types';
 import { TEMPLATES } from '@/config/test-templates';
 import SelectionModal, { SelectionCardConfig } from './shared/SelectionModal';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { TEST_TYPES } from '@/constants/test-types';
 
 interface SelectTestCreationMethodProps {
   open: boolean;
@@ -52,7 +53,7 @@ export default function SelectTestCreationMethod({
   }, [open, markStepComplete]);
 
   const testTypeLabel =
-    testType === 'single_turn' ? 'Single-Turn' : 'Multi-Turn';
+    testType === 'single_turn' ? TEST_TYPES.SINGLE_TURN : TEST_TYPES.MULTI_TURN;
 
   const cards: SelectionCardConfig[] = [
     {

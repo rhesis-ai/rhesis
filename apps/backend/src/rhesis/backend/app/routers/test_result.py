@@ -737,3 +737,15 @@ def delete_review(
         "review_id": review_id,
         "deleted_review": deleted_review,
     }
+
+
+@router.get("/{test_result_id}/files", response_model=List[schemas.FileResponse])
+def list_test_result_files(
+    test_result_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """List output files attached to a test result."""
+    organization_id, user_id = tenant_context
+    return crud.get_files_for_entity(db, test_result_id, "TestResult", organization_id, user_id)

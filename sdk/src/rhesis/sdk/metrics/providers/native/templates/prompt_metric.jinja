@@ -28,6 +28,10 @@ Input Query:
 Context Information:
 {{ context_text if context_text|trim else "No context provided" }}
 
+{% if metadata_text %}
+Response Metadata:
+{{ metadata_text }}
+{% endif %}
 Expected Response:
 {{ expected_output if expected_output|trim else "No expected response provided" }}
 

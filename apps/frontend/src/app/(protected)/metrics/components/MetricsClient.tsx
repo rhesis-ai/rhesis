@@ -13,6 +13,7 @@ import type {
   BehaviorWithMetrics,
 } from '@/utils/api-client/interfaces/behavior';
 import type { UUID } from 'crypto';
+import { TEST_TYPES } from '@/constants/test-types';
 
 import MetricsDirectoryTab from './MetricsDirectoryTab';
 
@@ -50,8 +51,8 @@ const initialFilterOptions: FilterOptions = {
     { value: 'categorical', label: 'Categorical' },
   ],
   metricScope: [
-    { value: 'Single-Turn', label: 'Single-Turn' },
-    { value: 'Multi-Turn', label: 'Multi-Turn' },
+    { value: TEST_TYPES.SINGLE_TURN, label: TEST_TYPES.SINGLE_TURN },
+    { value: TEST_TYPES.MULTI_TURN, label: TEST_TYPES.MULTI_TURN },
   ],
   behavior: [],
 };

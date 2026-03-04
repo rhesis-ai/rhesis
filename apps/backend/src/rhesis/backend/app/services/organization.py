@@ -396,7 +396,12 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
 
         for test_set in created_test_sets:
             try:
-                update_test_set_attributes(db=db, test_set_id=str(test_set.id))
+                update_test_set_attributes(
+                    db=db,
+                    test_set_id=str(test_set.id),
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
             except Exception as e:
                 print(f"Warning: Failed to update attributes for test set {test_set.name}: {e}")
 
