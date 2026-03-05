@@ -28,7 +28,7 @@ export default defineConfig({
       testMatch: /auth\.setup\.ts/,
     },
 
-    // Smoke tests using authenticated state
+    // Full test suite on Chromium (@sanity + @crud)
     {
       name: 'chromium',
       use: {
@@ -36,6 +36,17 @@ export default defineConfig({
         storageState: 'tests/e2e/.auth/user.json',
       },
       dependencies: ['setup'],
+    },
+
+    // Smoke-only run on Firefox — keeps cross-browser coverage fast
+    {
+      name: 'firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+        storageState: 'tests/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
+      grep: /@sanity/,
     },
   ],
 

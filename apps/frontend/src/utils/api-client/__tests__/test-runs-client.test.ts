@@ -243,6 +243,116 @@ describe('TestRunsClient', () => {
     });
   });
 
+  describe('downloadTestRun', () => {
+    it('fetches the download URL for the given test run id', async () => {
+      fetchMock.mockResolvedValue(
+        makeFetchResponse({ data: 'csv' }, 200, {
+          'content-type': 'text/csv',
+        })
+      );
+
+      await client.downloadTestRun('run-dl');
+
+      const calledUrl = fetchMock.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('/test_runs/run-dl/download');
+    });
+
+    it('sends the Authorization header', async () => {
+      fetchMock.mockResolvedValue(makeFetchResponse('', 200));
+
+      await client.downloadTestRun('run-dl');
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        })
+      );
+    });
+
+    it('does not include credentials: include (unlike regular fetch calls)', async () => {
+      fetchMock.mockResolvedValue(makeFetchResponse('', 200));
+
+      await client.downloadTestRun('run-dl');
+
+      const options = fetchMock.mock.calls[0][1] as RequestInit;
+      expect(options.credentials).toBeUndefined();
+    });
+
+    it('returns a Blob on success', async () => {
+      fetchMock.mockResolvedValue(makeFetchResponse({ data: 'csv' }, 200));
+
+      const result = await client.downloadTestRun('run-dl');
+
+      expect(result).toBeInstanceOf(Blob);
+    });
+
+    it('throws with "API error: 500" message on server error', async () => {
+      fetchMock.mockResolvedValue(
+        makeFetchResponse('Internal Server Error', 500)
+      );
+
+      await expect(client.downloadTestRun('run-dl')).rejects.toThrow(
+        'API error: 500'
+      );
+    });
+  });
+
+  describe('getTestRunBehaviors', () => {
+    it('fetches behaviors for the given test run id', async () => {
+      const mockBehaviors = [
+        { id: 'beh-1', name: 'Behavior A' },
+        { id: 'beh-2', name: 'Behavior B' },
+      ];
+      fetchMock.mockResolvedValue(makeFetchResponse(mockBehaviors));
+
+      const result = await client.getTestRunBehaviors('run-123');
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/test_runs/run-123/behaviors'),
+        expect.anything()
+      );
+      expect(result).toHaveLength(2);
+      expect(result[0]).toMatchObject({ id: 'beh-1', name: 'Behavior A' });
+    });
+
+    it('sends credentials and Authorization header', async () => {
+      fetchMock.mockResolvedValue(makeFetchResponse([]));
+
+      await client.getTestRunBehaviors('run-123');
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          credentials: 'include',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer test-token',
+          }),
+        })
+      );
+    });
+
+    it('returns an empty array when there are no behaviors', async () => {
+      fetchMock.mockResolvedValue(makeFetchResponse([]));
+
+      const result = await client.getTestRunBehaviors('run-empty');
+
+      expect(result).toEqual([]);
+    });
+
+    it('throws on non-ok responses', async () => {
+      fetchMock.mockResolvedValue(
+        makeFetchResponse({ detail: 'Not found' }, 404)
+      );
+
+      await expect(client.getTestRunBehaviors('run-missing')).rejects.toThrow(
+        'API error: 404'
+      );
+    });
+  });
+
   describe('error handling', () => {
     it('throws on 404 responses', async () => {
       fetchMock.mockResolvedValue(
