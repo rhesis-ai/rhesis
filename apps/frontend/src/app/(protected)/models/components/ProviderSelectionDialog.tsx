@@ -38,10 +38,15 @@ export function ProviderSelectionDialog({
   providers,
   modelType = 'language',
 }: ProviderSelectionDialogProps) {
-  // Filter out system-managed providers (like 'rhesis') that users cannot create
+  // Filter out providers users cannot create from this UI.
   // and filter by model type (embedding providers for embedding models)
   const userSelectableProviders = providers.filter(provider => {
-    if (provider.type_value === 'rhesis') return false;
+    if (
+      provider.type_value === 'rhesis' ||
+      provider.type_value === 'polyphemus'
+    ) {
+      return false;
+    }
 
     // For embedding models, only show providers that support embeddings
     if (modelType === 'embedding') {
