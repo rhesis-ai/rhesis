@@ -28,7 +28,7 @@ class ConnectorManager:
     def __init__(
         self,
         api_key: str,
-        project_id: str,
+        project_id: str | None = None,
         environment: str = "development",
         base_url: str = "ws://localhost:8080",
     ):
@@ -37,15 +37,14 @@ class ConnectorManager:
 
         Args:
             api_key: API key for authentication
-            project_id: Project identifier
+            project_id: Project identifier (optional for metrics-only)
             environment: Environment name (default: "development")
             base_url: Base URL for WebSocket connection
 
         Raises:
             ValueError: If environment is not valid
         """
-        # Validate and normalize environment
-        environment = environment.lower()  # Normalize to lowercase
+        environment = environment.lower()
 
         if environment not in Environment.ALL:
             raise ValueError(
@@ -58,19 +57,18 @@ class ConnectorManager:
         self.environment = environment
         self.base_url = base_url
 
-        # Components
         self._registry = FunctionRegistry()
         self._metric_registry = MetricRegistry()
         self._executor = TestExecutor()
         self._tracer = Tracer(
             api_key=api_key,
-            project_id=project_id,
+            project_id=project_id or "",
             environment=environment,
             base_url=base_url,
         )
 
-        # WebSocket connection
         self._connection: WebSocketConnection | None = None
+        self._connection_id: str | None = None
         self._initialized = False
 
     def initialize(self) -> None:
@@ -79,32 +77,37 @@ class ConnectorManager:
             logger.warning("Connector already initialized")
             return
 
-        # Construct WebSocket URL
         ws_url = self._get_websocket_url()
 
-        # Create connection
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        # Send project/env headers for backward compat with old backends
+        if self.project_id:
+            headers["X-Rhesis-Project"] = self.project_id
+            headers["X-Rhesis-Environment"] = self.environment
+
         self._connection = WebSocketConnection(
             url=ws_url,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "X-Rhesis-Project": self.project_id,
-                "X-Rhesis-Environment": self.environment,
-            },
+            headers=headers,
             on_message=self._handle_message,
             on_connect=self._handle_connect,
         )
 
-        # Start connection in background only if there's a running event loop
         try:
             asyncio.get_running_loop()
             asyncio.create_task(self._connection.connect())
         except RuntimeError:
-            # No event loop running (e.g., during module import)
-            # Connection will be established later when needed
             logger.debug("No event loop running, connection will be established later")
 
         self._initialized = True
-        logger.info(f"Connector initialized for project {self.project_id}")
+        msg = "Connector initialized"
+        if self.project_id:
+            msg += f" for project {self.project_id}"
+        logger.info(msg)
+
+    @property
+    def connection_id(self) -> str | None:
+        """The server-assigned connection ID, available after connect."""
+        return self._connection_id
 
     def _ensure_connection(self) -> None:
         """Ensure WebSocket connection is started (if not already)."""
@@ -180,8 +183,8 @@ class ConnectorManager:
         metrics = self._metric_registry.get_all_metadata()
 
         message = RegisterMessage(
-            project_id=self.project_id,
-            environment=self.environment,
+            project_id=self.project_id or None,
+            environment=self.environment if self.project_id else None,
             functions=functions,
             metrics=metrics,
         )
@@ -209,8 +212,12 @@ class ConnectorManager:
             await self._handle_metric_request(message)
         elif message_type == MessageType.PING.value:
             await self._handle_ping()
-        elif message_type in (MessageType.CONNECTED.value, MessageType.REGISTERED.value):
-            # Acknowledgment messages from backend - no action needed
+        elif message_type == MessageType.CONNECTED.value:
+            cid = message.get("connection_id")
+            if cid:
+                self._connection_id = cid
+            logger.debug(f"Connected (connection_id={self._connection_id})")
+        elif message_type == MessageType.REGISTERED.value:
             logger.debug(f"Received acknowledgment: {message_type}")
         else:
             logger.warning(f"Unknown message type: {message_type}")

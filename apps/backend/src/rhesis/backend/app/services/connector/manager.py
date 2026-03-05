@@ -725,9 +725,10 @@ class ConnectionManager:
         )
 
         if message_type == "register":
-            reg_project_id = message.get("project_id", "")
-            reg_environment = message.get("environment", "")
+            reg_project_id = message.get("project_id") or ""
+            reg_environment = message.get("environment") or ""
 
+            # Project-scoped registration (endpoints + metrics)
             if connection_id and reg_project_id and reg_environment:
                 authorized = await self._authorize_and_register(
                     connection_id=connection_id,
@@ -744,15 +745,27 @@ class ConnectionManager:
                         "error": (f"Project {reg_project_id} not found or not accessible"),
                     }
 
-            await self.handle_registration(reg_project_id, reg_environment, message)
-            return await message_handler.handle_register_message(
-                project_id=reg_project_id,
-                environment=reg_environment,
-                message=message,
-                db=db,
-                organization_id=organization_id,
-                user_id=user_id,
-            )
+            # Register functions/metrics regardless of project binding.
+            # Metrics-only connections (no project_id) still register
+            # their metric handlers on this connection.
+            if reg_project_id and reg_environment:
+                await self.handle_registration(reg_project_id, reg_environment, message)
+                return await message_handler.handle_register_message(
+                    project_id=reg_project_id,
+                    environment=reg_environment,
+                    message=message,
+                    db=db,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
+
+            # Metrics-only registration (no project binding)
+            logger.info(f"Metrics-only registration for connection {connection_id}")
+            return {
+                "type": "registered",
+                "status": "success",
+                "connection_id": connection_id,
+            }
 
         elif message_type == "test_result":
             test_run_id = message.get("test_run_id")

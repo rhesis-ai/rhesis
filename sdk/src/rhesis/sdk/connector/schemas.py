@@ -31,11 +31,17 @@ class FunctionMetadata(BaseModel):
 
 
 class RegisterMessage(BaseModel):
-    """Message sent from SDK to backend to register functions and metrics."""
+    """Message sent from SDK to backend to register functions and metrics.
+
+    ``project_id`` and ``environment`` are optional so that an SDK can
+    connect for metrics-only evaluation without a project binding.
+    Old backends that require these fields will still receive them when
+    the SDK is configured with a project.
+    """
 
     type: str = "register"
-    project_id: str
-    environment: str
+    project_id: Optional[str] = None
+    environment: Optional[str] = None
     sdk_version: str = "0.4.2"
     functions: List[FunctionMetadata]
     metrics: List["MetricMetadata"] = Field(default_factory=list)
