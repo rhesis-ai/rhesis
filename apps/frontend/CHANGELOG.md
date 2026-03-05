@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-03-05
+
+### Added
+
+- Added frontend E2E CRUD tests, unit tests, Firefox coverage, and accessibility tests.
+- Added Playwright CRUD interaction specs for tokens, test sets, projects, and endpoints.
+- Added TestSetsPage and TokensPage page objects for E2E tests.
+- Added Firefox browser project to playwright.config.ts.
+- Added unit tests for TokensClient, ProjectsClient, TestSetsClient.
+- Installed jest-axe and added accessibility tests for common components.
+- Added multi-file attachment support for tests, traces, and playground, including file upload/download/delete endpoints and UI components.
+- Added file format filters and trace file linking for endpoint invocations.
+- Added file upload support to the `/chat` endpoint.
+- Added file attachment UI to Playground Chat.
+- Added file download to FileAttachmentList and MessageBubble.
+- Added file attachment support to multi-turn tests in Penelope.
+- Added file attachment support to SDK entities.
+- Added metadata and context as collapsible sections in test run detail view.
+- Added "Go to Test" button linking to test detail page in test run detail view.
+- Added trace drawer and file sections to test run detail view.
+- Added required field validation to metric creation form.
+- Added LiteLLM Proxy, Azure AI, and Azure OpenAI provider support.
+- Added hook and component tests, expanding MSW infrastructure.
+- Added API client integration tests for BaseApiClient, TestsClient, TestRunsClient, and EndpointsClient.
+- Added page-level integration tests for grid components.
+- Added detail-page integration tests.
+
+### Changed
+
+- Replaced test type magic strings with constants.
+- Renamed file data field from `content_base64` to `data` for consistency.
+- Moved file attachment button inside text input in Playground Chat.
+- Enhanced test run detail view with metadata, context, and JSON content display.
+- Updated Node.js version to 24 in CI configurations and Dockerfiles.
+- Moved e2e tests to `tests/e2e/` and dropped coverage threshold.
+- Updated `@icons-pack/react-simple-icons` to v13.12.0.
+- Moved file position query to CRUD layer.
+
+### Fixed
+
+- Used correct TestResultStatus values in accessibility tests.
+- Fixed CI failures in E2E and accessibility tests.
+- Fixed remaining E2E test failures related to onboarding checklist, DataGrid aria-label matching, and endpoint navigation.
+- Fixed test-sets E2E tests targeting MUI Select trigger.
+- Created `.auth` directory before writing `storageState` to prevent auth setup failures.
+- Included `test_set_type_id` when creating test sets from manual writer.
+- Fixed manual test writer test set association and navigation.
+- Resolved focus loss in metric evaluation steps TextFields.
+- Rebased file migration on litellm provider migration.
+- Used theme borderRadius and passed missing sessionToken.
+- Added default for `user_id` in TestRunCreate schema.
+- Resolved TypeScript errors in model providers and test creation.
+- Addressed PR review feedback for file filters and upload positions.
+- Handled optional `prompt_id` in test components.
+- Handled null `polyphemus_access` in user settings.
+- Patched `MAX_MESSAGE_SIZE` in websocket tests to prevent hang.
+- Added required `score_type` fields to metric test data factories.
+- Handled non-string content in MarkdownContent.
+- Prevented input focus loss from inline component definitions.
+- Resolved EndpointFormAutoConfigure test timeouts.
+- Lowered branch coverage threshold to match CI measurement.
+- Resolved TypeScript type errors in test fixtures.
+- Handled invalid test run ID gracefully with `notFound()`.
+- Used main content locator in POM `waitForContent` instead of grid.
+- Updated `auth.setup.ts` `storageState` path to `tests/e2e/.auth/`.
+- Simplified conditional checks for optional API key in models.
+- Corrected formatting in ConnectionDialog for azure_ai provider.
+- Handled lazy-load failures in mixin relationship properties.
+- Used CRUD layer for test set attribute updates.
+- Removed `[DEBUG]` prefix from API error logs.
+
+### Removed
+
+- Removed outdated `.nvmrc` file specifying Node.js version 20.19.5.
+
 ## [0.6.7] - 2026-03-02
 
 ### Added
