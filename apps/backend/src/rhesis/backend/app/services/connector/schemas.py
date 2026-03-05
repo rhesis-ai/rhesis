@@ -43,8 +43,8 @@ class RegisterMessage(BaseModel):
     """Message received from SDK to register functions and metrics."""
 
     type: str = "register"
-    project_id: str
-    environment: str
+    project_id: Optional[str] = None
+    environment: Optional[str] = None
     sdk_version: str
     functions: List[FunctionMetadata]
     metrics: List[MetricMetadata] = Field(default_factory=list)
@@ -76,6 +76,7 @@ class TestResultMessage(BaseModel):
     status: str  # "success" or "error"
     output: Optional[Any] = None
     error: Optional[str] = None
+    trace_id: Optional[str] = None
     duration_ms: float
 
 
