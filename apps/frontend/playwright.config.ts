@@ -11,7 +11,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 2 : undefined,
+  workers: process.env.CI ? 1 : undefined,
   // In CI each shard uploads a blob report; a merge job assembles the HTML.
   reporter: process.env.CI
     ? [['blob'], ['list']]

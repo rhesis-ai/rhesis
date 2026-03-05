@@ -14,8 +14,8 @@ test.describe('Test Sets @sanity', () => {
     await page.goto('/test-sets');
     await page.waitForLoadState('networkidle');
     await expect(
-      page.getByRole('heading', { name: /test sets/i })
-    ).toBeVisible();
+      page.getByRole('heading', { name: /test sets/i }).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('test sets page shows data grid or empty state', async ({ page }) => {

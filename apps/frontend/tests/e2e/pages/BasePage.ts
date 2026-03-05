@@ -27,7 +27,9 @@ export abstract class BasePage {
 
   /** Assert a page heading with the given text/pattern is visible. */
   async expectHeading(name: string | RegExp) {
-    await expect(this.page.getByRole('heading', { name })).toBeVisible();
+    await expect(this.page.getByRole('heading', { name }).first()).toBeVisible({
+      timeout: 10_000,
+    });
   }
 
   /**

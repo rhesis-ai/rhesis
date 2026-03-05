@@ -12,8 +12,8 @@ test.describe('Projects @sanity', () => {
     await page.goto('/projects');
     await page.waitForLoadState('networkidle');
     await expect(
-      page.getByRole('heading', { name: /projects/i })
-    ).toBeVisible();
+      page.getByRole('heading', { name: /projects/i }).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('projects page shows create project button', async ({ page }) => {

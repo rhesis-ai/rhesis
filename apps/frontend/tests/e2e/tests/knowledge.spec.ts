@@ -14,8 +14,8 @@ test.describe('Knowledge @sanity', () => {
     await page.goto('/knowledge');
     await page.waitForLoadState('networkidle');
     await expect(
-      page.getByRole('heading', { name: /knowledge/i })
-    ).toBeVisible();
+      page.getByRole('heading', { name: /knowledge/i }).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('knowledge page shows description text', async ({ page }) => {

@@ -13,7 +13,9 @@ test.describe('Traces @sanity', () => {
   test('traces page shows correct heading', async ({ page }) => {
     await page.goto('/traces');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: /traces/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /traces/i }).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('traces page shows description text', async ({ page }) => {

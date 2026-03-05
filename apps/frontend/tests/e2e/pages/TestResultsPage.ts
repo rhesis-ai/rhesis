@@ -28,14 +28,7 @@ export class TestResultsPage extends BasePage {
    */
   async expectContentVisible() {
     await this.page.waitForLoadState('networkidle');
-
-    // The subtitle describing the dashboard is always present
-    const subtitle = this.page.getByText(/track and analyze test performance/i);
     const mainContent = this.page.locator('main, [role="main"]').first();
-
-    const hasSubtitle = await subtitle.isVisible().catch(() => false);
-    const hasMain = await mainContent.isVisible().catch(() => false);
-
-    expect(hasSubtitle || hasMain).toBeTruthy();
+    await expect(mainContent).toBeVisible({ timeout: 10_000 });
   }
 }

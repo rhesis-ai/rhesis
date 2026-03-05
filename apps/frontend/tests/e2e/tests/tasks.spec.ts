@@ -13,7 +13,9 @@ test.describe('Tasks @sanity', () => {
   test('tasks page shows correct heading', async ({ page }) => {
     await page.goto('/tasks');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByRole('heading', { name: /tasks/i })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /tasks/i }).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('tasks page shows data grid or empty state', async ({ page }) => {

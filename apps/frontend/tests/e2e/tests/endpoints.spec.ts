@@ -13,15 +13,20 @@ test.describe('Endpoints @sanity', () => {
   test('endpoints page shows correct heading', async ({ page }) => {
     await page.goto('/endpoints');
     await page.waitForLoadState('networkidle');
+    // Use .first() to avoid strict-mode violations from nav/sidebar headings.
+    // Extend timeout because the page is 'use client' and waits for session
+    // before rendering PageContainer, which can be slow in CI.
     await expect(
-      page.getByRole('heading', { name: /endpoints/i })
-    ).toBeVisible();
+      page.getByRole('heading', { name: /endpoints/i }).first()
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test('endpoints page shows description text', async ({ page }) => {
     await page.goto('/endpoints');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText(/connect the rhesis platform/i)).toBeVisible();
+    await expect(
+      page.getByText(/connect the rhesis platform/i).first()
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test('endpoints page shows data grid or empty state', async ({ page }) => {
