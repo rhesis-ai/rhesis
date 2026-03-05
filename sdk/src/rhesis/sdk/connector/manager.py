@@ -7,7 +7,11 @@ from typing import Any
 
 from rhesis.sdk.connector.connection import WebSocketConnection
 from rhesis.sdk.connector.executor import TestExecutor
-from rhesis.sdk.connector.registry import FunctionRegistry, MetricRegistry
+from rhesis.sdk.connector.registry import (
+    DEFAULT_METRIC_PARAMS,
+    FunctionRegistry,
+    MetricRegistry,
+)
 from rhesis.sdk.connector.schemas import (
     ExecuteMetricMessage,
     ExecuteTestMessage,
@@ -334,7 +338,7 @@ class ConnectorManager:
 
             metric_func = self._metric_registry.get(metric_name)
             metadata = self._metric_registry.get_metadata(metric_name) or {}
-            accepted_params = metadata.get("accepted_params", ["input", "output"])
+            accepted_params = metadata.get("accepted_params", list(DEFAULT_METRIC_PARAMS))
 
             result = await self._executor.execute_metric(
                 metric_func, metric_name, inputs, accepted_params

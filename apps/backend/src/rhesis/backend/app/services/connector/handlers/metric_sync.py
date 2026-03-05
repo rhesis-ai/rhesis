@@ -10,6 +10,7 @@ from rhesis.backend.app import models
 from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.status import get_or_create_status
+from rhesis.sdk.connector.registry import DEFAULT_METRIC_PARAMS
 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +229,7 @@ def _update_existing_metric(
     score_type = metadata.get("score_type", "numeric")
     metric.score_type = score_type
 
-    accepted_params = metric_data.get("parameters", ["input", "output"])
+    accepted_params = metric_data.get("parameters", list(DEFAULT_METRIC_PARAMS))
     metric.ground_truth_required = "expected_output" in accepted_params
     metric.context_required = "context" in accepted_params
 
@@ -251,7 +252,7 @@ def _create_new_metric(
     """Create a new Metric row for an SDK metric."""
     description = metadata.get("description") or f"SDK metric: {metric_name}"
     score_type = metadata.get("score_type", "numeric")
-    accepted_params = metric_data.get("parameters", ["input", "output"])
+    accepted_params = metric_data.get("parameters", list(DEFAULT_METRIC_PARAMS))
 
     active_status = get_or_create_status(db, "Active", "General", organization_id, user_id)
 

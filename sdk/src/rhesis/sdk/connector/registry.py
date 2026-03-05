@@ -141,6 +141,7 @@ class FunctionRegistry:
 
 # Allowed parameter names for SDK metrics
 METRIC_REQUIRED_PARAMS = {"input", "output"}
+DEFAULT_METRIC_PARAMS = ("input", "output")
 METRIC_OPTIONAL_PARAMS = {"expected_output", "context"}
 METRIC_ALLOWED_PARAMS = METRIC_REQUIRED_PARAMS | METRIC_OPTIONAL_PARAMS
 
@@ -191,7 +192,7 @@ class MetricRegistry:
             metadata_list.append(
                 MetricMetadata(
                     name=name,
-                    parameters=meta.get("accepted_params", list(METRIC_REQUIRED_PARAMS)),
+                    parameters=meta.get("accepted_params", list(DEFAULT_METRIC_PARAMS)),
                     return_type="MetricResult",
                     metadata={k: v for k, v in meta.items() if k != "accepted_params"},
                 )
