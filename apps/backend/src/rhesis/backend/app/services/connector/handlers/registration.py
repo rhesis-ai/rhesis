@@ -156,7 +156,7 @@ class RegistrationHandler:
                 sync_sdk_metrics,
             )
 
-            stats = await sync_sdk_metrics(
+            stats = sync_sdk_metrics(
                 db=db,
                 project_id=project_id,
                 environment=environment,

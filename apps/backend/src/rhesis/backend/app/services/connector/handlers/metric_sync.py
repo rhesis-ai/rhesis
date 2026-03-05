@@ -17,7 +17,7 @@ SDK_BACKEND_TYPE_NAME = "BackendType"
 SDK_BACKEND_TYPE_VALUE = "sdk"
 
 
-async def sync_sdk_metrics(
+def sync_sdk_metrics(
     db: Session,
     project_id: str,
     environment: str,
