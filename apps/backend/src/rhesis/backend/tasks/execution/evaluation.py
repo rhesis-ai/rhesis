@@ -85,6 +85,8 @@ def evaluate_multi_turn_metrics(
     test_set: Any = None,
     test_configuration: Any = None,
     exclude_class_names: Optional[Set[str]] = None,
+    project_id: Optional[str] = None,
+    environment: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Evaluate conversational metrics on a stored Penelope trace or conversation.
 
@@ -136,8 +138,16 @@ def evaluate_multi_turn_metrics(
     if not metric_configs:
         return {}
 
-    # Evaluate each metric on the conversation using the MetricEvaluator
-    metrics_evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
+    from rhesis.backend.tasks.execution.executors.runners import (
+        _build_sdk_metric_sender,
+    )
+
+    metrics_evaluator = MetricEvaluator(
+        model=model,
+        db=db,
+        organization_id=organization_id,
+        sdk_metric_sender=_build_sdk_metric_sender(project_id, environment),
+    )
 
     # Build ConversationHistory from conversation_summary for conversational metrics
     conversation_summary = stored_output.get("conversation_summary", [])

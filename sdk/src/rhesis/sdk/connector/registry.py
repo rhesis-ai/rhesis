@@ -1,11 +1,11 @@
-"""Function registry for remote endpoint testing."""
+"""Function and metric registries for remote endpoint testing."""
 
 import inspect
 import logging
 from collections.abc import Callable
 from typing import Any
 
-from rhesis.sdk.connector.schemas import FunctionMetadata
+from rhesis.sdk.connector.schemas import FunctionMetadata, MetricMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -137,3 +137,68 @@ class FunctionRegistry:
                 else "Any"
             ),
         }
+
+
+# Allowed parameter names for SDK metrics
+METRIC_REQUIRED_PARAMS = {"input", "output"}
+DEFAULT_METRIC_PARAMS = ("input", "output")
+METRIC_OPTIONAL_PARAMS = {"expected_output", "context"}
+METRIC_ALLOWED_PARAMS = METRIC_REQUIRED_PARAMS | METRIC_OPTIONAL_PARAMS
+
+
+class MetricRegistry:
+    """Manages registered SDK metrics and their metadata."""
+
+    def __init__(self):
+        """Initialize metric registry."""
+        self._metrics: dict[str, Callable] = {}
+        self._metadata: dict[str, dict[str, Any]] = {}
+
+    def register(self, name: str, func: Callable, metadata: dict[str, Any]) -> None:
+        """
+        Register a metric.
+
+        Args:
+            name: Metric name
+            func: Metric callable
+            metadata: Additional metadata (must include "accepted_params")
+        """
+        self._metrics[name] = func
+        self._metadata[name] = metadata
+        logger.info(f"Registered metric: {name}")
+
+    def get(self, name: str) -> Callable | None:
+        """Get a registered metric callable."""
+        return self._metrics.get(name)
+
+    def has(self, name: str) -> bool:
+        """Check if a metric is registered."""
+        return name in self._metrics
+
+    def get_metadata(self, name: str) -> dict[str, Any] | None:
+        """Get metadata for a specific metric."""
+        return self._metadata.get(name)
+
+    def get_all_metadata(self) -> list[MetricMetadata]:
+        """
+        Get metadata for all registered metrics.
+
+        Returns:
+            List of MetricMetadata schemas
+        """
+        metadata_list = []
+        for name in self._metrics:
+            meta = self._metadata.get(name, {})
+            metadata_list.append(
+                MetricMetadata(
+                    name=name,
+                    parameters=meta.get("accepted_params", list(DEFAULT_METRIC_PARAMS)),
+                    return_type="MetricResult",
+                    metadata={k: v for k, v in meta.items() if k != "accepted_params"},
+                )
+            )
+        return metadata_list
+
+    def count(self) -> int:
+        """Get count of registered metrics."""
+        return len(self._metrics)

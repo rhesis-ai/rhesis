@@ -7,9 +7,15 @@ from typing import Any
 
 from rhesis.sdk.connector.connection import WebSocketConnection
 from rhesis.sdk.connector.executor import TestExecutor
-from rhesis.sdk.connector.registry import FunctionRegistry
+from rhesis.sdk.connector.registry import (
+    DEFAULT_METRIC_PARAMS,
+    FunctionRegistry,
+    MetricRegistry,
+)
 from rhesis.sdk.connector.schemas import (
+    ExecuteMetricMessage,
     ExecuteTestMessage,
+    MetricResultMessage,
     RegisterMessage,
     TestResultMessage,
     TestStatus,
@@ -26,7 +32,7 @@ class ConnectorManager:
     def __init__(
         self,
         api_key: str,
-        project_id: str,
+        project_id: str | None = None,
         environment: str = "development",
         base_url: str = "ws://localhost:8080",
     ):
@@ -35,15 +41,14 @@ class ConnectorManager:
 
         Args:
             api_key: API key for authentication
-            project_id: Project identifier
+            project_id: Project identifier (optional for metrics-only)
             environment: Environment name (default: "development")
             base_url: Base URL for WebSocket connection
 
         Raises:
             ValueError: If environment is not valid
         """
-        # Validate and normalize environment
-        environment = environment.lower()  # Normalize to lowercase
+        environment = environment.lower()
 
         if environment not in Environment.ALL:
             raise ValueError(
@@ -56,18 +61,18 @@ class ConnectorManager:
         self.environment = environment
         self.base_url = base_url
 
-        # Components
         self._registry = FunctionRegistry()
+        self._metric_registry = MetricRegistry()
         self._executor = TestExecutor()
         self._tracer = Tracer(
             api_key=api_key,
-            project_id=project_id,
+            project_id=project_id or "",
             environment=environment,
             base_url=base_url,
         )
 
-        # WebSocket connection
         self._connection: WebSocketConnection | None = None
+        self._connection_id: str | None = None
         self._initialized = False
 
     def initialize(self) -> None:
@@ -76,32 +81,37 @@ class ConnectorManager:
             logger.warning("Connector already initialized")
             return
 
-        # Construct WebSocket URL
         ws_url = self._get_websocket_url()
 
-        # Create connection
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        # Send project/env headers for backward compat with old backends
+        if self.project_id:
+            headers["X-Rhesis-Project"] = self.project_id
+            headers["X-Rhesis-Environment"] = self.environment
+
         self._connection = WebSocketConnection(
             url=ws_url,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "X-Rhesis-Project": self.project_id,
-                "X-Rhesis-Environment": self.environment,
-            },
+            headers=headers,
             on_message=self._handle_message,
             on_connect=self._handle_connect,
         )
 
-        # Start connection in background only if there's a running event loop
         try:
             asyncio.get_running_loop()
             asyncio.create_task(self._connection.connect())
         except RuntimeError:
-            # No event loop running (e.g., during module import)
-            # Connection will be established later when needed
             logger.debug("No event loop running, connection will be established later")
 
         self._initialized = True
-        logger.info(f"Connector initialized for project {self.project_id}")
+        msg = "Connector initialized"
+        if self.project_id:
+            msg += f" for project {self.project_id}"
+        logger.info(msg)
+
+    @property
+    def connection_id(self) -> str | None:
+        """The server-assigned connection ID, available after connect."""
+        return self._connection_id
 
     def _ensure_connection(self) -> None:
         """Ensure WebSocket connection is started (if not already)."""
@@ -138,6 +148,27 @@ class ConnectorManager:
                 # No event loop running, registration will be sent when connection is established
                 logger.debug("No event loop running, registration will be sent on connection")
 
+    def register_metric(self, name: str, func: Callable, metadata: dict[str, Any]) -> None:
+        """
+        Register an SDK-side metric for remote evaluation.
+
+        Args:
+            name: Metric name
+            func: Metric callable
+            metadata: Additional metadata (score_type, accepted_params, etc.)
+        """
+        if not self._initialized:
+            self.initialize()
+
+        self._metric_registry.register(name, func, metadata)
+
+        # If connection is active, send updated registration
+        if self._connection and self._connection.websocket:
+            try:
+                asyncio.create_task(self._send_registration())
+            except RuntimeError:
+                logger.debug("No event loop running, registration will be sent on connection")
+
     async def _handle_connect(self) -> None:
         """Handle successful connection/reconnection - send registration."""
         try:
@@ -148,21 +179,25 @@ class ConnectorManager:
             logger.error(f"Error handling connection: {e}")
 
     async def _send_registration(self) -> None:
-        """Send function registration to backend."""
+        """Send function and metric registration to backend."""
         if not self._connection:
             return
 
         functions = self._registry.get_all_metadata()
+        metrics = self._metric_registry.get_all_metadata()
 
         message = RegisterMessage(
-            project_id=self.project_id,
-            environment=self.environment,
+            project_id=self.project_id or None,
+            environment=self.environment if self.project_id else None,
             functions=functions,
+            metrics=metrics,
         )
 
         try:
             await self._connection.send(message.model_dump())
-            logger.info(f"Sent registration for {len(functions)} function(s)")
+            logger.info(
+                f"Sent registration for {len(functions)} function(s) and {len(metrics)} metric(s)"
+            )
         except Exception as e:
             logger.error(f"Error sending registration: {e}")
 
@@ -177,10 +212,16 @@ class ConnectorManager:
 
         if message_type == MessageType.EXECUTE_TEST.value:
             await self._handle_test_request(message)
+        elif message_type == MessageType.EXECUTE_METRIC.value:
+            await self._handle_metric_request(message)
         elif message_type == MessageType.PING.value:
             await self._handle_ping()
-        elif message_type in (MessageType.CONNECTED.value, MessageType.REGISTERED.value):
-            # Acknowledgment messages from backend - no action needed
+        elif message_type == MessageType.CONNECTED.value:
+            cid = message.get("connection_id")
+            if cid:
+                self._connection_id = cid
+            logger.debug(f"Connected (connection_id={self._connection_id})")
+        elif message_type == MessageType.REGISTERED.value:
             logger.debug(f"Received acknowledgment: {message_type}")
         else:
             logger.warning(f"Unknown message type: {message_type}")
@@ -270,6 +311,88 @@ class ConnectorManager:
             logger.info(f"Sent test result for run {test_run_id}: {status}")
         except Exception as e:
             logger.error(f"Error sending test result: {e}")
+
+    async def _handle_metric_request(self, message: dict[str, Any]) -> None:
+        """
+        Handle metric execution request from backend.
+
+        Args:
+            message: Execute metric message
+        """
+        try:
+            metric_msg = ExecuteMetricMessage(**message)
+            metric_name = metric_msg.metric_name
+            metric_run_id = metric_msg.metric_run_id
+            inputs = metric_msg.inputs
+
+            logger.info(f"Executing metric: {metric_name}")
+
+            if not self._metric_registry.has(metric_name):
+                await self._send_metric_result(
+                    metric_run_id,
+                    status=TestStatus.ERROR,
+                    error=f"Metric '{metric_name}' not found in registry",
+                    duration_ms=0,
+                )
+                return
+
+            metric_func = self._metric_registry.get(metric_name)
+            metadata = self._metric_registry.get_metadata(metric_name) or {}
+            accepted_params = metadata.get("accepted_params", list(DEFAULT_METRIC_PARAMS))
+
+            result = await self._executor.execute_metric(
+                metric_func, metric_name, inputs, accepted_params
+            )
+
+            await self._send_metric_result(
+                metric_run_id,
+                status=result["status"],
+                score=result.get("score"),
+                details=result.get("details", {}),
+                error=result.get("error"),
+                duration_ms=result["duration_ms"],
+            )
+
+        except Exception as e:
+            logger.error(f"Error handling metric request: {e}")
+
+    async def _send_metric_result(
+        self,
+        metric_run_id: str,
+        status: TestStatus,
+        score: Any = None,
+        details: dict[str, Any] | None = None,
+        error: str | None = None,
+        duration_ms: float = 0,
+    ) -> None:
+        """
+        Send metric result back to backend.
+
+        Args:
+            metric_run_id: Metric run identifier
+            status: "success" or "error"
+            score: Metric score (if successful)
+            details: Additional details (if successful)
+            error: Error message (if failed)
+            duration_ms: Execution duration in milliseconds
+        """
+        if not self._connection:
+            return
+
+        message = MetricResultMessage(
+            metric_run_id=metric_run_id,
+            status=status,
+            score=score,
+            details=details or {},
+            error=error,
+            duration_ms=duration_ms,
+        )
+
+        try:
+            await self._connection.send(message.model_dump())
+            logger.info(f"Sent metric result for run {metric_run_id}: {status}")
+        except Exception as e:
+            logger.error(f"Error sending metric result: {e}")
 
     async def _handle_ping(self) -> None:
         """Handle ping message by sending pong."""

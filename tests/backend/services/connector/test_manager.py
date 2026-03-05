@@ -18,6 +18,7 @@ from rhesis.backend.app.services.connector.manager import ConnectionManager
 from rhesis.backend.app.services.connector.schemas import (
     ConnectionStatus,
     FunctionMetadata,
+    WebSocketConnectionContext,
 )
 
 
@@ -35,34 +36,54 @@ class TestConnectionManager:
         assert key == "project-123:staging"
 
     @pytest.mark.asyncio
-    async def test_connect(self, manager: ConnectionManager, mock_websocket):
+    async def test_connect(
+        self,
+        manager: ConnectionManager,
+        mock_websocket,
+        connection_context: WebSocketConnectionContext,
+    ):
         """Test WebSocket connection registration"""
-        await manager.connect("project-123", "development", mock_websocket)
+        with patch.object(manager, "_track_background_task", return_value=Mock()):
+            await manager.connect(
+                connection_context.connection_id,
+                connection_context,
+                mock_websocket,
+            )
 
-        assert await manager.is_connected("project-123", "development")
-        key = manager.get_connection_key("project-123", "development")
-        assert key in manager._connections
-        assert manager._connections[key] == mock_websocket
+        conn_id = connection_context.connection_id
+        assert conn_id in manager._connections
+        assert manager._connections[conn_id] == mock_websocket
+        assert conn_id in manager._contexts
+        assert manager._contexts[conn_id] == connection_context
+        assert conn_id in manager._connection_projects
+        assert manager._connection_projects[conn_id] == set()
 
-    @pytest.mark.asyncio
-    async def test_disconnect(self, manager: ConnectionManager, mock_websocket):
+    def test_disconnect(
+        self,
+        manager: ConnectionManager,
+        mock_websocket,
+        connection_context: WebSocketConnectionContext,
+    ):
         """Test WebSocket disconnection"""
-        # First connect
+        conn_id = connection_context.connection_id
         key = manager.get_connection_key("project-123", "development")
-        manager._connections[key] = mock_websocket
+        manager._connections[conn_id] = mock_websocket
+        manager._contexts[conn_id] = connection_context
+        manager._connection_projects[conn_id] = {key}
+        manager._project_routing[key] = conn_id
         manager._registries[key] = []
 
-        # Then disconnect
-        manager.disconnect("project-123", "development")
+        manager.disconnect_by_connection_id(conn_id)
 
-        assert not await manager.is_connected("project-123", "development")
-        assert key not in manager._connections
+        assert conn_id not in manager._connections
+        assert conn_id not in manager._contexts
+        assert conn_id not in manager._connection_projects
+        assert key not in manager._project_routing
         assert key not in manager._registries
 
     def test_disconnect_nonexistent(self, manager: ConnectionManager):
         """Test disconnecting a non-existent connection"""
-        # Should not raise any exceptions
-        manager.disconnect("nonexistent-project", "development")
+        manager.disconnect_by_connection_id("nonexistent-conn")
 
     def test_register_functions(self, manager: ConnectionManager):
         """Test function registration"""
@@ -84,10 +105,11 @@ class TestConnectionManager:
     @pytest.mark.asyncio
     async def test_send_test_request_success(self, manager: ConnectionManager, mock_websocket):
         """Test successful test request sending"""
-        # Setup connection
-        await manager.connect("project-123", "development", mock_websocket)
+        conn_id = "conn-test-123"
+        key = manager.get_connection_key("project-123", "development")
+        manager._connections[conn_id] = mock_websocket
+        manager._project_routing[key] = conn_id
 
-        # Send test request
         result = await manager.send_test_request(
             project_id="project-123",
             environment="development",
@@ -120,9 +142,11 @@ class TestConnectionManager:
     @pytest.mark.asyncio
     async def test_send_test_request_send_error(self, manager: ConnectionManager, mock_websocket):
         """Test test request sending when send_json fails"""
-        # Setup connection with failing websocket
         mock_websocket.send_json.side_effect = Exception("Connection error")
-        await manager.connect("project-123", "development", mock_websocket)
+        conn_id = "conn-test-123"
+        key = manager.get_connection_key("project-123", "development")
+        manager._connections[conn_id] = mock_websocket
+        manager._project_routing[key] = conn_id
 
         result = await manager.send_test_request(
             project_id="project-123",
@@ -136,9 +160,10 @@ class TestConnectionManager:
 
     def test_get_connection_status_connected(self, manager: ConnectionManager, mock_websocket):
         """Test getting status for connected project"""
-        # Setup connection with functions
+        conn_id = "conn-test-123"
         key = manager.get_connection_key("project-123", "development")
-        manager._connections[key] = mock_websocket
+        manager._connections[conn_id] = mock_websocket
+        manager._project_routing[key] = conn_id
         functions = [
             FunctionMetadata(
                 name="test_func",
@@ -171,8 +196,10 @@ class TestConnectionManager:
     @pytest.mark.asyncio
     async def test_is_connected_true(self, manager: ConnectionManager, mock_websocket):
         """Test is_connected returns True for connected project"""
+        conn_id = "conn-test-123"
         key = manager.get_connection_key("project-123", "development")
-        manager._connections[key] = mock_websocket
+        manager._project_routing[key] = conn_id
+        manager._connections[conn_id] = mock_websocket
 
         assert await manager.is_connected("project-123", "development") is True
 
@@ -197,26 +224,47 @@ class TestConnectionManager:
         """Test registration with invalid message"""
         invalid_message = {"type": "register", "invalid": "data"}
 
-        # Should handle gracefully
         await manager.handle_registration("project-123", "development", invalid_message)
 
-        # Registry should not be updated
         key = manager.get_connection_key("project-123", "development")
         assert key not in manager._registries
 
     @pytest.mark.asyncio
     async def test_handle_message_register(
-        self, manager: ConnectionManager, test_db: Session, sample_register_message, project_context
+        self,
+        manager: ConnectionManager,
+        test_db: Session,
+        sample_register_message,
+        project_context,
     ):
         """Test handling register message"""
-        with patch("rhesis.backend.app.services.connector.manager.message_handler") as mock_handler:
+        conn_id = "conn-test-123"
+        context = WebSocketConnectionContext(
+            connection_id=conn_id,
+            user_id=project_context["user_id"],
+            organization_id=project_context["organization_id"],
+        )
+        manager._contexts[conn_id] = context
+        manager._connection_projects[conn_id] = set()
+
+        sample_register_message["project_id"] = project_context["project_id"]
+        sample_register_message["environment"] = project_context["environment"]
+
+        with (
+            patch("rhesis.backend.app.services.connector.manager.message_handler") as mock_handler,
+            patch.object(
+                manager,
+                "_authorize_and_register",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
             mock_handler.handle_register_message = AsyncMock(
                 return_value={"type": "registered", "status": "success"}
             )
 
             response = await manager.handle_message(
-                project_id=project_context["project_id"],
-                environment=project_context["environment"],
+                connection_id=conn_id,
                 message=sample_register_message,
                 db=test_db,
                 organization_id=project_context["organization_id"],
@@ -226,9 +274,9 @@ class TestConnectionManager:
             assert response["type"] == "registered"
             assert response["status"] == "success"
 
-            # Verify local registry was updated
             key = manager.get_connection_key(
-                project_context["project_id"], project_context["environment"]
+                project_context["project_id"],
+                project_context["environment"],
             )
             assert key in manager._registries
 
@@ -240,12 +288,17 @@ class TestConnectionManager:
         project_context,
     ):
         """Test handling test_result message"""
+        conn_id = "conn-test-123"
+        key = manager.get_connection_key(
+            project_context["project_id"], project_context["environment"]
+        )
+        manager._connection_projects[conn_id] = {key}
+
         with patch("rhesis.backend.app.services.connector.manager.message_handler") as mock_handler:
             mock_handler.handle_test_result_message = AsyncMock()
 
             response = await manager.handle_message(
-                project_id=project_context["project_id"],
-                environment=project_context["environment"],
+                connection_id=conn_id,
                 message=sample_test_result_message,
                 db=None,
                 organization_id=None,
@@ -256,15 +309,23 @@ class TestConnectionManager:
 
     @pytest.mark.asyncio
     async def test_handle_message_pong(
-        self, manager: ConnectionManager, sample_pong_message, project_context
+        self,
+        manager: ConnectionManager,
+        sample_pong_message,
+        project_context,
     ):
         """Test handling pong message"""
+        conn_id = "conn-test-123"
+        key = manager.get_connection_key(
+            project_context["project_id"], project_context["environment"]
+        )
+        manager._connection_projects[conn_id] = {key}
+
         with patch("rhesis.backend.app.services.connector.manager.message_handler") as mock_handler:
             mock_handler.handle_pong_message = AsyncMock()
 
             response = await manager.handle_message(
-                project_id=project_context["project_id"],
-                environment=project_context["environment"],
+                connection_id=conn_id,
                 message=sample_pong_message,
                 db=None,
                 organization_id=None,
@@ -276,11 +337,11 @@ class TestConnectionManager:
     @pytest.mark.asyncio
     async def test_handle_message_unknown(self, manager: ConnectionManager, project_context):
         """Test handling unknown message type"""
+        conn_id = "conn-test-123"
         unknown_message = {"type": "unknown_type", "data": "something"}
 
         response = await manager.handle_message(
-            project_id=project_context["project_id"],
-            environment=project_context["environment"],
+            connection_id=conn_id,
             message=unknown_message,
             db=None,
             organization_id=None,
@@ -289,36 +350,44 @@ class TestConnectionManager:
         assert response is None
 
     @pytest.mark.asyncio
-    async def test_multiple_connections_different_environments(
-        self, manager: ConnectionManager, mock_websocket
-    ):
+    async def test_multiple_connections_different_environments(self, manager: ConnectionManager):
         """Test managing multiple connections for same project in different environments"""
         ws_dev = Mock()
         ws_prod = Mock()
 
-        await manager.connect("project-123", "development", ws_dev)
-        await manager.connect("project-123", "production", ws_prod)
+        conn_id_dev = "conn-dev"
+        conn_id_prod = "conn-prod"
+
+        manager._connections[conn_id_dev] = ws_dev
+        manager._connections[conn_id_prod] = ws_prod
+
+        key_dev = manager.get_connection_key("project-123", "development")
+        key_prod = manager.get_connection_key("project-123", "production")
+        manager._project_routing[key_dev] = conn_id_dev
+        manager._project_routing[key_prod] = conn_id_prod
 
         assert await manager.is_connected("project-123", "development")
         assert await manager.is_connected("project-123", "production")
 
-        key_dev = manager.get_connection_key("project-123", "development")
-        key_prod = manager.get_connection_key("project-123", "production")
-
-        assert manager._connections[key_dev] == ws_dev
-        assert manager._connections[key_prod] == ws_prod
+        assert manager._connections[conn_id_dev] == ws_dev
+        assert manager._connections[conn_id_prod] == ws_prod
 
     @pytest.mark.asyncio
     async def test_reconnection_replaces_old_connection(self, manager: ConnectionManager):
-        """Test that reconnecting replaces the old WebSocket"""
+        """Test that reconnecting with the same connection_id replaces the old WebSocket"""
         ws_old = Mock()
         ws_new = Mock()
 
-        # First connection
-        await manager.connect("project-123", "development", ws_old)
-        key = manager.get_connection_key("project-123", "development")
-        assert manager._connections[key] == ws_old
+        conn_id = "conn-test-123"
+        context = WebSocketConnectionContext(
+            connection_id=conn_id,
+            user_id="user-1",
+            organization_id="org-1",
+        )
 
-        # Reconnect with new websocket
-        await manager.connect("project-123", "development", ws_new)
-        assert manager._connections[key] == ws_new
+        with patch.object(manager, "_track_background_task", return_value=Mock()):
+            await manager.connect(conn_id, context, ws_old)
+            assert manager._connections[conn_id] == ws_old
+
+            await manager.connect(conn_id, context, ws_new)
+            assert manager._connections[conn_id] == ws_new

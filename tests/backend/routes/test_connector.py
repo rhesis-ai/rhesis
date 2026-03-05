@@ -53,23 +53,6 @@ class TestConnectorWebSocket:
             mock_db.return_value.__exit__ = Mock(return_value=None)
             yield mock_db
 
-    def test_websocket_connection_missing_project_id(
-        self,
-        authenticated_client: TestClient,
-        mock_authenticate_websocket,
-        mock_connection_manager,
-        mock_db_context,
-    ):
-        """Test WebSocket connection without project_id header"""
-        from starlette.websockets import WebSocketDisconnect
-
-        # Should close connection due to missing project_id
-        with pytest.raises(WebSocketDisconnect):
-            with authenticated_client.websocket_connect(
-                "/connector/ws", headers={"x-rhesis-environment": "development"}
-            ):
-                pass
-
     def test_websocket_connection_authentication_failure(self, authenticated_client: TestClient):
         """Test WebSocket connection with authentication failure"""
         with patch("rhesis.backend.app.routers.connector.authenticate_websocket") as mock_auth:

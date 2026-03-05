@@ -1,7 +1,7 @@
 import concurrent.futures
 import inspect
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -43,27 +43,36 @@ METRIC_RETRY_MAX_WAIT = 10  # seconds
 class MetricEvaluator:
     """Evaluator class that handles metric computation using configured backends."""
 
+    # Type alias for the injected SDK metric sender.
+    # Signature: (metric_run_id, metric_name, inputs) -> result dict
+    SdkMetricSender = Callable[
+        [str, str, Dict[str, Any]],
+        Awaitable[Dict[str, Any]],
+    ]
+
     def __init__(
         self,
         model: Optional[Any] = None,
         db: Optional[Session] = None,
         organization_id: Optional[str] = None,
+        sdk_metric_sender: Optional["MetricEvaluator.SdkMetricSender"] = None,
     ):
         """
         Initialize evaluator with factory and score evaluator.
 
         Args:
-            model: Optional default model for metrics evaluation. Can be:
-                   - None: Use default model from constants
-                   - str: Provider name (e.g., "gemini", "openai")
-                   - BaseLLM instance: Fully configured model
-            db: Optional database session for fetching metric-specific models
-            organization_id: Optional organization ID for secure model lookups
+            model: Optional default model for metrics evaluation.
+            db: Optional database session for fetching metric-specific models.
+            organization_id: Optional organization ID for secure model lookups.
+            sdk_metric_sender: Optional async callable for dispatching SDK
+                metrics.  Signature: (metric_run_id, metric_name, inputs)
+                -> result dict.  When *None*, SDK-backend metrics are skipped.
         """
         self.score_evaluator = ScoreEvaluator()
-        self.model = model  # Store default model for passing to metrics
-        self.db = db  # Database session for fetching metric-specific models
-        self.organization_id = organization_id  # For secure model lookups
+        self.model = model
+        self.db = db
+        self.organization_id = organization_id
+        self._sdk_metric_sender = sdk_metric_sender
         self._conversation_history: Optional[ConversationHistory] = None
 
     @staticmethod
@@ -263,16 +272,177 @@ class MetricEvaluator:
                 logger.warning("No metrics found at all, returning empty results")
                 return {}
 
-        # Prepare metrics for evaluation
-        metric_tasks = self._prepare_metrics(metric_configs, expected_output, context)
+        # Split SDK metrics from local metrics
+        local_configs = []
+        sdk_configs = []
+        for config in metric_configs:
+            backend = (
+                config.get("backend")
+                if isinstance(config, dict)
+                else getattr(config, "backend", None)
+            )
+            if backend == "sdk":
+                sdk_configs.append(config)
+            else:
+                local_configs.append(config)
 
-        # Execute metrics in parallel and collect results
-        results = self._execute_metrics_in_parallel(
-            metric_tasks, input_text, output_text, expected_output, context, max_workers
-        )
+        results = {}
+
+        # Evaluate local metrics through the standard pipeline
+        if local_configs:
+            metric_tasks = self._prepare_metrics(local_configs, expected_output, context)
+            results = self._execute_metrics_in_parallel(
+                metric_tasks, input_text, output_text, expected_output, context, max_workers
+            )
+
+        # Evaluate SDK metrics via connector RPC
+        if sdk_configs:
+            sdk_results = self._evaluate_sdk_metrics(
+                sdk_configs, input_text, output_text, expected_output, context
+            )
+            results.update(sdk_results)
 
         # Merge invalid metric results into the final results
         results.update(invalid_metric_results)
+
+        return results
+
+    def _evaluate_sdk_metrics(
+        self,
+        sdk_configs: List[Union[Dict[str, Any], MetricConfig]],
+        input_text: str,
+        output_text: str,
+        expected_output: str,
+        context: List[str],
+    ) -> Dict[str, Any]:
+        """
+        Evaluate SDK-side metrics via the connector RPC.
+
+        Args:
+            sdk_configs: List of metric configurations with backend="sdk"
+            input_text: The input query
+            output_text: The actual LLM output
+            expected_output: The expected output
+            context: List of context strings
+
+        Returns:
+            Dictionary of metric results keyed by metric name
+        """
+        if not self._sdk_metric_sender:
+            logger.warning("Cannot evaluate SDK metrics: no sdk_metric_sender configured")
+            return {
+                self._get_config_value(c, "name", f"SDKMetric_{i}"): {
+                    "score": 0.0,
+                    "reason": "SDK metric sender not configured",
+                    "is_successful": False,
+                    "backend": "sdk",
+                    "name": self._get_config_value(c, "name", f"SDKMetric_{i}"),
+                    "class_name": self._get_config_value(c, "class_name", "Unknown"),
+                    "error": "sdk_metric_sender not configured",
+                }
+                for i, c in enumerate(sdk_configs)
+            }
+
+        import asyncio
+        import uuid
+
+        results = {}
+
+        for config in sdk_configs:
+            metric_name = self._get_config_value(config, "name", "")
+            class_name = self._get_config_value(config, "class_name", metric_name)
+            description = self._get_config_value(config, "description", f"SDK metric: {class_name}")
+            threshold = self._get_config_value(config, "threshold", 0.0)
+
+            metric_run_id = str(uuid.uuid4())
+
+            inputs = {
+                "input": input_text,
+                "output": output_text,
+                "expected_output": expected_output or "",
+                "context": context or [],
+            }
+
+            try:
+                loop = None
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    pass
+
+                coro = self._sdk_metric_sender(metric_run_id, class_name, inputs)
+
+                if loop and loop.is_running():
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        sdk_result = pool.submit(asyncio.run, coro).result(timeout=60)
+                else:
+                    sdk_result = asyncio.run(coro)
+
+                if "error" in sdk_result and "status" not in sdk_result:
+                    results[metric_name or class_name] = {
+                        "score": 0.0,
+                        "reason": sdk_result.get(
+                            "details", sdk_result.get("error", "Unknown error")
+                        ),
+                        "is_successful": False,
+                        "backend": "sdk",
+                        "name": metric_name,
+                        "class_name": class_name,
+                        "description": description,
+                        "error": sdk_result.get("error"),
+                        "threshold": threshold,
+                    }
+                elif sdk_result.get("status") == "error":
+                    results[metric_name or class_name] = {
+                        "score": 0.0,
+                        "reason": sdk_result.get("error", "SDK metric error"),
+                        "is_successful": False,
+                        "backend": "sdk",
+                        "name": metric_name,
+                        "class_name": class_name,
+                        "description": description,
+                        "error": sdk_result.get("error"),
+                        "threshold": threshold,
+                        "duration_ms": sdk_result.get("duration_ms"),
+                    }
+                else:
+                    score = sdk_result.get("score", 0.0)
+                    details = sdk_result.get("details", {})
+                    threshold_op = self._get_config_value(config, "threshold_operator", ">=")
+                    is_successful = self.score_evaluator.evaluate_score(
+                        score=score,
+                        threshold=threshold,
+                        threshold_operator=threshold_op,
+                    )
+
+                    results[metric_name or class_name] = {
+                        "score": score,
+                        "reason": details.get("reason", f"SDK metric score: {score}"),
+                        "is_successful": is_successful,
+                        "backend": "sdk",
+                        "name": metric_name,
+                        "class_name": class_name,
+                        "description": description,
+                        "threshold": threshold,
+                        "duration_ms": sdk_result.get("duration_ms"),
+                    }
+
+            except Exception as e:
+                logger.error(
+                    f"Error evaluating SDK metric '{class_name}': {e}",
+                    exc_info=True,
+                )
+                results[metric_name or class_name] = {
+                    "score": 0.0,
+                    "reason": f"SDK metric evaluation failed: {e}",
+                    "is_successful": False,
+                    "backend": "sdk",
+                    "name": metric_name,
+                    "class_name": class_name,
+                    "description": description,
+                    "error": str(e),
+                    "threshold": threshold,
+                }
 
         return results
 

@@ -1,10 +1,22 @@
 """Fixtures for connector service tests."""
 
 from typing import Any, Dict
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastapi import WebSocket
+
+from rhesis.backend.app.services.connector.schemas import (
+    WebSocketConnectionContext,
+)
+
+
+@pytest.fixture(autouse=True)
+def mock_redis():
+    """Disable Redis for all connector tests."""
+    with patch("rhesis.backend.app.services.connector.manager.redis_manager") as mock:
+        mock.is_available = False
+        yield mock
 
 
 @pytest.fixture
@@ -15,8 +27,17 @@ def mock_websocket():
     ws.receive_text = AsyncMock()
     ws.accept = AsyncMock()
     ws.close = AsyncMock()
-    ws.headers = {"x-rhesis-project": "test-project", "x-rhesis-environment": "development"}
     return ws
+
+
+@pytest.fixture
+def connection_context():
+    """Create a WebSocketConnectionContext for testing."""
+    return WebSocketConnectionContext(
+        connection_id="conn-test-123",
+        user_id="user-789",
+        organization_id="org-456",
+    )
 
 
 @pytest.fixture
@@ -30,7 +51,12 @@ def sample_register_message() -> Dict[str, Any]:
         "functions": [
             {
                 "name": "get_weather",
-                "parameters": {"location": {"type": "string", "description": "City name"}},
+                "parameters": {
+                    "location": {
+                        "type": "string",
+                        "description": "City name",
+                    }
+                },
                 "return_type": "object",
                 "metadata": {"description": "Get current weather for a location"},
             },
