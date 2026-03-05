@@ -599,6 +599,16 @@ class ConnectionManager:
         if len(self._cancelled_tests) > 10000:
             self._cleanup_old_cancelled_tests()
 
+    def _trim_cancelled(self, cancelled: OrderedDict, keep: int, label: str) -> OrderedDict:
+        """Trim cancelled run entries, keeping only the newest items."""
+        cancelled_items = list(cancelled.items())
+        trimmed = OrderedDict(cancelled_items[-keep:])
+        removed_count = len(cancelled_items) - len(trimmed)
+        logger.info(
+            f"Cleaned up old cancelled {label}. Removed {removed_count} entries, kept {keep}"
+        )
+        return trimmed
+
     def _cleanup_old_cancelled_tests(self) -> None:
         """
         Clean up old cancelled test entries to prevent unbounded memory growth.
@@ -606,12 +616,11 @@ class ConnectionManager:
         Keeps only the most recent 5000 entries. This is called when the dict
         grows beyond 10000 entries to trim it back down to a reasonable size.
         """
-        # Keep only the last 5000 entries (most recent)
-        # OrderedDict preserves insertion order, so [-5000:] gets the newest entries
-        cancelled_items = list(self._cancelled_tests.items())
-        removed_count = len(cancelled_items) - 5000
-        self._cancelled_tests = OrderedDict(cancelled_items[-5000:])
-        logger.info(f"Cleaned up old cancelled tests. Removed {removed_count} entries, kept 5000")
+        self._cancelled_tests = self._trim_cancelled(
+            cancelled=self._cancelled_tests,
+            keep=5000,
+            label="tests",
+        )
 
     def _cleanup_old_cancelled_metrics(self) -> None:
         """
@@ -620,10 +629,11 @@ class ConnectionManager:
         Keeps only the most recent 5000 entries. This is called when the dict
         grows beyond 10000 entries to trim it back down to a reasonable size.
         """
-        cancelled_items = list(self._cancelled_metrics.items())
-        removed_count = len(cancelled_items) - 5000
-        self._cancelled_metrics = OrderedDict(cancelled_items[-5000:])
-        logger.info(f"Cleaned up old cancelled metrics. Removed {removed_count} entries, kept 5000")
+        self._cancelled_metrics = self._trim_cancelled(
+            cancelled=self._cancelled_metrics,
+            keep=5000,
+            label="metrics",
+        )
 
     def get_connection_status(self, project_id: str, environment: str) -> ConnectionStatus:
         """Get connection status for a project:environment."""
