@@ -7,6 +7,7 @@ from collections import OrderedDict
 from typing import Any, Dict, List, Optional
 
 from fastapi import WebSocket
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from tenacity import (
     AsyncRetrying,
@@ -1026,18 +1027,14 @@ class ConnectionManager:
             function_name=function_name,
             inputs=inputs,
         )
-
-        try:
-            logger.info(f"Forwarding RPC request {request_id} ({function_name}) to SDK")
-            await websocket.send_json(message.model_dump())
-        except Exception as e:
-            logger.error(f"Error forwarding RPC request {request_id}: {e}")
-            await self._cleanup_stale_routing(project_env_key)
-            await self._publish_error_response(
-                request_id,
-                project_env_key,
-                f"Failed to forward to WebSocket: {e}",
-            )
+        await self._forward_message_to_sdk(
+            request_id=request_id,
+            key=project_env_key,
+            websocket=websocket,
+            message=message,
+            call_name=function_name,
+            is_metric=False,
+        )
 
     async def _forward_metric_to_sdk(
         self,
@@ -1053,17 +1050,42 @@ class ConnectionManager:
             metric_name=metric_name,
             inputs=inputs,
         )
+        await self._forward_message_to_sdk(
+            request_id=request_id,
+            key=project_env_key,
+            websocket=websocket,
+            message=message,
+            call_name=metric_name,
+            is_metric=True,
+        )
+
+    async def _forward_message_to_sdk(
+        self,
+        request_id: str,
+        key: str,
+        websocket: WebSocket,
+        message: BaseModel,
+        call_name: str,
+        is_metric: bool,
+    ) -> None:
+        """Forward an RPC message to SDK with shared error handling."""
+        request_prefix = "metric " if is_metric else ""
+        failure_details = (
+            "Failed to forward metric to WebSocket"
+            if is_metric
+            else "Failed to forward to WebSocket"
+        )
 
         try:
-            logger.info(f"Forwarding metric RPC request {request_id} ({metric_name}) to SDK")
+            logger.info(f"Forwarding {request_prefix}RPC request {request_id} ({call_name}) to SDK")
             await websocket.send_json(message.model_dump())
         except Exception as e:
-            logger.error(f"Error forwarding metric RPC request {request_id}: {e}")
-            await self._cleanup_stale_routing(project_env_key)
+            logger.error(f"Error forwarding {request_prefix}RPC request {request_id}: {e}")
+            await self._cleanup_stale_routing(key)
             await self._publish_error_response(
                 request_id,
-                project_env_key,
-                f"Failed to forward metric to WebSocket: {e}",
+                key,
+                f"{failure_details}: {e}",
             )
 
     async def _cleanup_stale_routing(self, project_env_key: str) -> None:
