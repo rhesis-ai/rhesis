@@ -27,8 +27,7 @@ import MessageBubble, { MessageBubbleSkeleton } from './MessageBubble';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
 import CreateTestFromConversationDrawer from './CreateTestFromConversationDrawer';
 import { ConversationMessage } from '@/utils/api-client/interfaces/tests';
-import { TEST_TYPES } from '@/constants/test-types';
-import type { TestTypeValue } from '@/constants/test-types';
+import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
 
 interface PlaygroundChatProps {
   /** The endpoint ID to chat with */
@@ -376,7 +375,7 @@ export default function PlaygroundChat({
             >
               {stagedFiles.map((file, idx) => (
                 <Chip
-                  key={`${file.name}-${idx}`}
+                  key={`${file.name}-${file.size}-${file.lastModified}`}
                   icon={<AttachFileIcon />}
                   label={file.name}
                   size="small"

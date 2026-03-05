@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-array-index-key -- evaluation steps are plain strings without stable IDs */
+
 import * as React from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { PageContainer } from '@toolpad/core/PageContainer';

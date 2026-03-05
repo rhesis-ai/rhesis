@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable react/no-array-index-key -- file attachment lists are display-only and have no stable IDs */
+
 import React, { useState } from 'react';
 import {
   Box,
