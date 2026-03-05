@@ -772,11 +772,16 @@ class ConnectionManager:
 
             # Metrics-only registration (no project binding)
             logger.info(f"Metrics-only registration for connection {connection_id}")
-            return {
-                "type": "registered",
-                "status": "success",
-                "connection_id": connection_id,
-            }
+            response = await message_handler.handle_register_message(
+                project_id="",
+                environment="",
+                message=message,
+                db=db,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            response["connection_id"] = connection_id
+            return response
 
         elif message_type == "test_result":
             test_run_id = message.get("test_run_id")

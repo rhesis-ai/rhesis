@@ -20,8 +20,6 @@ SDK_BACKEND_TYPE_VALUE = "sdk"
 
 def sync_sdk_metrics(
     db: Session,
-    project_id: str,
-    environment: str,
     metrics_data: List[Dict[str, Any]],
     organization_id: str,
     user_id: str,
@@ -33,8 +31,6 @@ def sync_sdk_metrics(
 
     Args:
         db: Database session
-        project_id: Project identifier
-        environment: Environment name
         metrics_data: List of metric metadata from SDK
         organization_id: Organization ID
         user_id: User ID
@@ -42,25 +38,7 @@ def sync_sdk_metrics(
     Returns:
         Dict with sync statistics
     """
-    logger.info(
-        f"=== SYNC SDK METRICS === "
-        f"project={project_id}, env={environment}, "
-        f"count={len(metrics_data)}"
-    )
-
-    project = (
-        db.query(models.Project)
-        .filter(
-            models.Project.id == project_id,
-            models.Project.organization_id == organization_id,
-        )
-        .first()
-    )
-
-    if not project:
-        error_msg = f"Project {project_id} not found in organization {organization_id}"
-        logger.error(error_msg)
-        return _empty_stats(error_msg)
+    logger.info(f"=== SYNC SDK METRICS === count={len(metrics_data)}")
 
     backend_type = get_or_create_type_lookup(
         db=db,
@@ -71,9 +49,7 @@ def sync_sdk_metrics(
         commit=False,
     )
 
-    existing_by_name = _get_existing_sdk_metrics(
-        db, project_id, environment, organization_id, backend_type.id
-    )
+    existing_by_name = _get_existing_sdk_metrics(db, organization_id, backend_type.id)
 
     registered_names: set[str] = set()
     stats: Dict[str, Any] = {
@@ -98,8 +74,6 @@ def sync_sdk_metrics(
                     existing_by_name[metric_name],
                     metric_data,
                     metadata,
-                    project_id,
-                    environment,
                 )
                 stats["updated"] += 1
             else:
@@ -108,8 +82,6 @@ def sync_sdk_metrics(
                     metric_name,
                     metric_data,
                     metadata,
-                    project_id,
-                    environment,
                     organization_id,
                     user_id,
                     backend_type,
@@ -148,12 +120,10 @@ def _empty_stats(error_msg: str) -> Dict[str, Any]:
 
 def _get_existing_sdk_metrics(
     db: Session,
-    project_id: str,
-    environment: str,
     organization_id: str,
     backend_type_id,
 ) -> Dict[str, models.Metric]:
-    """Get existing SDK metrics for this project/environment keyed by name."""
+    """Get existing SDK metrics for this org keyed by name."""
     query_builder = QueryBuilder(db, models.Metric).with_organization_filter(organization_id)
     query_builder.query = query_builder.query.filter(
         models.Metric.backend_type_id == backend_type_id,
@@ -163,11 +133,7 @@ def _get_existing_sdk_metrics(
     result = {}
     for m in existing:
         sdk_conn = _get_sdk_connection(m)
-        if (
-            sdk_conn
-            and sdk_conn.get("project_id") == project_id
-            and sdk_conn.get("environment") == environment
-        ):
+        if sdk_conn:
             result[m.name] = m
 
     logger.info(f"Found {len(result)} existing SDK metrics: {list(result.keys())}")
@@ -189,8 +155,6 @@ def _get_sdk_connection(metric: models.Metric) -> Dict[str, Any] | None:
 
 def _set_sdk_connection(
     metric: models.Metric,
-    project_id: str,
-    environment: str,
     metric_name: str,
     accepted_params: List[str],
 ) -> None:
@@ -205,8 +169,6 @@ def _set_sdk_connection(
             data = {}
 
     data["sdk_connection"] = {
-        "project_id": project_id,
-        "environment": environment,
         "metric_name": metric_name,
         "accepted_params": accepted_params,
         "last_registered": datetime.utcnow().isoformat(),
@@ -218,8 +180,6 @@ def _update_existing_metric(
     metric: models.Metric,
     metric_data: Dict[str, Any],
     metadata: Dict[str, Any],
-    project_id: str,
-    environment: str,
 ) -> None:
     """Update an existing SDK metric row."""
     description = metadata.get("description", "")
@@ -233,7 +193,7 @@ def _update_existing_metric(
     metric.ground_truth_required = "expected_output" in accepted_params
     metric.context_required = "context" in accepted_params
 
-    _set_sdk_connection(metric, project_id, environment, metric.name, accepted_params)
+    _set_sdk_connection(metric, metric.name, accepted_params)
 
     logger.info(f"Updated SDK metric: {metric.name}")
 
@@ -243,8 +203,6 @@ def _create_new_metric(
     metric_name: str,
     metric_data: Dict[str, Any],
     metadata: Dict[str, Any],
-    project_id: str,
-    environment: str,
     organization_id: str,
     user_id: str,
     backend_type,
@@ -283,7 +241,7 @@ def _create_new_metric(
         user_id=UUID(user_id),
     )
 
-    _set_sdk_connection(metric, project_id, environment, metric_name, accepted_params)
+    _set_sdk_connection(metric, metric_name, accepted_params)
 
     db.add(metric)
     db.flush()
