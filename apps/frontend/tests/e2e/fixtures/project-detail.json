@@ -1,0 +1,7 @@
+{
+  "id": "a1b2c3d4-0001-0001-0001-000000000001",
+  "name": "E2E Test Project Alpha",
+  "description": "A sample project used in E2E fixture tests. It contains endpoints and test sets for the AI assistant under test.",
+  "created_at": "2025-01-15T10:00:00Z",
+  "updated_at": "2025-02-01T12:00:00Z"
+}

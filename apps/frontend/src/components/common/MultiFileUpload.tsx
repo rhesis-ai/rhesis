@@ -229,7 +229,7 @@ export default function MultiFileUpload({
         <List dense sx={{ mt: 1 }}>
           {selectedFiles.map((file, idx) => (
             <ListItem
-              key={`${file.name}-${idx}`}
+              key={`${file.name}-${file.size}-${file.lastModified}`}
               secondaryAction={
                 <IconButton
                   edge="end"

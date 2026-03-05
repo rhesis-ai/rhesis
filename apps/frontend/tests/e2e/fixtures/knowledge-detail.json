@@ -1,0 +1,10 @@
+{
+  "id": "c2d3e4f5-0009-0009-0009-000000000001",
+  "name": "Product FAQ",
+  "description": "Frequently asked questions about the product used as knowledge context.",
+  "source_type": "document",
+  "file_size": 12345,
+  "content": "Q: What is Rhesis?\nA: Rhesis is an open-source Gen AI testing platform.\n\nQ: How do I get started?\nA: Install the SDK and connect your first endpoint.",
+  "created_at": "2025-01-10T10:00:00Z",
+  "updated_at": "2025-01-10T10:00:00Z"
+}

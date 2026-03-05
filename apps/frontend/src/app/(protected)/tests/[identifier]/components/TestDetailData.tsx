@@ -8,7 +8,7 @@ import BaseFreesoloAutocomplete, {
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
-import { TYPE_NAMES } from '@/constants/test-types';
+import { TYPE_NAMES, isMultiTurnTest } from '@/constants/test-types';
 import TestExecutableField from './TestExecutableField';
 import FilePreview from '@/components/common/FilePreview';
 import MultiTurnConfigFields from './MultiTurnConfigFields';
@@ -17,7 +17,6 @@ import {
   isMultiTurnConfig,
 } from '@/utils/api-client/interfaces/multi-turn-test-config';
 import { UUID } from 'crypto';
-import { isMultiTurnTest } from '@/constants/test-types';
 import { useRouter } from 'next/navigation';
 import { formatDate } from '@/utils/date';
 import { useFiles } from '@/hooks/useFiles';

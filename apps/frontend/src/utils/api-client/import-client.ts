@@ -1,6 +1,5 @@
 import { BaseApiClient } from './base-client';
-import { TEST_TYPES } from '@/constants/test-types';
-import type { TestTypeValue } from '@/constants/test-types';
+import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
 import type {
   AnalyzeResponse,
   CancelResponse,
