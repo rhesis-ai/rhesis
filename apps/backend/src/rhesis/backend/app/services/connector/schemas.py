@@ -1,5 +1,8 @@
 """Pydantic schemas for connector service."""
 
+# NOTE: Counterpart at sdk/src/rhesis/sdk/connector/schemas.py
+# Keep in sync - these define the WebSocket wire protocol.
+
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional

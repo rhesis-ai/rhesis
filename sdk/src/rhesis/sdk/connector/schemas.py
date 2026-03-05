@@ -1,5 +1,8 @@
 """Pydantic schemas for connector messages."""
 
+# NOTE: Counterpart at apps/backend/src/rhesis/backend/app/services/connector/schemas.py
+# Keep in sync - these define the WebSocket wire protocol.
+
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
