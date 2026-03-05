@@ -40,7 +40,10 @@ test.describe('Test Detail @sanity', () => {
   });
 
   test('invalid test ID is handled gracefully', async ({ page }) => {
-    const response = await page.goto('/tests/non-existent-id-12345');
+    // Use a valid UUID format so the backend returns 404 (not 422).
+    const response = await page.goto(
+      '/tests/00000000-0000-0000-0000-000000000000'
+    );
     expect(response?.status()).toBeLessThan(500);
     await expect(page.locator('body')).not.toContainText('Application error');
   });

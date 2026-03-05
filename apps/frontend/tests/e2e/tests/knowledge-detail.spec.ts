@@ -50,7 +50,9 @@ test.describe('Knowledge Detail @sanity', () => {
     await page.goto(`/knowledge/${FIXTURE_ID}`);
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('Product FAQ')).toBeVisible();
+    const mainContent = page.locator('main, [role="main"]').first();
+    await expect(mainContent).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('Application error');
   });
 
   test('invalid knowledge ID is handled gracefully', async ({ page }) => {

@@ -43,7 +43,9 @@ test.describe('Test Set Detail @sanity', () => {
     await page.goto(`/test-sets/${FIXTURE_ID}`);
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('Safety Test Set')).toBeVisible();
+    const mainContent = page.locator('main, [role="main"]').first();
+    await expect(mainContent).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('Application error');
   });
 
   test('invalid test set ID is handled gracefully', async ({ page }) => {

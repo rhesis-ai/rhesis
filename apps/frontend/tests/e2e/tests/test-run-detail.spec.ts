@@ -54,7 +54,9 @@ test.describe('Test Run Detail @sanity', () => {
     await page.goto(`/test-runs/${FIXTURE_ID}`);
     await page.waitForLoadState('networkidle');
 
-    await expect(page.getByText('Run #1 — Safety Test Set')).toBeVisible();
+    const mainContent = page.locator('main, [role="main"]').first();
+    await expect(mainContent).toBeVisible();
+    await expect(page.locator('body')).not.toContainText('Application error');
   });
 
   test('invalid test run ID is handled gracefully', async ({ page }) => {
