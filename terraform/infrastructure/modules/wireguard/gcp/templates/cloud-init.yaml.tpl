@@ -58,7 +58,7 @@ runcmd:
   - "test -f /var/lib/bind/rhesis.internal.zone || (base64 -d /tmp/rhesis.internal.zone.b64 > /var/lib/bind/rhesis.internal.zone && rm /tmp/rhesis.internal.zone.b64)"
   - chown -R bind:bind /var/lib/bind
   - systemctl enable named
-  - systemctl start named
+  - systemctl restart named
 %{ else ~}
   - systemctl enable dnsmasq
   - systemctl start dnsmasq

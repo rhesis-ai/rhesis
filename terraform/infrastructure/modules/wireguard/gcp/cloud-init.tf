@@ -28,6 +28,8 @@ locals {
       "iface=$(ip -o addr show | awk '/${nic.network_ip}/ {print $2; exit}')",
       "gw=$(ip route show dev \"$iface\" | awk '/via/ {print $3; exit}')",
       "ip route replace ${nic.master_cidr} via \"$gw\" dev \"$iface\" 2>/dev/null || true",
+      "ip route replace ${nic.pod_cidr} via \"$gw\" dev \"$iface\" 2>/dev/null || true",
+      "ip route replace ${nic.service_cidr} via \"$gw\" dev \"$iface\" 2>/dev/null || true",
       "sysctl -w \"net.ipv4.conf.$iface.rp_filter=0\"",
       "grep -q \"$iface.rp_filter\" /etc/sysctl.d/99-wireguard.conf 2>/dev/null || echo \"net.ipv4.conf.$iface.rp_filter=0\" >> /etc/sysctl.d/99-wireguard.conf"
     ]])
