@@ -18,11 +18,11 @@ resource "google_compute_firewall" "gke_master_to_nodes" {
 
 # Nodes to master (egress: only destination_ranges is valid)
 resource "google_compute_firewall" "gke_nodes_to_master" {
-  name        = "gke-nodes-to-master-${var.environment}"
-  network     = var.vpc_name
-  project     = var.project_id
-  priority    = 900
-  direction   = "EGRESS"
+  name      = "gke-nodes-to-master-${var.environment}"
+  network   = var.vpc_name
+  project   = var.project_id
+  priority  = 900
+  direction = "EGRESS"
 
   allow {
     protocol = "tcp"

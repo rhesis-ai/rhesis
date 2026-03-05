@@ -357,16 +357,31 @@ module "wireguard_server" {
       subnet_self_link = module.dev.subnet_self_links["nodes"]
       network_ip       = "10.2.1.200"
       master_cidr      = local.cidrs.dev.master
+      environment      = "dev"
+      pod_cidr         = local.cidrs.dev.pods
+      service_cidr     = local.cidrs.dev.services
+      node_cidr        = local.cidrs.dev.nodes
+      vpc_name         = module.dev.vpc_name
     },
     {
       subnet_self_link = module.stg.subnet_self_links["nodes"]
       network_ip       = "10.4.1.200"
       master_cidr      = local.cidrs.stg.master
+      environment      = "stg"
+      pod_cidr         = local.cidrs.stg.pods
+      service_cidr     = local.cidrs.stg.services
+      node_cidr        = local.cidrs.stg.nodes
+      vpc_name         = module.stg.vpc_name
     },
     {
       subnet_self_link = module.prd.subnet_self_links["nodes"]
       network_ip       = "10.6.1.200"
       master_cidr      = local.cidrs.prd.master
+      environment      = "prd"
+      pod_cidr         = local.cidrs.prd.pods
+      service_cidr     = local.cidrs.prd.services
+      node_cidr        = local.cidrs.prd.nodes
+      vpc_name         = module.prd.vpc_name
     }
   ]
 
