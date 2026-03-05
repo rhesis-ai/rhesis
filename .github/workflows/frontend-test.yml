@@ -1,4 +1,4 @@
-name: "[Test] Frontend"
+name: "[Test] Frontend Unit"
 
 on:
   push:
