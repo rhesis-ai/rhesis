@@ -12,8 +12,19 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 2 : undefined,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // In CI each shard uploads a blob report; a merge job assembles the HTML.
+  reporter: process.env.CI
+    ? [['blob'], ['list']]
+    : [['list'], ['html', { open: 'never' }]],
   timeout: 30_000,
+  // Distribute tests across parallel CI jobs when PLAYWRIGHT_SHARD is set.
+  // Format: "current/total" e.g. "1/3"
+  shard: process.env.PLAYWRIGHT_SHARD
+    ? {
+        current: Number(process.env.PLAYWRIGHT_SHARD.split('/')[0]),
+        total: Number(process.env.PLAYWRIGHT_SHARD.split('/')[1]),
+      }
+    : undefined,
 
   use: {
     baseURL: 'http://localhost:3000',
