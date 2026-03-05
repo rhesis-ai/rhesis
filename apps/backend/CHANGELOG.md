@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-03-05
+
+### Added
+- Added multi-file attachment support for tests, traces, and playground.
+- Added file upload and removal functionality to the frontend for tests.
+- Added file format filters and trace file linking for endpoint invocations.
+- Added file upload support to the `/chat` endpoint.
+- Added file attachment UI to Playground chat.
+- Added file download functionality to `FileAttachmentList` and `MessageBubble`.
+- Added file attachment support to multi-turn tests in Penelope.
+- Added file attachment support to SDK entities.
+- Added JSON and Excel file upload support to the Playground.
+- Added metadata and context as collapsible sections in the Test Run detail view.
+- Added trace drawer and file sections to the Test Run detail view.
+- Added required field validation to the metric creation form.
+- Added Azure AI Studio and Azure OpenAI provider support.
+- Added optional parameters for `api_base` and `api_version` to LiteLLM and its derived classes.
+
+### Changed
+- Renamed file data field from `content_base64` to `data` for consistency.
+- Moved the file attachment button inside the text input in Playground chat.
+- Enhanced the Test Run detail view with improved UI and information display.
+- Updated Node.js version to 24 in CI configurations and Dockerfiles.
+- Updated SDK to use `exclude_none=True` in `BaseEntity.push()`
+
+### Fixed
+- Fixed an issue where `test_set_type_id` was missing when creating test sets from the manual writer.
+- Fixed manual test writer test set association and navigation issues.
+- Fixed focus loss in metric evaluation steps TextFields.
+- Fixed an issue where lazy-load failures occurred in mixin relationship properties after deletion.
+- Fixed an issue where raw db.query() was used in update_test_set_attributes.
+- Fixed the file migration to rebase on the litellm provider migration.
+- Fixed TypeScript errors in model providers and test creation.
+- Fixed an issue where Jinja file filters returned JSON strings instead of Python objects.
+- Fixed a test key mismatch in output_providers and results.
+- Fixed an issue where `polyphemus_access` could be null in user settings.
+- Fixed an issue where the websocket tests hung due to an incorrect message size limit.
+- Fixed metric test data factories to include required `score_type` fields.
+- Fixed an issue where the Markdown component crashed when endpoint responses contained JSON objects.
+- Fixed an issue where `test_type_id` was overwritten on test update.
+- Fixed an issue where `test_set_id` was present in the TestBase schema.
+- Handled optional `prompt_id` in test components.
+
+### Removed
+- Removed the `[DEBUG]` prefix from API error logs.
+
+
 ## [0.6.6] - 2026-03-02
 
 ### Added

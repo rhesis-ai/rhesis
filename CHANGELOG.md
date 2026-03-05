@@ -13,6 +13,45 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-03-05
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.7**
+- **Frontend 0.6.8**
+- **SDK 0.6.8**
+
+### Summary of Changes
+
+**Backend v0.6.7:**
+- Added multi-file attachment support for tests, traces, and playground, including file upload/download, format filters, and UI elements.
+- Enhanced chatbot functionality with file upload support and JSON output mode.
+- Improved test run detail view with metadata, file sections, and trace drawer integration.
+- Added LiteLLM Proxy, Azure AI, and Azure OpenAI provider support.
+
+
+**Frontend v0.6.8:**
+- Added support for file attachments to tests, test results, and chat functionality, including UI elements for upload, download, and display.
+- Enhanced test run detail view with metadata, context, pretty-printed JSON, file attachments, and navigation improvements.
+- Introduced LiteLLM Proxy, Azure AI, and Azure OpenAI provider support with optional API base and version configurations.
+- Improved test coverage with new unit, integration, E2E, and accessibility tests, along with fixes for various bugs and UI issues.
+
+
+**SDK v0.6.8:**
+- Added multi-file attachment support for tests, traces, and playground, including file upload, download, and display in the UI.
+- Added Azure AI Studio and Azure OpenAI providers.
+- Added `connect()` blocking API for connector-only scripts.
+- Enhanced SDK model factory with registry-driven creation for easier provider management.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.6.7] - 2026-03-02
 
 ### Platform Release

@@ -13,6 +13,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-03-05
+
+### Added
+- Added multi-file attachment support for tests, traces, and playground. This includes the ability to upload, download, and delete files associated with tests and test results.
+- Added file format filters (to_anthropic, to_openai, to_gemini) for transforming input files into provider-specific content formats.
+- Added file upload support to the `/chat` endpoint, allowing users to include files in chatbot conversations.
+- Added file attachment support to WebSocket communication, enabling file transfers in chat applications.
+- Added file upload button and drag-and-drop support to Playground chat.
+- Added file download functionality to FileAttachmentList and MessageBubble components.
+- Added file attachment support to multi-turn tests in Penelope.
+- Added File entity to the SDK with upload, download, and delete capabilities.
+- Added Azure AI Studio and Azure OpenAI providers as new LLM providers.
+- Added `connect()` blocking API for connector-only scripts.
+- Added JSON and Excel file upload support to the Playground.
+- Added metadata and context as collapsible sections in the Test Run detail view.
+- Added trace drawer and file sections to the Test Run detail view.
+- Added required field validation to the metric creation form.
+
+### Changed
+- Renamed `run_connector` to `connect` in the SDK.
+- Replaced test type magic strings with constants.
+- Moved the file attachment button inside the text input in the Playground chat.
+- Enhanced the constructors of OpenAILLM and OpenRouterLLM to accept additional keyword arguments.
+- Updated Node.js version to 24 in CI configurations and Dockerfiles.
+- Standardized file data field name from `content_base64` to `data`.
+- Increased WebSocket max message size from 64KB to 10MB.
+
+### Fixed
+- Fixed an issue where `test_set_type_id` was not included when creating test sets from the manual writer.
+- Fixed test set association and navigation issues in the manual test writer.
+- Fixed focus loss in metric evaluation steps TextFields.
+- Fixed lazy-load failures in mixin relationship properties in the backend.
+- Fixed an issue where the test_type_id was overwritten on test updates.
+- Fixed an issue where the polyphemus_access was null in user settings.
+- Fixed an issue where the websocket tests were hanging due to incorrect MAX_MESSAGE_SIZE.
+- Fixed an issue where MetricDataFactory was generating invalid metric test data.
+- Fixed an issue where MarkdownContent was crashing when rendering JSON objects.
+- Resolved TypeScript errors in model providers and test creation.
+- Resolved focus loss in metric evaluation steps TextFields.
+- Rebased file migration on litellm provider migration.
+- Handled optional prompt_id in test components.
+- Prevented test_type_id overwrite on update.
+- Addressed PR review feedback.
+- Added default for user_id in TestRunCreate schema.
+
+### Removed
+- Removed the `[DEBUG]` prefix from API error logs.
+
+
 ## [0.6.7] - 2026-03-02
 
 ### Added
