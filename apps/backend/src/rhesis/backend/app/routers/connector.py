@@ -1,7 +1,10 @@
 """Connector router for bidirectional communication with SDKs."""
 
+import asyncio
 import json
 import logging
+import os
+import time
 import uuid
 from typing import Any, Dict
 
@@ -25,6 +28,11 @@ from rhesis.backend.app.services.connector.schemas import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/connector", tags=["connector"])
+
+# --- Security limits (configurable via env) ---
+MAX_MESSAGE_SIZE = int(os.getenv("WS_MAX_MESSAGE_SIZE", str(1024 * 1024)))
+IDLE_TIMEOUT = int(os.getenv("WS_IDLE_TIMEOUT", "300"))
+RATE_LIMIT_PER_SECOND = int(os.getenv("WS_RATE_LIMIT", "50"))
 
 
 async def require_websocket_user(websocket: WebSocket) -> User:
@@ -92,12 +100,53 @@ async def _message_loop(
 ) -> None:
     """Listen for messages and dispatch to the connection manager.
 
-    Catches JSON decode errors per-message so a single malformed message
-    does not kill the connection.
+    Security measures applied per-message:
+    - **Size limit**: rejects payloads larger than ``MAX_MESSAGE_SIZE``.
+    - **Idle timeout**: closes connection after ``IDLE_TIMEOUT`` seconds
+      of inactivity.
+    - **Rate limiting**: drops messages exceeding ``RATE_LIMIT_PER_SECOND``
+      per sliding window.
+    - **Malformed JSON**: sends an error back and continues.
     """
-    while True:
-        data = await websocket.receive_text()
+    msg_timestamps: list[float] = []
 
+    while True:
+        try:
+            data = await asyncio.wait_for(
+                websocket.receive_text(),
+                timeout=IDLE_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"Idle timeout ({IDLE_TIMEOUT}s) for {context.connection_id}")
+            await websocket.close(code=1000, reason="Idle timeout")
+            return
+
+        # --- Message size limit ---
+        if len(data) > MAX_MESSAGE_SIZE:
+            logger.warning(f"Oversized message ({len(data)} bytes) from {context.connection_id}")
+            await websocket.send_json(
+                {
+                    "type": "error",
+                    "detail": (f"Message too large (max {MAX_MESSAGE_SIZE} bytes)"),
+                }
+            )
+            continue
+
+        # --- Rate limiting (sliding window) ---
+        now = time.monotonic()
+        msg_timestamps = [t for t in msg_timestamps if now - t < 1.0]
+        if len(msg_timestamps) >= RATE_LIMIT_PER_SECOND:
+            logger.warning(f"Rate limit exceeded for {context.connection_id}")
+            await websocket.send_json(
+                {
+                    "type": "error",
+                    "detail": "Rate limit exceeded",
+                }
+            )
+            continue
+        msg_timestamps.append(now)
+
+        # --- JSON parsing ---
         try:
             message: Dict[str, Any] = json.loads(data)
         except json.JSONDecodeError:
