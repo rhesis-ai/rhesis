@@ -9,7 +9,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
 spec:
-  ingressClassName: nginx
+  ingressClassName: internal
   rules:
     - host: argocd.dev.rhesis.ai
       http:

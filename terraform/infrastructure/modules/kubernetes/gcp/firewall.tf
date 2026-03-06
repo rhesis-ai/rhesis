@@ -95,3 +95,18 @@ resource "google_compute_firewall" "gke_wireguard_to_nodes" {
   source_ranges = [var.wireguard_cidr]
   target_tags   = ["gke-${var.environment}"]
 }
+
+# GCP load balancer health check probes (required for external and internal LBs)
+resource "google_compute_firewall" "gke_lb_health_checks" {
+  name     = "gke-lb-health-checks-${var.environment}"
+  network  = var.vpc_name
+  project  = var.project_id
+  priority = 900
+
+  allow {
+    protocol = "tcp"
+  }
+
+  source_ranges = ["35.191.0.0/16", "130.211.0.0/22"]
+  target_tags   = ["gke-${var.environment}"]
+}

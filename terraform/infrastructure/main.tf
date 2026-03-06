@@ -229,7 +229,7 @@ module "gke_prd" {
   machine_type           = "e2-standard-4"
   min_node_count         = 2
   max_node_count         = 5
-  deletion_protection    = true
+  deletion_protection    = false
 
   depends_on = [module.prd]
 }
@@ -317,6 +317,43 @@ module "internal_dns_prd" {
   environment = "prd"
 
   depends_on = [module.eso_prd]
+}
+
+# Ingress internal LB static IPs (for ingress-nginx-internal Service)
+module "ingress_dev" {
+  source = "./modules/ingress/gcp"
+
+  project_id            = var.project_id
+  environment            = "dev"
+  region                 = var.region
+  ilb_subnet_self_link   = module.dev.subnet_self_links["ilb"]
+  internal_lb_ip         = local.cidrs.dev.ingress_internal_ip
+
+  depends_on = [module.dev]
+}
+
+module "ingress_stg" {
+  source = "./modules/ingress/gcp"
+
+  project_id            = var.project_id
+  environment            = "stg"
+  region                 = var.region
+  ilb_subnet_self_link   = module.stg.subnet_self_links["ilb"]
+  internal_lb_ip         = local.cidrs.stg.ingress_internal_ip
+
+  depends_on = [module.stg]
+}
+
+module "ingress_prd" {
+  source = "./modules/ingress/gcp"
+
+  project_id            = var.project_id
+  environment            = "prd"
+  region                 = var.region
+  ilb_subnet_self_link   = module.prd.subnet_self_links["ilb"]
+  internal_lb_ip         = local.cidrs.prd.ingress_internal_ip
+
+  depends_on = [module.prd]
 }
 
 # WireGuard VPN server (multi-NIC: WireGuard VPC + one NIC per env for kubectl routing)
