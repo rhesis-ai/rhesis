@@ -56,7 +56,7 @@ describe('handleClientSignOut', () => {
   });
 
   it('prevents concurrent sign-out calls (mutex flag)', async () => {
-    let resolveSession!: () => void;
+    let resolveSession!: (value?: unknown) => void;
     (clearAllSessionData as jest.Mock).mockImplementation(
       () =>
         new Promise(resolve => {

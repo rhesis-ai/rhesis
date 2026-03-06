@@ -34,9 +34,22 @@ jest.mock('../MessageBubble', () => ({
 }));
 
 import { useSession } from 'next-auth/react';
-import { usePlaygroundChat } from '@/hooks/usePlaygroundChat';
+import { usePlaygroundChat, type ChatMessage } from '@/hooks/usePlaygroundChat';
 
-const DEFAULT_HOOK_VALUES = {
+function makeMessage(
+  overrides: Partial<ChatMessage> & Pick<ChatMessage, 'id' | 'role' | 'content'>
+): ChatMessage {
+  return { timestamp: new Date('2024-01-01'), isError: false, ...overrides };
+}
+
+const DEFAULT_HOOK_VALUES: {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  error: string | null;
+  isConnected: boolean;
+  sendMessage: jest.Mock;
+  clearMessages: jest.Mock;
+} = {
   messages: [],
   isLoading: false,
   error: null,
@@ -52,7 +65,14 @@ function mockSession(token: string | null = 'test-session-token') {
 }
 
 function mockPlaygroundChat(
-  overrides: Partial<typeof DEFAULT_HOOK_VALUES> = {}
+  overrides: Partial<{
+    messages: ChatMessage[];
+    isLoading: boolean;
+    error: string | null;
+    isConnected: boolean;
+    sendMessage: jest.Mock;
+    clearMessages: jest.Mock;
+  }> = {}
 ) {
   (usePlaygroundChat as jest.Mock).mockReturnValue({
     ...DEFAULT_HOOK_VALUES,
@@ -181,13 +201,6 @@ describe('PlaygroundChat — message sending', () => {
     await user.type(input, 'Hello there');
 
     // Find and click the send button (contains SendIcon)
-    const allButtons = screen.getAllByRole('button');
-    // The send button is the last icon button in the input area
-    const sendButton = allButtons.find(
-      btn =>
-        btn.getAttribute('aria-label') === null && !btn.closest('[data-testid]')
-    );
-
     // Trigger send via Enter key
     await user.keyboard('{Enter}');
 
@@ -245,7 +258,7 @@ describe('PlaygroundChat — loading state', () => {
   it('shows a loading skeleton while the response is loading', () => {
     mockSession();
     mockPlaygroundChat({
-      messages: [{ id: 'm1', role: 'user', content: 'Hi', isError: false }],
+      messages: [makeMessage({ id: 'm1', role: 'user', content: 'Hi' })],
       isLoading: true,
     });
     renderChat();
@@ -257,7 +270,7 @@ describe('PlaygroundChat — multi-turn test button', () => {
   it('disables multi-turn test button when there are fewer than 2 messages', () => {
     mockSession();
     mockPlaygroundChat({
-      messages: [{ id: 'm1', role: 'user', content: 'Hello', isError: false }],
+      messages: [makeMessage({ id: 'm1', role: 'user', content: 'Hello' })],
     });
     renderChat();
 
@@ -271,8 +284,8 @@ describe('PlaygroundChat — multi-turn test button', () => {
     mockSession();
     mockPlaygroundChat({
       messages: [
-        { id: 'm1', role: 'user', content: 'Hello', isError: false },
-        { id: 'm2', role: 'assistant', content: 'Hi there', isError: false },
+        makeMessage({ id: 'm1', role: 'user', content: 'Hello' }),
+        makeMessage({ id: 'm2', role: 'assistant', content: 'Hi there' }),
       ],
     });
     renderChat();
@@ -289,7 +302,7 @@ describe('PlaygroundChat — reset conversation', () => {
   it('shows the reset button when messages exist', () => {
     mockSession();
     mockPlaygroundChat({
-      messages: [{ id: 'm1', role: 'user', content: 'Hi', isError: false }],
+      messages: [makeMessage({ id: 'm1', role: 'user', content: 'Hi' })],
     });
     renderChat();
 
@@ -315,7 +328,7 @@ describe('PlaygroundChat — reset conversation', () => {
     const clearMessages = jest.fn();
     mockSession();
     mockPlaygroundChat({
-      messages: [{ id: 'm1', role: 'user', content: 'Hello', isError: false }],
+      messages: [makeMessage({ id: 'm1', role: 'user', content: 'Hello' })],
       clearMessages,
     });
     renderChat();
@@ -380,8 +393,8 @@ describe('PlaygroundChat — messages display', () => {
     mockSession();
     mockPlaygroundChat({
       messages: [
-        { id: 'm1', role: 'user', content: 'Hello bot', isError: false },
-        { id: 'm2', role: 'assistant', content: 'Hello human', isError: false },
+        makeMessage({ id: 'm1', role: 'user', content: 'Hello bot' }),
+        makeMessage({ id: 'm2', role: 'assistant', content: 'Hello human' }),
       ],
     });
     renderChat();
