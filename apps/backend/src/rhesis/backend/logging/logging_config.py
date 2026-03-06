@@ -163,6 +163,14 @@ class SensitiveDataFilter(logging.Filter):
         return value
 
 
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
+
+
+def _create_formatter():
+    return logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+
+
 def set_logger():
     """Configure the root logger for the application.
 
@@ -181,14 +189,10 @@ def set_logger():
 
     console_handler = logging.StreamHandler(stream=sys.stdout)
     console_handler.setLevel(log_level)
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%m/%d/%Y %I:%M:%S%p",
-    )
-    console_handler.setFormatter(formatter)
+    console_handler.setFormatter(_create_formatter())
     root_logger.addHandler(console_handler)
 
-    if os.environ.get("ENV", "production") != "production":
+    if os.environ.get("ENVIRONMENT", "production") != "production":
         log_file_path = os.environ.get("LOG_FILE_PATH", "logs/rhesis.log")
 
         from pathlib import Path
@@ -197,11 +201,7 @@ def set_logger():
 
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(log_level)
-        file_formatter = logging.Formatter(
-            "%(asctime)s | %(name)s | %(levelname)s | %(message)s",
-            datefmt="%m/%d/%Y %I:%M:%S%p",
-        )
-        file_handler.setFormatter(file_formatter)
+        file_handler.setFormatter(_create_formatter())
         root_logger.addHandler(file_handler)
 
     sensitive_filter = SensitiveDataFilter()
