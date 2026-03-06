@@ -140,12 +140,16 @@ describe('TestResultsClient', () => {
   it('adds top/months/mode query params to stats URL', async () => {
     fetchMock.mockResolvedValue(makeFetch({ total: 5 }));
 
-    await client.getTestResultStats({ top: 5, months: 3, mode: 'test_run' });
+    await client.getTestResultStats({
+      top: 5,
+      months: 3,
+      mode: 'related_entity',
+    });
 
     const calledUrl = fetchMock.mock.calls[0][0] as string;
     expect(calledUrl).toContain('top=5');
     expect(calledUrl).toContain('months=3');
-    expect(calledUrl).toContain('mode=test_run');
+    expect(calledUrl).toContain('mode=related_entity');
   });
 
   // -------------------------------------------------------------------------

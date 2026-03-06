@@ -48,6 +48,9 @@ function makeComment(id: string, content = 'Hello') {
     created_at: '2024-01-01T00:00:00',
     updated_at: '2024-01-01T00:00:00',
     reactions: [],
+    entity_id: 'e1',
+    entity_type: 'Test' as const,
+    emojis: {} as Record<string, { user_id: string; user_name: string }[]>,
   };
 }
 

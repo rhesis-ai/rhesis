@@ -111,12 +111,12 @@ describe('ImportClient', () => {
   it('sends a POST to /import/:id/confirm', async () => {
     fetchMock.mockResolvedValue(makeFetch({ test_set_id: 'ts1' }));
 
-    await client.confirmImport('imp1', { test_set_name: 'My Set' });
+    await client.confirmImport('imp1', { name: 'My Set' });
 
     const [url, opts] = fetchMock.mock.calls[0];
     expect(url).toContain('/import/imp1/confirm');
     expect(opts.method).toBe('POST');
-    expect(JSON.parse(opts.body)).toMatchObject({ test_set_name: 'My Set' });
+    expect(JSON.parse(opts.body)).toMatchObject({ name: 'My Set' });
   });
 
   // -------------------------------------------------------------------------

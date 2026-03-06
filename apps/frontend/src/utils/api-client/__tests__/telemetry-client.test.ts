@@ -34,11 +34,11 @@ describe('TelemetryClient', () => {
 
   it('lists traces with query params at /telemetry/traces', async () => {
     fetchMock.mockResolvedValue(makeFetch({ traces: [], total: 0 }));
-    await client.listTraces({ project_id: 'proj-1', skip: 0, limit: 10 });
+    await client.listTraces({ project_id: 'proj-1', offset: 0, limit: 10 });
     const calledUrl = fetchMock.mock.calls[0][0] as string;
     expect(calledUrl).toContain(`${BASE_URL}/telemetry/traces`);
     expect(calledUrl).toContain('project_id=proj-1');
-    expect(calledUrl).toContain('skip=0');
+    expect(calledUrl).toContain('offset=0');
     expect(calledUrl).toContain('limit=10');
   });
 

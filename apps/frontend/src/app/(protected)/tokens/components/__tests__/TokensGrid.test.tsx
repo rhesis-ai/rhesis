@@ -72,9 +72,12 @@ function makeToken(id: string) {
     id,
     name: `Token ${id}`,
     token_obfuscated: `rhesis_****${id}`,
-    last_used_at: null,
-    expires_at: null,
+    token_type: 'Bearer',
+    user_id: 'u1',
+    last_used_at: undefined,
+    expires_at: '',
     created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 }
 

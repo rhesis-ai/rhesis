@@ -5,6 +5,7 @@ import '@testing-library/jest-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
 import BehaviorCard from '../BehaviorCard';
+import type { BehaviorWithMetrics } from '@/utils/api-client/interfaces/behavior';
 
 const mockDeleteBehavior = jest.fn().mockResolvedValue(undefined);
 const mockAddBehaviorToMetric = jest.fn().mockResolvedValue(undefined);
@@ -79,14 +80,24 @@ jest.mock('@/components/common/SelectMetricsDialog', () => ({
     ) : null,
 }));
 
-function makeBehavior(overrides = {}) {
+function makeBehavior(overrides = {}): BehaviorWithMetrics {
   return {
     id: 'b1',
     name: 'Jailbreak Detection',
     description: 'Detects jailbreak attempts',
+    organization_id: 'org-1',
+    status_id: 'status-1',
+    organization: {
+      id: 'org-1',
+      name: 'Test Org',
+      description: '',
+      email: 'org@test.com',
+      user_id: 'u1',
+      tags: [],
+    },
     metrics: [],
     ...overrides,
-  };
+  } as unknown as BehaviorWithMetrics;
 }
 
 const DEFAULT_PROPS = {

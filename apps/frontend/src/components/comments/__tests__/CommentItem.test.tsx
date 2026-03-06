@@ -84,6 +84,9 @@ function makeComment(
     created_at: '2024-01-01T12:00:00',
     updated_at: '2024-01-01T12:00:00',
     reactions: [],
+    entity_id: 'entity-1',
+    entity_type: 'Test' as const,
+    emojis: {} as Record<string, { user_id: string; user_name: string }[]>,
     ...overrides,
   };
 }

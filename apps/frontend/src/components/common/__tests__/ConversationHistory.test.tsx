@@ -35,8 +35,10 @@ function makeTurn(num: number) {
     turn: num,
     penelope_message: `Penelope message ${num}`,
     target_response: `Target response ${num}`,
+    penelope_reasoning: '',
+    timestamp: new Date().toISOString(),
+    session_id: 'sess-1',
     success: true,
-    latency_ms: 100,
   };
 }
 
@@ -121,6 +123,9 @@ describe('ConversationHistory', () => {
       turn: 1,
       penelope_message: '',
       target_response: '',
+      penelope_reasoning: '',
+      timestamp: new Date().toISOString(),
+      session_id: 'sess-1',
       success: true,
     };
     renderConversation({ conversationSummary: [silentTurn] });
