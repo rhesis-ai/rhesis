@@ -1,21 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: stg-base
+  name: prd-ingress-nginx-external
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: main
-    path: kubernetes/clusters/stg
-    directory:
-      recurse: true
-      exclude: '{external-secrets/*,external-dns/*,internal-dns/*,ingress-nginx-external/*,ingress-nginx-internal/*}'
+    targetRevision: feat/deployment-automation-agrocd
+    path: kubernetes/clusters/prd/ingress-nginx-external
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
-      allowEmpty: true

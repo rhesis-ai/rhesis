@@ -11,7 +11,7 @@ spec:
     path: kubernetes/clusters/dev
     directory:
       recurse: true
-      exclude: '{external-secrets/*,external-dns/*,internal-dns/*}'
+      exclude: '{external-secrets/*,external-dns/*,internal-dns/*,ingress-nginx-external/*,ingress-nginx-internal/*}'
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:

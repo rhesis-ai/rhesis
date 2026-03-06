@@ -79,3 +79,15 @@ module "internal_dns_prd" {
 
   depends_on = [module.eso_prd]
 }
+
+module "ingress_prd" {
+  source = "../../modules/ingress/gcp"
+
+  project_id            = var.project_id
+  environment            = "prd"
+  region                 = var.region
+  ilb_subnet_self_link   = module.prd.subnet_self_links["ilb"]
+  internal_lb_ip         = local.cidrs.prd.ingress_internal_ip
+
+  depends_on = [module.prd]
+}
