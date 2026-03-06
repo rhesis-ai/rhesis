@@ -1,10 +1,10 @@
 """Column mapping for file import.
 
-import logging
 Provides heuristic auto-mapping and LLM-based fallback for mapping
 source file columns to the expected test data schema.
 """
 
+import logging
 import os
 from typing import Any, Dict, List, Optional
 

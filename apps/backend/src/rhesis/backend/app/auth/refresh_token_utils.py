@@ -1,6 +1,5 @@
 """Refresh token creation, verification, rotation, and revocation.
 
-import logging
 Refresh tokens are opaque random strings.  Only the SHA-256 hash is
 stored in the database (``RefreshToken`` model).  Tokens belong to a
 ``family`` — a rotation chain starting from a login event.  If a
@@ -8,6 +7,7 @@ previously-revoked token is presented (reuse detection), every token
 in the family is revoked to protect against token theft.
 """
 
+import logging
 import hashlib
 import secrets
 import uuid

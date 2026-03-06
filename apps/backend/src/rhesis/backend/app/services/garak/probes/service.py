@@ -6,6 +6,7 @@ extracting Garak probes for import into Rhesis as test sets.
 """
 
 import importlib
+import logging
 import pkgutil
 from typing import Any, Dict, List, Optional
 

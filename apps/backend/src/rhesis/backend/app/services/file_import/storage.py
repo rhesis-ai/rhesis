@@ -1,6 +1,5 @@
 """Temporary storage for import sessions.
 
-import logging
 Two-level cache: in-memory L1 + disk L2.
 Each import session stores the uploaded file bytes, parsed results,
 and validation data keyed by a unique import_id.  TTL-based cleanup
@@ -13,6 +12,7 @@ JSON.  The session directory defaults to a platform temp folder but
 can be overridden via the ``IMPORT_SESSION_DIR`` environment variable.
 """
 
+import logging
 import json
 import os
 import shutil

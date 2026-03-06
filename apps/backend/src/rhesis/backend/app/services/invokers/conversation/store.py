@@ -1,6 +1,5 @@
 """In-memory conversation history store with TTL.
 
-import logging
 Provides server-side management of stateless endpoint conversation
 histories so that all callers (playground, SDK, Penelope) get a
 unified interface: pass ``conversation_id`` to continue a conversation,
@@ -13,6 +12,7 @@ Note:
     replace with a Redis or database-backed implementation.
 """
 
+import logging
 import threading
 import time
 from typing import Dict, List, Optional

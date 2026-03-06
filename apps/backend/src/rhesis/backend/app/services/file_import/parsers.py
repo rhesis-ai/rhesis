@@ -1,10 +1,10 @@
 """File parsers for import.
 
-import logging
 Reads uploaded files and returns raw row dictionaries.
 Delegates to the SDK's normalization logic where possible.
 """
 
+import logging
 import csv
 import io
 import json
