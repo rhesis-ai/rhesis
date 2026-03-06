@@ -5,9 +5,8 @@ This service automatically discovers entities marked with ActivityTrackableMixin
 and provides a unified view of recent CRUD operations.
 """
 
-import logging
-
 import inspect
+import logging
 from datetime import datetime, timedelta
 from math import ceil
 from typing import Any, Dict, List, Optional, Type

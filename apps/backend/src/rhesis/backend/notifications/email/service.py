@@ -3,12 +3,10 @@ Main email service that orchestrates SMTP and template services.
 """
 
 import logging
-
 import os
 import re
 from email.mime.text import MIMEText
 from typing import Any, Dict, List, Optional
-
 
 from .sendgrid_client import SendGridClient
 from .smtp import SMTPService

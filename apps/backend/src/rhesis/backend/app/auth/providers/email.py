@@ -6,7 +6,6 @@ including user registration and login.
 """
 
 import logging
-
 import os
 from typing import Optional
 

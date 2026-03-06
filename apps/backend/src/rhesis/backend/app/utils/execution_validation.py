@@ -6,7 +6,6 @@ and generation endpoints. Follows separation of concerns and DRY principles.
 """
 
 import logging
-
 from typing import Optional
 
 from fastapi import Depends, HTTPException

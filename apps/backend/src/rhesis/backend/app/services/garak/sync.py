@@ -13,7 +13,6 @@ Uses the bulk creation infrastructure to ensure proper metadata is set
 """
 
 import logging
-
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional, Set

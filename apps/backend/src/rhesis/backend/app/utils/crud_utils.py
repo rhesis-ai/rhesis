@@ -3,7 +3,6 @@ Utility functions for CRUD operations with improved readability and maintainabil
 """
 
 import logging
-
 import uuid
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 from uuid import UUID

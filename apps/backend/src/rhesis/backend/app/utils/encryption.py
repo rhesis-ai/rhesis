@@ -1,7 +1,7 @@
 # apps/backend/src/rhesis/backend/app/utils/encryption.py
 
-import logging
 import hashlib
+import logging
 import os
 from typing import Optional
 

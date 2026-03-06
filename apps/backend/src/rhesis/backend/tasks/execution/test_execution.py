@@ -9,11 +9,9 @@ with existing tests and code.
 """
 
 import logging
-
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
-
 
 # Import factory for executor creation
 from rhesis.backend.tasks.execution.executors import create_executor

@@ -3,7 +3,6 @@ SendGrid v3 API client for sending emails with dynamic templates.
 """
 
 import logging
-
 import os
 from datetime import datetime, timedelta, timezone
 from email.utils import parseaddr

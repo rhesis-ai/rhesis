@@ -3,7 +3,6 @@ Background tasks for task-related email notifications.
 """
 
 import logging
-
 from typing import Optional
 from uuid import UUID
 

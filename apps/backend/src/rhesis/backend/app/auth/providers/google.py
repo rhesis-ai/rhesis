@@ -5,7 +5,6 @@ This provider handles authentication via Google's OAuth 2.0 / OpenID Connect.
 """
 
 import logging
-
 import os
 from typing import Any, Optional
 

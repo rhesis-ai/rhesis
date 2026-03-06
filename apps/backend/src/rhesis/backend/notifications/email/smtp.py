@@ -3,7 +3,6 @@ SMTP service for sending emails via SendGrid or other SMTP providers.
 """
 
 import logging
-
 import os
 import smtplib
 import socket

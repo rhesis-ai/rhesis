@@ -2,9 +2,8 @@
 OpenTelemetry instrumentation with conditional export based on user preferences.
 """
 
-import logging
-
 import hashlib
+import logging
 import os
 from contextvars import ContextVar
 from typing import Optional

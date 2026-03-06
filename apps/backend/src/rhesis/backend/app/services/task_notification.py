@@ -3,7 +3,6 @@ Service for sending task assignment email notifications.
 """
 
 import logging
-
 from typing import Optional
 
 from sqlalchemy.orm import Session

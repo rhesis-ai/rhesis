@@ -6,7 +6,6 @@ execution strategy (parallel or sequential).
 """
 
 import logging
-
 from typing import Any, Dict
 
 from sqlalchemy.orm import Session

@@ -3,7 +3,6 @@
 import logging
 from typing import Any, Dict, List
 
-
 from .patterns import MappingPatterns
 
 logger = logging.getLogger(__name__)

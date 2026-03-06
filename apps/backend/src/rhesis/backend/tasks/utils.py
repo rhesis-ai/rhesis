@@ -3,7 +3,6 @@ Utility functions for task operations and common patterns.
 """
 
 import logging
-
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 from uuid import UUID

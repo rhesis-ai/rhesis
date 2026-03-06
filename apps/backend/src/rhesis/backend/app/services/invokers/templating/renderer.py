@@ -1,11 +1,10 @@
 """Template rendering using Jinja2."""
 
-import logging
 import json
+import logging
 from typing import Any, Dict
 
 from jinja2 import Environment
-
 
 from .filters import FILE_FILTERS
 

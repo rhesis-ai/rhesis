@@ -7,9 +7,8 @@ SDK initialization. This is used for multi-turn test execution where Penelope ru
 within the backend worker context.
 """
 
-import logging
-
 import asyncio
+import logging
 from typing import Any, Coroutine, Dict, List, Optional, TypeVar
 from uuid import UUID
 

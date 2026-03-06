@@ -10,7 +10,6 @@ import logging
 import pkgutil
 from typing import Any, Dict, List, Optional
 
-
 from .extraction import PromptExtractor
 from .models import GarakModuleInfo, GarakProbeInfo
 

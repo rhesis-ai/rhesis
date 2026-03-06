@@ -3,7 +3,6 @@ Sequential execution implementation for test cases.
 """
 
 import logging
-
 from datetime import datetime
 from typing import Any, Dict, List
 

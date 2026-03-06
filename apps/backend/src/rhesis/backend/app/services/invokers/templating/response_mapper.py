@@ -1,7 +1,7 @@
 """Response mapping using Jinja2 templates and JSONPath."""
 
-import logging
 import json
+import logging
 from typing import Any, Dict
 
 import jsonpath_ng

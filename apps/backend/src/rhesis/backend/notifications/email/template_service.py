@@ -3,7 +3,6 @@ Template service for email notifications using Jinja2.
 """
 
 import logging
-
 from datetime import datetime
 from enum import Enum
 from pathlib import Path

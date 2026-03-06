@@ -12,8 +12,8 @@ JSON.  The session directory defaults to a platform temp folder but
 can be overridden via the ``IMPORT_SESSION_DIR`` environment variable.
 """
 
-import logging
 import json
+import logging
 import os
 import shutil
 import tempfile

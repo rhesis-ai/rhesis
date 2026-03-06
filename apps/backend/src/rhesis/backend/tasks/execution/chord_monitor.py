@@ -7,10 +7,9 @@ Usage:
     python -m rhesis.backend.tasks.execution.chord_monitor clean --force
 """
 
-import logging
-
 import argparse
 import json
+import logging
 import sys
 from datetime import datetime
 from typing import Any, Dict

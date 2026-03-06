@@ -3,7 +3,6 @@ Parallel execution implementation for test cases using Celery chord.
 """
 
 import logging
-
 from datetime import datetime
 from typing import Any, Dict, List
 

@@ -7,8 +7,8 @@ previously-revoked token is presented (reuse detection), every token
 in the family is revoked to protect against token theft.
 """
 
-import logging
 import hashlib
+import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone

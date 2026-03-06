@@ -6,7 +6,6 @@ Quick Start is ONLY enabled when QUICK_START=true AND all signals confirm local 
 """
 
 import logging
-
 import os
 from typing import Optional
 

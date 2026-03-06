@@ -15,7 +15,6 @@ from rhesis.backend.app.services.task_management import validate_task_organizati
 from rhesis.backend.app.services.task_notification import send_task_assignment_notification
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-
 from rhesis.backend.telemetry import (
     is_telemetry_enabled,
     set_telemetry_enabled,

@@ -11,9 +11,8 @@ All providers return a TestOutput dataclass, enabling the runner to evaluate
 metrics uniformly regardless of how the output was obtained.
 """
 
-import logging
-
 import base64
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone

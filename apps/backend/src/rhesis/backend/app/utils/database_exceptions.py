@@ -5,10 +5,9 @@ This module provides centralized handling for database constraint violations
 and other common database errors to avoid repetition across router files.
 """
 
-import logging
-
 import asyncio
 import functools
+import logging
 from typing import Callable, Dict, Optional
 
 from fastapi import HTTPException

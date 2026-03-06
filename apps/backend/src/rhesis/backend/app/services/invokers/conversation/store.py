@@ -18,7 +18,6 @@ import time
 from typing import Dict, List, Optional
 from uuid import uuid4
 
-
 from .history import MessageHistoryManager
 
 logger = logging.getLogger(__name__)

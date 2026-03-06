@@ -6,7 +6,6 @@ Providers are automatically registered based on environment configuration.
 """
 
 import logging
-
 from typing import Any, Dict, List, Optional, Type
 
 from rhesis.backend.app.auth.providers.base import AuthProvider

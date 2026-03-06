@@ -1,5 +1,5 @@
-import logging
 import inspect
+import logging
 from functools import wraps
 from typing import Callable, Type, TypeVar
 

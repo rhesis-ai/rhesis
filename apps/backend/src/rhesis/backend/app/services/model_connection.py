@@ -6,7 +6,6 @@ model providers before saving them to the database.
 """
 
 import logging
-
 from typing import Literal
 
 logger = logging.getLogger(__name__)

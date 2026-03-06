@@ -9,7 +9,6 @@ Easily extensible by adding to the PLACEHOLDERS registry.
 """
 
 import logging
-
 from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)

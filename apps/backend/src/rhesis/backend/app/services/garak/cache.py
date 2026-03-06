@@ -9,9 +9,8 @@ The cache is version-aware: keys include the garak version, so upgrading
 garak automatically invalidates the cache.
 """
 
-import logging
-
 import json
+import logging
 import os
 from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional

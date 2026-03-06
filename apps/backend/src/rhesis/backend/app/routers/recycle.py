@@ -8,7 +8,6 @@ These endpoints allow superusers to:
 """
 
 import logging
-
 from typing import Dict, List
 from uuid import UUID
 

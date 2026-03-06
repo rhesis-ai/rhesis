@@ -11,7 +11,6 @@ This service handles:
 """
 
 import logging
-
 from typing import Optional, Type, TypeVar
 from uuid import UUID
 

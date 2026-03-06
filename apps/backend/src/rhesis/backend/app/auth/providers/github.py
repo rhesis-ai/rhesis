@@ -5,7 +5,6 @@ This provider handles authentication via GitHub's OAuth 2.0.
 """
 
 import logging
-
 import os
 from typing import Any, Optional
 

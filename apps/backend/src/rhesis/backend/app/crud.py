@@ -2,9 +2,8 @@
 This code implements the CRUD operations for the models in the application.
 """
 
-import logging
-
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from enum import Enum

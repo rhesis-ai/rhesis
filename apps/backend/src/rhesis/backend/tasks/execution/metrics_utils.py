@@ -6,7 +6,6 @@ MetricEvaluator class - no intermediate conversion needed.
 """
 
 import logging
-
 from typing import List
 from uuid import UUID
 

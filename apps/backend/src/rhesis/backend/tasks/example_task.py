@@ -10,7 +10,6 @@ This module demonstrates how to use the task system, including:
 """
 
 import logging
-
 from datetime import datetime
 from typing import Any, Dict
 from uuid import UUID

@@ -4,10 +4,10 @@ Reads uploaded files and returns raw row dictionaries.
 Delegates to the SDK's normalization logic where possible.
 """
 
-import logging
 import csv
 import io
 import json
+import logging
 from typing import Any, Dict, List, Tuple
 
 logger = logging.getLogger(__name__)

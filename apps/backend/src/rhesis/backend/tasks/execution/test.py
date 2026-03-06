@@ -6,7 +6,6 @@ handling model selection, result validation, and progress tracking.
 """
 
 import logging
-
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session

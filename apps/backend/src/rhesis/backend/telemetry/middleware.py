@@ -3,7 +3,6 @@ Middleware for handling telemetry context in FastAPI.
 """
 
 import logging
-
 import time
 from typing import Callable
 

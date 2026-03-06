@@ -1,5 +1,5 @@
-import logging
 import json
+import logging
 from typing import Any, Dict, Optional, Union
 
 import httpx
@@ -14,7 +14,6 @@ from tenacity import (
 )
 
 from rhesis.backend.app.models.endpoint import Endpoint
-
 
 from .base import BaseEndpointInvoker, ResponseMapper, TemplateRenderer
 from .common.schemas import ErrorResponse

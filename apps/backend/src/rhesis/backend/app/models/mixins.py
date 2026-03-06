@@ -1,11 +1,10 @@
-import logging
 import functools
+import logging
 
 from sqlalchemy import Column, ForeignKey, and_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declared_attr, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError
-
 
 from .guid import GUID
 

@@ -7,9 +7,8 @@ Environment variables:
     PASSWORD_CHECK_BREACHED: Set to 'true' to check against HaveIBeenPwned (default: false)
 """
 
-import logging
-
 import hashlib
+import logging
 import os
 from dataclasses import dataclass
 

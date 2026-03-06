@@ -5,9 +5,8 @@ This module provides utilities for extracting meaningful responses from endpoint
 using a fallback hierarchy system.
 """
 
-import logging
-
 import json
+import logging
 from typing import Any, Dict, List, Union
 
 logger = logging.getLogger(__name__)
