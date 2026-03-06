@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/cert-manager
+
+configMapGenerator:
+  - name: cert-manager-config
+    literals:
+      - acme-email=asad.miah@rhesis.ai
+      - ingress-class=external
+    options:
+      annotations:
+        config.kubernetes.io/local-config: "true"
+      disableNameSuffixHash: true
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: cert-manager-config
+      fieldPath: data.acme-email
+    targets:
+      - select:
+          kind: ClusterIssuer
+          name: letsencrypt-staging
+        fieldPaths:
+          - spec.acme.email
+      - select:
+          kind: ClusterIssuer
+          name: letsencrypt-prod
+        fieldPaths:
+          - spec.acme.email
+  - source:
+      kind: ConfigMap
+      name: cert-manager-config
+      fieldPath: data.ingress-class
+    targets:
+      - select:
+          kind: ClusterIssuer
+          name: letsencrypt-staging
+        fieldPaths:
+          - spec.acme.solvers.0.http01.ingress.class
+      - select:
+          kind: ClusterIssuer
+          name: letsencrypt-prod
+        fieldPaths:
+          - spec.acme.solvers.0.http01.ingress.class
