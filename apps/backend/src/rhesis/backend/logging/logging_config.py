@@ -219,15 +219,32 @@ def set_logger():
         from datetime import datetime
         from pathlib import Path
 
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        log_file_path = os.path.join(LOG_DIR, f"rhesis_{timestamp}.log")
+        from pythonjsonlogger.json import JsonFormatter
 
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
 
+        log_file_path = os.path.join(LOG_DIR, f"rhesis_{timestamp}.log")
         file_handler = logging.FileHandler(log_file_path)
         file_handler.setLevel(LOG_LEVEL)
         file_handler.setFormatter(_create_formatter(color=False))
         root_logger.addHandler(file_handler)
+
+        json_log_path = os.path.join(LOG_DIR, f"rhesis_{timestamp}.json.log")
+        json_handler = logging.FileHandler(json_log_path)
+        json_handler.setLevel(LOG_LEVEL)
+        json_handler.setFormatter(
+            JsonFormatter(
+                fmt="%(asctime)s %(name)s %(levelname)s %(message)s",
+                datefmt=LOG_DATE_FORMAT,
+                rename_fields={
+                    "asctime": "timestamp",
+                    "levelname": "level",
+                    "name": "logger",
+                },
+            )
+        )
+        root_logger.addHandler(json_handler)
 
     sensitive_filter = SensitiveDataFilter()
     root_logger.addFilter(sensitive_filter)

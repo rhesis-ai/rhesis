@@ -62,6 +62,7 @@ dependencies = [
     "mcp-atlassian>=0.13.0",
     "fastxlsx>=0.2.0",
     "sendgrid>=6.12.5",
+    "python-json-logger>=4.0.0",
 ]
 
 [project.optional-dependencies]
