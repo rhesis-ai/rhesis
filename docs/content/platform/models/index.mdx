@@ -34,9 +34,12 @@ Rhesis supports connections to major AI providers including:
 - **Cohere** - Command R provider
 - **Google** - Gemini provider
 - **Groq** - LPU-based model hosting
+- **LiteLLM Proxy** - OpenAI-compatible proxy gateway
 - **Meta** - Llama provider
 - **Mistral** - Mistral provider
 - **OpenAI** - OpenAI provider
+- **Azure AI Studio** - Azure-hosted model endpoints (`azure_ai`)
+- **Azure OpenAI** - Azure OpenAI deployments (`azure`)
 - **Perplexity** - Labs model API
 - **Replicate** - Model hosting provider
 - **Together AI** - Multi-model provider
@@ -58,6 +61,20 @@ Rhesis supports connections to major AI providers including:
    - **Default for Evaluation**: Use this model for metrics evaluation
 5. Click **"Test Connection"** to verify your configuration
 6. Click **"Save"** to add the model
+
+## Provider-Specific Connection Fields
+
+Some providers require endpoint configuration in addition to model name:
+
+| Provider | Provider value | API Endpoint required | API key required | Notes |
+|----------|----------------|-----------------------|------------------|-------|
+| LiteLLM Proxy | `litellm_proxy` | Yes | Optional | Defaults to `http://0.0.0.0:4000` when not overridden |
+| Azure AI Studio | `azure_ai` | Yes | Yes | Use your Azure AI inference endpoint URL |
+| Azure OpenAI | `azure` | Yes | Yes | Use your Azure OpenAI resource endpoint URL |
+
+<Callout type="info">
+  If a model connection fails, use **Test Connection** in the connection dialog before saving.
+</Callout>
 
 
 ---

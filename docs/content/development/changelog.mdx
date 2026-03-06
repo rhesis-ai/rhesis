@@ -8,6 +8,66 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.6.8] - 2026-03-05
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.7**
+- **Frontend 0.6.8**
+- **SDK 0.6.8**
+- **Polyphemus 0.2.7** (no new changes in this release)
+
+### Summary
+
+This release introduces **file attachments across tests, traces, and playground chat**, **expanded test run detail views**, and **new model provider options** including LiteLLM Proxy, Azure AI Studio, and Azure OpenAI.
+
+### Featured Capabilities
+
+**File Attachments Across Test Workflows**
+
+File support is now available end-to-end across execution and debugging flows:
+
+- **Test and Test Result Attachments**: Upload, list, download, and remove files linked to tests and test results
+- **Playground Chat Uploads**: Add files directly in Playground chat input (including drag-and-drop)
+- **Provider File Filters**: Use built-in Jinja filters (`to_anthropic`, `to_openai`, `to_gemini`) to map attachments to provider-specific request payload formats
+- **Chat + Trace Integration**: Chat responses can include output files and trace links for faster debugging
+
+**Expanded Test Run Detail View**
+
+Test run details now surface more execution context without leaving the page:
+
+- **Context + Metadata Panels**: Collapsible sections for test output context and metadata
+- **File Sections**: Separate collapsible panels for input files and output files
+- **Go to Test Action**: Direct navigation from a test result detail to the original test definition
+- **Trace Access**: Conversation turns and assistant responses can open the trace drawer for deeper debugging
+
+**Model Provider Expansion**
+
+Provider support was expanded in SDK and platform model configuration:
+
+- **New Providers**: `litellm_proxy`, `azure_ai`, and `azure` (Azure OpenAI)
+- **Provider-Specific Endpoints**: Endpoint URL support for LiteLLM Proxy and Azure-hosted providers
+- **Additional SDK Params**: LiteLLM-based models support `api_base`; Azure OpenAI also supports `api_version`
+
+### Backend Highlights
+- Added multi-file attachment support for test execution and chat payloads
+- Added file format filters (`to_anthropic`, `to_openai`, `to_gemini`) for provider-specific request templating
+- Added support for Azure AI Studio and Azure OpenAI providers
+- Standardized file payload field naming from `content_base64` to `data`
+
+### Frontend Highlights
+- Added file upload/download UX in Playground chat and test result views
+- Added collapsible metadata/context sections and file sections in test run detail view
+- Added direct "Go to Test" navigation from test result details
+- Added provider support in model connection flows for LiteLLM Proxy, Azure AI, and Azure OpenAI
+
+### SDK Highlights
+- Added `File` entity APIs for upload/download/delete workflows
+- Added Azure AI Studio (`AzureAILLM`) and Azure OpenAI (`AzureOpenAILLM`) providers
+- Added LiteLLM Proxy support for OpenAI-compatible proxy routing
+- Added `connect()` blocking API for connector-only scripts
+
 ## [0.6.7] - 2026-03-02
 
 ### Platform Release

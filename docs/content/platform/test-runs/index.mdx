@@ -16,6 +16,21 @@ By clicking on a test run, you'll see the overview of how the test run went. Fro
 
 ![Test Run Detail Page](/screenshots/rhesis-ai-test-run-details.png)
 
+## Test Run Detail View
+
+The test run detail page includes an expanded **Overview** and **Conversation** workflow for debugging failures faster:
+
+- **Go to Test**: Open the original test definition directly from a result detail
+- **Context panel**: Expand/collapse captured context items when available
+- **Metadata panel**: Expand/collapse structured metadata for the result
+- **Files / Output Files panels**: Inspect and download both input attachments and generated output files
+- **JSON-aware rendering**: Response content that is valid JSON is pretty-printed in the overview tab
+
+For multi-turn tests, the **Conversation** tab supports trace-driven debugging:
+
+- Click assistant responses to open the trace drawer
+- Navigate turn-by-turn while keeping test result context visible
+
 ## Review Test Runs
 Reviews allow human evaluators to validate or override automated test evaluations.
 

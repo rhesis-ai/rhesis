@@ -25,13 +25,17 @@ model = get_model("gemini")`}
 
 </CodeBlock>
 
-**Supported providers:**
+**Supported providers (highlights):**
 
-- `gemini` - Google's AI models with multimodal support
-- `openai` - OpenAI models including GPT-4
-- `huggingface` - Open-source models from Hugging Face
-- `ollama` - Local model execution using Ollama
-- `rhesis` - Models served by Rhesis
+- `rhesis` - Rhesis-hosted default models
+- `openai`, `anthropic`, `gemini`, `vertex_ai` - major hosted providers
+- `azure_ai` - Azure AI Studio deployments via LiteLLM
+- `azure` - Azure OpenAI deployments via LiteLLM
+- `litellm_proxy` - OpenAI-compatible LiteLLM Proxy endpoint
+- `openrouter`, `mistral`, `cohere`, `groq`, `perplexity`, `replicate`, `together_ai`
+- `ollama`, `huggingface`, `lmformatenforcer` - local/self-hosted options
+
+Use `get_model(...)` for the most stable cross-provider API.
 
 To use a specific model, provide its name in the format `provider/model_name`:
 
@@ -51,18 +55,69 @@ model = get_model(provider="gemini", model_name="gemini-2.0-flash")`}
 
 </CodeBlock>
 
+### Provider-specific connection options
+
+Some providers accept extra connection parameters:
+
+| Provider | Required fields | Optional fields | Notes |
+|----------|-----------------|-----------------|-------|
+| `litellm_proxy` | `model_name` | `api_base`, `api_key` | `api_base` defaults to `LITELLM_PROXY_BASE_URL` or `http://0.0.0.0:4000` |
+| `azure_ai` | `model_name` | `api_base`, `api_key` | Falls back to `AZURE_AI_API_BASE` and `AZURE_AI_API_KEY` |
+| `azure` | `model_name` | `api_base`, `api_key`, `api_version` | Falls back to `AZURE_API_BASE`, `AZURE_API_KEY`, `AZURE_API_VERSION` |
+
+<CodeBlock filename="litellm_proxy.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+model = get_model(
+    provider="litellm_proxy",
+    model_name="gpt-4o-mini",
+    api_base="http://localhost:4000",
+    api_key="proxy-key",  # optional
+)`}
+
+</CodeBlock>
+
+<CodeBlock filename="azure_ai.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+model = get_model(
+    provider="azure_ai",
+    model_name="command-r-plus",
+    api_base="https://your-endpoint.inference.ai.azure.com/",
+    api_key="your-azure-ai-key",
+)`}
+
+</CodeBlock>
+
+<CodeBlock filename="azure_openai.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+model = get_model(
+    provider="azure",
+    model_name="my-gpt4o-deployment",
+    api_base="https://your-resource.openai.azure.com/",
+    api_key="your-azure-openai-key",
+    api_version="2024-08-01-preview",
+)`}
+
+</CodeBlock>
+
 ### Direct import
 
 Alternatively, you can access models by importing the model class directly. When you provide a model name as an argument, that specific model will be used. If no model name is provided, the default model for that provider will be used.
 
 <CodeBlock filename="direct_import.py" language="python">
-{`from rhesis.sdk.models import GeminiLLM, OllamaLLM
-
-# Use default Ollama model
-ollama_model = OllamaLLM()
+{`from rhesis.sdk.models import AzureOpenAILLM, GeminiLLM
 
 # Use specific Gemini model
-gemini_model = GeminiLLM('gemini-2.0-flash')`}
+gemini_model = GeminiLLM("gemini-2.0-flash")
+
+# Use Azure OpenAI deployment
+azure_model = AzureOpenAILLM(
+    model_name="my-gpt4o-deployment",
+    api_base="https://your-resource.openai.azure.com/",
+    api_key="your-azure-openai-key",
+)`}
 
 </CodeBlock>
 
