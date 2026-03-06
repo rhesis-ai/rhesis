@@ -1,11 +1,13 @@
 """Conversation tracking for multi-turn conversations."""
 
 import json
+import logging
 import re
 from typing import Any, Dict, Optional
 
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 # Conversation tracking field names (priority-ordered)
 # Used for convention-based detection of conversation tracking fields in response_mapping

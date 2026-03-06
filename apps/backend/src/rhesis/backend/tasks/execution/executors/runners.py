@@ -1,12 +1,12 @@
 """Core test execution runners - shared by executors and in-place service."""
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.execution.constants import MetricScope
 from rhesis.backend.tasks.execution.evaluation import (
@@ -24,6 +24,8 @@ from rhesis.backend.tasks.execution.response_extractor import (
 
 from .data import get_test_metrics
 from .metrics import prepare_metric_configs
+
+logger = logging.getLogger(__name__)
 
 
 def _get_endpoint_routing(

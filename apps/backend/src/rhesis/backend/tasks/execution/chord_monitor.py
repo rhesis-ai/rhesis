@@ -9,14 +9,16 @@ Usage:
 
 import argparse
 import json
+import logging
 import sys
 from datetime import datetime
 from typing import Any, Dict
 
 from celery.result import AsyncResult, GroupResult
 
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.worker import app
+
+logger = logging.getLogger(__name__)
 
 
 def get_chord_status(chord_id: str) -> Dict[str, Any]:

@@ -1,12 +1,14 @@
 """Observability utilities for Rhesis backend."""
 
+import logging
 import os
 from typing import Dict
 
 from rhesis.backend.app.database import get_db_with_tenant_variables
-from rhesis.backend.logging import logger
 from rhesis.sdk.clients import RhesisClient
 from rhesis.sdk.decorators import bind_context
+
+logger = logging.getLogger(__name__)
 
 # Initialize RhesisClient at module import time (required for @endpoint decorators)
 try:

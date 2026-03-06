@@ -1,13 +1,14 @@
 import functools
+import logging
 
 from sqlalchemy import Column, ForeignKey, and_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import declared_attr, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError
 
-from rhesis.backend.logging import logger
-
 from .guid import GUID
+
+logger = logging.getLogger(__name__)
 
 
 def safe_relationship(default_factory=list):

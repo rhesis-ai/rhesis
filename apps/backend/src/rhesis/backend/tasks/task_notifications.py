@@ -2,14 +2,16 @@
 Background tasks for task-related email notifications.
 """
 
+import logging
 from typing import Optional
 from uuid import UUID
 
 from rhesis.backend.app import models
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.services.task_notification import send_task_assignment_notification
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.base import BaseTask
+
+logger = logging.getLogger(__name__)
 
 
 class SendTaskAssignmentEmailTask(BaseTask):

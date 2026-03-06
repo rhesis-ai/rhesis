@@ -12,14 +12,15 @@ Note:
     replace with a Redis or database-backed implementation.
 """
 
+import logging
 import threading
 import time
 from typing import Dict, List, Optional
 from uuid import uuid4
 
-from rhesis.backend.logging import logger
-
 from .history import MessageHistoryManager
+
+logger = logging.getLogger(__name__)
 
 # Default TTL: 1 hour
 _DEFAULT_TTL_SECONDS = 3600

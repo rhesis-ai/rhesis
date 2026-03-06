@@ -2,6 +2,7 @@
 Template service for email notifications using Jinja2.
 """
 
+import logging
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -9,7 +10,7 @@ from typing import Any, Dict
 
 import jinja2
 
-from rhesis.backend.logging.rhesis_logger import logger
+logger = logging.getLogger(__name__)
 
 
 class EmailTemplate(Enum):

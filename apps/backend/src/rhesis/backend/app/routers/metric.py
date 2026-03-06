@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from uuid import UUID
 
@@ -14,6 +15,8 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
+
+logger = logging.getLogger(__name__)
 
 # Create the detailed schema for Metric with many-to-many relationships included
 MetricDetailSchema = create_detailed_schema(
@@ -45,7 +48,6 @@ def create_metric(
     - No SHOW queries during entity creation
     - Direct tenant context injection
     """
-    from rhesis.backend.logging import logger
 
     organization_id, user_id = tenant_context
 

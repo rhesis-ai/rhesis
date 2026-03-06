@@ -6,6 +6,7 @@ and provides a unified view of recent CRUD operations.
 """
 
 import inspect
+import logging
 from datetime import datetime, timedelta
 from math import ceil
 from typing import Any, Dict, List, Optional, Type
@@ -17,7 +18,8 @@ from rhesis.backend.app import models
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.mixins import ActivityTrackableMixin
 from rhesis.backend.app.schemas.services import ActivityItem, ActivityOperation, TimeRange
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 class RecentActivitiesService:

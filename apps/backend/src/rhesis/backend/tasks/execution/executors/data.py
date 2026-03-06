@@ -1,5 +1,6 @@
 """Data retrieval utilities for test execution."""
 
+import logging
 from typing import TYPE_CHECKING, List, Optional, Tuple
 from uuid import UUID
 
@@ -7,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.logging.rhesis_logger import logger
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from rhesis.backend.app.models.test_configuration import TestConfiguration

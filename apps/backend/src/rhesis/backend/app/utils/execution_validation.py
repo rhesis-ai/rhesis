@@ -5,6 +5,7 @@ Provides reusable validation functions and dependencies for test execution
 and generation endpoints. Follows separation of concerns and DRY principles.
 """
 
+import logging
 from typing import Optional
 
 from fastapi import Depends, HTTPException
@@ -17,7 +18,8 @@ from rhesis.backend.app.utils.user_model_utils import (
     validate_user_evaluation_model,
     validate_user_generation_model,
 )
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 class ModelConfigurationError(Exception):

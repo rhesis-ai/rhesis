@@ -6,6 +6,7 @@ It creates a default organization and admin user with known credentials.
 DO NOT use this in production environments.
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -15,7 +16,8 @@ from rhesis.backend.app import crud, models
 from rhesis.backend.app.services.organization import load_initial_data
 from rhesis.backend.app.utils.encryption import hash_token
 from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 def initialize_local_environment(db: Session) -> None:

@@ -10,6 +10,7 @@ garak automatically invalidates the cache.
 """
 
 import json
+import logging
 import os
 from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional
@@ -17,7 +18,7 @@ from urllib.parse import urlparse, urlunparse
 
 import redis.asyncio as redis
 
-from rhesis.backend.logging.rhesis_logger import logger
+logger = logging.getLogger(__name__)
 
 
 class GarakProbeCache:

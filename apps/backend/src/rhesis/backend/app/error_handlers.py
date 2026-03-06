@@ -2,11 +2,13 @@
 Error handling utilities for FastAPI validation errors and responses.
 """
 
+import logging
+
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import JSONResponse
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
 
 
 def create_validation_error_response(exc: RequestValidationError) -> JSONResponse:

@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -52,7 +53,8 @@ from rhesis.backend.app.services.mcp_service import (
 )
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/services",

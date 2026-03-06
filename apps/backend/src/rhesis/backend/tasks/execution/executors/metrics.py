@@ -1,10 +1,12 @@
 """Metrics processing and evaluation utilities."""
 
+import logging
 from typing import Any, Dict, List, Optional
 
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ResultStatus
 from rhesis.backend.tasks.execution.constants import MetricScope
+
+logger = logging.getLogger(__name__)
 
 
 def filter_metrics_by_scope(metrics: List, scope: MetricScope, test_id: str) -> List:

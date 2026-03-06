@@ -1,5 +1,6 @@
 """Mapping service orchestrator with 4-tier priority system."""
 
+import logging
 from enum import Enum
 from typing import Any, Dict
 
@@ -8,10 +9,11 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.user import User
-from rhesis.backend.logging import logger
 
 from .auto_mapper import AutoMapper
 from .llm_mapper import LLMMapper
+
+logger = logging.getLogger(__name__)
 
 
 class MappingSource(str, Enum):

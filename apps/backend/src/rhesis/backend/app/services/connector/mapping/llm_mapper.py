@@ -1,5 +1,6 @@
 """LLM-based mapping generation service."""
 
+import logging
 import os
 from typing import Any, Dict
 
@@ -9,8 +10,9 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
-from rhesis.backend.logging import logger
 from rhesis.sdk.models.factory import get_model
+
+logger = logging.getLogger(__name__)
 
 
 class MappingGenerationOutput(BaseModel):

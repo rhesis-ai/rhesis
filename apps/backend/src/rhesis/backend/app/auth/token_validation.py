@@ -1,10 +1,12 @@
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 def update_token_usage(db: Session, token) -> None:

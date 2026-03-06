@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -24,8 +25,9 @@ from rhesis.backend.app.utils.uuid_utils import (
     sanitize_uuid_field,
     validate_uuid_parameters,
 )
-from rhesis.backend.logging import logger
 from rhesis.sdk.models.factory import get_model
+
+logger = logging.getLogger(__name__)
 
 
 class _BulkEntityCache:
