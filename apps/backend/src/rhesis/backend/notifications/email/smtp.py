@@ -2,12 +2,14 @@
 SMTP service for sending emails via SendGrid or other SMTP providers.
 """
 
+import logging
+
 import os
 import smtplib
 import socket
 from email.mime.multipart import MIMEMultipart
 
-from rhesis.backend.logging.rhesis_logger import logger
+logger = logging.getLogger(__name__)
 
 
 class SMTPService:

@@ -9,13 +9,14 @@ This module demonstrates how to use the task system, including:
 - NEW: Sequential vs Parallel execution modes
 """
 
+import logging
+
 from datetime import datetime
 from typing import Any, Dict
 from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.notifications.email.template_service import EmailTemplate
 from rhesis.backend.tasks.base import (
     BaseTask,
@@ -28,6 +29,8 @@ from rhesis.backend.tasks.execution.modes import (
     set_execution_mode,
 )
 from rhesis.backend.worker import app
+
+logger = logging.getLogger(__name__)
 
 
 @app.task(

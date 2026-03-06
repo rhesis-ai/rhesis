@@ -2,6 +2,8 @@
 Utility functions for CRUD operations with improved readability and maintainability.
 """
 
+import logging
+
 import uuid
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 from uuid import UUID
@@ -16,7 +18,8 @@ from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.models import Behavior, Category, Model, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.query_utils import QueryBuilder
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 # Define a generic type variable
 T = TypeVar("T")

@@ -1,3 +1,4 @@
+import logging
 import json
 import random
 import uuid
@@ -26,7 +27,8 @@ from rhesis.backend.app.utils.uuid_utils import (
     validate_uuid_list,
     validate_uuid_parameters,
 )
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str = None):

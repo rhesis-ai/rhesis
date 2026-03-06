@@ -5,13 +5,16 @@ Note: Metric model to config conversion is now handled directly by the
 MetricEvaluator class - no intermediate conversion needed.
 """
 
+import logging
+
 from typing import List
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.metric import Metric
-from rhesis.backend.logging.rhesis_logger import logger
+
+logger = logging.getLogger(__name__)
 
 
 def get_behavior_metrics(db: Session, behavior_id: UUID) -> List[Metric]:

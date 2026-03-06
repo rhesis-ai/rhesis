@@ -1,3 +1,4 @@
+import logging
 import base64
 import os
 import secrets
@@ -15,7 +16,8 @@ from rhesis.backend.app.auth.constants import (
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.redact import redact_email
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 # Token expiry defaults (in minutes)
 SERVICE_DELEGATION_EXPIRE_MINUTES = 5  # 5 minutes, short-lived for service-to-service calls

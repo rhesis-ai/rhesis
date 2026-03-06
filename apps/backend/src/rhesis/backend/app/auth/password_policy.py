@@ -7,6 +7,8 @@ Environment variables:
     PASSWORD_CHECK_BREACHED: Set to 'true' to check against HaveIBeenPwned (default: false)
 """
 
+import logging
+
 import hashlib
 import os
 from dataclasses import dataclass
@@ -14,7 +16,8 @@ from dataclasses import dataclass
 import httpx
 from fastapi import HTTPException, status
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
+
 
 # HaveIBeenPwned k-Anonymity API
 _HIBP_API_URL = "https://api.pwnedpasswords.com/range"

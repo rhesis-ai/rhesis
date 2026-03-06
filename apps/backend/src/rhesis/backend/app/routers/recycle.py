@@ -7,6 +7,8 @@ These endpoints allow superusers to:
 - Permanently delete records (empty recycle bin)
 """
 
+import logging
+
 from typing import Dict, List
 from uuid import UUID
 
@@ -24,7 +26,8 @@ from rhesis.backend.app.utils.crud_utils import (
     get_deleted_items,
     hard_delete_item,
 )
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/recycle", tags=["recycle"])
 

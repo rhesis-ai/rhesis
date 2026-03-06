@@ -2,6 +2,8 @@
 Utility functions for task operations and common patterns.
 """
 
+import logging
+
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 from uuid import UUID
@@ -10,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.tasks.enums import RunStatus
+
+logger = logging.getLogger(__name__)
 
 
 def safe_uuid_convert(value: Any) -> Optional[UUID]:
@@ -165,7 +169,6 @@ def increment_test_run_progress(
 
     except Exception as e:
         # Log error but don't raise - progress update failure shouldn't break test execution
-        from rhesis.backend.logging.rhesis_logger import logger
 
         logger.error(f"Failed to update test run progress: {str(e)}")
         return False

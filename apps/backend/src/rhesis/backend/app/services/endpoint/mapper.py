@@ -1,5 +1,6 @@
 """Mapper service integration for SDK endpoints."""
 
+import logging
 from datetime import datetime
 from typing import Any, Dict
 
@@ -9,7 +10,8 @@ from sqlalchemy.orm.attributes import flag_modified
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.connector.mapping import MappingService
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 def generate_and_apply_mappings(

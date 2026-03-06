@@ -9,10 +9,11 @@ import importlib
 import pkgutil
 from typing import Any, Dict, List, Optional
 
-from rhesis.backend.logging.rhesis_logger import logger
 
 from .extraction import PromptExtractor
 from .models import GarakModuleInfo, GarakProbeInfo
+
+logger = logging.getLogger(__name__)
 
 
 class GarakProbeService:

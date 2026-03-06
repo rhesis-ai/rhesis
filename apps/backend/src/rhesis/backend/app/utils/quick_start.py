@@ -5,10 +5,12 @@ This module provides fail-secure detection for Quick Start mode.
 Quick Start is ONLY enabled when QUICK_START=true AND all signals confirm local development.
 """
 
+import logging
+
 import os
 from typing import Optional
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
 
 
 def is_quick_start_enabled(hostname: Optional[str] = None, headers: Optional[dict] = None) -> bool:

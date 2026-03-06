@@ -5,6 +5,8 @@ Provides endpoints for listing, importing, and syncing Garak probes
 as Rhesis test sets.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -30,7 +32,8 @@ from rhesis.backend.app.services.garak import (
     GarakSyncService,
     GarakTaxonomy,
 )
-from rhesis.backend.logging.rhesis_logger import logger
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/garak",

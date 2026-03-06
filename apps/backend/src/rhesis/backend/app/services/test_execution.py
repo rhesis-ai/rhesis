@@ -5,6 +5,8 @@ Provides synchronous test execution without worker infrastructure or database pe
 Reuses existing executor logic but skips all database operations.
 """
 
+import logging
+
 from datetime import datetime
 from typing import Any, Dict
 from uuid import uuid4
@@ -12,12 +14,13 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ResultStatus
 from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
 from rhesis.backend.tasks.execution.executors.metrics import determine_status_from_metrics
 from rhesis.backend.tasks.execution.executors.runners import MultiTurnRunner, SingleTurnRunner
 from rhesis.backend.tasks.execution.test import get_evaluation_model
+
+logger = logging.getLogger(__name__)
 
 
 async def execute_test_in_place(

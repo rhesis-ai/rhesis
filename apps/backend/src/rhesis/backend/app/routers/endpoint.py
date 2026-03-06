@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Any, Dict
 
@@ -20,8 +21,8 @@ from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.backend.app.utils.status import get_or_create_status
 
-# Use rhesis logger
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
+
 
 # Create the detailed schema for Endpoint
 EndpointDetailSchema = create_detailed_schema(schemas.Endpoint, models.Endpoint)

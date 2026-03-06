@@ -8,9 +8,11 @@ runtime context substitution.
 Easily extensible by adding to the PLACEHOLDERS registry.
 """
 
+import logging
+
 from typing import Any, Callable, Dict, Optional
 
-from rhesis.backend.logging.rhesis_logger import logger
+logger = logging.getLogger(__name__)
 
 
 class PromptPreprocessor:

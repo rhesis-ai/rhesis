@@ -5,10 +5,12 @@ This module provides utilities for extracting meaningful responses from endpoint
 using a fallback hierarchy system.
 """
 
+import logging
+
 import json
 from typing import Any, Dict, List, Union
 
-from rhesis.backend.logging.rhesis_logger import logger
+logger = logging.getLogger(__name__)
 
 
 def extract_response_with_fallback(result: Union[Dict, Any]) -> str:

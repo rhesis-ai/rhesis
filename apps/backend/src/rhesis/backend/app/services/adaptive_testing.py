@@ -1,5 +1,6 @@
 """Service for building adaptive testing trees from test sets.
 
+import logging
 Converts backend Test models into SDK TestTreeData structures,
 providing tree, tests-only, and topics-only views.
 Also provides generation of test outputs by invoking an endpoint.
@@ -17,12 +18,13 @@ from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.test import create_test_set_associations
 from rhesis.backend.app.utils.crud_utils import get_or_create_topic, get_or_create_type_lookup
-from rhesis.backend.logging import logger
 from rhesis.sdk.adaptive_testing.schemas import (
     TestTreeData,
     TestTreeNode,
     TopicNode,
 )
+
+logger = logging.getLogger(__name__)
 
 ADAPTIVE_TESTING_BEHAVIOR = "Adaptive Testing"
 

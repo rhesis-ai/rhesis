@@ -5,6 +5,8 @@ This module determines the execution mode and delegates to the appropriate
 execution strategy (parallel or sequential).
 """
 
+import logging
+
 from typing import Any, Dict
 
 from sqlalchemy.orm import Session
@@ -12,11 +14,12 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.services.test_set import get_test_set
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.modes import get_execution_mode
 from rhesis.backend.tasks.execution.parallel import execute_tests_in_parallel
 from rhesis.backend.tasks.execution.sequential import execute_tests_sequentially
+
+logger = logging.getLogger(__name__)
 
 
 def execute_test_cases(

@@ -11,6 +11,8 @@ All providers return a TestOutput dataclass, enabling the runner to evaluate
 metrics uniformly regardless of how the output was obtained.
 """
 
+import logging
+
 import base64
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -20,13 +22,14 @@ from uuid import UUID
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.dependencies import get_endpoint_service
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.execution.executors.results import (
     process_endpoint_result,
 )
 from rhesis.backend.tasks.execution.penelope_target import (
     BackendEndpointTarget,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

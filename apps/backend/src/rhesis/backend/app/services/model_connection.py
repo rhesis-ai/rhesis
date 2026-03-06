@@ -5,9 +5,11 @@ This module provides functionality to test connections to various LLM and embedd
 model providers before saving them to the database.
 """
 
+import logging
+
 from typing import Literal
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
 
 
 class ModelConnectionTestResult:

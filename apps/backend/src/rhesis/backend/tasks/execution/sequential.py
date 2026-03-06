@@ -2,6 +2,8 @@
 Sequential execution implementation for test cases.
 """
 
+import logging
+
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -9,7 +11,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.shared import (
     create_execution_result,
@@ -19,6 +20,8 @@ from rhesis.backend.tasks.execution.shared import (
     update_test_run_start,
 )
 from rhesis.backend.tasks.execution.test_execution import execute_test
+
+logger = logging.getLogger(__name__)
 
 
 def execute_tests_sequentially(

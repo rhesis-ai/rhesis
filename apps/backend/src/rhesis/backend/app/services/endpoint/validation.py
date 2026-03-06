@@ -1,5 +1,6 @@
 """Validation logic for SDK endpoints."""
 
+import logging
 from datetime import datetime
 from typing import Any, Dict
 
@@ -7,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.utils.status import get_or_create_status
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 async def validate_and_update_status(

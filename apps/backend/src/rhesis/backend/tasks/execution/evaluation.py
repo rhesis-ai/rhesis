@@ -10,18 +10,21 @@ Functions:
 - evaluate_prompt_response: Backward compatibility alias for evaluate_single_turn_metrics
 """
 
+import logging
+
 from typing import Any, Dict, List, Optional, Set, Union
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.tasks.execution.constants import MetricScope
 from rhesis.sdk.metrics import MetricConfig
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
 from .response_extractor import extract_response_with_fallback
+
+logger = logging.getLogger(__name__)
 
 
 def evaluate_single_turn_metrics(

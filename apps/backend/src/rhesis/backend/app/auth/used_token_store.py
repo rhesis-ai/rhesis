@@ -5,7 +5,10 @@ Uses Redis SET NX with TTL to record that a token (by jti) has been used.
 Once claimed, the same token cannot be used again.
 """
 
-from rhesis.backend.logging import logger
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 REDIS_KEY_PREFIX = "used_jti:"
 

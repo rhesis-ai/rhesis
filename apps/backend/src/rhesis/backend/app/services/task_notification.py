@@ -2,14 +2,17 @@
 Service for sending task assignment email notifications.
 """
 
+import logging
+
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.crud import get_status, get_type_lookup, get_user
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.notifications import EmailTemplate, email_service
+
+logger = logging.getLogger(__name__)
 
 
 def send_task_assignment_notification(

@@ -9,6 +9,8 @@ The cache is version-aware: keys include the garak version, so upgrading
 garak automatically invalidates the cache.
 """
 
+import logging
+
 import json
 import os
 from datetime import datetime
@@ -17,7 +19,7 @@ from urllib.parse import urlparse, urlunparse
 
 import redis.asyncio as redis
 
-from rhesis.backend.logging.rhesis_logger import logger
+logger = logging.getLogger(__name__)
 
 
 class GarakProbeCache:

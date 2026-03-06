@@ -1,5 +1,6 @@
 """In-memory conversation history store with TTL.
 
+import logging
 Provides server-side management of stateless endpoint conversation
 histories so that all callers (playground, SDK, Penelope) get a
 unified interface: pass ``conversation_id`` to continue a conversation,
@@ -17,9 +18,10 @@ import time
 from typing import Dict, List, Optional
 from uuid import uuid4
 
-from rhesis.backend.logging import logger
 
 from .history import MessageHistoryManager
+
+logger = logging.getLogger(__name__)
 
 # Default TTL: 1 hour
 _DEFAULT_TTL_SECONDS = 3600

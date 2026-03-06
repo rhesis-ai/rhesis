@@ -1,5 +1,6 @@
 """SDK endpoint synchronization logic."""
 
+import logging
 from datetime import datetime
 from typing import Any, Dict
 
@@ -14,10 +15,11 @@ from rhesis.backend.app.models.enums import (
 )
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.status import get_or_create_status
-from rhesis.backend.logging import logger
 
 from .mapper import generate_and_apply_mappings
 from .validation import validate_and_update_status
+
+logger = logging.getLogger(__name__)
 
 
 async def sync_sdk_endpoints(

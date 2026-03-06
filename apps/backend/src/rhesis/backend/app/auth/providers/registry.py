@@ -5,10 +5,13 @@ This module manages the registration and discovery of authentication providers.
 Providers are automatically registered based on environment configuration.
 """
 
+import logging
+
 from typing import Any, Dict, List, Optional, Type
 
 from rhesis.backend.app.auth.providers.base import AuthProvider
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 class ProviderRegistry:

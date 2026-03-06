@@ -1,5 +1,6 @@
 """Result processing and storage utilities."""
 
+import logging
 import base64
 import copy
 from datetime import datetime
@@ -11,9 +12,10 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, schemas
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ResultStatus
 from rhesis.backend.tasks.execution.response_extractor import extract_response_with_fallback
+
+logger = logging.getLogger(__name__)
 
 
 def serialize_for_json(obj: Any) -> Any:

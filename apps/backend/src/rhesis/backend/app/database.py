@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -7,7 +8,8 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
+
 
 load_dotenv()
 

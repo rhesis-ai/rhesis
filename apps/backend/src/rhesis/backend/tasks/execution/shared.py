@@ -5,6 +5,8 @@ This module contains common logic used by both parallel and sequential execution
 to ensure consistent behavior and results.
 """
 
+import logging
+
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -13,10 +15,11 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.results import collect_results
 from rhesis.backend.tasks.utils import increment_test_run_progress
+
+logger = logging.getLogger(__name__)
 
 
 def update_test_run_start(

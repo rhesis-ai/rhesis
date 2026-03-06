@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -21,8 +22,9 @@ from rhesis.backend.app.services.organization import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.notifications import email_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/organizations", tags=["organizations"], responses={404: {"description": "Not found"}}

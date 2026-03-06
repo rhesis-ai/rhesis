@@ -5,6 +5,8 @@ This service automatically discovers entities marked with ActivityTrackableMixin
 and provides a unified view of recent CRUD operations.
 """
 
+import logging
+
 import inspect
 from datetime import datetime, timedelta
 from math import ceil
@@ -17,7 +19,8 @@ from rhesis.backend.app import models
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.mixins import ActivityTrackableMixin
 from rhesis.backend.app.schemas.services import ActivityItem, ActivityOperation, TimeRange
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 class RecentActivitiesService:

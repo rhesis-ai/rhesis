@@ -1,5 +1,6 @@
 """MCP service for generic integration using MCPAgent."""
 
+import logging
 import json
 import os
 import uuid
@@ -16,7 +17,6 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.user_model_utils import get_user_generation_model
 from rhesis.backend.app.utils.observability import get_test_context
-from rhesis.backend.logging import logger
 from rhesis.sdk.decorators import endpoint
 from rhesis.sdk.services.mcp import MCPAgent, MCPClientFactory
 from rhesis.sdk.services.mcp.exceptions import (
@@ -25,6 +25,8 @@ from rhesis.sdk.services.mcp.exceptions import (
     MCPError,
 )
 from rhesis.sdk.services.mcp.observable_agent import ObservableMCPAgent
+
+logger = logging.getLogger(__name__)
 
 # Initialize Jinja2 environment for loading prompt templates
 TEMPLATE_DIR = Path(__file__).parent.parent / "templates"

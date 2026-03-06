@@ -1,9 +1,11 @@
+import logging
 import os
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import HTTPException
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
+
 
 # OAuth configuration
 oauth = OAuth()

@@ -1,5 +1,6 @@
 """Refresh token creation, verification, rotation, and revocation.
 
+import logging
 Refresh tokens are opaque random strings.  Only the SHA-256 hash is
 stored in the database (``RefreshToken`` model).  Tokens belong to a
 ``family`` — a rotation chain starting from a login event.  If a
@@ -17,7 +18,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.constants import REFRESH_TOKEN_EXPIRE_DAYS
 from rhesis.backend.app.models.refresh_token import RefreshToken
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 def _hash_token(raw_token: str) -> str:

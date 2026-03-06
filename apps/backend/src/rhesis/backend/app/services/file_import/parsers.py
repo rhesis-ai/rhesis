@@ -1,5 +1,6 @@
 """File parsers for import.
 
+import logging
 Reads uploaded files and returns raw row dictionaries.
 Delegates to the SDK's normalization logic where possible.
 """
@@ -9,7 +10,8 @@ import io
 import json
 from typing import Any, Dict, List, Tuple
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
+
 
 # Maximum sample rows returned during the analyze step
 MAX_SAMPLE_ROWS = 5

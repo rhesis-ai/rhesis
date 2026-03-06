@@ -1,5 +1,6 @@
 """Temporary storage for import sessions.
 
+import logging
 Two-level cache: in-memory L1 + disk L2.
 Each import session stores the uploaded file bytes, parsed results,
 and validation data keyed by a unique import_id.  TTL-based cleanup
@@ -22,7 +23,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
+
 
 # Default TTL: 30 minutes (configurable via env)
 DEFAULT_TTL_SECONDS = int(os.getenv("IMPORT_SESSION_TTL_SECONDS", "1800"))

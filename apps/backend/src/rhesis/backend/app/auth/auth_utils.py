@@ -1,3 +1,4 @@
+import logging
 import base64
 import os
 import secrets
@@ -13,7 +14,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.crud import get_token_by_value, get_user_by_id
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 # Constants
 bearer_scheme = HTTPBearer(auto_error=False)

@@ -1,3 +1,4 @@
+import logging
 import base64
 import json
 import os
@@ -7,7 +8,7 @@ from typing import Optional
 import fsspec
 from google.oauth2 import service_account
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
 
 
 class StorageService:

@@ -5,11 +5,15 @@ This module provides centralized handling for database constraint violations
 and other common database errors to avoid repetition across router files.
 """
 
+import logging
+
 import asyncio
 import functools
 from typing import Callable, Dict, Optional
 
 from fastapi import HTTPException
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseExceptionHandler:
@@ -68,7 +72,6 @@ class DatabaseExceptionHandler:
         error_msg = str(error).lower()
 
         # Log the original error for debugging
-        from rhesis.backend.logging import logger
 
         logger.error(f"Database error in {entity_name}: {error}", exc_info=True)
 
@@ -99,7 +102,6 @@ class DatabaseExceptionHandler:
             raise HTTPException(status_code=400, detail=message)
 
         # Log the original error for debugging
-        from rhesis.backend.logging import logger
 
         logger.error(f"Unhandled database error in {entity_name}: {error}", exc_info=True)
 

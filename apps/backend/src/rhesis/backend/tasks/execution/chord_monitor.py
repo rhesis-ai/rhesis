@@ -7,6 +7,8 @@ Usage:
     python -m rhesis.backend.tasks.execution.chord_monitor clean --force
 """
 
+import logging
+
 import argparse
 import json
 import sys
@@ -15,8 +17,9 @@ from typing import Any, Dict
 
 from celery.result import AsyncResult, GroupResult
 
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.worker import app
+
+logger = logging.getLogger(__name__)
 
 
 def get_chord_status(chord_id: str) -> Dict[str, Any]:
