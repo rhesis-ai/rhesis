@@ -1,16 +1,16 @@
-name: "[Test] Frontend"
+name: "[Test] Frontend Unit"
 
 on:
   push:
     branches: [ main ]
     paths:
       - 'apps/frontend/**'
-      - '.github/workflows/frontend.yml'
+      - '.github/workflows/frontend-test.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'apps/frontend/**'
-      - '.github/workflows/frontend.yml'
+      - '.github/workflows/frontend-test.yml'
   workflow_dispatch:
   schedule:
     - cron: '0 0 * * *'
