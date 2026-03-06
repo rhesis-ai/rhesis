@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from rhesis.backend.logging.rhesis_logger import logger
 
+from .sendgrid_client import SendGridClient
 from .smtp import SMTPService
 from .template_service import EmailTemplate, TemplateService
 
@@ -27,10 +28,11 @@ class EmailService:
     def __init__(self):
         self.smtp_service = SMTPService()
         self.template_service = TemplateService()
+        self.sendgrid_client = SendGridClient()
 
     @property
     def is_configured(self) -> bool:
-        """Check if email service is properly configured."""
+        """Check if SMTP email service is properly configured."""
         return self.smtp_service.is_configured
 
     def _should_exclude_from_welcome_email(self, email: str) -> bool:
@@ -234,6 +236,152 @@ class EmailService:
             task_id="welcome",
             from_email=welcome_from_email,
             bcc=bcc_email,
+        )
+
+    def _send_scheduled_onboarding_email(
+        self,
+        day: int,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        template_env_var: str,
+        delay_hours: int,
+        delay_minutes: int = 0,
+        frontend_url: Optional[str] = None,
+    ) -> bool:
+        """
+        Internal method to send a scheduled onboarding email using SendGrid Dynamic Templates.
+
+        Uses SendGrid v3 API (not SMTP) to support Dynamic Templates with scheduling.
+
+        Args:
+            day: Day number (for logging and subject)
+            recipient_email: Email address of the user
+            recipient_name: Name of the user (optional)
+            template_env_var: Environment variable name for the template ID
+            delay_hours: Hours to delay sending
+            delay_minutes: Additional minutes to delay sending
+            frontend_url: URL to the frontend application
+
+        Returns:
+            bool: True if email was sent successfully, False otherwise
+        """
+        if not self.sendgrid_client.is_configured:
+            logger.warning(
+                f"Cannot send Day {day} email to {recipient_email}: SendGrid API key not configured"
+            )
+            return False
+
+        template_id = os.getenv(template_env_var)
+        if not template_id:
+            logger.warning(f"Cannot send Day {day} email: {template_env_var} not configured")
+            return False
+
+        if not frontend_url:
+            frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
+
+        from_email = os.getenv("WELCOME_FROM_EMAIL", '"Nicolai from Rhesis AI" <hello@rhesis.ai>')
+
+        dynamic_template_data = {
+            "recipient_name": recipient_name or "there",
+            "frontend_url": frontend_url,
+        }
+
+        return self.sendgrid_client.send_scheduled_dynamic_template(
+            template_id=template_id,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name,
+            subject=f"Day {day} with Rhesis AI",
+            from_email=from_email,
+            dynamic_template_data=dynamic_template_data,
+            delay_hours=delay_hours,
+            delay_minutes=delay_minutes,
+        )
+
+    def send_day_1_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        frontend_url: Optional[str] = None,
+    ) -> bool:
+        """
+        Send a Day 1 email scheduled for 23 hours and 59 minutes after onboarding.
+
+        Uses SendGrid v3 API with Dynamic Templates for scheduling.
+
+        Args:
+            recipient_email: Email address of the user
+            recipient_name: Name of the user (optional)
+            frontend_url: URL to the frontend application
+
+        Returns:
+            bool: True if email was sent successfully, False otherwise
+        """
+        return self._send_scheduled_onboarding_email(
+            day=1,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name,
+            template_env_var="SENDGRID_DAY_1_EMAIL_TEMPLATE_ID",
+            delay_hours=23,
+            delay_minutes=59,
+            frontend_url=frontend_url,
+        )
+
+    def send_day_2_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        frontend_url: Optional[str] = None,
+    ) -> bool:
+        """
+        Send a Day 2 email scheduled for 48 hours after onboarding.
+
+        Uses SendGrid v3 API with Dynamic Templates for scheduling.
+
+        Args:
+            recipient_email: Email address of the user
+            recipient_name: Name of the user (optional)
+            frontend_url: URL to the frontend application
+
+        Returns:
+            bool: True if email was sent successfully, False otherwise
+        """
+        return self._send_scheduled_onboarding_email(
+            day=2,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name,
+            template_env_var="SENDGRID_DAY_2_EMAIL_TEMPLATE_ID",
+            delay_hours=48,
+            frontend_url=frontend_url,
+        )
+
+    def send_day_3_email(
+        self,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        frontend_url: Optional[str] = None,
+    ) -> bool:
+        """
+        Send a Day 3 email scheduled for 71 hours and 59 minutes after onboarding.
+
+        SendGrid allows scheduling up to 72 hours in advance, so we schedule for 71h 59min.
+        Uses SendGrid v3 API with Dynamic Templates for scheduling.
+
+        Args:
+            recipient_email: Email address of the user
+            recipient_name: Name of the user (optional)
+            frontend_url: URL to the frontend application
+
+        Returns:
+            bool: True if email was sent successfully, False otherwise
+        """
+        return self._send_scheduled_onboarding_email(
+            day=3,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name,
+            template_env_var="SENDGRID_DAY_3_EMAIL_TEMPLATE_ID",
+            delay_hours=71,
+            delay_minutes=59,
+            frontend_url=frontend_url,
         )
 
     def send_verification_email(

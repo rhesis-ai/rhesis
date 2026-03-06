@@ -21,6 +21,8 @@ from rhesis.backend.app.services.organization import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.logging.rhesis_logger import logger
+from rhesis.backend.notifications import email_service
 
 router = APIRouter(
     prefix="/organizations", tags=["organizations"], responses={404: {"description": "Not found"}}
@@ -178,9 +180,12 @@ async def initialize_organization_data(
 
         # Mark onboarding as completed
         org.is_onboarding_complete = True
-        # Transaction commit is handled by the session context manager
 
-        return {
+        # Explicitly commit the transaction before scheduling emails
+        db.commit()
+
+        # Prepare response after successful commit
+        response = {
             "status": "success",
             "message": "Initial data loaded successfully",
             "default_model_ids": default_model_ids,
@@ -195,6 +200,29 @@ async def initialize_organization_data(
         raise HTTPException(
             status_code=500, detail=f"Failed to initialize organization data: {str(e)}"
         )
+
+    # Schedule onboarding emails AFTER successful DB commit
+    # Using a loop to avoid repetitive try/except blocks
+    email_schedule = [
+        (1, email_service.send_day_1_email),
+        (2, email_service.send_day_2_email),
+        (3, email_service.send_day_3_email),
+    ]
+
+    for day, send_method in email_schedule:
+        try:
+            success = send_method(
+                recipient_email=current_user.email,
+                recipient_name=current_user.name or current_user.given_name,
+            )
+            if not success:
+                logger.warning(
+                    f"Day {day} email not sent for {current_user.email} (check configuration)"
+                )
+        except Exception:
+            logger.exception(f"Failed to schedule Day {day} email for {current_user.email}")
+
+    return response
 
 
 @router.post("/{organization_id}/rollback-initial-data", response_model=dict)
