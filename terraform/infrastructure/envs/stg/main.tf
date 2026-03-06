@@ -79,3 +79,15 @@ module "internal_dns_stg" {
 
   depends_on = [module.eso_stg]
 }
+
+module "ingress_stg" {
+  source = "../../modules/ingress/gcp"
+
+  project_id            = var.project_id
+  environment            = "stg"
+  region                 = var.region
+  ilb_subnet_self_link   = module.stg.subnet_self_links["ilb"]
+  internal_lb_ip         = local.cidrs.stg.ingress_internal_ip
+
+  depends_on = [module.stg]
+}
