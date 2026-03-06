@@ -11,7 +11,7 @@ spec:
     path: kubernetes/clusters/prd
     directory:
       recurse: true
-      exclude: '{external-secrets/*,external-dns/*,internal-dns/*,ingress-nginx-external/*,ingress-nginx-internal/*}'
+      exclude: '{external-secrets/*,external-dns/*,internal-dns/*,ingress-nginx-external/*,ingress-nginx-internal/*,**/kustomization.yaml}'
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
