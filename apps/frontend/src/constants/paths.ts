@@ -15,8 +15,6 @@ export const PUBLIC_PATHS = [
   '/background.png',
   '/rhesis-favicon.png',
   '/avatar.png',
-  '/auth0-lock.js',
-  '/auth0-lock.css',
   '/auth/signin',
   '/auth/signup',
   '/auth/callback',
