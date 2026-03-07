@@ -61,9 +61,9 @@ Some providers accept extra connection parameters:
 
 | Provider | Required fields | Optional fields | Notes |
 |----------|-----------------|-----------------|-------|
-| `litellm_proxy` | `model_name` | `api_base`, `api_key` | `api_base` defaults to `LITELLM_PROXY_BASE_URL` or `http://0.0.0.0:4000` |
-| `azure_ai` | `model_name` | `api_base`, `api_key` | Falls back to `AZURE_AI_API_BASE` and `AZURE_AI_API_KEY` |
-| `azure` | `model_name` | `api_base`, `api_key`, `api_version` | Falls back to `AZURE_API_BASE`, `AZURE_API_KEY`, `AZURE_API_VERSION` |
+| `litellm_proxy` | `model_name` | `api_base`, `api_key` | `api_base` defaults to `LITELLM_PROXY_BASE_URL` env var or `http://0.0.0.0:4000` |
+| `azure_ai` | `model_name`, `api_base`, `api_key` | — | `api_base`/`api_key` can be supplied via `AZURE_AI_API_BASE`/`AZURE_AI_API_KEY` env vars |
+| `azure` | `model_name`, `api_base`, `api_key` | `api_version` | `api_base`/`api_key`/`api_version` can be supplied via `AZURE_API_BASE`/`AZURE_API_KEY`/`AZURE_API_VERSION` env vars |
 
 <CodeBlock filename="litellm_proxy.py" language="python">
 {`from rhesis.sdk.models import get_model
