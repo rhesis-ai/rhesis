@@ -80,10 +80,15 @@ export default async function TestSetPage({
   }
 
   // Fetch actual test count from the tests endpoint
-  const testsResponse = await testSetsClient.getTestSetTests(identifier, {
-    limit: 1,
-  });
-  const testCount = testsResponse.pagination.totalCount;
+  let testCount = testSet.attributes?.metadata?.total_tests ?? 0;
+  try {
+    const testsResponse = await testSetsClient.getTestSetTests(identifier, {
+      limit: 1,
+    });
+    testCount = testsResponse.pagination.totalCount;
+  } catch (_error) {
+    // Fall back to cached metadata count if fetch fails
+  }
 
   // Serialize the testSet data to ensure consistent rendering
   const serializedTestSet = JSON.parse(JSON.stringify(testSet));
