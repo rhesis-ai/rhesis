@@ -79,7 +79,11 @@ export default async function TestSetPage({
     }
   }
 
-  // Log the test set data to help diagnose status issues
+  // Fetch actual test count from the tests endpoint
+  const testsResponse = await testSetsClient.getTestSetTests(identifier, {
+    limit: 1,
+  });
+  const testCount = testsResponse.pagination.totalCount;
 
   // Serialize the testSet data to ensure consistent rendering
   const serializedTestSet = JSON.parse(JSON.stringify(testSet));
@@ -109,6 +113,7 @@ export default async function TestSetPage({
               <TestSetDetailsSection
                 testSet={serializedTestSet}
                 sessionToken={session.session_token}
+                testCount={testCount}
               />
             </Paper>
 

@@ -98,14 +98,14 @@ describe('TestSetDetailsSection', () => {
 
   it('renders the test set name', () => {
     render(
-      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
     );
     expect(screen.getByText('My Test Set')).toBeInTheDocument();
   });
 
   it('renders the description text', () => {
     render(
-      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
     );
     expect(
       screen.getByText('A description of the test set.')
@@ -114,26 +114,16 @@ describe('TestSetDetailsSection', () => {
 
   it('renders "Execute Test Set" button enabled when tests > 0', () => {
     render(
-      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
     );
     expect(
       screen.getByRole('button', { name: /execute test set/i })
     ).not.toBeDisabled();
   });
 
-  it('disables "Execute Test Set" when total_tests is 0', () => {
-    const testSet = makeTestSet({
-      attributes: {
-        metadata: {
-          total_tests: 0,
-          behaviors: [],
-          categories: [],
-          topics: [],
-          sources: [],
-        },
-      },
-    });
-    render(<TestSetDetailsSection testSet={testSet} sessionToken="tok" />);
+  it('disables "Execute Test Set" when testCount is 0', () => {
+    const testSet = makeTestSet();
+    render(<TestSetDetailsSection testSet={testSet} sessionToken="tok" testCount={0} />);
     expect(
       screen.getByRole('button', { name: /execute test set/i })
     ).toBeDisabled();
@@ -141,7 +131,7 @@ describe('TestSetDetailsSection', () => {
 
   it('opens ExecuteTestSetDrawer on "Execute Test Set" click', async () => {
     render(
-      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
     );
     await userEvent.click(
       screen.getByRole('button', { name: /execute test set/i })
@@ -151,7 +141,7 @@ describe('TestSetDetailsSection', () => {
 
   it('renders "Download Test Set" button', () => {
     render(
-      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
     );
     expect(
       screen.getByRole('button', { name: /download test set/i })
@@ -160,21 +150,21 @@ describe('TestSetDetailsSection', () => {
 
   it('renders the test set type chip', () => {
     render(
-      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
     );
     expect(screen.getByText('evaluation')).toBeInTheDocument();
   });
 
   it('renders creator name', () => {
     render(
-      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
     );
     expect(screen.getByText('Alice')).toBeInTheDocument();
   });
 
   it('shows Edit button for description', () => {
     render(
-      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
     );
     // Both title and description have Edit buttons
     const editButtons = screen.getAllByRole('button', { name: /edit/i });
@@ -184,7 +174,7 @@ describe('TestSetDetailsSection', () => {
   describe('edit description', () => {
     it('switches to edit mode when description Edit is clicked', async () => {
       render(
-        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
       );
       const editButtons = screen.getAllByRole('button', { name: /edit/i });
       // The description edit button is the second one (after title)
@@ -194,7 +184,7 @@ describe('TestSetDetailsSection', () => {
 
     it('calls updateTestSet with new description on Confirm', async () => {
       render(
-        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
       );
       const editButtons = screen.getAllByRole('button', { name: /edit/i });
       await userEvent.click(editButtons[editButtons.length - 1]);
@@ -213,7 +203,7 @@ describe('TestSetDetailsSection', () => {
 
     it('cancels edit without calling API on Cancel', async () => {
       render(
-        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
       );
       const editButtons = screen.getAllByRole('button', { name: /edit/i });
       await userEvent.click(editButtons[editButtons.length - 1]);
@@ -224,7 +214,7 @@ describe('TestSetDetailsSection', () => {
 
   it('renders TestSetTags and TestSetMetrics sub-components', () => {
     render(
-      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
     );
     expect(screen.getByTestId('test-set-tags')).toBeInTheDocument();
     expect(screen.getByTestId('test-set-metrics')).toBeInTheDocument();
@@ -232,7 +222,7 @@ describe('TestSetDetailsSection', () => {
 
   it('does not show Garak sync button for non-Garak test sets', () => {
     render(
-      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+      <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
     );
     expect(
       screen.queryByRole('button', { name: /sync from garak/i })
@@ -254,7 +244,7 @@ describe('TestSetDetailsSection', () => {
         },
       },
     });
-    render(<TestSetDetailsSection testSet={garakTestSet} sessionToken="tok" />);
+    render(<TestSetDetailsSection testSet={garakTestSet} sessionToken="tok" testCount={5} />);
     expect(
       screen.getByRole('button', { name: /sync from garak/i })
     ).toBeInTheDocument();
@@ -263,7 +253,7 @@ describe('TestSetDetailsSection', () => {
   describe('focus retention while typing', () => {
     it('description edit field retains focus after each keystroke', async () => {
       render(
-        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
       );
       const editButtons = screen.getAllByRole('button', { name: /edit/i });
       await userEvent.click(editButtons[editButtons.length - 1]);
@@ -280,7 +270,7 @@ describe('TestSetDetailsSection', () => {
 
     it('description edit field accumulates full typed value', async () => {
       render(
-        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
       );
       const editButtons = screen.getAllByRole('button', { name: /edit/i });
       await userEvent.click(editButtons[editButtons.length - 1]);
@@ -294,7 +284,7 @@ describe('TestSetDetailsSection', () => {
 
     it('title edit field retains focus after each keystroke', async () => {
       render(
-        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
       );
       // Title edit button is the first edit button
       const editButtons = screen.getAllByRole('button', { name: /edit/i });
@@ -312,7 +302,7 @@ describe('TestSetDetailsSection', () => {
 
     it('title edit field accumulates full typed value', async () => {
       render(
-        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" />
+        <TestSetDetailsSection testSet={makeTestSet()} sessionToken="tok" testCount={5} />
       );
       const editButtons = screen.getAllByRole('button', { name: /edit/i });
       await userEvent.click(editButtons[0]);
