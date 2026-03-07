@@ -99,6 +99,12 @@ test_set.push()`}
 
 **Optional CSV columns:**
 - `expected_response`: Expected output from the AI
+- `goal`: Multi-turn test goal
+- `instructions`: Multi-turn execution instructions
+- `restrictions`: Multi-turn restrictions
+- `scenario`: Multi-turn scenario context
+- `min_turns`: Minimum turns before early stop is allowed
+- `max_turns`: Maximum turns (default is 10)
 
 Export test sets to CSV:
 
@@ -135,6 +141,34 @@ print(f"Execution started: {result}")`}
 
 For the full execution API — including re-scoring, last run inspection, and test set metric
 management — see [Test Execution](/sdk/execution).
+
+### Associating Existing Tests Without Recreating Them
+
+Use `add_tests()` and `remove_tests()` to manage test membership in an existing test set.
+These methods only update associations. They do not delete test records.
+
+Accepted test reference formats:
+
+| Format | Example |
+|--------|---------|
+| `Test` instance | `test_set.add_tests([test_obj])` |
+| Dict with `id` | `test_set.add_tests([{"id": "uuid"}])` |
+| UUID string | `test_set.add_tests(["uuid"])` |
+
+<CodeBlock filename="associate_tests.py" language="python">
+{`from rhesis.sdk.entities import TestSets, Tests
+
+test_set = TestSets.pull(name="Safety Evaluation")
+test_a = Tests.pull(name="Prompt Injection - A")
+test_b = Tests.pull(name="Prompt Injection - B")
+
+# Add tests to the set
+result = test_set.add_tests([test_a, {"id": str(test_b.id)}])
+print(result["message"])
+
+# Remove a test association (test entity is kept)
+test_set.remove_tests([str(test_a.id)])`}
+</CodeBlock>
 
 ### Auto-generating Properties
 
