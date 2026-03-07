@@ -31,6 +31,16 @@ For multi-turn tests, the **Conversation** tab supports trace-driven debugging:
 - Click assistant responses to open the trace drawer
 - Navigate turn-by-turn while keeping test result context visible
 
+## Multi-turn Result Details (v0.6.7+)
+
+For multi-turn tests, the run detail includes conversation-specific execution data:
+
+- **Turns used**: How many turns were consumed during execution
+- **Configured max turns**: The max turn budget from test configuration
+- **Goal achieved flag**: Whether the multi-turn goal was met
+- **Conversation-linked trace access**: Open the trace drawer to inspect tree, sequence, graph,
+  and conversation views for the related trace
+
 ## Review Test Runs
 Reviews allow human evaluators to validate or override automated test evaluations.
 

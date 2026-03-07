@@ -41,10 +41,16 @@ Goal-based conversations that test your AI system across multiple turns. Powered
 | **Restrictions** | (Optional) What the target must not do - forbidden behaviors or boundaries |
 | **Scenario** | (Optional) Context and persona for the test - narrative setup or user role |
 | **Files** | (Optional) File attachments (images, PDFs, or other documents) included with the test. Files are available on each conversation turn via the `files` variable in the endpoint request template. |
-| **Max. Turns** | Maximum number of conversation turns allowed |
+| **Min. Turns** | Minimum turns before early stopping is allowed. If omitted, defaults to 80% of max turns. |
+| **Max. Turns** | Maximum number of conversation turns allowed (`max_turns`) |
 | **Category** | High-level classification (e.g., Harmful, Harmless) |
 | **Topic** | Specific subject matter (e.g., healthcare, financial advice) |
 | **Behavior** | Type of behavior to validate (e.g., Compliance, Reliability, Robustness) |
+
+<Callout type="info">
+  Multi-turn configuration uses `min_turns` and `max_turns`. The older term
+  `max_iterations` has been replaced.
+</Callout>
 
 ## Creating Tests
 
