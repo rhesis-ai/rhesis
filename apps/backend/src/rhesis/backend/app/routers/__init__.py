@@ -1,5 +1,6 @@
 # Import existing routers
 from .adaptive_testing import router as adaptive_testing_router
+from .architect import router as architect_router
 from .auth import router as auth_router
 from .behavior import router as behavior_router
 from .category import router as category_router
@@ -84,6 +85,7 @@ __all__ = [
     "file",
     "file_import",
     "adaptive_testing",
+    "architect",
 ]
 
 # Export all routers for use in main.py
@@ -131,6 +133,7 @@ routers = sorted(
         file_import_router,
         websocket_router,
         adaptive_testing_router,
+        architect_router,
     ],
     key=lambda x: x.tags[0].lower() if x.tags else "",
 )

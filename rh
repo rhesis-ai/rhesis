@@ -896,7 +896,7 @@ start_worker() {
     # Configuration matches apps/worker/start.sh for consistency
     exec uv run celery -A rhesis.backend.worker.app worker \
         --loglevel=DEBUG \
-        --queues=celery,execution,telemetry \
+        --queues=celery,execution,telemetry,architect \
         --pool=solo \
         --prefetch-multiplier=1 \
         --max-tasks-per-child=500 \

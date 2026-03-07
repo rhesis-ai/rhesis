@@ -46,6 +46,16 @@ class EventType(str, Enum):
     CHAT_RESPONSE = "chat.response"  # Complete response from endpoint
     CHAT_ERROR = "chat.error"  # Error during endpoint invocation
 
+    # Architect events (for architect chat)
+    ARCHITECT_MESSAGE = "architect.message"
+    ARCHITECT_RESPONSE = "architect.response"
+    ARCHITECT_THINKING = "architect.thinking"
+    ARCHITECT_TOOL_START = "architect.tool_start"
+    ARCHITECT_TOOL_END = "architect.tool_end"
+    ARCHITECT_PLAN_UPDATE = "architect.plan_update"
+    ARCHITECT_MODE_CHANGE = "architect.mode_change"
+    ARCHITECT_ERROR = "architect.error"
+
 
 class WebSocketMessage(BaseModel):
     """WebSocket message schema.

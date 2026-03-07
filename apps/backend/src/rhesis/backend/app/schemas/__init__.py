@@ -1,3 +1,11 @@
+from .architect import (
+    ArchitectMessage,
+    ArchitectMessageCreate,
+    ArchitectSession,
+    ArchitectSessionCreate,
+    ArchitectSessionDetail,
+    ArchitectSessionUpdate,
+)
 from .base import Base
 from .behavior import Behavior, BehaviorBase, BehaviorCreate, BehaviorUpdate
 from .category import Category, CategoryBase, CategoryCreate, CategoryUpdate
@@ -142,6 +150,12 @@ from .user import User, UserBase, UserCreate, UserUpdate
 
 __all__ = [
     "Base",
+    "ArchitectSession",
+    "ArchitectSessionCreate",
+    "ArchitectSessionUpdate",
+    "ArchitectSessionDetail",
+    "ArchitectMessage",
+    "ArchitectMessageCreate",
     "Tag",
     "TagBase",
     "TagCreate",
