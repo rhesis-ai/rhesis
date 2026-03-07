@@ -85,6 +85,8 @@ Generate tests from requirements, simulate conversation flows, detect adversaria
 - Harmful content generation
 - Role violation and instruction bypassing
 
+Access to Polyphemus is controlled through a request-and-review workflow for verified users in organizations.
+
 **Garak Integration** - Built-in support for [garak](https://github.com/leondz/garak), the LLM vulnerability scanner, for comprehensive security testing.
 
 ### 60+ pre-built metrics
@@ -113,11 +115,13 @@ def generate_response(prompt: str) -> str:
 
 Track LLM calls, latency, token usage, and link traces to test results for debugging.
 
+For conversation traces, the platform also provides turn-aware navigation and dedicated conversation views.
+
 ### Bring your own model
 
 Use any LLM provider for test generation and evaluation:
 
-**Cloud:** OpenAI, Anthropic, Google Gemini, Mistral, Cohere, Groq, Together AI
+**Cloud:** OpenAI, Anthropic, Google Gemini, Vertex AI, Mistral, Cohere, Groq, Together AI, OpenRouter, Perplexity, Replicate, Azure AI Studio, Azure OpenAI, LiteLLM Proxy
 
 **Local/Self-hosted:** Ollama, vLLM, LiteLLM
 
