@@ -20,4 +20,11 @@ export {
   type ChatResponsePayload,
   type ChatErrorPayload,
   type FileAttachment,
+  type ArchitectMessagePayload,
+  type ArchitectResponsePayload,
+  type ArchitectThinkingPayload,
+  type ArchitectToolPayload,
+  type ArchitectPlanUpdatePayload,
+  type ArchitectModeChangePayload,
+  type ArchitectErrorPayload,
 } from './types';

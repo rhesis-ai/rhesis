@@ -34,6 +34,78 @@ export enum EventType {
   CHAT_MESSAGE = 'chat.message',
   CHAT_RESPONSE = 'chat.response',
   CHAT_ERROR = 'chat.error',
+
+  // Architect events (for architect chat)
+  ARCHITECT_MESSAGE = 'architect.message',
+  ARCHITECT_RESPONSE = 'architect.response',
+  ARCHITECT_THINKING = 'architect.thinking',
+  ARCHITECT_TOOL_START = 'architect.tool_start',
+  ARCHITECT_TOOL_END = 'architect.tool_end',
+  ARCHITECT_PLAN_UPDATE = 'architect.plan_update',
+  ARCHITECT_MODE_CHANGE = 'architect.mode_change',
+  ARCHITECT_ERROR = 'architect.error',
+}
+
+/**
+ * Architect message payload (sent to server).
+ */
+export interface ArchitectMessagePayload {
+  session_id: string;
+  message: string;
+  attachments?: Record<string, unknown>;
+}
+
+/**
+ * Architect response payload (received from server).
+ */
+export interface ArchitectResponsePayload {
+  session_id: string;
+  content: string;
+  mode?: string;
+  plan?: string;
+}
+
+/**
+ * Architect thinking payload (received from server).
+ */
+export interface ArchitectThinkingPayload {
+  status: string;
+  iteration?: number;
+  session_id?: string;
+}
+
+/**
+ * Architect tool event payload (received from server).
+ */
+export interface ArchitectToolPayload {
+  tool: string;
+  args?: Record<string, unknown>;
+  success?: boolean;
+  preview?: string;
+}
+
+/**
+ * Architect plan update payload (received from server).
+ */
+export interface ArchitectPlanUpdatePayload {
+  plan: string;
+}
+
+/**
+ * Architect mode change payload (received from server).
+ */
+export interface ArchitectModeChangePayload {
+  old_mode: string;
+  new_mode: string;
+}
+
+/**
+ * Architect error payload (received from server).
+ */
+export interface ArchitectErrorPayload {
+  error: string;
+  error_type?: string;
+  session_id?: string;
 }
 
 /**
