@@ -1,7 +1,12 @@
-name: "[E2E] Frontend"
+name: "[Test] Frontend E2E"
 
 on:
   push:
+    branches: [main]
+    paths:
+      - 'apps/frontend/**'
+      - '.github/workflows/frontend-e2e-test.yml'
+  pull_request:
     branches: [main]
     paths:
       - 'apps/frontend/**'
@@ -11,7 +16,11 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
 
     steps:
       - name: Checkout repository
@@ -20,7 +29,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: apps/frontend/package-lock.json
 
@@ -29,15 +38,17 @@ jobs:
         working-directory: apps/frontend
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox
         working-directory: apps/frontend
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Run E2E tests
+      - name: Run E2E tests (shard ${{ matrix.shard }}/3)
         run: make test-e2e
         working-directory: apps/frontend
+        env:
+          PLAYWRIGHT_SHARD: "${{ matrix.shard }}/3"
 
       - name: Stop Docker services
         if: always()
@@ -46,9 +57,48 @@ jobs:
           make docker-down
         working-directory: apps/frontend
 
-      - name: Upload Playwright report
+      - name: Upload blob report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: apps/frontend/blob-report/
+          retention-days: 1
+
+  merge-reports:
+    if: ${{ !cancelled() }}
+    needs: [e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: make install
+        working-directory: apps/frontend
+
+      - name: Download blob reports
+        uses: actions/download-artifact@v4
+        with:
+          path: apps/frontend/all-blob-reports
+          pattern: blob-report-*
+          merge-multiple: true
+
+      - name: Merge into HTML report
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
+        working-directory: apps/frontend
+
+      - name: Upload merged Playwright report
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: apps/frontend/playwright-report/

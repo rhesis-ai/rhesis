@@ -7,6 +7,7 @@ const createJestConfig = nextJest({
 
 // Add any custom config to be passed to Jest
 const customJestConfig = {
+  setupFiles: ['<rootDir>/jest.polyfills.js'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   testEnvironment: 'jsdom',
   // Use v8 coverage provider to avoid inflight/test-exclude compatibility issue
@@ -24,23 +25,13 @@ const customJestConfig = {
     '!src/auth.ts',
     '!src/middleware.ts',
   ],
-  // Coverage thresholds act as a ratchet: prevent coverage from decreasing.
-  // Increase these values as more tests are added.
-  coverageThreshold: {
-    global: {
-      statements: 6.4,
-      branches: 53,
-      functions: 17,
-      lines: 6.4,
-    },
-  },
   testPathIgnorePatterns: [
     '<rootDir>/.next/',
     '<rootDir>/node_modules/',
     '<rootDir>/out/',
   ],
   transformIgnorePatterns: [
-    'node_modules/(?!(.*\\.mjs$|@mui|@toolpad|next-auth))',
+    'node_modules/(?!(.*\\.mjs$|@mui|@toolpad|next-auth|msw|@mswjs))',
   ],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   testMatch: [

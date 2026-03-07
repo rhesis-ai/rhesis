@@ -10,19 +10,24 @@ import {
   Alert,
   CircularProgress,
   Snackbar,
+  Chip,
+  InputAdornment,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import Tooltip from '@mui/material/Tooltip';
 import { useSession } from 'next-auth/react';
 import { usePlaygroundChat } from '@/hooks/usePlaygroundChat';
+import { FileAttachment } from '@/utils/websocket';
 import MessageBubble, { MessageBubbleSkeleton } from './MessageBubble';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
 import CreateTestFromConversationDrawer from './CreateTestFromConversationDrawer';
 import { ConversationMessage } from '@/utils/api-client/interfaces/tests';
+import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
 
 interface PlaygroundChatProps {
   /** The endpoint ID to chat with */
@@ -53,6 +58,7 @@ export default function PlaygroundChat({
   const { data: session } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     messages,
@@ -64,6 +70,7 @@ export default function PlaygroundChat({
   } = usePlaygroundChat({ endpointId });
 
   const [inputValue, setInputValue] = useState('');
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
   const [traceDrawerOpen, setTraceDrawerOpen] = useState(false);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState<{
@@ -74,9 +81,9 @@ export default function PlaygroundChat({
 
   // Test creation drawer state
   const [testDrawerOpen, setTestDrawerOpen] = useState(false);
-  const [testDrawerType, setTestDrawerType] = useState<
-    'Single-Turn' | 'Multi-Turn'
-  >('Multi-Turn');
+  const [testDrawerType, setTestDrawerType] = useState<TestTypeValue>(
+    TEST_TYPES.MULTI_TURN
+  );
   const [testDrawerMessages, setTestDrawerMessages] = useState<
     ConversationMessage[]
   >([]);
@@ -93,10 +100,45 @@ export default function PlaygroundChat({
     }
   }, [isLoading]);
 
-  const handleSend = () => {
+  // Clear staged files when endpoint changes
+  useEffect(() => {
+    setStagedFiles([]);
+  }, [endpointId]);
+
+  const convertFilesToAttachments = async (
+    files: File[]
+  ): Promise<FileAttachment[]> => {
+    return Promise.all(
+      files.map(
+        file =>
+          new Promise<FileAttachment>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const dataUrl = reader.result as string;
+              // data:image/png;base64,XXXX -> extract base64 part
+              const base64 = dataUrl.split(',')[1];
+              resolve({
+                filename: file.name,
+                content_type: file.type || 'application/octet-stream',
+                data: base64,
+              });
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          })
+      )
+    );
+  };
+
+  const handleSend = async () => {
     if (inputValue.trim() && !isLoading) {
-      sendMessage(inputValue);
+      let fileAttachments: FileAttachment[] | undefined;
+      if (stagedFiles.length > 0) {
+        fileAttachments = await convertFilesToAttachments(stagedFiles);
+      }
+      sendMessage(inputValue, fileAttachments);
       setInputValue('');
+      setStagedFiles([]);
     }
   };
 
@@ -105,6 +147,18 @@ export default function PlaygroundChat({
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setStagedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+    }
+    // Reset so the same file can be selected again
+    e.target.value = '';
+  };
+
+  const handleRemoveStagedFile = (index: number) => {
+    setStagedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleViewTrace = (traceId: string) => {
@@ -125,7 +179,7 @@ export default function PlaygroundChat({
       .map(msg => ({ role: msg.role, content: msg.content }));
 
     setTestDrawerMessages(conversationMessages);
-    setTestDrawerType('Multi-Turn');
+    setTestDrawerType(TEST_TYPES.MULTI_TURN);
     setTestDrawerOpen(true);
   }, [messages]);
 
@@ -153,7 +207,7 @@ export default function PlaygroundChat({
       }
 
       setTestDrawerMessages(conversationMessages);
-      setTestDrawerType('Single-Turn');
+      setTestDrawerType(TEST_TYPES.SINGLE_TURN);
       setTestDrawerOpen(true);
     },
     [messages]
@@ -309,15 +363,49 @@ export default function PlaygroundChat({
             bgcolor: 'background.paper',
           }}
         >
+          {/* Staged Files */}
+          {stagedFiles.length > 0 && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 0.5,
+                mb: 1,
+              }}
+            >
+              {stagedFiles.map((file, idx) => (
+                <Chip
+                  key={`${file.name}-${file.size}-${file.lastModified}`}
+                  icon={<AttachFileIcon />}
+                  label={file.name}
+                  size="small"
+                  onDelete={() => handleRemoveStagedFile(idx)}
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          )}
+
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
+            style={{ display: 'none' }}
+            onChange={handleFileSelect}
+          />
+
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
             {/* Reset Conversation Button */}
             {messages.length > 0 && (
               <Tooltip title="Reset conversation">
                 <IconButton
-                  size="small"
                   onClick={clearMessages}
                   disabled={isLoading}
                   sx={{
+                    width: theme => theme.spacing(5.5),
+                    height: theme => theme.spacing(5.5),
                     color: 'text.secondary',
                     '&:hover': {
                       color: 'error.main',
@@ -345,6 +433,27 @@ export default function PlaygroundChat({
               onKeyDown={handleKeyDown}
               disabled={!isConnected || isLoading}
               size="small"
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment
+                      position="start"
+                      sx={{ alignSelf: 'flex-end' }}
+                    >
+                      <Tooltip title="Attach file">
+                        <IconButton
+                          size="small"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={!isConnected || isLoading}
+                          sx={{ color: 'text.secondary' }}
+                        >
+                          <AttachFileIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </InputAdornment>
+                  ),
+                },
+              }}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: theme => theme.shape.borderRadius,
@@ -358,6 +467,8 @@ export default function PlaygroundChat({
               onClick={handleSend}
               disabled={!inputValue.trim() || !isConnected || isLoading}
               sx={{
+                width: theme => theme.spacing(5),
+                height: theme => theme.spacing(5),
                 bgcolor: 'primary.main',
                 color: 'primary.contrastText',
                 '&:hover': {

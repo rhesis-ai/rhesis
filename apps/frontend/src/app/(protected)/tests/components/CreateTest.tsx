@@ -14,9 +14,10 @@ import BaseFreesoloAutocomplete, {
   AutocompleteOption as FreeSoloOption,
 } from '@/components/common/BaseFreesoloAutocomplete';
 import {
-  TestBulkCreateRequest,
   PriorityLevel,
   TestDetail,
+  TestCreate as TestCreatePayload,
+  TestPromptCreate,
 } from '@/utils/api-client/interfaces/tests';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { UUID } from 'crypto';
@@ -25,6 +26,7 @@ import { User } from '@/utils/api-client/interfaces/user';
 import { filterUniqueValidOptions } from '@/components/common/BaseDrawer';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { ENTITY_TYPES } from '@/utils/api-client/config';
+import MultiFileUpload from '@/components/common/MultiFileUpload';
 
 type AutocompleteOption = FreeSoloOption;
 
@@ -76,6 +78,7 @@ export default function CreateTest({
 }: CreateTestProps) {
   const [_loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<TestFormData>(defaultFormData);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   // Reset form to default state
   const resetForm = useCallback(() => {
@@ -83,6 +86,7 @@ export default function CreateTest({
       ...defaultFormData,
       owner_id: defaultOwnerId,
     });
+    setPendingFiles([]);
   }, [defaultOwnerId]);
 
   // Options for dropdowns
@@ -232,9 +236,9 @@ export default function CreateTest({
         const testsClient = apiFactory.getTestsClient();
 
         // Format prompt data
-        const promptData = {
+        const promptData: TestPromptCreate = {
           content: formData.prompt_content || '',
-          language_code: 'en', // Default to English
+          language_code: 'en',
         };
 
         // Convert priority from string to numeric value
@@ -246,107 +250,75 @@ export default function CreateTest({
         };
         const numericPriority: number = formData.priorityLevel
           ? priorityMap[formData.priorityLevel]
-          : 1; // Default to Medium (1) if undefined
+          : 1;
+
+        // Helper to resolve a form field to its name
+        const resolveName = (
+          fieldValue: string | undefined,
+          options: AutocompleteOption[]
+        ): string => {
+          if (!fieldValue) return '';
+          const match = options.find(o => o.id === fieldValue);
+          return match ? match.name : fieldValue.trim();
+        };
+
+        const behaviorName = resolveName(
+          formData.behavior_id as string | undefined,
+          behaviors
+        );
+        if (!behaviorName) throw new Error('Behavior is required');
+
+        const topicName = resolveName(
+          formData.topic_id as string | undefined,
+          topics
+        );
+        if (!topicName) throw new Error('Topic is required');
+
+        const categoryName = resolveName(
+          formData.category_id as string | undefined,
+          categories
+        );
+        if (!categoryName) throw new Error('Category is required');
 
         // Helper function to validate UUID
-        const isValidUUID = (str: string) => {
-          const uuidRegex =
-            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-          return uuidRegex.test(str);
+        const isValidUUID = (str: string) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            str
+          );
+
+        // Build payload for single-test creation
+        const payload: TestCreatePayload = {
+          prompt: promptData,
+          behavior: behaviorName,
+          category: categoryName,
+          topic: topicName,
+          priority: numericPriority,
+          ...(formData.assignee_id && isValidUUID(formData.assignee_id)
+            ? { assignee_id: formData.assignee_id }
+            : {}),
+          ...(formData.owner_id && isValidUUID(formData.owner_id)
+            ? { owner_id: formData.owner_id }
+            : {}),
+          ...(formData.status_id
+            ? {
+                status: statuses.find(s => s.id === formData.status_id)?.name,
+              }
+            : {}),
         };
 
-        // Get behavior name - always use name, not ID
-        let behaviorName = '';
-        if (formData.behavior_id) {
-          if (typeof formData.behavior_id === 'string') {
-            const selectedBehavior = behaviors.find(
-              b => b.id === formData.behavior_id
-            );
-            if (selectedBehavior) {
-              behaviorName = selectedBehavior.name;
-            } else {
-              // If not found as UUID, use as direct input
-              behaviorName = formData.behavior_id.trim();
-            }
+        const createdTest = await testsClient.createTest(payload);
+
+        // Upload pending files if any
+        if (pendingFiles.length > 0) {
+          try {
+            const filesClient = apiFactory.getFilesClient();
+            await filesClient.uploadFiles(pendingFiles, createdTest.id, 'Test');
+          } catch (_uploadErr) {
+            // Test was created — notify but don't block
+            onError?.('Test created but file upload failed');
           }
         }
 
-        if (!behaviorName) {
-          throw new Error('Behavior is required');
-        }
-
-        // Get topic name - always use name, not ID
-        let topicName = '';
-        if (formData.topic_id) {
-          if (typeof formData.topic_id === 'string') {
-            const selectedTopic = topics.find(t => t.id === formData.topic_id);
-            if (selectedTopic) {
-              topicName = selectedTopic.name;
-            } else {
-              // If not found as UUID, use as direct input
-              topicName = formData.topic_id.trim();
-            }
-          }
-        }
-
-        if (!topicName) {
-          throw new Error('Topic is required');
-        }
-
-        // Get category name - always use name, not ID
-        let categoryName = '';
-        if (formData.category_id) {
-          if (typeof formData.category_id === 'string') {
-            const selectedCategory = categories.find(
-              c => c.id === formData.category_id
-            );
-            if (selectedCategory) {
-              categoryName = selectedCategory.name;
-            } else {
-              // If not found as UUID, use as direct input
-              categoryName = formData.category_id.trim();
-            }
-          }
-        }
-
-        if (!categoryName) {
-          throw new Error('Category is required');
-        }
-
-        // Create bulk request data
-        const bulkRequest: TestBulkCreateRequest = {
-          tests: [
-            {
-              prompt: promptData,
-              behavior: behaviorName,
-              category: categoryName,
-              topic: topicName,
-              test_configuration: {},
-              priority: numericPriority,
-              // Only include IDs if they are valid UUIDs
-              ...(formData.assignee_id && isValidUUID(formData.assignee_id)
-                ? { assignee_id: formData.assignee_id }
-                : {}),
-              ...(formData.owner_id && isValidUUID(formData.owner_id)
-                ? { owner_id: formData.owner_id }
-                : {}),
-              ...(formData.status_id
-                ? {
-                    status: statuses.find(s => s.id === formData.status_id)
-                      ?.name,
-                  }
-                : {}),
-            },
-          ],
-        };
-
-        const response = await testsClient.createTestsBulk(bulkRequest);
-
-        if (!response.success) {
-          throw new Error(response.message);
-        }
-
-        // Reset form to default state after successful creation
         resetForm();
         onSuccess?.();
       } catch (err) {
@@ -357,6 +329,7 @@ export default function CreateTest({
     },
     [
       formData,
+      pendingFiles,
       sessionToken,
       onSuccess,
       onError,
@@ -549,6 +522,20 @@ export default function CreateTest({
           required
         />
       </FormControl>
+
+      <Divider sx={{ my: 1 }} />
+
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
+        Attachments
+      </Typography>
+
+      <MultiFileUpload
+        selectedFiles={pendingFiles}
+        onFilesSelect={files => setPendingFiles(prev => [...prev, ...files])}
+        onFileRemove={idx =>
+          setPendingFiles(prev => prev.filter((_, i) => i !== idx))
+        }
+      />
     </Stack>
   );
 }

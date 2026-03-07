@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
-import { TraceDetailResponse } from '@/utils/api-client/interfaces/telemetry';
+import {
+  TraceDetailResponse,
+  SpanNode,
+} from '@/utils/api-client/interfaces/telemetry';
 import {
   TestResultDetail,
   ConversationTurn,
   GoalEvaluation,
 } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import ConversationHistory from '@/components/common/ConversationHistory';
 
 interface ConversationTraceViewProps {

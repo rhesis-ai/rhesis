@@ -8,7 +8,7 @@ from rhesis.backend.app.schemas import Base
 # TestRun schemas
 class TestRunBase(Base):
     name: Optional[str] = None
-    user_id: Optional[UUID4]
+    user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     status_id: Optional[UUID4] = None
     attributes: Optional[dict] = None

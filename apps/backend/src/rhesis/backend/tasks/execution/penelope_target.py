@@ -8,7 +8,7 @@ within the backend worker context.
 """
 
 import asyncio
-from typing import Any, Coroutine, Optional, TypeVar
+from typing import Any, Coroutine, Dict, List, Optional, TypeVar
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -176,6 +176,7 @@ class BackendEndpointTarget(Target):
         self,
         message: str,
         conversation_id: Optional[str] = None,
+        files: Optional[List[Dict[str, str]]] = None,
         **kwargs: Any,
     ) -> TargetResponse:
         """
@@ -190,6 +191,7 @@ class BackendEndpointTarget(Target):
         Args:
             message: The message to send
             conversation_id: Optional conversation/session ID for multi-turn
+            files: Optional list of file attachments
             **kwargs: Additional parameters
 
         Returns:
@@ -215,6 +217,8 @@ class BackendEndpointTarget(Target):
             input_data = {"input": message}
             if conversation_id:
                 input_data["conversation_id"] = conversation_id
+            if files:
+                input_data["files"] = files
 
             logger.debug(
                 "BackendEndpointTarget invoking %s, message_len=%d",

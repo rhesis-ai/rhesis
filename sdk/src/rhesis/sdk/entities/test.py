@@ -1,6 +1,11 @@
-from typing import Any, ClassVar, Dict, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
 
 from pydantic import BaseModel, field_validator, model_validator
+
+if TYPE_CHECKING:
+    from rhesis.sdk.entities.file import File
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
@@ -24,6 +29,7 @@ class TestConfiguration(BaseModel):
 class Test(BaseEntity):
     endpoint = ENDPOINT
     _push_required_fields: ClassVar[tuple[str, ...]] = ("category", "behavior")
+    _write_only_fields: ClassVar[tuple[str, ...]] = ("files",)
 
     category: Optional[str] = None
     topic: Optional[str] = None
@@ -33,6 +39,7 @@ class Test(BaseEntity):
     id: Optional[str] = None
     test_configuration: Optional[TestConfiguration] = None
     test_type: Optional[TestType] = None
+    files: Optional[list] = None
     # Convenience fields that build test_configuration if not provided
     goal: Optional[str] = None
     instructions: Optional[str] = None
@@ -159,6 +166,64 @@ class Test(BaseEntity):
                 if key in config and config[key] is None:
                     del config[key]
         return d
+
+    def push(self) -> Optional[Dict[str, Any]]:
+        """Save the test, then upload any attached files."""
+        pending_files = self.files
+        self.files = None  # Clear before super().push() serialization
+        response = super().push()
+        if pending_files:
+            self.add_files(pending_files)
+        return response
+
+    def add_files(self, sources: list) -> List["File"]:
+        """Add files to this test from paths or base64 dicts.
+
+        Args:
+            sources: List of file paths (str/Path) or dicts with keys:
+                - filename (str): The file name
+                - content_type (str): MIME type
+                - data (str): Base64-encoded content
+
+        Returns:
+            List of File instances.
+        """
+        from rhesis.sdk.entities.file import File
+
+        if not self.id:
+            raise ValueError("Test must have an ID before adding files")
+        return File.add(sources, entity_id=self.id, entity_type="Test")
+
+    def get_files(self) -> List["File"]:
+        """Get all files attached to this test.
+
+        Returns:
+            List of File instances.
+        """
+        from rhesis.sdk.entities.file import File
+
+        if not self.id:
+            raise ValueError("Test must have an ID to get files")
+        client = APIClient()
+        results = client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/files",
+        )
+        return [File.model_validate(r) for r in results]
+
+    def delete_file(self, file_id: str) -> bool:
+        """Delete a file attached to this test.
+
+        Args:
+            file_id: The ID of the file to delete.
+
+        Returns:
+            True if deleted, False if not found.
+        """
+        from rhesis.sdk.entities.file import File
+
+        return File(id=file_id).delete()
 
     @handle_http_errors
     def execute(self, endpoint: Endpoint) -> Optional[Dict[str, Any]]:

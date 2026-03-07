@@ -229,12 +229,9 @@ export class BaseApiClient {
               headers: Object.fromEntries(response.headers.entries()),
             };
             if (logLevel === 'error') {
-              console.error(
-                `${logPrefix} [DEBUG] API Response Error:`,
-                logData
-              );
+              console.error(`${logPrefix} API Response Error:`, logData);
             } else {
-              console.warn(`${logPrefix} [DEBUG] API Response Error:`, logData);
+              console.warn(`${logPrefix} API Response Error:`, logData);
             }
           }
 
@@ -272,15 +269,9 @@ export class BaseApiClient {
               errorData,
             };
             if (logLevel === 'error') {
-              console.error(
-                `${logPrefix} [DEBUG] Full error details:`,
-                errorDetails
-              );
+              console.error(`${logPrefix} Full error details:`, errorDetails);
             } else {
-              console.warn(
-                `${logPrefix} [DEBUG] Full error details:`,
-                errorDetails
-              );
+              console.warn(`${logPrefix} Full error details:`, errorDetails);
             }
           }
 

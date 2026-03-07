@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Box,
+  Button,
   Typography,
   Paper,
   Chip,
@@ -11,11 +12,14 @@ import {
   Collapse,
   IconButton,
 } from '@mui/material';
+import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import TestResultTags from './TestResultTags';
 import StatusChip from '@/components/common/StatusChip';
+import FileAttachmentList from '@/components/common/FileAttachmentList';
+import { useFiles } from '@/hooks/useFiles';
 import {
   getTestResultStatus,
   getTestResultLabel,
@@ -31,6 +35,22 @@ interface TestDetailOverviewTabProps {
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
 }
+
+// Try to parse a string as JSON and pretty-print it; returns null if not JSON
+const tryFormatJson = (text: string): string | null => {
+  const trimmed = text.trim();
+  if (
+    (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+    (trimmed.startsWith('[') && trimmed.endsWith(']'))
+  ) {
+    try {
+      return JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
 
 // Helper function to render text with proper list formatting
 const renderFormattedText = (text: string) => {
@@ -100,6 +120,51 @@ export default function TestDetailOverviewTab({
 }: TestDetailOverviewTabProps) {
   const theme = useTheme();
   const [evidenceExpanded, setEvidenceExpanded] = useState(false);
+  const [contextExpanded, setContextExpanded] = useState(false);
+  const [metadataExpanded, setMetadataExpanded] = useState(false);
+  const [filesExpanded, setFilesExpanded] = useState(false);
+  const [outputFilesExpanded, setOutputFilesExpanded] = useState(false);
+
+  const { files: testFiles, isLoading: testFilesLoading } = useFiles({
+    entityId: (test.test_id as string) || '',
+    entityType: 'Test',
+    sessionToken,
+  });
+
+  const { files: outputFiles, isLoading: outputFilesLoading } = useFiles({
+    entityId: test.id as string,
+    entityType: 'TestResult',
+    sessionToken,
+  });
+
+  // Render text content, formatting JSON when detected
+  const renderTextContent = (text: string) => {
+    const formatted = tryFormatJson(text);
+    if (formatted) {
+      return (
+        <Typography
+          component="pre"
+          variant="body2"
+          sx={{
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            fontFamily: theme.typography.fontFamilyCode,
+            m: 0,
+          }}
+        >
+          {formatted}
+        </Typography>
+      );
+    }
+    return (
+      <Typography
+        variant="body2"
+        sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+      >
+        {text}
+      </Typography>
+    );
+  };
 
   // Determine if this is a multi-turn test
   const isMultiTurn =
@@ -162,6 +227,34 @@ export default function TestDetailOverviewTab({
                 }}
               />
             )}
+            <Box sx={{ flexGrow: 1 }} />
+            {test.test_id && (
+              <Button
+                size="small"
+                href={`/tests/${test.test_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  borderRadius: theme.shape.borderRadius,
+                  backgroundColor: 'background.paper',
+                  color: 'text.secondary',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  px: 2,
+                  py: 0.5,
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
+                    color: 'text.primary',
+                    borderColor: 'primary.main',
+                  },
+                }}
+                endIcon={
+                  <ArrowOutwardIcon sx={{ fontSize: theme.iconSizes.small }} />
+                }
+              >
+                Go to Test
+              </Button>
+            )}
           </Box>
         </Box>
 
@@ -179,15 +272,7 @@ export default function TestDetailOverviewTab({
               overflow: 'auto',
             }}
           >
-            <Typography
-              variant="body2"
-              sx={{
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-              }}
-            >
-              {promptContent}
-            </Typography>
+            {renderTextContent(promptContent)}
           </Paper>
         </Box>
 
@@ -205,15 +290,7 @@ export default function TestDetailOverviewTab({
               overflow: 'auto',
             }}
           >
-            <Typography
-              variant="body2"
-              sx={{
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-              }}
-            >
-              {responseContent}
-            </Typography>
+            {renderTextContent(responseContent)}
           </Paper>
         </Box>
 
@@ -232,15 +309,7 @@ export default function TestDetailOverviewTab({
             }}
           >
             {test.prompt_id && prompts[test.prompt_id]?.expected_response ? (
-              <Typography
-                variant="body2"
-                sx={{
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                {prompts[test.prompt_id].expected_response}
-              </Typography>
+              renderTextContent(prompts[test.prompt_id].expected_response!)
             ) : (
               <Typography
                 variant="body2"
@@ -252,60 +321,206 @@ export default function TestDetailOverviewTab({
           </Paper>
         </Box>
 
-        {/* Context Section */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-            Context
-          </Typography>
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 2,
-              backgroundColor: theme.palette.background.default,
-              maxHeight: 200,
-              overflow: 'auto',
-            }}
-          >
-            {test.test_output?.context &&
-            test.test_output.context.filter(item => item.trim()).length > 0 ? (
-              test.test_output.context
-                .filter(item => item.trim())
-                .map((item, index, filteredArray) => {
-                  // Create stable key from content
-                  const contextKey = `context-${item.slice(0, 30).replace(/\s+/g, '-')}`;
-                  return (
-                    <Box
-                      key={contextKey}
-                      sx={{
-                        display: 'flex',
-                        gap: 1,
-                        mb: index < filteredArray.length - 1 ? 0.5 : 0,
-                      }}
-                    >
-                      <Typography variant="body2">•</Typography>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                          flex: 1,
-                        }}
-                      >
-                        {item}
-                      </Typography>
-                    </Box>
-                  );
-                })
-            ) : (
-              <Typography
-                variant="body2"
-                sx={{ color: 'text.secondary', fontStyle: 'italic' }}
+        {/* Context Section (collapsible) */}
+        {test.test_output?.context &&
+          test.test_output.context.filter(item => item.trim()).length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  cursor: 'pointer',
+                  mb: 1,
+                  '&:hover': { opacity: 0.7 },
+                }}
+                onClick={() => setContextExpanded(!contextExpanded)}
               >
-                No context provided
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Context (
+                  {test.test_output.context.filter(item => item.trim()).length})
+                </Typography>
+                <IconButton
+                  size="small"
+                  sx={{
+                    padding: 0,
+                    transform: contextExpanded
+                      ? 'rotate(180deg)'
+                      : 'rotate(0deg)',
+                    transition: 'transform 0.2s',
+                  }}
+                >
+                  <ExpandMoreIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Box>
+              <Collapse in={contextExpanded} timeout="auto" unmountOnExit>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    backgroundColor: theme.palette.background.default,
+                    maxHeight: 200,
+                    overflow: 'auto',
+                  }}
+                >
+                  {test.test_output.context
+                    .filter(item => item.trim())
+                    .map((item, index, filteredArray) => {
+                      const contextKey = `context-${item.slice(0, 30).replace(/\s+/g, '-')}`;
+                      return (
+                        <Box
+                          key={contextKey}
+                          sx={{
+                            display: 'flex',
+                            gap: 1,
+                            mb: index < filteredArray.length - 1 ? 0.5 : 0,
+                          }}
+                        >
+                          <Typography variant="body2">•</Typography>
+                          <Box sx={{ flex: 1 }}>{renderTextContent(item)}</Box>
+                        </Box>
+                      );
+                    })}
+                </Paper>
+              </Collapse>
+            </Box>
+          )}
+
+        {/* Metadata Section (collapsible) */}
+        {test.test_output?.metadata &&
+          Object.keys(test.test_output.metadata).length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  cursor: 'pointer',
+                  mb: 1,
+                  '&:hover': { opacity: 0.7 },
+                }}
+                onClick={() => setMetadataExpanded(!metadataExpanded)}
+              >
+                <Typography variant="subtitle2" fontWeight={600}>
+                  Metadata
+                </Typography>
+                <IconButton
+                  size="small"
+                  sx={{
+                    padding: 0,
+                    transform: metadataExpanded
+                      ? 'rotate(180deg)'
+                      : 'rotate(0deg)',
+                    transition: 'transform 0.2s',
+                  }}
+                >
+                  <ExpandMoreIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Box>
+              <Collapse in={metadataExpanded} timeout="auto" unmountOnExit>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    backgroundColor: theme.palette.background.default,
+                    maxHeight: 300,
+                    overflow: 'auto',
+                  }}
+                >
+                  <Typography
+                    component="pre"
+                    variant="body2"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      fontFamily: theme.typography.fontFamilyCode,
+                      m: 0,
+                    }}
+                  >
+                    {JSON.stringify(test.test_output.metadata, null, 2)}
+                  </Typography>
+                </Paper>
+              </Collapse>
+            </Box>
+          )}
+
+        {/* Files Section (collapsible) */}
+        {(testFilesLoading || testFiles.length > 0) && (
+          <Box sx={{ mb: 3 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                cursor: 'pointer',
+                mb: 1,
+                '&:hover': { opacity: 0.7 },
+              }}
+              onClick={() => setFilesExpanded(!filesExpanded)}
+            >
+              <Typography variant="subtitle2" fontWeight={600}>
+                Files ({testFiles.length})
               </Typography>
-            )}
-          </Paper>
-        </Box>
+              <IconButton
+                size="small"
+                sx={{
+                  padding: 0,
+                  transform: filesExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s',
+                }}
+              >
+                <ExpandMoreIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Box>
+            <Collapse in={filesExpanded} timeout="auto" unmountOnExit>
+              <FileAttachmentList
+                files={testFiles}
+                sessionToken={sessionToken}
+                isLoading={testFilesLoading}
+              />
+            </Collapse>
+          </Box>
+        )}
+
+        {/* Output Files Section (collapsible) */}
+        {(outputFilesLoading || outputFiles.length > 0) && (
+          <Box sx={{ mb: 3 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                cursor: 'pointer',
+                mb: 1,
+                '&:hover': { opacity: 0.7 },
+              }}
+              onClick={() => setOutputFilesExpanded(!outputFilesExpanded)}
+            >
+              <Typography variant="subtitle2" fontWeight={600}>
+                Output Files ({outputFiles.length})
+              </Typography>
+              <IconButton
+                size="small"
+                sx={{
+                  padding: 0,
+                  transform: outputFilesExpanded
+                    ? 'rotate(180deg)'
+                    : 'rotate(0deg)',
+                  transition: 'transform 0.2s',
+                }}
+              >
+                <ExpandMoreIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Box>
+            <Collapse in={outputFilesExpanded} timeout="auto" unmountOnExit>
+              <FileAttachmentList
+                files={outputFiles}
+                sessionToken={sessionToken}
+                isLoading={outputFilesLoading}
+              />
+            </Collapse>
+          </Box>
+        )}
 
         {/* Tags Section */}
         <Box sx={{ mb: 3 }}>
@@ -542,6 +757,84 @@ export default function TestDetailOverviewTab({
           >
             {renderFormattedText(testConfig.scenario)}
           </Paper>
+        </Box>
+      )}
+
+      {/* Files Section (collapsible) */}
+      {(testFilesLoading || testFiles.length > 0) && (
+        <Box sx={{ mb: 3 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              cursor: 'pointer',
+              mb: 1,
+              '&:hover': { opacity: 0.7 },
+            }}
+            onClick={() => setFilesExpanded(!filesExpanded)}
+          >
+            <Typography variant="subtitle2" fontWeight={600}>
+              Files ({testFiles.length})
+            </Typography>
+            <IconButton
+              size="small"
+              sx={{
+                padding: 0,
+                transform: filesExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s',
+              }}
+            >
+              <ExpandMoreIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Box>
+          <Collapse in={filesExpanded} timeout="auto" unmountOnExit>
+            <FileAttachmentList
+              files={testFiles}
+              sessionToken={sessionToken}
+              isLoading={testFilesLoading}
+            />
+          </Collapse>
+        </Box>
+      )}
+
+      {/* Output Files Section (collapsible) */}
+      {(outputFilesLoading || outputFiles.length > 0) && (
+        <Box sx={{ mb: 3 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              cursor: 'pointer',
+              mb: 1,
+              '&:hover': { opacity: 0.7 },
+            }}
+            onClick={() => setOutputFilesExpanded(!outputFilesExpanded)}
+          >
+            <Typography variant="subtitle2" fontWeight={600}>
+              Output Files ({outputFiles.length})
+            </Typography>
+            <IconButton
+              size="small"
+              sx={{
+                padding: 0,
+                transform: outputFilesExpanded
+                  ? 'rotate(180deg)'
+                  : 'rotate(0deg)',
+                transition: 'transform 0.2s',
+              }}
+            >
+              <ExpandMoreIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Box>
+          <Collapse in={outputFilesExpanded} timeout="auto" unmountOnExit>
+            <FileAttachmentList
+              files={outputFiles}
+              sessionToken={sessionToken}
+              isLoading={outputFilesLoading}
+            />
+          </Collapse>
         </Box>
       )}
     </Box>

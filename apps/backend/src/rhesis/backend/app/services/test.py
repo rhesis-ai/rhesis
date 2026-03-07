@@ -984,7 +984,12 @@ def create_test_set_associations(
         if result.get("metadata", {}).get("new_associations", 0) > 0:
             from rhesis.backend.app.services.test_set import update_test_set_attributes
 
-            update_test_set_attributes(db=db, test_set_id=test_set_id)
+            update_test_set_attributes(
+                db=db,
+                test_set_id=test_set_id,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
 
         # Transaction commit/rollback is handled by the session context manager
 
@@ -1094,7 +1099,12 @@ def remove_test_set_associations(
         if removed_count > 0:
             from rhesis.backend.app.services.test_set import update_test_set_attributes
 
-            update_test_set_attributes(db=db, test_set_id=test_set_id)
+            update_test_set_attributes(
+                db=db,
+                test_set_id=test_set_id,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
 
         # Transaction commit/rollback is handled by the session context manager
 

@@ -165,6 +165,71 @@ applicable.
   for details.
 </Callout>
 
+## File Attachments
+
+When tests include file attachments (images, PDFs, or other documents), use the
+built-in [file format filters](/platform/endpoints/single-turn#file-format-filters)
+to convert them into the format your provider expects. The `files` variable
+contains an array of file objects with `filename`, `content_type`, and `data`
+(base64-encoded content).
+
+### Anthropic with Files
+
+<CodeBlock filename="anthropic-files-request.json" language="json">
+  {`{
+  "model": "claude-sonnet-4-6",
+  "max_tokens": 1024,
+  "messages": [
+    {
+      "role": "user",
+      "content": {{ files | to_anthropic | tojson }}
+    }
+  ]
+}`}
+</CodeBlock>
+
+The `to_anthropic` filter converts images to `\{"type": "image", "source": \{"type": "base64", ...\}\}` blocks and PDFs to `\{"type": "document", ...\}` blocks.
+
+### OpenAI with Files
+
+<CodeBlock filename="openai-files-request.json" language="json">
+  {`{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "user",
+      "content": {{ files | to_openai | tojson }}
+    }
+  ]
+}`}
+</CodeBlock>
+
+The `to_openai` filter converts each file to `\{"type": "image_url", "image_url": \{"url": "data:...;base64,..."\}\}`.
+
+### Google Gemini with Files
+
+<CodeBlock filename="gemini-files-request.json" language="json">
+  {`{
+  "contents": [
+    {
+      "role": "user",
+      "parts": {{ files | to_gemini | tojson }}
+    }
+  ],
+  "generationConfig": {
+    "temperature": 0.7,
+    "maxOutputTokens": 1024
+  }
+}`}
+</CodeBlock>
+
+The `to_gemini` filter converts each file to `\{"inline_data": \{"mime_type": "...", "data": "..."\}\}`.
+
+<Callout type="info">
+  Response mappings remain the same whether or not files are attached. The
+  filters only affect the request body format.
+</Callout>
+
 ## RAG Endpoint with Context
 
 For retrieval-augmented generation APIs that return source documents alongside

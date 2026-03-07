@@ -91,6 +91,57 @@ export const createMockTest = (overrides = {}) => ({
   ...overrides,
 });
 
+export const createMockEndpoint = (overrides = {}) => ({
+  id: 'mock-endpoint-id',
+  name: 'Mock Endpoint',
+  description: 'An endpoint for testing',
+  connection_type: 'REST' as const,
+  url: 'https://api.example.com/chat',
+  method: 'POST',
+  environment: 'development' as const,
+  config_source: 'manual' as const,
+  response_format: 'json' as const,
+  status: { id: 'status-1', name: 'Active' },
+  created_at: '2024-01-01T00:00:00Z',
+  updated_at: '2024-01-01T00:00:00Z',
+  ...overrides,
+});
+
+export const createMockTestRun = (overrides = {}) => ({
+  id: 'mock-run-id',
+  name: 'Mock Test Run',
+  status: { id: 'status-1', name: 'Completed' },
+  created_at: '2024-01-01T00:00:00Z',
+  updated_at: '2024-01-01T00:00:00Z',
+  counts: { comments: 0, tasks: 0 },
+  ...overrides,
+});
+
+export const createMockTestSet = (overrides = {}) => ({
+  id: 'mock-test-set-id',
+  name: 'Mock Test Set',
+  description: 'A mock test set for testing',
+  created_at: '2024-01-01T00:00:00Z',
+  updated_at: '2024-01-01T00:00:00Z',
+  counts: { comments: 0, tasks: 0 },
+  ...overrides,
+});
+
+export const createMockPaginatedResponse = <T,>(
+  data: T[],
+  totalCount?: number
+) => ({
+  data,
+  pagination: {
+    totalCount: totalCount ?? data.length,
+    skip: 0,
+    limit: 50,
+    currentPage: 0,
+    pageSize: 50,
+    totalPages: 1,
+  },
+});
+
 export const createMockComment = (overrides = {}) => ({
   id: 'mock-comment-id',
   message: 'Mock comment message',
@@ -100,6 +151,23 @@ export const createMockComment = (overrides = {}) => ({
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
   author: { id: 'user-1', name: 'John Doe', email: 'john@example.com' },
+  ...overrides,
+});
+
+export const createMockFileResponse = (overrides = {}) => ({
+  id: 'mock-file-id',
+  nano_id: 'abc123',
+  filename: 'test-image.png',
+  content_type: 'image/png',
+  size_bytes: 1024,
+  description: undefined,
+  entity_id: 'test-123',
+  entity_type: 'Test',
+  position: 0,
+  user_id: 'user-1',
+  organization_id: 'org-1',
+  created_at: '2024-01-01T00:00:00Z',
+  updated_at: '2024-01-01T00:00:00Z',
   ...overrides,
 });
 

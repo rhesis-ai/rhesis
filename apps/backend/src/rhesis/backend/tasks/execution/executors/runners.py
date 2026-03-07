@@ -26,6 +26,59 @@ from .data import get_test_metrics
 from .metrics import prepare_metric_configs
 
 
+def _get_endpoint_routing(
+    db: Session,
+    endpoint_id: str,
+    organization_id: str,
+) -> Tuple[Optional[str], Optional[str]]:
+    """Look up project_id and environment from an endpoint."""
+    try:
+        from rhesis.backend.app import models
+        from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+        qb = QueryBuilder(db, models.Endpoint).with_organization_filter(organization_id)
+        endpoint = qb.query.filter(models.Endpoint.id == endpoint_id).first()
+        if endpoint:
+            return str(endpoint.project_id), endpoint.environment
+    except Exception as e:
+        logger.warning(f"Could not resolve endpoint routing: {e}")
+    return None, None
+
+
+def _build_sdk_metric_sender(
+    project_id: Optional[str],
+    environment: Optional[str],
+):
+    """Build an async callable that dispatches SDK metrics via RPC.
+
+    Returns None when project/environment are unavailable, which tells
+    the evaluator to skip SDK metrics.
+    """
+    if not project_id or not environment:
+        return None
+
+    async def _send(metric_run_id, metric_name, inputs):
+        from rhesis.backend.app.services.connector.rpc_client import (
+            SDKRpcClient,
+        )
+
+        rpc = SDKRpcClient()
+        try:
+            await rpc.initialize()
+            return await rpc.send_and_await_metric_result(
+                project_id=project_id,
+                environment=environment,
+                metric_run_id=metric_run_id,
+                metric_name=metric_name,
+                inputs=inputs,
+                timeout=30.0,
+            )
+        finally:
+            await rpc.close()
+
+    return _send
+
+
 class BaseRunner(ABC):
     """
     Abstract base class for test execution runners.
@@ -155,7 +208,15 @@ class SingleTurnRunner(BaseRunner):
             # Extract and normalize context to List[str]
             raw_context = processed_result.get("context") if processed_result else None
             context = normalize_context_to_list(raw_context)
-            metrics_evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
+
+            ep_project_id, ep_environment = _get_endpoint_routing(db, endpoint_id, organization_id)
+
+            metrics_evaluator = MetricEvaluator(
+                model=model,
+                db=db,
+                organization_id=organization_id,
+                sdk_metric_sender=_build_sdk_metric_sender(ep_project_id, ep_environment),
+            )
 
             if model:
                 logger.debug(f"[SingleTurnRunner] Using model: {model}")
@@ -238,6 +299,8 @@ class MultiTurnRunner(BaseRunner):
         penelope_trace = output.response
 
         # --- Entity 2: Evaluate metrics ---
+        ep_project_id, ep_environment = _get_endpoint_routing(db, endpoint_id, organization_id)
+
         if output.metrics:
             # Live execution: Penelope already evaluated Goal Achievement
             metrics_results = output.metrics
@@ -254,6 +317,8 @@ class MultiTurnRunner(BaseRunner):
                 test_set=test_set,
                 test_configuration=test_configuration,
                 exclude_class_names={"GoalAchievementJudge"},
+                project_id=ep_project_id,
+                environment=ep_environment,
             )
             if additional_metrics:
                 metrics_results.update(additional_metrics)
@@ -268,6 +333,8 @@ class MultiTurnRunner(BaseRunner):
                 model=model,
                 test_set=test_set,
                 test_configuration=test_configuration,
+                project_id=ep_project_id,
+                environment=ep_environment,
             )
 
         if output.source == "live":

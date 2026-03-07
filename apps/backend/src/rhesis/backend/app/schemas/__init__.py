@@ -12,6 +12,7 @@ from .endpoint import (
     EndpointTestRequest,
     EndpointUpdate,
 )
+from .file import FileCreate, FileEntityType, FileResponse, FileUpdate
 from .metric import (
     GenerateMetricRequest,
     ImproveMetricRequest,
@@ -161,6 +162,10 @@ __all__ = [
     "RiskBase",
     "RiskCreate",
     "RiskUpdate",
+    "FileCreate",
+    "FileEntityType",
+    "FileResponse",
+    "FileUpdate",
     "Endpoint",
     "EndpointBase",
     "EndpointCreate",

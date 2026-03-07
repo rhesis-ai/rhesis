@@ -53,6 +53,97 @@ export const handlers = [
     });
   }),
 
+  http.get(`${BASE_URL}/tests/:id`, ({ params }) => {
+    return HttpResponse.json({
+      id: params.id,
+      prompt_id: 'prompt-1',
+      priority: 1,
+      priorityLevel: 'Medium',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    });
+  }),
+
+  http.post(`${BASE_URL}/tests`, () => {
+    return HttpResponse.json(
+      { id: 'new-test-id', prompt_id: 'prompt-new', priority: 1 },
+      { status: 201 }
+    );
+  }),
+
+  http.put(`${BASE_URL}/tests/:id`, ({ params }) => {
+    return HttpResponse.json({
+      id: params.id,
+      prompt_id: 'prompt-1',
+      priority: 1,
+    });
+  }),
+
+  http.delete(`${BASE_URL}/tests/:id`, ({ params }) => {
+    return HttpResponse.json({ id: params.id });
+  }),
+
+  // Endpoints
+  http.get(`${BASE_URL}/endpoints`, () => {
+    return HttpResponse.json([], {
+      headers: { 'x-total-count': '0' },
+    });
+  }),
+
+  http.get(`${BASE_URL}/endpoints/:id`, ({ params }) => {
+    return HttpResponse.json({
+      id: params.id,
+      name: 'Test Endpoint',
+      connection_type: 'REST',
+      environment: 'development',
+      config_source: 'manual',
+      response_format: 'json',
+    });
+  }),
+
+  http.post(`${BASE_URL}/endpoints`, () => {
+    return HttpResponse.json(
+      {
+        id: 'new-endpoint-id',
+        name: 'New Endpoint',
+        connection_type: 'REST',
+        environment: 'development',
+        config_source: 'manual',
+        response_format: 'json',
+      },
+      { status: 201 }
+    );
+  }),
+
+  http.put(`${BASE_URL}/endpoints/:id`, ({ params }) => {
+    return HttpResponse.json({ id: params.id, name: 'Updated Endpoint' });
+  }),
+
+  http.delete(`${BASE_URL}/endpoints/:id`, ({ params }) => {
+    return HttpResponse.json({ id: params.id });
+  }),
+
+  // Test Runs
+  http.get(`${BASE_URL}/test_runs`, () => {
+    return HttpResponse.json([], {
+      headers: { 'x-total-count': '0' },
+    });
+  }),
+
+  http.get(`${BASE_URL}/test_runs/:id`, ({ params }) => {
+    return HttpResponse.json({
+      id: params.id,
+      name: 'Test Run',
+      status: { id: 'status-1', name: 'Completed' },
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    });
+  }),
+
+  http.delete(`${BASE_URL}/test_runs/:id`, ({ params }) => {
+    return HttpResponse.json({ id: params.id });
+  }),
+
   // Projects
   http.get(`${BASE_URL}/projects`, () => {
     return HttpResponse.json(
@@ -111,5 +202,63 @@ export const handlers = [
   // Tags
   http.get(`${BASE_URL}/tags`, () => {
     return HttpResponse.json([]);
+  }),
+
+  // Files
+  http.get(`${BASE_URL}/tests/:testId/files`, () => {
+    return HttpResponse.json([]);
+  }),
+
+  http.get(`${BASE_URL}/files/:id`, ({ params }) => {
+    return HttpResponse.json({
+      id: params.id,
+      nano_id: 'abc123',
+      filename: 'test-file.png',
+      content_type: 'image/png',
+      size_bytes: 1024,
+      entity_id: 'test-1',
+      entity_type: 'Test',
+      position: 0,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    });
+  }),
+
+  http.get(`${BASE_URL}/files/:id/content`, () => {
+    return new HttpResponse(new Uint8Array([137, 80, 78, 71]), {
+      headers: { 'Content-Type': 'image/png' },
+    });
+  }),
+
+  http.post(`${BASE_URL}/files`, () => {
+    return HttpResponse.json(
+      [
+        {
+          id: 'file-new',
+          nano_id: 'xyz789',
+          filename: 'uploaded.png',
+          content_type: 'image/png',
+          size_bytes: 2048,
+          entity_id: 'test-1',
+          entity_type: 'Test',
+          position: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ],
+      { status: 201 }
+    );
+  }),
+
+  http.delete(`${BASE_URL}/files/:id`, ({ params }) => {
+    return HttpResponse.json({
+      id: params.id,
+      filename: 'deleted-file.png',
+      content_type: 'image/png',
+      size_bytes: 1024,
+      entity_id: 'test-1',
+      entity_type: 'Test',
+      position: 0,
+    });
   }),
 ];

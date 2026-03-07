@@ -24,8 +24,8 @@ The system will automatically handle cascading for all configured relationships
 without requiring any code changes in CRUD or service layers.
 """
 
-from dataclasses import dataclass
-from typing import Dict, List, Type
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Type
 
 from rhesis.backend.app import models
 
@@ -41,6 +41,7 @@ class CascadeRelationship:
         cascade_delete: Whether to cascade soft deletions (default: True)
         cascade_restore: Whether to cascade restorations (default: True)
         description: Optional human-readable description of the relationship
+        extra_filters: Additional column filters for polymorphic relationships
     """
 
     child_model: Type
@@ -48,6 +49,7 @@ class CascadeRelationship:
     cascade_delete: bool = True
     cascade_restore: bool = True
     description: str = ""
+    extra_filters: Dict[str, Any] = field(default_factory=dict)
 
 
 # Global cascade configuration registry
@@ -64,15 +66,24 @@ CASCADE_RELATIONSHIPS: Dict[Type, List[CascadeRelationship]] = {
             description="Test results belong to a test run and should cascade with it",
         )
     ],
-    # Add more cascade relationships here as needed:
-    # models.Project: [
-    #     CascadeRelationship(
-    #         child_model=models.TestSet,
-    #         foreign_key='project_id',
-    #         cascade_delete=True,
-    #         cascade_restore=True
-    #     )
-    # ],
+    # Test cascades to File (input files)
+    models.Test: [
+        CascadeRelationship(
+            child_model=models.File,
+            foreign_key="entity_id",
+            extra_filters={"entity_type": "Test"},
+            description="Input files belong to a test",
+        )
+    ],
+    # TestResult cascades to File (output files)
+    models.TestResult: [
+        CascadeRelationship(
+            child_model=models.File,
+            foreign_key="entity_id",
+            extra_filters={"entity_type": "TestResult"},
+            description="Output files belong to a test result",
+        )
+    ],
 }
 
 

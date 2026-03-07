@@ -1,10 +1,11 @@
 import asyncio
+import base64
 import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 # Import endpoint module first to initialize RhesisClient
 # This ensures only ONE tracer provider exists (critical for proper trace nesting)
@@ -12,12 +13,13 @@ import endpoint as endpoint_module
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from notifications import send_rate_limit_alert
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from rhesis.sdk import endpoint
+from rhesis.sdk.services import DocumentExtractor
 
 # Configure logging
 logging.basicConfig(
@@ -314,17 +316,45 @@ def get_available_use_cases() -> List[str]:
         return ["insurance"]  # Default fallback
 
 
+class FileInput(BaseModel):
+    filename: str
+    content_type: Optional[str] = None
+    data: str  # base64-encoded file content
+
+
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     use_case: Optional[str] = "insurance"  # Default to insurance for backward compatibility
+    mode: Optional[str] = "text"  # Output mode: "text" or "json"
+    files: Optional[List[FileInput]] = None
+
+    @field_validator("files", mode="before")
+    @classmethod
+    def coerce_empty_to_none(cls, v):
+        """Treat empty strings and other falsy non-list values as None."""
+        if v is None or v == "" or v == []:
+            return None
+        return v
 
 
 class ChatResponse(BaseModel):
-    message: str
+    message: Union[str, dict]
     session_id: str
     context: List[str]
     metadata: dict
+
+
+def extract_file_content(file_input: FileInput) -> dict:
+    """Extract text content from a base64-encoded file using the SDK's DocumentExtractor.
+
+    Returns:
+        Dict with 'filename' and 'content' keys.
+    """
+    file_bytes = base64.b64decode(file_input.data)
+    extractor = DocumentExtractor()
+    content = extractor.extract_from_bytes(file_bytes, file_input.filename)
+    return {"filename": file_input.filename, "content": content}
 
 
 @endpoint(
@@ -334,7 +364,9 @@ class ChatResponse(BaseModel):
         "message": "{{ input }}",
         "session_id": "{{ session_id | default(none) }}",
         "use_case": "{{ use_case | default('insurance') }}",
+        "mode": "{{ mode | default('text') }}",
         "conversation_history": "{{ conversation_history | default(none) }}",
+        "file_contents": "{{ file_contents | default(none) }}",
     },
     response_mapping={
         "output": "{{ message }}",
@@ -347,7 +379,9 @@ async def chat(
     message: str,
     session_id: Optional[str] = None,
     use_case: str = "insurance",
+    mode: str = "text",
     conversation_history: Optional[List[dict]] = None,
+    file_contents: Optional[List[dict]] = None,
 ) -> ChatResponse:
     """
     Process a chat message and return structured response.
@@ -362,6 +396,8 @@ async def chat(
         use_case: Use case for system prompt
         conversation_history: Explicit conversation history; when ``None``
             the history is looked up from the in-memory session store.
+        file_contents: Extracted file contents as list of dicts with
+            'filename' and 'content' keys.
 
     Returns:
         ChatResponse with message, session_id, context, and metadata
@@ -391,22 +427,31 @@ async def chat(
     intent_result = response_generator.recognize_intent(message)
 
     # Get assistant response using the same instance
-    response_text = "".join(
+    chunks = list(
         response_generator.stream_assistant_response(
-            message, conversation_history=conversation_history
+            message,
+            conversation_history=conversation_history,
+            file_contents=file_contents,
+            mode=mode,
         )
     )
 
+    if mode == "json":
+        # In JSON mode, the generator yields dicts
+        response_message = chunks[0] if chunks else {}
+    else:
+        response_message = "".join(chunks)
+
     # Persist the exchange in the session store
     sessions[session_id].messages.append({"role": "user", "content": message})
-    sessions[session_id].messages.append({"role": "assistant", "content": response_text})
+    sessions[session_id].messages.append({"role": "assistant", "content": response_message})
 
     # Return Pydantic model
     return ChatResponse(
-        message=response_text,
+        message=response_message,
         session_id=session_id,
         context=context_fragments,
-        metadata={"use_case": use_case, "intent": intent_result},
+        metadata={"use_case": use_case, "mode": mode, "intent": intent_result},
     )
 
 
@@ -456,11 +501,23 @@ async def chat_endpoint(
         if use_case not in available_use_cases:
             use_case = "insurance"
 
+        # Extract file contents if provided
+        file_contents = None
+        if chat_request.files:
+            file_contents = []
+            for file_input in chat_request.files:
+                try:
+                    file_contents.append(extract_file_content(file_input))
+                except Exception as e:
+                    logger.warning(f"Failed to extract content from {file_input.filename}: {e}")
+
         # Session management and history are handled inside chat()
         result = await chat(
             message=chat_request.message,
             session_id=chat_request.session_id,
             use_case=use_case,
+            mode=chat_request.mode or "text",
+            file_contents=file_contents,
         )
 
         logger.info(f"Response generated successfully - Length: {len(result.message)} chars")

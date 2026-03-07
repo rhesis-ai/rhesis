@@ -2,6 +2,7 @@
 
 import React from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { TYPE_NAMES, TEST_TYPES } from '@/constants/test-types';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import {
   TextField,
@@ -73,7 +74,7 @@ export default function TestSetDrawer({
         const typeLookupClient = clientFactory.getTypeLookupClient();
 
         const types = await typeLookupClient.getTypeLookups({
-          $filter: "type_name eq 'TestType'",
+          $filter: `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}'`,
           sort_by: 'type_value',
           sort_order: 'asc',
         });
@@ -82,7 +83,7 @@ export default function TestSetDrawer({
 
         if (!testSet && types.length > 0) {
           const singleTurnType = types.find(
-            t => t.type_value === 'Single-Turn'
+            t => t.type_value === TEST_TYPES.SINGLE_TURN
           );
           if (singleTurnType) {
             setSelectedTestSetTypeId(singleTurnType.id);

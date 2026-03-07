@@ -115,6 +115,15 @@ export interface SubscriptionPayload {
 }
 
 /**
+ * File attachment for playground chat messages.
+ */
+export interface FileAttachment {
+  filename: string;
+  content_type: string;
+  data: string;
+}
+
+/**
  * Chat message payload (sent to server).
  */
 export interface ChatMessagePayload {
@@ -122,6 +131,8 @@ export interface ChatMessagePayload {
   message: string;
   /** Conversation ID for multi-turn conversations (canonical name) */
   conversation_id?: string;
+  /** Optional file attachments */
+  files?: FileAttachment[];
 }
 
 /**
@@ -133,6 +144,8 @@ export interface ChatResponsePayload {
   endpoint_id: string;
   /** Conversation ID for multi-turn conversations (canonical name) */
   conversation_id?: string;
+  /** Output files returned by the endpoint */
+  output_files?: FileAttachment[];
 }
 
 /**

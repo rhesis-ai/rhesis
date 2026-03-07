@@ -1,10 +1,13 @@
 """Trace creation for REST/WebSocket endpoint invocations."""
 
+import base64
+import json
 import logging
 import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -200,9 +203,9 @@ async def create_invocation_trace(
             # Truncate output for storage
             output = result.get("output")
             if output:
-                output_preview = str(output)[:1000]
-                attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW] = output_preview
-                attributes[EndpointAttributes.RESPONSE_SIZE] = len(str(output))
+                output_str = json.dumps(output) if isinstance(output, (dict, list)) else str(output)
+                attributes[EndpointAttributes.RESPONSE_OUTPUT_PREVIEW] = output_str[:1000]
+                attributes[EndpointAttributes.RESPONSE_SIZE] = len(output_str)
 
         # Inject mapped conversation I/O directly into span attributes.
         # This is possible because REST/WebSocket spans are created synchronously —
@@ -219,7 +222,10 @@ async def create_invocation_trace(
                     : ConversationConstants.MAX_IO_LENGTH
                 ]
         if result and isinstance(result, dict):
-            mapped_output = str(result.get("output", ""))
+            raw_output = result.get("output", "")
+            mapped_output = (
+                json.dumps(raw_output) if isinstance(raw_output, (dict, list)) else str(raw_output)
+            )
             if mapped_output:
                 attributes[EndpointAttributes.CONVERSATION_OUTPUT] = mapped_output[
                     : ConversationConstants.MAX_IO_LENGTH
@@ -258,3 +264,56 @@ async def create_invocation_trace(
 
         if stored_spans:
             logger.debug(f"Created and enriched invocation trace {stored_spans[0].trace_id}")
+
+            # Store input files linked to the trace span
+            files = input_data.get("files") if input_data else None
+            if files:
+                _store_trace_files(
+                    db=db,
+                    trace_id=stored_spans[0].id,
+                    files=files,
+                    organization_id=organization_id,
+                )
+
+
+def _store_trace_files(
+    db: Session,
+    trace_id: UUID,
+    files: List[Dict[str, Any]],
+    organization_id: str,
+) -> None:
+    """Store input files as File records linked to a Trace.
+
+    Each item in files should have:
+    - data: base64-encoded file content
+    - filename: original filename
+    - content_type: MIME type
+    """
+    from rhesis.backend.app import crud, schemas
+
+    for idx, file_data in enumerate(files):
+        if not isinstance(file_data, dict):
+            continue
+
+        content_b64 = file_data.get("data")
+        if not content_b64:
+            continue
+
+        try:
+            content = base64.b64decode(content_b64)
+        except Exception:
+            logger.warning(f"Failed to decode base64 for trace file {idx}")
+            continue
+
+        file_create = schemas.FileCreate(
+            filename=file_data.get("filename", f"file_{idx}"),
+            content_type=file_data.get("content_type", "application/octet-stream"),
+            size_bytes=len(content),
+            content=content,
+            entity_id=trace_id,
+            entity_type="Trace",
+            position=idx,
+        )
+        crud.create_file(db, file_create, organization_id=organization_id)
+
+    logger.debug(f"Stored {len(files)} input file(s) for trace_id={trace_id}")

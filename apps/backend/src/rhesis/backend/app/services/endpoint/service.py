@@ -216,9 +216,12 @@ class EndpointService:
                     # Commit the assistant turn.
                     output = result_dict.get("output", "")
                     if output:
+                        output_text = (
+                            json.dumps(output) if isinstance(output, (dict, list)) else str(output)
+                        )
                         store.add_assistant_message(
                             stateless_conversation_id,
-                            str(output),
+                            output_text,
                         )
                     # Surface conversation_id so callers can continue
                     # the conversation -- same field stateful endpoints

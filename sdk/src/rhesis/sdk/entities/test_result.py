@@ -1,6 +1,11 @@
-from typing import Any, ClassVar, Dict, Optional
+from __future__ import annotations
 
-from rhesis.sdk.clients import Endpoints
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional
+
+from rhesis.sdk.clients import APIClient, Endpoints, Methods
+
+if TYPE_CHECKING:
+    from rhesis.sdk.entities.file import File
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 from rhesis.sdk.entities.status import Status
@@ -26,6 +31,24 @@ class TestResult(BaseEntity):
     test_metrics: Optional[Dict[str, Any]] = None
     test_reviews: Optional[Dict[str, Any]] = None
     id: Optional[str] = None
+
+    def get_files(self) -> List["File"]:
+        """Get all files attached to this test result.
+
+        Returns:
+            List of File instances.
+        """
+        from rhesis.sdk.entities.file import File
+
+        if not self.id:
+            raise ValueError("TestResult must have an ID to get files")
+        client = APIClient()
+        results = client.send_request(
+            endpoint=self.endpoint,
+            method=Methods.GET,
+            url_params=f"{self.id}/files",
+        )
+        return [File.model_validate(r) for r in results]
 
 
 class TestResults(BaseCollection):

@@ -189,13 +189,20 @@ class TestMetricValidation(MetricTestMixin, BaseEntityTests):
         score_types = ["numeric", "categorical"]
 
         for score_type in score_types:
-            data = self.get_minimal_data()
-            data["score_type"] = score_type
+            data = {
+                "name": fake.word().title() + f" {score_type.title()} Metric",
+                "evaluation_prompt": fake.sentence(nb_words=8),
+                "score_type": score_type,
+            }
 
-            # Add required fields for categorical metrics
+            # Add required fields per score type
             if score_type == "categorical":
                 data["categories"] = ["pass", "fail", "maybe"]
                 data["passing_categories"] = ["pass"]
+            elif score_type == "numeric":
+                data["min_score"] = 0
+                data["max_score"] = 10
+                data["threshold"] = 5
 
             response = metric_factory.client.post(self.endpoints.create, json=data)
             assert response.status_code == status.HTTP_200_OK

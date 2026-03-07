@@ -334,9 +334,9 @@ export default function SpanSequenceView({
             >
               All
             </Button>
-            {rootSpans!.map((_, i) => (
+            {rootSpans!.map((span, i) => (
               <Button
-                key={i}
+                key={span.span_id}
                 onClick={() => setActiveTurn(i)}
                 variant={activeTurn === i ? 'contained' : 'outlined'}
               >

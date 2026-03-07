@@ -339,6 +339,7 @@ class TestContext:
     min_turns: Optional[int] = None
     max_tool_executions: Optional[int] = None
     timeout_seconds: Optional[float] = None
+    files: List[Dict[str, str]] = field(default_factory=list)
 
 
 @dataclass

@@ -8,11 +8,14 @@ import {
   Typography,
   Chip,
   Grid,
+  IconButton,
+  Tooltip,
   useTheme,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
@@ -28,6 +31,7 @@ interface TestRunHeaderProps {
   testRun: TestRunDetail;
   testResults: TestResultDetail[];
   loading?: boolean;
+  onRefresh?: () => void;
 }
 
 interface SummaryCardProps {
@@ -132,6 +136,7 @@ export default function TestRunHeader({
   testRun,
   testResults,
   loading: _loading = false,
+  onRefresh,
 }: TestRunHeaderProps) {
   const theme = useTheme();
 
@@ -268,6 +273,11 @@ export default function TestRunHeader({
     };
   }, [testResults, testRun, isMultiTurn]);
 
+  const totalExpected =
+    testRun.test_configuration?.test_set?.attributes?.metadata?.total_tests;
+
+  const isInProgress = stats.status === 'in_progress';
+
   return (
     <Box sx={{ mb: 4 }}>
       <Grid container spacing={3}>
@@ -312,7 +322,9 @@ export default function TestRunHeader({
         >
           <SummaryCard
             title="Tests Executed"
-            value={stats.total}
+            value={
+              totalExpected ? `${stats.total}/${totalExpected}` : stats.total
+            }
             subtitle={
               isMultiTurn
                 ? `Avg ${stats.avgTurnDepth} turns`
@@ -320,7 +332,17 @@ export default function TestRunHeader({
                   ? `${stats.passed} passed, ${stats.failed} failed, ${stats.executionErrors} errors`
                   : `${stats.passed} passed, ${stats.failed} failed`
             }
-            icon={<PlayCircleOutlineIcon />}
+            icon={
+              isInProgress && onRefresh ? (
+                <Tooltip title="Refresh">
+                  <IconButton size="small" onClick={onRefresh}>
+                    <RefreshIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <PlayCircleOutlineIcon />
+              )
+            }
             color="primary"
           />
         </Grid>

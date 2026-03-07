@@ -120,6 +120,13 @@ class SendMessageParams(BaseModel):
     interaction_id: Optional[str] = Field(
         default=None, description="Optional interaction ID for multi-turn conversations"
     )
+    include_files: bool = Field(
+        default=False,
+        description=(
+            "Set to true to include attached files with this message. "
+            "Files are available when the test has file attachments."
+        ),
+    )
 
     def get_conversation_field_value(self) -> tuple[Optional[str], Optional[str]]:
         """

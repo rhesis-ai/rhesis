@@ -1,6 +1,7 @@
 """SDK endpoint invoker for WebSocket-connected SDK functions."""
 
 import asyncio
+import json
 import os
 import uuid
 from typing import Any, Dict, Optional, Union
@@ -82,8 +83,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         from rhesis.backend.app.services.connector.manager import connection_manager
 
-        connection_key = connection_manager.get_connection_key(project_id, environment)
-        has_local_connection = connection_key in connection_manager._connections
+        has_local_connection = connection_manager.has_local_route(project_id, environment)
 
         # Determine invocation method:
         # - Workers: always use RPC (they never have WebSocket connections)
@@ -422,7 +422,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         the span's attributes when the SDK exports it to the telemetry ingest
         endpoint — before storage.
         """
-        mapped_output = str(mapped_response.get("output", "")) or None
+        raw_output = mapped_response.get("output", "")
+        if isinstance(raw_output, (dict, list)):
+            mapped_output = json.dumps(raw_output)
+        else:
+            mapped_output = str(raw_output) or None
         if result.get("trace_id") and endpoint.project_id and mapped_output:
             from rhesis.backend.app.services.telemetry.conversation_linking import (
                 register_pending_output,
@@ -431,6 +435,32 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             register_pending_output(
                 trace_id=result["trace_id"],
                 mapped_output=mapped_output,
+            )
+
+    @staticmethod
+    def _park_input_files(
+        result: Dict[str, Any],
+        endpoint: Endpoint,
+        input_data: Dict[str, Any],
+    ) -> None:
+        """Park input files for creation when SDK spans arrive.
+
+        Files are available at invocation time but the SDK trace record
+        hasn't been created yet (spans arrive asynchronously via
+        ``BatchSpanProcessor``).  We park the file metadata here; File
+        records will be created and linked to the stored Trace when
+        the spans arrive at the telemetry ingest endpoint — after storage.
+        """
+        files = input_data.get("files")
+        if result.get("trace_id") and endpoint.project_id and files:
+            from rhesis.backend.app.services.telemetry.conversation_linking import (
+                register_pending_files,
+            )
+
+            register_pending_files(
+                trace_id=result["trace_id"],
+                files=files,
+                organization_id=str(endpoint.organization_id),
             )
 
     async def invoke(
@@ -515,6 +545,10 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Park mapped output for injection when SDK spans arrive
             # at the telemetry ingest endpoint (before storage).
             self._park_mapped_output(result, endpoint, mapped_response)
+
+            # Park input files for creation when SDK spans arrive
+            # at the telemetry ingest endpoint (after storage).
+            self._park_input_files(result, endpoint, input_data)
 
             logger.info(
                 f"SDK function {function_name} completed successfully "

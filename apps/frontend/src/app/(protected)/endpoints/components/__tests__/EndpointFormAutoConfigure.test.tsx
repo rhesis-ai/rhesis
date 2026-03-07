@@ -1,7 +1,32 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+
+// Mock next/dynamic so that dynamic regions trigger a React re-render once the
+// loader promise resolves.  Using useState + useEffect means the component will
+// render null on the first pass, then re-render with the loaded component after
+// the (microtask-scheduled) promise settles — matching real React Suspense
+// semantics and avoiding permanently-null dynamic zones.
+jest.mock(
+  'next/dynamic',
+  () => (loader: () => Promise<{ default: React.ComponentType }>) => {
+    function DynamicComponent(props: Record<string, unknown>) {
+      const [Comp, setComp] = React.useState<React.ComponentType | null>(null);
+      React.useEffect(() => {
+        loader().then(mod => {
+          setComp(() => mod.default ?? (mod as unknown as React.ComponentType));
+        });
+        // loader identity is stable per mock call; omitting from deps is intentional.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, []);
+      if (!Comp) return null;
+      return React.createElement(Comp, props);
+    }
+    DynamicComponent.displayName = 'DynamicComponent';
+    return DynamicComponent;
+  }
+);
 
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
@@ -131,39 +156,38 @@ describe('EndpointForm Auto-configure Integration', () => {
     expect(button).toBeDisabled();
   });
 
-  it('auto-configure button is enabled when basic info is complete', async () => {
-    const user = userEvent.setup({ delay: null });
+  it('auto-configure button is enabled when basic info is complete', () => {
     render(<EndpointForm />);
 
-    // Fill in name (use getByRole to avoid matching Tooltip aria-label)
-    await user.type(screen.getByRole('textbox', { name: /name/i }), 'My API');
+    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), {
+      target: { value: 'My API' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: /url/i }), {
+      target: { value: 'https://api.example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/api token/i), {
+      target: { value: 'test-token' },
+    });
 
-    // Fill in URL
-    await user.type(
-      screen.getByRole('textbox', { name: /url/i }),
-      'https://api.example.com'
-    );
-
-    // Fill in auth token
-    await user.type(screen.getByLabelText(/api token/i), 'test-token');
-
-    const button = screen.getByRole('button', { name: /auto-configure/i });
-    expect(button).not.toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /auto-configure/i })
+    ).not.toBeDisabled();
   });
 
   it('clicking auto-configure opens the modal', async () => {
     const user = userEvent.setup({ delay: null });
     render(<EndpointForm />);
 
-    // Fill required fields (use getByRole to avoid matching Tooltip aria-label)
-    await user.type(screen.getByRole('textbox', { name: /name/i }), 'My API');
-    await user.type(
-      screen.getByRole('textbox', { name: /url/i }),
-      'https://api.example.com'
-    );
-    await user.type(screen.getByLabelText(/api token/i), 'test-token');
+    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), {
+      target: { value: 'My API' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: /url/i }), {
+      target: { value: 'https://api.example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/api token/i), {
+      target: { value: 'test-token' },
+    });
 
-    // Click auto-configure
     await user.click(screen.getByRole('button', { name: /auto-configure/i }));
 
     expect(screen.getByTestId('auto-configure-modal')).toBeInTheDocument();

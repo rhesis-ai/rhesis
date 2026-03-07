@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
@@ -39,6 +39,7 @@ class Endpoints(Enum):
     MODELS = "models"
     TYPE_LOOKUPS = "type_lookups"
     USERS = "users"
+    FILES = "files"
 
 
 class Methods(Enum):
@@ -126,3 +127,50 @@ class APIClient:
         )
         response.raise_for_status()
         return response.json()
+
+    def send_file_upload(
+        self,
+        endpoint: Endpoints,
+        files: List[Tuple[str, Any]],
+        params: Optional[Dict[str, str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Upload files via multipart form-data.
+
+        Args:
+            endpoint: The API endpoint.
+            files: List of (field_name, (filename, file_obj, content_type)) tuples.
+            params: Query parameters (e.g. entity_id, entity_type).
+
+        Returns:
+            List of file metadata dicts from the API response.
+        """
+        url = self.get_url(endpoint.value)
+        # Auth-only headers; Content-Type is set by requests for multipart
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        response = requests.post(url=url, headers=headers, files=files, params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def send_raw_request(
+        self,
+        endpoint: Endpoints,
+        method: Methods = Methods.GET,
+        url_params: Optional[str] = None,
+    ) -> requests.Response:
+        """Send a request and return the raw Response (for binary downloads).
+
+        Args:
+            endpoint: The API endpoint.
+            method: The HTTP method to use.
+            url_params: Additional URL path parameters.
+
+        Returns:
+            The raw requests.Response object.
+        """
+        url = self.get_url(endpoint.value)
+        if url_params is not None:
+            url = f"{url}/{url_params}"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        response = requests.request(method=method.value, url=url, headers=headers)
+        response.raise_for_status()
+        return response

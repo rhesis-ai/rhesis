@@ -3,13 +3,19 @@
 import json
 from typing import Any, Dict
 
-from jinja2 import Template
+from jinja2 import Environment
 
 from rhesis.backend.logging import logger
+
+from .filters import FILE_FILTERS
 
 
 class TemplateRenderer:
     """Handles template rendering using Jinja2."""
+
+    def __init__(self):
+        self.env = Environment()
+        self.env.filters.update(FILE_FILTERS)
 
     def render(self, template_data: Any, input_data: Dict[str, Any]) -> Any:
         """
@@ -77,7 +83,7 @@ class TemplateRenderer:
             Rendered template data with same structure as input
         """
         if isinstance(template_data, str):
-            template = Template(template_data)
+            template = self.env.from_string(template_data)
             rendered = template.render(**render_context)
 
             # Filter out omit markers from the rendered string
@@ -93,7 +99,7 @@ class TemplateRenderer:
 
             for key, value in template_data.items():
                 if isinstance(value, str):
-                    template = Template(value)
+                    template = self.env.from_string(value)
                     rendered_value = template.render(**render_context)
 
                     # If the rendered value is the omit marker, mark this key for removal
@@ -166,8 +172,12 @@ class TemplateRenderer:
                     logger.debug(f"Preserving {type(value).__name__} for template {{ {var_name} }}")
                     return value
 
-        # For non-simple templates or string values, filter and return
-        return self._filter_omit_markers(rendered_value)
+        # For non-simple templates, try to parse as JSON (e.g. filter output)
+        filtered = self._filter_omit_markers(rendered_value)
+        try:
+            return json.loads(filtered)
+        except (json.JSONDecodeError, TypeError):
+            return filtered
 
     def _filter_omit_markers(self, rendered_str: str) -> str:
         """

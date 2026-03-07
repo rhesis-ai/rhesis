@@ -46,44 +46,75 @@ class RegistrationHandler:
             logger.info(f"Raw message: {message}")
 
             reg_msg = RegisterMessage(**message)
+            metrics_data = message.get("metrics", [])
             logger.info(
                 f"Processed registration from {project_id}:{environment} "
-                f"(SDK v{reg_msg.sdk_version}, {len(reg_msg.functions)} functions)"
+                f"(SDK v{reg_msg.sdk_version}, {len(reg_msg.functions)} functions, "
+                f"{len(metrics_data)} metrics)"
             )
 
-            # Sync function endpoints if database session provided
+            # Sync metadata if database session provided
             if db and organization_id and user_id:
                 functions_data = message.get("functions", [])
-                logger.info(f"Calling sync_function_endpoints with {len(functions_data)} functions")
-                logger.info(f"Functions data: {functions_data}")
+                has_project_binding = bool(project_id and environment)
+                stats: Dict[str, Any] = {
+                    "created": 0,
+                    "updated": 0,
+                    "marked_inactive": 0,
+                    "errors": [],
+                }
 
-                stats = await self._sync_function_endpoints(
-                    db=db,
-                    project_id=project_id,
-                    environment=environment,
-                    functions_data=functions_data,
-                    organization_id=organization_id,
-                    user_id=user_id,
-                )
-                logger.info(f"sync_function_endpoints returned: {stats}")
+                # Endpoint sync requires project/environment binding.
+                if has_project_binding:
+                    logger.info(
+                        f"Calling sync_function_endpoints with {len(functions_data)} functions"
+                    )
+                    logger.info(f"Functions data: {functions_data}")
 
-                # Start endpoint validation after registration completes
-                logger.info("Starting endpoint validation for registered endpoints...")
+                    stats = await self._sync_function_endpoints(
+                        db=db,
+                        project_id=project_id,
+                        environment=environment,
+                        functions_data=functions_data,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    )
+                    logger.info(f"sync_function_endpoints returned: {stats}")
+                else:
+                    logger.info(
+                        "Skipping function endpoint sync for metrics-only registration "
+                        "(no project/environment)"
+                    )
 
-                # Use lazy import to avoid circular import
-                from rhesis.backend.app.services.connector.mapping import (
-                    get_endpoint_validation_service,
-                )
+                # Sync SDK metrics
+                if metrics_data:
+                    metric_stats = await self._sync_sdk_metrics(
+                        db=db,
+                        metrics_data=metrics_data,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    )
+                    logger.info(f"sync_sdk_metrics returned: {metric_stats}")
+                    stats["metric_sync"] = metric_stats
 
-                endpoint_validation_service = get_endpoint_validation_service()
+                # Start endpoint validation only for project-bound registrations.
+                if has_project_binding:
+                    logger.info("Starting endpoint validation for registered endpoints...")
 
-                await endpoint_validation_service.start_validation(
-                    project_id=project_id,
-                    environment=environment,
-                    functions_data=functions_data,
-                    organization_id=organization_id,
-                    user_id=user_id,
-                )
+                    # Use lazy import to avoid circular import
+                    from rhesis.backend.app.services.connector.mapping import (
+                        get_endpoint_validation_service,
+                    )
+
+                    endpoint_validation_service = get_endpoint_validation_service()
+
+                    await endpoint_validation_service.start_validation(
+                        project_id=project_id,
+                        environment=environment,
+                        functions_data=functions_data,
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    )
 
                 # Check if any errors occurred during endpoint sync
                 errors = stats.get("errors", [])
@@ -112,6 +143,42 @@ class RegistrationHandler:
         except Exception as e:
             logger.error(f"Error handling registration: {e}", exc_info=True)
             return {"type": "registered", "status": "error", "error": str(e)}
+
+    async def _sync_sdk_metrics(
+        self,
+        db: Session,
+        metrics_data: List[Dict[str, Any]],
+        organization_id: str,
+        user_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Sync SDK metrics with registered metrics.
+
+        Args:
+            db: Database session
+            metrics_data: List of metric metadata from SDK
+            organization_id: Organization ID
+            user_id: User ID
+
+        Returns:
+            Stats dict with created, updated, marked_inactive counts
+        """
+        try:
+            from rhesis.backend.app.services.connector.handlers.metric_sync import (
+                sync_sdk_metrics,
+            )
+
+            stats = sync_sdk_metrics(
+                db=db,
+                metrics_data=metrics_data,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            logger.info(f"Synced SDK metrics: {stats}")
+            return stats
+        except Exception as e:
+            logger.error(f"Failed to sync SDK metrics: {e}", exc_info=True)
+            return {"created": 0, "updated": 0, "marked_inactive": 0, "errors": [str(e)]}
 
     async def _sync_function_endpoints(
         self,

@@ -1,0 +1,9 @@
+{
+  "id": "a2b3c4d5-0007-0007-0007-000000000001",
+  "title": "Generate tests for safety behaviors",
+  "description": "Use the generation feature to create comprehensive tests covering all defined safety behaviors.",
+  "status": "completed",
+  "priority": "high",
+  "created_at": "2025-02-01T10:00:00Z",
+  "updated_at": "2025-02-01T11:00:00Z"
+}

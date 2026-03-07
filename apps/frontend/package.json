@@ -1,6 +1,6 @@
 {
   "name": "rhesis-app",
-  "version": "0.6.7",
+  "version": "0.6.8",
   "scripts": {
     "dev": "next dev --turbo -H 0.0.0.0 -p 3000",
     "build": "npm run clean && next build",
@@ -30,7 +30,7 @@
   "dependencies": {
     "@emotion/react": "^11",
     "@emotion/styled": "^11",
-    "@icons-pack/react-simple-icons": "^11.2.0",
+    "@icons-pack/react-simple-icons": "^13.12.0",
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^7",
     "@mui/lab": "^7.0.0",
@@ -105,6 +105,7 @@
     "@testing-library/user-event": "^14.5.2",
     "@types/invariant": "^2.2.37",
     "@types/jest": "^30.0.0",
+    "@types/jest-axe": "^3.5.9",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "20.17.46",
     "@types/react": "^19",
@@ -119,6 +120,7 @@
     "eslint-plugin-react-hooks": "^7.0.0",
     "globals": "^15",
     "jest": "^30.2.0",
+    "jest-axe": "^10.0.0",
     "jest-environment-jsdom": "^30.2.0",
     "msw": "^2.2.1",
     "prettier": "^3.0.0",

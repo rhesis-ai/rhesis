@@ -263,13 +263,13 @@ class RhesisClient:
         decorators._register_default_client(self)
 
     def _ensure_connector(self):
-        """Lazy-initialize connector when first needed."""
+        """Lazy-initialize connector when first needed.
+
+        ``project_id`` is optional — a connector without it can still
+        handle metrics-only evaluation.  The ``@endpoint`` decorator
+        validates separately that a project is configured.
+        """
         if self._connector_manager is None:
-            if not self.project_id:
-                raise RuntimeError(
-                    "@endpoint requires project_id parameter or "
-                    "RHESIS_PROJECT_ID environment variable"
-                )
             from rhesis.sdk.connector.manager import ConnectorManager
 
             self._connector_manager = ConnectorManager(
@@ -289,9 +289,28 @@ class RhesisClient:
             name: Endpoint function name
             func: Function callable
             metadata: Additional metadata
+
+        Raises:
+            RuntimeError: If project_id is not configured
         """
-        connector = self._ensure_connector()  # Lazy init
+        if not self.project_id:
+            raise RuntimeError(
+                "@endpoint requires project_id parameter or RHESIS_PROJECT_ID environment variable"
+            )
+        connector = self._ensure_connector()
         connector.register_function(name, func, metadata)
+
+    def register_metric(self, name: str, func, metadata: dict) -> None:
+        """
+        Register a function as an SDK-side metric.
+
+        Args:
+            name: Metric name
+            func: Metric callable
+            metadata: Additional metadata (score_type, description, etc.)
+        """
+        connector = self._ensure_connector()
+        connector.register_metric(name, func, metadata)
 
     async def _run_async(self) -> None:
         """

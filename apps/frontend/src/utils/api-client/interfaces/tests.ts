@@ -2,6 +2,7 @@ import { UUID } from 'crypto';
 import { Prompt } from './prompt';
 import { Tag } from './tag';
 import { Source } from './source';
+import { TestTypeValue } from '@/constants/test-types';
 
 // Priority level enum
 export type PriorityLevel = 'Low' | 'Medium' | 'High' | 'Urgent';
@@ -64,7 +65,7 @@ export interface Organization {
 
 // Test interfaces
 export interface TestBase {
-  prompt_id: UUID;
+  prompt_id?: UUID;
   test_type_id?: UUID;
   priority?: number;
   user_id?: UUID;
@@ -81,7 +82,14 @@ export interface TestBase {
   test_metadata?: Record<string, any>;
 }
 
-export type TestCreate = TestBase;
+export interface TestCreate extends TestBase {
+  behavior?: string;
+  topic?: string;
+  category?: string;
+  prompt?: TestPromptCreate;
+  test_type?: string;
+  status?: string;
+}
 
 export type TestUpdate = Partial<TestBase>;
 
@@ -218,7 +226,7 @@ export interface TestExecuteRequest {
   category?: string;
 
   // Optional: Explicitly specify test type (otherwise auto-detected)
-  test_type?: 'Single-Turn' | 'Multi-Turn';
+  test_type?: TestTypeValue;
 }
 
 export interface TestExecuteResponse {
@@ -228,5 +236,32 @@ export interface TestExecuteResponse {
   test_output?: string | Record<string, any>; // Always returned
   test_metrics?: Record<string, any>; // Only if evaluate_metrics=True
   status: 'Pass' | 'Fail' | 'Error' | 'Pending'; // Status
-  test_configuration?: Record<string, any>; // For multi-turn tests
+  test_configuration?: Record<string, unknown>; // For multi-turn tests
+}
+
+// Conversation-to-test interfaces
+export interface ConversationMessage {
+  role: string;
+  content: string;
+}
+
+export interface ConversationToTestRequest {
+  messages: ConversationMessage[];
+  endpoint_id?: string;
+  test_type?: TestTypeValue;
+}
+
+export interface ConversationToTestResponse {
+  test_id: string;
+  message: string;
+}
+
+export interface ConversationTestExtractionResponse {
+  test_type: TestTypeValue;
+  behavior: string;
+  category: string;
+  topic: string;
+  prompt_content?: string;
+  expected_response?: string;
+  test_configuration?: Record<string, unknown>;
 }

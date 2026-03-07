@@ -38,6 +38,16 @@ def test_metric_config_with_metric_type():
     assert config.metric_type == "generation"
 
 
+def test_metric_config_with_explanation():
+    config = MetricConfig(explanation="This metric measures response quality")
+    assert config.explanation == "This metric measures response quality"
+
+
+def test_metric_config_explanation_defaults_to_none():
+    config = MetricConfig()
+    assert config.explanation is None
+
+
 def test_metric_config_with_invalid_backend():
     with pytest.raises(ValueError):
         MetricConfig(backend="invalid")

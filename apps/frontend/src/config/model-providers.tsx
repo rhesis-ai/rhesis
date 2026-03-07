@@ -1,15 +1,18 @@
 import React from 'react';
 import {
-  SiOpenai,
+  SiAnthropic,
   SiGoogle,
   SiHuggingface,
+  SiMeta,
+  SiMistralai,
   SiOllama,
+  SiOpenrouter,
+  SiPerplexity,
   SiReplicate,
 } from '@icons-pack/react-simple-icons';
-import AnthropicIcon from '@mui/icons-material/Psychology';
-import CohereLogo from '@mui/icons-material/AutoFixHigh';
-import MistralIcon from '@mui/icons-material/AcUnit';
+import CloudIcon from '@mui/icons-material/Cloud';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import HubIcon from '@mui/icons-material/Hub';
 import Image from 'next/image';
 
 /**
@@ -40,6 +43,9 @@ export const SUPPORTED_PROVIDERS = [
   'huggingface',
   'lmformatenforcer',
   'meta_llama',
+  'litellm_proxy',
+  'azure_ai',
+  'azure',
 ];
 
 export const LOCAL_PROVIDERS = ['huggingface', 'lmformatenforcer', 'ollama'];
@@ -52,36 +58,35 @@ export const PROVIDERS_REQUIRING_ENDPOINT = [
   'vllm',
   'huggingface',
   'lmformatenforcer',
+  'litellm_proxy',
+  'azure_ai',
+  'azure',
 ];
 
 // Default endpoints for providers that need them
 export const DEFAULT_ENDPOINTS: Record<string, string> = {
   ollama: 'http://host.docker.internal:11434',
   vllm: 'http://localhost:8000',
+  litellm_proxy: 'http://0.0.0.0:4000',
 };
+
+// Providers where the API key is optional (proxy servers that may not require auth)
+export const PROVIDERS_WITH_OPTIONAL_API_KEY = ['litellm_proxy'];
 
 // Provider icon mapping
 export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
-  anthropic: (
-    <AnthropicIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
-  ),
-  cohere: <CohereLogo sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  anthropic: <SiAnthropic className="h-8 w-8" />,
+  cohere: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   gemini: <SiGoogle className="h-8 w-8" />,
   groq: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   huggingface: <SiHuggingface className="h-8 w-8" />,
   lmformatenforcer: <SiHuggingface className="h-8 w-8" />,
-  meta_llama: (
-    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
-  ),
-  mistral: <MistralIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  meta_llama: <SiMeta className="h-8 w-8" />,
+  mistral: <SiMistralai className="h-8 w-8" />,
   ollama: <SiOllama className="h-8 w-8" />,
-  openai: <SiOpenai className="h-8 w-8" />,
-  openrouter: (
-    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
-  ),
-  perplexity: (
-    <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />
-  ),
+  openai: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  openrouter: <SiOpenrouter className="h-8 w-8" />,
+  perplexity: <SiPerplexity className="h-8 w-8" />,
   polyphemus: (
     <Image
       src="/logos/polyphemus-logo-favicon-transparent.svg"
@@ -106,6 +111,9 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   ),
   vertex_ai: <SiGoogle className="h-8 w-8" />,
   vllm: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  litellm_proxy: <HubIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  azure_ai: <CloudIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  azure: <CloudIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
 };
 
 // Provider information interface

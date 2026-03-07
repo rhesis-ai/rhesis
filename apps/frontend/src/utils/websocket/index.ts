@@ -19,4 +19,5 @@ export {
   type ChatMessagePayload,
   type ChatResponsePayload,
   type ChatErrorPayload,
+  type FileAttachment,
 } from './types';

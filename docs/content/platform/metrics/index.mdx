@@ -94,6 +94,44 @@ weigh issues by importance, then determine the final score."
 
 ---
 
+### Using Metadata in Evaluation
+
+Metrics can evaluate structured metadata returned by your endpoint alongside the text response. This is useful for evaluating aspects that go beyond the output text, such as token usage, latency, model version, confidence scores, or any custom data your API returns.
+
+**How it works:**
+
+1. Configure your endpoint's [response mapping](/platform/endpoints) to extract a `metadata` field from the API response (e.g., `"metadata": "$.usage"`)
+2. Reference the metadata in your metric's **Evaluation Prompt** -- the JSON object will be available to the evaluation model automatically
+
+**Example:** Evaluating token efficiency
+
+Endpoint response mapping:
+```
+\{
+  "output": "$.choices[0].message.content",
+  "metadata": "$.usage"
+\}
+```
+
+Evaluation Prompt:
+```
+Evaluate whether the response is efficient in token usage.
+Check the metadata for token counts. A response that uses more than
+500 tokens for a simple factual question should score lower.
+Consider the ratio of useful content to total tokens.
+```
+
+The evaluation model receives the metadata as a JSON object under "Response Metadata" and can reason about its contents when producing a score.
+
+**Common metadata use cases:**
+- **Token usage** -- evaluate cost efficiency by checking `prompt_tokens` and `completion_tokens`
+- **Confidence scores** -- verify the model's self-reported confidence aligns with response quality
+- **Source citations** -- check that retrieved sources are relevant and properly attributed
+- **Latency or timing** -- flag responses that took unusually long
+- **Model version** -- ensure the correct model was used
+
+---
+
 ### 2. Score Configuration
 
 Choose your scoring approach:
