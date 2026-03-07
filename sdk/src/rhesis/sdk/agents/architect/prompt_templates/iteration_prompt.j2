@@ -17,7 +17,7 @@ Conversation & Execution History:
 Based on the user's message, the current mode, available tools, and history above, decide what to do next.
 
 {% else %}
-This is the start of the conversation. Analyze the user's request and begin the discovery phase.
+This is the start of the conversation. Analyze the user's request. If it's a direct action (e.g. update a metric, list entities, link a behavior), execute it immediately using the available tools. Otherwise, begin the discovery phase.
 
 {% endif %}
 Your response should follow this structure:

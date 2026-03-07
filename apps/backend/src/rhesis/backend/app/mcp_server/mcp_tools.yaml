@@ -130,7 +130,7 @@ tools:
       Get details of a specific test result including the prompt,
       response, metric scores, and evaluation details.
 
-  # ── Reference Data (read-only) ────────────────────────────
+  # ── Behaviors ─────────────────────────────────────────────
   - name: list_behaviors
     method: GET
     path: /behaviors/
@@ -138,6 +138,23 @@ tools:
       List available behaviors. Behaviors define what an endpoint should
       do (e.g., "answer questions accurately", "refuse harmful requests").
 
+  - name: create_behavior
+    method: POST
+    path: /behaviors/
+    description: >
+      Create a behavior with a name AND description upfront. Use this
+      BEFORE create_test_set_bulk so that when test objects reference
+      the behavior by name, the server finds the pre-created behavior
+      (with its description) instead of auto-creating a description-less
+      one. Do NOT send server-managed fields (id, user_id, organization_id,
+      created_at, updated_at).
+    parameters:
+      name:
+        description: "REQUIRED. Behavior name (string, e.g. 'Refuses harmful requests')."
+      description:
+        description: "REQUIRED. Explain what this behavior means and how it should be evaluated."
+
+  # ── Categories & Topics ───────────────────────────────────
   - name: list_categories
     method: GET
     path: /categories/
@@ -151,6 +168,22 @@ tools:
     description: >
       List available topics. Topics define subject areas for tests
       (e.g., "healthcare", "finance", "general knowledge").
+
+  - name: update_behavior
+    method: PUT
+    path: /behaviors/{behavior_id}
+    description: >
+      Update an existing behavior's fields. Use this to add a description
+      to a behavior that was auto-created by create_test_set_bulk (which
+      only sets the name). A behavior with a clear description is more
+      useful for test planning and metric evaluation.
+    parameters:
+      behavior_id:
+        description: "REQUIRED. UUID of the behavior to update."
+      name:
+        description: "Behavior name (string). Omit to keep unchanged."
+      description:
+        description: "Behavior description (string). Explain what this behavior means and how it should be evaluated."
 
   - name: list_metrics
     method: GET
@@ -247,6 +280,33 @@ tools:
           REQUIRED. Natural-language instructions describing what to change
           (e.g. "lower the threshold to 2", "switch to categorical with
           pass/fail categories").
+
+  - name: add_behavior_to_metric
+    method: POST
+    path: /metrics/{metric_id}/behaviors/{behavior_id}
+    description: >
+      Link a behavior to a metric, so the metric is used to evaluate
+      that behavior during test runs. Both the metric and the behavior
+      must already exist. Call this after creating or generating a metric
+      to wire it to the relevant behaviors. Idempotent — calling it
+      again for the same pair is a no-op.
+    parameters:
+      metric_id:
+        description: "REQUIRED. UUID of the metric."
+      behavior_id:
+        description: "REQUIRED. UUID of the behavior to associate."
+
+  - name: get_metric_behaviors
+    method: GET
+    path: /metrics/{metric_id}/behaviors/
+    description: >
+      List all behaviors currently linked to a metric. Use this to
+      verify which behaviors a metric evaluates or to check whether a
+      specific behavior is already associated before calling
+      add_behavior_to_metric.
+    parameters:
+      metric_id:
+        description: "REQUIRED. UUID of the metric."
 
   - name: list_endpoints
     method: GET
