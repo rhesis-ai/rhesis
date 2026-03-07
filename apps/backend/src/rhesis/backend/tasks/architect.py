@@ -160,11 +160,13 @@ def architect_chat_task(
         from rhesis.backend.app.mcp_server.local_tools import (
             LocalToolProvider,
         )
+
+        # Resolve user, model, and delegation token for tool auth.
+        from rhesis.backend.app.utils.user_model_utils import (
+            get_user_generation_model,
+        )
         from rhesis.sdk.agents.architect.agent import ArchitectAgent
 
-        # Create delegation token for tool auth on behalf of the user.
-        # Token lifetime must exceed task time_limit (6 min) to avoid
-        # mid-execution auth failures.
         with get_db_with_tenant_variables(org_id or "", user_id or "") as db:
             user = crud.get_user_by_id(db, user_id)
             if not user:
@@ -172,12 +174,14 @@ def architect_chat_task(
             if not user.is_active:
                 raise ValueError(f"User {user_id} is inactive")
             delegation_token = create_service_delegation_token(user, "backend")
+            model = get_user_generation_model(db, user)
 
         # In-process tool provider — calls FastAPI routes via ASGI
         # transport, no MCP protocol or external HTTP needed.
         tool_provider = LocalToolProvider(fastapi_app, delegation_token)
 
         agent = ArchitectAgent(
+            model=model,
             tools=[tool_provider],
             event_handlers=[ws_handler],
             max_iterations=saved_agent_state.get("max_iterations", 15),
