@@ -99,7 +99,7 @@ export default function ArchitectMessageBubble({
           '&:hover .copy-btn': { opacity: 1 },
         }}
       >
-        <MarkdownContent content={message.content} />
+        <MarkdownContent content={message.content} variant="body2" />
 
         {/* Footer with time and copy */}
         <Box
