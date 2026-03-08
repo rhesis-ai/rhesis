@@ -260,6 +260,7 @@ def architect_chat_task(
                     "session_id": session_id,
                     "content": response,
                     "mode": agent.mode,
+                    "needs_confirmation": agent.needs_confirmation,
                     "plan": (
                         agent.plan.to_markdown()
                         if agent.plan and hasattr(agent.plan, "to_markdown")

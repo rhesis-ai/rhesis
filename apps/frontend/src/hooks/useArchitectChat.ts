@@ -17,6 +17,7 @@ export interface ArchitectChatMessage {
   content: string;
   timestamp: Date;
   isError?: boolean;
+  needsConfirmation?: boolean;
 }
 
 export interface StreamingState {
@@ -107,6 +108,7 @@ export function useArchitectChat(
           role: 'assistant',
           content: payload.content || '',
           timestamp: new Date(),
+          needsConfirmation: payload.needs_confirmation ?? false,
         };
         setMessages(prev => [...prev, assistantMessage]);
       })

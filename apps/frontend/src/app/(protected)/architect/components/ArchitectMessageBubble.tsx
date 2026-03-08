@@ -7,7 +7,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import EditIcon from '@mui/icons-material/Edit';
 import { ArchitectChatMessage } from '@/hooks/useArchitectChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import { UserAvatar } from '@/components/common/UserAvatar';
@@ -167,7 +167,7 @@ export default function ArchitectMessageBubble({
               size="small"
               variant="outlined"
               color="inherit"
-              startIcon={<HighlightOffIcon sx={{ fontSize: 16 }} />}
+              startIcon={<EditIcon sx={{ fontSize: 16 }} />}
               onClick={onReject}
               sx={{ textTransform: 'none', borderRadius: 2, py: 0.25 }}
             >

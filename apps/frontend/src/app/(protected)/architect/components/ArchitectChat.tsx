@@ -237,13 +237,15 @@ export default function ArchitectChat({
                 message.role === 'assistant' &&
                 !isLoading &&
                 index === messages.length - 1;
+              const showActions =
+                isLastAssistant && !!message.needsConfirmation;
               return (
                 <ArchitectMessageBubble
                   key={message.id}
                   message={message}
                   userName={authSession?.user?.name || undefined}
                   userPicture={authSession?.user?.picture || undefined}
-                  showActions={isLastAssistant}
+                  showActions={showActions}
                   onAccept={() => sendMessage('Yes, go ahead.')}
                   onReject={() => {
                     setInputValue('');

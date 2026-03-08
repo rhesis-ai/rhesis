@@ -62,6 +62,15 @@ class AgentAction(BaseModel):
         default=None,
         description=("Your final answer if action='finish'. Required when action='finish'."),
     )
+    needs_confirmation: bool = Field(
+        default=False,
+        description=(
+            "Set to true when your final_answer presents a plan or proposal "
+            "that requires the user's approval before you execute it. "
+            "For example, when you describe a metric, test set, or project "
+            "you intend to create and ask the user to confirm."
+        ),
+    )
 
 
 class ToolResult(BaseModel):
@@ -127,4 +136,8 @@ class AgentResult(BaseModel):
     error: Optional[str] = Field(
         default=None,
         description="Error message if execution failed",
+    )
+    needs_confirmation: bool = Field(
+        default=False,
+        description="Whether the response asks the user to confirm an action",
     )

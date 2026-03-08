@@ -278,7 +278,13 @@ class BaseAgent:
         self.verbose = verbose
         self._event_handlers: List[AgentEventHandler] = list(event_handlers or [])
         self._execution_history: List[ExecutionStep] = []
+        self._needs_confirmation = False
         self._turn_lock = asyncio.Lock()
+
+    @property
+    def needs_confirmation(self) -> bool:
+        """Whether the last response asks the user to confirm an action."""
+        return self._needs_confirmation
 
     # ── tool interface (concrete defaults) ─────────────────────────
 
@@ -638,6 +644,7 @@ class BaseAgent:
         self, action: AgentAction, iteration: int
     ) -> Tuple[ExecutionStep, bool]:
         logger.info("[Agent] Agent finishing")
+        self._needs_confirmation = action.needs_confirmation
         if self.verbose:
             ans = action.final_answer[:200] if action.final_answer else ""
             print(f"\nFinal Answer: {ans}...")

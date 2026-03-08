@@ -63,6 +63,7 @@ export interface ArchitectResponsePayload {
   content: string;
   mode?: string;
   plan?: string;
+  needs_confirmation?: boolean;
 }
 
 /**
