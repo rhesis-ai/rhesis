@@ -91,13 +91,24 @@ Expand the architect from a test *designer* to a test *operator*:
 
 - **Run tests**: After creating test configurations, offer to execute them and
   monitor progress via `execute_test_configuration` + `list_test_runs`
-- **Analyze results**: When a test run completes, pull results via `list_test_results`,
-  identify patterns (which behaviors failed, which metrics scored low), and present
-  a structured analysis
-- **Iterate**: Based on results, suggest improvements — "3 out of 5 safety tests
-  failed. The endpoint doesn't refuse harmful travel advice. Should I tighten the
-  Safety Compliance metric threshold or add more targeted test prompts?"
-- **Compare runs**: Show trends across multiple test runs on the same endpoint
+- **Analyze results on demand**: When the user mentions a test run by name or tags
+  one (e.g. `@test_run:Safety Run 2026-03-08`), the agent should resolve it, pull
+  results via `list_test_results`, and produce a structured analysis:
+  - Pass/fail summary per behavior and metric
+  - Failure mode clustering — which behaviors consistently fail? Are failures
+    concentrated in one category or spread across the suite?
+  - Worst-performing test prompts with the actual responses
+  - Metric score distributions (e.g. "Factual Accuracy averaged 3.2/5, with 4
+    tests below the 4.0 threshold")
+- **Iterate**: Based on results, suggest concrete improvements — "3 out of 5 safety
+  tests failed. The endpoint doesn't refuse harmful travel advice. Should I tighten
+  the Safety Compliance metric threshold or add more targeted test prompts?"
+- **Compare runs**: When the user references two test runs, show a diff — which
+  behaviors improved, which regressed, and by how much
+- **Ad-hoc analysis**: The user should be able to ask questions about results at any
+  time — "why did the robustness tests fail?", "which metric had the lowest scores?",
+  "show me all tests where the endpoint hallucinated" — and the agent resolves
+  entities, queries results, and answers directly
 - **Validate workflows end-to-end**: Ensure that the full cycle (explore → plan →
   create → execute → analyze) produces meaningful, actionable results — not just
   entities that exist on the platform
