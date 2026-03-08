@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-LOG_LEVEL = os.environ.get("LOG_LEVEL", "DEBUG")
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 LOG_DIR = os.environ.get("LOG_DIR", "logs")
-ENVIRONMENT = os.environ.get("ENVIRONMENT", "production")
+ENVIRONMENT = os.environ.get("ENVIRONMENT") or os.environ.get("ENV", "production")
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
 
