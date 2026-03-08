@@ -1898,7 +1898,7 @@ class TestGenerateOutputsForTests:
 # ============================================================================
 
 _EVAL_MODEL_PATCH = "rhesis.backend.tasks.execution.test.get_evaluation_model"
-_EVALUATE_ONE_PATCH = "rhesis.backend.app.services.adaptive_testing._evaluate_one"
+_EVALUATOR_PATCH = "rhesis.backend.metrics.evaluator.MetricEvaluator.evaluate"
 
 
 def _create_metric(db, name, organization_id, user_id):
@@ -1914,6 +1914,23 @@ def _create_metric(db, name, organization_id, user_id):
     db.add(metric)
     db.flush()
     return metric
+
+
+def _mock_evaluator_result(metric_name, label, score):
+    """Build a MetricEvaluator.evaluate()-shaped return dict."""
+    is_successful = label == "pass"
+    return {
+        metric_name: {
+            "score": score,
+            "reason": f"Score: {score}",
+            "is_successful": is_successful,
+            "backend": "rhesis",
+            "name": metric_name,
+            "class_name": "StubMetric",
+            "description": "stub metric",
+            "threshold": 0.5,
+        }
+    }
 
 
 @pytest.mark.integration
@@ -1934,8 +1951,8 @@ class TestEvaluateTestsForAdaptiveSet:
         with (
             patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
             patch(
-                _EVALUATE_ONE_PATCH,
-                return_value=("pass", 0.9),
+                _EVALUATOR_PATCH,
+                return_value=_mock_evaluator_result("TestMetric", "pass", 0.9),
             ),
         ):
             result = evaluate_tests_for_adaptive_set(
@@ -1976,7 +1993,10 @@ class TestEvaluateTestsForAdaptiveSet:
 
         with (
             patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
-            patch(_EVALUATE_ONE_PATCH, return_value=("fail", 0.3)),
+            patch(
+                _EVALUATOR_PATCH,
+                return_value=_mock_evaluator_result("PersistMetric", "fail", 0.3),
+            ),
         ):
             result = evaluate_tests_for_adaptive_set(
                 db=test_db,
@@ -2046,7 +2066,10 @@ class TestEvaluateTestsForAdaptiveSet:
 
         with (
             patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
-            patch(_EVALUATE_ONE_PATCH, return_value=("pass", 0.8)),
+            patch(
+                _EVALUATOR_PATCH,
+                return_value=_mock_evaluator_result("FilterMetric", "pass", 0.8),
+            ),
         ):
             result = evaluate_tests_for_adaptive_set(
                 db=test_db,
@@ -2073,7 +2096,10 @@ class TestEvaluateTestsForAdaptiveSet:
 
         with (
             patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
-            patch(_EVALUATE_ONE_PATCH, return_value=("pass", 0.7)),
+            patch(
+                _EVALUATOR_PATCH,
+                return_value=_mock_evaluator_result("TopicMetric", "pass", 0.7),
+            ),
         ):
             result = evaluate_tests_for_adaptive_set(
                 db=test_db,
@@ -2104,7 +2130,10 @@ class TestEvaluateTestsForAdaptiveSet:
 
         with (
             patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
-            patch(_EVALUATE_ONE_PATCH, return_value=("pass", 0.6)),
+            patch(
+                _EVALUATOR_PATCH,
+                return_value=_mock_evaluator_result("TopicNoSubMetric", "pass", 0.6),
+            ),
         ):
             result = evaluate_tests_for_adaptive_set(
                 db=test_db,
@@ -2130,7 +2159,10 @@ class TestEvaluateTestsForAdaptiveSet:
 
         with (
             patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
-            patch(_EVALUATE_ONE_PATCH, return_value=("pass", 1.0)),
+            patch(
+                _EVALUATOR_PATCH,
+                return_value=_mock_evaluator_result("SkipMarker", "pass", 1.0),
+            ),
         ):
             result = evaluate_tests_for_adaptive_set(
                 db=test_db,
