@@ -82,8 +82,9 @@ def verify_jwt_token(token: str, secret_key: str, algorithm: str = ALGORITHM) ->
             },
         )
 
-        # Check if it's a session token
-        if payload.get("type") != "session":
+        # Check token type — allow session and service delegation tokens
+        allowed_types = {"session", "service_delegation"}
+        if payload.get("type") not in allowed_types:
             logger.warning(f"Invalid token type: {payload.get('type')}")
             raise JWTError("Invalid token type")
 
