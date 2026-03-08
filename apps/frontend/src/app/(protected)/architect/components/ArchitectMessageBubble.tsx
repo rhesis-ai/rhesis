@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Box, Button, Paper, Typography, IconButton, Tooltip } from '@mui/material';
-import ArchitectureIcon from '@mui/icons-material/Architecture';
+import EngineeringIcon from '@mui/icons-material/Engineering';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
@@ -83,7 +83,7 @@ export default function ArchitectMessageBubble({
           {message.isError ? (
             <ErrorOutlineIcon sx={{ fontSize: 18, color: 'error.main' }} />
           ) : (
-            <ArchitectureIcon sx={{ fontSize: 18 }} />
+            <EngineeringIcon sx={{ fontSize: 18 }} />
           )}
         </Box>
       )}

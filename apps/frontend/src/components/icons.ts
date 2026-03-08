@@ -73,7 +73,7 @@ export { default as VisibilityOffIcon } from '@mui/icons-material/VisibilityOffO
 export { default as LockIcon } from '@mui/icons-material/LockOutlined';
 
 // Architect icon
-export { default as ArchitectureIcon } from '@mui/icons-material/ArchitectureOutlined';
+export { default as EngineeringIcon } from '@mui/icons-material/EngineeringOutlined';
 
 // Metric specific icons
 export { default as PrecisionManufacturingIcon } from '@mui/icons-material/PrecisionManufacturingOutlined';

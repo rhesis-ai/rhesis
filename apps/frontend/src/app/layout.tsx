@@ -28,7 +28,7 @@ import {
   TimelineIcon,
   ChatIcon,
   AccountTreeIcon,
-  ArchitectureIcon,
+  EngineeringIcon,
 } from '@/components/icons';
 import { auth } from '../auth';
 import { handleSignIn, handleSignOut } from '../actions/auth';
@@ -153,7 +153,7 @@ async function getNavigationItems(
       kind: 'page',
       segment: 'architect',
       title: 'Architect',
-      icon: <ArchitectureIcon key="architect-icon" />,
+      icon: <EngineeringIcon key="architect-icon" />,
     },
     {
       kind: 'page',
