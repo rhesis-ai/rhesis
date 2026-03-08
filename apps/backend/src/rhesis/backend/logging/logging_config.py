@@ -195,6 +195,9 @@ def _create_formatter(*, color: bool = False):
     return cls(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
 
 
+_configured = False
+
+
 def set_logger():
     """Configure the root logger for the application.
 
@@ -202,7 +205,13 @@ def set_logger():
     and applies the sensitive data filter to all relevant loggers.
 
     Must be called once during application startup (e.g. in main.py).
+    Subsequent calls are no-ops to prevent duplicate handlers/filters.
     """
+    global _configured
+    if _configured:
+        return
+    _configured = True
+
     root_logger = logging.getLogger()
     root_logger.setLevel(LOG_LEVEL)
 
