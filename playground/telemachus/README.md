@@ -10,10 +10,39 @@ Improving the ArchitectAgent's ability to design and create test suites autonomo
 | 02 | `02-mcp-tool-descriptions.md` | Done |
 | 03 | `03-playground-test-scenarios.md` | Reference (scripts proposed, not all created) |
 | 04 | `04-architect-behavior-tuning.md` | Done |
-| 05 | `05-personality-and-auth.md` | Next |
-| 06 | `06-conversational-ux.md` | Planned |
+| 05 | `05-personality-and-auth.md` | Done |
+| 06 | `06-conversational-ux.md` | In progress |
 | 07 | `07-entity-linking-and-files.md` | Planned |
 | 08 | `08-test-execution-and-analysis.md` | Planned |
+
+## What was done (Phase 05)
+
+### Personality
+- Created `personality.j2` defining the Telemachus character (warm, direct, curious, funny but never sarcastic)
+- Injected into system prompt via `{% include "personality.j2" %}`
+
+### Auth cleanup
+- Consolidated `auth_utils.py` (345-line duplicate) into a thin re-export shim
+- Fixed `verify_jwt_token` in `token_utils.py` to accept `service_delegation` tokens
+- Updated MCP server imports to use canonical modules
+
+### Streaming UI improvements
+- Added `label` field to every tool in `mcp_tools.yaml` for human-readable descriptions
+- Streaming indicator now shows contextual labels (e.g., "Creating behavior: Refuses harmful requests") instead of raw tool names
+
+### OData `$select` support
+- Added `apply_select()` utility to `odata.py`
+- Added `$select` query parameter to all 11 list routers
+- Agent system prompt teaches `$select` usage for lightweight queries
+- Increased agent history content preview to 4000 chars
+
+### Agent behavior refinements
+- Agent no longer auto-checks endpoint connectivity when just listing endpoints
+- Agent must present what it plans to do (future tense) and wait for user confirmation before any create/update/delete action
+- Agent never shows UUIDs in user-facing messages — refers to entities by name only
+- Agent does not auto-execute tests; offers to run them after creation and waits for confirmation
+- `needs_confirmation` field added to `AgentAction` schema — LLM signals when a response proposes an action requiring approval
+- Accept/Change buttons appear in the UI only when the agent sets `needs_confirmation: true`
 
 ## What was done (Phase 04)
 
@@ -29,24 +58,6 @@ Behavior tuning is complete. The agent now:
 - **Batches API calls** — resolves multiple behavior IDs in 1-2 calls, not 10
 
 ## Next steps
-
-### Phase 05: Personality and Auth (`05-personality-and-auth.md`)
-
-**Personality**: Create a foundational character document for the architect. Its name
-is Telemachus. The personality should be knowledgeable but approachable, with a dry
-sense of humor. Think "senior engineer who's seen everything but still finds testing
-genuinely interesting." The character doc should define tone, vocabulary, quirks, and
-how Telemachus handles different situations (errors, user confusion, planning, etc.).
-This feeds into `system_prompt.j2` as the agent's voice.
-
-**Auth fix**: The `verify_jwt_token` function rejects `service_delegation` tokens
-because it only accepts `type: "session"`. Fix landed in `fe7c91e1d` but needs
-verification in the full frontend flow:
-- Celery worker creates a delegation token for LocalToolProvider
-- LocalToolProvider passes it as Bearer header to ASGI transport
-- Backend auth must accept it as valid
-- Test: frontend sends "I want to test my endpoint" and the agent successfully
-  calls `list_endpoints` without a 401
 
 ### Phase 06: Conversational UX (`06-conversational-ux.md`)
 
@@ -65,6 +76,9 @@ using its tools to learn about the endpoint. Improvements:
 - **Progress awareness**: The agent should track what it knows and what it still needs
   to learn, and communicate that to the user ("I have a good picture of the functional
   capabilities. Before I design the test suite, do you have any compliance requirements?")
+- **Entity links in responses**: When the agent creates or references platform entities
+  (test runs, metrics, test sets, endpoints, etc.), it should include clickable links
+  (target=_blank) so the user can navigate directly to them on the platform.
 
 ### Phase 07: Entity Linking and Files (`07-entity-linking-and-files.md`)
 
@@ -163,10 +177,13 @@ confirm/deny outcomes.
 | File | Purpose |
 |------|---------|
 | `sdk/src/rhesis/sdk/agents/architect/prompt_templates/system_prompt.j2` | Agent behavior — this is where most tuning happens |
+| `sdk/src/rhesis/sdk/agents/architect/prompt_templates/personality.j2` | Telemachus character definition |
 | `sdk/src/rhesis/sdk/agents/architect/prompt_templates/iteration_prompt.j2` | Per-iteration prompt with mode and history |
-| `apps/backend/src/rhesis/backend/app/mcp_server/mcp_tools.yaml` | Tool descriptions the agent sees |
+| `sdk/src/rhesis/sdk/agents/schemas.py` | AgentAction/AgentResult schemas (needs_confirmation) |
+| `apps/backend/src/rhesis/backend/app/mcp_server/mcp_tools.yaml` | Tool descriptions and labels the agent sees |
 | `apps/backend/src/rhesis/backend/app/mcp_server/local_tools.py` | In-process tool provider for Celery worker |
-| `apps/backend/src/rhesis/backend/app/auth/auth_utils.py` | JWT verification (delegation token fix) |
+| `apps/backend/src/rhesis/backend/app/utils/odata.py` | OData filter and $select utilities |
+| `apps/backend/src/rhesis/backend/app/auth/token_utils.py` | JWT verification (delegation token support) |
 | `apps/backend/src/rhesis/backend/tasks/architect.py` | Celery task that runs the agent |
 | `sdk/src/rhesis/sdk/agents/base.py` | Tool formatting, server-managed field filtering |
 | `sdk/src/rhesis/sdk/metrics/synthesizer.py` | MetricSynthesizer (generate + improve) |
