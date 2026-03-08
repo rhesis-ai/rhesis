@@ -7,15 +7,22 @@ plan tracking. Tools are injected by the caller.
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
 from rhesis.sdk.agents.events import AgentEventHandler, _emit
+from rhesis.sdk.agents.schemas import AgentAction, ExecutionStep, ToolResult
 from rhesis.sdk.models.base import BaseLLM
 
 from .plan import ArchitectPlan
 
 logger = logging.getLogger(__name__)
+
+# HTTP methods that are considered read-only.  Used as a fallback
+# when a tool definition lacks an explicit ``requires_confirmation``
+# flag — tools whose HTTP method is not in this set are treated as
+# requiring confirmation.
+_READONLY_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 class ArchitectAgent(BaseAgent):
@@ -66,6 +73,25 @@ class ArchitectAgent(BaseAgent):
         self._plan: Optional[ArchitectPlan] = None
         self._mode: str = "discovery"
 
+        # ── write-guard state ────────────────────────────────────
+        # Two-layer defense:
+        #  Layer 1 (prompt): The system prompt tells the LLM to present
+        #    a plan and ask for confirmation before creating entities.
+        #  Layer 2 (structural): This guard intercepts mutating tool
+        #    calls if the LLM ignores the prompt.  It is a safety net,
+        #    not a replacement for prompt-based control.
+        #
+        # _confirming_tools: the specific tools that were blocked and
+        #   presented for confirmation.  Only these are unlocked when
+        #   the user replies — not all mutating tools.
+        # _creation_approved: True for the turn immediately after a
+        #   confirmation prompt, False otherwise.
+        # _mutating_tools: lazily built from tool metadata on first
+        #   call to get_available_tools().
+        self._creation_approved: bool = False
+        self._confirming_tools: FrozenSet[str] = frozenset()
+        self._mutating_tools: Optional[FrozenSet[str]] = None
+
     # ── public API ──────────────────────────────────────────────────
 
     def chat(self, message: str) -> str:
@@ -88,6 +114,15 @@ class ArchitectAgent(BaseAgent):
         async with self._turn_lock:
             self._conversation_history.append({"role": "user", "content": message})
 
+            # If the previous turn asked for confirmation, unlock
+            # only the specific tools that were blocked — not all
+            # mutating tools.  The LLM decides whether the user's
+            # message is an approval or a change request; the guard
+            # just ensures at least one confirmation round-trip
+            # happened before any write operation.
+            if self._needs_confirmation and self._confirming_tools:
+                self._creation_approved = True
+
             if self.verbose:
                 print(f"\n[Architect:{self._mode}] User: {message}")
 
@@ -101,6 +136,14 @@ class ArchitectAgent(BaseAgent):
                 response = await self._run_loop(message)
 
                 self._conversation_history.append({"role": "assistant", "content": response})
+
+                # Reset approval after the turn completes — each
+                # creation batch requires its own confirmation.
+                # _confirming_tools persists across turns so the next
+                # turn knows which tools were approved; it is only
+                # cleared when approval is consumed (not when a new
+                # block replaces it during the same turn).
+                self._creation_approved = False
 
                 if self.verbose:
                     print(f"[Architect:{self._mode}] Response: {response[:200]}...")
@@ -147,6 +190,120 @@ class ArchitectAgent(BaseAgent):
         self._execution_history.clear()
         self._plan = None
         self._mode = "discovery"
+        self._creation_approved = False
+        self._confirming_tools = frozenset()
+        self._mutating_tools = None
+
+    # ── write-guard ────────────────────────────────────────────────
+
+    async def get_available_tools(self) -> List[Dict[str, Any]]:
+        """Override to discover which tools require confirmation.
+
+        Uses explicit ``requires_confirmation`` metadata when present
+        in tool definitions (set in mcp_tools.yaml).  Falls back to
+        HTTP method heuristic for tools without the flag: GET/HEAD/
+        OPTIONS are read-only, everything else requires confirmation.
+        """
+        tools = await super().get_available_tools()
+
+        if self._mutating_tools is None:
+            mutating: Set[str] = set()
+            for t in tools:
+                rc = t.get("requires_confirmation")
+                if rc is not None:
+                    # Explicit flag — honour it
+                    if rc:
+                        mutating.add(t["name"])
+                else:
+                    # Fallback: infer from HTTP method
+                    method = t.get("http_method", "POST").upper()
+                    if method not in _READONLY_HTTP_METHODS:
+                        mutating.add(t["name"])
+            self._mutating_tools = frozenset(mutating)
+            logger.debug(
+                "[Architect] Discovered %d tools requiring confirmation: %s",
+                len(self._mutating_tools),
+                sorted(self._mutating_tools),
+            )
+        return tools
+
+    def _is_mutating(self, tool_name: str) -> bool:
+        """Check if a tool requires user confirmation before execution."""
+        if self._mutating_tools is None:
+            # Tools not yet discovered — be conservative
+            return True
+        return tool_name in self._mutating_tools
+
+    async def _handle_tool_calls(
+        self, action: AgentAction, iteration: int
+    ) -> Tuple[ExecutionStep, bool]:
+        """Override to block mutating tools until the user confirms.
+
+        If the LLM tries to call a tool that requires confirmation
+        without prior user approval, the call is intercepted and
+        converted into a finish action that presents the plan and
+        asks for confirmation.  Read-only tools are always allowed.
+
+        Approval is scoped: only the specific tools that were blocked
+        are unlocked when the user replies, not all mutating tools.
+        """
+        mutating = [tc for tc in action.tool_calls if self._is_mutating(tc.tool_name)]
+
+        if mutating and not self._is_approved(mutating):
+            # Block: describe what we *would* do instead of doing it
+            blocked_names = [tc.tool_name for tc in mutating]
+            logger.info(
+                "[Architect] Blocked tools pending confirmation: %s",
+                blocked_names,
+            )
+
+            # Remember which tools were blocked so only those are
+            # unlocked when the user replies.
+            self._confirming_tools = frozenset(blocked_names)
+
+            # Allow read-only tools to still execute (e.g. list_metrics
+            # called alongside create_metric)
+            read_only = [tc for tc in action.tool_calls if not self._is_mutating(tc.tool_name)]
+            if read_only:
+                read_results = await self._execute_tools(read_only)
+                self._execution_history.append(
+                    ExecutionStep(
+                        iteration=iteration,
+                        reasoning=action.reasoning,
+                        action="call_tool",
+                        tool_calls=read_only,
+                        tool_results=read_results,
+                    )
+                )
+
+            # Convert to a finish action that asks for confirmation
+            finish_action = AgentAction(
+                reasoning=(
+                    f"{action.reasoning}\n\n"
+                    f"[BLOCKED] The following tools require user "
+                    f"confirmation: {blocked_names}. "
+                    f"Present the plan and ask the user to confirm."
+                ),
+                action="finish",
+                final_answer=action.final_answer or action.reasoning,
+                needs_confirmation=True,
+            )
+            return await self._handle_finish_action(finish_action, iteration)
+
+        # No mutating tools, or approved — proceed normally
+        return await super()._handle_tool_calls(action, iteration)
+
+    def _is_approved(self, tool_calls: list) -> bool:
+        """Check if the requested tool calls are approved.
+
+        Approval is scoped: when the guard blocks tools, it records
+        which ones were blocked in ``_confirming_tools``.  On the
+        next turn, only those specific tools are unlocked.
+        """
+        if not self._creation_approved:
+            return False
+        # All requested mutating tools must be in the approved set
+        return all(tc.tool_name in self._confirming_tools for tc in tool_calls)
 
     # ── transport lifecycle ─────────────────────────────────────────
 
@@ -184,6 +341,86 @@ class ArchitectAgent(BaseAgent):
             history_text=history_text,
             plan_text=plan_text,
         )
+
+    # ── streaming finish (Phase 2 LLM call) ─────────────────────
+
+    async def _handle_finish_action(
+        self, action: AgentAction, iteration: int
+    ) -> Tuple[ExecutionStep, bool]:
+        """Override to stream the final response token-by-token."""
+        logger.info("[Architect] Streaming final response")
+        self._needs_confirmation = action.needs_confirmation
+
+        seed = action.final_answer or ""
+        streaming_prompt = self._build_streaming_prompt(
+            reasoning=action.reasoning,
+            final_answer=seed,
+        )
+
+        streamed_content = await self._stream_final_response(
+            prompt=streaming_prompt,
+            system_prompt="",
+            fallback_content=seed,
+            needs_confirmation=action.needs_confirmation,
+        )
+
+        if self.verbose:
+            preview = streamed_content[:200] if streamed_content else ""
+            print(f"\nStreamed Answer: {preview}...")
+
+        return (
+            ExecutionStep(
+                iteration=iteration,
+                reasoning=action.reasoning,
+                action="finish",
+                tool_calls=[],
+                tool_results=[
+                    ToolResult(
+                        tool_name="finish",
+                        success=True,
+                        content=streamed_content,
+                    )
+                ],
+            ),
+            True,
+        )
+
+    def _build_streaming_prompt(
+        self,
+        reasoning: str,
+        final_answer: str,
+    ) -> str:
+        """Build the prompt for the streaming Phase 2 LLM call."""
+        conv_window = self._conversation_history[-self._history_window :]
+        plan_text = self._plan.to_markdown() if self._plan else ""
+
+        # Include tool results so the LLM can reference actual data
+        tool_results_text = self._format_tool_results_for_streaming()
+
+        template = self._jinja_env.get_template("streaming_response.j2")
+        return template.render(
+            conversation_history=conv_window,
+            plan_text=plan_text,
+            tool_results=tool_results_text,
+            reasoning=reasoning,
+            final_answer=final_answer,
+        )
+
+    def _format_tool_results_for_streaming(self) -> str:
+        """Format tool results from the current turn for the streaming prompt."""
+        if not self._execution_history:
+            return ""
+        parts: List[str] = []
+        for step in self._execution_history:
+            if step.tool_results:
+                for tr in step.tool_results:
+                    if tr.success and tr.content:
+                        parts.append(f"[{tr.tool_name}]: {tr.content[:4000]}")
+                    elif tr.error:
+                        parts.append(f"[{tr.tool_name}] Error: {tr.error}")
+        return "\n\n".join(parts)
+
+    # ── history formatting ─────────────────────────────────────────
 
     def _format_history(self) -> str:
         parts: List[str] = []

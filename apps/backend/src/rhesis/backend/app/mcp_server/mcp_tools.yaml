@@ -13,6 +13,7 @@ tools:
     label: Creating project
     method: POST
     path: /projects/
+    requires_confirmation: true
     description: >
       Create a new project to organize test suites. A project groups
       related test sets, test configurations, and test runs.
@@ -31,6 +32,7 @@ tools:
     label: Creating test set
     method: POST
     path: /test_sets/bulk
+    requires_confirmation: true
     description: >
       Create a test set with its tests in a single operation. The "tests"
       array is REQUIRED and must contain at least one test object.
@@ -72,6 +74,7 @@ tools:
     label: Executing tests
     method: POST
     path: /tests/execute
+    requires_confirmation: true
     description: >
       Execute tests against a configured endpoint. Sends prompts to
       the endpoint, collects responses, and evaluates results.
@@ -90,6 +93,7 @@ tools:
     label: Setting up test configuration
     method: POST
     path: /test_configurations/
+    requires_confirmation: true
     description: >
       Create a test configuration that links a test set to an endpoint.
       Required: endpoint_id (UUID string), test_set_id (UUID string).
@@ -103,6 +107,7 @@ tools:
     label: Running tests
     method: POST
     path: /test_configurations/{test_configuration_id}/execute
+    requires_confirmation: true
     description: >
       Execute a test configuration — runs all tests in the linked test
       set against the configured endpoint.
@@ -121,6 +126,7 @@ tools:
     label: Creating test run
     method: POST
     path: /test_runs/
+    requires_confirmation: true
     description: >
       Create a new test run to track the execution of a test configuration.
 
@@ -164,6 +170,7 @@ tools:
     label: Creating behavior
     method: POST
     path: /behaviors/
+    requires_confirmation: true
     description: >
       Create a behavior with a name AND description upfront. Use this
       BEFORE create_test_set_bulk so that when test objects reference
@@ -200,6 +207,7 @@ tools:
     label: Updating behavior
     method: PUT
     path: /behaviors/{behavior_id}
+    requires_confirmation: true
     description: >
       Update an existing behavior's fields. Use this to add a description
       to a behavior that was auto-created by create_test_set_bulk (which
@@ -227,6 +235,7 @@ tools:
     label: Creating metric
     method: POST
     path: /metrics/
+    requires_confirmation: true
     description: >
       Create a new evaluation metric. Do NOT send server-managed fields
       (id, user_id, organization_id, created_at, updated_at, owner_id,
@@ -282,6 +291,7 @@ tools:
     label: Generating metric
     method: POST
     path: /metrics/generate
+    requires_confirmation: true
     description: >
       Auto-generate a complete metric from a natural-language description.
       An LLM produces all required fields (name, evaluation_prompt,
@@ -300,6 +310,7 @@ tools:
     label: Improving metric
     method: POST
     path: /metrics/{metric_id}/improve
+    requires_confirmation: true
     description: >
       Improve an existing metric using natural-language edit instructions.
       The LLM reads the current metric fields and applies the requested
@@ -318,6 +329,7 @@ tools:
     label: Linking behavior to metric
     method: POST
     path: /metrics/{metric_id}/behaviors/{behavior_id}
+    requires_confirmation: true
     description: >
       Link a behavior to a metric, so the metric is used to evaluate
       that behavior during test runs. Both the metric and the behavior
@@ -356,6 +368,7 @@ tools:
     label: Checking endpoint connectivity
     method: POST
     path: /endpoints/{endpoint_id}/invoke
+    requires_confirmation: false
     description: >
       Send a test message to an endpoint to verify it is reachable and
       responding. Only use this when you are about to act on the endpoint

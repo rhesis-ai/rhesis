@@ -41,7 +41,7 @@ def _make_agent(
     history_window=None,
 ):
     """Create an ArchitectAgent with a mock model."""
-    return ArchitectAgent(
+    agent = ArchitectAgent(
         model=mock_model,
         tools=tools or [],
         max_iterations=max_iterations,
@@ -50,6 +50,24 @@ def _make_agent(
         history_window=history_window,
         verbose=False,
     )
+    # Default to empty so the write-guard doesn't block tests that
+    # aren't specifically testing it.  Write-guard tests set this
+    # explicitly.
+    agent._mutating_tools = frozenset()
+    return agent
+
+
+def _mock_model():
+    """Create a mock BaseLLM with generate_stream support."""
+    model = Mock(spec=BaseLLM)
+    model.generate = Mock(return_value={})
+
+    async def _default_stream(prompt, system_prompt=None, **kw):
+        # Fallback: yields the final_answer seed from the finish action
+        yield prompt[:50] if prompt else "response"
+
+    model.generate_stream = Mock(side_effect=_default_stream)
+    return model
 
 
 def _finish_dict(answer="Done"):
@@ -329,3 +347,375 @@ class TestArchitectAgentHistoryWindowing:
         agent._conversation_history.append({"role": "user", "content": "hi"})
         formatted = agent._format_history()
         assert "omitted" not in formatted
+
+
+# ── write-guard tests ─────────────────────────────────────────────
+
+
+@pytest.mark.unit
+class TestArchitectWriteGuard:
+    """Test that mutating tools are blocked until user confirms."""
+
+    @pytest.fixture
+    def mock_model(self):
+        model = Mock(spec=BaseLLM)
+        model.generate = Mock(return_value={})
+        return model
+
+    # -- _is_mutating --
+
+    def test_mutating_tools_detected_from_http_method(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._mutating_tools = frozenset(
+            {"create_metric", "generate_metric", "update_behavior", "execute_tests"}
+        )
+        assert agent._is_mutating("create_metric") is True
+        assert agent._is_mutating("generate_metric") is True
+        assert agent._is_mutating("update_behavior") is True
+        assert agent._is_mutating("execute_tests") is True
+
+    def test_readonly_tools_not_mutating(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._mutating_tools = frozenset({"create_metric"})
+        assert agent._is_mutating("list_metrics") is False
+        assert agent._is_mutating("get_test_result") is False
+        assert agent._is_mutating("check_endpoint") is False
+
+    def test_unknown_tool_mutating_before_discovery(self, mock_model):
+        """Before tools are discovered, assume everything is mutating."""
+        agent = ArchitectAgent(model=mock_model, tools=[], verbose=False)
+        assert agent._mutating_tools is None
+        assert agent._is_mutating("anything") is True
+
+    @pytest.mark.asyncio
+    async def test_get_available_tools_uses_requires_confirmation(self, mock_model):
+        """get_available_tools should prefer requires_confirmation over http_method."""
+        from rhesis.sdk.agents.base import MCPTool
+
+        class FakeMCPProvider(MCPTool):
+            def __init__(self):
+                self._connected = True
+
+            async def _ensure_connected(self):
+                pass
+
+            async def list_tools(self):
+                return [
+                    {"name": "list_metrics", "description": "", "http_method": "GET"},
+                    {
+                        "name": "create_metric",
+                        "description": "",
+                        "http_method": "POST",
+                        "requires_confirmation": True,
+                    },
+                    {
+                        "name": "check_endpoint",
+                        "description": "",
+                        "http_method": "POST",
+                        "requires_confirmation": False,
+                    },
+                    # No explicit flag — falls back to HTTP method
+                    {"name": "update_metric", "description": "", "http_method": "PUT"},
+                ]
+
+            async def execute(self, tool_name, **kw):
+                return ToolResult(tool_name=tool_name, success=True, content="")
+
+        agent = _make_agent(mock_model, tools=[FakeMCPProvider()])
+        agent._mutating_tools = None  # Reset so get_available_tools rebuilds
+        await agent.get_available_tools()
+
+        assert agent._mutating_tools == frozenset({"create_metric", "update_metric"})
+        # check_endpoint is POST but requires_confirmation=False
+        assert agent._is_mutating("check_endpoint") is False
+        assert agent._is_mutating("create_metric") is True
+        # list_metrics is GET — always read-only
+        assert agent._is_mutating("list_metrics") is False
+        # update_metric has no flag — inferred as mutating from PUT
+        assert agent._is_mutating("update_metric") is True
+
+    @pytest.mark.asyncio
+    async def test_get_available_tools_http_method_fallback(self, mock_model):
+        """Without requires_confirmation, falls back to HTTP method."""
+        from rhesis.sdk.agents.base import MCPTool
+
+        class FakeMCPProvider(MCPTool):
+            def __init__(self):
+                self._connected = True
+
+            async def _ensure_connected(self):
+                pass
+
+            async def list_tools(self):
+                return [
+                    {"name": "list_metrics", "description": "", "http_method": "GET"},
+                    {"name": "create_metric", "description": "", "http_method": "POST"},
+                ]
+
+            async def execute(self, tool_name, **kw):
+                return ToolResult(tool_name=tool_name, success=True, content="")
+
+        agent = _make_agent(mock_model, tools=[FakeMCPProvider()])
+        agent._mutating_tools = None
+        await agent.get_available_tools()
+
+        assert agent._mutating_tools == frozenset({"create_metric"})
+
+    def test_base_tool_requires_confirmation_in_to_dict(self, mock_model):
+        """BaseTool.to_dict() should include requires_confirmation when set."""
+
+        class ConfirmTool(BaseTool):
+            @property
+            def name(self):
+                return "danger"
+
+            @property
+            def description(self):
+                return "dangerous"
+
+            @property
+            def requires_confirmation(self):
+                return True
+
+            async def execute(self, **kw):
+                return ToolResult(tool_name="danger", success=True, content="")
+
+        d = ConfirmTool().to_dict()
+        assert d["requires_confirmation"] is True
+
+        # DummyTool returns None (default) — no key in dict
+        d = DummyTool().to_dict()
+        assert "requires_confirmation" not in d
+
+    # -- write-guard integration --
+
+    @pytest.mark.asyncio
+    async def test_mutating_tool_blocked_without_approval(self, mock_model):
+        """Mutating tool calls should be converted to finish+confirmation."""
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool])
+        agent._mutating_tools = frozenset({"create_metric"})
+
+        # LLM returns a create_metric call
+        mock_model.generate = Mock(
+            return_value={
+                "reasoning": "I'll create the metric",
+                "action": "call_tool",
+                "tool_calls": [
+                    {
+                        "tool_name": "create_metric",
+                        "arguments": json.dumps({"name": "test"}),
+                    }
+                ],
+                "final_answer": "Here's the metric I plan to create",
+            },
+        )
+
+        # Mock generate_stream for the streaming finish
+        async def fake_stream(**kw):
+            yield "Here's the metric I plan to create"
+
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+
+        response = await agent.chat_async("create a friendliness metric")
+
+        # The agent should NOT have called create_metric — it should
+        # have finished with needs_confirmation=True
+        assert agent._needs_confirmation is True
+        assert response
+        # Scoped approval: only create_metric should be in confirming set
+        assert agent._confirming_tools == frozenset({"create_metric"})
+
+    @pytest.mark.asyncio
+    async def test_read_only_tools_allowed_without_approval(self, mock_model):
+        """Read-only tools (list_*) should execute normally."""
+
+        class ListMetricsTool(BaseTool):
+            @property
+            def name(self) -> str:
+                return "list_metrics"
+
+            @property
+            def description(self) -> str:
+                return "List metrics"
+
+            @property
+            def parameters_schema(self) -> dict:
+                return {"properties": {}}
+
+            async def execute(self, **kwargs) -> ToolResult:
+                return ToolResult(tool_name="list_metrics", success=True, content="[]")
+
+        agent = _make_agent(mock_model, tools=[ListMetricsTool()])
+
+        mock_model.generate = Mock(
+            side_effect=[
+                {
+                    "reasoning": "List existing metrics first",
+                    "action": "call_tool",
+                    "tool_calls": [
+                        {
+                            "tool_name": "list_metrics",
+                            "arguments": "{}",
+                        }
+                    ],
+                    "final_answer": None,
+                },
+                _finish_dict("Here are the metrics"),
+            ]
+        )
+
+        response = await agent.chat_async("show me the metrics")
+        assert response  # Should complete without being blocked
+
+    @pytest.mark.asyncio
+    async def test_mutating_tool_allowed_after_confirmation_roundtrip(self, mock_model):
+        """After a confirmation roundtrip, mutating tools should execute."""
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool])
+        agent._mutating_tools = frozenset({"create_metric"})
+
+        async def fake_stream(**kw):
+            yield "Here's what I'll create"
+
+        # Turn 1: LLM tries to create -> gets blocked
+        mock_model.generate = Mock(
+            return_value={
+                "reasoning": "Creating metric",
+                "action": "call_tool",
+                "tool_calls": [
+                    {
+                        "tool_name": "create_metric",
+                        "arguments": json.dumps({"name": "test"}),
+                    }
+                ],
+                "final_answer": "Here's what I'll create",
+            },
+        )
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async("create a metric")
+        assert agent._needs_confirmation is True
+
+        # Turn 2: Any user reply after needs_confirmation unlocks writes.
+        # The LLM decides whether to proceed based on message content.
+        mock_model.generate = Mock(
+            side_effect=[
+                {
+                    "reasoning": "User confirmed, creating now",
+                    "action": "call_tool",
+                    "tool_calls": [
+                        {
+                            "tool_name": "create_metric",
+                            "arguments": json.dumps({"name": "test"}),
+                        }
+                    ],
+                    "final_answer": None,
+                },
+                _finish_dict("Created the metric"),
+            ]
+        )
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async("Yes, go ahead.")
+        # Should have executed (even though create_metric tool doesn't
+        # exist on the agent, the guard should not block it)
+        assert agent._creation_approved is False  # Reset after turn
+
+    @pytest.mark.asyncio
+    async def test_rejection_after_confirmation_still_unlocks(self, mock_model):
+        """Even a 'change the name' reply unlocks — the LLM handles intent."""
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool])
+        agent._mutating_tools = frozenset({"create_metric"})
+
+        async def fake_stream(**kw):
+            yield "Plan"
+
+        # Turn 1: blocked
+        mock_model.generate = Mock(
+            return_value={
+                "reasoning": "Creating metric",
+                "action": "call_tool",
+                "tool_calls": [
+                    {
+                        "tool_name": "create_metric",
+                        "arguments": json.dumps({"name": "test"}),
+                    }
+                ],
+                "final_answer": "Here's what I'll create",
+            },
+        )
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async("create a metric")
+        assert agent._needs_confirmation is True
+
+        # Turn 2: User sends a change request. The LLM should NOT
+        # call create_metric (it should present revised plan instead).
+        # But the guard allows it — the LLM is responsible for intent.
+        mock_model.generate = Mock(return_value=_finish_dict("Updated plan"))
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async("change the name to Response Tone")
+        assert agent._creation_approved is False  # Reset after turn
+
+    @pytest.mark.asyncio
+    async def test_scoped_approval_blocks_different_tool(self, mock_model):
+        """Approval for create_metric should NOT unlock create_project."""
+        tool = DummyTool()
+        agent = _make_agent(mock_model, tools=[tool])
+        agent._mutating_tools = frozenset({"create_metric", "create_project"})
+
+        async def fake_stream(**kw):
+            yield "Plan"
+
+        # Turn 1: create_metric is blocked
+        mock_model.generate = Mock(
+            return_value={
+                "reasoning": "Creating metric",
+                "action": "call_tool",
+                "tool_calls": [
+                    {
+                        "tool_name": "create_metric",
+                        "arguments": json.dumps({"name": "test"}),
+                    }
+                ],
+                "final_answer": "Plan to create metric",
+            },
+        )
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async("create a metric")
+        assert agent._confirming_tools == frozenset({"create_metric"})
+
+        # Turn 2: LLM tries create_project instead — should be blocked
+        # because only create_metric was approved
+        mock_model.generate = Mock(
+            return_value={
+                "reasoning": "Creating project",
+                "action": "call_tool",
+                "tool_calls": [
+                    {
+                        "tool_name": "create_project",
+                        "arguments": json.dumps({"name": "proj"}),
+                    }
+                ],
+                "final_answer": "Plan to create project",
+            },
+        )
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async("Yes, go ahead.")
+
+        # create_project was NOT in the approved set, so it should
+        # be blocked again with a new confirmation
+        assert agent._needs_confirmation is True
+        assert agent._confirming_tools == frozenset({"create_project"})
+
+    @pytest.mark.asyncio
+    async def test_approval_resets_after_turn(self, mock_model):
+        """_creation_approved should reset to False after each turn."""
+        agent = _make_agent(mock_model)
+
+        # Simulate a confirmed turn
+        agent._needs_confirmation = True
+        agent._confirming_tools = frozenset({"create_metric"})
+        mock_model.generate = Mock(return_value=_finish_dict("Done"))
+        await agent.chat_async("Yes, go ahead.")
+
+        assert agent._creation_approved is False

@@ -75,6 +75,10 @@ class ExploreEndpointTool(BaseTool):
         return "explore_endpoint"
 
     @property
+    def requires_confirmation(self) -> bool:
+        return False
+
+    @property
     def description(self) -> str:
         ep_name = getattr(self._endpoint, "name", None) or self._endpoint_id
         ep_desc = getattr(self._endpoint, "description", None) or ""
