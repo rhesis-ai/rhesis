@@ -232,14 +232,26 @@ export default function ArchitectChat({
           </Box>
         ) : (
           <>
-            {messages.map(message => (
-              <ArchitectMessageBubble
-                key={message.id}
-                message={message}
-                userName={authSession?.user?.name || undefined}
-                userPicture={authSession?.user?.picture || undefined}
-              />
-            ))}
+            {messages.map((message, index) => {
+              const isLastAssistant =
+                message.role === 'assistant' &&
+                !isLoading &&
+                index === messages.length - 1;
+              return (
+                <ArchitectMessageBubble
+                  key={message.id}
+                  message={message}
+                  userName={authSession?.user?.name || undefined}
+                  userPicture={authSession?.user?.picture || undefined}
+                  showActions={isLastAssistant}
+                  onAccept={() => sendMessage('Yes, go ahead.')}
+                  onReject={() => {
+                    setInputValue('');
+                    inputRef.current?.focus();
+                  }}
+                />
+              );
+            })}
 
             {/* Streaming indicator */}
             {isLoading && <StreamingIndicator state={streamingState} />}

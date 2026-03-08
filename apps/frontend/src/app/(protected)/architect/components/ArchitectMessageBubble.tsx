@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Paper, Typography, IconButton, Tooltip } from '@mui/material';
+import { Box, Button, Paper, Typography, IconButton, Tooltip } from '@mui/material';
 import ArchitectureIcon from '@mui/icons-material/Architecture';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import { ArchitectChatMessage } from '@/hooks/useArchitectChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import { UserAvatar } from '@/components/common/UserAvatar';
@@ -15,12 +17,18 @@ interface ArchitectMessageBubbleProps {
   message: ArchitectChatMessage;
   userName?: string;
   userPicture?: string;
+  showActions?: boolean;
+  onAccept?: () => void;
+  onReject?: () => void;
 }
 
 export default function ArchitectMessageBubble({
   message,
   userName,
   userPicture,
+  showActions,
+  onAccept,
+  onReject,
 }: ArchitectMessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
@@ -141,6 +149,32 @@ export default function ArchitectMessageBubble({
             </Tooltip>
           )}
         </Box>
+
+        {/* Accept / Reject actions */}
+        {showActions && !isUser && (
+          <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
+            <Button
+              size="small"
+              variant="outlined"
+              color="success"
+              startIcon={<CheckCircleOutlineIcon sx={{ fontSize: 16 }} />}
+              onClick={onAccept}
+              sx={{ textTransform: 'none', borderRadius: 2, py: 0.25 }}
+            >
+              Accept
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              startIcon={<HighlightOffIcon sx={{ fontSize: 16 }} />}
+              onClick={onReject}
+              sx={{ textTransform: 'none', borderRadius: 2, py: 0.25 }}
+            >
+              Change
+            </Button>
+          </Box>
+        )}
       </Paper>
     </Box>
   );
