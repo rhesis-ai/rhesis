@@ -1,13 +1,16 @@
 tools:
   # ── Projects ──────────────────────────────────────────────
   - name: list_projects
+    label: Listing projects
     method: GET
     path: /projects/
     description: >
-      List projects in the current organization. Returns project names,
-      descriptions, and IDs. Use skip/limit for pagination.
+      List projects in the current organization. Use $select to request
+      only the fields you need (e.g. $select=name,id). Use skip/limit
+      for pagination.
 
   - name: create_project
+    label: Creating project
     method: POST
     path: /projects/
     description: >
@@ -16,13 +19,16 @@ tools:
 
   # ── Test Sets ─────────────────────────────────────────────
   - name: list_test_sets
+    label: Listing test sets
     method: GET
     path: /test_sets/
     description: >
       List test sets in the organization. Test sets group related tests
-      that share a common behavior, category, or theme.
+      that share a common behavior, category, or theme. Use $select to
+      request only the fields you need (e.g. $select=name,id,description).
 
   - name: create_test_set_bulk
+    label: Creating test set
     method: POST
     path: /test_sets/bulk
     description: >
@@ -54,13 +60,16 @@ tools:
 
   # ── Tests ─────────────────────────────────────────────────
   - name: list_tests
+    label: Listing tests
     method: GET
     path: /tests/
     description: >
       List tests in the organization. Each test defines a prompt,
-      expected response behavior, and optional metadata.
+      expected response behavior, and optional metadata. Use $select to
+      request only the fields you need.
 
   - name: execute_tests
+    label: Executing tests
     method: POST
     path: /tests/execute
     description: >
@@ -69,13 +78,16 @@ tools:
 
   # ── Test Configurations ───────────────────────────────────
   - name: list_test_configurations
+    label: Listing test configurations
     method: GET
     path: /test_configurations/
     description: >
       List test configurations. A test configuration links a test set
-      to an endpoint, defining how tests should be run.
+      to an endpoint, defining how tests should be run. Use $select to
+      request only the fields you need.
 
   - name: create_test_configuration
+    label: Setting up test configuration
     method: POST
     path: /test_configurations/
     description: >
@@ -88,6 +100,7 @@ tools:
       updated_at).
 
   - name: execute_test_configuration
+    label: Running tests
     method: POST
     path: /test_configurations/{test_configuration_id}/execute
     description: >
@@ -96,19 +109,23 @@ tools:
 
   # ── Test Runs ─────────────────────────────────────────────
   - name: list_test_runs
+    label: Checking test runs
     method: GET
     path: /test_runs/
     description: >
       List test runs. Each test run represents one execution of a test
-      configuration, with status and timing information.
+      configuration, with status and timing information. Use $select to
+      request only the fields you need.
 
   - name: create_test_run
+    label: Creating test run
     method: POST
     path: /test_runs/
     description: >
       Create a new test run to track the execution of a test configuration.
 
   - name: get_test_run
+    label: Checking test run status
     method: GET
     path: /test_runs/{test_run_id}
     description: >
@@ -117,13 +134,16 @@ tools:
 
   # ── Test Results ──────────────────────────────────────────
   - name: list_test_results
+    label: Retrieving test results
     method: GET
     path: /test_results/
     description: >
       List test results. Each result contains the prompt sent, the
-      response received, and evaluation scores from metrics.
+      response received, and evaluation scores from metrics. Use $select
+      to request only the fields you need.
 
   - name: get_test_result
+    label: Retrieving test result
     method: GET
     path: /test_results/{test_result_id}
     description: >
@@ -132,13 +152,16 @@ tools:
 
   # ── Behaviors ─────────────────────────────────────────────
   - name: list_behaviors
+    label: Looking up behaviors
     method: GET
     path: /behaviors/
     description: >
       List available behaviors. Behaviors define what an endpoint should
       do (e.g., "answer questions accurately", "refuse harmful requests").
+      Use $select to request only the fields you need.
 
   - name: create_behavior
+    label: Creating behavior
     method: POST
     path: /behaviors/
     description: >
@@ -156,20 +179,25 @@ tools:
 
   # ── Categories & Topics ───────────────────────────────────
   - name: list_categories
+    label: Listing categories
     method: GET
     path: /categories/
     description: >
       List available categories. Categories classify tests by type
-      (e.g., "functional", "safety", "robustness").
+      (e.g., "functional", "safety", "robustness"). Use $select to
+      request only the fields you need.
 
   - name: list_topics
+    label: Listing topics
     method: GET
     path: /topics/
     description: >
       List available topics. Topics define subject areas for tests
-      (e.g., "healthcare", "finance", "general knowledge").
+      (e.g., "healthcare", "finance", "general knowledge"). Use $select
+      to request only the fields you need.
 
   - name: update_behavior
+    label: Updating behavior
     method: PUT
     path: /behaviors/{behavior_id}
     description: >
@@ -186,14 +214,17 @@ tools:
         description: "Behavior description (string). Explain what this behavior means and how it should be evaluated."
 
   - name: list_metrics
+    label: Checking existing metrics
     method: GET
     path: /metrics/
     description: >
       List available metrics for evaluating test results. Metrics
       define how endpoint responses are scored (e.g., accuracy,
-      safety compliance, response quality).
+      safety compliance, response quality). Use $select to request
+      only the fields you need.
 
   - name: create_metric
+    label: Creating metric
     method: POST
     path: /metrics/
     description: >
@@ -248,6 +279,7 @@ tools:
           "categories".
 
   - name: generate_metric
+    label: Generating metric
     method: POST
     path: /metrics/generate
     description: >
@@ -265,6 +297,7 @@ tools:
           accurate, on a 1-5 numeric scale").
 
   - name: improve_metric
+    label: Improving metric
     method: POST
     path: /metrics/{metric_id}/improve
     description: >
@@ -282,6 +315,7 @@ tools:
           pass/fail categories").
 
   - name: add_behavior_to_metric
+    label: Linking behavior to metric
     method: POST
     path: /metrics/{metric_id}/behaviors/{behavior_id}
     description: >
@@ -297,6 +331,7 @@ tools:
         description: "REQUIRED. UUID of the behavior to associate."
 
   - name: get_metric_behaviors
+    label: Checking metric behaviors
     method: GET
     path: /metrics/{metric_id}/behaviors/
     description: >
@@ -309,22 +344,25 @@ tools:
         description: "REQUIRED. UUID of the metric."
 
   - name: list_endpoints
+    label: Finding endpoints
     method: GET
     path: /endpoints/
     description: >
       List configured endpoints. Endpoints are the AI systems being
-      tested (chat APIs, completion APIs, etc.).
+      tested (chat APIs, completion APIs, etc.). Use $select to request
+      only the fields you need (e.g. $select=name,id,url,description).
 
   - name: check_endpoint
+    label: Checking endpoint connectivity
     method: POST
     path: /endpoints/{endpoint_id}/invoke
     description: >
       Send a test message to an endpoint to verify it is reachable and
-      responding. Use this early in the discovery phase — after resolving
-      an endpoint by name — to confirm connectivity before designing
-      tests. Send a simple input like {"input": "hello"} and check
-      whether the response is valid. Report any errors to the user
-      (e.g. connection refused, timeout, auth failure).
+      responding. Only use this when you are about to act on the endpoint
+      (explore, run tests, send a request) — not when simply listing or
+      looking up endpoints. Send a simple input like {"input": "hello"}
+      and check whether the response is valid. Report any errors to the
+      user (e.g. connection refused, timeout, auth failure).
     parameters:
       endpoint_id:
         description: "REQUIRED. UUID of the endpoint to check."

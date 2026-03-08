@@ -435,7 +435,7 @@ class BaseAgent:
             if step.tool_results:
                 for tr in step.tool_results:
                     if tr.success:
-                        content_preview = tr.content[:300]
+                        content_preview = tr.content[:4000]
                         parts.append(f"  Result ({tr.tool_name}): {content_preview}")
                     else:
                         parts.append(f"  Error ({tr.tool_name}): {tr.error}")

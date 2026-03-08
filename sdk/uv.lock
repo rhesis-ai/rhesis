@@ -5231,7 +5231,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.6.8"
+version = "0.6.8.post1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },

@@ -3,7 +3,8 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.responses import StreamingResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud, models, schemas
@@ -23,6 +24,7 @@ from rhesis.backend.app.services.test_run import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 
 # Create the detailed schema for TestRun
@@ -83,7 +85,7 @@ def create_test_run(
     )
 
 
-@router.get("/", response_model=List[TestRunDetailSchema])
+@router.get("/", response_model=list[TestRunDetailSchema])
 @with_count_header(model=models.TestRun)
 def read_test_runs(
     response: Response,
@@ -92,12 +94,17 @@ def read_test_runs(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = Query(None, alias="$filter", description="OData filter expression"),
+    select: str | None = Query(
+        None,
+        alias="$select",
+        description="Comma-separated list of fields to return",
+    ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Get all test runs with their related objects"""
-    test_runs = crud.get_test_runs(
+    results = crud.get_test_runs(
         db,
         skip=skip,
         limit=limit,
@@ -107,7 +114,10 @@ def read_test_runs(
         organization_id=str(current_user.organization_id),
         user_id=str(current_user.id),
     )
-    return test_runs
+    if select:
+        serialized = jsonable_encoder(results)
+        return JSONResponse(content=apply_select(serialized, select))
+    return results
 
 
 @router.get("/stats", response_model=schemas.TestRunStatsResponse)
