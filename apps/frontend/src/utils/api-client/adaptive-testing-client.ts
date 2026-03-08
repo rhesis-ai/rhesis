@@ -16,6 +16,12 @@ import {
   GenerateOutputsResponse,
   EvaluateRequest,
   EvaluateResponse,
+  GenerateSuggestionsRequest,
+  GenerateSuggestionsResponse,
+  GenerateSuggestionOutputsRequest,
+  GenerateSuggestionOutputsResponse,
+  EvaluateSuggestionsRequest,
+  EvaluateSuggestionsResponse,
 } from './interfaces/adaptive-testing';
 
 /**
@@ -300,5 +306,69 @@ export class AdaptiveTestingClient extends BaseApiClient {
         'Content-Type': 'application/json',
       },
     });
+  }
+
+  // ===========================================================================
+  // Suggestions (non-persisted)
+  // ===========================================================================
+
+  /**
+   * Generate test suggestions using an LLM.
+   * @param testSetId The test set identifier
+   * @param body Topic and generation parameters
+   */
+  async generateSuggestions(
+    testSetId: string,
+    body: GenerateSuggestionsRequest
+  ): Promise<GenerateSuggestionsResponse> {
+    const basePath = this.getBasePath(testSetId);
+    return this.fetch<GenerateSuggestionsResponse>(
+      `${basePath}/generate_suggestions`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  /**
+   * Generate outputs for non-persisted suggestions by invoking an endpoint.
+   * @param testSetId The test set identifier
+   * @param body Endpoint ID and suggestion inputs
+   */
+  async generateSuggestionOutputs(
+    testSetId: string,
+    body: GenerateSuggestionOutputsRequest
+  ): Promise<GenerateSuggestionOutputsResponse> {
+    const basePath = this.getBasePath(testSetId);
+    return this.fetch<GenerateSuggestionOutputsResponse>(
+      `${basePath}/generate_suggestion_outputs`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  /**
+   * Evaluate non-persisted suggestions with the specified metrics.
+   * @param testSetId The test set identifier
+   * @param body Metric names and suggestion input/output pairs
+   */
+  async evaluateSuggestions(
+    testSetId: string,
+    body: EvaluateSuggestionsRequest
+  ): Promise<EvaluateSuggestionsResponse> {
+    const basePath = this.getBasePath(testSetId);
+    return this.fetch<EvaluateSuggestionsResponse>(
+      `${basePath}/evaluate_suggestions`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 }
