@@ -1,8 +1,8 @@
 import json
-from typing import List, Optional, Type, Union
+from typing import AsyncIterator, List, Optional, Type, Union
 
 import litellm
-from litellm import batch_completion, completion, embedding
+from litellm import acompletion, batch_completion, completion, embedding
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
@@ -108,6 +108,38 @@ class LiteLLM(BaseLLM):
             return response_content
         else:
             return response_content
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        **kwargs,
+    ) -> AsyncIterator[str]:
+        """Stream LLM response token-by-token using litellm async streaming."""
+        messages = (
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ]
+            if system_prompt
+            else [{"role": "user", "content": prompt}]
+        )
+
+        response = await acompletion(
+            model=self.model_name,
+            messages=messages,
+            stream=True,
+            api_key=self.api_key,
+            api_base=self.api_base,
+            api_version=self.api_version,
+            **kwargs,
+        )
+
+        async for chunk in response:
+            delta = chunk.choices[0].delta  # type: ignore
+            content = getattr(delta, "content", None)
+            if content:
+                yield content
 
     def generate_batch(
         self,

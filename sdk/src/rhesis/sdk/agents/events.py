@@ -23,7 +23,7 @@ Usage::
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from rhesis.sdk.agents.architect.plan import ArchitectPlan
@@ -77,6 +77,23 @@ class AgentEventHandler:
 
     async def on_tool_end(self, *, tool_name: str, result: "ToolResult", **kwargs: Any) -> None:
         """Called after a tool finishes (success or failure)."""
+
+    # ── streaming lifecycle ────────────────────────────────────────
+
+    async def on_stream_start(self, *, needs_confirmation: bool = False, **kwargs: Any) -> None:
+        """Called when streaming of the final response is about to begin."""
+
+    async def on_text_chunk(self, *, chunk: str, **kwargs: Any) -> None:
+        """Called for each token/chunk of streamed text."""
+
+    async def on_stream_end(
+        self,
+        *,
+        content: str,
+        error: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Called when streaming completes. Includes full text and optional error."""
 
     # ── architect-specific ──────────────────────────────────────────
 

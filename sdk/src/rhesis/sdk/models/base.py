@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Union
 
 if TYPE_CHECKING:
     from rhesis.sdk.entities.model import Model
@@ -103,6 +103,26 @@ class BaseLLM(BaseModel):
             A string or dict (if schema provided).
         """
         pass
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        **kwargs,
+    ) -> AsyncIterator[str]:
+        """Stream LLM response token-by-token.
+
+        Yields delta content strings. Default implementation falls back
+        to ``generate()`` and yields the full result as a single chunk.
+        Providers should override this for true streaming.
+        """
+        result = self.generate(prompt=prompt, system_prompt=system_prompt, **kwargs)
+        if isinstance(result, dict):
+            import json
+
+            yield json.dumps(result)
+        else:
+            yield result
 
     @abstractmethod
     def generate_batch(self, *args, **kwargs) -> List[Union[str, Dict[str, Any]]]:

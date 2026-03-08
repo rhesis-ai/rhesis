@@ -15,12 +15,13 @@ For detailed usage and configuration options, see VertexAILLM class documentatio
 
 import atexit
 import base64
+import contextlib
 import hashlib
 import json
 import os
 import tempfile
 from pathlib import Path
-from typing import List, Optional, Set, Type, Union
+from typing import AsyncIterator, List, Optional, Set, Type, Union
 
 from pydantic import BaseModel
 
@@ -117,7 +118,13 @@ class VertexAICredentialsMixin:
         # Write credentials to the persistent temp file (idempotent)
         # If file already exists, we'll just overwrite it (safe since content is the same)
         try:
-            with open(temp_file_path, "w") as f:
+            # Use os.open with restrictive permissions (owner read/write only)
+            fd = os.open(
+                str(temp_file_path),
+                os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                0o600,
+            )
+            with os.fdopen(fd, "w") as f:
                 json.dump(credentials_json, f)
 
             # Track this file for cleanup at process exit
@@ -208,11 +215,14 @@ class VertexAICredentialsMixin:
         except Exception:
             pass
 
-        # All methods failed
-        raise ValueError(
-            f"GOOGLE_APPLICATION_CREDENTIALS is neither valid base64 nor an existing file path: "
-            f"{credentials}"
+        # All methods failed — never log the raw value (it may contain secrets)
+        is_file_like = "/" in credentials or "\\" in credentials
+        hint = (
+            f"path '{credentials}' does not exist"
+            if is_file_like
+            else f"value ({len(credentials)} chars) is not valid base64 or a file path"
         )
+        raise ValueError(f"GOOGLE_APPLICATION_CREDENTIALS could not be loaded: {hint}")
 
     def _load_vertex_config(self) -> dict:
         """
@@ -354,6 +364,23 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         self._vertex_config = self._load_vertex_config()
         return self._vertex_config
 
+    @contextlib.contextmanager
+    def _vertex_env(self, kwargs):
+        """Inject Vertex AI project/location and credentials into kwargs and env."""
+        kwargs["vertex_ai_project"] = self.model["project"]
+        kwargs["vertex_ai_location"] = self.model["location"]
+
+        credentials_path = self._ensure_credentials_file()
+        original = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
+        try:
+            yield
+        finally:
+            if original:
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original
+            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+
     def generate(
         self,
         prompt: str,
@@ -362,43 +389,14 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         *args,
         **kwargs,
     ):
-        """
-        Generate content using Vertex AI.
-
-        This method overrides the parent to inject Vertex AI-specific parameters.
-
-        Args:
-            prompt: The text prompt
-            system_prompt: Optional system prompt
-            schema: Optional Pydantic schema for structured output
-            *args: Additional positional arguments
-            **kwargs: Additional keyword arguments
-
-        Returns:
-            Generated text or dict (if schema provided)
-        """
-        # Inject Vertex AI-specific parameters
-        kwargs["vertex_ai_project"] = self.model["project"]
-        kwargs["vertex_ai_location"] = self.model["location"]
-
-        # Ensure credentials file exists
-        credentials_path = self._ensure_credentials_file()
-
-        # Set credentials via environment variable for LiteLLM
-        original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
-
-        try:
-            # Call parent generate method
+        with self._vertex_env(kwargs):
             return super().generate(
-                prompt=prompt, system_prompt=system_prompt, schema=schema, *args, **kwargs
+                prompt=prompt,
+                system_prompt=system_prompt,
+                schema=schema,
+                *args,
+                **kwargs,
             )
-        finally:
-            # Restore original credentials environment variable
-            if original_credentials:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_credentials
-            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
-                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
 
     def generate_batch(
         self,
@@ -409,35 +407,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         *args,
         **kwargs,
     ) -> List[Union[str, dict]]:
-        """
-        Generate batch content using Vertex AI.
-
-        This method overrides the parent to inject Vertex AI-specific parameters.
-
-        Args:
-            prompts: List of user prompts
-            system_prompt: Optional system prompt (applied to all prompts)
-            schema: Optional Pydantic schema for structured output
-            n: Number of completions to generate per prompt
-            *args: Additional positional arguments
-            **kwargs: Additional keyword arguments
-
-        Returns:
-            List of generated text or dicts (if schema provided)
-        """
-        # Inject Vertex AI-specific parameters
-        kwargs["vertex_ai_project"] = self.model["project"]
-        kwargs["vertex_ai_location"] = self.model["location"]
-
-        # Ensure credentials file exists
-        credentials_path = self._ensure_credentials_file()
-
-        # Set credentials via environment variable for LiteLLM
-        original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
-
-        try:
-            # Call parent generate_batch method
+        with self._vertex_env(kwargs):
             return super().generate_batch(
                 prompts=prompts,
                 system_prompt=system_prompt,
@@ -446,12 +416,18 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
                 *args,
                 **kwargs,
             )
-        finally:
-            # Restore original credentials environment variable
-            if original_credentials:
-                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_credentials
-            elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
-                del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        **kwargs,
+    ) -> AsyncIterator[str]:
+        with self._vertex_env(kwargs):
+            async for chunk in super().generate_stream(
+                prompt=prompt, system_prompt=system_prompt, **kwargs
+            ):
+                yield chunk
 
     def __del__(self):
         """

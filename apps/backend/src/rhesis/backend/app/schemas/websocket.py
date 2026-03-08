@@ -55,6 +55,9 @@ class EventType(str, Enum):
     ARCHITECT_PLAN_UPDATE = "architect.plan_update"
     ARCHITECT_MODE_CHANGE = "architect.mode_change"
     ARCHITECT_ERROR = "architect.error"
+    ARCHITECT_STREAM_START = "architect.stream_start"
+    ARCHITECT_TEXT_CHUNK = "architect.text_chunk"
+    ARCHITECT_STREAM_END = "architect.stream_end"
 
 
 class WebSocketMessage(BaseModel):

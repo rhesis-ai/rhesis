@@ -94,6 +94,17 @@ class BaseTool(ABC):
         """JSON Schema describing accepted parameters."""
         return {}
 
+    @property
+    def requires_confirmation(self) -> Optional[bool]:
+        """Whether this tool requires user confirmation before execution.
+
+        Returns ``True`` for tools that modify state, ``False`` for
+        read-only tools, or ``None`` to let the agent infer from
+        other metadata (e.g. HTTP method).  Subclasses override this
+        to declare their intent explicitly.
+        """
+        return None
+
     @abstractmethod
     async def execute(self, **kwargs) -> ToolResult:
         """Execute this tool with the given arguments."""
@@ -101,11 +112,14 @@ class BaseTool(ABC):
 
     def to_dict(self) -> dict:
         """Serialize tool metadata for LLM tool descriptions."""
-        return {
+        d: dict = {
             "name": self.name,
             "description": self.description,
             "inputSchema": self.parameters_schema,
         }
+        if self.requires_confirmation is not None:
+            d["requires_confirmation"] = self.requires_confirmation
+        return d
 
 
 # ── MCPTool ─────────────────────────────────────────────────────────
@@ -283,7 +297,15 @@ class BaseAgent:
 
     @property
     def needs_confirmation(self) -> bool:
-        """Whether the last response asks the user to confirm an action."""
+        """Whether the last response asks the user to confirm an action.
+
+        This flag is set by ``_handle_finish_action`` from the LLM's
+        ``AgentAction.needs_confirmation`` field.  It is a passive
+        record of intent — enforcement (blocking tool calls until the
+        user confirms) is implemented by subclasses that override
+        ``_handle_tool_calls``.  See ``ArchitectAgent`` for the
+        concrete write-guard implementation.
+        """
         return self._needs_confirmation
 
     # ── tool interface (concrete defaults) ─────────────────────────
@@ -594,7 +616,7 @@ class BaseAgent:
             print(f"   Action: {action.action}")
 
         if action.action == "finish":
-            result = self._handle_finish_action(action, iteration)
+            result = await self._handle_finish_action(action, iteration)
         elif action.action == "call_tool":
             result = await self._handle_tool_calls(action, iteration)
         else:
@@ -640,7 +662,7 @@ class BaseAgent:
             await _emit(self._event_handlers, "on_error", error=e)
             return None
 
-    def _handle_finish_action(
+    async def _handle_finish_action(
         self, action: AgentAction, iteration: int
     ) -> Tuple[ExecutionStep, bool]:
         logger.info("[Agent] Agent finishing")
@@ -664,6 +686,54 @@ class BaseAgent:
             ),
             True,
         )
+
+    async def _stream_final_response(
+        self,
+        prompt: str,
+        system_prompt: str,
+        fallback_content: str,
+        needs_confirmation: bool = False,
+    ) -> str:
+        """Stream a final response via generate_stream(), emitting events.
+
+        Returns the full accumulated text. On error, emits on_stream_end
+        with the error and returns the fallback content.
+        """
+        await _emit(
+            self._event_handlers,
+            "on_stream_start",
+            needs_confirmation=needs_confirmation,
+        )
+
+        accumulated = ""
+        try:
+            async for chunk in self.model.generate_stream(
+                prompt=prompt,
+                system_prompt=system_prompt,
+            ):
+                accumulated += chunk
+                await _emit(
+                    self._event_handlers,
+                    "on_text_chunk",
+                    chunk=chunk,
+                )
+
+            await _emit(
+                self._event_handlers,
+                "on_stream_end",
+                content=accumulated,
+            )
+            return accumulated
+
+        except Exception as e:
+            logger.error("Streaming failed, falling back to seed: %s", e, exc_info=True)
+            await _emit(
+                self._event_handlers,
+                "on_stream_end",
+                content=fallback_content,
+                error=str(e),
+            )
+            return fallback_content
 
     async def _handle_tool_calls(
         self, action: AgentAction, iteration: int

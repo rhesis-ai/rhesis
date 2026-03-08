@@ -82,6 +82,30 @@ class WebSocketEventHandler:
             {"plan": plan_md},
         )
 
+    async def on_stream_start(self, *, needs_confirmation: bool = False, **kw: Any) -> None:
+        self._publish(
+            EventType.ARCHITECT_STREAM_START,
+            {"needs_confirmation": needs_confirmation},
+        )
+
+    async def on_text_chunk(self, *, chunk: str, **kw: Any) -> None:
+        self._publish(
+            EventType.ARCHITECT_TEXT_CHUNK,
+            {"chunk": chunk},
+        )
+
+    async def on_stream_end(
+        self,
+        *,
+        content: str,
+        error: Optional[str] = None,
+        **kw: Any,
+    ) -> None:
+        self._publish(
+            EventType.ARCHITECT_STREAM_END,
+            {"content": content, "error": error},
+        )
+
     async def on_agent_end(self, *, result: Any, **kw: Any) -> None:
         pass  # handled after chat_async returns
 
