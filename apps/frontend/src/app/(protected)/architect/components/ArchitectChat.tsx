@@ -17,7 +17,6 @@ import { useSession } from 'next-auth/react';
 import { useArchitectChat, ArchitectChatMessage } from '@/hooks/useArchitectChat';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ArchitectMessageBubble from './ArchitectMessageBubble';
-import StreamingIndicator from './StreamingIndicator';
 import PlanDisplay from './PlanDisplay';
 
 interface ArchitectChatProps {
@@ -59,9 +58,19 @@ export default function ArchitectChat({
 
   const [inputValue, setInputValue] = useState('');
 
+  // Track sessions that were created with an initial message so we never
+  // run loadMessages for them (the async fetch would wipe the messages
+  // that sendMessage already added).
+  const skipLoadRef = useRef<Set<string>>(new Set());
+
+  if (sessionId && initialMessage) {
+    skipLoadRef.current.add(sessionId);
+  }
+
   // Load existing messages when session changes
   useEffect(() => {
     if (!sessionId || !sessionToken) return;
+    if (skipLoadRef.current.has(sessionId)) return;
 
     const loadMessages = async () => {
       try {
@@ -246,6 +255,7 @@ export default function ArchitectChat({
                   userName={authSession?.user?.name || undefined}
                   userPicture={authSession?.user?.picture || undefined}
                   showActions={showActions}
+                  streamingState={message.isStreaming ? streamingState : undefined}
                   onAccept={() => sendMessage('Yes, go ahead.')}
                   onReject={() => {
                     setInputValue('');
@@ -254,9 +264,6 @@ export default function ArchitectChat({
                 />
               );
             })}
-
-            {/* Streaming indicator */}
-            {isLoading && <StreamingIndicator state={streamingState} />}
 
             {/* Scroll anchor */}
             <div ref={messagesEndRef} />

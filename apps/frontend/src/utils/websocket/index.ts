@@ -27,4 +27,7 @@ export {
   type ArchitectPlanUpdatePayload,
   type ArchitectModeChangePayload,
   type ArchitectErrorPayload,
+  type ArchitectStreamStartPayload,
+  type ArchitectTextChunkPayload,
+  type ArchitectStreamEndPayload,
 } from './types';

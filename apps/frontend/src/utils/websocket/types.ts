@@ -44,6 +44,9 @@ export enum EventType {
   ARCHITECT_PLAN_UPDATE = 'architect.plan_update',
   ARCHITECT_MODE_CHANGE = 'architect.mode_change',
   ARCHITECT_ERROR = 'architect.error',
+  ARCHITECT_STREAM_START = 'architect.stream_start',
+  ARCHITECT_TEXT_CHUNK = 'architect.text_chunk',
+  ARCHITECT_STREAM_END = 'architect.stream_end',
 }
 
 /**
@@ -99,6 +102,28 @@ export interface ArchitectPlanUpdatePayload {
 export interface ArchitectModeChangePayload {
   old_mode: string;
   new_mode: string;
+}
+
+/**
+ * Architect stream start payload (received from server).
+ */
+export interface ArchitectStreamStartPayload {
+  needs_confirmation?: boolean;
+}
+
+/**
+ * Architect text chunk payload (received from server).
+ */
+export interface ArchitectTextChunkPayload {
+  chunk: string;
+}
+
+/**
+ * Architect stream end payload (received from server).
+ */
+export interface ArchitectStreamEndPayload {
+  content: string;
+  error?: string | null;
 }
 
 /**

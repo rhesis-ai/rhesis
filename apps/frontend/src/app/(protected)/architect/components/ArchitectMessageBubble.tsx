@@ -7,8 +7,11 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ErrorIcon from '@mui/icons-material/Error';
 import EditIcon from '@mui/icons-material/Edit';
-import { ArchitectChatMessage } from '@/hooks/useArchitectChat';
+import CircularProgress from '@mui/material/CircularProgress';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { ArchitectChatMessage, StreamingState } from '@/hooks/useArchitectChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
@@ -18,6 +21,7 @@ interface ArchitectMessageBubbleProps {
   userName?: string;
   userPicture?: string;
   showActions?: boolean;
+  streamingState?: StreamingState;
   onAccept?: () => void;
   onReject?: () => void;
 }
@@ -27,6 +31,7 @@ export default function ArchitectMessageBubble({
   userName,
   userPicture,
   showActions,
+  streamingState,
   onAccept,
   onReject,
 }: ArchitectMessageBubbleProps) {
@@ -107,6 +112,53 @@ export default function ArchitectMessageBubble({
           '&:hover .copy-btn': { opacity: 1 },
         }}
       >
+        {/* Streaming indicators (thinking + tool calls) */}
+        {streamingState && (
+          <Box sx={{ mb: message.content ? 1 : 0 }}>
+            {streamingState.isThinking && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <CircularProgress size={14} />
+                <Typography variant="body2" color="text.secondary">
+                  Thinking
+                  {streamingState.currentIteration
+                    ? ` (step ${streamingState.currentIteration})`
+                    : '...'}
+                </Typography>
+              </Box>
+            )}
+            {streamingState.activeTools.map((tool, i) => (
+              <Box
+                key={`active-${tool.tool}-${i}`}
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
+              >
+                <CircularProgress size={12} />
+                <Typography variant="body2" color="text.secondary">
+                  {tool.description || tool.tool}
+                </Typography>
+              </Box>
+            ))}
+            {streamingState.completedTools.map((tool, i) => (
+              <Box
+                key={`done-${tool.tool}-${i}`}
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
+              >
+                {tool.success ? (
+                  <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+                ) : (
+                  <ErrorIcon sx={{ fontSize: 14, color: 'error.main' }} />
+                )}
+                <Typography
+                  variant="body2"
+                  color={tool.success ? 'text.secondary' : 'error.main'}
+                >
+                  {tool.description || tool.tool}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+
+        {/* Message content */}
         <MarkdownContent content={message.content} variant="body2" />
 
         {/* Footer with time and copy */}

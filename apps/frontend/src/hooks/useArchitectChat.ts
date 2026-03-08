@@ -9,6 +9,9 @@ import {
   ArchitectPlanUpdatePayload,
   ArchitectModeChangePayload,
   ArchitectErrorPayload,
+  ArchitectStreamStartPayload,
+  ArchitectTextChunkPayload,
+  ArchitectStreamEndPayload,
 } from '@/utils/websocket';
 
 export interface ArchitectChatMessage {
@@ -18,6 +21,7 @@ export interface ArchitectChatMessage {
   timestamp: Date;
   isError?: boolean;
   needsConfirmation?: boolean;
+  isStreaming?: boolean;
 }
 
 export interface StreamingState {
@@ -77,6 +81,7 @@ export function useArchitectChat(
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
 
   const pendingCorrelationRef = useRef<string | null>(null);
+  const streamingMessageIdRef = useRef<string | null>(null);
 
   // Subscribe to architect channel when session changes
   useEffect(() => {
@@ -89,6 +94,77 @@ export function useArchitectChat(
   // Subscribe to all architect event types
   useEffect(() => {
     const unsubs: Array<() => void> = [];
+
+    // Helper: ensure a streaming assistant message exists, return its ID
+    const ensureStreamingMessage = (): string => {
+      if (streamingMessageIdRef.current) return streamingMessageIdRef.current;
+      const msgId = generateId();
+      streamingMessageIdRef.current = msgId;
+      const msg: ArchitectChatMessage = {
+        id: msgId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        isStreaming: true,
+      };
+      setMessages(prev => [...prev, msg]);
+      return msgId;
+    };
+
+    unsubs.push(
+      subscribe(EventType.ARCHITECT_THINKING, (msg: WebSocketMessage) => {
+        const payload = msg.payload as unknown as ArchitectThinkingPayload;
+        ensureStreamingMessage();
+        setStreamingState(prev => ({
+          ...prev,
+          isThinking: true,
+          currentIteration: payload?.iteration ?? prev.currentIteration,
+        }));
+      })
+    );
+
+    unsubs.push(
+      subscribe(EventType.ARCHITECT_STREAM_START, (_msg: WebSocketMessage) => {
+        // Message already created by THINKING; just ensure it exists
+        ensureStreamingMessage();
+      })
+    );
+
+    unsubs.push(
+      subscribe(EventType.ARCHITECT_TEXT_CHUNK, (msg: WebSocketMessage) => {
+        const payload = msg.payload as unknown as ArchitectTextChunkPayload;
+        const streamId = streamingMessageIdRef.current;
+        if (!streamId || !payload?.chunk) return;
+
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === streamId ? { ...m, content: m.content + payload.chunk } : m
+          )
+        );
+      })
+    );
+
+    unsubs.push(
+      subscribe(EventType.ARCHITECT_STREAM_END, (msg: WebSocketMessage) => {
+        const payload = msg.payload as unknown as ArchitectStreamEndPayload;
+        const streamId = streamingMessageIdRef.current;
+
+        if (streamId && payload) {
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === streamId
+                ? {
+                    ...m,
+                    content: payload.error ? m.content || payload.content : m.content,
+                    isError: !!payload.error,
+                  }
+                : m
+            )
+          );
+        }
+        // Don't clear streamingMessageIdRef yet — wait for ARCHITECT_RESPONSE
+      })
+    );
 
     unsubs.push(
       subscribe(EventType.ARCHITECT_RESPONSE, (msg: WebSocketMessage) => {
@@ -103,25 +179,32 @@ export function useArchitectChat(
         if (payload.mode) setCurrentMode(payload.mode);
         if (payload.plan) setCurrentPlan(payload.plan);
 
-        const assistantMessage: ArchitectChatMessage = {
-          id: generateId(),
-          role: 'assistant',
-          content: payload.content || '',
-          timestamp: new Date(),
-          needsConfirmation: payload.needs_confirmation ?? false,
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-      })
-    );
-
-    unsubs.push(
-      subscribe(EventType.ARCHITECT_THINKING, (msg: WebSocketMessage) => {
-        const payload = msg.payload as unknown as ArchitectThinkingPayload;
-        setStreamingState(prev => ({
-          ...prev,
-          isThinking: true,
-          currentIteration: payload?.iteration ?? prev.currentIteration,
-        }));
+        const streamId = streamingMessageIdRef.current;
+        if (streamId) {
+          // Finalize the streaming message
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === streamId
+                ? {
+                    ...m,
+                    isStreaming: false,
+                    needsConfirmation: payload.needs_confirmation ?? false,
+                  }
+                : m
+            )
+          );
+          streamingMessageIdRef.current = null;
+        } else {
+          // Fallback: no streaming message exists (backward compatibility)
+          const assistantMessage: ArchitectChatMessage = {
+            id: generateId(),
+            role: 'assistant',
+            content: payload.content || '',
+            timestamp: new Date(),
+            needsConfirmation: payload.needs_confirmation ?? false,
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+        }
       })
     );
 
