@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Metadata } from 'next';
-import { Box, Tooltip } from '@mui/material';
+import { Box, Chip, Tooltip } from '@mui/material';
 import ThemeAwareLogo from '../components/common/ThemeAwareLogo';
 import '../styles/fonts.css';
 import {
@@ -154,6 +154,7 @@ async function getNavigationItems(
       segment: 'architect',
       title: 'Architect',
       icon: <EngineeringIcon key="architect-icon" />,
+      action: <Chip label="beta" size="small" variant="outlined" color="warning" />,
     },
     {
       kind: 'page',
