@@ -22,9 +22,10 @@ export interface ArchitectChatMessage {
 export interface StreamingState {
   isThinking: boolean;
   currentIteration?: number;
-  activeTools: Array<{ tool: string; args?: Record<string, unknown> }>;
+  activeTools: Array<{ tool: string; description?: string; args?: Record<string, unknown> }>;
   completedTools: Array<{
     tool: string;
+    description?: string;
     success: boolean;
     preview?: string;
   }>;
@@ -130,7 +131,7 @@ export function useArchitectChat(
           ...prev,
           activeTools: [
             ...prev.activeTools,
-            { tool: payload.tool, args: payload.args },
+            { tool: payload.tool, description: payload.description, args: payload.args },
           ],
         }));
       })
@@ -147,6 +148,7 @@ export function useArchitectChat(
             ...prev.completedTools,
             {
               tool: payload.tool,
+              description: payload.description,
               success: payload.success ?? true,
               preview: payload.preview,
             },

@@ -49,7 +49,11 @@ class WebSocketEventHandler:
     async def on_tool_start(self, *, tool_name: str, arguments: Dict[str, Any], **kw: Any) -> None:
         self._publish(
             EventType.ARCHITECT_TOOL_START,
-            {"tool": tool_name, "args": _safe_preview(arguments)},
+            {
+                "tool": tool_name,
+                "description": _tool_description(tool_name, arguments),
+                "args": _safe_preview(arguments),
+            },
         )
 
     async def on_tool_end(self, *, tool_name: str, result: Any, **kw: Any) -> None:
@@ -59,6 +63,7 @@ class WebSocketEventHandler:
             EventType.ARCHITECT_TOOL_END,
             {
                 "tool": tool_name,
+                "description": _tool_description(tool_name, {}),
                 "success": success,
                 "preview": str(content)[:300],
             },
@@ -292,6 +297,37 @@ def architect_chat_task(
             target,
         )
         raise
+
+
+_tool_labels: Optional[Dict[str, str]] = None
+
+
+def _get_tool_labels() -> Dict[str, str]:
+    """Load tool labels from YAML, cached after first call."""
+    global _tool_labels
+    if _tool_labels is None:
+        from rhesis.backend.app.mcp_server.tools import load_tool_labels
+
+        _tool_labels = load_tool_labels()
+    return _tool_labels
+
+
+def _tool_description(tool_name: str, arguments: Dict[str, Any]) -> str:
+    """Generate a human-readable description of a tool call."""
+    labels = _get_tool_labels()
+    base = labels.get(tool_name, tool_name.replace("_", " ").title())
+
+    # Add context from arguments when available
+    name = arguments.get("name", "")
+    prompt = arguments.get("prompt", "")
+    if name:
+        return f"{base}: {name}"
+    if prompt:
+        preview = prompt[:80].rstrip()
+        if len(prompt) > 80:
+            preview += "..."
+        return f"{base}: {preview}"
+    return base
 
 
 def _safe_preview(obj: Any, max_len: int = 200) -> Dict[str, Any]:

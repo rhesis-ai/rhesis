@@ -88,3 +88,8 @@ def build_tools_and_operations(
         }
 
     return tools, operation_map
+
+
+def load_tool_labels() -> Dict[str, str]:
+    """Load tool name -> UI label mapping from the YAML file."""
+    return {tc["name"]: tc["label"] for tc in load_tool_configs() if "label" in tc}

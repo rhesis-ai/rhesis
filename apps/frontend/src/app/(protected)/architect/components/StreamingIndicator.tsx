@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   CircularProgress,
-  Chip,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -75,12 +74,9 @@ export default function StreamingIndicator({ state }: StreamingIndicatorProps) {
             sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}
           >
             <CircularProgress size={12} />
-            <Chip
-              label={tool.tool}
-              size="small"
-              variant="outlined"
-              color="primary"
-            />
+            <Typography variant="body2" color="text.secondary">
+              {tool.description || tool.tool}
+            </Typography>
           </Box>
         ))}
 
@@ -97,12 +93,12 @@ export default function StreamingIndicator({ state }: StreamingIndicatorProps) {
             ) : (
               <ErrorIcon sx={{ fontSize: 14, color: 'error.main' }} />
             )}
-            <Chip
-              label={tool.tool}
-              size="small"
-              variant="outlined"
-              color={tool.success ? 'success' : 'error'}
-            />
+            <Typography
+              variant="body2"
+              color={tool.success ? 'text.secondary' : 'error.main'}
+            >
+              {tool.description || tool.tool}
+            </Typography>
           </Box>
         ))}
       </Box>

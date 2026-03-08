@@ -79,6 +79,7 @@ export interface ArchitectThinkingPayload {
  */
 export interface ArchitectToolPayload {
   tool: string;
+  description?: string;
   args?: Record<string, unknown>;
   success?: boolean;
   preview?: string;
