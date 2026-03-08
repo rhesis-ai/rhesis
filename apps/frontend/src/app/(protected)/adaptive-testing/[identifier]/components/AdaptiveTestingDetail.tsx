@@ -1295,16 +1295,17 @@ function TestsList({
       align: 'center',
       headerAlign: 'center',
       renderCell: params => {
+        const label = params.row.label;
         const score = params.value;
-        if (score === null || score === undefined || score === 0) {
+        if (!label) {
           return <Chip label="N/A" size="small" variant="outlined" />;
         }
         return (
           <Chip
-            label={score.toFixed(2)}
+            label={score != null ? score.toFixed(2) : 'N/A'}
             size="small"
-            color={getScoreColor(score)}
-            variant="filled"
+            color={score != null ? getScoreColor(score) : 'default'}
+            variant={score != null ? 'filled' : 'outlined'}
           />
         );
       },
@@ -1315,7 +1316,7 @@ function TestsList({
       width: 100,
       renderCell: params => {
         const label = params.value;
-        if (!label) return '-';
+        if (!label) return <Chip label="N/A" size="small" variant="outlined" />;
         return (
           <Chip
             label={label}
@@ -2447,67 +2448,32 @@ export default function AdaptiveTestingDetail({
               {generateError}
             </Alert>
           )}
-          <Box
-            sx={{
-              display: 'flex',
-              gap: 2,
-              mb: 2,
-              flexWrap: 'wrap',
-            }}
-          >
-            <Autocomplete
-              options={endpoints}
-              getOptionLabel={option => option.name ?? ''}
-              value={selectedEndpoint}
-              onChange={(_, value) => setSelectedEndpoint(value ?? null)}
-              loading={endpointsLoading}
-              renderInput={params => (
-                <TextField
-                  {...params}
-                  label="Endpoint"
-                  placeholder="Select endpoint"
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {endpointsLoading ? (
-                          <CircularProgress color="inherit" size={20} />
-                        ) : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
-              sx={{ minWidth: 240, flex: 1 }}
-            />
-            <Autocomplete
-              options={metrics}
-              getOptionLabel={option => option.name ?? ''}
-              value={selectedMetric}
-              onChange={(_, value) => setSelectedMetric(value ?? null)}
-              loading={metricsLoading}
-              renderInput={params => (
-                <TextField
-                  {...params}
-                  label="Metric"
-                  placeholder="Select metric"
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {metricsLoading ? (
-                          <CircularProgress color="inherit" size={20} />
-                        ) : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
-              sx={{ minWidth: 240, flex: 1 }}
-            />
-          </Box>
+          <Autocomplete
+            options={endpoints}
+            getOptionLabel={option => option.name ?? ''}
+            value={selectedEndpoint}
+            onChange={(_, value) => setSelectedEndpoint(value ?? null)}
+            loading={endpointsLoading}
+            renderInput={params => (
+              <TextField
+                {...params}
+                label="Endpoint"
+                placeholder="Select endpoint"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {endpointsLoading ? (
+                        <CircularProgress color="inherit" size={20} />
+                      ) : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            sx={{ mb: 2 }}
+          />
           <Autocomplete
             options={[allTestsTopicOption, ...topics]}
             getOptionLabel={option =>

@@ -723,6 +723,13 @@ start_backend() {
         exit 1
     }
 
+
+    source .venv/bin/activate || {
+        echo -e "${RED}❌ Error: Failed to activate virtual environment${NC}"
+        exit 1
+    }
+    echo -e "${GREEN}✅ Python environment activated${NC}"
+
     if [ -f "start.sh" ]; then
         ./start.sh
     else
