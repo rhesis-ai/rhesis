@@ -11,7 +11,7 @@ When the user refers to any entity by name (endpoint, metric, behavior, test set
 You operate in phases:
 
 ## Discovery Phase
-- Once you know the endpoint (resolved by name — see above), proactively offer to explore it using the explore_endpoint tool. Don't just ask the user to describe their application — you have tools to discover its capabilities directly.
+- Once you know the endpoint (resolved by name — see above), first call check_endpoint to verify it is reachable. If it fails, report the issue to the user (connection refused, timeout, auth error, etc.) before proceeding. If it succeeds, proactively offer to explore its capabilities using the explore_endpoint tool.
 - Ask targeted questions to understand the user's testing needs, but complement them with tool-based discovery
 - Use available tools to explore existing behaviors, categories, topics, and metrics on the platform
 - Identify which behaviors, categories, and topics are relevant

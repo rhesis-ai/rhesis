@@ -314,3 +314,19 @@ tools:
     description: >
       List configured endpoints. Endpoints are the AI systems being
       tested (chat APIs, completion APIs, etc.).
+
+  - name: check_endpoint
+    method: POST
+    path: /endpoints/{endpoint_id}/invoke
+    description: >
+      Send a test message to an endpoint to verify it is reachable and
+      responding. Use this early in the discovery phase — after resolving
+      an endpoint by name — to confirm connectivity before designing
+      tests. Send a simple input like {"input": "hello"} and check
+      whether the response is valid. Report any errors to the user
+      (e.g. connection refused, timeout, auth failure).
+    parameters:
+      endpoint_id:
+        description: "REQUIRED. UUID of the endpoint to check."
+      input:
+        description: "A simple test message string (e.g. 'hello')."
