@@ -40,7 +40,6 @@ from rhesis.backend.local_init import initialize_local_environment
 from rhesis.backend.logging import set_logger
 from rhesis.backend.telemetry.middleware import TelemetryMiddleware
 
-set_logger()
 logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
@@ -184,6 +183,8 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events using the modern lifespan approach.
     Replaces the deprecated @app.on_event("startup") and @app.on_event("shutdown").
     """
+    set_logger()
+
     # Startup: Initialize local environment if enabled
     with get_db() as db:
         initialize_local_environment(db)
