@@ -82,3 +82,118 @@ class EvaluateResponse(Base):
     evaluated: int
     results: List[EvaluateResultItem]
     failed: List[EvaluateFailedItem]
+
+
+# ---------------------------------------------------------------------------
+# Generate suggestions
+# ---------------------------------------------------------------------------
+
+
+class GenerateSuggestionsRequest(Base):
+    """Request body for generating test suggestions via LLM."""
+
+    topic: Optional[str] = None
+    num_examples: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="Number of existing tests to sample as examples",
+    )
+    num_suggestions: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Number of new test suggestions to generate",
+    )
+
+
+class SuggestedTest(BaseModel):
+    """One LLM-generated test suggestion (not yet persisted)."""
+
+    topic: str = ""
+    input: str = ""
+    output: str = ""
+    label: str = ""
+    labeler: str = ""
+    model_score: float = 0.0
+
+
+class GenerateSuggestionsResponse(Base):
+    """Response containing LLM-generated test suggestions."""
+
+    suggestions: List[SuggestedTest]
+    num_examples_used: int
+
+
+# ---------------------------------------------------------------------------
+# Generate suggestion outputs (non-persisted)
+# ---------------------------------------------------------------------------
+
+
+class SuggestionInput(BaseModel):
+    """A single suggestion input for output generation."""
+
+    input: str
+    topic: str = ""
+
+
+class GenerateSuggestionOutputsRequest(Base):
+    """Request body for generating outputs for non-persisted suggestions."""
+
+    endpoint_id: UUID4
+    suggestions: List[SuggestionInput]
+
+
+class SuggestionOutputItem(BaseModel):
+    """Result of generating output for one suggestion."""
+
+    input: str
+    output: str = ""
+    error: Optional[str] = None
+
+
+class GenerateSuggestionOutputsResponse(Base):
+    """Response for suggestion output generation (nothing persisted)."""
+
+    generated: int
+    results: List[SuggestionOutputItem]
+
+
+# ---------------------------------------------------------------------------
+# Evaluate suggestions (non-persisted)
+# ---------------------------------------------------------------------------
+
+
+class SuggestionForEval(BaseModel):
+    """A single suggestion to evaluate."""
+
+    input: str
+    output: str
+
+
+class EvaluateSuggestionsRequest(Base):
+    """Request body for evaluating non-persisted suggestions."""
+
+    metric_names: List[str] = Field(
+        ...,
+        min_length=1,
+        description="Metric names to evaluate",
+    )
+    suggestions: List[SuggestionForEval]
+
+
+class SuggestionEvalItem(BaseModel):
+    """Evaluation result for one suggestion."""
+
+    input: str
+    label: str = ""
+    labeler: str = ""
+    model_score: float = 0.0
+    error: Optional[str] = None
+
+
+class EvaluateSuggestionsResponse(Base):
+    """Response for suggestion evaluation (nothing persisted)."""
+
+    evaluated: int
+    results: List[SuggestionEvalItem]

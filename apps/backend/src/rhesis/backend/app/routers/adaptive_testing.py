@@ -25,22 +25,34 @@ from rhesis.backend.app.schemas.adaptive_testing import (
     EvaluateRequest,
     EvaluateResponse,
     EvaluateResultItem,
+    EvaluateSuggestionsRequest,
+    EvaluateSuggestionsResponse,
     GenerateOutputsFailedItem,
     GenerateOutputsRequest,
     GenerateOutputsResponse,
     GenerateOutputsUpdatedItem,
+    GenerateSuggestionOutputsRequest,
+    GenerateSuggestionOutputsResponse,
+    GenerateSuggestionsRequest,
+    GenerateSuggestionsResponse,
+    SuggestedTest,
+    SuggestionEvalItem,
+    SuggestionOutputItem,
 )
 from rhesis.backend.app.services.adaptive_testing import (
     create_adaptive_test_set,
     create_test_node,
     create_topic_node,
     delete_test_node,
+    evaluate_suggestions,
     evaluate_tests_for_adaptive_set,
     generate_outputs_for_tests,
+    generate_suggestions,
     get_adaptive_test_sets,
     get_tree_nodes,
     get_tree_tests,
     get_tree_topics,
+    invoke_endpoint_for_suggestions,
     remove_topic_node,
     update_test_node,
     update_topic_node,
@@ -523,5 +535,142 @@ def evaluate_tests(
         ],
         failed=[
             EvaluateFailedItem(test_id=f["test_id"], error=f["error"]) for f in result["failed"]
+        ],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Suggestions (non-persisted)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{test_set_identifier}/generate_suggestions",
+    response_model=GenerateSuggestionsResponse,
+)
+def generate_suggestions_endpoint(
+    test_set_identifier: str,
+    body: GenerateSuggestionsRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Generate test suggestions using an LLM.
+
+    Randomly samples existing tests as examples, builds a prompt,
+    and asks the LLM to generate new test inputs.
+    Nothing is persisted; the caller decides which to accept.
+    """
+    organization_id, user_id = tenant_context
+    try:
+        result = generate_suggestions(
+            db=db,
+            test_set_identifier=test_set_identifier,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            topic=body.topic,
+            num_examples=body.num_examples,
+            num_suggestions=body.num_suggestions,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return GenerateSuggestionsResponse(
+        suggestions=[SuggestedTest(**s) for s in result["suggestions"]],
+        num_examples_used=result["num_examples_used"],
+    )
+
+
+@router.post(
+    "/{test_set_identifier}/generate_suggestion_outputs",
+    response_model=GenerateSuggestionOutputsResponse,
+)
+async def generate_suggestion_outputs_endpoint(
+    test_set_identifier: str,
+    body: GenerateSuggestionOutputsRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Generate outputs for non-persisted suggestions by invoking an endpoint.
+
+    Invokes the endpoint for each suggestion input and returns
+    the outputs. Nothing is persisted to the database.
+    """
+    organization_id, user_id = tenant_context
+    _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    inputs = [{"input": s.input, "topic": s.topic} for s in body.suggestions]
+
+    try:
+        result = await invoke_endpoint_for_suggestions(
+            db=db,
+            endpoint_id=str(body.endpoint_id),
+            inputs=inputs,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return GenerateSuggestionOutputsResponse(
+        generated=result["generated"],
+        results=[
+            SuggestionOutputItem(
+                input=r["input"],
+                output=r["output"],
+                error=r.get("error"),
+            )
+            for r in result["results"]
+        ],
+    )
+
+
+@router.post(
+    "/{test_set_identifier}/evaluate_suggestions",
+    response_model=EvaluateSuggestionsResponse,
+)
+def evaluate_suggestions_endpoint(
+    test_set_identifier: str,
+    body: EvaluateSuggestionsRequest,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Evaluate non-persisted suggestions with the specified metrics.
+
+    Runs each metric against the suggestion input/output pairs and
+    returns results. Nothing is persisted to the database.
+    """
+    organization_id, user_id = tenant_context
+    _resolve_test_set_or_raise(test_set_identifier, db, str(organization_id))
+
+    items = [{"input": s.input, "output": s.output} for s in body.suggestions]
+
+    try:
+        result = evaluate_suggestions(
+            db=db,
+            organization_id=str(organization_id),
+            user_id=str(user_id),
+            metric_names=body.metric_names,
+            suggestions=items,
+        )
+    except ValueError as e:
+        msg = str(e).lower()
+        if "metric" in msg and "does not exist" in msg:
+            raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return EvaluateSuggestionsResponse(
+        evaluated=result["evaluated"],
+        results=[
+            SuggestionEvalItem(
+                input=r["input"],
+                label=r["label"],
+                labeler=r["labeler"],
+                model_score=r["model_score"],
+                error=r.get("error"),
+            )
+            for r in result["results"]
         ],
     )

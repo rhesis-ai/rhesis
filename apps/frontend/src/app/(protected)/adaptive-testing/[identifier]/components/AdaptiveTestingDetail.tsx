@@ -48,6 +48,7 @@ import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
 import GradingIcon from '@mui/icons-material/GradingOutlined';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import {
   TestNode,
   TestNodeCreate,
@@ -58,6 +59,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import SuggestionsDialog from './SuggestionsDialog';
 
 // ============================================================================
 // Types
@@ -1483,6 +1485,7 @@ export default function AdaptiveTestingDetail({
   const [evaluateMetric, setEvaluateMetric] = useState<MetricDetail | null>(
     null
   );
+  const [suggestionsDialogOpen, setSuggestionsDialogOpen] = useState(false);
 
   const notifications = useNotifications();
 
@@ -1760,6 +1763,18 @@ export default function AdaptiveTestingDetail({
         });
       });
   };
+
+  const handleSuggestionAccepted = useCallback(() => {
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+    Promise.all([
+      client.getTree(testSetId),
+      client.getTopics(testSetId),
+    ]).then(([treeNodes, updatedTopics]) => {
+      setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
+      setTopics(updatedTopics);
+    });
+  }, [sessionToken, testSetId]);
 
   const handleEditTestOpen = (test: TestNode) => {
     setEditingTest(test);
@@ -2238,6 +2253,14 @@ export default function AdaptiveTestingDetail({
               >
                 Add test
               </Button>
+              <Button
+                size="small"
+                startIcon={<AutoAwesomeIcon />}
+                onClick={() => setSuggestionsDialogOpen(true)}
+                sx={{ textTransform: 'none' }}
+              >
+                Suggest tests
+              </Button>
             </Box>
             <Paper variant="outlined" sx={{ p: 1 }}>
               <TestsList
@@ -2285,6 +2308,14 @@ export default function AdaptiveTestingDetail({
               sx={{ textTransform: 'none' }}
             >
               Add test
+            </Button>
+            <Button
+              size="small"
+              startIcon={<AutoAwesomeIcon />}
+              onClick={() => setSuggestionsDialogOpen(true)}
+              sx={{ textTransform: 'none' }}
+            >
+              Suggest tests
             </Button>
           </Box>
           <Paper variant="outlined" sx={{ p: 2 }}>
@@ -2654,6 +2685,23 @@ export default function AdaptiveTestingDetail({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Suggestions dialog */}
+      <SuggestionsDialog
+        open={suggestionsDialogOpen}
+        onClose={() => setSuggestionsDialogOpen(false)}
+        testSetId={testSetId}
+        sessionToken={sessionToken}
+        topic={selectedTopic}
+        topics={topics}
+        endpoints={endpoints}
+        endpointsLoading={endpointsLoading}
+        metrics={metrics}
+        metricsLoading={metricsLoading}
+        defaultEndpoint={endpointForGeneration}
+        defaultMetric={metricForGeneration}
+        onTestAccepted={handleSuggestionAccepted}
+      />
     </Box>
   );
 }
