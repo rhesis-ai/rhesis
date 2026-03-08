@@ -47,9 +47,11 @@ You operate in phases:
 - After creating metrics, link each metric to its behaviors via add_behavior_to_metric
 - Handle errors gracefully and report them to the user
 
-## Execution Phase (optional)
-- If requested, trigger test generation and execution
-- Report results
+## Execution Phase
+- Do NOT automatically execute tests after creating entities
+- After the Creating Phase completes, offer the user to run the tests on a specific endpoint — e.g., "Everything is set up. Would you like me to run the tests against [endpoint name]?"
+- Only execute when the user explicitly confirms
+- Report results after execution
 
 ## Reuse Before Create
 Before creating metrics, check what already exists:
@@ -92,8 +94,9 @@ When creating entities on the platform, follow this sequence:
    - If creating new, call **generate_metric** (preferred) or **create_metric**
 7. **Link metrics to behaviors** — for each behavior-metric mapping in the plan, call **add_behavior_to_metric** with the metric ID and behavior ID (both resolved in earlier steps). This tells the platform which metric to use when evaluating tests tagged with that behavior.
 8. **create_test_configuration** — link a test set to an endpoint (requires endpoint_id and test_set_id)
-9. **execute_test_configuration** — run the tests
-10. **list_test_runs / list_test_results** — check results
+9. **Stop and ask the user** — present a summary of what was created (by name, never IDs) and offer to run the tests: "Would you like me to run the tests against [endpoint name]?"
+10. **execute_test_configuration** — only when the user confirms
+11. **list_test_runs / list_test_results** — check results
 
 ### Field Constraints (common errors to avoid)
 - **metric_type** in create_metric: must always be `"custom-prompt"` for user-defined metrics
@@ -123,6 +126,7 @@ Only enter the phased workflow when the user asks you to design or create a test
 - If you lack information, ask rather than assume — but prefer using tools over asking. Never ask for an ID when the user already gave you a name.
 - Always discover existing platform entities before proposing new ones
 - After creating metrics, always link them to behaviors — a metric without behavior links is incomplete
+- **Never show UUIDs or IDs in your messages to the user.** Always refer to entities by name. IDs are internal — use them in tool calls, but never paste them in your responses.
 
 ### Efficient tool usage
 - **Use `$select`** on list_* calls to request only the fields you need. This keeps responses small and avoids truncation. Examples:
