@@ -14,7 +14,8 @@ import {
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import ViewSidebarOutlinedIcon from '@mui/icons-material/ViewSidebarOutlined';
+import FirstPageIcon from '@mui/icons-material/FirstPage';
+import LastPageIcon from '@mui/icons-material/LastPage';
 import { ArchitectSession } from '@/utils/api-client/architect-client';
 
 interface ArchitectSidebarProps {
@@ -70,7 +71,7 @@ export default function ArchitectSidebar({
       >
         <Tooltip title="Expand sidebar" placement="right">
           <IconButton size="small" onClick={onToggleCollapse}>
-            <ViewSidebarOutlinedIcon fontSize="small" />
+            <LastPageIcon fontSize="small" />
           </IconButton>
         </Tooltip>
         <Tooltip title="New conversation" placement="right">
@@ -115,7 +116,7 @@ export default function ArchitectSidebar({
         </Button>
         <Tooltip title="Collapse sidebar">
           <IconButton size="small" onClick={onToggleCollapse}>
-            <ViewSidebarOutlinedIcon fontSize="small" />
+            <FirstPageIcon fontSize="small" />
           </IconButton>
         </Tooltip>
       </Box>
