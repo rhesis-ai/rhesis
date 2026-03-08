@@ -10,7 +10,6 @@ Tests focus on:
 - Token usage updates and user profile updates
 
 Functions tested from auth utilities:
-- auth_utils.py: update_token_usage
 - token_validation.py: update_token_usage
 - user_utils.py: get_or_create_user_from_profile
 
@@ -24,7 +23,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.auth import auth_utils, token_validation, user_utils
+from rhesis.backend.app.auth import token_validation, user_utils
 from rhesis.backend.app.utils.encryption import hash_token
 
 
@@ -37,7 +36,7 @@ class TestAuthTransactionManagement:
     def test_auth_utils_update_token_usage_commits_on_success(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
-        """Test that auth_utils.update_token_usage commits automatically on success"""
+        """Test that token_validation.update_token_usage commits automatically on success"""
         # Create a test token
         token_value = "test_token_123"
         test_token = models.Token(
@@ -56,7 +55,7 @@ class TestAuthTransactionManagement:
         original_timestamp = test_token.last_used_at
 
         # Update token usage
-        auth_utils.update_token_usage(test_db, test_token)
+        token_validation.update_token_usage(test_db, test_token)
 
         # Verify token usage was updated and persisted
         assert test_token.last_used_at is not None
@@ -73,7 +72,7 @@ class TestAuthTransactionManagement:
         self, test_db: Session, test_org_id: str, authenticated_user_id: str
     ):
         """
-        Test that auth_utils.update_token_usage handles exceptions
+        Test that token_validation.update_token_usage handles exceptions
         gracefully without manual rollback
         """
         # Create a test token
@@ -104,7 +103,7 @@ class TestAuthTransactionManagement:
         )
 
         # This should not raise an exception (error is caught and logged)
-        auth_utils.update_token_usage(test_db, invalid_token)
+        token_validation.update_token_usage(test_db, invalid_token)
 
         # Verify the original token still exists and is not corrupted
         db_token = test_db.query(models.Token).filter(models.Token.id == test_token.id).first()
@@ -315,7 +314,7 @@ class TestAuthTransactionManagement:
         original_timestamp2 = token2.last_used_at
 
         # Update both tokens
-        auth_utils.update_token_usage(test_db, token1)
+        token_validation.update_token_usage(test_db, token1)
         token_validation.update_token_usage(test_db, token2)
 
         # Verify both tokens were updated independently
@@ -400,7 +399,7 @@ class TestAuthTransactionManagement:
 
         # Perform concurrent operations
         # Update token usage
-        auth_utils.update_token_usage(test_db, token)
+        token_validation.update_token_usage(test_db, token)
 
         # Update user profile
         user_profile = {

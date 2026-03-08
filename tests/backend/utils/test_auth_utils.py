@@ -1,12 +1,12 @@
 """
-Tests for auth utility functions in rhesis.backend.app.auth.auth_utils
+Tests for auth utility functions.
 
 This module tests authentication utility functions including:
-- get_current_user function
-- JWT token verification
-- Token validation
-- get_authenticated_user_with_context function
-- Tenant context setting in authentication flows
+- get_secret_key function (token_utils)
+- JWT token verification (token_utils)
+- Token validation (token_validation)
+- get_current_user function (user_utils)
+- get_authenticated_user_with_context function (user_utils)
 """
 
 from contextlib import contextmanager
@@ -19,12 +19,11 @@ from fastapi.security import HTTPAuthorizationCredentials
 from jwt import PyJWTError as JWTError
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.auth_utils import (
+from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
+from rhesis.backend.app.auth.token_validation import validate_token
+from rhesis.backend.app.auth.user_utils import (
     get_authenticated_user_with_context,
     get_current_user,
-    get_secret_key,
-    validate_token,
-    verify_jwt_token,
 )
 from rhesis.backend.app.models.token import Token
 from rhesis.backend.app.models.user import User
@@ -69,16 +68,17 @@ class TestGetCurrentUser:
         request = Mock()
         request.session = {"user_id": "user123"}
 
-        # Mock get_db context manager and get_user_by_id since the function uses get_db()
+        # Mock get_db context manager and crud.get_user_by_id
         mock_db = Mock(spec=Session)
 
         @contextmanager
         def mock_get_db():
             yield mock_db
 
-        with patch("rhesis.backend.app.database.get_db", mock_get_db):
+        with patch("rhesis.backend.app.auth.user_utils.get_db", mock_get_db):
             with patch(
-                "rhesis.backend.app.auth.auth_utils.get_user_by_id", return_value=mock_user
+                "rhesis.backend.app.auth.user_utils.crud.get_user_by_id",
+                return_value=mock_user,
             ) as mock_get_user:
                 result = pytest.run(get_current_user(request))
 
@@ -95,16 +95,17 @@ class TestGetCurrentUser:
         request = Mock()
         request.session = {"user_id": "user123"}
 
-        # Mock get_db context manager and get_user_by_id since the function uses get_db()
+        # Mock get_db context manager and crud.get_user_by_id
         mock_db = Mock(spec=Session)
 
         @contextmanager
         def mock_get_db():
             yield mock_db
 
-        with patch("rhesis.backend.app.database.get_db", mock_get_db):
+        with patch("rhesis.backend.app.auth.user_utils.get_db", mock_get_db):
             with patch(
-                "rhesis.backend.app.auth.auth_utils.get_user_by_id", return_value=mock_user
+                "rhesis.backend.app.auth.user_utils.crud.get_user_by_id",
+                return_value=mock_user,
             ) as mock_get_user:
                 result = pytest.run(get_current_user(request))
 
@@ -117,15 +118,18 @@ class TestGetCurrentUser:
         request = Mock()
         request.session = {"user_id": "user123"}
 
-        # Mock get_db context manager and get_user_by_id since the function uses get_db()
+        # Mock get_db context manager and crud.get_user_by_id
         mock_db = Mock(spec=Session)
 
         @contextmanager
         def mock_get_db():
             yield mock_db
 
-        with patch("rhesis.backend.app.database.get_db", mock_get_db):
-            with patch("rhesis.backend.app.auth.auth_utils.get_user_by_id", return_value=None):
+        with patch("rhesis.backend.app.auth.user_utils.get_db", mock_get_db):
+            with patch(
+                "rhesis.backend.app.auth.user_utils.crud.get_user_by_id",
+                return_value=None,
+            ):
                 result = pytest.run(get_current_user(request))
                 assert result is None
 
@@ -140,13 +144,14 @@ class TestVerifyJwtToken:
         expected_payload = {
             "sub": "user123",
             "organization_id": "org456",
-            "type": "session",  # Required for token validation
-            "exp": 9999999999,  # Future expiration
-            "iat": 1000000000,  # Past issued time
+            "type": "session",
+            "exp": 9999999999,
+            "iat": 1000000000,
         }
 
         with patch(
-            "rhesis.backend.app.auth.auth_utils.jwt.decode", return_value=expected_payload
+            "rhesis.backend.app.auth.token_utils.jwt.decode",
+            return_value=expected_payload,
         ) as mock_decode:
             result = verify_jwt_token(token, secret_key)
 
@@ -162,19 +167,57 @@ class TestVerifyJwtToken:
                 },
             )
 
+    def test_verify_jwt_token_service_delegation(self):
+        """Test JWT token verification accepts service_delegation tokens"""
+        token = "valid.jwt.token"
+        secret_key = "test-secret"
+        expected_payload = {
+            "sub": "user123",
+            "type": "service_delegation",
+            "target_service": "backend",
+            "exp": 9999999999,
+            "iat": 1000000000,
+            "user": {"id": "user123", "email": "test@example.com"},
+        }
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.jwt.decode",
+            return_value=expected_payload,
+        ):
+            result = verify_jwt_token(token, secret_key)
+            assert result == expected_payload
+
     def test_verify_jwt_token_invalid(self):
         """Test JWT token verification with invalid token"""
         token = "invalid.jwt.token"
         secret_key = "test-secret"
 
         with patch(
-            "rhesis.backend.app.auth.auth_utils.jwt.decode", side_effect=JWTError("Invalid token")
+            "rhesis.backend.app.auth.token_utils.jwt.decode",
+            side_effect=JWTError("Invalid token"),
         ):
-            # The function should re-raise the JWTError, not convert to HTTPException
             with pytest.raises(JWTError) as exc_info:
                 verify_jwt_token(token, secret_key)
 
             assert "Invalid token" in str(exc_info.value)
+
+    def test_verify_jwt_token_rejects_unknown_type(self):
+        """Test JWT token verification rejects unknown token types"""
+        token = "valid.jwt.token"
+        secret_key = "test-secret"
+        payload = {
+            "sub": "user123",
+            "type": "email_verification",
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+
+        with patch(
+            "rhesis.backend.app.auth.token_utils.jwt.decode",
+            return_value=payload,
+        ):
+            with pytest.raises(JWTError):
+                verify_jwt_token(token, secret_key)
 
 
 class TestValidateToken:
@@ -182,17 +225,18 @@ class TestValidateToken:
 
     def test_validate_token_success_with_usage_update(self):
         """Test successful token validation with usage update"""
-        token_value = "rh-valid-token"  # Must start with 'rh-'
+        token_value = "rh-valid-token"
         mock_token = Mock(spec=Token)
         mock_token.is_valid = True
         mock_token.usage_count = 5
         mock_token.last_used_at = datetime.now(timezone.utc)
-        mock_token.expires_at = None  # No expiration
+        mock_token.expires_at = None
 
         db = Mock(spec=Session)
 
         with patch(
-            "rhesis.backend.app.auth.auth_utils.get_token_by_value", return_value=mock_token
+            "rhesis.backend.app.auth.token_validation.crud.get_token_by_value",
+            return_value=mock_token,
         ) as mock_get_token:
             result = validate_token(token_value, update_usage=True, db=db)
 
@@ -201,15 +245,16 @@ class TestValidateToken:
 
     def test_validate_token_success_without_usage_update(self):
         """Test successful token validation without usage update"""
-        token_value = "rh-valid-token"  # Must start with 'rh-'
+        token_value = "rh-valid-token"
         mock_token = Mock(spec=Token)
         mock_token.is_valid = True
-        mock_token.expires_at = None  # No expiration
+        mock_token.expires_at = None
 
         db = Mock(spec=Session)
 
         with patch(
-            "rhesis.backend.app.auth.auth_utils.get_token_by_value", return_value=mock_token
+            "rhesis.backend.app.auth.token_validation.crud.get_token_by_value",
+            return_value=mock_token,
         ):
             result = validate_token(token_value, update_usage=False, db=db)
 
@@ -217,17 +262,20 @@ class TestValidateToken:
 
     def test_validate_token_not_found(self):
         """Test token validation when token not found"""
-        token_value = "rh-nonexistent-token"  # Must start with 'rh-'
+        token_value = "rh-nonexistent-token"
         db = Mock(spec=Session)
 
-        with patch("rhesis.backend.app.auth.auth_utils.get_token_by_value", return_value=None):
+        with patch(
+            "rhesis.backend.app.auth.token_validation.crud.get_token_by_value",
+            return_value=None,
+        ):
             result = validate_token(token_value, db=db)
 
             assert result == (False, "Invalid or revoked token")
 
     def test_validate_token_invalid_format(self):
         """Test token validation with invalid format"""
-        token_value = "invalid-token"  # Doesn't start with 'rh-'
+        token_value = "invalid-token"
         db = Mock(spec=Session)
 
         result = validate_token(token_value, db=db)
@@ -247,7 +295,8 @@ class TestGetAuthenticatedUserWithContext:
         request = Mock()
 
         with patch(
-            "rhesis.backend.app.auth.auth_utils.get_current_user", return_value=mock_user
+            "rhesis.backend.app.auth.user_utils.get_current_user",
+            return_value=mock_user,
         ) as mock_get_current:
             result = pytest.run(get_authenticated_user_with_context(request, session_only=True))
 
@@ -261,16 +310,17 @@ class TestGetAuthenticatedUserWithContext:
         mock_user.organization_id = "org456"
 
         request = Mock()
-        request.session = {}  # Mock empty session
-        db = Mock(spec=Session)
+        request.session = {}
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="jwt-token")
 
-        # Mock the get_user_from_jwt function directly since it has complex internal logic
         with patch(
-            "rhesis.backend.app.auth.auth_utils.get_user_from_jwt", return_value=mock_user
+            "rhesis.backend.app.auth.user_utils.get_user_from_jwt",
+            return_value=mock_user,
         ) as mock_get_jwt_user:
-            # Mock get_current_user to return None (no session auth)
-            with patch("rhesis.backend.app.auth.auth_utils.get_current_user", return_value=None):
+            with patch(
+                "rhesis.backend.app.auth.user_utils.get_current_user",
+                return_value=None,
+            ):
                 result = pytest.run(
                     get_authenticated_user_with_context(
                         request, credentials=credentials, secret_key="secret"
@@ -281,18 +331,17 @@ class TestGetAuthenticatedUserWithContext:
                 mock_get_jwt_user.assert_called_once_with("jwt-token", "secret")
 
     def test_get_authenticated_user_without_context(self):
-        """Test authentication with without_context flag (still calls set_tenant)"""
+        """Test authentication with without_context flag"""
         mock_user = Mock(spec=User)
         mock_user.id = "user123"
-        mock_user.organization_id = None  # No organization, but without_context=True allows this
+        mock_user.organization_id = None
 
         request = Mock()
-        request.session = {"user_id": "user123"}  # Mock session
-        db = Mock(spec=Session)
+        request.session = {"user_id": "user123"}
 
-        # Mock get_current_user directly to return user without organization
         with patch(
-            "rhesis.backend.app.auth.auth_utils.get_current_user", return_value=mock_user
+            "rhesis.backend.app.auth.user_utils.get_current_user",
+            return_value=mock_user,
         ) as mock_get_current:
             result = pytest.run(get_authenticated_user_with_context(request, without_context=True))
 
@@ -302,9 +351,11 @@ class TestGetAuthenticatedUserWithContext:
     def test_get_authenticated_user_no_user_found(self):
         """Test authentication when no user is found"""
         request = Mock()
-        db = Mock(spec=Session)
 
-        with patch("rhesis.backend.app.auth.auth_utils.get_current_user", return_value=None):
+        with patch(
+            "rhesis.backend.app.auth.user_utils.get_current_user",
+            return_value=None,
+        ):
             result = pytest.run(get_authenticated_user_with_context(request))
             assert result is None
 

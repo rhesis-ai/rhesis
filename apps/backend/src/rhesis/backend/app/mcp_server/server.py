@@ -20,10 +20,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import Receive, Scope, Send
 
-from rhesis.backend.app.auth.auth_utils import (
-    get_authenticated_user_with_context,
-    get_secret_key,
-)
+from rhesis.backend.app.auth.token_utils import get_secret_key
+from rhesis.backend.app.auth.user_utils import get_authenticated_user_with_context
 
 from .tools import build_tools_and_operations
 
