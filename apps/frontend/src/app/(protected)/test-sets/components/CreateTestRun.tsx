@@ -27,6 +27,8 @@ import tagStyles from '@/styles/BaseTag.module.css';
 interface ProjectOption {
   id: UUID;
   name: string;
+  nano_id?: string;
+  created_at?: string;
 }
 
 interface EndpointOption {
@@ -100,7 +102,12 @@ export default function CreateTestRun({
 
         const processedProjects = projectsArray
           .filter((p: Project) => p.id && p.name && p.name.trim() !== '')
-          .map((p: Project) => ({ id: p.id as UUID, name: p.name }));
+          .map((p: Project) => ({
+            id: p.id as UUID,
+            name: p.name,
+            nano_id: (p as Project & { nano_id?: string }).nano_id,
+            created_at: p.created_at,
+          }));
 
         setProjects(processedProjects);
 
@@ -291,12 +298,29 @@ export default function CreateTestRun({
                 setSelectedProject(newValue.id);
                 setSelectedEndpoint(null);
               }}
-              getOptionLabel={option => option.name}
+              getOptionLabel={option => {
+                const hasDuplicate = projects.filter(p => p.name === option.name).length > 1;
+                if (!hasDuplicate) return option.name;
+                const suffix = option.nano_id
+                  ? option.nano_id.slice(0, 6)
+                  : option.id.slice(0, 6);
+                return `${option.name} (${suffix})`;
+              }}
               renderOption={(props, option) => {
                 const { key: _key, ...otherProps } = props;
+                const hasDuplicate = projects.filter(p => p.name === option.name).length > 1;
                 return (
                   <Box component="li" key={option.id} {...otherProps}>
-                    {option.name}
+                    <Box>
+                      <Typography variant="body2">{option.name}</Typography>
+                      {hasDuplicate && (
+                        <Typography variant="caption" color="text.secondary">
+                          {option.created_at
+                            ? `Created ${new Date(option.created_at).toLocaleDateString()}`
+                            : `ID: ${option.nano_id ?? option.id.slice(0, 8)}`}
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
                 );
               }}
