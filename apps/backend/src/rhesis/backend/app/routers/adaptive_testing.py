@@ -335,6 +335,7 @@ def create_adaptive_test(
     input: str = Body(..., description="Test input / prompt text"),
     output: str = Body("", description="Expected or actual output"),
     labeler: str = Body("user", description="Who labelled this test"),
+    label: Optional[str] = Body(None, description="Label: 'pass', 'fail', or empty"),
     model_score: float = Body(0.0, description="Model score"),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -358,6 +359,7 @@ def create_adaptive_test(
         input=input,
         output=output,
         labeler=labeler,
+        label=label or "",
         model_score=model_score,
     )
 

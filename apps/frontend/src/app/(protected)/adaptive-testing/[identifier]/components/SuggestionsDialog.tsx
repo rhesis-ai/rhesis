@@ -294,6 +294,13 @@ export default function SuggestionsDialog({
       if (row.topic) {
         data.topic = row.topic;
       }
+      if (
+        (row.label === 'pass' || row.label === 'fail') &&
+        row.model_score != null
+      ) {
+        data.label = row.label;
+        data.model_score = row.model_score;
+      }
       await client.createTest(testSetId, data);
       setSuggestions(prev => prev.filter(s => s._id !== row._id));
       onTestAccepted();
