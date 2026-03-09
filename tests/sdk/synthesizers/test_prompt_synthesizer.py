@@ -203,30 +203,29 @@ def test_generate_without_sources_small_batch(mock_generate_batch):
     assert item2["metadata"] == {"generated_by": "PromptSynthesizer"}
 
 
-@patch.object(PromptSynthesizer, "_generate_batch")
-def test_generate_without_sources_large_batch(mock_generate_batch):
+def test_generate_without_sources_large_batch():
     """Test generation without sources for large number of tests (chunking)."""
-    # Mock returns 20 tests per call
-    mock_generate_batch.return_value = [
-        {
-            "prompt": {
-                "content": f"Test {i}",
-                "expected_response": f"Response {i}",
-                "language_code": "en",
-            },
-            "behavior": "behavior",
-            "category": "category",
-            "topic": "topic",
-            "metadata": {"generated_by": "PromptSynthesizer"},
-        }
-        for i in range(20)
-    ]
+    mock_model = Mock(spec=BaseLLM)
+    batch_response = {
+        "tests": [
+            {
+                "prompt_content": f"Test {i}",
+                "prompt_expected_response": f"Response {i}",
+                "prompt_language_code": "en",
+                "behavior": "behavior",
+                "category": "category",
+                "topic": "topic",
+            }
+            for i in range(20)
+        ]
+    }
+    mock_model.generate_batch.return_value = [batch_response, batch_response]
 
-    synthesizer = PromptSynthesizer(prompt="Generate tests", batch_size=20)
+    synthesizer = PromptSynthesizer(prompt="Generate tests", model=mock_model, batch_size=20)
     result = synthesizer._generate_without_sources(num_tests=40)
 
-    # Should be called twice (40 tests / 20 batch size)
-    assert mock_generate_batch.call_count == 2
+    # Should call model.generate_batch once with 2 prompts
+    assert mock_model.generate_batch.call_count == 1
     assert len(result) == 40
 
 

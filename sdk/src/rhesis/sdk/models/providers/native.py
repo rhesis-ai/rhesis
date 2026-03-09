@@ -120,7 +120,12 @@ class RhesisLLM(BaseLLM):
         **kwargs: Any,
     ) -> List[Any]:
         """Batch processing is not implemented for RhesisLLM."""
-        raise NotImplementedError("generate_batch is not implemented for RhesisLLM")
+        results = []
+        for prompt in prompts:
+            results.append(
+                self.generate(prompt, system_prompt=system_prompt, schema=schema, **kwargs)
+            )
+        return results
 
     def create_completion(
         self,
