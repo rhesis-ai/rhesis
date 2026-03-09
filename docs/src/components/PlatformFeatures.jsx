@@ -132,8 +132,7 @@ const features = [
   {
     icon: GroupsIcon,
     title: 'Collaboration',
-    description:
-      'Coordinate testing work with tasks, inline comments, and human review workflows.',
+    description: 'Coordinate testing work with tasks, inline comments, and human review workflows.',
     link: '/platform/tasks',
   },
   {
