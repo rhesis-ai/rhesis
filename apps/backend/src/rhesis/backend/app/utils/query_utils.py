@@ -1,3 +1,4 @@
+import logging
 from typing import Callable, Dict, List, Optional, Type, TypeVar
 from uuid import UUID
 
@@ -12,7 +13,8 @@ from rhesis.backend.app.utils.query_validation import (
     validate_sort_field,
     validate_sort_order,
 )
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 # Define a generic type variable
 T = TypeVar("T")

@@ -16,6 +16,7 @@ Usage:
     cascade_restore(db, models.TestRun, test_run_id, org_id)
 """
 
+import logging
 from datetime import datetime
 from typing import Optional, Type
 from uuid import UUID
@@ -23,7 +24,8 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.cascade_config import get_cascade_relationships
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 def cascade_soft_delete(

@@ -8,6 +8,7 @@ Uses the bulk creation infrastructure to ensure proper metadata is set
 (test_set_type, test_type, status, license_type, etc.).
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -19,10 +20,11 @@ from rhesis.backend.app.models.metric import Metric
 from rhesis.backend.app.models.test_set import TestSet, test_set_metric_association
 from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.services.test_set import bulk_create_test_set
-from rhesis.backend.logging.rhesis_logger import logger
 
 from .probes import GarakProbeInfo, GarakProbeService
 from .taxonomy import GarakTaxonomy
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass

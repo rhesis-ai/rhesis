@@ -2,6 +2,7 @@
 SendGrid v3 API client for sending emails with dynamic templates.
 """
 
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from email.utils import parseaddr
@@ -10,7 +11,7 @@ from typing import Optional, Tuple
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Email, Mail, To
 
-from rhesis.backend.logging.rhesis_logger import logger
+logger = logging.getLogger(__name__)
 
 
 class SendGridClient:

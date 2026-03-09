@@ -9,11 +9,12 @@ For production deployments, consider using Redis for this.
 For single-instance deployments, in-memory storage is sufficient.
 """
 
+import logging
 import threading
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
 
 
 class SessionInvalidationStore:

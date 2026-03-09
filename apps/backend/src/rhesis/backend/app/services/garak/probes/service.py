@@ -6,13 +6,14 @@ extracting Garak probes for import into Rhesis as test sets.
 """
 
 import importlib
+import logging
 import pkgutil
 from typing import Any, Dict, List, Optional
 
-from rhesis.backend.logging.rhesis_logger import logger
-
 from .extraction import PromptExtractor
 from .models import GarakModuleInfo, GarakProbeInfo
+
+logger = logging.getLogger(__name__)
 
 
 class GarakProbeService:

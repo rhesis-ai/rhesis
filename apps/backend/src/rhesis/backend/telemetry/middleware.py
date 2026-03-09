@@ -2,13 +2,13 @@
 Middleware for handling telemetry context in FastAPI.
 """
 
+import logging
 import time
 from typing import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.telemetry.instrumentation import (
     _telemetry_org_id,
     _telemetry_user_id,
@@ -16,6 +16,8 @@ from rhesis.backend.telemetry.instrumentation import (
     is_telemetry_enabled,
     set_telemetry_enabled,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class TelemetryMiddleware(BaseHTTPMiddleware):

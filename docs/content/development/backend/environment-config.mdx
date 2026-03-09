@@ -35,15 +35,15 @@ The application can load different configuration based on the environment:
 <CodeBlock filename="python" language="python">
 {`import os
 
-# Determine environment
-ENV = os.getenv("ENV", "development")
+# Determine environment (ENVIRONMENT is preferred; ENV is supported for backward compatibility)
+ENVIRONMENT = os.getenv("ENVIRONMENT") or os.getenv("ENV", "development")
 
 # Load environment-specific settings
-if ENV == "production":
+if ENVIRONMENT == "production":
     # Production settings
     DEBUG = False
     LOG_LEVEL = "INFO"
-elif ENV == "testing":
+elif ENVIRONMENT == "testing":
     # Testing settings
     DEBUG = True
     LOG_LEVEL = "DEBUG"

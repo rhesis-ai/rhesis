@@ -6,9 +6,10 @@ using a fallback hierarchy system.
 """
 
 import json
+import logging
 from typing import Any, Dict, List, Union
 
-from rhesis.backend.logging.rhesis_logger import logger
+logger = logging.getLogger(__name__)
 
 
 def extract_response_with_fallback(result: Union[Dict, Any]) -> str:

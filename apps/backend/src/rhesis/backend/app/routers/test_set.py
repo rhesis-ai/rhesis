@@ -1,3 +1,4 @@
+import logging
 import uuid
 from enum import Enum
 from typing import Optional
@@ -38,9 +39,10 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_generation_model,
 )
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-from rhesis.backend.logging import logger
 from rhesis.backend.tasks import task_launcher
 from rhesis.backend.tasks.test_set import generate_and_save_test_set
+
+logger = logging.getLogger(__name__)
 
 # Create the detailed schema for TestSet and Test
 TestSetDetailSchema = create_detailed_schema(schemas.TestSet, models.TestSet)
@@ -279,7 +281,6 @@ async def read_test_sets(
         db: Database session
         current_user: Current user
     """
-    from rhesis.backend.logging import logger
 
     logger.info(f"test_sets endpoint called with has_runs={has_runs}")
 

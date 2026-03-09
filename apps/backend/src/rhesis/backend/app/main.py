@@ -37,8 +37,10 @@ from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.git_utils import get_version_info
 from rhesis.backend.local_init import initialize_local_environment
-from rhesis.backend.logging import logger
+from rhesis.backend.logging import set_logger
 from rhesis.backend.telemetry.middleware import TelemetryMiddleware
+
+logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
@@ -181,6 +183,8 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events using the modern lifespan approach.
     Replaces the deprecated @app.on_event("startup") and @app.on_event("shutdown").
     """
+    set_logger()
+
     # Startup: Initialize local environment if enabled
     with get_db() as db:
         initialize_local_environment(db)
@@ -495,28 +499,3 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
-
-
-# Configure additional FastAPI logging
-fastapi_logger = logging.getLogger("fastapi")
-fastapi_logger.setLevel(logging.DEBUG)
-
-# Apply sensitive data filter to prevent logging of auth tokens and API keys
-from rhesis.backend.logging.rhesis_logger import SensitiveDataFilter
-
-sensitive_filter = SensitiveDataFilter()
-
-# Apply to websockets logger (logs WebSocket headers including Authorization)
-websockets_logger = logging.getLogger("websockets")
-websockets_logger.addFilter(sensitive_filter)
-
-# Apply to uvicorn logger (logs HTTP headers)
-uvicorn_logger = logging.getLogger("uvicorn")
-uvicorn_logger.addFilter(sensitive_filter)
-
-# Apply to uvicorn.access logger
-uvicorn_access_logger = logging.getLogger("uvicorn.access")
-uvicorn_access_logger.addFilter(sensitive_filter)
-
-# Apply to our own application logger
-fastapi_logger.addFilter(sensitive_filter)
