@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class InferenceRequest(BaseModel):
@@ -39,3 +39,31 @@ class GenerateRequest(BaseModel):
     top_p: Optional[float] = None  # Nucleus sampling parameter
     top_k: Optional[int] = None  # Top-k sampling parameter
     json_schema: Optional[Dict[str, Any]] = None  # Optional JSON schema for structured output
+
+
+MAX_BATCH_SIZE = 50
+
+
+class GenerateBatchRequest(BaseModel):
+    """Request format for batch Vertex AI generation"""
+
+    requests: List[GenerateRequest] = Field(
+        min_length=1,
+        max_length=MAX_BATCH_SIZE,
+        description=f"List of generation requests (1–{MAX_BATCH_SIZE} items).",
+    )
+
+
+class BatchItemResponse(BaseModel):
+    """Single item in a batch generation response (success or error)."""
+
+    choices: Optional[List[Dict[str, Any]]] = None
+    model: Optional[str] = None
+    usage: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+
+class BatchGenerationResponse(BaseModel):
+    """Response format for batch Vertex AI generation"""
+
+    responses: List[BatchItemResponse]
