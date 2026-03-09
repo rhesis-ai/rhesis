@@ -59,13 +59,13 @@ export const InfoCardHorizontal = ({
       width: '3rem',
       height: '3rem',
       borderRadius: '50%',
-      backgroundColor: 'var(--icon-bg, #FFF5F0)',
+      backgroundColor: 'var(--icon-bg, #EEF6FB)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
     },
     icon: {
-      color: 'var(--accent-color, #FD6E12)',
+      color: 'var(--accent-color, #2AA1CE)',
       fontSize: '1.5rem',
     },
     content: {

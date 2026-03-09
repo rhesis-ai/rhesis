@@ -9,12 +9,16 @@ import LibraryBooksIcon from '@mui/icons-material/LibraryBooks'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import BarChartIcon from '@mui/icons-material/BarChart'
 import TuneIcon from '@mui/icons-material/Tune'
-import ExtensionIcon from '@mui/icons-material/Extension'
-import VpnKeyIcon from '@mui/icons-material/VpnKey'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import PsychologyIcon from '@mui/icons-material/Psychology'
 import ModelTrainingIcon from '@mui/icons-material/ModelTraining'
 import SettingsInputComponentIcon from '@mui/icons-material/SettingsInputComponent'
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
+import GroupsIcon from '@mui/icons-material/Groups'
+import TimelineIcon from '@mui/icons-material/Timeline'
+import TerminalIcon from '@mui/icons-material/Terminal'
+import SmartToyIcon from '@mui/icons-material/SmartToy'
 import { InfoCardHorizontal } from './InfoCardHorizontal'
 
 /**
@@ -75,6 +79,12 @@ const features = [
     link: '/platform/models',
   },
   {
+    icon: AutoFixHighIcon,
+    title: 'Test Generation',
+    description: 'Generate test cases using AI from knowledge sources and defined behaviors.',
+    link: '/platform/tests-generation',
+  },
+  {
     icon: AssignmentIcon,
     title: 'Tests',
     description: 'Create and manage test cases manually or generate them using AI.',
@@ -85,6 +95,12 @@ const features = [
     title: 'Test Sets',
     description: 'Organize tests into collections and execute them against your AI application.',
     link: '/platform/test-sets',
+  },
+  {
+    icon: RocketLaunchIcon,
+    title: 'Test Execution',
+    description: 'Run tests against your endpoints and configure execution parameters.',
+    link: '/platform/test-execution',
   },
   {
     icon: PlayArrowIcon,
@@ -98,6 +114,33 @@ const features = [
     title: 'Results Overview',
     description: 'A global view of all your test results.',
     link: '/platform/results-overview',
+  },
+  {
+    icon: TerminalIcon,
+    title: 'Playground',
+    description:
+      'Interactively test conversational endpoints in real time and convert sessions into tests.',
+    link: '/glossary/playground',
+  },
+  {
+    icon: TimelineIcon,
+    title: 'Tracing',
+    description:
+      'OpenTelemetry-based observability for LLM calls, tool invocations, and agent workflows.',
+    link: '/tracing',
+  },
+  {
+    icon: GroupsIcon,
+    title: 'Collaboration',
+    description: 'Coordinate testing work with tasks, inline comments, and human review workflows.',
+    link: '/platform/tasks',
+  },
+  {
+    icon: SmartToyIcon,
+    title: 'Polyphemus',
+    description:
+      'Rhesis-hosted open-source LLM service with built-in access control and rate limiting.',
+    link: '/glossary/polyphemus',
   },
   {
     icon: SettingsInputComponentIcon,

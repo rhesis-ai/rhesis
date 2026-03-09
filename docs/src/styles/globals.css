@@ -790,8 +790,8 @@ aside nav a[class*='text-primary'],
   --card-bg: #ffffff;
   --text-primary: #3d3d3d;
   --text-secondary: #6b7280;
-  --accent-color: #fd6e12;
-  --icon-bg: #fff5f0;
+  --accent-color: #2aa1ce;
+  --icon-bg: #eef6fb;
 }
 
 [data-theme='dark'] .info-card-horizontal,
@@ -800,8 +800,8 @@ aside nav a[class*='text-primary'],
   --card-bg: #161b22 !important;
   --text-primary: #e6edf3 !important;
   --text-secondary: #a9b1bb !important;
-  --accent-color: #fd6e12 !important;
-  --icon-bg: rgba(253, 110, 18, 0.1) !important;
+  --accent-color: #2aa1ce !important;
+  --icon-bg: rgba(42, 161, 206, 0.1) !important;
 }
 
 .info-card-horizontal:hover {
