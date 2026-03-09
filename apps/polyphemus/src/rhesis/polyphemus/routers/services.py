@@ -92,7 +92,9 @@ async def generate_batch(
     Generate text for multiple requests by calling Vertex AI endpoint concurrently.
 
     Requires API key authentication via Bearer token.
-    Rate limited to 10000 requests per day per authenticated user.
+    Rate limited to 10000 batch requests per day per authenticated user. Each batch
+    call counts as one request regardless of how many items it contains. Use
+    MAX_BATCH_SIZE (currently 50) to control the maximum number of items per call.
 
     Accepts:
         {

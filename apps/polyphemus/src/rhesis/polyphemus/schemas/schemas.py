@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class InferenceRequest(BaseModel):
@@ -41,10 +41,17 @@ class GenerateRequest(BaseModel):
     json_schema: Optional[Dict[str, Any]] = None  # Optional JSON schema for structured output
 
 
+MAX_BATCH_SIZE = 50
+
+
 class GenerateBatchRequest(BaseModel):
     """Request format for batch Vertex AI generation"""
 
-    requests: List[GenerateRequest]
+    requests: List[GenerateRequest] = Field(
+        min_length=1,
+        max_length=MAX_BATCH_SIZE,
+        description=f"List of generation requests (1–{MAX_BATCH_SIZE} items).",
+    )
 
 
 class BatchItemResponse(BaseModel):

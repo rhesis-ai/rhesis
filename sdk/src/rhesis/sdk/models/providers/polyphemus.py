@@ -177,6 +177,12 @@ class PolyphemusLLM(BaseLLM):
         if not prompts:
             return []
 
+        # Separate HTTP-client-only kwargs from API-level kwargs so that
+        # client options like "timeout" are never forwarded in the JSON body.
+        _CLIENT_ONLY = {"timeout"}
+        timeout = kwargs.get("timeout")
+        api_kwargs = {k: v for k, v in kwargs.items() if k not in _CLIENT_ONLY}
+
         requests_list: List[Dict[str, Any]] = []
         for prompt in prompts:
             sys = system_prompt
@@ -199,31 +205,31 @@ class PolyphemusLLM(BaseLLM):
             req: Dict[str, Any] = {
                 "messages": messages,
                 "json_schema": schema.model_json_schema() if schema else None,
-                **kwargs,
+                **api_kwargs,
             }
             if self.model_name:
                 req["model"] = self.model_name
             requests_list.append(req)
 
+        def err_placeholder(msg: str) -> Any:
+            return {"error": msg} if schema else msg
+
         try:
-            batch_response = self.create_batch_completion(
-                requests_list, timeout=kwargs.get("timeout")
-            )
+            batch_response = self.create_batch_completion(requests_list, timeout=timeout)
         except requests.exceptions.HTTPError as e:
             logger.error("Batch request failed: %s", e, exc_info=True)
-            err_msg = "An error occurred while processing the request."
-            return [{"error": err_msg} if schema else err_msg] * len(prompts)
+            return [err_placeholder("An error occurred while processing the request.")] * len(
+                prompts
+            )
 
         results: List[Any] = []
         for item in batch_response.get("responses", []):
             if item.get("error"):
-                results.append({"error": item["error"]} if schema else str(item["error"]))
+                results.append(err_placeholder(str(item["error"])))
                 continue
             choices = item.get("choices", [])
             if not choices:
-                results.append(
-                    {"error": "No response generated."} if schema else "No response generated."
-                )
+                results.append(err_placeholder("No response generated."))
                 continue
             content = choices[0].get("message", {}).get("content", "")
             if schema:
@@ -242,7 +248,18 @@ class PolyphemusLLM(BaseLLM):
                     content = self._strip_reasoning_tokens(content)
                 results.append(content)
 
-        return results
+        # Guarantee result list length matches input length.
+        # Fill any missing items (server returned fewer than requested).
+        while len(results) < len(prompts):
+            logger.warning(
+                "Server returned %d responses for %d prompts; padding with errors.",
+                len(results),
+                len(prompts),
+            )
+            results.append(err_placeholder("No response from server."))
+
+        # Trim any surplus items (should never happen, but be defensive).
+        return results[: len(prompts)]
 
     def _extract_json(self, output: str) -> str:
         """

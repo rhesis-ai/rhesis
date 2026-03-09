@@ -75,6 +75,10 @@ _RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
 _MAX_ATTEMPTS = 3
 _RETRY_BACKOFF_BASE = 1.0  # seconds; doubles each retry: 1s, 2s
 
+# Batch concurrency cap — limits how many Vertex AI calls fly in parallel at once.
+# Keeps the shared httpx connection pool and Vertex quota from being overwhelmed.
+MAX_BATCH_CONCURRENCY = int(os.getenv("POLYPHEMUS_BATCH_CONCURRENCY", "10"))
+
 
 def _get_vertex_access_token() -> str:
     """
@@ -339,17 +343,20 @@ async def generate_text_batch_via_vertex_endpoint(
     if not requests:
         return []
 
+    semaphore = asyncio.Semaphore(MAX_BATCH_CONCURRENCY)
+
     async def run_one(req: GenerateRequest) -> Dict[str, Any]:
-        try:
-            return await generate_text_via_vertex_endpoint(
-                req,
-                endpoint_id=endpoint_id,
-                project_id=project_id,
-                location=location,
-                timeout_seconds=timeout_seconds,
-            )
-        except Exception as exc:
-            return {"error": str(exc)}
+        async with semaphore:
+            try:
+                return await generate_text_via_vertex_endpoint(
+                    req,
+                    endpoint_id=endpoint_id,
+                    project_id=project_id,
+                    location=location,
+                    timeout_seconds=timeout_seconds,
+                )
+            except Exception as exc:
+                return {"error": str(exc)}
 
     results = await asyncio.gather(
         *[run_one(r) for r in requests],
