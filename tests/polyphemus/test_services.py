@@ -17,6 +17,7 @@ import pytest
 from rhesis.polyphemus.schemas import GenerateRequest, Message
 from rhesis.polyphemus.services.services import (
     _build_vertex_request_body,
+    generate_text_batch_via_vertex_endpoint,
     generate_text_via_vertex_endpoint,
     resolve_model,
 )
@@ -603,3 +604,120 @@ class TestGenerateTextViaVertexEndpoint:
                     )
 
         assert result["model"] == "polyphemus-opus"
+
+
+# ---------------------------------------------------------------------------
+# generate_text_batch_via_vertex_endpoint
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateTextBatchViaVertexEndpoint:
+    """Tests for batch generation (concurrent single-item calls)."""
+
+    async def test_empty_requests_returns_empty_list(self):
+        result = await generate_text_batch_via_vertex_endpoint(
+            [], endpoint_id="ep", project_id="proj"
+        )
+        assert result == []
+
+    async def test_single_request_success(self):
+        requests = [GenerateRequest(messages=[Message(role="user", content="Hi")])]
+        with patch.dict(
+            "rhesis.polyphemus.services.services.POLYPHEMUS_MODELS", _CONFIGURED_MODELS
+        ):
+            with patch(
+                "rhesis.polyphemus.services.services._get_vertex_access_token",
+                return_value="t",
+            ):
+                with patch(
+                    "rhesis.polyphemus.services.services._http_client"
+                ) as mock_client:
+                    mock_client.post = AsyncMock(
+                        return_value=_ok_http_response("Hello back!")
+                    )
+                    results = await generate_text_batch_via_vertex_endpoint(
+                        requests, endpoint_id="ep", project_id="proj"
+                    )
+
+        assert len(results) == 1
+        assert "choices" in results[0]
+        assert results[0]["choices"][0]["message"]["content"] == "Hello back!"
+        assert "error" not in results[0]
+
+    async def test_multiple_requests_all_success(self):
+        requests = [
+            GenerateRequest(messages=[Message(role="user", content=f"Q{i}")])
+            for i in range(3)
+        ]
+        with patch.dict(
+            "rhesis.polyphemus.services.services.POLYPHEMUS_MODELS", _CONFIGURED_MODELS
+        ):
+            with patch(
+                "rhesis.polyphemus.services.services._get_vertex_access_token",
+                return_value="t",
+            ):
+                with patch(
+                    "rhesis.polyphemus.services.services._http_client"
+                ) as mock_client:
+                    mock_client.post = AsyncMock(
+                        return_value=_ok_http_response("Answer")
+                    )
+                    results = await generate_text_batch_via_vertex_endpoint(
+                        requests, endpoint_id="ep", project_id="proj"
+                    )
+
+        assert len(results) == 3
+        for r in results:
+            assert "choices" in r
+            assert "error" not in r
+
+    async def test_partial_failure_returns_mix_of_success_and_error(self):
+        requests = [
+            GenerateRequest(messages=[Message(role="user", content="ok")]),
+            GenerateRequest(messages=[Message(role="system", content="only")]),  # invalid
+            GenerateRequest(messages=[Message(role="user", content="ok2")]),
+        ]
+        with patch.dict(
+            "rhesis.polyphemus.services.services.POLYPHEMUS_MODELS", _CONFIGURED_MODELS
+        ):
+            with patch(
+                "rhesis.polyphemus.services.services._get_vertex_access_token",
+                return_value="t",
+            ):
+                with patch(
+                    "rhesis.polyphemus.services.services._http_client"
+                ) as mock_client:
+                    mock_client.post = AsyncMock(return_value=_ok_http_response())
+                    results = await generate_text_batch_via_vertex_endpoint(
+                        requests, endpoint_id="ep", project_id="proj"
+                    )
+
+        assert len(results) == 3
+        assert "choices" in results[0]
+        assert "error" in results[1]
+        assert "At least one non-system message" in results[1]["error"]
+        assert "choices" in results[2]
+
+    async def test_all_failures_returns_all_errors(self):
+        requests = [
+            GenerateRequest(messages=[]),
+            GenerateRequest(messages=[Message(role="user", content="  ")]),
+        ]
+        with patch.dict(
+            "rhesis.polyphemus.services.services.POLYPHEMUS_MODELS", _CONFIGURED_MODELS
+        ):
+            with patch(
+                "rhesis.polyphemus.services.services._get_vertex_access_token",
+                return_value="t",
+            ):
+                with patch(
+                    "rhesis.polyphemus.services.services._http_client"
+                ) as mock_client:
+                    mock_client.post = AsyncMock(return_value=_ok_http_response())
+                    results = await generate_text_batch_via_vertex_endpoint(
+                        requests, endpoint_id="ep", project_id="proj"
+                    )
+
+        assert len(results) == 2
+        assert "error" in results[0]
+        assert "error" in results[1]

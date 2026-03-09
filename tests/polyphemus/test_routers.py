@@ -280,3 +280,151 @@ class TestGenerateEndpointErrors:
                             resp = client.post("/generate", json=payload)
 
         assert resp.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# POST /generate_batch — success paths
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateBatchEndpointSuccess:
+    def test_batch_single_item(self, client):
+        payload = {
+            "requests": [{"messages": [{"role": "user", "content": "Hello batch!"}]}]
+        }
+        with patch.dict(os.environ, _DEFAULT_ENV):
+            with patch.dict(
+                "rhesis.polyphemus.services.services.POLYPHEMUS_MODELS", _CONFIGURED_MODELS
+            ):
+                with patch(
+                    "rhesis.polyphemus.services.services._get_vertex_access_token",
+                    return_value="t",
+                ):
+                    with patch(
+                        "rhesis.polyphemus.services.services._http_client"
+                    ) as mock_client:
+                        mock_client.post = AsyncMock(
+                            return_value=_ok_vertex_response("Batch reply")
+                        )
+                        resp = client.post("/generate_batch", json=payload)
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "responses" in body
+        assert len(body["responses"]) == 1
+        assert body["responses"][0].get("choices") is not None
+        assert "Batch reply" in body["responses"][0]["choices"][0]["message"]["content"]
+
+    def test_batch_multiple_items(self, client):
+        payload = {
+            "requests": [
+                {"messages": [{"role": "user", "content": f"Q{i}"}]}
+                for i in range(3)
+            ]
+        }
+        with patch.dict(os.environ, _DEFAULT_ENV):
+            with patch.dict(
+                "rhesis.polyphemus.services.services.POLYPHEMUS_MODELS", _CONFIGURED_MODELS
+            ):
+                with patch(
+                    "rhesis.polyphemus.services.services._get_vertex_access_token",
+                    return_value="t",
+                ):
+                    with patch(
+                        "rhesis.polyphemus.services.services._http_client"
+                    ) as mock_client:
+                        mock_client.post = AsyncMock(
+                            return_value=_ok_vertex_response("Answer")
+                        )
+                        resp = client.post("/generate_batch", json=payload)
+
+        assert resp.status_code == 200
+        assert len(resp.json()["responses"]) == 3
+        for r in resp.json()["responses"]:
+            assert "choices" in r
+
+
+# ---------------------------------------------------------------------------
+# POST /generate_batch — error paths
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateBatchEndpointErrors:
+    def test_missing_endpoint_id_returns_400(self, client):
+        payload = {
+            "requests": [{"messages": [{"role": "user", "content": "hi"}]}]
+        }
+        env = {k: v for k, v in _DEFAULT_ENV.items() if k != "POLYPHEMUS_ENDPOINT_ID"}
+        with patch.dict(os.environ, env):
+            os.environ.pop("POLYPHEMUS_ENDPOINT_ID", None)
+            resp = client.post("/generate_batch", json=payload)
+
+        assert resp.status_code == 400
+
+    def test_value_error_returns_400(self, client):
+        payload = {
+            "requests": [{"messages": [{"role": "user", "content": "hi"}]}]
+        }
+        with patch.dict(os.environ, _DEFAULT_ENV):
+            with patch(
+                "rhesis.polyphemus.routers.services.generate_text_batch_via_vertex_endpoint",
+                side_effect=ValueError("Batch config invalid"),
+            ):
+                resp = client.post("/generate_batch", json=payload)
+
+        assert resp.status_code == 400
+        assert "Batch config invalid" in resp.json()["detail"]
+
+    def test_runtime_error_returns_500(self, client):
+        payload = {
+            "requests": [{"messages": [{"role": "user", "content": "hi"}]}]
+        }
+        with patch.dict(os.environ, _DEFAULT_ENV):
+            with patch(
+                "rhesis.polyphemus.routers.services.generate_text_batch_via_vertex_endpoint",
+                side_effect=RuntimeError("Vertex down"),
+            ):
+                resp = client.post("/generate_batch", json=payload)
+
+        assert resp.status_code == 500
+
+    def test_empty_requests_returns_422(self, client):
+        resp = client.post("/generate_batch", json={"requests": []})
+        assert resp.status_code == 422
+
+    def test_missing_requests_returns_422(self, client):
+        resp = client.post("/generate_batch", json={})
+        assert resp.status_code == 422
+
+    def test_batch_returns_partial_errors_as_200_with_error_items(self, client):
+        """When some items fail, endpoint still returns 200 with per-item success/error."""
+        payload = {
+            "requests": [
+                {"messages": [{"role": "user", "content": "ok"}]},
+                {"messages": []},  # invalid
+                {"messages": [{"role": "user", "content": "ok2"}]},
+            ]
+        }
+        with patch.dict(os.environ, _DEFAULT_ENV):
+            with patch.dict(
+                "rhesis.polyphemus.services.services.POLYPHEMUS_MODELS", _CONFIGURED_MODELS
+            ):
+                with patch(
+                    "rhesis.polyphemus.services.services._get_vertex_access_token",
+                    return_value="t",
+                ):
+                    with patch(
+                        "rhesis.polyphemus.services.services._http_client"
+                    ) as mock_client:
+                        mock_client.post = AsyncMock(
+                            return_value=_ok_vertex_response()
+                        )
+                        resp = client.post("/generate_batch", json=payload)
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["responses"]) == 3
+        assert body["responses"][0].get("choices") is not None
+        assert body["responses"][1].get("error") is not None
+        assert "At least one non-system message" in body["responses"][1]["error"]
+        assert body["responses"][2].get("choices") is not None

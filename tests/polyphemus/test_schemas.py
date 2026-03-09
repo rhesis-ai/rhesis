@@ -8,7 +8,16 @@ default values, optional fields, and serialization.
 import pytest
 from pydantic import ValidationError
 
-from rhesis.polyphemus.schemas import GenerateRequest, GenerationResponse, InferenceRequest, Message
+from rhesis.polyphemus.schemas import (
+    BatchGenerationResponse,
+    BatchItemResponse,
+    GenerateBatchRequest,
+    GenerateRequest,
+    GenerationResponse,
+    InferenceRequest,
+    Message,
+)
+from rhesis.polyphemus.schemas.schemas import MAX_BATCH_SIZE
 
 
 class TestMessage:
@@ -213,3 +222,103 @@ class TestGenerationResponse:
     def test_requires_all_fields(self):
         with pytest.raises(ValidationError):
             GenerationResponse(generated_text="hi")  # type: ignore[call-arg]
+
+
+class TestGenerateBatchRequest:
+    def test_minimal_batch_one_request(self):
+        batch = GenerateBatchRequest(
+            requests=[GenerateRequest(messages=[Message(role="user", content="Hi")])]
+        )
+        assert len(batch.requests) == 1
+        assert batch.requests[0].messages[0].content == "Hi"
+
+    def test_batch_multiple_requests(self):
+        batch = GenerateBatchRequest(
+            requests=[
+                GenerateRequest(messages=[Message(role="user", content=f"Q{i}")])
+                for i in range(5)
+            ]
+        )
+        assert len(batch.requests) == 5
+
+    def test_batch_max_length(self):
+        batch = GenerateBatchRequest(
+            requests=[
+                GenerateRequest(messages=[Message(role="user", content="x")])
+                for _ in range(MAX_BATCH_SIZE)
+            ]
+        )
+        assert len(batch.requests) == MAX_BATCH_SIZE
+
+    def test_batch_empty_requests_invalid(self):
+        with pytest.raises(ValidationError):
+            GenerateBatchRequest(requests=[])  # type: ignore[call-arg]
+
+    def test_batch_over_max_invalid(self):
+        with pytest.raises(ValidationError):
+            GenerateBatchRequest(
+                requests=[
+                    GenerateRequest(messages=[Message(role="user", content="x")])
+                    for _ in range(MAX_BATCH_SIZE + 1)
+                ]
+            )
+
+    def test_batch_serialization_round_trip(self):
+        batch = GenerateBatchRequest(
+            requests=[
+                GenerateRequest(messages=[Message(role="user", content="Hello")]),
+                GenerateRequest(messages=[Message(role="user", content="World")]),
+            ]
+        )
+        d = batch.model_dump()
+        restored = GenerateBatchRequest.model_validate(d)
+        assert len(restored.requests) == 2
+        assert restored.requests[1].messages[0].content == "World"
+
+
+class TestBatchItemResponse:
+    def test_success_shape(self):
+        item = BatchItemResponse(
+            choices=[{"message": {"role": "assistant", "content": "Hi"}}],
+            model="polyphemus-default",
+            usage={"prompt_tokens": 5, "completion_tokens": 10},
+        )
+        assert item.choices is not None
+        assert item.model == "polyphemus-default"
+        assert item.usage["completion_tokens"] == 10
+        assert item.error is None
+
+    def test_error_shape(self):
+        item = BatchItemResponse(error="At least one non-system message with content is required")
+        assert item.choices is None
+        assert item.model is None
+        assert item.usage is None
+        assert item.error == "At least one non-system message with content is required"
+
+    def test_all_optional_none(self):
+        item = BatchItemResponse()
+        assert item.choices is None
+        assert item.model is None
+        assert item.usage is None
+        assert item.error is None
+
+
+class TestBatchGenerationResponse:
+    def test_valid_response(self):
+        resp = BatchGenerationResponse(
+            responses=[
+                BatchItemResponse(
+                    choices=[{"message": {"role": "assistant", "content": "A"}}],
+                    model="polyphemus-default",
+                    usage={"prompt_tokens": 1, "completion_tokens": 1},
+                ),
+                BatchItemResponse(error="Something went wrong"),
+            ]
+        )
+        assert len(resp.responses) == 2
+        assert resp.responses[0].choices is not None
+        assert resp.responses[1].error == "Something went wrong"
+
+    def test_requires_responses_list(self):
+        with pytest.raises(ValidationError):
+            BatchGenerationResponse()  # type: ignore[call-arg]
