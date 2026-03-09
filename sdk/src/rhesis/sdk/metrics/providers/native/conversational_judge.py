@@ -415,6 +415,9 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
             "goal": goal or GOAL_DEFAULT,
             "turn_count": self._count_turns(conversation_history),
             "score_type": score_type_value,
+            "has_assistant_metadata": any(
+                m is not None for m in conversation_history.get_assistant_metadata()
+            ),
         }
 
         # Add any additional template variables specific to the metric type
@@ -434,6 +437,8 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
 
         Groups consecutive user/assistant message pairs into numbered turns,
         where each turn represents one interaction (user message + assistant response).
+        When an assistant message carries metadata, it is rendered inline under
+        the assistant response as a "Metadata:" block.
 
         Args:
             conversation_history: The conversation to format
@@ -441,34 +446,51 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
         Returns:
             Formatted conversation text
         """
-        simple_turns = conversation_history.get_simple_turns()
+        import json
+
         formatted_turns = []
         turn_number = 0
+        messages = conversation_history.messages
         i = 0
 
-        while i < len(simple_turns):
-            msg = simple_turns[i]
-            if msg["role"] == "user":
+        while i < len(messages):
+            role, content, _ = ConversationHistory._msg_attrs(messages[i])
+
+            if not content:
+                i += 1
+                continue
+
+            if role == "user":
                 turn_number += 1
-                lines = [f"Turn {turn_number}:"]
-                lines.append(f"  User: {msg['content']}")
-                # Consume the following assistant message if present
-                if i + 1 < len(simple_turns) and simple_turns[i + 1]["role"] == "assistant":
-                    lines.append(f"  Assistant: {simple_turns[i + 1]['content']}")
-                    i += 2
+                lines = [f"Turn {turn_number}:", f"  User: {content}"]
+                if i + 1 < len(messages):
+                    nxt_role, nxt_content, nxt_meta = ConversationHistory._msg_attrs(
+                        messages[i + 1]
+                    )
+                    if nxt_role == "assistant" and nxt_content:
+                        lines.append(f"  Assistant: {nxt_content}")
+                        if nxt_meta:
+                            lines.append(f"  Metadata: {json.dumps(nxt_meta, indent=2)}")
+                        i += 2
+                    else:
+                        i += 1
                 else:
                     i += 1
                 formatted_turns.append("\n".join(lines))
-            elif msg["role"] == "assistant":
+
+            elif role == "assistant":
                 # Standalone assistant message (no preceding user message)
                 turn_number += 1
-                lines = [f"Turn {turn_number}:"]
-                lines.append(f"  Assistant: {msg['content']}")
+                _, _, meta = ConversationHistory._msg_attrs(messages[i])
+                lines = [f"Turn {turn_number}:", f"  Assistant: {content}"]
+                if meta:
+                    lines.append(f"  Metadata: {json.dumps(meta, indent=2)}")
                 formatted_turns.append("\n".join(lines))
                 i += 1
+
             else:
                 # System or other messages — include without a turn number
-                formatted_turns.append(f"[{msg['role']}]: {msg['content']}")
+                formatted_turns.append(f"[{role}]: {content}")
                 i += 1
 
         return "\n\n".join(formatted_turns)

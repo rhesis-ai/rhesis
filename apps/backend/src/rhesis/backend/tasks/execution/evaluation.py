@@ -17,13 +17,45 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.metrics.evaluator import MetricEvaluator
-from rhesis.backend.tasks.execution.constants import MetricScope
+from rhesis.backend.tasks.execution.constants import (
+    CONVERSATION_SUMMARY_KEY,
+    PENELOPE_MESSAGE_KEY,
+    TARGET_RESPONSE_KEY,
+    TURN_METADATA_KEY,
+    MetricScope,
+)
 from rhesis.sdk.metrics import MetricConfig
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
 from .response_extractor import extract_response_with_fallback
 
 logger = logging.getLogger(__name__)
+
+
+def _build_conversation_history(
+    conversation_summary: List[Dict[str, Any]],
+) -> Optional[ConversationHistory]:
+    """
+    Build a ConversationHistory from a Penelope conversation_summary list.
+
+    Each entry in conversation_summary maps to one user+assistant exchange:
+    - ``penelope_message``  → user role
+    - ``target_response``   → assistant role
+    - ``metadata``          → per-turn assistant metadata (optional)
+    """
+    messages: List[Dict[str, Any]] = []
+    for turn in conversation_summary:
+        penelope_msg = turn.get(PENELOPE_MESSAGE_KEY, "")
+        target_resp = turn.get(TARGET_RESPONSE_KEY, "")
+        assistant_metadata = turn.get(TURN_METADATA_KEY)
+        if penelope_msg:
+            messages.append({"role": "user", "content": penelope_msg})
+        if target_resp:
+            asst_msg: Dict[str, Any] = {"role": "assistant", "content": target_resp}
+            if assistant_metadata is not None:
+                asst_msg["metadata"] = assistant_metadata
+            messages.append(asst_msg)
+    return ConversationHistory.from_messages(messages) if messages else None
 
 
 def evaluate_single_turn_metrics(
@@ -151,21 +183,9 @@ def evaluate_multi_turn_metrics(
         sdk_metric_sender=_build_sdk_metric_sender(project_id, environment),
     )
 
-    # Build ConversationHistory from conversation_summary for conversational metrics
-    conversation_summary = stored_output.get("conversation_summary", [])
-    messages = []
-    conversation_text = ""
-    for turn in conversation_summary:
-        penelope_msg = turn.get("penelope_message", "")
-        target_resp = turn.get("target_response", "")
-        if penelope_msg:
-            messages.append({"role": "user", "content": penelope_msg})
-            conversation_text += f"User: {penelope_msg}\n"
-        if target_resp:
-            messages.append({"role": "assistant", "content": target_resp})
-            conversation_text += f"Assistant: {target_resp}\n"
-
-    conversation_history = ConversationHistory.from_messages(messages) if messages else None
+    conversation_summary = stored_output.get(CONVERSATION_SUMMARY_KEY, [])
+    conversation_history = _build_conversation_history(conversation_summary)
+    conversation_text = conversation_history.to_text() if conversation_history else ""
 
     try:
         results = metrics_evaluator.evaluate(

@@ -211,6 +211,9 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             "turn_count": self._count_turns(conversation_history),
             "min_score": self.min_score,
             "max_score": self.max_score,
+            "has_assistant_metadata": any(
+                m is not None for m in conversation_history.get_assistant_metadata()
+            ),
         }
 
         # Add any additional template variables

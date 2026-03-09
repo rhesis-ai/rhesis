@@ -204,6 +204,46 @@ class Turn(BaseModel):
         return _serialize_dt(timestamp, _info)
 
 
+# ---------------------------------------------------------------------------
+# ConversationTurn serialisation keys
+# Defined here so that any consumer (backend, SDK, tests) can import them
+# from the same source of truth rather than duplicating the string literals.
+# ---------------------------------------------------------------------------
+
+#: Serialised field name for the list of turns in TestResult.
+CONVERSATION_SUMMARY_KEY = "conversation_summary"
+
+#: Serialised field name for the message Penelope sent to the target.
+PENELOPE_MESSAGE_KEY = "penelope_message"
+
+#: Serialised field name for the response received from the target.
+TARGET_RESPONSE_KEY = "target_response"
+
+#: Serialised field name for the optional per-turn metadata from the target.
+TURN_METADATA_KEY = "metadata"
+
+# ---------------------------------------------------------------------------
+# Tool message JSON keys
+# These constants describe the shape of the JSON stored in
+# ToolExecution.tool_message.content — the serialised result of a tool call.
+# ---------------------------------------------------------------------------
+
+#: Whether the tool call succeeded.
+TOOL_SUCCESS_KEY = "success"
+
+#: Top-level key holding the tool's output payload.
+TOOL_OUTPUT_KEY = "output"
+
+#: Key inside the output payload for the endpoint's text response.
+TOOL_RESPONSE_KEY = "response"
+
+#: Key inside the output payload for the endpoint's metadata.
+TOOL_METADATA_KEY = "metadata"
+
+#: Key holding the error message when a tool call fails.
+TOOL_ERROR_KEY = "error"
+
+
 class ConversationTurn(BaseModel):
     """
     Simplified conversation turn for easy reading and UI display.
@@ -222,6 +262,10 @@ class ConversationTurn(BaseModel):
         description=("Conversation tracking ID (session_id, conversation_id, thread_id, etc.)"),
     )
     success: bool = Field(description="Whether the tool call was successful")
+    metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Per-turn metadata returned by the target endpoint (e.g. RAG context)",
+    )
 
 
 class TestResult(BaseModel):
@@ -478,9 +522,11 @@ class TestState:
             except json.JSONDecodeError:
                 continue
             assistant_resp = ""
-            if isinstance(result, dict) and result.get("success"):
-                resp = result.get("output", {})
-                assistant_resp = resp.get("response", "") if isinstance(resp, dict) else str(resp)
+            if isinstance(result, dict) and result.get(TOOL_SUCCESS_KEY):
+                resp = result.get(TOOL_OUTPUT_KEY, {})
+                assistant_resp = (
+                    resp.get(TOOL_RESPONSE_KEY, "") if isinstance(resp, dict) else str(resp)
+                )
 
             if user_msg and assistant_resp:
                 turn_content = f"User: {user_msg}\n\nAssistant: {assistant_resp}"
@@ -844,7 +890,7 @@ class TestState:
                 # Check if tool call was successful by parsing tool_message content
                 try:
                     tool_result = json.loads(execution.tool_message.content)
-                    if tool_result.get("success", False):
+                    if tool_result.get(TOOL_SUCCESS_KEY, False):
                         tool_calls[tool_name]["successful_calls"] += 1
                     else:
                         tool_calls[tool_name]["failed_calls"] += 1
@@ -861,7 +907,7 @@ class TestState:
         for turn in self.turns:
             try:
                 target_result = json.loads(turn.target_interaction.tool_message.content)
-                if target_result.get("success", False):
+                if target_result.get(TOOL_SUCCESS_KEY, False):
                     successful_interactions += 1
             except (json.JSONDecodeError, AttributeError):
                 # If we can't parse the result, count as failed
@@ -965,18 +1011,20 @@ class TestState:
             target_response = ""
             success = False
 
+            assistant_metadata = None
             try:
                 tool_content = json.loads(target_interaction.tool_message.content)
-                success = tool_content.get("success", False)
+                success = tool_content.get(TOOL_SUCCESS_KEY, False)
 
-                if success and "output" in tool_content:
-                    output = tool_content["output"]
+                if success and TOOL_OUTPUT_KEY in tool_content:
+                    output = tool_content[TOOL_OUTPUT_KEY]
                     if isinstance(output, dict):
-                        target_response = output.get("response", "")
+                        target_response = output.get(TOOL_RESPONSE_KEY, "")
+                        assistant_metadata = output.get(TOOL_METADATA_KEY)
                     else:
                         target_response = str(output)
                 else:
-                    error = tool_content.get("error", "Unknown error")
+                    error = tool_content.get(TOOL_ERROR_KEY, "Unknown error")
                     target_response = f"Error: {error}"
 
             except (json.JSONDecodeError, KeyError, AttributeError):
@@ -991,6 +1039,7 @@ class TestState:
                 target_response=target_response,
                 conversation_id=conversation_id,  # Flexible conversation ID (any supported field)
                 success=success,
+                metadata=assistant_metadata,
             )
 
             summary.append(conversation_turn)

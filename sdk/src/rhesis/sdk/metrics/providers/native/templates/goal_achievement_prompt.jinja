@@ -61,6 +61,11 @@ If step 1 fails, the score MUST be {{ min_score }} regardless of step 2.
 📝 FULL CONVERSATION ({{ turn_count }} turns):
 ═══════════════════════════════════════════════════════════════════════════════
 {{ conversation_text }}
+{% if has_assistant_metadata %}
+Note: Some turns above include a "Metadata" section with additional context returned
+by the endpoint (e.g. retrieved documents, citations, tool outputs). Use this
+information in your evaluation where relevant.
+{% endif %}
 ═══════════════════════════════════════════════════════════════════════════════
 
 EVALUATION INSTRUCTIONS:

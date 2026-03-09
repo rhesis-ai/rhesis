@@ -52,6 +52,11 @@ Conversation Goal:
 
 Full Conversation ({{ turn_count }} turns):
 {{ conversation_text }}
+{% if has_assistant_metadata %}
+Note: Some turns above include a "Metadata" section with additional context returned
+by the endpoint (e.g. retrieved documents, citations, tool outputs). Use this
+information in your evaluation where relevant.
+{% endif %}
 
 
 Evaluation Form:
