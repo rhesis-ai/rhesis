@@ -397,3 +397,111 @@ def test_get_assistant_context_independent_from_metadata():
     conv = ConversationHistory.from_messages(messages)
     assert conv.get_assistant_context() == [["rag chunk"]]
     assert conv.get_assistant_metadata() == [{"confidence": 0.8}]
+
+
+# ============================================================================
+# ConversationHistory._msg_tool_calls() tests
+# ============================================================================
+
+
+def test_msg_tool_calls_from_dict_with_tool_calls():
+    """_msg_tool_calls extracts tool_calls from a dict message."""
+    msg = {"role": "assistant", "content": "A", "tool_calls": [{"name": "fn"}]}
+    assert ConversationHistory._msg_tool_calls(msg) == [{"name": "fn"}]
+
+
+def test_msg_tool_calls_from_dict_without_tool_calls():
+    """_msg_tool_calls returns None when dict has no tool_calls key."""
+    msg = {"role": "assistant", "content": "A"}
+    assert ConversationHistory._msg_tool_calls(msg) is None
+
+
+def test_msg_tool_calls_from_pydantic_with_tool_calls():
+    """_msg_tool_calls extracts tool_calls from an AssistantMessage model."""
+    tc = [{"name": "search", "arguments": {"q": "test"}}]
+    msg = AssistantMessage(content="A", tool_calls=tc)
+    assert ConversationHistory._msg_tool_calls(msg) == tc
+
+
+def test_msg_tool_calls_from_pydantic_without_tool_calls():
+    """_msg_tool_calls returns None for an AssistantMessage with no tool_calls."""
+    msg = AssistantMessage(content="A")
+    assert ConversationHistory._msg_tool_calls(msg) is None
+
+
+def test_msg_tool_calls_from_user_message():
+    """_msg_tool_calls returns None for a UserMessage (no tool_calls attribute)."""
+    msg = UserMessage(content="Q")
+    assert ConversationHistory._msg_tool_calls(msg) is None
+
+
+# ============================================================================
+# ConversationHistory.get_assistant_tool_calls() tests
+# ============================================================================
+
+
+def test_get_assistant_tool_calls_empty_conversation():
+    """Returns empty list for a conversation with no messages."""
+    conv = ConversationHistory.from_messages([])
+    assert conv.get_assistant_tool_calls() == []
+
+
+def test_get_assistant_tool_calls_no_tool_calls():
+    """Returns all-None when no assistant message carries tool_calls."""
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi"},
+        {"role": "user", "content": "How are you?"},
+        {"role": "assistant", "content": "Fine"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    assert conv.get_assistant_tool_calls() == [None, None]
+
+
+def test_get_assistant_tool_calls_all_present():
+    """Returns correct tool_calls for every turn when all assistant messages carry them."""
+    messages = [
+        {"role": "user", "content": "Q1"},
+        {"role": "assistant", "content": "A1", "tool_calls": [{"name": "f1"}]},
+        {"role": "user", "content": "Q2"},
+        {
+            "role": "assistant",
+            "content": "A2",
+            "tool_calls": [{"name": "f2"}, {"name": "f3"}],
+        },
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.get_assistant_tool_calls()
+    assert result == [[{"name": "f1"}], [{"name": "f2"}, {"name": "f3"}]]
+
+
+def test_get_assistant_tool_calls_partial():
+    """Returns None for turns without tool_calls and list for turns that have them."""
+    messages = [
+        {"role": "user", "content": "Q1"},
+        {"role": "assistant", "content": "A1"},
+        {"role": "user", "content": "Q2"},
+        {"role": "assistant", "content": "A2", "tool_calls": [{"name": "fn"}]},
+        {"role": "user", "content": "Q3"},
+        {"role": "assistant", "content": "A3"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    assert conv.get_assistant_tool_calls() == [None, [{"name": "fn"}], None]
+
+
+def test_get_assistant_tool_calls_independent_from_context_and_metadata():
+    """tool_calls, context, and metadata are returned independently."""
+    messages = [
+        {"role": "user", "content": "Q"},
+        {
+            "role": "assistant",
+            "content": "A",
+            "context": ["rag chunk"],
+            "metadata": {"confidence": 0.8},
+            "tool_calls": [{"name": "search"}],
+        },
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    assert conv.get_assistant_context() == [["rag chunk"]]
+    assert conv.get_assistant_metadata() == [{"confidence": 0.8}]
+    assert conv.get_assistant_tool_calls() == [[{"name": "search"}]]

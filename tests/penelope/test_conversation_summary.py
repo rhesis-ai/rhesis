@@ -1,7 +1,7 @@
-"""Tests for _generate_conversation_summary — context and metadata extraction.
+"""Tests for _generate_conversation_summary — context, metadata, and tool_calls extraction.
 
-Covers the separation of `context` and `metadata` on ConversationTurn, ensuring
-that values are drawn from the correct keys in the endpoint's response envelope
+Covers the separation of `context`, `metadata`, and `tool_calls` on ConversationTurn,
+ensuring that values are drawn from the correct keys in the endpoint's response envelope
 and stored as independent fields.
 """
 
@@ -12,6 +12,7 @@ import pytest
 from rhesis.penelope.context import (
     RESPONSE_METADATA_CONTEXT_KEY,
     RESPONSE_METADATA_ENDPOINT_METADATA_KEY,
+    RESPONSE_METADATA_TOOL_CALLS_KEY,
     TOOL_METADATA_KEY,
     TOOL_OUTPUT_KEY,
     TOOL_RESPONSE_KEY,
@@ -31,7 +32,6 @@ from rhesis.penelope.schemas import (
     ToolMessage,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -41,6 +41,7 @@ def _make_tool_result(
     response: str,
     context: list | None = None,
     endpoint_metadata: dict | None = None,
+    tool_calls: list | None = None,
     success: bool = True,
 ) -> str:
     """Build the JSON string that Penelope stores in ToolMessage.content."""
@@ -49,6 +50,8 @@ def _make_tool_result(
         envelope[RESPONSE_METADATA_CONTEXT_KEY] = context
     if endpoint_metadata is not None:
         envelope[RESPONSE_METADATA_ENDPOINT_METADATA_KEY] = endpoint_metadata
+    if tool_calls is not None:
+        envelope[RESPONSE_METADATA_TOOL_CALLS_KEY] = tool_calls
 
     output: dict = {TOOL_RESPONSE_KEY: response}
     if envelope:
@@ -63,13 +66,19 @@ def _add_turn(
     response: str,
     context: list | None = None,
     endpoint_metadata: dict | None = None,
+    tool_calls: list | None = None,
     turn_number: int | None = None,
 ) -> None:
     """Append a target-interaction turn to *state*."""
     if turn_number is None:
         turn_number = len(state.turns) + 1
 
-    tool_result = _make_tool_result(response, context=context, endpoint_metadata=endpoint_metadata)
+    tool_result = _make_tool_result(
+        response,
+        context=context,
+        endpoint_metadata=endpoint_metadata,
+        tool_calls=tool_calls,
+    )
 
     assistant_msg = PenelopeAssistantMessage(
         content="Penelope reasoning",
@@ -341,3 +350,110 @@ def test_summary_multiple_turns_metadata_per_turn(base_state):
     assert summary[0].metadata == {"m": 1}
     assert summary[1].metadata is None
     assert summary[2].metadata == {"m": 3}
+
+
+# ---------------------------------------------------------------------------
+# ConversationTurn model field tests — tool_calls
+# ---------------------------------------------------------------------------
+
+
+def test_conversation_turn_tool_calls_defaults_to_none():
+    """ConversationTurn.tool_calls is None when not provided."""
+    turn = ConversationTurn(
+        turn=1,
+        timestamp="2024-01-01T00:00:00",
+        penelope_reasoning="ok",
+        penelope_message="Hello",
+        target_response="Hi",
+        success=True,
+    )
+    assert turn.tool_calls is None
+
+
+def test_conversation_turn_tool_calls_set():
+    """ConversationTurn.tool_calls stores tool call data."""
+    tc = [{"name": "get_weather", "arguments": {"city": "Berlin"}}]
+    turn = ConversationTurn(
+        turn=1,
+        timestamp="2024-01-01T00:00:00",
+        penelope_reasoning="ok",
+        penelope_message="Q",
+        target_response="A",
+        success=True,
+        tool_calls=tc,
+    )
+    assert turn.tool_calls == tc
+
+
+def test_conversation_turn_tool_calls_independent_from_context_and_metadata():
+    """tool_calls, context, and metadata can be set independently."""
+    turn = ConversationTurn(
+        turn=1,
+        timestamp="2024-01-01T00:00:00",
+        penelope_reasoning="ok",
+        penelope_message="Q",
+        target_response="A",
+        success=True,
+        context=["chunk"],
+        metadata={"score": 0.8},
+        tool_calls=[{"name": "search"}],
+    )
+    assert turn.context == ["chunk"]
+    assert turn.metadata == {"score": 0.8}
+    assert turn.tool_calls == [{"name": "search"}]
+
+
+# ---------------------------------------------------------------------------
+# _generate_conversation_summary — tool_calls extraction
+# ---------------------------------------------------------------------------
+
+
+def test_summary_tool_calls_populated_from_envelope(base_state):
+    """tool_calls on ConversationTurn is drawn from the envelope's 'tool_calls' key."""
+    tc = [{"name": "lookup", "arguments": {"q": "policy"}}]
+    _add_turn(
+        base_state,
+        message="Look up the policy",
+        response="Found it.",
+        tool_calls=tc,
+    )
+    summary = base_state._generate_conversation_summary()
+    assert len(summary) == 1
+    assert summary[0].tool_calls == tc
+
+
+def test_summary_tool_calls_none_when_absent(base_state):
+    """tool_calls is None when the envelope contains no 'tool_calls' key."""
+    _add_turn(base_state, message="Hello", response="Hi")
+    summary = base_state._generate_conversation_summary()
+    assert summary[0].tool_calls is None
+
+
+def test_summary_tool_calls_stored_separately(base_state):
+    """tool_calls, context, and metadata are populated as separate fields."""
+    _add_turn(
+        base_state,
+        message="Tell me about policy X",
+        response="Policy X covers...",
+        context=["policy doc excerpt"],
+        endpoint_metadata={"confidence": 0.9},
+        tool_calls=[{"name": "search_docs"}],
+    )
+    summary = base_state._generate_conversation_summary()
+    turn = summary[0]
+    assert turn.context == ["policy doc excerpt"]
+    assert turn.metadata == {"confidence": 0.9}
+    assert turn.tool_calls == [{"name": "search_docs"}]
+
+
+def test_summary_multiple_turns_tool_calls_per_turn(base_state):
+    """Each turn's tool_calls is stored independently; missing tool_calls is None."""
+    _add_turn(base_state, "Q1", "A1", tool_calls=[{"name": "f1"}])
+    _add_turn(base_state, "Q2", "A2")  # no tool_calls
+    _add_turn(base_state, "Q3", "A3", tool_calls=[{"name": "f3a"}, {"name": "f3b"}])
+
+    summary = base_state._generate_conversation_summary()
+    assert len(summary) == 3
+    assert summary[0].tool_calls == [{"name": "f1"}]
+    assert summary[1].tool_calls is None
+    assert summary[2].tool_calls == [{"name": "f3a"}, {"name": "f3b"}]

@@ -15,6 +15,7 @@ from rhesis.backend.tasks.execution.constants import (
     TARGET_RESPONSE_KEY,
     TURN_CONTEXT_KEY,
     TURN_METADATA_KEY,
+    TURN_TOOL_CALLS_KEY,
 )
 from rhesis.backend.tasks.execution.evaluation import (
     evaluate_multi_turn_metrics,
@@ -485,3 +486,64 @@ class TestEvaluateMultiTurnMetrics:
         assert conv is not None
         assert conv.get_assistant_context() == [["policy doc excerpt"]]
         assert conv.get_assistant_metadata() == [{"confidence": 0.95}]
+
+    def test_build_conversation_history_propagates_tool_calls(self):
+        """_build_conversation_history populates AssistantMessage.tool_calls."""
+        from rhesis.sdk.metrics.conversational.types import ConversationHistory
+
+        stored_output = {
+            CONVERSATION_SUMMARY_KEY: [
+                {
+                    PENELOPE_MESSAGE_KEY: "Call the search API",
+                    TARGET_RESPONSE_KEY: "Found 3 results",
+                    TURN_TOOL_CALLS_KEY: [{"name": "search", "arguments": {"q": "policy"}}],
+                },
+                {
+                    PENELOPE_MESSAGE_KEY: "Tell me more",
+                    TARGET_RESPONSE_KEY: "Details here",
+                },
+            ]
+        }
+
+        mock_test = MagicMock()
+        mock_test.test_configuration = {"goal": "test tool calls"}
+        mock_test.id = "test-tc"
+
+        captured_history = {}
+
+        def capture_evaluate(**kwargs):
+            captured_history["conversation_history"] = kwargs.get("conversation_history")
+            return {}
+
+        mock_evaluator_instance = MagicMock()
+        mock_evaluator_instance.evaluate.side_effect = capture_evaluate
+
+        with (
+            patch(
+                "rhesis.backend.tasks.execution.executors.data.get_test_metrics",
+                return_value=[{"name": "m1"}],
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.executors.metrics.prepare_metric_configs",
+                return_value=[{"name": "m1"}],
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.evaluation.MetricEvaluator",
+                return_value=mock_evaluator_instance,
+            ),
+        ):
+            evaluate_multi_turn_metrics(
+                stored_output=stored_output,
+                test=mock_test,
+                db=MagicMock(),
+                organization_id="org-1",
+                user_id="user-1",
+                model="gpt-4",
+            )
+
+        conv: ConversationHistory = captured_history["conversation_history"]
+        assert conv is not None
+
+        tc_list = conv.get_assistant_tool_calls()
+        assert tc_list[0] == [{"name": "search", "arguments": {"q": "policy"}}]
+        assert tc_list[1] is None

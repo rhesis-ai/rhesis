@@ -366,6 +366,117 @@ class TestStatelessConversationManagement:
         assert len(store._histories) == 0
 
     @pytest.mark.asyncio
+    async def test_tool_calls_committed_to_store(self, mock_db, service):
+        """tool_calls from the response are stored on the assistant message."""
+        endpoint = _make_stateless_endpoint()
+        tool_calls = [
+            {
+                "id": "call_1",
+                "type": "function",
+                "function": {"name": "get_weather", "arguments": "{}"},
+            }
+        ]
+
+        with (
+            patch.object(service, "_get_endpoint", return_value=endpoint),
+            patch("rhesis.backend.app.services.endpoint.service.create_invoker") as mock_create,
+        ):
+            mock_invoker = AsyncMock()
+            mock_invoker.automatic_tracing = True
+            mock_invoker.invoke.return_value = {
+                "output": "Checking weather.",
+                "tool_calls": tool_calls,
+            }
+            mock_create.return_value = mock_invoker
+
+            result = await service.invoke_endpoint(
+                db=mock_db,
+                endpoint_id="ep-1",
+                input_data={"input": "What's the weather?"},
+            )
+
+        cid = result["conversation_id"]
+        store = get_conversation_store()
+        msgs = store.get_messages(cid)
+
+        assistant_msgs = [m for m in msgs if m["role"] == "assistant"]
+        assert len(assistant_msgs) == 1
+        assert assistant_msgs[0]["tool_calls"] == tool_calls
+
+    @pytest.mark.asyncio
+    async def test_tool_calls_none_not_stored(self, mock_db, service):
+        """When tool_calls is absent, assistant message has no tool_calls key."""
+        endpoint = _make_stateless_endpoint()
+
+        with (
+            patch.object(service, "_get_endpoint", return_value=endpoint),
+            patch("rhesis.backend.app.services.endpoint.service.create_invoker") as mock_create,
+        ):
+            mock_invoker = AsyncMock()
+            mock_invoker.automatic_tracing = True
+            mock_invoker.invoke.return_value = {"output": "Hello!"}
+            mock_create.return_value = mock_invoker
+
+            result = await service.invoke_endpoint(
+                db=mock_db,
+                endpoint_id="ep-1",
+                input_data={"input": "Hi"},
+            )
+
+        cid = result["conversation_id"]
+        store = get_conversation_store()
+        msgs = store.get_messages(cid)
+
+        assistant_msgs = [m for m in msgs if m["role"] == "assistant"]
+        assert len(assistant_msgs) == 1
+        assert "tool_calls" not in assistant_msgs[0]
+
+    @pytest.mark.asyncio
+    async def test_tool_calls_in_second_turn_messages(self, mock_db, service):
+        """tool_calls from turn 1 appear in the messages array sent for turn 2."""
+        endpoint = _make_stateless_endpoint()
+        tool_calls = [
+            {
+                "id": "call_1",
+                "type": "function",
+                "function": {"name": "search", "arguments": "{}"},
+            }
+        ]
+
+        with (
+            patch.object(service, "_get_endpoint", return_value=endpoint),
+            patch("rhesis.backend.app.services.endpoint.service.create_invoker") as mock_create,
+        ):
+            mock_invoker = AsyncMock()
+            mock_invoker.automatic_tracing = True
+            mock_invoker.invoke.side_effect = [
+                {"output": "Searching.", "tool_calls": tool_calls},
+                {"output": "Found it!"},
+            ]
+            mock_create.return_value = mock_invoker
+
+            r1 = await service.invoke_endpoint(
+                db=mock_db,
+                endpoint_id="ep-1",
+                input_data={"input": "Find something"},
+            )
+            cid = r1["conversation_id"]
+
+            await service.invoke_endpoint(
+                db=mock_db,
+                endpoint_id="ep-1",
+                input_data={
+                    "input": "What did you find?",
+                    "conversation_id": cid,
+                },
+            )
+
+        call2_input = mock_invoker.invoke.call_args_list[1].args[2]
+        messages = call2_input["messages"]
+        assistant_msg = [m for m in messages if m["role"] == "assistant"][0]
+        assert assistant_msg["tool_calls"] == tool_calls
+
+    @pytest.mark.asyncio
     async def test_no_system_prompt_endpoint(self, mock_db, service):
         """Stateless endpoint without system_prompt still works."""
         endpoint = _make_stateless_endpoint(

@@ -531,3 +531,162 @@ def test_template_context_and_metadata_notes_independent(mock_model):
     # Both: both notes present
     assert "RAG documents" in prompt_both
     assert "confidence scores" in prompt_both
+
+
+# ============================================================================
+# _format_conversation — tool_calls rendering
+# ============================================================================
+
+
+def test_format_conversation_tool_calls_rendered(mock_model):
+    """Tool Calls: block is rendered for turns that carry tool_calls."""
+    conv = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Fetch weather"},
+            {
+                "role": "assistant",
+                "content": "It is sunny",
+                "tool_calls": [{"name": "get_weather", "arguments": {"city": "Berlin"}}],
+            },
+        ]
+    )
+    judge = GoalAchievementJudge(model=mock_model)
+    formatted = judge._format_conversation(conv)
+
+    assert "  Tool Calls:" in formatted
+    assert "get_weather" in formatted
+
+
+def test_format_conversation_tool_calls_absent_when_none(mock_model):
+    """No Tool Calls: block when the assistant has no tool_calls."""
+    conv = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi"},
+        ]
+    )
+    judge = GoalAchievementJudge(model=mock_model)
+    formatted = judge._format_conversation(conv)
+
+    assert "Tool Calls:" not in formatted
+
+
+def test_format_conversation_tool_calls_partial(mock_model):
+    """Only turns with tool_calls show a 'Tool Calls:' line."""
+    conv = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q1"},
+            {"role": "assistant", "content": "A1"},
+            {"role": "user", "content": "Q2"},
+            {
+                "role": "assistant",
+                "content": "A2",
+                "tool_calls": [{"name": "search"}],
+            },
+            {"role": "user", "content": "Q3"},
+            {"role": "assistant", "content": "A3"},
+        ]
+    )
+    judge = GoalAchievementJudge(model=mock_model)
+    formatted = judge._format_conversation(conv)
+
+    assert formatted.count("Tool Calls:") == 1
+    assert "search" in formatted
+
+
+def test_format_conversation_tool_calls_with_context_and_metadata(mock_model):
+    """Tool Calls:, Context:, and Metadata: blocks appear independently."""
+    conv = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {
+                "role": "assistant",
+                "content": "A",
+                "context": ["rag source"],
+                "metadata": {"score": 0.9},
+                "tool_calls": [{"name": "fn"}],
+            },
+        ]
+    )
+    judge = GoalAchievementJudge(model=mock_model)
+    formatted = judge._format_conversation(conv)
+
+    assert "  Context:" in formatted
+    assert "  Metadata:" in formatted
+    assert "  Tool Calls:" in formatted
+
+
+# ============================================================================
+# has_assistant_tool_calls template variable tests
+# ============================================================================
+
+
+def test_evaluate_passes_has_assistant_tool_calls_to_template(mock_model):
+    """has_assistant_tool_calls=True is passed to template when tool_calls present."""
+    conv_with = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": "A", "tool_calls": [{"name": "fn"}]},
+        ]
+    )
+    conv_without = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": "A"},
+        ]
+    )
+    judge = GoalAchievementJudge(model=mock_model)
+
+    prompt_with = judge._get_prompt_template(conv_with, goal="test")
+    prompt_without = judge._get_prompt_template(conv_without, goal="test")
+
+    assert "Tool Calls" in prompt_with
+    assert "function calls" in prompt_with
+    assert "function calls" not in prompt_without
+
+
+def test_template_tool_calls_note_independent(mock_model):
+    """Tool Calls note appears independently from Context and Metadata notes."""
+    conv_tc_only = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": "A", "tool_calls": [{"name": "fn"}]},
+        ]
+    )
+    conv_ctx_only = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": "A", "context": ["src"]},
+        ]
+    )
+    conv_all = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {
+                "role": "assistant",
+                "content": "A",
+                "context": ["src"],
+                "metadata": {"k": "v"},
+                "tool_calls": [{"name": "fn"}],
+            },
+        ]
+    )
+    judge = GoalAchievementJudge(model=mock_model)
+
+    prompt_tc = judge._get_prompt_template(conv_tc_only, goal="test")
+    prompt_ctx = judge._get_prompt_template(conv_ctx_only, goal="test")
+    prompt_all = judge._get_prompt_template(conv_all, goal="test")
+
+    # Tool-calls-only: tool calls note present, context and metadata notes absent
+    assert "function calls" in prompt_tc
+    assert "RAG documents" not in prompt_tc
+    assert "confidence scores" not in prompt_tc
+
+    # Context-only: no tool calls note
+    assert "function calls" not in prompt_ctx
+    assert "RAG documents" in prompt_ctx
+
+    # All three: all notes present
+    assert "function calls" in prompt_all
+    assert "RAG documents" in prompt_all
+    assert "confidence scores" in prompt_all
