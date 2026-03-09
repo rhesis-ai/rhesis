@@ -5,6 +5,7 @@ export default {
   sdk: "SDK",
   tracing: "Tracing",
   penelope: "Penelope",
+  "adversarial-testing": "Adversarial Testing",
   development: "Development",
   "---": {
     type: "separator",
