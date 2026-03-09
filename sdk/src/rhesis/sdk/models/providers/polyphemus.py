@@ -157,8 +157,92 @@ class PolyphemusLLM(BaseLLM):
         include_reasoning: bool = False,
         **kwargs: Any,
     ) -> List[Any]:
-        """Batch processing is not implemented for PolyphemusLLM."""
-        raise NotImplementedError("generate_batch is not implemented for PolyphemusLLM")
+        """
+        Run chat completions for multiple prompts using the Polyphemus API.
+
+        Applies the same schema/system_prompt and post-processing as generate() to
+        each prompt. Results are returned in the same order as prompts. Failed
+        items return an error string or {"error": "..."} when schema is set.
+
+        Args:
+            prompts: List of user prompts to send.
+            system_prompt: Optional system prompt (shared by all).
+            schema: Optional Pydantic BaseModel for structured output.
+            include_reasoning: If False, strip <think> tokens from each response.
+            **kwargs: Additional parameters passed to the API for all requests.
+
+        Returns:
+            List of results (str or dict per prompt, same semantics as generate()).
+        """
+        if not prompts:
+            return []
+
+        requests_list: List[Dict[str, Any]] = []
+        for prompt in prompts:
+            sys = system_prompt
+            if schema:
+                schema_description = json.dumps(schema.model_json_schema(), indent=2)
+                schema_instructions = (
+                    "\nRespond strictly in valid JSON matching this schema"
+                    " and filling all fields\n" + schema_description
+                )
+                if sys:
+                    sys = "/no_think\n" + sys + schema_instructions
+                else:
+                    sys = "/no_think" + schema_instructions
+
+            messages: List[Dict[str, str]] = []
+            if sys:
+                messages.append({"role": "system", "content": sys})
+            messages.append({"role": "user", "content": prompt})
+
+            req: Dict[str, Any] = {
+                "messages": messages,
+                "json_schema": schema.model_json_schema() if schema else None,
+                **kwargs,
+            }
+            if self.model_name:
+                req["model"] = self.model_name
+            requests_list.append(req)
+
+        try:
+            batch_response = self.create_batch_completion(
+                requests_list, timeout=kwargs.get("timeout")
+            )
+        except requests.exceptions.HTTPError as e:
+            logger.error("Batch request failed: %s", e, exc_info=True)
+            err_msg = "An error occurred while processing the request."
+            return [{"error": err_msg} if schema else err_msg] * len(prompts)
+
+        results: List[Any] = []
+        for item in batch_response.get("responses", []):
+            if item.get("error"):
+                results.append({"error": item["error"]} if schema else str(item["error"]))
+                continue
+            choices = item.get("choices", [])
+            if not choices:
+                results.append(
+                    {"error": "No response generated."} if schema else "No response generated."
+                )
+                continue
+            content = choices[0].get("message", {}).get("content", "")
+            if schema:
+                parsed = self._extract_json(content)
+                if not parsed:
+                    results.append({"error": "No valid JSON found in response."})
+                else:
+                    try:
+                        validate_llm_response(parsed, schema)
+                        results.append(parsed)
+                    except Exception as e:
+                        logger.warning("Validation failed for batch item: %s", e)
+                        results.append({"error": "Validation failed."})
+            else:
+                if not include_reasoning:
+                    content = self._strip_reasoning_tokens(content)
+                results.append(content)
+
+        return results
 
     def _extract_json(self, output: str) -> str:
         """
@@ -267,3 +351,57 @@ class PolyphemusLLM(BaseLLM):
             )
 
         return result
+
+    def create_batch_completion(
+        self,
+        requests_list: List[Dict[str, Any]],
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """
+        Create multiple chat completions in one request using the Polyphemus API.
+
+        Args:
+            requests_list: List of request dicts (messages, optional model,
+                json_schema, temperature, max_tokens, etc. per item).
+            **kwargs: Optional timeout for the HTTP request.
+
+        Returns:
+            Dict with "responses" key containing a list of response dicts
+            (choices, model, usage) or {"error": str} per item.
+
+        Raises:
+            requests.exceptions.HTTPError: If the API request fails
+        """
+        request_data: Dict[str, Any] = {"requests": requests_list}
+        url = f"{self.base_url}/generate_batch"
+        timeout = kwargs.get("timeout")
+        if timeout is None:
+            timeout = DEFAULT_REQUEST_TIMEOUT
+
+        logger.debug(
+            "[Polyphemus] POST %s | batch_size=%d",
+            url,
+            len(requests_list),
+        )
+
+        request_start = time.time()
+        response = requests.post(
+            url,
+            headers=self.headers,
+            json=request_data,
+            timeout=timeout,
+        )
+        request_elapsed = time.time() - request_start
+
+        try:
+            response.raise_for_status()
+        except requests.exceptions.HTTPError:
+            logger.error(
+                "[Polyphemus] HTTP %s after %.1fs (batch)",
+                getattr(response, "status_code", "?"),
+                request_elapsed,
+            )
+            raise
+
+        logger.debug("[Polyphemus] HTTP 200 in %.1fs (batch)", request_elapsed)
+        return response.json()

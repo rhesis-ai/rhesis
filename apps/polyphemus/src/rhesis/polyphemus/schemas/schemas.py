@@ -39,3 +39,24 @@ class GenerateRequest(BaseModel):
     top_p: Optional[float] = None  # Nucleus sampling parameter
     top_k: Optional[int] = None  # Top-k sampling parameter
     json_schema: Optional[Dict[str, Any]] = None  # Optional JSON schema for structured output
+
+
+class GenerateBatchRequest(BaseModel):
+    """Request format for batch Vertex AI generation"""
+
+    requests: List[GenerateRequest]
+
+
+class BatchItemResponse(BaseModel):
+    """Single item in a batch generation response (success or error)."""
+
+    choices: Optional[List[Dict[str, Any]]] = None
+    model: Optional[str] = None
+    usage: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+
+class BatchGenerationResponse(BaseModel):
+    """Response format for batch Vertex AI generation"""
+
+    responses: List[BatchItemResponse]

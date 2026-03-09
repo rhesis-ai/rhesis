@@ -309,3 +309,50 @@ async def generate_text_via_vertex_endpoint(
             "total_tokens": prompt_tokens + completion_tokens,
         },
     }
+
+
+async def generate_text_batch_via_vertex_endpoint(
+    requests: List[GenerateRequest],
+    *,
+    endpoint_id: str,
+    project_id: str,
+    location: str = "us-central1",
+    timeout_seconds: float = 120.0,
+) -> List[Dict[str, Any]]:
+    """
+    Run multiple generation requests concurrently against the Vertex AI endpoint.
+
+    Each request is executed via generate_text_via_vertex_endpoint. Failures are
+    captured per-item as {"error": str(exc)} so one failure does not fail the batch.
+
+    Args:
+        requests: List of GenerateRequest items.
+        endpoint_id: Vertex AI endpoint ID.
+        project_id: Google Cloud project ID.
+        location: Vertex AI region (default us-central1).
+        timeout_seconds: HTTP timeout per attempt (default 120s).
+
+    Returns:
+        List of dicts: each element is either a Rhesis API response (choices, model,
+        usage) or {"error": "<message>"} on failure.
+    """
+    if not requests:
+        return []
+
+    async def run_one(req: GenerateRequest) -> Dict[str, Any]:
+        try:
+            return await generate_text_via_vertex_endpoint(
+                req,
+                endpoint_id=endpoint_id,
+                project_id=project_id,
+                location=location,
+                timeout_seconds=timeout_seconds,
+            )
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    results = await asyncio.gather(
+        *[run_one(r) for r in requests],
+        return_exceptions=False,
+    )
+    return list(results)
