@@ -158,7 +158,14 @@ def _build_vertex_request_body(
     if top_k is not None and top_k >= 0:
         body["top_k"] = top_k
     if json_schema is not None:
-        body["json_schema"] = json_schema
+        body["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "response",
+                "schema": json_schema,
+                "strict": True,
+            },
+        }
     return body
 
 
