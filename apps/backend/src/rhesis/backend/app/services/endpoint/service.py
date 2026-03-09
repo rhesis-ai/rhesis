@@ -219,9 +219,11 @@ class EndpointService:
                         output_text = (
                             json.dumps(output) if isinstance(output, (dict, list)) else str(output)
                         )
+                        tool_calls = result_dict.get("tool_calls")
                         store.add_assistant_message(
                             stateless_conversation_id,
                             output_text,
+                            tool_calls=tool_calls,
                         )
                     # Surface conversation_id so callers can continue
                     # the conversation -- same field stateful endpoints
