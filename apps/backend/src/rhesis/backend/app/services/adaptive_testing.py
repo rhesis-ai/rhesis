@@ -412,6 +412,7 @@ def create_test_node(
     topic: str = "",
     output: str = "",
     labeler: str = "user",
+    label: str = "",
     model_score: float = 0.0,
 ) -> TestTreeNode:
     """Create a test node in the adaptive testing tree.
@@ -421,9 +422,6 @@ def create_test_node(
     not yet have a topic_marker in the tree the function delegates to
     :func:`create_topic_node` so the hierarchy stays valid. Topic is
     optional; tests without a topic are allowed.
-
-    The label is intentionally not settable at creation time; new tests
-    are always created without a label.
 
     Parameters
     ----------
@@ -443,6 +441,8 @@ def create_test_node(
         Expected or actual output (default ``""``)
     labeler : str
         Who labelled this test (default ``"user"``)
+    label : str, optional
+        Label: 'pass', 'fail', or '' (default ``""``)
     model_score : float
         Model score for the test (default ``0.0``)
 
@@ -488,7 +488,7 @@ def create_test_node(
         prompt_id=db_prompt.id,
         test_metadata={
             "output": output,
-            "label": "",
+            "label": label,
             "labeler": labeler,
             "model_score": model_score,
         },
