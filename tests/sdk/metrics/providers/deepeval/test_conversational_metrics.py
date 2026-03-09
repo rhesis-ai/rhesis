@@ -73,7 +73,11 @@ def test_turn_relevancy_format_conversion(mock_model):
     conv = ConversationHistory.from_messages(
         [
             {"role": "user", "content": "Test message"},
-            {"role": "assistant", "content": "Test response", "tool_calls": [{"id": "1"}]},
+            {
+                "role": "assistant",
+                "content": "Test response",
+                "tool_calls": [{"name": "get_weather", "arguments": {"city": "SF"}}],
+            },
         ]
     )
 
