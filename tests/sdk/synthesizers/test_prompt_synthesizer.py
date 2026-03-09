@@ -291,8 +291,9 @@ def test_large_batch_exception_falls_back():
     assert len(result) == 10
 
 
+@patch.object(PromptSynthesizer, "_generate_parallel_batches", return_value=[])
 @patch.object(PromptSynthesizer, "_generate_batch")
-def test_batch_size_reduction_on_failure(mock_generate_batch):
+def test_batch_size_reduction_on_failure(mock_generate_batch, _mock_parallel):
     """Test that batch size is halved when a batch fails and retries succeed."""
     small_batch = [
         {
@@ -324,8 +325,9 @@ def test_batch_size_reduction_on_failure(mock_generate_batch):
     assert mock_generate_batch.call_args_list[2][0][0] == 5
 
 
+@patch.object(PromptSynthesizer, "_generate_parallel_batches", return_value=[])
 @patch.object(PromptSynthesizer, "_generate_batch")
-def test_max_consecutive_failures_raises(mock_generate_batch):
+def test_max_consecutive_failures_raises(mock_generate_batch, _mock_parallel):
     """Test that generation stops after max consecutive failures."""
     mock_generate_batch.return_value = []
 
@@ -338,8 +340,9 @@ def test_max_consecutive_failures_raises(mock_generate_batch):
     assert mock_generate_batch.call_count == 3
 
 
+@patch.object(PromptSynthesizer, "_generate_parallel_batches", return_value=[])
 @patch.object(PromptSynthesizer, "_generate_batch")
-def test_batch_size_reduction_on_exception(mock_generate_batch):
+def test_batch_size_reduction_on_exception(mock_generate_batch, _mock_parallel):
     """Test that exceptions in _generate_batch trigger batch size reduction."""
     small_batch = [
         {
