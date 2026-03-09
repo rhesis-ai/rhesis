@@ -350,6 +350,82 @@ def test_format_conversation_metadata_partial(mock_model):
     assert "ref" in formatted
 
 
+def test_format_conversation_without_context(mock_model, sample_conversation):
+    """No 'Context:' lines when messages carry no context."""
+    judge = GoalAchievementJudge(model=mock_model)
+    formatted = judge._format_conversation(sample_conversation)
+    assert "Context:" not in formatted
+
+
+def test_format_conversation_with_context(mock_model):
+    """'Context:' line appears after assistant response when context is present."""
+    conv = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "What does policy X cover?"},
+            {
+                "role": "assistant",
+                "content": "Policy X covers accidents.",
+                "context": ["policy doc paragraph 1", "policy doc paragraph 2"],
+            },
+        ]
+    )
+    judge = GoalAchievementJudge(model=mock_model)
+    formatted = judge._format_conversation(conv)
+
+    assert "Turn 1:" in formatted
+    assert "  User: What does policy X cover?" in formatted
+    assert "  Assistant: Policy X covers accidents." in formatted
+    assert "  Context:" in formatted
+    assert "policy doc paragraph 1" in formatted
+    assert "policy doc paragraph 2" in formatted
+
+
+def test_format_conversation_context_and_metadata_rendered_separately(mock_model):
+    """Context and Metadata appear as distinct labelled blocks in the formatted output."""
+    conv = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {
+                "role": "assistant",
+                "content": "A",
+                "context": ["rag source"],
+                "metadata": {"confidence": 0.9},
+            },
+        ]
+    )
+    judge = GoalAchievementJudge(model=mock_model)
+    formatted = judge._format_conversation(conv)
+
+    assert "  Context:" in formatted
+    assert "  Metadata:" in formatted
+    assert "rag source" in formatted
+    assert "0.9" in formatted
+    # Ensure they are distinct lines, not merged
+    context_pos = formatted.index("  Context:")
+    metadata_pos = formatted.index("  Metadata:")
+    assert context_pos != metadata_pos
+
+
+def test_format_conversation_context_partial(mock_model):
+    """Only turns with context show a 'Context:' line; others do not."""
+    conv = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q1"},
+            {"role": "assistant", "content": "A1"},  # no context
+            {"role": "user", "content": "Q2"},
+            {"role": "assistant", "content": "A2", "context": ["src"]},
+            {"role": "user", "content": "Q3"},
+            {"role": "assistant", "content": "A3"},  # no context
+        ]
+    )
+    judge = GoalAchievementJudge(model=mock_model)
+    formatted = judge._format_conversation(conv)
+
+    # Exactly one context block
+    assert formatted.count("Context:") == 1
+    assert "src" in formatted
+
+
 def test_evaluate_passes_has_assistant_metadata_to_template(mock_model):
     """has_assistant_metadata=True is passed to template when metadata is present."""
     conv_with = ConversationHistory.from_messages(
@@ -384,6 +460,74 @@ def test_evaluate_passes_has_assistant_metadata_to_template(mock_model):
     prompt_without = judge._get_prompt_template(conv_without, goal="test")
 
     assert "Metadata" in prompt_with
-    assert "retrieved documents" in prompt_with
+    assert "confidence scores" in prompt_with
     # Without metadata the note block is absent
-    assert "retrieved documents" not in prompt_without
+    assert "confidence scores" not in prompt_without
+
+
+# ============================================================================
+# has_assistant_context template variable tests
+# ============================================================================
+
+
+def test_evaluate_passes_has_assistant_context_to_template(mock_model):
+    """has_assistant_context=True is passed to template when context is present."""
+    conv_with = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": "A", "context": ["rag chunk"]},
+        ]
+    )
+    conv_without = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": "A"},
+        ]
+    )
+    judge = GoalAchievementJudge(model=mock_model)
+
+    prompt_with = judge._get_prompt_template(conv_with, goal="test")
+    prompt_without = judge._get_prompt_template(conv_without, goal="test")
+
+    assert "Context" in prompt_with
+    assert "RAG documents" in prompt_with
+    assert "RAG documents" not in prompt_without
+
+
+def test_template_context_and_metadata_notes_independent(mock_model):
+    """Context and Metadata note blocks appear independently in the rendered prompt."""
+    conv_context_only = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": "A", "context": ["src"]},
+        ]
+    )
+    conv_metadata_only = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": "A", "metadata": {"k": "v"}},
+        ]
+    )
+    conv_both = ConversationHistory.from_messages(
+        [
+            {"role": "user", "content": "Q"},
+            {"role": "assistant", "content": "A", "context": ["src"], "metadata": {"k": "v"}},
+        ]
+    )
+    judge = GoalAchievementJudge(model=mock_model)
+
+    prompt_ctx = judge._get_prompt_template(conv_context_only, goal="test")
+    prompt_meta = judge._get_prompt_template(conv_metadata_only, goal="test")
+    prompt_both = judge._get_prompt_template(conv_both, goal="test")
+
+    # Context-only: context note present, metadata note absent
+    assert "RAG documents" in prompt_ctx
+    assert "confidence scores" not in prompt_ctx
+
+    # Metadata-only: metadata note present, context note absent
+    assert "confidence scores" in prompt_meta
+    assert "RAG documents" not in prompt_meta
+
+    # Both: both notes present
+    assert "RAG documents" in prompt_both
+    assert "confidence scores" in prompt_both

@@ -255,3 +255,145 @@ def test_get_assistant_metadata_partial_metadata():
     # Indices align with get_simple_turns() turn pairs
     simple = conv.get_simple_turns()
     assert len([m for m in simple if m["role"] == "user"]) == len(result)
+
+
+# ============================================================================
+# AssistantMessage.context tests
+# ============================================================================
+
+
+def test_assistant_message_context_field():
+    """AssistantMessage accepts and stores context; defaults to None."""
+    msg_with = AssistantMessage(content="Hi", context=["doc1 text", "doc2 text"])
+    assert msg_with.context == ["doc1 text", "doc2 text"]
+
+    msg_without = AssistantMessage(content="Hi")
+    assert msg_without.context is None
+
+
+def test_assistant_message_context_from_dict():
+    """Dict with 'context' key is stored as AssistantMessage.context."""
+    messages = [
+        {"role": "user", "content": "What is insurance?"},
+        {"role": "assistant", "content": "Insurance is...", "context": ["source A", "source B"]},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    asst_msg = conv.messages[1]
+    if isinstance(asst_msg, dict):
+        assert asst_msg.get("context") == ["source A", "source B"]
+    else:
+        assert asst_msg.context == ["source A", "source B"]
+
+
+def test_assistant_message_context_and_metadata_independent():
+    """context and metadata are stored independently on AssistantMessage."""
+    msg = AssistantMessage(
+        content="Answer",
+        context=["retrieved chunk"],
+        metadata={"confidence": 0.9},
+    )
+    assert msg.context == ["retrieved chunk"]
+    assert msg.metadata == {"confidence": 0.9}
+
+
+# ============================================================================
+# ConversationHistory._msg_context() tests
+# ============================================================================
+
+
+def test_msg_context_from_dict_with_context():
+    """_msg_context extracts context from a dict message."""
+    msg = {"role": "assistant", "content": "A", "context": ["chunk 1"]}
+    assert ConversationHistory._msg_context(msg) == ["chunk 1"]
+
+
+def test_msg_context_from_dict_without_context():
+    """_msg_context returns None when dict has no context key."""
+    msg = {"role": "assistant", "content": "A"}
+    assert ConversationHistory._msg_context(msg) is None
+
+
+def test_msg_context_from_pydantic_with_context():
+    """_msg_context extracts context from an AssistantMessage model."""
+    msg = AssistantMessage(content="A", context=["chunk 1", "chunk 2"])
+    assert ConversationHistory._msg_context(msg) == ["chunk 1", "chunk 2"]
+
+
+def test_msg_context_from_pydantic_without_context():
+    """_msg_context returns None for an AssistantMessage with no context."""
+    msg = AssistantMessage(content="A")
+    assert ConversationHistory._msg_context(msg) is None
+
+
+def test_msg_context_from_user_message():
+    """_msg_context returns None for a UserMessage (no context attribute)."""
+    msg = UserMessage(content="Q")
+    assert ConversationHistory._msg_context(msg) is None
+
+
+# ============================================================================
+# ConversationHistory.get_assistant_context() tests
+# ============================================================================
+
+
+def test_get_assistant_context_empty_conversation():
+    """Returns empty list for a conversation with no messages."""
+    conv = ConversationHistory.from_messages([])
+    assert conv.get_assistant_context() == []
+
+
+def test_get_assistant_context_no_context():
+    """Returns all-None when no assistant message carries context."""
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi"},
+        {"role": "user", "content": "How are you?"},
+        {"role": "assistant", "content": "Fine"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.get_assistant_context()
+    assert result == [None, None]
+
+
+def test_get_assistant_context_all_context():
+    """Returns correct context for every turn when all assistant messages carry it."""
+    messages = [
+        {"role": "user", "content": "Q1"},
+        {"role": "assistant", "content": "A1", "context": ["source1"]},
+        {"role": "user", "content": "Q2"},
+        {"role": "assistant", "content": "A2", "context": ["source2", "source3"]},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.get_assistant_context()
+    assert result == [["source1"], ["source2", "source3"]]
+
+
+def test_get_assistant_context_partial():
+    """Returns None for turns without context and list for turns that have it."""
+    messages = [
+        {"role": "user", "content": "Q1"},
+        {"role": "assistant", "content": "A1"},  # no context
+        {"role": "user", "content": "Q2"},
+        {"role": "assistant", "content": "A2", "context": ["doc_a"]},
+        {"role": "user", "content": "Q3"},
+        {"role": "assistant", "content": "A3"},  # no context
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.get_assistant_context()
+    assert result == [None, ["doc_a"], None]
+
+
+def test_get_assistant_context_independent_from_metadata():
+    """context and metadata are returned independently by their respective getters."""
+    messages = [
+        {"role": "user", "content": "Q"},
+        {
+            "role": "assistant",
+            "content": "A",
+            "context": ["rag chunk"],
+            "metadata": {"confidence": 0.8},
+        },
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    assert conv.get_assistant_context() == [["rag chunk"]]
+    assert conv.get_assistant_metadata() == [{"confidence": 0.8}]
