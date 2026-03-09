@@ -5418,6 +5418,13 @@ vertex-ai = [
     { name = "google-cloud-compute" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "httpx" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.100.0" },
@@ -5435,6 +5442,13 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.23.0" },
 ]
 provides-extras = ["toxicity", "vertex-ai"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "pytest", specifier = ">=8.0.0" },
+    { name = "pytest-asyncio", specifier = ">=0.23.0" },
+]
 
 [[package]]
 name = "portalocker"
@@ -6852,6 +6866,7 @@ dependencies = [
     { name = "pyfiglet" },
     { name = "pyjwt" },
     { name = "python-dotenv" },
+    { name = "python-json-logger" },
     { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "redis" },
@@ -6911,6 +6926,7 @@ requires-dist = [
     { name = "pyfiglet", specifier = "==1.0.2" },
     { name = "pyjwt", specifier = ">=2.10.0" },
     { name = "python-dotenv" },
+    { name = "python-json-logger", specifier = ">=4.0.0" },
     { name = "python-multipart", specifier = ">=0.0.22" },
     { name = "pyyaml" },
     { name = "redis", specifier = ">=5.0.0,<6.0.0" },
