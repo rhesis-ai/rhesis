@@ -16,6 +16,8 @@ interface SearchAndFilterBarProps {
   hasActiveFilters?: boolean;
   onAddNew?: () => void;
   addNewLabel?: string;
+  /** Overrides the built-in Add button. Use when custom routing or attributes are needed. */
+  renderAddButton?: () => React.ReactNode;
   searchPlaceholder?: string;
   children?: React.ReactNode;
 }
@@ -27,6 +29,7 @@ export default function SearchAndFilterBar({
   hasActiveFilters = false,
   onAddNew,
   addNewLabel = 'New Item',
+  renderAddButton,
   searchPlaceholder = 'Search...',
   children,
 }: SearchAndFilterBarProps) {
@@ -72,7 +75,7 @@ export default function SearchAndFilterBar({
                 </InputAdornment>
               ),
             }}
-            sx={{ minWidth: { xs: '100%', sm: 250 } }}
+            sx={{ minWidth: { xs: '100%', sm: theme => theme.spacing(31) } }}
           />
           {children && (
             <Box
@@ -98,17 +101,19 @@ export default function SearchAndFilterBar({
             alignItems: 'center',
           }}
         >
-          {onAddNew && (
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={onAddNew}
-              sx={{ whiteSpace: 'nowrap' }}
-            >
-              {addNewLabel}
-            </Button>
-          )}
+          {renderAddButton
+            ? renderAddButton()
+            : onAddNew && (
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={onAddNew}
+                  sx={{ whiteSpace: 'nowrap' }}
+                >
+                  {addNewLabel}
+                </Button>
+              )}
           {hasActiveFilters && onReset && (
             <Button
               variant="outlined"

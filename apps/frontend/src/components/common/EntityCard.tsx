@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTheme } from '@mui/material/styles';
+import type { Theme } from '@mui/material/styles';
 import { Card, CardContent, Typography, Box, Chip } from '@mui/material';
 
 export interface ChipData {
@@ -7,7 +8,7 @@ export interface ChipData {
   icon?: React.ReactNode;
   label: string;
   variant?: 'filled' | 'outlined';
-  maxWidth?: string;
+  maxWidth?: string | number | ((theme: Theme) => string | number);
   tooltip?: string;
 }
 
