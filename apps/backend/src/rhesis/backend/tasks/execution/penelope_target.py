@@ -286,6 +286,9 @@ class BackendEndpointTarget(Target):
             if "context" in response_data and response_data["context"]:
                 response_metadata["context"] = response_data["context"]
 
+            if "tool_calls" in response_data and response_data["tool_calls"]:
+                response_metadata["tool_calls"] = response_data["tool_calls"]
+
             logger.debug(
                 "BackendEndpointTarget received response from %s, response_len=%d",
                 self.endpoint_id,

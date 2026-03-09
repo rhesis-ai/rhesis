@@ -118,6 +118,13 @@ class ConversationHistory(BaseModel):
             return msg.get("context")
         return getattr(msg, "context", None)
 
+    @staticmethod
+    def _msg_tool_calls(msg: Any) -> Optional[List[Dict[str, Any]]]:
+        """Extract tool calls from a message (dict or typed model)."""
+        if isinstance(msg, dict):
+            return msg.get("tool_calls")
+        return getattr(msg, "tool_calls", None)
+
     def _iter_turns(
         self,
     ) -> Generator[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]], None, None]:
@@ -205,6 +212,37 @@ class ConversationHistory(BaseModel):
             else:
                 i += 1
         return contexts
+
+    def get_assistant_tool_calls(self) -> List[Optional[List[Dict[str, Any]]]]:
+        """
+        Extract per-turn tool calls from assistant messages.
+
+        Returns a list indexed to user+assistant exchange pairs. Returns None
+        for turns where the endpoint returned no tool calls.
+        """
+        tool_calls_list: List[Optional[List[Dict[str, Any]]]] = []
+        messages = self.messages
+        i = 0
+        while i < len(messages):
+            role, content, _ = self._msg_attrs(messages[i])
+            if not content:
+                i += 1
+                continue
+            if role == "user":
+                if i + 1 < len(messages):
+                    nxt_role, nxt_content, _ = self._msg_attrs(messages[i + 1])
+                    if nxt_role == "assistant" and nxt_content:
+                        tool_calls_list.append(self._msg_tool_calls(messages[i + 1]))
+                        i += 2
+                        continue
+                tool_calls_list.append(None)
+                i += 1
+            elif role == "assistant":
+                tool_calls_list.append(self._msg_tool_calls(messages[i]))
+                i += 1
+            else:
+                i += 1
+        return tool_calls_list
 
     def to_text(self) -> str:
         """

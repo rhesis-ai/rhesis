@@ -10,6 +10,7 @@ from rhesis.penelope.context import (
     TARGET_RESPONSE_KEY,
     TURN_CONTEXT_KEY,
     TURN_METADATA_KEY,
+    TURN_TOOL_CALLS_KEY,
 )
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     "TARGET_RESPONSE_KEY",
     "TURN_CONTEXT_KEY",
     "TURN_METADATA_KEY",
+    "TURN_TOOL_CALLS_KEY",
     "MetricScope",
 ]
 

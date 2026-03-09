@@ -421,6 +421,9 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
             "has_assistant_context": any(
                 c is not None for c in conversation_history.get_assistant_context()
             ),
+            "has_assistant_tool_calls": any(
+                tc is not None for tc in conversation_history.get_assistant_tool_calls()
+            ),
         }
 
         # Add any additional template variables specific to the metric type
@@ -477,6 +480,9 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
                             lines.append(f"  Context: {json.dumps(nxt_ctx, indent=2)}")
                         if nxt_meta:
                             lines.append(f"  Metadata: {json.dumps(nxt_meta, indent=2)}")
+                        nxt_tc = ConversationHistory._msg_tool_calls(messages[i + 1])
+                        if nxt_tc:
+                            lines.append(f"  Tool Calls: {json.dumps(nxt_tc, indent=2)}")
                         i += 2
                     else:
                         i += 1
@@ -489,11 +495,14 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
                 turn_number += 1
                 _, _, meta = ConversationHistory._msg_attrs(messages[i])
                 ctx = ConversationHistory._msg_context(messages[i])
+                tc = ConversationHistory._msg_tool_calls(messages[i])
                 lines = [f"Turn {turn_number}:", f"  Assistant: {content}"]
                 if ctx:
                     lines.append(f"  Context: {json.dumps(ctx, indent=2)}")
                 if meta:
                     lines.append(f"  Metadata: {json.dumps(meta, indent=2)}")
+                if tc:
+                    lines.append(f"  Tool Calls: {json.dumps(tc, indent=2)}")
                 formatted_turns.append("\n".join(lines))
                 i += 1
 

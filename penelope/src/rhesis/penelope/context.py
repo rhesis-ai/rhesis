@@ -225,6 +225,9 @@ TURN_CONTEXT_KEY = "context"
 #: Serialised field name for the optional per-turn metadata from the target.
 TURN_METADATA_KEY = "metadata"
 
+#: Serialised field name for the optional per-turn tool calls from the target.
+TURN_TOOL_CALLS_KEY = "tool_calls"
+
 # ---------------------------------------------------------------------------
 # Tool message JSON keys
 # These constants describe the shape of the JSON stored in
@@ -259,6 +262,9 @@ RESPONSE_METADATA_CONTEXT_KEY = "context"
 #: Key for the endpoint's own metadata field within the envelope.
 RESPONSE_METADATA_ENDPOINT_METADATA_KEY = "endpoint_metadata"
 
+#: Key for tool calls returned by the endpoint within the envelope.
+RESPONSE_METADATA_TOOL_CALLS_KEY = "tool_calls"
+
 
 class ConversationTurn(BaseModel):
     """
@@ -285,6 +291,10 @@ class ConversationTurn(BaseModel):
     metadata: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Structured metadata returned by the target endpoint",
+    )
+    tool_calls: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Tool calls made by the target endpoint",
     )
 
 
@@ -1033,6 +1043,7 @@ class TestState:
 
             assistant_context = None
             assistant_metadata = None
+            assistant_tool_calls = None
             try:
                 tool_content = json.loads(target_interaction.tool_message.content)
                 success = tool_content.get(TOOL_SUCCESS_KEY, False)
@@ -1049,6 +1060,7 @@ class TestState:
                             assistant_metadata = envelope.get(
                                 RESPONSE_METADATA_ENDPOINT_METADATA_KEY
                             )
+                            assistant_tool_calls = envelope.get(RESPONSE_METADATA_TOOL_CALLS_KEY)
                     else:
                         target_response = str(output)
                 else:
@@ -1069,6 +1081,7 @@ class TestState:
                 success=success,
                 context=assistant_context,
                 metadata=assistant_metadata,
+                tool_calls=assistant_tool_calls,
             )
 
             summary.append(conversation_turn)

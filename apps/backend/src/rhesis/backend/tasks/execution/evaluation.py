@@ -23,6 +23,7 @@ from rhesis.backend.tasks.execution.constants import (
     TARGET_RESPONSE_KEY,
     TURN_CONTEXT_KEY,
     TURN_METADATA_KEY,
+    TURN_TOOL_CALLS_KEY,
     MetricScope,
 )
 from rhesis.sdk.metrics import MetricConfig
@@ -44,6 +45,7 @@ def _build_conversation_history(
     - ``target_response``   → assistant role
     - ``context``           → per-turn retrieval context (optional)
     - ``metadata``          → per-turn structured metadata (optional)
+    - ``tool_calls``        → per-turn tool calls by the endpoint (optional)
     """
     messages: List[Dict[str, Any]] = []
     for turn in conversation_summary:
@@ -51,6 +53,7 @@ def _build_conversation_history(
         target_resp = turn.get(TARGET_RESPONSE_KEY, "")
         assistant_context = turn.get(TURN_CONTEXT_KEY)
         assistant_metadata = turn.get(TURN_METADATA_KEY)
+        assistant_tool_calls = turn.get(TURN_TOOL_CALLS_KEY)
         if penelope_msg:
             messages.append({"role": "user", "content": penelope_msg})
         if target_resp:
@@ -59,6 +62,8 @@ def _build_conversation_history(
                 asst_msg["context"] = assistant_context
             if assistant_metadata is not None:
                 asst_msg["metadata"] = assistant_metadata
+            if assistant_tool_calls is not None:
+                asst_msg["tool_calls"] = assistant_tool_calls
             messages.append(asst_msg)
     return ConversationHistory.from_messages(messages) if messages else None
 
@@ -93,6 +98,7 @@ def evaluate_single_turn_metrics(
     # Extract actual_response using the fallback hierarchy
     actual_response = extract_response_with_fallback(result)
     metadata = result.get("metadata") if isinstance(result, dict) else None
+    tool_calls = result.get("tool_calls") if isinstance(result, dict) else None
 
     try:
         metrics_results = metrics_evaluator.evaluate(
@@ -102,6 +108,7 @@ def evaluate_single_turn_metrics(
             context=context,
             metrics=metrics,
             metadata=metadata,
+            tool_calls=tool_calls,
         )
     except Exception as e:
         logger.warning(f"Error evaluating metrics: {str(e)}")

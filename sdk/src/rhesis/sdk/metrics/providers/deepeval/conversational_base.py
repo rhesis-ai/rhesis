@@ -59,7 +59,8 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         """
         Convert standard message format to DeepEval format.
 
-        DeepEval only needs role + content, so we extract those.
+        Iterates over the original messages to preserve ``tool_calls`` data,
+        mapping Rhesis ``tool_calls`` to DeepEval's ``tools_called`` field.
 
         Args:
             conversation: Conversation in standard format
@@ -69,20 +70,20 @@ class DeepEvalConversationalBase(ConversationalMetricBase):
         Returns:
             DeepEval ConversationalTestCase
         """
-        simple_turns = conversation.get_simple_turns()
-
         deepeval_turns = []
-        for turn in simple_turns:
-            role = turn["role"]
-            content = turn["content"]
-            # DeepEval Turn expects role to be "user" or "assistant" only
-            # Skip tool and system messages
-            if role not in ("user", "assistant"):
+        for msg in conversation.messages:
+            role, content, _ = ConversationHistory._msg_attrs(msg)
+            if not content or role not in ("user", "assistant"):
                 continue
-            deepeval_turns.append(DeepEvalTurn(role=role, content=content))  # type: ignore
+            turn_kwargs: Dict[str, Any] = {"role": role, "content": content}
+            if role == "assistant":
+                tc = ConversationHistory._msg_tool_calls(msg)
+                if tc:
+                    turn_kwargs["tools_called"] = tc
+            deepeval_turns.append(DeepEvalTurn(**turn_kwargs))  # type: ignore
 
         # Build test case parameters
-        test_case_params = {"turns": deepeval_turns}
+        test_case_params: Dict[str, Any] = {"turns": deepeval_turns}
         if chatbot_role:
             test_case_params["chatbot_role"] = chatbot_role
 
