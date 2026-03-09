@@ -497,6 +497,12 @@ def update_test_set_attributes(
         # Test set may have been soft-deleted; nothing to update.
         return
 
+    # Adaptive testing test sets manage their own attributes; skip regeneration.
+    existing_attrs = test_set.attributes or {}
+    existing_behaviors = existing_attrs.get("metadata", {}).get("behaviors", [])
+    if "Adaptive Testing" in existing_behaviors:
+        return
+
     # Get defaults and license type - use test_set's organization context
     defaults = load_defaults()
     license_type = get_or_create_type_lookup(
