@@ -31,7 +31,11 @@ export class ProjectsClient extends BaseApiClient {
     let totalCount = Infinity;
 
     while (skip < totalCount) {
-      const response = await this.getProjects({ ...params, skip, limit: pageSize });
+      const response = await this.getProjects({
+        ...params,
+        skip,
+        limit: pageSize,
+      });
       if (response.data.length === 0) break;
       allData.push(...response.data);
       totalCount = response.pagination.totalCount;

@@ -419,7 +419,9 @@ export default function ConversationHistory({
                           color: theme.palette.primary.main,
                         }}
                       >
-                        <ExpandMoreIcon sx={{ fontSize: theme.spacing(1.75) }} />
+                        <ExpandMoreIcon
+                          sx={{ fontSize: theme.spacing(1.75) }}
+                        />
                       </IconButton>
                     </Box>
 
@@ -487,7 +489,8 @@ export default function ConversationHistory({
                     wordBreak: 'break-word',
                     mb:
                       (turn.context && turn.context.length > 0) ||
-                      (turn.metadata && Object.keys(turn.metadata).length > 0) ||
+                      (turn.metadata &&
+                        Object.keys(turn.metadata).length > 0) ||
                       (turn.tool_calls && turn.tool_calls.length > 0)
                         ? 1
                         : 0,
@@ -530,7 +533,9 @@ export default function ConversationHistory({
                           color: theme.palette.info.main,
                         }}
                       >
-                        <ExpandMoreIcon sx={{ fontSize: theme.spacing(1.75) }} />
+                        <ExpandMoreIcon
+                          sx={{ fontSize: theme.spacing(1.75) }}
+                        />
                       </IconButton>
                     </Box>
 
@@ -558,7 +563,9 @@ export default function ConversationHistory({
                               borderLeft: `2px solid ${theme.palette.info.light}`,
                             }}
                           >
-                            {typeof item === 'string' ? item : JSON.stringify(item)}
+                            {typeof item === 'string'
+                              ? item
+                              : JSON.stringify(item)}
                           </Typography>
                         ))}
                       </Box>
@@ -603,7 +610,9 @@ export default function ConversationHistory({
                           color: theme.palette.warning.main,
                         }}
                       >
-                        <ExpandMoreIcon sx={{ fontSize: theme.spacing(1.75) }} />
+                        <ExpandMoreIcon
+                          sx={{ fontSize: theme.spacing(1.75) }}
+                        />
                       </IconButton>
                     </Box>
 
@@ -624,7 +633,8 @@ export default function ConversationHistory({
                           component="pre"
                           variant="body2"
                           sx={{
-                            fontFamily: theme.typography.fontFamilyCode ?? 'monospace',
+                            fontFamily:
+                              theme.typography.fontFamilyCode ?? 'monospace',
                             whiteSpace: 'pre-wrap',
                             wordBreak: 'break-all',
                             color: theme.palette.text.secondary,
@@ -675,7 +685,9 @@ export default function ConversationHistory({
                           color: theme.palette.secondary.main,
                         }}
                       >
-                        <ExpandMoreIcon sx={{ fontSize: theme.spacing(1.75) }} />
+                        <ExpandMoreIcon
+                          sx={{ fontSize: theme.spacing(1.75) }}
+                        />
                       </IconButton>
                     </Box>
 
@@ -696,7 +708,8 @@ export default function ConversationHistory({
                           component="pre"
                           variant="body2"
                           sx={{
-                            fontFamily: theme.typography.fontFamilyCode ?? 'monospace',
+                            fontFamily:
+                              theme.typography.fontFamilyCode ?? 'monospace',
                             whiteSpace: 'pre-wrap',
                             wordBreak: 'break-all',
                             color: theme.palette.text.secondary,
@@ -748,7 +761,10 @@ export default function ConversationHistory({
           label="Conversation Concluded"
           size="small"
           sx={{
-            bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'light' ? 0.06 : 0.15),
+            bgcolor: alpha(
+              theme.palette.primary.main,
+              theme.palette.mode === 'light' ? 0.06 : 0.15
+            ),
             color: theme.palette.primary.main,
             fontWeight: 500,
             border: `1px solid ${theme.palette.primary.main}`,

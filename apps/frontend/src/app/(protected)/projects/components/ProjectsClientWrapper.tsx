@@ -36,7 +36,11 @@ interface EmptyStateMessageProps {
   icon?: React.ReactNode;
 }
 
-function EmptyStateMessage({ title, description, icon }: EmptyStateMessageProps) {
+function EmptyStateMessage({
+  title,
+  description,
+  icon,
+}: EmptyStateMessageProps) {
   return (
     <Paper elevation={2} className={styles.emptyState}>
       {icon || (
@@ -59,7 +63,9 @@ interface ProjectsClientWrapperProps {
   sessionToken: string;
 }
 
-export default function ProjectsClientWrapper({ sessionToken }: ProjectsClientWrapperProps) {
+export default function ProjectsClientWrapper({
+  sessionToken,
+}: ProjectsClientWrapperProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +92,10 @@ export default function ProjectsClientWrapper({ sessionToken }: ProjectsClientWr
       setError(null);
       const factory = new ApiClientFactory(sessionToken);
       const client = factory.getProjectsClient();
-      const data = await client.getAllProjects({ sort_by: 'name', sort_order: 'asc' });
+      const data = await client.getAllProjects({
+        sort_by: 'name',
+        sort_order: 'asc',
+      });
       setProjects(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load projects');
@@ -228,7 +237,15 @@ export default function ProjectsClientWrapper({ sessionToken }: ProjectsClientWr
 
       {/* Loading state */}
       {isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8, gap: 2 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            py: 8,
+            gap: 2,
+          }}
+        >
           <CircularProgress size={24} />
           <Typography>Loading projects…</Typography>
         </Box>
@@ -246,10 +263,7 @@ export default function ProjectsClientWrapper({ sessionToken }: ProjectsClientWr
         <>
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {paginatedProjects.map(project => (
-              <Grid
-                key={project.id}
-                size={{ xs: 12, md: 6, lg: 4 }}
-              >
+              <Grid key={project.id} size={{ xs: 12, md: 6, lg: 4 }}>
                 <ProjectCard project={project} />
               </Grid>
             ))}

@@ -449,7 +449,8 @@ export default function ExecuteTestSetDrawer({
                 setSelectedEndpoint(null);
               }}
               getOptionLabel={option => {
-                const hasDuplicate = projects.filter(p => p.name === option.name).length > 1;
+                const hasDuplicate =
+                  projects.filter(p => p.name === option.name).length > 1;
                 if (!hasDuplicate) return option.name;
                 const suffix = option.nano_id
                   ? option.nano_id.slice(0, 6)
@@ -458,7 +459,8 @@ export default function ExecuteTestSetDrawer({
               }}
               renderOption={(props, option) => {
                 const { key: _key, ...otherProps } = props;
-                const hasDuplicate = projects.filter(p => p.name === option.name).length > 1;
+                const hasDuplicate =
+                  projects.filter(p => p.name === option.name).length > 1;
                 return (
                   <Box component="li" key={option.id} {...otherProps}>
                     <Box>

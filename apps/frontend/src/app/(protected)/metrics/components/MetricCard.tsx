@@ -123,7 +123,6 @@ const getScoreTypeIcon = (scoreType: string) => {
   }
 };
 
-
 export default function MetricCard({
   title,
   description,

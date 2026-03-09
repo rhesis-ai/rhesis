@@ -12,7 +12,9 @@ export const METRIC_SCOPES = {
   MULTI_TURN: 'Multi-Turn',
 } as const;
 
-export type MetricScopeValue = (typeof METRIC_SCOPES)[keyof typeof METRIC_SCOPES] | string;
+export type MetricScopeValue =
+  | (typeof METRIC_SCOPES)[keyof typeof METRIC_SCOPES]
+  | string;
 
 /**
  * Returns the icon component for a given metric scope value.

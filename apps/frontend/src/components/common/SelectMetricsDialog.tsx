@@ -70,7 +70,8 @@ const getScoreTypeIcon = (scoreType: string) => {
   }
 };
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+const capitalize = (s: string) =>
+  s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
 interface SelectMetricsDialogProps {
   open: boolean;
@@ -121,7 +122,8 @@ export default function SelectMetricsDialog({
         // No scope filter requested — show everything
         if (!scopeFilter) return true;
         // Metrics with no defined scope are compatible with any test type
-        if (!metric.metric_scope || metric.metric_scope.length === 0) return true;
+        if (!metric.metric_scope || metric.metric_scope.length === 0)
+          return true;
         // Metric scope is an array — show the metric if it supports the requested scope
         return metric.metric_scope.some(
           scope => scope.toLowerCase() === scopeFilter.toLowerCase()
@@ -130,7 +132,6 @@ export default function SelectMetricsDialog({
 
       setMetrics(availableMetrics);
       setFilteredMetrics(availableMetrics);
-
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
     } finally {
@@ -169,7 +170,6 @@ export default function SelectMetricsDialog({
     onSelect(metricId);
     onClose();
   };
-
 
   return (
     <Dialog
@@ -236,7 +236,10 @@ export default function SelectMetricsDialog({
             </Typography>
           </Box>
         ) : (
-          <Stack spacing={1.5} sx={{ maxHeight: theme => theme.spacing(50), overflowY: 'auto' }}>
+          <Stack
+            spacing={1.5}
+            sx={{ maxHeight: theme => theme.spacing(50), overflowY: 'auto' }}
+          >
             {filteredMetrics.map(metric => (
               <Paper
                 key={metric.id}
