@@ -93,7 +93,7 @@ class MessageHistoryManager:
         """
         if "role" not in message:
             raise ValueError("Message dict must contain a 'role' key")
-        self._messages.append(message)
+        self._messages.append(copy.deepcopy(message))
 
     def get_messages(self) -> List[Dict[str, Any]]:
         """Return a deep copy of the accumulated messages.

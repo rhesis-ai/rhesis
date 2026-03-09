@@ -248,3 +248,20 @@ class TestMessageHistoryManagerToolCalls:
         stored = history.get_messages()
         assert len(stored[0]["tool_calls"]) == 1
         assert stored[0]["tool_calls"][0]["id"] == "call_1"
+
+    def test_add_message_deep_copied(self):
+        """Mutating the original dict after add_message does not affect stored data."""
+        history = MessageHistoryManager()
+        msg = {
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "content": "original",
+        }
+        history.add_message(msg)
+
+        msg["content"] = "mutated"
+        msg["extra_key"] = "should not appear"
+
+        stored = history.get_messages()
+        assert stored[0]["content"] == "original"
+        assert "extra_key" not in stored[0]
