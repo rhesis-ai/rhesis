@@ -67,6 +67,8 @@ class TestSetSynthesizer(ABC):
             chunking_strategy: Strategy for chunking source content
                 (defaults to SemanticChunker with 1500 max tokens per chunk)
         """
+        if batch_size < _MIN_BATCH_SIZE:
+            raise ValueError(f"batch_size must be >= {_MIN_BATCH_SIZE}, got {batch_size}")
         self.batch_size = batch_size
         self.prompt_template = load_prompt_template(self.prompt_template_file)
         self.sources = sources
