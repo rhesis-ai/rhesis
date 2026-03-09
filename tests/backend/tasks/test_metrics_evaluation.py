@@ -9,6 +9,12 @@ Covers:
 
 from unittest.mock import MagicMock, patch
 
+from rhesis.backend.tasks.execution.constants import (
+    CONVERSATION_SUMMARY_KEY,
+    PENELOPE_MESSAGE_KEY,
+    TARGET_RESPONSE_KEY,
+    TURN_METADATA_KEY,
+)
 from rhesis.backend.tasks.execution.evaluation import (
     evaluate_multi_turn_metrics,
     evaluate_prompt_response,
@@ -119,9 +125,9 @@ class TestEvaluateMultiTurnMetrics:
     def test_evaluates_conversation_as_single_pair(self):
         """Conversation is reconstructed and evaluated as input/output pair."""
         stored_output = {
-            "conversation_summary": [
-                {"penelope_message": "Hello", "target_response": "Hi there"},
-                {"penelope_message": "How are you?", "target_response": "I'm fine"},
+            CONVERSATION_SUMMARY_KEY: [
+                {PENELOPE_MESSAGE_KEY: "Hello", TARGET_RESPONSE_KEY: "Hi there"},
+                {PENELOPE_MESSAGE_KEY: "How are you?", TARGET_RESPONSE_KEY: "I'm fine"},
             ]
         }
 
@@ -185,7 +191,7 @@ class TestEvaluateMultiTurnMetrics:
             ),
         ):
             result = evaluate_multi_turn_metrics(
-                stored_output={"conversation_summary": []},
+                stored_output={CONVERSATION_SUMMARY_KEY: []},
                 test=mock_test,
                 db=MagicMock(),
                 organization_id="org-1",
@@ -219,7 +225,7 @@ class TestEvaluateMultiTurnMetrics:
             ),
         ):
             result = evaluate_multi_turn_metrics(
-                stored_output={"conversation_summary": []},
+                stored_output={CONVERSATION_SUMMARY_KEY: []},
                 test=mock_test,
                 db=MagicMock(),
                 organization_id="org-1",
@@ -253,7 +259,7 @@ class TestEvaluateMultiTurnMetrics:
             ),
         ):
             evaluate_multi_turn_metrics(
-                stored_output={"conversation_summary": []},
+                stored_output={CONVERSATION_SUMMARY_KEY: []},
                 test=mock_test,
                 db=MagicMock(),
                 organization_id="org-1",
@@ -288,7 +294,7 @@ class TestEvaluateMultiTurnMetrics:
             ),
         ):
             evaluate_multi_turn_metrics(
-                stored_output={"conversation_summary": []},
+                stored_output={CONVERSATION_SUMMARY_KEY: []},
                 test=mock_test,
                 db=MagicMock(),
                 organization_id="org-1",
@@ -298,3 +304,65 @@ class TestEvaluateMultiTurnMetrics:
 
         call_kwargs = mock_evaluator_instance.evaluate.call_args.kwargs
         assert call_kwargs["input_text"] == ""
+
+    def test_assistant_metadata_in_messages(self):
+        """Per-turn metadata from conversation_summary propagates to assistant messages."""
+        from rhesis.sdk.metrics.conversational.types import ConversationHistory
+
+        stored_output = {
+            CONVERSATION_SUMMARY_KEY: [
+                {
+                    PENELOPE_MESSAGE_KEY: "Hello",
+                    TARGET_RESPONSE_KEY: "Hi",
+                    TURN_METADATA_KEY: {"source": "doc1"},
+                },
+                {
+                    PENELOPE_MESSAGE_KEY: "How are you?",
+                    TARGET_RESPONSE_KEY: "Fine",
+                    # no metadata on this turn
+                },
+            ]
+        }
+
+        mock_test = MagicMock()
+        mock_test.test_configuration = {"goal": "test goal"}
+        mock_test.id = "test-1"
+
+        captured_history = {}
+
+        def capture_evaluate(**kwargs):
+            captured_history["conversation_history"] = kwargs.get("conversation_history")
+            return {}
+
+        mock_evaluator_instance = MagicMock()
+        mock_evaluator_instance.evaluate.side_effect = capture_evaluate
+
+        with (
+            patch(
+                "rhesis.backend.tasks.execution.executors.data.get_test_metrics",
+                return_value=[{"name": "m1"}],
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.executors.metrics.prepare_metric_configs",
+                return_value=[{"name": "m1"}],
+            ),
+            patch(
+                "rhesis.backend.tasks.execution.evaluation.MetricEvaluator",
+                return_value=mock_evaluator_instance,
+            ),
+        ):
+            evaluate_multi_turn_metrics(
+                stored_output=stored_output,
+                test=mock_test,
+                db=MagicMock(),
+                organization_id="org-1",
+                user_id="user-1",
+                model="gpt-4",
+            )
+
+        conv: ConversationHistory = captured_history["conversation_history"]
+        assert conv is not None
+
+        metadata_list = conv.get_assistant_metadata()
+        assert metadata_list[0] == {"source": "doc1"}
+        assert metadata_list[1] is None

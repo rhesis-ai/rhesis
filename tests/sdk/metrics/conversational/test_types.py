@@ -171,3 +171,87 @@ def test_message_extra_fields_allowed():
     assert msg.content == "Hello"
     # Extra fields should be preserved
     assert hasattr(msg, "custom_field") or "custom_field" in msg.model_dump()
+
+
+# ============================================================================
+# AssistantMessage.metadata tests
+# ============================================================================
+
+
+def test_assistant_message_metadata_field():
+    """AssistantMessage accepts and stores metadata; defaults to None."""
+    msg_with = AssistantMessage(content="Hi", metadata={"citations": ["doc1"]})
+    assert msg_with.metadata == {"citations": ["doc1"]}
+
+    msg_without = AssistantMessage(content="Hi")
+    assert msg_without.metadata is None
+
+
+def test_assistant_message_metadata_from_dict():
+    """Dict with 'metadata' key is coerced into AssistantMessage.metadata."""
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi", "metadata": {"source": "doc1"}},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    asst_msg = conv.messages[1]
+    # Works whether Pydantic coerced to typed model or kept as dict
+    if isinstance(asst_msg, dict):
+        assert asst_msg.get("metadata") == {"source": "doc1"}
+    else:
+        assert asst_msg.metadata == {"source": "doc1"}
+
+
+# ============================================================================
+# get_assistant_metadata() tests
+# ============================================================================
+
+
+def test_get_assistant_metadata_empty_conversation():
+    """Returns empty list for a conversation with no messages."""
+    conv = ConversationHistory.from_messages([])
+    assert conv.get_assistant_metadata() == []
+
+
+def test_get_assistant_metadata_no_metadata():
+    """Returns all-None when no assistant message carries metadata."""
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi"},
+        {"role": "user", "content": "How are you?"},
+        {"role": "assistant", "content": "Fine"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.get_assistant_metadata()
+    assert result == [None, None]
+
+
+def test_get_assistant_metadata_all_metadata():
+    """Returns correct metadata for every turn when all assistant messages carry it."""
+    messages = [
+        {"role": "user", "content": "Q1"},
+        {"role": "assistant", "content": "A1", "metadata": {"source": "doc1"}},
+        {"role": "user", "content": "Q2"},
+        {"role": "assistant", "content": "A2", "metadata": {"source": "doc2"}},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.get_assistant_metadata()
+    assert result == [{"source": "doc1"}, {"source": "doc2"}]
+
+
+def test_get_assistant_metadata_partial_metadata():
+    """Returns None for turns without metadata and dict for turns that have it."""
+    messages = [
+        {"role": "user", "content": "Q1"},
+        {"role": "assistant", "content": "A1"},  # no metadata
+        {"role": "user", "content": "Q2"},
+        {"role": "assistant", "content": "A2", "metadata": {"citations": ["x"]}},
+        {"role": "user", "content": "Q3"},
+        {"role": "assistant", "content": "A3"},  # no metadata
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.get_assistant_metadata()
+    assert result == [None, {"citations": ["x"]}, None]
+    # Indices align with get_simple_turns() turn pairs
+    simple = conv.get_simple_turns()
+    assert len([m for m in simple if m["role"] == "user"]) == len(result)
