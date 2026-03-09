@@ -80,6 +80,9 @@ export default function ConversationHistory({
   const [expandedMetadataTurns, setExpandedMetadataTurns] = useState<
     Record<number, boolean>
   >({});
+  const [expandedToolCallsTurns, setExpandedToolCallsTurns] = useState<
+    Record<number, boolean>
+  >({});
 
   const toggleReasoning = (turnNumber: number) => {
     setExpandedReasoningTurns(prev => ({
@@ -104,6 +107,13 @@ export default function ConversationHistory({
 
   const toggleMetadata = (turnNumber: number) => {
     setExpandedMetadataTurns(prev => ({
+      ...prev,
+      [turnNumber]: !prev[turnNumber],
+    }));
+  };
+
+  const toggleToolCalls = (turnNumber: number) => {
+    setExpandedToolCallsTurns(prev => ({
       ...prev,
       [turnNumber]: !prev[turnNumber],
     }));
@@ -473,7 +483,8 @@ export default function ConversationHistory({
                     wordBreak: 'break-word',
                     mb:
                       (turn.context && turn.context.length > 0) ||
-                      (turn.metadata && Object.keys(turn.metadata).length > 0)
+                      (turn.metadata && Object.keys(turn.metadata).length > 0) ||
+                      (turn.tool_calls && turn.tool_calls.length > 0)
                         ? 1
                         : 0,
                   }}
@@ -575,7 +586,7 @@ export default function ConversationHistory({
                           fontWeight: 500,
                         }}
                       >
-                        More Information
+                        Metadata
                       </Typography>
                       <IconButton
                         size="small"
@@ -617,6 +628,78 @@ export default function ConversationHistory({
                           }}
                         >
                           {JSON.stringify(turn.metadata, null, 2)}
+                        </Typography>
+                      </Box>
+                    </Collapse>
+                  </>
+                )}
+
+                {/* Tool Calls (collapsible within response) */}
+                {turn.tool_calls && turn.tool_calls.length > 0 && (
+                  <>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        cursor: 'pointer',
+                        '&:hover': { opacity: 0.7 },
+                        mt: 1,
+                      }}
+                      onClick={e => {
+                        e.stopPropagation();
+                        toggleToolCalls(turn.turn);
+                      }}
+                    >
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: theme.palette.secondary.main,
+                          fontWeight: 500,
+                        }}
+                      >
+                        Tool Calls
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        sx={{
+                          padding: 0,
+                          transform: expandedToolCallsTurns[turn.turn]
+                            ? 'rotate(180deg)'
+                            : 'rotate(0deg)',
+                          transition: 'transform 0.2s',
+                          color: theme.palette.secondary.main,
+                        }}
+                      >
+                        <ExpandMoreIcon sx={{ fontSize: theme.spacing(1.75) }} />
+                      </IconButton>
+                    </Box>
+
+                    <Collapse
+                      in={expandedToolCallsTurns[turn.turn]}
+                      timeout="auto"
+                      unmountOnExit
+                    >
+                      <Box
+                        sx={{
+                          mt: 1,
+                          pt: 1,
+                          borderTop: `1px solid ${theme.palette.divider}`,
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <Typography
+                          component="pre"
+                          variant="body2"
+                          sx={{
+                            fontFamily: theme.typography.fontFamilyCode ?? 'monospace',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-all',
+                            color: theme.palette.text.secondary,
+                            m: 0,
+                          }}
+                        >
+                          {JSON.stringify(turn.tool_calls, null, 2)}
                         </Typography>
                       </Box>
                     </Collapse>

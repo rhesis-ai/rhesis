@@ -29,6 +29,7 @@ export interface ConversationTurn {
   target_response: string;
   context?: unknown[];
   metadata?: Record<string, unknown>;
+  tool_calls?: Array<Record<string, unknown>>;
   session_id: string;
   success: boolean;
 }
