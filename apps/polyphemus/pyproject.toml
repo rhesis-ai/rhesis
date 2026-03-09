@@ -49,6 +49,8 @@ dev = [
     "httpx>=0.27.0",
 ]
 
+# Pytest config used when running from apps/polyphemus (e.g. uv run pytest).
+# Repo-root runs use tests/pytest.ini instead.
 [tool.pytest.ini_options]
 testpaths = ["../../tests/polyphemus"]
 pythonpath = ["src"]

@@ -146,7 +146,7 @@ def _build_vertex_request_body(
     messages: List[Message],
     *,
     max_tokens: Optional[int] = None,
-    temperature: float = 0.6,
+    temperature: float = 0.7,
     top_p: float = 1.0,
     top_k: Optional[int] = None,
     json_schema: Optional[Dict[str, Any]] = None,
@@ -208,15 +208,16 @@ async def generate_text_via_vertex_endpoint(
     model_alias = resolve_model(request.model)  # normalize + validate
 
     # Get parameters with defaults (max_tokens is optional; only passed when provided)
-    temperature = request.temperature if request.temperature is not None else 0.6
+    # Align with GenerateRequest schema default (0.7)
+    temperature = request.temperature if request.temperature is not None else 0.7
     top_p = request.top_p if request.top_p is not None else 1.0
     top_k = request.top_k
 
     # Validate and clamp parameters to Vertex AI requirements
     # temperature must be > 0
     if temperature <= 0:
-        logger.warning(f"temperature={temperature} invalid, using 0.6")
-        temperature = 0.6
+        logger.warning(f"temperature={temperature} invalid, using 0.7")
+        temperature = 0.7
 
     # top_p must be in (0, 1] (greater than 0, up to and including 1)
     if top_p <= 0 or top_p > 1:

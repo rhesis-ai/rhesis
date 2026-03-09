@@ -126,7 +126,7 @@ class TestBuildVertexRequestBody:
 
     def test_default_temperature_and_top_p(self):
         body = _build_vertex_request_body([Message(content="hi")])
-        assert body["temperature"] == 0.6
+        assert body["temperature"] == 0.7
         assert body["top_p"] == 1.0
 
     def test_custom_temperature_and_top_p(self):
@@ -278,7 +278,7 @@ class TestGenerateTextViaVertexEndpoint:
                         req, endpoint_id="ep", project_id="proj"
                     )
 
-        assert captured_body["temperature"] == 0.6
+        assert captured_body["temperature"] == 0.7
 
     async def test_negative_temperature_clamped(self, caplog):
         req = GenerateRequest(
@@ -303,7 +303,7 @@ class TestGenerateTextViaVertexEndpoint:
                         req, endpoint_id="ep", project_id="proj"
                     )
 
-        assert captured_body["temperature"] == 0.6
+        assert captured_body["temperature"] == 0.7
 
     async def test_top_p_above_one_clamped(self):
         req = GenerateRequest(

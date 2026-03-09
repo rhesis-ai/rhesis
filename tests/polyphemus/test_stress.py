@@ -8,10 +8,11 @@ These tests verify correctness and stability under load:
 - Mixed concurrent workloads
 
 All HTTP and auth calls are mocked — no real network traffic is generated.
+
+Marked slow/performance so CI can exclude them by default (e.g. pytest -m "not slow").
 """
 
 import asyncio
-import time
 from typing import List
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -22,6 +23,8 @@ from rhesis.polyphemus.services.services import (
     _build_vertex_request_body,
     generate_text_via_vertex_endpoint,
 )
+
+pytestmark = [pytest.mark.slow, pytest.mark.performance]
 
 _CONFIGURED_MODELS = {
     "polyphemus-default": "projects/p/locations/us-central1/endpoints/default",
@@ -313,7 +316,7 @@ class TestParameterBoundaryStress:
                         req, endpoint_id="ep", project_id="proj"
                     )
 
-        assert captured["temperature"] == 0.6, f"Expected clamped temp for input {temperature}"
+        assert captured["temperature"] == 0.7, f"Expected clamped temp for input {temperature}"
 
     @pytest.mark.parametrize(
         "top_p",
@@ -372,11 +375,11 @@ class TestParameterBoundaryStress:
 
     async def test_generate_throughput_wall_clock(self):
         """
-        Run 200 sequential mocked requests and assert total time is under 5 s,
-        which confirms no accidental real sleeps occur in the happy path.
+        Run 200 concurrent mocked requests and assert asyncio.sleep is never
+        called in the happy path (deterministic; avoids flaky wall-clock).
         """
         req = _make_request("quick benchmark")
-        start = time.monotonic()
+        sleep_mock = AsyncMock()
 
         with patch.dict(
             "rhesis.polyphemus.services.services.POLYPHEMUS_MODELS", _CONFIGURED_MODELS
@@ -386,11 +389,15 @@ class TestParameterBoundaryStress:
             ):
                 with patch("rhesis.polyphemus.services.services._http_client") as mock_client:
                     mock_client.post = AsyncMock(return_value=_ok_http_response())
-                    tasks = [
-                        generate_text_via_vertex_endpoint(req, endpoint_id="ep", project_id="proj")
-                        for _ in range(200)
-                    ]
-                    await asyncio.gather(*tasks)
+                    with patch(
+                        "rhesis.polyphemus.services.services.asyncio.sleep", sleep_mock
+                    ):
+                        tasks = [
+                            generate_text_via_vertex_endpoint(
+                                req, endpoint_id="ep", project_id="proj"
+                            )
+                            for _ in range(200)
+                        ]
+                        await asyncio.gather(*tasks)
 
-        elapsed = time.monotonic() - start
-        assert elapsed < 5.0, f"200 mocked requests took {elapsed:.2f}s — possible real sleep?"
+        assert sleep_mock.call_count == 0, "Happy path must not call asyncio.sleep"

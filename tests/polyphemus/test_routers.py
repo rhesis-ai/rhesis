@@ -53,7 +53,7 @@ def mock_user() -> MagicMock:
 
 @pytest.fixture
 def client(mock_user):
-    """TestClient with auth dependency overridden — no DB or token validation."""
+    """TestClient with auth and rate limiting bypassed (check_rate_limit overridden)."""
 
     async def _no_auth():
         return mock_user
