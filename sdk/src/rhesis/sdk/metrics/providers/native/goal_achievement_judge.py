@@ -214,6 +214,9 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             "has_assistant_metadata": any(
                 m is not None for m in conversation_history.get_assistant_metadata()
             ),
+            "has_assistant_context": any(
+                c is not None for c in conversation_history.get_assistant_context()
+            ),
         }
 
         # Add any additional template variables

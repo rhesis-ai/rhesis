@@ -219,6 +219,9 @@ PENELOPE_MESSAGE_KEY = "penelope_message"
 #: Serialised field name for the response received from the target.
 TARGET_RESPONSE_KEY = "target_response"
 
+#: Serialised field name for the optional per-turn retrieval context from the target.
+TURN_CONTEXT_KEY = "context"
+
 #: Serialised field name for the optional per-turn metadata from the target.
 TURN_METADATA_KEY = "metadata"
 
@@ -243,6 +246,19 @@ TOOL_METADATA_KEY = "metadata"
 #: Key holding the error message when a tool call fails.
 TOOL_ERROR_KEY = "error"
 
+# ---------------------------------------------------------------------------
+# TargetResponse.metadata envelope keys
+# The EndpointTarget implementations wrap their response in an envelope that
+# contains both internal routing/debug fields and the endpoint-returned data.
+# These constants identify the two user-facing fields surfaced to callers.
+# ---------------------------------------------------------------------------
+
+#: Key for the endpoint-returned context (e.g. RAG sources) within the envelope.
+RESPONSE_METADATA_CONTEXT_KEY = "context"
+
+#: Key for the endpoint's own metadata field within the envelope.
+RESPONSE_METADATA_ENDPOINT_METADATA_KEY = "endpoint_metadata"
+
 
 class ConversationTurn(BaseModel):
     """
@@ -262,9 +278,13 @@ class ConversationTurn(BaseModel):
         description=("Conversation tracking ID (session_id, conversation_id, thread_id, etc.)"),
     )
     success: bool = Field(description="Whether the tool call was successful")
+    context: Optional[List[Any]] = Field(
+        default=None,
+        description="Retrieval context returned by the target endpoint (e.g. RAG sources)",
+    )
     metadata: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Per-turn metadata returned by the target endpoint (e.g. RAG context)",
+        description="Structured metadata returned by the target endpoint",
     )
 
 
@@ -1011,6 +1031,7 @@ class TestState:
             target_response = ""
             success = False
 
+            assistant_context = None
             assistant_metadata = None
             try:
                 tool_content = json.loads(target_interaction.tool_message.content)
@@ -1020,7 +1041,14 @@ class TestState:
                     output = tool_content[TOOL_OUTPUT_KEY]
                     if isinstance(output, dict):
                         target_response = output.get(TOOL_RESPONSE_KEY, "")
-                        assistant_metadata = output.get(TOOL_METADATA_KEY)
+                        envelope = output.get(TOOL_METADATA_KEY)
+                        if isinstance(envelope, dict):
+                            # Extract user-facing fields from the internal envelope,
+                            # discarding routing/debug fields (raw_response, message_sent, …).
+                            assistant_context = envelope.get(RESPONSE_METADATA_CONTEXT_KEY)
+                            assistant_metadata = envelope.get(
+                                RESPONSE_METADATA_ENDPOINT_METADATA_KEY
+                            )
                     else:
                         target_response = str(output)
                 else:
@@ -1039,6 +1067,7 @@ class TestState:
                 target_response=target_response,
                 conversation_id=conversation_id,  # Flexible conversation ID (any supported field)
                 success=success,
+                context=assistant_context,
                 metadata=assistant_metadata,
             )
 

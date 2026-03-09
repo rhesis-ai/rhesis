@@ -418,6 +418,9 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
             "has_assistant_metadata": any(
                 m is not None for m in conversation_history.get_assistant_metadata()
             ),
+            "has_assistant_context": any(
+                c is not None for c in conversation_history.get_assistant_context()
+            ),
         }
 
         # Add any additional template variables specific to the metric type
@@ -469,6 +472,9 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
                     )
                     if nxt_role == "assistant" and nxt_content:
                         lines.append(f"  Assistant: {nxt_content}")
+                        nxt_ctx = ConversationHistory._msg_context(messages[i + 1])
+                        if nxt_ctx:
+                            lines.append(f"  Context: {json.dumps(nxt_ctx, indent=2)}")
                         if nxt_meta:
                             lines.append(f"  Metadata: {json.dumps(nxt_meta, indent=2)}")
                         i += 2
@@ -482,7 +488,10 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
                 # Standalone assistant message (no preceding user message)
                 turn_number += 1
                 _, _, meta = ConversationHistory._msg_attrs(messages[i])
+                ctx = ConversationHistory._msg_context(messages[i])
                 lines = [f"Turn {turn_number}:", f"  Assistant: {content}"]
+                if ctx:
+                    lines.append(f"  Context: {json.dumps(ctx, indent=2)}")
                 if meta:
                     lines.append(f"  Metadata: {json.dumps(meta, indent=2)}")
                 formatted_turns.append("\n".join(lines))

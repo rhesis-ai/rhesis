@@ -34,9 +34,13 @@ class AssistantMessage(BaseModel):
     tool_calls: Optional[List[Dict[str, Any]]] = Field(
         default=None, description="Tool calls made in this message"
     )
+    context: Optional[List[Any]] = Field(
+        default=None,
+        description="Retrieval context returned by the endpoint (e.g. RAG sources)",
+    )
     metadata: Optional[Dict[str, Any]] = Field(
         default=None,
-        description="Optional per-turn metadata returned by the endpoint (e.g. RAG context)",
+        description="Structured metadata returned by the endpoint",
     )
 
     model_config = ConfigDict(extra="allow")
@@ -107,6 +111,13 @@ class ConversationHistory(BaseModel):
             return msg.get("role", ""), msg.get("content", ""), msg.get("metadata")
         return msg.role, msg.content or "", getattr(msg, "metadata", None)
 
+    @staticmethod
+    def _msg_context(msg: Any) -> Optional[List[Any]]:
+        """Extract retrieval context from a message (dict or typed model)."""
+        if isinstance(msg, dict):
+            return msg.get("context")
+        return getattr(msg, "context", None)
+
     def _iter_turns(
         self,
     ) -> Generator[Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]], None, None]:
@@ -163,6 +174,37 @@ class ConversationHistory(BaseModel):
         returned no metadata.
         """
         return [meta for _, _, meta in self._iter_turns()]
+
+    def get_assistant_context(self) -> List[Optional[List[Any]]]:
+        """
+        Extract per-turn retrieval context from assistant messages.
+
+        Returns a list indexed to user+assistant exchange pairs. Returns None
+        for turns where the endpoint returned no context.
+        """
+        contexts = []
+        messages = self.messages
+        i = 0
+        while i < len(messages):
+            role, content, _ = self._msg_attrs(messages[i])
+            if not content:
+                i += 1
+                continue
+            if role == "user":
+                if i + 1 < len(messages):
+                    nxt_role, nxt_content, _ = self._msg_attrs(messages[i + 1])
+                    if nxt_role == "assistant" and nxt_content:
+                        contexts.append(self._msg_context(messages[i + 1]))
+                        i += 2
+                        continue
+                contexts.append(None)
+                i += 1
+            elif role == "assistant":
+                contexts.append(self._msg_context(messages[i]))
+                i += 1
+            else:
+                i += 1
+        return contexts
 
     def to_text(self) -> str:
         """

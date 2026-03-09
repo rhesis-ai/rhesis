@@ -21,6 +21,7 @@ from rhesis.backend.tasks.execution.constants import (
     CONVERSATION_SUMMARY_KEY,
     PENELOPE_MESSAGE_KEY,
     TARGET_RESPONSE_KEY,
+    TURN_CONTEXT_KEY,
     TURN_METADATA_KEY,
     MetricScope,
 )
@@ -41,17 +42,21 @@ def _build_conversation_history(
     Each entry in conversation_summary maps to one user+assistant exchange:
     - ``penelope_message``  → user role
     - ``target_response``   → assistant role
-    - ``metadata``          → per-turn assistant metadata (optional)
+    - ``context``           → per-turn retrieval context (optional)
+    - ``metadata``          → per-turn structured metadata (optional)
     """
     messages: List[Dict[str, Any]] = []
     for turn in conversation_summary:
         penelope_msg = turn.get(PENELOPE_MESSAGE_KEY, "")
         target_resp = turn.get(TARGET_RESPONSE_KEY, "")
+        assistant_context = turn.get(TURN_CONTEXT_KEY)
         assistant_metadata = turn.get(TURN_METADATA_KEY)
         if penelope_msg:
             messages.append({"role": "user", "content": penelope_msg})
         if target_resp:
             asst_msg: Dict[str, Any] = {"role": "assistant", "content": target_resp}
+            if assistant_context is not None:
+                asst_msg["context"] = assistant_context
             if assistant_metadata is not None:
                 asst_msg["metadata"] = assistant_metadata
             messages.append(asst_msg)

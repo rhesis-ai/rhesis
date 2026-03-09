@@ -27,6 +27,8 @@ export interface ConversationTurn {
   penelope_reasoning: string;
   penelope_message: string;
   target_response: string;
+  context?: unknown[];
+  metadata?: Record<string, unknown>;
   session_id: string;
   success: boolean;
 }
