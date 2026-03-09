@@ -61,6 +61,10 @@ class FlatTests(BaseModel):
     tests: List[FlatTest]
 
 
+_MIN_BATCH_SIZE = 1
+_MAX_CONSECUTIVE_FAILURES = 3
+
+
 class TestSetSynthesizer(ABC):
     """Base class for all test set synthesizers."""
 
@@ -290,8 +294,10 @@ class TestSetSynthesizer(ABC):
 
     def _generate_without_sources(self, num_tests: int = 5, **kwargs: Any) -> List[Dict[str, Any]]:
         """
-        Generate test cases using model.generate for small requests
-        and model.generate_batch for larger ones.
+        Generate test cases using model.generate_batch for parallel execution
+        when num_tests > batch_size, with sequential retry on failures.
+
+        Automatically reduces batch size on consecutive failures and retries.
 
         Args:
             num_tests: Total number of test cases to generate. Defaults to 5.
@@ -300,7 +306,6 @@ class TestSetSynthesizer(ABC):
         Returns:
             List of test case dicts
         """
-
         if not isinstance(num_tests, int):
             raise TypeError("num_tests must be an integer")
 
@@ -308,6 +313,7 @@ class TestSetSynthesizer(ABC):
 
         all_test_cases: List[Dict[str, Any]] = []
         generation_start = time.time()
+
         logger.info(
             "[Synthesizer] Starting generation: num_tests=%d, batch_size=%d, model=%s",
             num_tests,
@@ -315,60 +321,19 @@ class TestSetSynthesizer(ABC):
             getattr(self.model, "model_name", type(self.model).__name__),
         )
 
-        if num_tests <= self.batch_size:
-            # Case 1: fits in a single batch — use model.generate() via _generate_batch
-            logger.info(
-                "[Synthesizer] Single batch: requesting %d tests",
-                num_tests,
-            )
-            batch_start = time.time()
-            all_test_cases = self._generate_batch(num_tests, **template_context)
-            batch_elapsed = time.time() - batch_start
-            logger.info(
-                "[Synthesizer] Single batch: received %d tests in %.1fs",
-                len(all_test_cases),
-                batch_elapsed,
-            )
-        else:
-            #  use model.generate_batch() for parallel execution
-            num_full_batches = num_tests // self.batch_size
-            remainder = num_tests % self.batch_size
-
-            batch_sizes = [self.batch_size] * num_full_batches
-            if remainder > 0:
-                batch_sizes.append(remainder)
-
-            prompts = []
-            for bs in batch_sizes:
-                batch_context = {"num_tests": bs, **template_context}
-                prompts.append(self.prompt_template.render(**batch_context))
-
-            logger.info(
-                "[Synthesizer] Batch generation: %d batches "
-                "(%d x %d + %d remainder), using model.generate_batch()",
-                len(batch_sizes),
-                num_full_batches,
-                self.batch_size,
-                remainder,
+        try:
+            batch_tests = self._generate_parallel_batches(num_tests, **template_context)
+            all_test_cases.extend(batch_tests)
+        except Exception:
+            logger.exception(
+                "[Synthesizer] Parallel batch generation failed, "
+                "falling back to sequential generation"
             )
 
-            batch_start = time.time()
-            responses = cast(
-                List[Dict[str, Any]],
-                self.model.generate_batch(prompts=prompts, schema=FlatTests),
-            )
-            batch_elapsed = time.time() - batch_start
-
-            for i, (response, expected_size) in enumerate(zip(responses, batch_sizes)):
-                tests = self._process_batch_response(response, expected_size, i + 1)
-                all_test_cases.extend(tests)
-
-            logger.info(
-                "[Synthesizer] Batch generation: received %d tests across %d batches in %.1fs",
-                len(all_test_cases),
-                len(batch_sizes),
-                batch_elapsed,
-            )
+        remaining = num_tests - len(all_test_cases)
+        if remaining > 0:
+            sequential_tests = self._generate_with_retry(remaining, **template_context)
+            all_test_cases.extend(sequential_tests)
 
         total_elapsed = time.time() - generation_start
         logger.info(
@@ -383,6 +348,112 @@ class TestSetSynthesizer(ABC):
             raise ValueError("Failed to generate any valid test cases")
 
         return all_test_cases
+
+    def _generate_with_retry(
+        self, num_tests: int, **template_context: Any
+    ) -> List[Dict[str, Any]]:
+        """Generate tests sequentially with batch size reduction on failure."""
+        all_test_cases: List[Dict[str, Any]] = []
+        remaining = num_tests
+        current_batch_size = self.batch_size
+        consecutive_failures = 0
+
+        while remaining > 0:
+            if consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
+                logger.error(
+                    "[Synthesizer] Stopping after %d consecutive failures "
+                    "(batch_size=%d, generated=%d/%d)",
+                    consecutive_failures,
+                    current_batch_size,
+                    len(all_test_cases),
+                    num_tests,
+                )
+                break
+
+            batch_request_size = min(remaining, current_batch_size)
+
+            try:
+                tests = self._generate_batch(batch_request_size, **template_context)
+            except Exception:
+                logger.exception(
+                    "[Synthesizer] Exception in batch generation (batch_size=%d)",
+                    batch_request_size,
+                )
+                tests = []
+
+            if tests:
+                all_test_cases.extend(tests)
+                remaining -= len(tests)
+                consecutive_failures = 0
+                logger.info(
+                    "[Synthesizer] Batch succeeded: %d tests (remaining=%d)",
+                    len(tests),
+                    remaining,
+                )
+            else:
+                consecutive_failures += 1
+                if current_batch_size > _MIN_BATCH_SIZE:
+                    current_batch_size = max(_MIN_BATCH_SIZE, current_batch_size // 2)
+                    logger.warning(
+                        "[Synthesizer] Batch failed (attempt %d/%d), reducing batch size to %d",
+                        consecutive_failures,
+                        _MAX_CONSECUTIVE_FAILURES,
+                        current_batch_size,
+                    )
+                else:
+                    logger.warning(
+                        "[Synthesizer] Batch failed (attempt %d/%d) at minimum batch size %d",
+                        consecutive_failures,
+                        _MAX_CONSECUTIVE_FAILURES,
+                        _MIN_BATCH_SIZE,
+                    )
+
+        return all_test_cases
+
+    def _generate_parallel_batches(
+        self, num_tests: int, **template_context: Any
+    ) -> List[Dict[str, Any]]:
+        """Generate tests across multiple batches using model.generate_batch."""
+        num_full_batches = num_tests // self.batch_size
+        remainder = num_tests % self.batch_size
+
+        batch_sizes = [self.batch_size] * num_full_batches
+        if remainder > 0:
+            batch_sizes.append(remainder)
+
+        prompts = []
+        for bs in batch_sizes:
+            batch_context = {"num_tests": bs, **template_context}
+            prompts.append(self.prompt_template.render(**batch_context))
+
+        logger.info(
+            "[Synthesizer] Parallel batch generation: %d batches (%d x %d + %d remainder)",
+            len(batch_sizes),
+            num_full_batches,
+            self.batch_size,
+            remainder,
+        )
+
+        batch_start = time.time()
+        responses = cast(
+            List[Dict[str, Any]],
+            self.model.generate_batch(prompts=prompts, schema=FlatTests),
+        )
+        batch_elapsed = time.time() - batch_start
+
+        all_tests: List[Dict[str, Any]] = []
+        for i, (response, expected_size) in enumerate(zip(responses, batch_sizes)):
+            tests = self._process_batch_response(response, expected_size, i + 1)
+            all_tests.extend(tests)
+
+        logger.info(
+            "[Synthesizer] Parallel batch generation: %d tests across %d batches in %.1fs",
+            len(all_tests),
+            len(batch_sizes),
+            batch_elapsed,
+        )
+
+        return all_tests
 
     def _flat_test_to_nested(self, flat: Dict[str, Any]) -> Dict[str, Any]:
         """Repack a flat test dict (LLM output) into the nested Test structure."""
