@@ -1,0 +1,19 @@
+# Adversarial Testing
+
+Adversarial testing surfaces failures that only emerge in edge cases—scenarios that are rare, unusual, or deliberately challenging. Standard testing covers typical interactions; adversarial testing covers the rest.
+
+## The Problem with Commercial Models
+
+Commercial LLMs like ChatGPT or Gemini are heavily optimized for safety. When generating adversarial or policy-violating prompts—exactly the kind needed to stress-test another system—they often refuse. This leaves significant blind spots in robustness evaluations.
+
+## Polyphemus
+
+Rhesis provides **Polyphemus**, a managed model built specifically for adversarial test generation. It produces prompts that commercial models routinely refuse, and integrates directly with the SDK as a drop-in model provider.
+
+Note: Polyphemus requires approved access. See [Requesting Access](/adversarial-testing/requesting-access).
+
+## Next Steps
+
+- [Polyphemus](/adversarial-testing/polyphemus) — model details and capabilities
+- [Requesting Access](/adversarial-testing/requesting-access) — get approved
+- [Using Polyphemus with the SDK](/adversarial-testing/sdk-usage) — integration examples

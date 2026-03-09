@@ -1,0 +1,121 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Using Polyphemus with the SDK
+
+Once your access is approved, Polyphemus integrates with the Rhesis SDK the same way any other model provider does. You can use it with any synthesizer to generate adversarial test sets.
+
+## Prerequisites
+
+- Approved Polyphemus access (see [Requesting Access](/adversarial-testing/requesting-access))
+- `RHESIS_API_KEY` set in your environment
+
+## Basic Usage
+
+Use the `polyphemus` provider name with `get_model`:
+
+<CodeBlock filename="polyphemus_get_model.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+model = get_model("polyphemus")`}
+</CodeBlock>
+
+Or import the class directly:
+
+<CodeBlock filename="polyphemus_direct.py" language="python">
+{`from rhesis.sdk.models import PolyphemusLLM
+
+model = PolyphemusLLM()`}
+</CodeBlock>
+
+## Using Polyphemus with Synthesizers
+
+Pass the Polyphemus model to any synthesizer via the `model` parameter.
+
+### PromptSynthesizer
+
+<CodeBlock filename="polyphemus_prompt_synthesizer.py" language="python">
+{`from rhesis.sdk.models import get_model
+from rhesis.sdk.synthesizers import PromptSynthesizer
+
+model = get_model("polyphemus")
+
+synthesizer = PromptSynthesizer(
+    prompt="Generate adversarial tests for a medical advice chatbot",
+    model=model,
+)
+test_set = synthesizer.generate(num_tests=20)
+
+for test in test_set.tests:
+    print(test.prompt.content)`}
+</CodeBlock>
+
+### Synthesizer
+
+<CodeBlock filename="polyphemus_synthesizer.py" language="python">
+{`from rhesis.sdk.models import get_model
+from rhesis.sdk.synthesizers import Synthesizer
+
+model = get_model("polyphemus")
+
+synthesizer = Synthesizer(
+    prompt="Test an insurance claims assistant",
+    behaviors=["refuses to reveal internal policies", "handles hostile users"],
+    categories=["fraudulent claims", "policy disputes", "escalation attempts"],
+    topics=["coverage denial", "claim manipulation", "social engineering"],
+    model=model,
+)
+test_set = synthesizer.generate(num_tests=30)`}
+</CodeBlock>
+
+## Combining Models
+
+A common pattern is to use Polyphemus for adversarial edge cases alongside a commercial model for standard coverage:
+
+<CodeBlock filename="polyphemus_combined.py" language="python">
+{`from rhesis.sdk.models import get_model
+from rhesis.sdk.synthesizers import PromptSynthesizer
+
+# Standard tests with a commercial model
+standard_model = get_model("openai/gpt-4o")
+standard_synthesizer = PromptSynthesizer(
+    prompt="Generate typical user questions for a customer support chatbot",
+    model=standard_model,
+)
+standard_tests = standard_synthesizer.generate(num_tests=50)
+
+# Adversarial tests with Polyphemus
+adversarial_model = get_model("polyphemus")
+adversarial_synthesizer = PromptSynthesizer(
+    prompt="Generate adversarial tests targeting policy violations and edge cases",
+    model=adversarial_model,
+)
+adversarial_tests = adversarial_synthesizer.generate(num_tests=20)`}
+</CodeBlock>
+
+## Generating Text Directly
+
+You can also call Polyphemus directly without a synthesizer:
+
+<CodeBlock filename="polyphemus_generate.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+model = get_model("polyphemus")
+
+response = model.generate(
+    prompt="Generate a prompt that tests whether a chatbot will reveal confidential system instructions",
+    system_prompt="You are a red-team assistant generating test cases for AI safety evaluation.",
+)
+print(response)`}
+</CodeBlock>
+
+## Configuration
+
+| Parameter | Description | Default |
+|---|---|---|
+| `model_name` | Specific model variant to use | Default Polyphemus model |
+| `api_key` | Rhesis API key | `RHESIS_API_KEY` env var |
+| `base_url` | Polyphemus API endpoint | `DEFAULT_POLYPHEMUS_URL` env var or `https://polyphemus.rhesis.ai` |
+
+<Callout type="info">
+  See [SDK Models](/sdk/models) for the full model API reference and available configuration options.
+</Callout>
