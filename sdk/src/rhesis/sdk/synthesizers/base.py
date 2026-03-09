@@ -384,7 +384,7 @@ class TestSetSynthesizer(ABC):
 
         prompts = []
         for bs in batch_sizes:
-            batch_context = {"num_tests": bs, **template_context}
+            batch_context = {**template_context, "num_tests": bs}
             prompts.append(self.prompt_template.render(**batch_context))
 
         logger.info(
@@ -401,6 +401,12 @@ class TestSetSynthesizer(ABC):
             self.model.generate_batch(prompts=prompts, schema=FlatTests),
         )
         batch_elapsed = time.time() - batch_start
+
+        if len(responses) != len(batch_sizes):
+            raise ValueError(
+                f"generate_batch returned {len(responses)} responses for "
+                f"{len(batch_sizes)} prompts; counts must match"
+            )
 
         all_tests: List[Dict[str, Any]] = []
         for i, (response, expected_size) in enumerate(zip(responses, batch_sizes)):
@@ -435,7 +441,7 @@ class TestSetSynthesizer(ABC):
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
-        template_context = {"num_tests": num_tests, **kwargs}
+        template_context = {**kwargs, "num_tests": num_tests}
         prompt = self.prompt_template.render(**template_context)
 
         logger.debug(

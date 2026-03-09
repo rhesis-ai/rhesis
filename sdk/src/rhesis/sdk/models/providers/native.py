@@ -119,7 +119,7 @@ class RhesisLLM(BaseLLM):
         schema: Optional[Union[Type[BaseModel], dict]] = None,
         **kwargs: Any,
     ) -> List[Any]:
-        """Batch processing is not implemented for RhesisLLM."""
+        """Run batch chat completions using the API, and return the responses."""
         results = []
         for prompt in prompts:
             results.append(
