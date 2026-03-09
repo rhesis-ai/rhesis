@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 from pydantic import BaseModel
 
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.services.chunker import ChunkingStrategy, SemanticChunker
+from rhesis.sdk.services.chunker import ChunkingStrategy
 from rhesis.sdk.services.extractor import SourceSpecification
 from rhesis.sdk.synthesizers.base import TestSetSynthesizer
 
@@ -33,7 +33,7 @@ class ConfigSynthesizer(TestSetSynthesizer):
         batch_size: int = 20,
         model: Optional[Union[str, BaseLLM]] = None,
         sources: Optional[List[SourceSpecification]] = None,
-        chunking_strategy: Optional[ChunkingStrategy] = SemanticChunker(max_tokens_per_chunk=1500),
+        chunking_strategy: Optional[ChunkingStrategy] = None,
     ):
         """
         Initialize the ConfigSynthesizer.

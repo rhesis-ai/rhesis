@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union, cast
 
 from pydantic import BaseModel
-from tqdm.auto import tqdm
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
@@ -25,25 +24,6 @@ from rhesis.sdk.synthesizers.utils import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-class Prompt(BaseModel):
-    content: str
-    expected_response: str
-    language_code: str
-
-
-class Test(BaseModel):
-    prompt: Prompt
-    behavior: str
-    category: str
-    topic: str
-    # Note: test_type is NOT included in the schema sent to the LLM
-    # It will be added programmatically after generation
-
-
-class Tests(BaseModel):
-    tests: List[Test]
 
 
 # Flat schema for LLM batch generation (easier for the model to produce).
@@ -75,7 +55,7 @@ class TestSetSynthesizer(ABC):
         batch_size: int = 5,
         model: Optional[Union[str, BaseLLM]] = None,
         sources: Optional[List[SourceSpecification]] = None,
-        chunking_strategy: Optional[ChunkingStrategy] = SemanticChunker(max_tokens_per_chunk=1500),
+        chunking_strategy: Optional[ChunkingStrategy] = None,
     ):
         """
         Initialize the base synthesizer.
@@ -85,34 +65,17 @@ class TestSetSynthesizer(ABC):
             model: The model to use for generation (string name or BaseLLM instance)
             sources: Optional list of source specifications to extract content from
             chunking_strategy: Strategy for chunking source content
+                (defaults to SemanticChunker with 1500 max tokens per chunk)
         """
         self.batch_size = batch_size
         self.prompt_template = load_prompt_template(self.prompt_template_file)
         self.sources = sources
-        self.chunker = chunking_strategy
+        self.chunker = chunking_strategy or SemanticChunker(max_tokens_per_chunk=1500)
 
         if isinstance(model, str) or model is None:
             self.model = get_model(model)
         else:
             self.model = model
-
-    def _process_with_progress(
-        self,
-        items: List[Any],
-        process_func: Any,
-        desc: str = "Processing",
-    ) -> List[Any]:
-        """Process items with a progress bar."""
-        results = []
-        with tqdm(total=len(items), desc=desc) as pbar:
-            for item in items:
-                result = process_func(item)
-                if isinstance(result, list):
-                    results.extend(result)
-                else:
-                    results.append(result)
-                pbar.update(1)
-        return results
 
     @abstractmethod
     def _get_template_context(self, **generate_kwargs: Any) -> Dict[str, Any]:
@@ -349,9 +312,7 @@ class TestSetSynthesizer(ABC):
 
         return all_test_cases
 
-    def _generate_with_retry(
-        self, num_tests: int, **template_context: Any
-    ) -> List[Dict[str, Any]]:
+    def _generate_with_retry(self, num_tests: int, **template_context: Any) -> List[Dict[str, Any]]:
         """Generate tests sequentially with batch size reduction on failure."""
         all_test_cases: List[Dict[str, Any]] = []
         remaining = num_tests
