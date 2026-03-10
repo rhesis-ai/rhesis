@@ -1,11 +1,12 @@
 # Local values for template rendering
 locals {
-  # Generate peer configurations for WireGuard template
+  # Filter each peer's subnets to only those present in subnet_cidrs
+  # (disabled environments won't have entries in subnet_cidrs)
   wireguard_peers_with_keys = [
     for peer in var.wireguard_peers : {
       identifier = peer.identifier
       ip         = peer.ip
-      subnets    = peer.subnets
+      subnets    = [for s in peer.subnets : s if contains(keys(var.subnet_cidrs), s)]
       public_key = wireguard_asymmetric_key.peers[peer.identifier].public_key
     }
   ]

@@ -27,17 +27,24 @@ resource "terraform_data" "wireguard_config_update" {
       trap 'rm -f "$tmpfile"' EXIT
       printf '%s' '${base64encode(local.wireguard_config)}' > "$tmpfile"
 
-      # Wait for VM to accept SSH (cloud-init may still be running on first apply)
-      for i in $(seq 1 30); do
+      # Wait for VM to accept SSH and cloud-init to finish
+      # (first apply: cloud-init installs wireguard and creates /etc/wireguard/)
+      for i in $(seq 1 60); do
         if gcloud compute ssh wireguard-server \
           --zone="$ZONE" --project="$PROJECT" \
           --tunnel-through-iap \
           --command="true" 2>/dev/null; then
           break
         fi
-        echo "Waiting for SSH (attempt $i/30)..."
+        echo "Waiting for SSH (attempt $i/60)..."
         sleep 10
       done
+
+      echo "Waiting for cloud-init to finish..."
+      gcloud compute ssh wireguard-server \
+        --zone="$ZONE" --project="$PROJECT" \
+        --tunnel-through-iap \
+        --command="sudo cloud-init status --wait" || true
 
       # Remove any stale file from a previous failed run (may be owned by root)
       gcloud compute ssh wireguard-server \

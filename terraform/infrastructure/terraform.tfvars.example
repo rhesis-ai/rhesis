@@ -4,6 +4,11 @@
 project_id = "example-project-id"
 region     = "gcp-region"
 
+# Which environments to deploy. Default: all three.
+# For dev-only:  enabled_environments = ["dev"]
+# For dev + stg: enabled_environments = ["dev", "stg"]
+enabled_environments = ["dev", "stg", "prd"]
+
 # WireGuard server deletion protection (recommended: true for production)
 wireguard_deletion_protection = true
 
