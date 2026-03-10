@@ -298,6 +298,7 @@ terraform.rc
 terraform-*-plan*
 tfplan
 *.tfplan
+kubernetes/clusters/*/ingress-nginx-internal/cluster.env
 
 # DeepEval
 .deepeval/

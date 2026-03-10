@@ -30,6 +30,7 @@ spec:
               loadBalancerIP: PLACEHOLDER
               annotations:
                 cloud.google.com/load-balancer-type: Internal
+                networking.gke.io/internal-load-balancer-subnet: PLACEHOLDER
   destination:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx-internal
