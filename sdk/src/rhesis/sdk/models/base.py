@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from rhesis.sdk.async_utils import run_sync
+from rhesis.sdk.models.utils import llm_retry
 
 if TYPE_CHECKING:
     from rhesis.sdk.entities.model import Model
@@ -82,7 +83,7 @@ class BaseLLM(BaseModel):
     def __init__(self, model_name, *args, **kwargs):
         super().__init__(model_name, *args, **kwargs)
         self.model = self.load_model(*args, **kwargs)
-        # self.a_generate = llm_retry(self.a_generate)
+        self.a_generate = llm_retry(self.a_generate)
 
         # # Only wrap generate with sync retry if the subclass overrides it.
         # # The base generate() delegates to a_generate() which already has
@@ -111,7 +112,7 @@ class BaseLLM(BaseModel):
         return run_sync(self.a_generate(*args, **kwargs))
 
     async def a_generate(self, *args, **kwargs) -> Union[str, Dict[str, Any]]:
-        """Async version of generate. Subclasses should override this.
+        """Async version of generate. Subclasses must override this.
 
         Returns:
             A string or dict (if schema provided).

@@ -1,3 +1,4 @@
+import asyncio
 import gc
 import json
 import time
@@ -390,6 +391,10 @@ class LMFormatEnforcerLLM(BaseLLM):
             return response_dict
 
         return completion
+
+    async def a_generate(self, *args, **kwargs) -> Any:
+        """Async version of generate. Runs sync generate() in a thread pool."""
+        return await asyncio.to_thread(self.generate, *args, **kwargs)
 
     def generate_batch(
         self,
