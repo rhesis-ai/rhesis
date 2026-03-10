@@ -452,7 +452,7 @@ async def generate_test_config(
         )
 
         service = TestConfigGeneratorService(db=db, user=current_user)
-        result = service.generate_config(
+        result = await service.generate_config(
             request.prompt,
             organization_id=organization_id,
             project_id=str(request.project_id) if request.project_id else None,

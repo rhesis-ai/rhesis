@@ -100,7 +100,7 @@ async def test_model_connection_endpoint(
         if endpoint is None or (isinstance(endpoint, str) and not endpoint.strip()):
             endpoint = db_model.endpoint
 
-    result = ModelConnectionService.test_connection(
+    result = await ModelConnectionService.test_connection(
         provider=request.provider,
         model_name=request.model_name,
         api_key=api_key,
@@ -250,7 +250,7 @@ async def test_model_connection(
 
     try:
         # Use ModelConnectionService which makes an actual test call
-        result = ModelConnectionService.test_connection(
+        result = await ModelConnectionService.test_connection(
             provider=provider,
             model_name=model_name,
             api_key=api_key,
