@@ -60,8 +60,8 @@ class DeepEvalModelWrapper(DeepEvalBaseLLM):
         Returns:
             Generated response (str or schema instance if schema provided)
         """
-        # Delegate to synchronous generate (async support can be added later)
-        return self.generate(prompt, schema=schema, **kwargs)
+        result = await self._model.a_generate(prompt, schema=schema, **kwargs)
+        return self._convert_to_schema(result, schema) if schema else result
 
     def get_model_name(self, *args, **kwargs) -> str:
         return self._model.get_model_name(*args, **kwargs)

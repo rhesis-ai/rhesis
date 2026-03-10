@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
+from rhesis.sdk.async_utils import run_sync
+
 if TYPE_CHECKING:
     from rhesis.sdk.entities.model import Model
 
@@ -80,11 +82,13 @@ class BaseLLM(BaseModel):
     def __init__(self, model_name, *args, **kwargs):
         super().__init__(model_name, *args, **kwargs)
         self.model = self.load_model(*args, **kwargs)
+        # self.a_generate = llm_retry(self.a_generate)
 
-        # Wrap generate with retry for transient errors and error responses
-        from rhesis.sdk.models.utils import llm_retry
-
-        self.generate = llm_retry(self.generate)
+        # # Only wrap generate with sync retry if the subclass overrides it.
+        # # The base generate() delegates to a_generate() which already has
+        # # retry, so wrapping both would cause double retry.
+        # if type(self).generate is not BaseLLM.generate:
+        #     self.generate = llm_retry(self.generate)
 
     @abstractmethod
     def load_model(self, *args, **kwargs):
@@ -95,14 +99,30 @@ class BaseLLM(BaseModel):
         """
         pass
 
-    @abstractmethod
     def generate(self, *args, **kwargs) -> Union[str, Dict[str, Any]]:
         """Runs the model to output LLM response.
+
+        Bridges to a_generate() via run_sync(), which auto-detects
+        whether a running event loop exists.
 
         Returns:
             A string or dict (if schema provided).
         """
-        pass
+        return run_sync(self.a_generate(*args, **kwargs))
+
+    async def a_generate(self, *args, **kwargs) -> Union[str, Dict[str, Any]]:
+        """Async version of generate. Subclasses should override this.
+
+        Returns:
+            A string or dict (if schema provided).
+
+        Raises:
+            NotImplementedError: If the subclass does not implement this.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement a_generate(). "
+            "Override a_generate() to enable async support."
+        )
 
     @abstractmethod
     def generate_batch(self, *args, **kwargs) -> List[Union[str, Dict[str, Any]]]:
