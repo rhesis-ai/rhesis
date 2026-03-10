@@ -4,10 +4,11 @@ kind: Kustomization
 resources:
   - ../../../base/ingress-nginx-internal
 
+# Cluster values (region, subnet, LB IP) in cluster.env — keep in sync with Terraform
 configMapGenerator:
   - name: ingress-internal-config
-    literals:
-      - internal-lb-ip=10.4.2.10
+    envs:
+      - cluster.env
     options:
       annotations:
         config.kubernetes.io/local-config: "true"
@@ -24,3 +25,13 @@ replacements:
           name: ingress-nginx-internal
         fieldPaths:
           - spec.source.helm.valuesObject.controller.service.internal.loadBalancerIP
+  - source:
+      kind: ConfigMap
+      name: ingress-internal-config
+      fieldPath: data.ilb-subnet-name
+    targets:
+      - select:
+          kind: Application
+          name: ingress-nginx-internal
+        fieldPaths:
+          - spec.source.helm.valuesObject.controller.service.internal.annotations.[networking.gke.io/internal-load-balancer-subnet]
