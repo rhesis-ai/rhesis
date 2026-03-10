@@ -5,6 +5,7 @@ with automatic detection of running event loops (Jupyter, FastAPI, etc.).
 """
 
 import asyncio
+import atexit
 from threading import Thread
 
 _background_loop = None
@@ -21,7 +22,33 @@ def _get_background_loop():
             daemon=True,
         )
         _background_thread.start()
+        atexit.register(close_background_loop)
     return _background_loop
+
+
+def close_background_loop():
+    """Stop and close the background event loop and thread. Idempotent.
+
+    Call explicitly in long-running processes or test suites to avoid resource
+    leaks. Also registered as an atexit handler when the loop is first created.
+    """
+    global _background_loop, _background_thread
+    if _background_loop is None or _background_loop.is_closed():
+        _background_loop = None
+        _background_thread = None
+        return
+    try:
+        atexit.unregister(close_background_loop)
+        _background_loop.call_soon_threadsafe(_background_loop.stop)
+        if _background_thread is not None:
+            _background_thread.join(timeout=5.0)
+    finally:
+        try:
+            _background_loop.close()
+        except Exception:
+            pass
+        _background_loop = None
+        _background_thread = None
 
 
 def run_sync(coro):
