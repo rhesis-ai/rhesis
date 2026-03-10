@@ -31,7 +31,7 @@ export interface ProjectsQueryParams {
   limit?: number;
   sort_by?: string;
   sort_order?: SortOrder;
-  $filter?: string | (string | null);
+  $filter?: string;
 }
 
 /**

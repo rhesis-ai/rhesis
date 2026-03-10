@@ -52,6 +52,21 @@ Conversation Goal:
 
 Full Conversation ({{ turn_count }} turns):
 {{ conversation_text }}
+{% if has_assistant_context %}
+Note: Some turns above include a "Context" section with retrieval sources returned
+by the endpoint (e.g. RAG documents, knowledge base excerpts). Use this information
+to assess the quality and relevance of the assistant's responses.
+{% endif %}
+{% if has_assistant_metadata %}
+Note: Some turns above include a "Metadata" section with additional structured data
+returned by the endpoint (e.g. citations, confidence scores). Use this information
+in your evaluation where relevant.
+{% endif %}
+{% if has_assistant_tool_calls %}
+Note: Some turns above include a "Tool Calls" section listing tools invoked by the
+endpoint during its response generation (e.g. function calls, API lookups). Evaluate
+whether the correct tools were used with appropriate arguments where relevant.
+{% endif %}
 
 
 Evaluation Form:

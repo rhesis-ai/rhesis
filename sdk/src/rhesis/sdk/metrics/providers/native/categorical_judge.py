@@ -125,6 +125,7 @@ class CategoricalJudge(JudgeBase):
             context=context,
             categories=self.categories,
             passing_categories=self.passing_categories,
+            **additional_template_vars,
         )
 
     def evaluate(
@@ -134,6 +135,7 @@ class CategoricalJudge(JudgeBase):
         expected_output: Optional[str],
         context: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
     ) -> MetricResult:
         """
         Evaluate the output using the LLM with the custom prompt template.
@@ -190,6 +192,9 @@ class CategoricalJudge(JudgeBase):
             else None
         )
 
+        # Serialize tool_calls for template
+        tool_calls_text = json.dumps(tool_calls, indent=2) if tool_calls else None
+
         # Generate the evaluation prompt
         prompt = self._get_prompt_template(
             input,
@@ -197,6 +202,7 @@ class CategoricalJudge(JudgeBase):
             expected_output or "",
             context or [],
             metadata_text=metadata_text,
+            tool_calls_text=tool_calls_text,
         )
 
         # Initialize common details fields

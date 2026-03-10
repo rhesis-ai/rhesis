@@ -13,6 +13,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from rhesis.backend.tasks.execution.constants import (
+    CONVERSATION_SUMMARY_KEY,
+    PENELOPE_MESSAGE_KEY,
+    TARGET_RESPONSE_KEY,
+)
 from rhesis.backend.tasks.execution.executors.output_providers import (
     TestOutput,
 )
@@ -181,7 +186,7 @@ class TestMultiTurnRunnerWithProvider:
         mock_provider = MagicMock()
         mock_provider.get_output = AsyncMock(
             return_value=TestOutput(
-                response={"conversation_summary": [{"penelope_message": "Hi"}]},
+                response={CONVERSATION_SUMMARY_KEY: [{PENELOPE_MESSAGE_KEY: "Hi"}]},
                 execution_time=0,
                 metrics={},
                 source="test_result",
@@ -207,7 +212,7 @@ class TestMultiTurnRunnerWithProvider:
             )
 
         mock_provider.get_output.assert_called_once()
-        assert trace == {"conversation_summary": [{"penelope_message": "Hi"}]}
+        assert trace == {CONVERSATION_SUMMARY_KEY: [{PENELOPE_MESSAGE_KEY: "Hi"}]}
         assert exec_time == 0
         # External evaluation should be called since provider returned empty metrics
         mock_eval.assert_called_once()
@@ -218,7 +223,7 @@ class TestMultiTurnRunnerWithProvider:
         mock_provider = MagicMock()
         mock_provider.get_output = AsyncMock(
             return_value=TestOutput(
-                response={"conversation_summary": []},
+                response={CONVERSATION_SUMMARY_KEY: []},
                 execution_time=2500,
                 metrics={"goal_achieved": True, "score": 0.95},
                 source="live",
@@ -254,7 +259,7 @@ class TestMultiTurnRunnerWithProvider:
         mock_provider = MagicMock()
         mock_provider.get_output = AsyncMock(
             return_value=TestOutput(
-                response={"conversation_summary": []},
+                response={CONVERSATION_SUMMARY_KEY: []},
                 execution_time=2500,
                 metrics={"Goal Achievement": {"is_successful": True, "score": 0.95}},
                 source="live",
@@ -304,7 +309,7 @@ class TestMultiTurnRunnerWithProvider:
             mock_provider_instance = MagicMock()
             mock_provider_instance.get_output = AsyncMock(
                 return_value=TestOutput(
-                    response={"conversation_summary": []},
+                    response={CONVERSATION_SUMMARY_KEY: []},
                     execution_time=1000,
                     metrics={"penelope_metric": 0.9},
                 )
@@ -331,7 +336,9 @@ class TestMultiTurnRunnerWithProvider:
         mock_provider.get_output = AsyncMock(
             return_value=TestOutput(
                 response={
-                    "conversation_summary": [{"penelope_message": "Q", "target_response": "A"}]
+                    CONVERSATION_SUMMARY_KEY: [
+                        {PENELOPE_MESSAGE_KEY: "Q", TARGET_RESPONSE_KEY: "A"}
+                    ]
                 },
                 execution_time=0,
                 metrics={},
@@ -361,7 +368,7 @@ class TestMultiTurnRunnerWithProvider:
         mock_eval.assert_called_once()
         eval_kwargs = mock_eval.call_args.kwargs
         assert eval_kwargs["stored_output"] == {
-            "conversation_summary": [{"penelope_message": "Q", "target_response": "A"}]
+            CONVERSATION_SUMMARY_KEY: [{PENELOPE_MESSAGE_KEY: "Q", TARGET_RESPONSE_KEY: "A"}]
         }
         assert eval_kwargs["model"] == "gpt-4"
         assert metrics == {"relevance": {"score": 0.7}}

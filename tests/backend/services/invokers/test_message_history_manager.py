@@ -1,5 +1,7 @@
 """Tests for MessageHistoryManager."""
 
+import pytest
+
 from rhesis.backend.app.services.invokers.conversation.history import (
     MessageHistoryManager,
 )
@@ -124,3 +126,142 @@ class TestMessageHistoryManager:
             {"role": "user", "content": "Thanks"},
         ]
         assert history.get_messages() == expected
+
+
+class TestMessageHistoryManagerToolCalls:
+    """Tests for OpenAI-compatible tool_calls support."""
+
+    def test_assistant_message_with_tool_calls(self):
+        """tool_calls are included on the assistant message when provided."""
+        history = MessageHistoryManager()
+        tool_calls = [
+            {
+                "id": "call_1",
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "arguments": '{"city": "SF"}',
+                },
+            }
+        ]
+        history.add_assistant_message("Let me check.", tool_calls=tool_calls)
+
+        messages = history.get_messages()
+        assert len(messages) == 1
+        msg = messages[0]
+        assert msg["role"] == "assistant"
+        assert msg["content"] == "Let me check."
+        assert msg["tool_calls"] == tool_calls
+
+    def test_assistant_message_without_tool_calls(self):
+        """When tool_calls is None, the key is omitted from the message."""
+        history = MessageHistoryManager()
+        history.add_assistant_message("Hello!")
+
+        messages = history.get_messages()
+        assert "tool_calls" not in messages[0]
+
+    def test_assistant_message_with_extra_fields(self):
+        """Extra keyword arguments are included on the message."""
+        history = MessageHistoryManager()
+        history.add_assistant_message("Hello!", name="helper_bot")
+
+        messages = history.get_messages()
+        assert messages[0]["name"] == "helper_bot"
+
+    def test_extra_none_values_are_omitted(self):
+        """Extra kwargs with None values are not stored on the message."""
+        history = MessageHistoryManager()
+        history.add_assistant_message("Hello!", refusal=None)
+
+        messages = history.get_messages()
+        assert "refusal" not in messages[0]
+
+    def test_add_message_tool_role(self):
+        """add_message supports tool-role messages."""
+        history = MessageHistoryManager()
+        history.add_message(
+            {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "Sunny, 72°F",
+            }
+        )
+
+        messages = history.get_messages()
+        assert len(messages) == 1
+        assert messages[0]["role"] == "tool"
+        assert messages[0]["tool_call_id"] == "call_1"
+        assert messages[0]["content"] == "Sunny, 72°F"
+
+    def test_add_message_requires_role(self):
+        """add_message raises ValueError when role is missing."""
+        history = MessageHistoryManager()
+        with pytest.raises(ValueError, match="role"):
+            history.add_message({"content": "no role"})
+
+    def test_full_tool_calling_flow(self):
+        """Full OpenAI tool-calling conversation round-trip."""
+        history = MessageHistoryManager(system_prompt="You can use tools.")
+        history.add_user_message("What's the weather in SF?")
+
+        tool_calls = [
+            {
+                "id": "call_abc",
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "arguments": '{"city": "SF"}',
+                },
+            }
+        ]
+        history.add_assistant_message("Let me check the weather.", tool_calls=tool_calls)
+        history.add_message(
+            {
+                "role": "tool",
+                "tool_call_id": "call_abc",
+                "content": '{"temp": 72, "condition": "sunny"}',
+            }
+        )
+        history.add_assistant_message("It's sunny and 72°F in San Francisco!")
+
+        messages = history.get_messages()
+        assert len(messages) == 5
+        assert messages[0]["role"] == "system"
+        assert messages[1]["role"] == "user"
+        assert messages[2]["role"] == "assistant"
+        assert messages[2]["tool_calls"] == tool_calls
+        assert messages[3]["role"] == "tool"
+        assert messages[3]["tool_call_id"] == "call_abc"
+        assert messages[4]["role"] == "assistant"
+        assert "tool_calls" not in messages[4]
+
+    def test_tool_calls_deep_copied(self):
+        """Mutating the original tool_calls list does not affect stored data."""
+        history = MessageHistoryManager()
+        tool_calls = [{"id": "call_1", "type": "function", "function": {}}]
+        history.add_assistant_message("Check.", tool_calls=tool_calls)
+
+        tool_calls.append({"id": "call_2", "type": "function", "function": {}})
+        tool_calls[0]["id"] = "mutated"
+
+        stored = history.get_messages()
+        assert len(stored[0]["tool_calls"]) == 1
+        assert stored[0]["tool_calls"][0]["id"] == "call_1"
+
+    def test_add_message_deep_copied(self):
+        """Mutating the original dict after add_message does not affect stored data."""
+        history = MessageHistoryManager()
+        msg = {
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "content": "original",
+        }
+        history.add_message(msg)
+
+        msg["content"] = "mutated"
+        msg["extra_key"] = "should not appear"
+
+        stored = history.get_messages()
+        assert stored[0]["content"] == "original"
+        assert "extra_key" not in stored[0]

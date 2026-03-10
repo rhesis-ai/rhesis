@@ -20,8 +20,18 @@ def chat(input: str, session_id: str = None) -> dict:
 
 **Standard fields**:
 
-- Request: `input`, `session_id`, `context`, `metadata`, `tool_calls`
-- Response: `output`, `context`, `metadata`, `tool_calls`, `session_id`
+| Direction | Field | Description |
+|-----------|-------|-------------|
+| Request | `input` | The user query or test prompt |
+| Request | `session_id` | Conversation tracking identifier |
+| Request | `context` | Additional context provided with the request |
+| Request | `metadata` | Structured metadata passed to the endpoint |
+| Request | `tool_calls` | Tool call data passed to the endpoint |
+| Response | `output` | The main response text |
+| Response | `context` | Retrieval context (e.g., RAG sources) |
+| Response | `metadata` | Structured response metadata (e.g., confidence scores) |
+| Response | `tool_calls` | Tool/function calls made during response generation |
+| Response | `session_id` | Session identifier for conversation tracking |
 
 ## Manual Mapping
 
@@ -48,7 +58,7 @@ def chat(user_query: str, conv_id: str = None) -> dict:
 Request mapping transforms incoming Rhesis request fields to your function parameters.
 
 - Use Jinja2 template syntax: `{{ variable_name }}`
-- Maps standard Rhesis request fields (`input`, `session_id`, `context`) to your function parameters
+- Maps standard Rhesis request fields (`input`, `session_id`, `context`, `metadata`, `tool_calls`) to your function parameters
 - Custom fields from the request are passed through automatically
 - Example: `"user_message": "{{ input }}"` maps the Rhesis `input` field to your function's `user_message` parameter
 
@@ -98,16 +108,19 @@ Use JSONPath expressions (starting with `$`) for direct field extraction:
 <CodeBlock filename="jsonpath_response.py" language="python">
 {`@endpoint(
     response_mapping={
-        "output": "$.choices[0].message.content",  # Nested extraction
-        "session_id": "$.conv_id",                 # Top-level field
-        "context": "$.sources",                    # Array field
+        "output": "$.choices[0].message.content",       # Nested extraction
+        "session_id": "$.conv_id",                      # Top-level field
+        "context": "$.sources",                         # Array field
+        "metadata": "$.usage",                          # Structured metadata
+        "tool_calls": "$.choices[0].message.tool_calls",# Tool call data
     }
 )
 def chat(input: str) -> dict:
     return {
-        "choices": [{"message": {"content": "Hello!"}}],
+        "choices": [{"message": {"content": "Hello!", "tool_calls": [...]}}],
         "conv_id": "abc123",
-        "sources": ["doc1.pdf", "doc2.pdf"]
+        "sources": ["doc1.pdf", "doc2.pdf"],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 20},
     }`}
 </CodeBlock>
 

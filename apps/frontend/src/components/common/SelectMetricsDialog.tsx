@@ -15,15 +15,63 @@ import {
   InputAdornment,
   Paper,
   Chip,
+  SvgIcon,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import FaceIcon from '@mui/icons-material/Face';
+import HandymanIcon from '@mui/icons-material/Handyman';
+import BugReportIcon from '@mui/icons-material/BugReport';
+import StorageIcon from '@mui/icons-material/Storage';
+import NumbersIcon from '@mui/icons-material/Numbers';
+import CategoryIcon from '@mui/icons-material/Category';
+import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import { AutoGraphIcon } from '@/components/icons';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import type {
-  MetricDetail,
-  MetricScope,
-} from '@/utils/api-client/interfaces/metric';
+import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
+import { getMetricScopeIcon } from '@/constants/metric-scopes';
+
+const RhesisAIIcon = () => (
+  <SvgIcon fontSize="small" viewBox="0 0 390 371">
+    <path
+      d="M17.6419 272.939C72.0706 284.122 119.805 321.963 182.044 358.896C203.958 371.859 229.133 373.691 251.291 366.398C273.398 359.106 292.557 342.671 302.495 319.206C330.616 252.492 346.55 193.663 383.685 152.315C394.79 140.121 388.322 120.476 372.178 117.318C330.598 109.153 300.054 73.5806 298.171 31.2211C297.404 14.7518 278.976 5.48786 265.291 14.6646C258.213 19.4623 250.611 23.0911 242.819 25.6732C211.873 35.8618 177.127 29.0054 152.11 6.18571C146.06 0.655251 138.075 -0.513647 131.294 1.71947C124.512 3.95259 118.776 9.64007 117.172 17.7002C110.652 50.9004 86.7151 77.1221 55.7699 87.3108C47.9595 89.8928 39.6958 91.4804 31.1532 91.8293C14.6956 92.597 5.36845 110.985 14.591 124.681C38.1617 159.887 34.7097 206.678 6.11811 237.959C-5.00474 250.084 1.46325 269.746 17.6245 272.956L17.6419 272.939Z"
+      fill="currentColor"
+    />
+  </SvgIcon>
+);
+
+const getBackendIcon = (backend: string) => {
+  switch (backend.toLowerCase()) {
+    case 'custom':
+      return <FaceIcon fontSize="small" />;
+    case 'deepeval':
+    case 'ragas':
+      return <HandymanIcon fontSize="small" />;
+    case 'garak':
+      return <BugReportIcon fontSize="small" />;
+    case 'rhesis ai':
+    case 'rhesis':
+      return <RhesisAIIcon />;
+    default:
+      return <StorageIcon fontSize="small" />;
+  }
+};
+
+const getScoreTypeIcon = (scoreType: string) => {
+  switch (scoreType.toLowerCase()) {
+    case 'numeric':
+      return <NumbersIcon fontSize="small" />;
+    case 'categorical':
+      return <CategoryIcon fontSize="small" />;
+    case 'binary':
+      return <ToggleOnIcon fontSize="small" />;
+    default:
+      return <NumbersIcon fontSize="small" />;
+  }
+};
+
+const capitalize = (s: string) =>
+  s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 
 interface SelectMetricsDialogProps {
   open: boolean;
@@ -33,8 +81,8 @@ interface SelectMetricsDialogProps {
   excludeMetricIds?: UUID[];
   title?: string;
   subtitle?: string;
-  /** Filter metrics by scope (Single-Turn or Multi-Turn) */
-  scopeFilter?: MetricScope;
+  /** Filter metrics by scope value (e.g. Single-Turn, Multi-Turn, Trace, …) */
+  scopeFilter?: string;
 }
 
 export default function SelectMetricsDialog({
@@ -47,6 +95,8 @@ export default function SelectMetricsDialog({
   subtitle = 'Select a metric to add',
   scopeFilter,
 }: SelectMetricsDialogProps) {
+  const searchRef = React.useRef<HTMLInputElement>(null);
+
   const [metrics, setMetrics] = React.useState<MetricDetail[]>([]);
   const [filteredMetrics, setFilteredMetrics] = React.useState<MetricDetail[]>(
     []
@@ -60,23 +110,24 @@ export default function SelectMetricsDialog({
       setIsLoading(true);
       setError(null);
       const metricsClient = new MetricsClient(sessionToken);
-      const response = await metricsClient.getMetrics({
-        skip: 0,
-        limit: 100,
+      const allMetrics = await metricsClient.getAllMetrics({
         sort_by: 'name',
         sort_order: 'asc',
       });
 
       // Filter out excluded metrics and apply scope filter
-      const availableMetrics = response.data.filter(metric => {
+      const availableMetrics = allMetrics.filter(metric => {
         // Exclude already-selected metrics
         if (excludeMetricIds.includes(metric.id)) return false;
-        // Apply scope filter if provided
-        if (scopeFilter && metric.metric_scope) {
-          return metric.metric_scope.includes(scopeFilter);
-        }
-        // If no scope filter, or metric has no scope defined, include it
-        return true;
+        // No scope filter requested — show everything
+        if (!scopeFilter) return true;
+        // Metrics with no defined scope are compatible with any test type
+        if (!metric.metric_scope || metric.metric_scope.length === 0)
+          return true;
+        // Metric scope is an array — show the metric if it supports the requested scope
+        return metric.metric_scope.some(
+          scope => scope.toLowerCase() === scopeFilter.toLowerCase()
+        );
       });
 
       setMetrics(availableMetrics);
@@ -120,18 +171,13 @@ export default function SelectMetricsDialog({
     onClose();
   };
 
-  const getMetricTypeLabel = (metric: MetricDetail) => {
-    const backend = metric.backend_type?.type_value;
-    const type = metric.metric_type?.type_value;
-    return backend || type || 'Unknown';
-  };
-
   return (
     <Dialog
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
+      TransitionProps={{ onEntered: () => searchRef.current?.focus() }}
       PaperProps={{
         sx: {
           maxHeight: '80vh',
@@ -154,6 +200,7 @@ export default function SelectMetricsDialog({
             placeholder="Search metrics..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
+            inputRef={searchRef}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -161,7 +208,6 @@ export default function SelectMetricsDialog({
                 </InputAdornment>
               ),
             }}
-            autoFocus
           />
         </Box>
 
@@ -190,7 +236,10 @@ export default function SelectMetricsDialog({
             </Typography>
           </Box>
         ) : (
-          <Stack spacing={1.5} sx={{ maxHeight: '400px', overflowY: 'auto' }}>
+          <Stack
+            spacing={1.5}
+            sx={{ maxHeight: theme => theme.spacing(50), overflowY: 'auto' }}
+          >
             {filteredMetrics.map(metric => (
               <Paper
                 key={metric.id}
@@ -250,21 +299,31 @@ export default function SelectMetricsDialog({
                       </Typography>
                     )}
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      <Chip
-                        label={getMetricTypeLabel(metric)}
-                        size="small"
-                        variant="outlined"
-                      />
-                      {metric.score_type && (
+                      {metric.backend_type?.type_value && (
                         <Chip
-                          label={
-                            metric.score_type.charAt(0).toUpperCase() +
-                            metric.score_type.slice(1)
-                          }
+                          icon={getBackendIcon(metric.backend_type.type_value)}
+                          label={capitalize(metric.backend_type.type_value)}
                           size="small"
                           variant="outlined"
                         />
                       )}
+                      {metric.score_type && (
+                        <Chip
+                          icon={getScoreTypeIcon(metric.score_type)}
+                          label={capitalize(metric.score_type)}
+                          size="small"
+                          variant="outlined"
+                        />
+                      )}
+                      {metric.metric_scope?.map((scope, i) => (
+                        <Chip
+                          key={i}
+                          icon={getMetricScopeIcon(scope)}
+                          label={scope}
+                          size="small"
+                          variant="outlined"
+                        />
+                      ))}
                     </Box>
                   </Box>
                 </Box>

@@ -4,7 +4,7 @@ export default {
   platform: "Platform",
   sdk: "SDK",
   tracing: "Tracing",
-  penelope: "Penelope",
+  "conversation-simulation": "Conversation Simulation",
   "adversarial-testing": "Adversarial Testing",
   development: "Development",
   "---": {

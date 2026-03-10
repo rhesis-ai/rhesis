@@ -32,6 +32,10 @@ Context Information:
 Response Metadata:
 {{ metadata_text }}
 {% endif %}
+{% if tool_calls_text %}
+Tool Calls:
+{{ tool_calls_text }}
+{% endif %}
 Expected Response:
 {{ expected_output if expected_output|trim else "No expected response provided" }}
 

@@ -174,3 +174,104 @@ def test_from_config_to_config(metric):
     metric2 = NumericJudge.from_config(config1)
     config2 = metric2.to_config()
     assert config1 == config2
+
+
+# ============================================================================
+# Single-turn template: tool_calls, metadata, context rendering
+# ============================================================================
+
+
+def test_prompt_template_includes_tool_calls(metric):
+    """Tool Calls section appears in the prompt when tool_calls_text is provided."""
+    prompt = metric._get_prompt_template(
+        input="What tools were used?",
+        output="I called the search API.",
+        expected_output="Used search API",
+        context=["some context"],
+        tool_calls_text='[\n  {"name": "search"}\n]',
+    )
+    assert "Tool Calls:" in prompt
+    assert '"name": "search"' in prompt
+
+
+def test_prompt_template_excludes_tool_calls_when_absent(metric):
+    """Tool Calls section is absent from the prompt when tool_calls_text is None."""
+    prompt = metric._get_prompt_template(
+        input="Hello",
+        output="Hi",
+        expected_output="Hi",
+        context=[],
+    )
+    assert "Tool Calls:" not in prompt
+
+
+def test_prompt_template_includes_metadata(metric):
+    """Response Metadata section appears when metadata_text is provided."""
+    prompt = metric._get_prompt_template(
+        input="Q",
+        output="A",
+        expected_output="A",
+        context=[],
+        metadata_text='{"confidence": 0.9}',
+    )
+    assert "Response Metadata:" in prompt
+    assert '"confidence": 0.9' in prompt
+
+
+def test_prompt_template_metadata_and_tool_calls_independent(metric):
+    """Metadata and Tool Calls sections render independently in the prompt."""
+    prompt_tc_only = metric._get_prompt_template(
+        input="Q",
+        output="A",
+        expected_output="A",
+        context=[],
+        tool_calls_text='[{"name": "fn"}]',
+    )
+    prompt_meta_only = metric._get_prompt_template(
+        input="Q",
+        output="A",
+        expected_output="A",
+        context=[],
+        metadata_text='{"k": "v"}',
+    )
+    prompt_both = metric._get_prompt_template(
+        input="Q",
+        output="A",
+        expected_output="A",
+        context=[],
+        metadata_text='{"k": "v"}',
+        tool_calls_text='[{"name": "fn"}]',
+    )
+
+    assert "Tool Calls:" in prompt_tc_only
+    assert "Response Metadata:" not in prompt_tc_only
+
+    assert "Response Metadata:" in prompt_meta_only
+    assert "Tool Calls:" not in prompt_meta_only
+
+    assert "Response Metadata:" in prompt_both
+    assert "Tool Calls:" in prompt_both
+
+
+def test_evaluate_passes_tool_calls_to_template(metric):
+    """tool_calls are serialized and included in the rendered prompt."""
+    metric.min_score = 0.0
+    metric.max_score = 10.0
+    metric.threshold = 5.0
+
+    with patch.object(metric.model, "generate") as mock_generate:
+        mock_generate.return_value = {"score": 8.0, "reason": "ok"}
+
+        result = metric.evaluate(
+            input="Q",
+            output="A",
+            expected_output="A",
+            context=[],
+            tool_calls=[{"name": "get_weather", "arguments": {"city": "Berlin"}}],
+        )
+
+        assert result.score == 8.0
+        call_args = mock_generate.call_args
+        prompt = call_args[0][0]
+        assert "Tool Calls:" in prompt
+        assert "get_weather" in prompt
