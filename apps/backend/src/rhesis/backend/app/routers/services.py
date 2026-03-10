@@ -245,8 +245,7 @@ async def generate_content_endpoint(request: GenerateContentRequest):
         # This respects the global configuration (currently vertex_ai/gemini-2.0-flash)
         model = get_model(DEFAULT_GENERATION_MODEL)
 
-        # Pass schema directly to the model - SDK handles provider-specific conversion
-        response = model.generate(prompt, schema=schema)
+        response = await model.a_generate(prompt, schema=schema)
 
         return response
     except Exception as e:
