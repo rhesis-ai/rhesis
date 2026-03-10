@@ -1,5 +1,6 @@
-import asyncio
+import atexit
 import json
+import logging
 from typing import List, Optional, Type, Union
 
 import litellm
@@ -13,19 +14,37 @@ from rhesis.sdk.models.utils import validate_llm_response
 litellm.suppress_debug_info = True
 
 
-def _suppress_transport_errors(loop, context):
-    """Suppress SSL/transport errors during event loop shutdown.
+class _LiteLLMTransportErrorFilter(logging.Filter):
+    """Filter out SSL transport errors caused by litellm's LoggingWorker.
 
-    litellm's background logging tasks hold references to HTTP connections.
-    When asyncio.run() tears down the loop, the SSL transport attempts a
-    close_notify on an already-closed socket — harmless but noisy.
+    litellm's LoggingWorker._flush_on_exit() creates a temporary event loop
+    to flush queued logging coroutines at process exit.  When that loop
+    closes, the SSL transports on the HTTP connections used during the flush
+    attempt a close_notify on an already-closed socket — harmless but noisy.
+
+    The resulting "Fatal error on SSL transport" is logged by asyncio's
+    default exception handler through the 'asyncio' logger.  This filter
+    suppresses only those specific messages.
     """
-    exc = context.get("exception")
-    if isinstance(exc, OSError) and exc.errno == 9:
-        return
-    if "Event loop is closed" in str(exc or ""):
-        return
-    loop.default_exception_handler(context)
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        if "Fatal error on SSL transport" in msg:
+            return False
+        if "Event loop is closed" in msg:
+            return False
+        return True
+
+
+def _install_litellm_transport_error_filter():
+    logging.getLogger("asyncio").addFilter(_LiteLLMTransportErrorFilter())
+
+
+# Registered AFTER litellm's LoggingWorker atexit handler (which was
+# registered at import time above).  atexit is LIFO, so this runs FIRST —
+# the filter is in place before the LoggingWorker flushes its queue.
+# During normal operation no filter is active on the asyncio logger.
+atexit.register(_install_litellm_transport_error_filter)
 
 
 class LiteLLM(BaseLLM):
@@ -105,10 +124,6 @@ class LiteLLM(BaseLLM):
             if system_prompt
             else [{"role": "user", "content": prompt}]
         )
-
-        loop = asyncio.get_running_loop()
-        if loop.get_exception_handler() is not _suppress_transport_errors:
-            loop.set_exception_handler(_suppress_transport_errors)
 
         response = await acompletion(
             model=self.model_name,
