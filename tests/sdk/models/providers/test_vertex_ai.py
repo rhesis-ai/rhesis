@@ -266,7 +266,7 @@ class TestVertexAIConfigLoading:
 class TestVertexAIGenerate:
     """Test generate method functionality."""
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_without_schema(self, mock_completion):
         """Test generate method without schema returns string response."""
         # Setup mock credentials
@@ -301,7 +301,7 @@ class TestVertexAIGenerate:
             assert call_kwargs["vertex_ai_project"] == "test-project"
             assert call_kwargs["vertex_ai_location"] == "europe-west3"
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_schema(self, mock_completion):
         """Test generate method with schema returns validated dict response."""
 
@@ -341,7 +341,7 @@ class TestVertexAIGenerate:
             assert result["age"] == 30
             assert result["city"] == "New York"
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_system_prompt(self, mock_completion):
         """Test generate method with system prompt."""
         mock_creds = {
@@ -374,7 +374,7 @@ class TestVertexAIGenerate:
             assert messages[0]["role"] == "system"
             assert messages[0]["content"] == system_prompt
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_additional_kwargs(self, mock_completion):
         """Test generate method passes additional kwargs to completion."""
         mock_creds = {
@@ -406,7 +406,7 @@ class TestVertexAIGenerate:
             assert call_kwargs["vertex_ai_project"] == "test-project"
             assert call_kwargs["vertex_ai_location"] == "europe-west1"
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_restores_credentials_env_var(self, mock_completion):
         """Test that generate properly restores the original GOOGLE_APPLICATION_CREDENTIALS."""
         mock_creds = {

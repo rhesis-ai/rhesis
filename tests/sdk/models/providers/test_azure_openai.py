@@ -94,7 +94,7 @@ class TestAzureOpenAILLMInit:
 
 
 class TestAzureOpenAILLMGenerate:
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_without_schema(self, mock_completion):
         mock_response = Mock()
         mock_response.choices = [Mock()]
@@ -117,7 +117,7 @@ class TestAzureOpenAILLMGenerate:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_system_prompt(self, mock_completion):
         mock_response = Mock()
         mock_response.choices = [Mock()]
@@ -142,7 +142,7 @@ class TestAzureOpenAILLMGenerate:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_schema(self, mock_completion):
         class PersonInfo(BaseModel):
             name: str
@@ -162,7 +162,7 @@ class TestAzureOpenAILLMGenerate:
         assert isinstance(result, dict)
         assert result == {"name": "Alice", "age": 30}
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_schema_invalid_response(self, mock_completion):
         class StrictSchema(BaseModel):
             name: str
@@ -180,7 +180,7 @@ class TestAzureOpenAILLMGenerate:
         with pytest.raises(Exception):
             llm.generate("test", schema=StrictSchema)
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_custom_deployment(self, mock_completion):
         mock_response = Mock()
         mock_response.choices = [Mock()]
@@ -203,7 +203,7 @@ class TestAzureOpenAILLMGenerate:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_additional_kwargs(self, mock_completion):
         mock_response = Mock()
         mock_response.choices = [Mock()]

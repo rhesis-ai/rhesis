@@ -19,7 +19,6 @@ def test_base_llm_abstract_methods():
 
     # Check that abstract methods are actually abstract
     assert BaseLLM.load_model.__isabstractmethod__
-    assert BaseLLM.generate.__isabstractmethod__
 
 
 def test_base_llm_concrete_methods():

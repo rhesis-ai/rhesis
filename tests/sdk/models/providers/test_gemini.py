@@ -48,7 +48,7 @@ class TestGeminiLLM:
         llm = GeminiLLM(model_name=custom_model, api_key="test_key")
         assert llm.model_name == GeminiLLM.PROVIDER + "/" + custom_model
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_without_schema(self, mock_completion):
         """Test generate method without schema returns string response"""
         # Mock the completion response
@@ -72,7 +72,7 @@ class TestGeminiLLM:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_schema(self, mock_completion):
         """Test generate method with schema returns validated dict response"""
 
@@ -107,7 +107,7 @@ class TestGeminiLLM:
             api_version=None,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_schema_invalid_response(self, mock_completion):
         """Test generate method with schema raises error for invalid response"""
 
@@ -128,7 +128,7 @@ class TestGeminiLLM:
         with pytest.raises(Exception):  # Should raise validation error
             llm.generate(prompt, schema=TestSchema)
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_additional_kwargs(self, mock_completion):
         """Test generate method passes additional kwargs to completion"""
         mock_response = Mock()
@@ -152,7 +152,7 @@ class TestGeminiLLM:
             max_tokens=100,
         )
 
-    @patch("rhesis.sdk.models.providers.litellm.completion")
+    @patch("rhesis.sdk.models.providers.litellm.acompletion")
     def test_generate_with_custom_model(self, mock_completion):
         """Test generate method uses custom model name"""
         mock_response = Mock()
