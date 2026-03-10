@@ -336,3 +336,4 @@ sdk_test_analysis.md
 
 # Claude Code
 .claude/settings.local.json
+.claude/skills.local
