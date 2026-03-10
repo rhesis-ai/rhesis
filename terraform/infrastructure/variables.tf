@@ -27,6 +27,20 @@ variable "wireguard_deletion_protection" {
   default     = true
 }
 
+variable "gke_deletion_protection" {
+  description = "Enable deletion protection per GKE cluster (dev/stg typically false, prd true)"
+  type = object({
+    dev = bool
+    stg = bool
+    prd = bool
+  })
+  default = {
+    dev = false
+    stg = false
+    prd = true
+  }
+}
+
 variable "wireguard_peers" {
   description = "WireGuard VPN peers with subnet access control"
   type = list(object({

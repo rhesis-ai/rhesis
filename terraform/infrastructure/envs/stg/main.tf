@@ -52,7 +52,7 @@ module "gke_stg" {
   machine_type           = "e2-standard-2"
   min_node_count         = 1
   max_node_count         = 3
-  deletion_protection    = false
+  deletion_protection    = var.gke_deletion_protection
 
   depends_on = [module.stg]
 }

@@ -52,7 +52,7 @@ module "gke_dev" {
   machine_type           = "e2-medium"
   min_node_count         = 1
   max_node_count         = 2
-  deletion_protection    = false
+  deletion_protection    = var.gke_deletion_protection
 
   depends_on = [module.dev]
 }

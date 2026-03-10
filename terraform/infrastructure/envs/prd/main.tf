@@ -52,7 +52,7 @@ module "gke_prd" {
   machine_type           = "e2-standard-4"
   min_node_count         = 2
   max_node_count         = 5
-  deletion_protection    = false
+  deletion_protection    = var.gke_deletion_protection
 
   depends_on = [module.prd]
 }
