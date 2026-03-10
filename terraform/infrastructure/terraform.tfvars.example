@@ -9,8 +9,15 @@ region     = "gcp-region"
 # For dev + stg: enabled_environments = ["dev", "stg"]
 enabled_environments = ["dev", "stg", "prd"]
 
-# WireGuard server deletion protection (recommended: true for production)
+# Deletion protection (single place for root apply)
+# WireGuard server
 wireguard_deletion_protection = true
+# GKE clusters (dev/stg typically false, prd true)
+gke_deletion_protection = {
+  dev = false
+  stg = false
+  prd = true
+}
 
 # WireGuard VPN peers configuration
 # Each peer gets a unique IP within the WireGuard network (10.0.0.0/24)

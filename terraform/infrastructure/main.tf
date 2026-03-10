@@ -201,7 +201,7 @@ module "gke_dev" {
   machine_type           = "e2-medium"
   min_node_count         = 1
   max_node_count         = 2
-  deletion_protection    = false
+  deletion_protection    = var.gke_deletion_protection.dev
 
   depends_on = [module.dev]
 }
@@ -224,7 +224,7 @@ module "gke_stg" {
   machine_type           = "e2-standard-2"
   min_node_count         = 1
   max_node_count         = 3
-  deletion_protection    = false
+  deletion_protection    = var.gke_deletion_protection.stg
 
   depends_on = [module.stg]
 }
@@ -247,7 +247,7 @@ module "gke_prd" {
   machine_type           = "e2-standard-4"
   min_node_count         = 2
   max_node_count         = 5
-  deletion_protection    = false
+  deletion_protection    = var.gke_deletion_protection.prd
 
   depends_on = [module.prd]
 }
