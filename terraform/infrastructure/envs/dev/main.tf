@@ -83,11 +83,23 @@ module "internal_dns_dev" {
 module "ingress_dev" {
   source = "../../modules/ingress/gcp"
 
-  project_id            = var.project_id
-  environment            = "dev"
-  region                 = var.region
-  ilb_subnet_self_link   = module.dev.subnet_self_links["ilb"]
-  internal_lb_ip         = local.cidrs.dev.ingress_internal_ip
+  project_id           = var.project_id
+  environment          = "dev"
+  region               = var.region
+  ilb_subnet_self_link = module.dev.subnet_self_links["ilb"]
+  internal_lb_ip       = local.cidrs.dev.ingress_internal_ip
 
   depends_on = [module.dev]
+}
+
+module "argocd_dev" {
+  source = "../../modules/argocd"
+
+  project_id   = var.project_id
+  region       = var.region
+  cluster_name = module.gke_dev.cluster_name
+  environment  = "dev"
+  repo_root    = abspath("${path.module}/../../../..")
+
+  depends_on = [module.gke_dev]
 }

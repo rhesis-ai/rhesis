@@ -334,6 +334,10 @@ infrastructure/k8s/manifests/configmaps/*
 *TEST_ANALYSIS*.md
 sdk_test_analysis.md
 
+# Terraform ArgoCD module temp kubeconfig and gcloud auth plugin cache (sensitive)
+.kubeconfig-*
+gke_gcloud_auth_plugin_cache
+
 # Claude Code
 .claude/settings.local.json
 .claude/skills.local
