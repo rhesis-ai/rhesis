@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -105,8 +105,10 @@ def test_evaluate_successful_evaluation(metric):
     mock_response.score = "test_category1"
     mock_response.reason = "The output correctly matches the expected category"
 
-    with patch.object(metric.model, "generate") as mock_generate:
-        mock_generate.return_value = {
+    with patch.object(
+        metric.model, "a_generate", new_callable=AsyncMock
+    ) as mock_a_generate:
+        mock_a_generate.return_value = {
             "score": "test_category1",
             "reason": "The output correctly matches the expected category",
         }
@@ -131,16 +133,17 @@ def test_evaluate_successful_evaluation(metric):
         assert "prompt" in result.details
 
         # Verify model was called with correct parameters
-        mock_generate.assert_called_once()
-        call_args = mock_generate.call_args
+        mock_a_generate.assert_called_once()
+        call_args = mock_a_generate.call_args
         assert "schema" in call_args.kwargs
 
 
 def test_evaluate_error_handling(metric):
     """Test error handling when LLM evaluation fails."""
-    # Mock the model to raise an exception
-    with patch.object(metric.model, "generate") as mock_generate:
-        mock_generate.side_effect = Exception("LLM service unavailable")
+    with patch.object(
+        metric.model, "a_generate", new_callable=AsyncMock
+    ) as mock_a_generate:
+        mock_a_generate.side_effect = Exception("LLM service unavailable")
 
         # Call evaluate method
         result = metric.evaluate(
