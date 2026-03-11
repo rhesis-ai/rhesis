@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import {
   Box,
   Paper,
@@ -25,6 +25,8 @@ import TestDetailHistoryTab from './TestDetailHistoryTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { findStatusByCategory } from '@/utils/test-result-status';
+import { MentionOption } from '@/components/common/MentionTextInput';
+import ReviewJudgementDrawer, { ReviewData } from './ReviewJudgementDrawer';
 
 interface TestDetailPanelProps {
   test: TestResultDetail | null;
@@ -138,6 +140,13 @@ export default function TestDetailPanel({
   const isConfirmingRef = useRef(false);
   const theme = useTheme();
 
+  // Review modal state
+  const [reviewDrawerOpen, setReviewDrawerOpen] = useState(false);
+  const [reviewDrawerComment, setReviewDrawerComment] = useState('');
+  const [reviewDrawerStatus, setReviewDrawerStatus] = useState<
+    'passed' | 'failed' | undefined
+  >(undefined);
+
   // Determine if this is a multi-turn test
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
@@ -147,10 +156,19 @@ export default function TestDetailPanel({
   };
 
   const handleReviewTurn = (turnNumber: number, turnSuccess: boolean) => {
-    setReviewInitialComment(`Turn ${turnNumber}: `);
-    // Set initial status to opposite of automated result
-    setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
-    setActiveTab(isMultiTurn ? 3 : 2); // Switch to reviews tab (index depends on multi-turn)
+    setReviewDrawerComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
+    setReviewDrawerStatus(turnSuccess ? 'failed' : 'passed');
+    setReviewDrawerOpen(true);
+  };
+
+  const handleReviewMetric = (metricName: string) => {
+    const metricId = metricName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+    setReviewDrawerComment(`@[${metricName}](metric:${metricId}) `);
+    setReviewDrawerStatus(undefined);
+    setReviewDrawerOpen(true);
   };
 
   const handleConfirmAutomatedReview = async () => {
@@ -204,6 +222,42 @@ export default function TestDetailPanel({
       isConfirmingRef.current = false;
     }
   };
+
+  // Extract mentionable data for the reviews tab
+  const mentionableMetrics: MentionOption[] = useMemo(() => {
+    if (!test?.test_metrics?.metrics) return [];
+    return Object.keys(test.test_metrics.metrics).map(name => ({
+      id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      display: name,
+      type: 'metric' as const,
+    }));
+  }, [test]);
+
+  const mentionableTurns: MentionOption[] = useMemo(() => {
+    const summary = test?.test_output?.conversation_summary;
+    if (!summary || !Array.isArray(summary)) return [];
+    return summary.map(
+      (turn: { turn: number }) => ({
+        id: String(turn.turn),
+        display: `Turn ${turn.turn}`,
+        type: 'turn' as const,
+      })
+    );
+  }, [test]);
+
+  const handleReviewDrawerSave = useCallback(
+    async (testId: string, _reviewData: ReviewData) => {
+      try {
+        const clientFactory = new ApiClientFactory(sessionToken);
+        const testResultsClient = clientFactory.getTestResultsClient();
+        const updatedTest = await testResultsClient.getTestResult(testId);
+        onTestResultUpdate(updatedTest);
+      } catch (error) {
+        console.error('Failed to save review:', error);
+      }
+    },
+    [sessionToken, onTestResultUpdate]
+  );
 
   if (loading) {
     return (
@@ -350,6 +404,7 @@ export default function TestDetailPanel({
             test={test}
             behaviors={behaviors}
             metricsSource={metricsSource}
+            onReviewMetric={handleReviewMetric}
           />
         </TabPanel>
 
@@ -365,6 +420,8 @@ export default function TestDetailPanel({
               setReviewInitialComment('');
               setReviewInitialStatus(undefined);
             }}
+            mentionableMetrics={mentionableMetrics}
+            mentionableTurns={mentionableTurns}
           />
         </TabPanel>
 
@@ -389,6 +446,17 @@ export default function TestDetailPanel({
           />
         </TabPanel>
       </Box>
+
+      <ReviewJudgementDrawer
+        open={reviewDrawerOpen}
+        onClose={() => setReviewDrawerOpen(false)}
+        test={test}
+        currentUserName={currentUserName}
+        sessionToken={sessionToken}
+        onSave={handleReviewDrawerSave}
+        initialComment={reviewDrawerComment}
+        initialStatus={reviewDrawerStatus}
+      />
     </Paper>
   );
 }

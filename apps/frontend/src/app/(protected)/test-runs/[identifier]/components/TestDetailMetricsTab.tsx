@@ -28,6 +28,8 @@ import {
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import RateReviewIcon from '@mui/icons-material/RateReview';
+import { alpha } from '@mui/material/styles';
 import {
   TestResultDetail,
   MetricResult,
@@ -49,6 +51,7 @@ interface TestDetailMetricsTabProps {
   }>;
   /** Source of metrics used in this test run */
   metricsSource?: MetricsSource | string;
+  onReviewMetric?: (metricName: string) => void;
 }
 
 interface MetricSummary {
@@ -62,6 +65,7 @@ export default function TestDetailMetricsTab({
   test,
   behaviors,
   metricsSource,
+  onReviewMetric,
 }: TestDetailMetricsTabProps) {
   const theme = useTheme();
   const [filterStatus, setFilterStatus] = useState<'all' | 'passed' | 'failed'>(
@@ -725,15 +729,27 @@ export default function TestDetailMetricsTab({
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell width="15%">Status</TableCell>
-                <TableCell width="30%">Metric</TableCell>
-                <TableCell width="55%">Reason</TableCell>
+                <TableCell width={onReviewMetric ? '15%' : '15%'}>
+                  Status
+                </TableCell>
+                <TableCell width={onReviewMetric ? '28%' : '30%'}>
+                  Metric
+                </TableCell>
+                <TableCell width={onReviewMetric ? '47%' : '55%'}>
+                  Reason
+                </TableCell>
+                {onReviewMetric && (
+                  <TableCell width="10%" align="right" />
+                )}
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredMetricsForTable.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} align="center">
+                  <TableCell
+                    colSpan={onReviewMetric ? 4 : 3}
+                    align="center"
+                  >
                     <Typography
                       variant="body2"
                       color="text.secondary"
@@ -812,6 +828,31 @@ export default function TestDetailMetricsTab({
                         </Typography>
                       )}
                     </TableCell>
+                    {onReviewMetric && (
+                      <TableCell align="right">
+                        <Tooltip title="Review this metric">
+                          <IconButton
+                            size="small"
+                            onClick={() => onReviewMetric(metric.name)}
+                            sx={{
+                              padding: 0.5,
+                              color: theme.palette.text.secondary,
+                              '&:hover': {
+                                color: theme.palette.primary.main,
+                                backgroundColor: alpha(
+                                  theme.palette.primary.main,
+                                  0.1
+                                ),
+                              },
+                            }}
+                          >
+                            <RateReviewIcon
+                              sx={{ fontSize: theme.spacing(2) }}
+                            />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}

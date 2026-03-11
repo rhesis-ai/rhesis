@@ -225,7 +225,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
           '& .MuiSvgIcon-root': {
             color: mode === 'light' ? '#3D3D3D' : '#FFFFFF',
           },
-          '& .MuiButtonBase-root.Mui-selected': {
+          '& .MuiListItemButton-root.Mui-selected': {
             backgroundColor: mode === 'light' ? '#50B9E0' : '#2AA1CE', // Rhesis primary blue / primary CTA
             '& .MuiSvgIcon-root': {
               color: '#FFFFFF',

@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
-  TextField,
   ToggleButton,
   ToggleButtonGroup,
-  Alert,
   Stack,
+  useTheme,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
@@ -19,6 +18,9 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import StatusChip from '@/components/common/StatusChip';
 import { findStatusByCategory } from '@/utils/test-result-status';
+import MentionTextInput, {
+  MentionOption,
+} from '@/components/common/MentionTextInput';
 
 interface ReviewJudgementDrawerProps {
   open: boolean;
@@ -27,6 +29,8 @@ interface ReviewJudgementDrawerProps {
   currentUserName: string;
   sessionToken: string;
   onSave: (testId: string, reviewData: ReviewData) => Promise<void>;
+  initialComment?: string;
+  initialStatus?: 'passed' | 'failed';
 }
 
 export interface ReviewData {
@@ -44,13 +48,38 @@ export default function ReviewJudgementDrawer({
   currentUserName,
   sessionToken,
   onSave,
+  initialComment,
+  initialStatus,
 }: ReviewJudgementDrawerProps) {
+  const theme = useTheme();
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const mentionableMetrics: MentionOption[] = useMemo(() => {
+    if (!test?.test_metrics?.metrics) return [];
+    return Object.keys(test.test_metrics.metrics).map(name => ({
+      id: name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, ''),
+      display: name,
+      type: 'metric' as const,
+    }));
+  }, [test]);
+
+  const mentionableTurns: MentionOption[] = useMemo(() => {
+    const summary = test?.test_output?.conversation_summary;
+    if (!summary || !Array.isArray(summary)) return [];
+    return summary.map((turn: { turn: number }) => ({
+      id: String(turn.turn),
+      display: `Turn ${turn.turn}`,
+      type: 'turn' as const,
+    }));
+  }, [test]);
 
   // Calculate original test status
   const getOriginalStatus = useCallback((): 'passed' | 'failed' => {
@@ -93,12 +122,13 @@ export default function ReviewJudgementDrawer({
   useEffect(() => {
     if (open && test) {
       const original = getOriginalStatus();
-      // Default to opposite of original status
-      setNewStatus(original === 'passed' ? 'failed' : 'passed');
-      setReason('');
+      setNewStatus(
+        initialStatus ?? (original === 'passed' ? 'failed' : 'passed')
+      );
+      setReason(initialComment ?? '');
       setError('');
     }
-  }, [open, test, getOriginalStatus]);
+  }, [open, test, getOriginalStatus, initialComment, initialStatus]);
 
   const handleStatusChange = (
     _event: React.MouseEvent<HTMLElement>,
@@ -204,21 +234,6 @@ export default function ReviewJudgementDrawer({
       loading={submitting || loadingStatuses}
     >
       <Stack spacing={3}>
-        {/* Info Alert */}
-        <Alert
-          severity="info"
-          sx={{
-            bgcolor: theme => `${theme.palette.info.main}0A`,
-            border: 1,
-            borderColor: 'info.light',
-          }}
-        >
-          <Typography variant="body2">
-            You are about to provide a manual review for this test result. This
-            action will be recorded and attributed to you.
-          </Typography>
-        </Alert>
-
         {/* Original Status Section */}
         <Box>
           <Typography variant="body2" fontWeight={600} gutterBottom>
@@ -239,7 +254,7 @@ export default function ReviewJudgementDrawer({
 
         {/* New Status Selection */}
         <Box>
-          <Typography variant="body2" fontWeight={600} gutterBottom>
+          <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
             New Status *
           </Typography>
           <ToggleButtonGroup
@@ -247,23 +262,24 @@ export default function ReviewJudgementDrawer({
             exclusive
             onChange={handleStatusChange}
             aria-label="test status"
+            size="small"
             fullWidth
-            sx={{ mt: 1 }}
           >
             <ToggleButton
               value="passed"
               aria-label="passed"
               sx={{
                 '&.Mui-selected': {
-                  backgroundColor: 'success.main',
-                  color: 'success.contrastText',
+                  backgroundColor: theme.palette.success.main,
+                  color: theme.palette.success.contrastText,
+                  '& .MuiSvgIcon-root': { color: 'inherit' },
                   '&:hover': {
-                    backgroundColor: 'success.dark',
+                    backgroundColor: theme.palette.success.dark,
                   },
                 },
               }}
             >
-              <CheckCircleOutlineIcon sx={{ mr: 1, fontSize: 20 }} />
+              <CheckCircleOutlineIcon sx={{ mr: 1, fontSize: 18 }} />
               Pass
             </ToggleButton>
             <ToggleButton
@@ -271,60 +287,39 @@ export default function ReviewJudgementDrawer({
               aria-label="failed"
               sx={{
                 '&.Mui-selected': {
-                  backgroundColor: 'error.main',
-                  color: 'error.contrastText',
+                  backgroundColor: theme.palette.error.main,
+                  color: theme.palette.error.contrastText,
+                  '& .MuiSvgIcon-root': { color: 'inherit' },
                   '&:hover': {
-                    backgroundColor: 'error.dark',
+                    backgroundColor: theme.palette.error.dark,
                   },
                 },
               }}
             >
-              <CancelOutlinedIcon sx={{ mr: 1, fontSize: 20 }} />
+              <CancelOutlinedIcon sx={{ mr: 1, fontSize: 18 }} />
               Fail
             </ToggleButton>
           </ToggleButtonGroup>
         </Box>
 
-        {/* Reason Field */}
-        <Box>
-          <Typography variant="body2" fontWeight={600} gutterBottom>
-            Review Comments *
-          </Typography>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            placeholder="Provide your reasoning for this review..."
-            value={reason}
-            onChange={e => {
-              setReason(e.target.value);
-              setError('');
-            }}
-            helperText={`${reason.length} characters (minimum 10 required)`}
-            sx={{ mt: 1 }}
-          />
-        </Box>
-
-        {/* Attribution Info */}
-        <Box
-          sx={{
-            p: 2,
-            bgcolor: 'action.hover',
-            borderRadius: theme => theme.shape.borderRadius,
-            border: 1,
-            borderColor: 'divider',
+        {/* Review Comments */}
+        <MentionTextInput
+          label="Review Comments *"
+          value={reason}
+          onChange={(val) => {
+            setReason(val);
+            setError('');
           }}
-        >
-          <Typography variant="body2" fontWeight={600} gutterBottom>
-            Attribution
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            Reviewed by: <strong>{currentUserName}</strong>
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Date: <strong>{new Date().toLocaleString()}</strong>
-          </Typography>
-        </Box>
+          placeholder="Explain your review decision... Type @ to mention"
+          mentionableMetrics={mentionableMetrics}
+          mentionableTurns={mentionableTurns}
+          error={!!error}
+          helperText={
+            error || `${reason.length} characters (minimum 10 required)`
+          }
+          minRows={4}
+        />
+
       </Stack>
     </BaseDrawer>
   );

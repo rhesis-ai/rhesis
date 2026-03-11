@@ -12,7 +12,6 @@ import {
   Alert,
   useTheme,
   Button,
-  TextField,
   ToggleButton,
   ToggleButtonGroup,
   Collapse,
@@ -31,9 +30,14 @@ import {
 } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
+import { alpha } from '@mui/material/styles';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import StatusChip from '@/components/common/StatusChip';
 import { findStatusByCategory } from '@/utils/test-result-status';
+import MentionTextInput, {
+  MentionOption,
+  renderMentionText,
+} from '@/components/common/MentionTextInput';
 
 interface TestDetailReviewsTabProps {
   test: TestResultDetail;
@@ -43,6 +47,8 @@ interface TestDetailReviewsTabProps {
   initialComment?: string;
   initialStatus?: 'passed' | 'failed';
   onCommentUsed?: () => void;
+  mentionableMetrics?: MentionOption[];
+  mentionableTurns?: MentionOption[];
 }
 
 export default function TestDetailReviewsTab({
@@ -53,6 +59,8 @@ export default function TestDetailReviewsTab({
   initialComment = '',
   initialStatus,
   onCommentUsed,
+  mentionableMetrics = [],
+  mentionableTurns = [],
 }: TestDetailReviewsTabProps) {
   const theme = useTheme();
 
@@ -273,7 +281,10 @@ export default function TestDetailReviewsTab({
           sx={{
             p: 2,
             backgroundColor: hasConflict
-              ? `${theme.palette.warning.main}08`
+              ? alpha(
+                  theme.palette.warning.main,
+                  theme.palette.action.hoverOpacity
+                )
               : theme.palette.background.default,
             border: hasConflict
               ? `1px solid ${theme.palette.warning.light}`
@@ -388,7 +399,10 @@ export default function TestDetailReviewsTab({
                     sx={{
                       p: 2,
                       backgroundColor: isLatest
-                        ? `${theme.palette.primary.main}08`
+                        ? alpha(
+                            theme.palette.primary.main,
+                            theme.palette.action.hoverOpacity
+                          )
                         : theme.palette.background.default,
                       border: isLatest
                         ? `1px solid ${theme.palette.primary.light}`
@@ -453,8 +467,10 @@ export default function TestDetailReviewsTab({
                                 sx={{
                                   ml: 0.5,
                                   '&:hover': {
-                                    backgroundColor:
-                                      theme.palette.error.main + '20',
+                                    backgroundColor: alpha(
+                                      theme.palette.error.main,
+                                      theme.palette.action.focusOpacity
+                                    ),
                                     color: theme.palette.error.main,
                                   },
                                 }}
@@ -485,7 +501,28 @@ export default function TestDetailReviewsTab({
                               wordBreak: 'break-word',
                             }}
                           >
-                            {review.comments}
+                            {renderMentionText(
+                              review.comments,
+                              {
+                                user: theme.palette.success.main,
+                                metric: theme.palette.secondary.main,
+                                turn: theme.palette.info.main,
+                              },
+                              {
+                                user: alpha(
+                                  theme.palette.success.main,
+                                  theme.palette.action.disabledOpacity
+                                ),
+                                metric: alpha(
+                                  theme.palette.secondary.main,
+                                  theme.palette.action.disabledOpacity
+                                ),
+                                turn: alpha(
+                                  theme.palette.info.main,
+                                  theme.palette.action.disabledOpacity
+                                ),
+                              }
+                            )}
                           </Typography>
                         </Paper>
                       </Box>
@@ -612,18 +649,16 @@ export default function TestDetailReviewsTab({
 
                 {/* Comments */}
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-                    Comments
-                  </Typography>
-                  <TextField
-                    multiline
-                    rows={4}
-                    fullWidth
-                    placeholder="Explain your review decision..."
+                  <MentionTextInput
+                    label="Comments"
                     value={reason}
-                    onChange={e => setReason(e.target.value)}
+                    onChange={setReason}
+                    placeholder="Explain your review decision... Type @ to mention"
+                    mentionableMetrics={mentionableMetrics}
+                    mentionableTurns={mentionableTurns}
                     error={!!error}
                     helperText={error}
+                    minRows={4}
                   />
                 </Box>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Box, Tabs, Tab, Typography, Skeleton, useTheme } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
@@ -18,6 +18,7 @@ import TestDetailReviewsTab from './TestDetailReviewsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { findStatusByCategory } from '@/utils/test-result-status';
+import { MentionOption } from '@/components/common/MentionTextInput';
 
 interface TestResultDrawerProps {
   open: boolean;
@@ -152,11 +153,32 @@ export default function TestResultDrawer({
   };
 
   const handleReviewTurn = (turnNumber: number, turnSuccess: boolean) => {
-    setReviewInitialComment(`Turn ${turnNumber}: `);
-    // Set initial status to opposite of automated result
+    setReviewInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
     setReviewInitialStatus(turnSuccess ? 'failed' : 'passed');
-    setActiveTab(isMultiTurn ? 3 : 2); // Switch to reviews tab (index depends on multi-turn)
+    setActiveTab(isMultiTurn ? 3 : 2);
   };
+
+  const mentionableMetrics: MentionOption[] = useMemo(() => {
+    if (!test?.test_metrics?.metrics) return [];
+    return Object.keys(test.test_metrics.metrics).map(name => ({
+      id: name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, ''),
+      display: name,
+      type: 'metric' as const,
+    }));
+  }, [test]);
+
+  const mentionableTurns: MentionOption[] = useMemo(() => {
+    const summary = test?.test_output?.conversation_summary;
+    if (!summary || !Array.isArray(summary)) return [];
+    return summary.map((turn: { turn: number }) => ({
+      id: String(turn.turn),
+      display: `Turn ${turn.turn}`,
+      type: 'turn' as const,
+    }));
+  }, [test]);
 
   const handleConfirmAutomatedReview = async () => {
     if (!test) return;
@@ -411,6 +433,8 @@ export default function TestResultDrawer({
                 setReviewInitialComment('');
                 setReviewInitialStatus(undefined);
               }}
+              mentionableMetrics={mentionableMetrics}
+              mentionableTurns={mentionableTurns}
             />
           </TabPanel>
 
