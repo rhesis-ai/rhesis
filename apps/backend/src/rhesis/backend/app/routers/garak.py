@@ -1,11 +1,12 @@
 """
 Garak integration API router.
 
-Provides endpoints for listing, importing, and syncing Garak probes
-as Rhesis test sets.
+Provides endpoints for listing, importing, syncing, and dynamically generating
+test sets from Garak probes as Rhesis test sets.
 """
 
 import logging
+import random
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -14,6 +15,8 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.garak import (
+    GarakGenerateRequest,
+    GarakGenerateResponse,
     GarakImportedTestSet,
     GarakImportPreviewResponse,
     GarakImportRequest,
@@ -27,11 +30,14 @@ from rhesis.backend.app.schemas.garak import (
     GarakSyncResponse,
 )
 from rhesis.backend.app.services.garak import (
+    GarakDynamicGenerator,
     GarakImporter,
     GarakProbeService,
     GarakSyncService,
     GarakTaxonomy,
 )
+from rhesis.backend.tasks import task_launcher
+from rhesis.backend.tasks.test_set import generate_and_save_test_set
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +84,7 @@ async def list_probe_modules(
                     prompt_count=p.prompt_count,
                     tags=p.tags,
                     detector=p.detector,
+                    is_dynamic=p.is_dynamic,
                 )
                 for p in probes
             ]
@@ -93,6 +100,7 @@ async def list_probe_modules(
                     rhesis_category=mapping.category,
                     rhesis_topic=mapping.topic,
                     rhesis_behavior=mapping.behavior,
+                    has_dynamic_probes=module.has_dynamic_probes,
                     probes=probe_responses,
                 )
             )
@@ -370,4 +378,103 @@ async def sync_test_set(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to sync test set: {str(e)}",
+        )
+
+
+@router.post("/generate", response_model=GarakGenerateResponse, status_code=202)
+async def generate_dynamic_probe(
+    request: GarakGenerateRequest,
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Generate a test set from a **dynamic** Garak probe using the user's LLM.
+
+    Dynamic probes have no static prompts — they generate them at runtime via RL
+    agents, NLTK, or external ML models (e.g. `atkgen.Tox`, `fitd.FITD`,
+    `topic.WordNet`).  This endpoint uses the probe's `goal`, `description`, and
+    garak tags (OWASP LLM Top 10, AVID) to build a generation prompt for the
+    user's configured LLM and launches an async task to produce and save the test
+    set. All garak metadata is preserved on the resulting test set.
+
+    Returns HTTP 202 Accepted with a `task_id` that can be polled via
+    `GET /tasks/{task_id}`.
+    """
+    module_name = request.module_name
+    class_name = request.class_name
+
+    try:
+        probe_service = GarakProbeService()
+        probes = probe_service.extract_probes_from_module(module_name, [class_name])
+
+        if not probes:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Probe '{module_name}.{class_name}' not found",
+            )
+
+        probe_info = probes[0]
+
+        if not probe_info.is_dynamic:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Probe '{module_name}.{class_name}' is not dynamic — "
+                    "use POST /garak/import to import its static prompts instead."
+                ),
+            )
+
+        generator = GarakDynamicGenerator()
+        config, probe_metadata = generator.build(probe_info)
+
+        # Choose a random test count in [100, 200] if the caller did not specify one
+        num_tests = request.num_tests if request.num_tests is not None else random.randint(100, 200)
+
+        test_set_name = (
+            request.name or f"Garak Dynamic: {probe_info.full_name}"
+        )
+
+        task_result = task_launcher(
+            generate_and_save_test_set,
+            current_user=current_user,
+            config=config.model_dump(),
+            num_tests=num_tests,
+            name=test_set_name,
+            metadata=probe_metadata,
+        )
+
+        logger.info(
+            "Garak dynamic generation task launched",
+            extra={
+                "task_id": task_result.id,
+                "probe": probe_info.full_name,
+                "num_tests": num_tests,
+                "user_id": current_user.id,
+                "organization_id": current_user.organization_id,
+            },
+        )
+
+        return GarakGenerateResponse(
+            task_id=str(task_result.id),
+            probe_full_name=probe_info.full_name,
+            num_tests=num_tests,
+            message=(
+                f"Dynamic test set generation started for '{probe_info.full_name}'. "
+                f"Generating {num_tests} tests using your configured LLM."
+            ),
+        )
+
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        logger.error(f"Garak not available: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Garak package is not installed or not available",
+        )
+    except Exception as e:
+        logger.error(f"Error launching dynamic generation for {module_name}.{class_name}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to launch dynamic probe generation: {str(e)}",
         )
