@@ -26,6 +26,7 @@ export interface BaseDrawerProps {
   closeButtonText?: string;
   width?: number | string;
   showHeader?: boolean;
+  anchor?: 'left' | 'right';
 }
 
 // Utility function to filter out duplicates and invalid entries
@@ -67,10 +68,11 @@ export default function BaseDrawer({
   closeButtonText = 'Cancel',
   width = 600,
   showHeader = true,
+  anchor = 'right',
 }: BaseDrawerProps) {
   return (
     <Drawer
-      anchor="right"
+      anchor={anchor}
       open={open}
       onClose={onClose}
       variant="temporary"
