@@ -350,6 +350,14 @@ class AutoConfigureService:
                 # Keep the original URL/method (user-provided takes priority)
                 corrected.url = result.url
                 corrected.method = result.method
+                # Preserve mappings/headers from the previous result if the LLM
+                # correction omitted them (only returned the corrected probe_request)
+                if corrected.request_mapping is None:
+                    corrected.request_mapping = result.request_mapping
+                if corrected.response_mapping is None:
+                    corrected.response_mapping = result.response_mapping
+                if corrected.request_headers is None:
+                    corrected.request_headers = result.request_headers
                 result = corrected
 
         # Probe failed — cap confidence
