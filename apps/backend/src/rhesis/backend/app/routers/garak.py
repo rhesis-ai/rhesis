@@ -48,10 +48,21 @@ router = APIRouter(
 )
 
 
+def get_probe_service() -> GarakProbeService:
+    """FastAPI dependency that provides a per-request GarakProbeService instance.
+
+    Using a dependency ensures the instance-level caches (_probe_cache,
+    _probe_info_cache) are shared across all method calls within a single request,
+    eliminating redundant module imports and re-enumeration.
+    """
+    return GarakProbeService()
+
+
 @router.get("/probes", response_model=GarakProbesListResponse)
 async def list_probe_modules(
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
+    probe_service: GarakProbeService = Depends(get_probe_service),
 ):
     """
     List all available Garak probe modules with their probe classes.
@@ -63,8 +74,6 @@ async def list_probe_modules(
     The cache is pre-warmed on application startup.
     """
     try:
-        probe_service = GarakProbeService()
-
         # Use cached enumeration - checks L1 memory cache, then L2 Redis cache,
         # and only generates probe data on cache miss
         modules, probes_by_module = await probe_service.enumerate_probe_modules_cached()
@@ -130,6 +139,7 @@ async def get_probe_module_detail(
     module_name: str,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
+    probe_service: GarakProbeService = Depends(get_probe_service),
 ):
     """
     Get detailed information about a specific Garak probe module.
@@ -137,7 +147,6 @@ async def get_probe_module_detail(
     Returns the probe classes, prompts, and metadata for the module.
     """
     try:
-        probe_service = GarakProbeService()
         module_info = probe_service.get_probe_details(module_name)
 
         if not module_info:
@@ -386,6 +395,7 @@ async def generate_dynamic_probe(
     request: GarakGenerateRequest,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
+    probe_service: GarakProbeService = Depends(get_probe_service),
 ):
     """
     Generate a test set from a **dynamic** Garak probe using the user's LLM.
@@ -404,7 +414,6 @@ async def generate_dynamic_probe(
     class_name = request.class_name
 
     try:
-        probe_service = GarakProbeService()
         probes = probe_service.extract_probes_from_module(module_name, [class_name])
 
         if not probes:
@@ -430,9 +439,7 @@ async def generate_dynamic_probe(
         # Choose a random test count in [100, 200] if the caller did not specify one
         num_tests = request.num_tests if request.num_tests is not None else random.randint(100, 200)
 
-        test_set_name = (
-            request.name or f"Garak Dynamic: {probe_info.full_name}"
-        )
+        test_set_name = request.name or f"Garak Dynamic: {probe_info.full_name}"
 
         task_result = task_launcher(
             generate_and_save_test_set,

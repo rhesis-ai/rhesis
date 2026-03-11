@@ -244,21 +244,6 @@ class TestBuild:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit
-class TestStaticHelpers:
-    def test_is_dynamic_true_when_zero_prompts(self):
-        probe = make_probe(prompt_count=0)
-        assert GarakDynamicGenerator.is_dynamic(probe) is True
-
-    def test_is_dynamic_false_when_has_prompts(self):
-        probe = make_probe(prompt_count=5)
-        assert GarakDynamicGenerator.is_dynamic(probe) is False
-
-    def test_describe_probe_returns_string(self):
-        result = GarakDynamicGenerator.describe_probe(make_probe())
-        assert isinstance(result, str) and result
-
-
 # ---------------------------------------------------------------------------
 # Probe model is_dynamic flag
 # ---------------------------------------------------------------------------

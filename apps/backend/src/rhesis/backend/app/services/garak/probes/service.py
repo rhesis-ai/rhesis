@@ -25,10 +25,12 @@ class GarakProbeService:
     # 'base' and 'test' are internal garak modules.
     # 'audio' and 'fileformats' operate on binary payloads and cannot be synthesised
     # as text prompts, so they have no meaningful representation in Rhesis.
+    # NOTE: These are also intentionally absent from GarakTaxonomy.MODULE_MAPPINGS.
     EXCLUDED_MODULES = {"base", "test", "audio", "fileformats"}
 
     def __init__(self):
         self._probe_cache: Dict[str, GarakModuleInfo] = {}
+        self._probe_info_cache: Dict[str, List[GarakProbeInfo]] = {}
         self._garak_version: Optional[str] = None
         self._discovered_modules: Optional[List[str]] = None
         self._extractor = PromptExtractor()
@@ -223,6 +225,11 @@ class GarakProbeService:
         Returns:
             List of GarakProbeInfo with probe details and prompts
         """
+        # Return filtered view from cache when all probes for the module were
+        # previously extracted (probe_class_names=None path).
+        if probe_class_names is None and module_name in self._probe_info_cache:
+            return self._probe_info_cache[module_name]
+
         probes = []
 
         try:
@@ -246,6 +253,10 @@ class GarakProbeService:
         except Exception as e:
             logger.error(f"Error extracting probes from {module_name}: {e}")
 
+        # Cache the full-module extraction for reuse within the same service instance.
+        if probe_class_names is None:
+            self._probe_info_cache[module_name] = probes
+
         return probes
 
     def _extract_probe_info(
@@ -267,6 +278,11 @@ class GarakProbeService:
             description = probe_class.__doc__ or f"{class_name} probe"
             description = description.strip().split("\n")[0]
 
+            # Get the explicit goal attribute (separate from the docstring).
+            # Garak probes declare `goal = "..."` as a class attribute.
+            goal_attr = getattr(probe_class, "goal", None)
+            goal = str(goal_attr).strip() if goal_attr else None
+
             # Get tags
             tags = []
             if hasattr(probe_class, "tags"):
@@ -286,6 +302,7 @@ class GarakProbeService:
                 class_name=class_name,
                 full_name=f"{module_name}.{class_name}",
                 description=description,
+                goal=goal,
                 tags=tags,
                 prompts=prompts,
                 prompt_count=prompt_count,
@@ -345,6 +362,10 @@ class GarakProbeService:
             deserialize_probe_data,
             serialize_probe_data,
         )
+
+        # Ensure Redis is connected — idempotent, safe to call outside app lifespan
+        # (e.g. tests, management commands, workers).
+        await GarakProbeCache.initialize()
 
         # Check cache first
         cached_data = await GarakProbeCache.get(self.garak_version)

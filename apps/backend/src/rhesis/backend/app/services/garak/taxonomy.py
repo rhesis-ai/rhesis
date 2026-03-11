@@ -198,13 +198,9 @@ class GarakTaxonomy:
             default_detector="garak.detectors.apikey.APIKey",
             description="Probes that attempt to extract API keys from model output",
         ),
-        "audio": GarakMapping(
-            category="Harmful",
-            topic="Audio Attack",
-            behavior="Robustness",
-            default_detector="garak.detectors.mitigation.MitigationBypass",
-            description="Audio-based adversarial attack probes",
-        ),
+        # NOTE: "audio" and "fileformats" are intentionally absent — they are excluded
+        # from probe enumeration (see GarakProbeService.EXCLUDED_MODULES) because they
+        # operate on binary payloads and have no meaningful text representation in Rhesis.
         "badchars": GarakMapping(
             category="Harmful",
             topic="Bad Characters",
@@ -239,13 +235,6 @@ class GarakTaxonomy:
             behavior="Compliance",
             default_detector="garak.detectors.exploitation.ExploitDetector",
             description="Probes for exploit code and vulnerability generation",
-        ),
-        "fileformats": GarakMapping(
-            category="Harmful",
-            topic="Malicious File Formats",
-            behavior="Compliance",
-            default_detector="garak.detectors.fileformats.FileFormatDetector",
-            description="Probes for malicious content in file format contexts",
         ),
         "fitd": GarakMapping(
             category="Harmful",
@@ -312,33 +301,3 @@ class GarakTaxonomy:
             GarakMapping with category, topic, behavior, and detector
         """
         return cls.MODULE_MAPPINGS.get(module_name, cls.DEFAULT_MAPPING)
-
-    @classmethod
-    def get_category(cls, module_name: str) -> str:
-        """Get the Rhesis category for a Garak module."""
-        return cls.get_mapping(module_name).category
-
-    @classmethod
-    def get_topic(cls, module_name: str) -> str:
-        """Get the Rhesis topic for a Garak module."""
-        return cls.get_mapping(module_name).topic
-
-    @classmethod
-    def get_behavior(cls, module_name: str) -> str:
-        """Get the Rhesis behavior for a Garak module."""
-        return cls.get_mapping(module_name).behavior
-
-    @classmethod
-    def get_default_detector(cls, module_name: str) -> str:
-        """Get the default Garak detector for a module."""
-        return cls.get_mapping(module_name).default_detector
-
-    @classmethod
-    def list_mapped_modules(cls) -> list:
-        """List all Garak modules with explicit mappings."""
-        return list(cls.MODULE_MAPPINGS.keys())
-
-    @classmethod
-    def get_all_mappings(cls) -> Dict[str, GarakMapping]:
-        """Get all module mappings."""
-        return cls.MODULE_MAPPINGS.copy()

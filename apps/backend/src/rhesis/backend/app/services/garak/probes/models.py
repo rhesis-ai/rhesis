@@ -20,6 +20,9 @@ class GarakProbeInfo:
     class_name: str
     full_name: str
     description: str
+    # Explicit attack objective from probe_class.goal (distinct from the docstring).
+    # May be None for probes that do not declare a goal attribute.
+    goal: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     prompts: List[str] = field(default_factory=list)
     prompt_count: int = 0

@@ -42,7 +42,7 @@ class GarakProbeCache:
     # Increment this whenever the structure of cached probe data changes so that
     # stale entries (missing new fields like is_dynamic / has_dynamic_probes) are
     # automatically invalidated and regenerated on next access.
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 3  # v3: GarakProbeInfo gained `goal` field
 
     # Class-level memory cache (shared across instances within a process)
     _memory_cache: ClassVar[Dict[str, Dict]] = {}

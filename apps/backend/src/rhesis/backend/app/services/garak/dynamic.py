@@ -11,7 +11,6 @@ to obtain semantically equivalent test prompts via their configured LLM instead.
 """
 
 import logging
-import textwrap
 from typing import Dict, List, Optional, Tuple
 
 from rhesis.backend.app.schemas.services import GenerationConfig
@@ -84,7 +83,7 @@ class GarakDynamicGenerator:
             "garak_module": probe_info.module_name,
             "garak_probe_class": probe_info.class_name,
             "garak_probe_full_name": probe_info.full_name,
-            "garak_goal": probe_info.description,
+            "garak_goal": probe_info.goal or probe_info.description,
             "garak_tags": probe_info.tags,
             "garak_is_dynamic": True,
         }
@@ -106,8 +105,10 @@ class GarakDynamicGenerator:
             lines.append(probe_info.description.strip())
             lines.append("")
 
-        # Explicit goal
-        lines.append(f"Goal: {probe_info.description}")
+        # Explicit goal (probe_class.goal attribute — distinct from the docstring).
+        # Falls back to description only when no dedicated goal is declared.
+        goal = probe_info.goal or probe_info.description
+        lines.append(f"Goal: {goal}")
         lines.append("")
 
         # Security standards / attack vectors derived from tags
@@ -148,22 +149,3 @@ class GarakDynamicGenerator:
                 topics.append(topic)
                 seen.add(topic)
         return topics
-
-    @staticmethod
-    def is_dynamic(probe_info: GarakProbeInfo) -> bool:
-        """Return True when a probe has no extractable static prompts."""
-        return probe_info.prompt_count == 0
-
-    @staticmethod
-    def describe_probe(probe_info: GarakProbeInfo) -> str:
-        """
-        Return a one-line human-readable note explaining why the probe is dynamic.
-
-        Used by the API response to give the frontend context for the Generate button.
-        """
-        desc = probe_info.description.strip() if probe_info.description else ""
-        first_line = desc.split("\n")[0] if desc else probe_info.full_name
-        return textwrap.shorten(
-            f"{first_line} — prompts generated at runtime via LLM synthesis",
-            width=200,
-        )

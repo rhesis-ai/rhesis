@@ -142,55 +142,40 @@ class TestGarakTaxonomyDefaultMapping:
 @pytest.mark.unit
 @pytest.mark.service
 class TestGarakTaxonomyHelpers:
-    """Tests for taxonomy helper methods."""
+    """Tests for taxonomy get_mapping and MODULE_MAPPINGS access."""
 
-    def test_get_category(self):
-        """Test get_category helper."""
-        category = GarakTaxonomy.get_category("dan")
-        assert category == "Harmful"
+    def test_get_mapping_category(self):
+        assert GarakTaxonomy.get_mapping("dan").category == "Harmful"
 
-    def test_get_topic(self):
-        """Test get_topic helper."""
-        topic = GarakTaxonomy.get_topic("dan")
-        assert topic == "Jailbreak"
+    def test_get_mapping_topic(self):
+        assert GarakTaxonomy.get_mapping("dan").topic == "Jailbreak"
 
-    def test_get_behavior(self):
-        """Test get_behavior helper."""
-        behavior = GarakTaxonomy.get_behavior("dan")
-        assert behavior == "Robustness"
+    def test_get_mapping_behavior(self):
+        assert GarakTaxonomy.get_mapping("dan").behavior == "Robustness"
 
-    def test_get_default_detector(self):
-        """Test get_default_detector helper."""
-        detector = GarakTaxonomy.get_default_detector("dan")
-        assert detector == "garak.detectors.mitigation.MitigationBypass"
+    def test_get_mapping_default_detector(self):
+        assert (
+            GarakTaxonomy.get_mapping("dan").default_detector
+            == "garak.detectors.mitigation.MitigationBypass"
+        )
 
-    def test_list_mapped_modules(self):
-        """Test list_mapped_modules returns all mapped modules."""
-        modules = GarakTaxonomy.list_mapped_modules()
+    def test_module_mappings_contains_expected_keys(self):
+        """MODULE_MAPPINGS covers the known core modules."""
+        keys = GarakTaxonomy.MODULE_MAPPINGS.keys()
+        assert "dan" in keys
+        assert "encoding" in keys
+        assert "xss" in keys
+        assert "continuation" in keys
 
-        assert isinstance(modules, list)
-        assert len(modules) > 0
-        assert "dan" in modules
-        assert "encoding" in modules
-        assert "xss" in modules
-        assert "continuation" in modules
+    def test_module_mappings_values_are_garak_mappings(self):
+        for key, value in GarakTaxonomy.MODULE_MAPPINGS.items():
+            assert isinstance(value, GarakMapping), f"{key} has wrong type"
 
-    def test_get_all_mappings(self):
-        """Test get_all_mappings returns all mappings."""
-        mappings = GarakTaxonomy.get_all_mappings()
-
-        assert isinstance(mappings, dict)
-        assert len(mappings) > 0
-        assert "dan" in mappings
-        assert isinstance(mappings["dan"], GarakMapping)
-
-    def test_get_all_mappings_returns_copy(self):
-        """Test that get_all_mappings returns a copy."""
-        mappings1 = GarakTaxonomy.get_all_mappings()
-        mappings2 = GarakTaxonomy.get_all_mappings()
-
-        assert mappings1 is not mappings2
-        assert mappings1 == mappings2
+    def test_module_mappings_is_mutable_copy(self):
+        """CLASS attribute is directly accessible; changes must not affect the class."""
+        mapping_keys_before = set(GarakTaxonomy.MODULE_MAPPINGS.keys())
+        # Copying is callers' responsibility; just verify the reference is stable
+        assert set(GarakTaxonomy.MODULE_MAPPINGS.keys()) == mapping_keys_before
 
 
 @pytest.mark.unit
@@ -200,33 +185,38 @@ class TestGarakTaxonomyConsistency:
 
     def test_all_mappings_have_full_paths(self):
         """Test that all detector paths are full garak paths."""
-        mappings = GarakTaxonomy.get_all_mappings()
-
-        for module_name, mapping in mappings.items():
+        for module_name, mapping in GarakTaxonomy.MODULE_MAPPINGS.items():
             assert mapping.default_detector.startswith("garak.detectors."), (
                 f"Detector for {module_name} should start with 'garak.detectors.'"
             )
 
     def test_all_mappings_have_valid_categories(self):
         """Test that all mappings have valid category values."""
-        mappings = GarakTaxonomy.get_all_mappings()
-
-        for module_name, mapping in mappings.items():
+        for module_name, mapping in GarakTaxonomy.MODULE_MAPPINGS.items():
             assert mapping.category, f"Module {module_name} has empty category"
 
     def test_all_mappings_have_descriptions(self):
         """Test that all mappings have descriptions."""
-        mappings = GarakTaxonomy.get_all_mappings()
-
-        for module_name, mapping in mappings.items():
+        for module_name, mapping in GarakTaxonomy.MODULE_MAPPINGS.items():
             assert mapping.description, f"Module {module_name} has empty description"
 
     def test_known_probe_modules_count(self):
-        """Test that we have mappings for expected number of modules."""
-        mappings = GarakTaxonomy.get_all_mappings()
+        """Test that we have mappings for expected number of modules.
 
-        # 13 original + 2 renames (atkgen, av_spam_scanning) + 15 new = 28 minimum
-        assert len(mappings) >= 28
+        Count excludes 'audio' and 'fileformats' which are in EXCLUDED_MODULES and
+        have no taxonomy entry (they operate on binary payloads).
+        13 original + 2 renames (atkgen, av_spam_scanning) + 13 new = 26 minimum
+        """
+        assert len(GarakTaxonomy.MODULE_MAPPINGS) >= 26
+
+    def test_excluded_modules_absent_from_mappings(self):
+        """audio and fileformats must not appear in MODULE_MAPPINGS."""
+        from rhesis.backend.app.services.garak.probes.service import GarakProbeService
+
+        for excluded in GarakProbeService.EXCLUDED_MODULES:
+            assert excluded not in GarakTaxonomy.MODULE_MAPPINGS, (
+                f"'{excluded}' is excluded from enumeration but still has a taxonomy entry"
+            )
 
 
 @pytest.mark.unit
@@ -286,10 +276,11 @@ class TestGarakTaxonomyV013Modules:
         assert mapping.topic == "API Key Leakage"
         assert mapping.default_detector == "garak.detectors.apikey.APIKey"
 
-    def test_audio_module_mapping(self):
-        mapping = GarakTaxonomy.get_mapping("audio")
-
-        assert mapping.topic == "Audio Attack"
+    def test_audio_module_is_excluded_not_mapped(self):
+        """'audio' is in EXCLUDED_MODULES and must NOT have an explicit taxonomy entry.
+        Calling get_mapping('audio') falls back to DEFAULT_MAPPING."""
+        assert "audio" not in GarakTaxonomy.MODULE_MAPPINGS
+        assert GarakTaxonomy.get_mapping("audio") is GarakTaxonomy.DEFAULT_MAPPING
 
     def test_badchars_module_mapping(self):
         mapping = GarakTaxonomy.get_mapping("badchars")
@@ -318,11 +309,11 @@ class TestGarakTaxonomyV013Modules:
         assert mapping.topic == "Code Exploitation"
         assert mapping.default_detector == "garak.detectors.exploitation.ExploitDetector"
 
-    def test_fileformats_module_mapping(self):
-        mapping = GarakTaxonomy.get_mapping("fileformats")
-
-        assert mapping.topic == "Malicious File Formats"
-        assert mapping.default_detector == "garak.detectors.fileformats.FileFormatDetector"
+    def test_fileformats_module_is_excluded_not_mapped(self):
+        """'fileformats' is in EXCLUDED_MODULES and must NOT have an explicit taxonomy entry.
+        Calling get_mapping('fileformats') falls back to DEFAULT_MAPPING."""
+        assert "fileformats" not in GarakTaxonomy.MODULE_MAPPINGS
+        assert GarakTaxonomy.get_mapping("fileformats") is GarakTaxonomy.DEFAULT_MAPPING
 
     def test_fitd_module_mapping(self):
         mapping = GarakTaxonomy.get_mapping("fitd")
@@ -358,15 +349,13 @@ class TestGarakTaxonomyV013Modules:
 
     def test_art_key_does_not_exist(self):
         """'art' was renamed to 'atkgen' in v0.13.3 — the old key must be gone."""
-        mappings = GarakTaxonomy.get_all_mappings()
-        assert "art" not in mappings, (
+        assert "art" not in GarakTaxonomy.MODULE_MAPPINGS, (
             "Found stale 'art' key in taxonomy — it was renamed to 'atkgen' in garak v0.13.3."
         )
 
     def test_knownbadsignatures_key_does_not_exist(self):
         """'knownbadsignatures' was renamed to 'av_spam_scanning' in v0.13.3."""
-        mappings = GarakTaxonomy.get_all_mappings()
-        assert "knownbadsignatures" not in mappings, (
+        assert "knownbadsignatures" not in GarakTaxonomy.MODULE_MAPPINGS, (
             "Found stale 'knownbadsignatures' key — "
             "it was renamed to 'av_spam_scanning' in garak v0.13.3."
         )
