@@ -4,8 +4,14 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import PlaygroundChat from '../PlaygroundChat';
 
-// jsdom does not implement scrollIntoView
-Element.prototype.scrollIntoView = jest.fn();
+// jsdom does not implement scrollIntoView — save and restore to avoid leaking into other suites
+const originalScrollIntoView = Element.prototype.scrollIntoView;
+beforeAll(() => {
+  Element.prototype.scrollIntoView = jest.fn();
+});
+afterAll(() => {
+  Element.prototype.scrollIntoView = originalScrollIntoView;
+});
 
 jest.mock('next-auth/react', () => ({
   useSession: jest.fn(),

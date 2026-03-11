@@ -15,6 +15,19 @@ jest.mock('@/components/common/FeedbackModal', () => ({
 }));
 
 describe('SidebarFooter', () => {
+  let originalAppVersion: string | undefined;
+
+  beforeEach(() => {
+    originalAppVersion = process.env.APP_VERSION;
+  });
+
+  afterEach(() => {
+    if (originalAppVersion === undefined) {
+      delete process.env.APP_VERSION;
+    } else {
+      process.env.APP_VERSION = originalAppVersion;
+    }
+  });
   it('renders a Feedback button in expanded mode (mini=false)', () => {
     render(<SidebarFooter mini={false} />);
     expect(
@@ -50,7 +63,6 @@ describe('SidebarFooter', () => {
     process.env.APP_VERSION = '1.2.3';
     render(<SidebarFooter mini={false} />);
     expect(screen.getByText('v1.2.3')).toBeInTheDocument();
-    delete process.env.APP_VERSION;
   });
 
   it('falls back to v0.0.0 when APP_VERSION is not set', () => {

@@ -142,8 +142,12 @@ export default function SelectMetricsDialog({
   // Fetch metrics when dialog opens
   React.useEffect(() => {
     if (open) {
-      fetchMetrics();
+      setIsLoading(true);
+      setMetrics([]);
+      setFilteredMetrics([]);
+      setError(null);
       setSearchQuery('');
+      fetchMetrics();
     }
   }, [open, fetchMetrics]);
 

@@ -49,12 +49,24 @@ function makeActivity(overrides = {}) {
 }
 
 describe('ActivityTimeline', () => {
+  let originalInnerHeight: number;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    originalInnerHeight = window.innerHeight;
     // window.innerHeight triggers the viewport effect
     Object.defineProperty(window, 'innerHeight', {
       value: 800,
       writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'innerHeight', {
+      value: originalInnerHeight,
+      writable: true,
+      configurable: true,
     });
   });
 

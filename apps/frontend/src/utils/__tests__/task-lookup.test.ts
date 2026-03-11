@@ -30,12 +30,6 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   })),
 }));
 
-// Provide a session cookie so the internal getSessionToken() helper finds a token
-Object.defineProperty(document, 'cookie', {
-  configurable: true,
-  get: () => 'next-auth.session-token=test-token',
-});
-
 import {
   getStatuses,
   getPriorities,
@@ -91,12 +85,31 @@ const API_PRIORITIES = [
   },
 ];
 
+// Provide a session cookie so the internal getSessionToken() helper finds a token.
+// Defined in beforeEach/afterEach so it doesn't leak into other test suites.
+let cookieDescriptor: PropertyDescriptor | undefined;
+
 beforeEach(() => {
+  cookieDescriptor = Object.getOwnPropertyDescriptor(document, 'cookie');
+  Object.defineProperty(document, 'cookie', {
+    configurable: true,
+    get: () => 'next-auth.session-token=test-token',
+  });
   clearCache();
   mockGetStatuses.mockReset();
   mockGetStatus.mockReset();
   mockGetTypeLookups.mockReset();
   mockGetTypeLookup.mockReset();
+});
+
+afterEach(() => {
+  if (cookieDescriptor) {
+    Object.defineProperty(document, 'cookie', cookieDescriptor);
+  } else {
+    // If there was no previous descriptor, delete the override
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (document as any).cookie;
+  }
 });
 
 // ---------------------------------------------------------------------------
