@@ -228,6 +228,7 @@ export default function ReviewJudgementDrawer({
       title="Provide Test Review"
       titleIcon={<RateReviewOutlinedIcon />}
       onSave={handleSave}
+      anchor="right"
       saveButtonText={submitting ? 'Saving...' : 'Submit Review'}
       error={error}
       width={600}
