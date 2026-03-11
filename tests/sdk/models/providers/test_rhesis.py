@@ -279,14 +279,16 @@ class TestRhesisLLM:
 
     @patch("aiohttp.ClientSession")
     def test_generate_batch_concurrent(self, mock_session_class, service):
-        """Test generate_batch runs prompts concurrently."""
+        """Test generate_batch runs prompts concurrently with a shared session."""
         responses = {
             "Prompt A": {"response": "Prompt A"},
             "Prompt B": {"response": "Prompt B"},
             "Prompt C": {"response": "Prompt C"},
         }
+        post_calls = []
 
         def mock_post(url, **kwargs):
+            post_calls.append(kwargs)
             prompt = kwargs["json"]["prompt"]
             resp = MagicMock()
             resp.status = 200
@@ -307,9 +309,16 @@ class TestRhesisLLM:
         mock_session_class.return_value = session_ctx
 
         service.load_model()
-        results = service.generate_batch(prompts=["Prompt A", "Prompt B", "Prompt C"])
+        results = service.generate_batch(
+            prompts=["Prompt A", "Prompt B", "Prompt C"],
+        )
 
         assert len(results) == 3
         assert results[0] == {"response": "Prompt A"}
         assert results[1] == {"response": "Prompt B"}
         assert results[2] == {"response": "Prompt C"}
+
+        mock_session_class.assert_called_once()
+
+        for call_kwargs in post_calls:
+            assert "_session" not in call_kwargs["json"]
