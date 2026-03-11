@@ -21,6 +21,30 @@ DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
 DEFAULT_POLYPHEMUS_URL = os.getenv("DEFAULT_POLYPHEMUS_URL") or "https://polyphemus.rhesis.ai"
 DEFAULT_REQUEST_TIMEOUT = int(os.getenv("RHESIS_LLM_TIMEOUT", "300"))  # 5 minutes
 
+# Canonical model names accepted by the Polyphemus server
+POLYPHEMUS_VALID_MODELS = frozenset({"polyphemus-default", "polyphemus-opus"})
+
+# Short names (e.g. from DB) mapped to canonical server names
+_MODEL_NORMALIZE: Dict[str, str] = {
+    "default": "polyphemus-default",
+    "opus": "polyphemus-opus",
+}
+
+# Body keys accepted by Polyphemus /generate (must match GenerateRequest schema)
+_BODY_KEYS = frozenset(
+    {
+        "messages",
+        "model",
+        "temperature",
+        "max_tokens",
+        "stream",
+        "repetition_penalty",
+        "top_p",
+        "top_k",
+        "json_schema",
+    }
+)
+
 
 class PolyphemusLLM(BaseLLM):
     """Service for interacting with the Polyphemus API endpoints."""
@@ -57,7 +81,23 @@ class PolyphemusLLM(BaseLLM):
         if self.api_key is None:
             raise ValueError("RHESIS_API_KEY is not set")
 
+        model_name = self._normalize_model_name(model_name)
         super().__init__(model_name, **kwargs)
+
+    @staticmethod
+    def _normalize_model_name(name: str) -> str:
+        """Map short / legacy model names to canonical Polyphemus aliases."""
+        if not name:
+            return DEFAULT_MODEL_NAME
+        canonical = _MODEL_NORMALIZE.get(name, name)
+        if canonical not in POLYPHEMUS_VALID_MODELS:
+            logger.warning(
+                "[Polyphemus] Unknown model %r, falling back to %s",
+                name,
+                DEFAULT_MODEL_NAME,
+            )
+            return DEFAULT_MODEL_NAME
+        return canonical
 
     def load_model(self) -> Any:
         self.headers = {

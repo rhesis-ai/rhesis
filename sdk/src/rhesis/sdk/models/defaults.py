@@ -26,7 +26,7 @@ DEFAULT_LANGUAGE_MODELS = {
     "openai": "openai/gpt-4o",
     "openrouter": "openrouter/openai/gpt-4o-mini",
     "perplexity": "perplexity/sonar-pro",
-    "polyphemus": "polyphemus/",  # Polyphemus uses API's default model
+    "polyphemus": "polyphemus/polyphemus-default",
     "replicate": "replicate/llama-2-70b-chat",
     "together_ai": "together_ai/togethercomputer/llama-2-70b-chat",
     "vertex_ai": "vertex_ai/gemini-2.0-flash",
