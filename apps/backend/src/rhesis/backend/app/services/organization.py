@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import uuid
 from typing import Any, Dict, List, Type
@@ -552,6 +553,9 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 commit=False,
             )
 
+        # Inject garak metrics from the SDK registry (single source of truth)
+        _inject_garak_metrics(initial_data)
+
         # Process metrics
         print("Processing metrics...")
         for item in initial_data.get("metric", []):
@@ -1006,6 +1010,31 @@ def _get_entity_identifier(model_name: str, item: dict) -> str:
         return item.get("type_value", "")  # TypeLookup uses type_value as identifier
     else:
         return item.get("name", "")  # Default to name for other entities
+
+
+_logger = logging.getLogger(__name__)
+
+
+def _inject_garak_metrics(initial_data: dict) -> None:
+    """Replace any garak entries in initial_data with the YAML registry.
+
+    This ensures the SDK's ``detectors.yaml`` is the single source of
+    truth for garak metric definitions — no manual sync with
+    ``initial_data.json`` required.
+    """
+    try:
+        from rhesis.sdk.metrics.providers.garak.registry import (
+            to_initial_data_metrics,
+        )
+    except ImportError:
+        _logger.debug("rhesis-sdk not available; skipping garak metric injection")
+        return
+
+    existing = initial_data.get("metric", [])
+    non_garak = [m for m in existing if m.get("backend_type") != "garak"]
+    garak_metrics = to_initial_data_metrics()
+    initial_data["metric"] = non_garak + garak_metrics
+    _logger.info("Injected %d garak metrics from SDK registry", len(garak_metrics))
 
 
 def _load_initial_data() -> dict:
