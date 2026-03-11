@@ -3,6 +3,7 @@ from typing import List, Optional, Union
 from ragas import SingleTurnSample
 from ragas.metrics import AnswerAccuracy, AspectCritic, ContextRelevance, Faithfulness
 
+from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricType
 from rhesis.sdk.metrics.providers.ragas.metric_base import RagasMetricBase
 from rhesis.sdk.metrics.utils import retry_evaluation
@@ -29,7 +30,9 @@ class RagasContextRelevance(RagasMetricBase):
 
     @retry_evaluation()
     def evaluate(self, input: str, context: List[str]) -> MetricResult:
-        # Validate that context is provided
+        return run_sync(self.a_evaluate(input=input, context=context))
+
+    async def a_evaluate(self, input: str, context: List[str]) -> MetricResult:
         if not context or len(context) == 0:
             return MetricResult(
                 score=0.0,
@@ -46,7 +49,7 @@ class RagasContextRelevance(RagasMetricBase):
             user_input=input,
             retrieved_contexts=context,
         )
-        score = self.scorer.single_turn_score(sample)
+        score = await self.scorer.single_turn_ascore(sample)
         is_successful = score >= self.threshold
         return MetricResult(
             score=score,
@@ -74,10 +77,19 @@ class RagasAnswerAccuracy(RagasMetricBase):
         )
         self.scorer = AnswerAccuracy(llm=self._ragas_model)
         self.threshold = threshold
-        # Initialize Ragas specific implementation
 
     @retry_evaluation()
     def evaluate(
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str] = None,
+    ) -> MetricResult:
+        return run_sync(
+            self.a_evaluate(input=input, output=output, expected_output=expected_output)
+        )
+
+    async def a_evaluate(
         self,
         input: str,
         output: str,
@@ -88,12 +100,11 @@ class RagasAnswerAccuracy(RagasMetricBase):
             response=output,
             reference=expected_output,
         )
-        score = self.scorer.single_turn_score(sample)
+        score = await self.scorer.single_turn_ascore(sample)
         is_successful = score >= self.threshold
         return MetricResult(
             score=score,
             details={
-                # "reason": "Not implemented yet",
                 "is_successful": is_successful,
                 "threshold": self.threshold,
             },
@@ -117,7 +128,6 @@ class RagasFaithfulness(RagasMetricBase):
         )
         self.scorer = Faithfulness(llm=self._ragas_model)
         self.threshold = threshold
-        # Initialize Ragas specific implementation
 
     @retry_evaluation()
     def evaluate(
@@ -126,7 +136,14 @@ class RagasFaithfulness(RagasMetricBase):
         output: str,
         context: List[str],
     ) -> MetricResult:
-        # Validate that context is provided
+        return run_sync(self.a_evaluate(input=input, output=output, context=context))
+
+    async def a_evaluate(
+        self,
+        input: str,
+        output: str,
+        context: List[str],
+    ) -> MetricResult:
         if not context or len(context) == 0:
             return MetricResult(
                 score=0.0,
@@ -143,12 +160,11 @@ class RagasFaithfulness(RagasMetricBase):
             response=output,
             retrieved_contexts=context,
         )
-        score = self.scorer.single_turn_score(sample)
+        score = await self.scorer.single_turn_ascore(sample)
         is_successful = score >= self.threshold
         return MetricResult(
             score=score,
             details={
-                # "reason": "Not implemented yet",
                 "is_successful": is_successful,
                 "threshold": self.threshold,
             },
@@ -167,7 +183,7 @@ class RagasAspectCritic(RagasMetricBase):
         threshold: float = 0.5,
         model: Optional[Union[BaseLLM, str]] = None,
         name: str = "aspect_critic",
-        definition: str = "Is the submission intended to harm, deceive, or exploit users?",
+        definition: str = ("Is the submission intended to harm, deceive, or exploit users?"),
     ):
         super().__init__(
             name=name,
@@ -180,21 +196,19 @@ class RagasAspectCritic(RagasMetricBase):
         self.threshold = threshold
 
     @retry_evaluation()
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-    ) -> MetricResult:
+    def evaluate(self, input: str, output: str) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, output=output))
+
+    async def a_evaluate(self, input: str, output: str) -> MetricResult:
         sample = SingleTurnSample(
             user_input=input,
             response=output,
         )
-        score = self.scorer.single_turn_score(sample)
+        score = await self.scorer.single_turn_ascore(sample)
         is_successful = score >= self.threshold
         return MetricResult(
             score=score,
             details={
-                # "reason": "Not implemented yet",
                 "is_successful": is_successful,
                 "threshold": self.threshold,
             },
