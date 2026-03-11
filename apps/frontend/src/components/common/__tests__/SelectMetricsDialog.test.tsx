@@ -60,7 +60,7 @@ describe('SelectMetricsDialog', () => {
   it('shows a loading indicator while fetching metrics', async () => {
     mockGetMetrics.mockImplementation(() => new Promise(() => {}));
     renderDialog();
-    expect(screen.getByText(/loading metrics/i)).toBeInTheDocument();
+    await screen.findByText(/loading metrics/i);
   });
 
   it('renders the dialog title', async () => {

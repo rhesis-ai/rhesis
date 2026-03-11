@@ -52,7 +52,7 @@ export default function SelectMetricsDialog({
     []
   );
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(open);
   const [error, setError] = React.useState<string | null>(null);
 
   const fetchMetrics = React.useCallback(async () => {
