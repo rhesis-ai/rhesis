@@ -206,10 +206,9 @@ async def create_test_set_bulk(
         # Extract test_set_type from request if provided
         test_set_type = None
         if test_set_data.test_set_type:
-            from rhesis.backend.app.constants import TestType
+            from rhesis.backend.app.constants import TestSetType
 
-            # Convert string to TestType enum using from_string helper
-            test_set_type = TestType.from_string(test_set_data.test_set_type)
+            test_set_type = TestSetType.from_string(test_set_data.test_set_type)
 
         test_set = bulk_create_test_set(
             db=db,

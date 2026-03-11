@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional, Union
 
 from rhesis.backend.app import crud
-from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL, TestSetType
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
@@ -104,6 +104,7 @@ def _save_test_set_to_database(
     org_id: str,
     user_id: str,
     custom_name: str = None,
+    extra_metadata: Optional[dict] = None,
 ):
     """Save the generated test set directly to the database.
 
@@ -139,22 +140,18 @@ def _save_test_set_to_database(
 
         converted_tests.append(TestData(**test_dict))
 
-    # Determine test_set_type string for schema validation
-    from rhesis.backend.app.constants import TestType as BackendTestType
-
     if test_set.test_set_type:
-        test_set_type_str = BackendTestType.get_value(
-            BackendTestType.from_string(test_set.test_set_type)
-        )
+        test_set_type_str = TestSetType.get_value(TestSetType.from_string(test_set.test_set_type))
     else:
-        test_set_type_str = BackendTestType.SINGLE_TURN.value
+        test_set_type_str = TestSetType.SINGLE_TURN.value
 
+    merged_metadata = {**(test_set.metadata or {}), **(extra_metadata or {})}
     test_set_data = {
         "name": custom_name if custom_name else test_set.name,
         "description": test_set.description,
         "short_description": test_set.short_description,
         "test_set_type": test_set_type_str,
-        "metadata": test_set.metadata,
+        "metadata": merged_metadata,
         "tests": converted_tests,
     }
 
@@ -258,7 +255,8 @@ def generate_and_save_test_set(
     batch_size: int = 20,
     sources: Optional[List[dict]] = None,
     name: Optional[str] = None,
-    test_type: Optional[str] = "single_turn",
+    test_type: Optional[str] = TestSetType.SINGLE_TURN.value,
+    metadata: Optional[dict] = None,
 ):
     """
     Generate and save test set using ConfigSynthesizer.
@@ -271,6 +269,9 @@ def generate_and_save_test_set(
         batch_size: Batch size for generation (default: 20)
         sources: Optional list of SourceData dicts with IDs
         name: Optional custom name for test set
+        metadata: Optional extra metadata dict to merge into the saved test set's
+                  metadata. Useful for attaching structured labels (e.g. garak_tags,
+                  garak_module) from callers that know more context than the synthesizer.
 
     Returns:
         dict: Information about the generated and saved test set including ID and metadata
@@ -323,14 +324,14 @@ def generate_and_save_test_set(
         )
 
         # Create synthesizer with full config
-        if test_type == "single_turn":
+        if test_type == TestSetType.SINGLE_TURN.value:
             synthesizer = ConfigSynthesizer(
-                config=generation_config,  # Full config including all fields
+                config=generation_config,
                 batch_size=batch_size,
                 model=model,
                 sources=source_specifications if source_specifications else None,
             )
-        elif test_type == "multi_turn":
+        elif test_type == TestSetType.MULTI_TURN.value:
             synthesizer = MultiTurnSynthesizer(
                 config=generation_config,
                 model=model,
@@ -369,6 +370,7 @@ def generate_and_save_test_set(
             org_id,
             user_id,
             custom_name=name,
+            extra_metadata=metadata,
         )
 
         # Build and return result

@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4, BaseModel, Field, model_validator
 
+from rhesis.backend.app.constants import TestSetType
+
 
 class GenerationConfig(BaseModel):
     """
@@ -95,7 +97,7 @@ class GenerateTestsRequest(BaseModel):
     batch_size: int = 20
     sources: Optional[List[SourceData]] = None
     name: Optional[str] = None  # Used only for bulk generation to name the test set
-    test_type: Optional[str] = "single_turn"
+    test_type: Optional[str] = TestSetType.SINGLE_TURN.value
 
 
 class TestPrompt(BaseModel):
