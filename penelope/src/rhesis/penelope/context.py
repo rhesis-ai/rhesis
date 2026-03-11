@@ -661,7 +661,11 @@ class TestState:
                 result
                 for result in self.metric_results
                 if result.details.get("is_goal_achievement_metric", False)
-                or result.details.get("name") == "penelope_goal_evaluation"
+                or result.details.get("name") in (
+                    "goal_achievement",
+                    "goal_evaluation",
+                    "penelope_goal_evaluation",
+                )
             ]
             if goal_results:
                 # Use the last (most recent) goal evaluation result
@@ -806,7 +810,7 @@ class TestState:
             metric_dict = self._flatten_metric_result(metric_result)
 
             # Extract display name from details
-            metric_name = metric_dict.get("name", "penelope_goal_evaluation")
+            metric_name = metric_dict.get("name", "goal_achievement")
             display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
 
             # Check if this is a goal achievement metric using stored property
