@@ -26,16 +26,12 @@ function makeMetric(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makePaginatedResponse(items: unknown[]) {
-  return { data: items, pagination: { totalCount: items.length } };
-}
-
-let mockGetMetrics: jest.Mock;
+let mockGetAllMetrics: jest.Mock;
 
 beforeEach(() => {
-  mockGetMetrics = jest.fn().mockResolvedValue(makePaginatedResponse([]));
+  mockGetAllMetrics = jest.fn().mockResolvedValue([]);
   (MetricsClient as jest.Mock).mockImplementation(() => ({
-    getMetrics: mockGetMetrics,
+    getAllMetrics: mockGetAllMetrics,
   }));
 });
 
@@ -58,7 +54,7 @@ function renderDialog(
 
 describe('SelectMetricsDialog', () => {
   it('shows a loading indicator while fetching metrics', async () => {
-    mockGetMetrics.mockImplementation(() => new Promise(() => {}));
+    mockGetAllMetrics.mockImplementation(() => new Promise(() => {}));
     renderDialog();
     await screen.findByText(/loading metrics/i);
   });
@@ -76,37 +72,33 @@ describe('SelectMetricsDialog', () => {
   });
 
   it('shows "No metrics available" when the API returns an empty list', async () => {
-    mockGetMetrics.mockResolvedValue(makePaginatedResponse([]));
+    mockGetAllMetrics.mockResolvedValue([]);
     renderDialog();
     await screen.findByText(/no metrics available/i);
   });
 
   it('renders a list of metrics after loading', async () => {
-    mockGetMetrics.mockResolvedValue(
-      makePaginatedResponse([
-        makeMetric({ id: 'm-1', name: 'Coherence' }),
-        makeMetric({ id: 'm-2', name: 'Relevance' }),
-      ])
-    );
+    mockGetAllMetrics.mockResolvedValue([
+      makeMetric({ id: 'm-1', name: 'Coherence' }),
+      makeMetric({ id: 'm-2', name: 'Relevance' }),
+    ]);
     renderDialog();
     await screen.findByText('Coherence');
     expect(screen.getByText('Relevance')).toBeInTheDocument();
   });
 
   it('excludes already-selected metrics from the list', async () => {
-    mockGetMetrics.mockResolvedValue(
-      makePaginatedResponse([
-        makeMetric({ id: 'excluded-id', name: 'Already Added' }),
-        makeMetric({ id: 'available-id', name: 'Available Metric' }),
-      ])
-    );
+    mockGetAllMetrics.mockResolvedValue([
+      makeMetric({ id: 'excluded-id', name: 'Already Added' }),
+      makeMetric({ id: 'available-id', name: 'Available Metric' }),
+    ]);
     renderDialog({ excludeMetricIds: ['excluded-id' as never] });
     await screen.findByText('Available Metric');
     expect(screen.queryByText('Already Added')).not.toBeInTheDocument();
   });
 
   it('shows an error message when the fetch fails', async () => {
-    mockGetMetrics.mockRejectedValue(
+    mockGetAllMetrics.mockRejectedValue(
       new Error('API error: 500 - Server error')
     );
     renderDialog();
@@ -115,12 +107,10 @@ describe('SelectMetricsDialog', () => {
 
   it('filters metrics by search query (name match)', async () => {
     const user = userEvent.setup();
-    mockGetMetrics.mockResolvedValue(
-      makePaginatedResponse([
-        makeMetric({ id: 'm-1', name: 'Coherence' }),
-        makeMetric({ id: 'm-2', name: 'Relevance' }),
-      ])
-    );
+    mockGetAllMetrics.mockResolvedValue([
+      makeMetric({ id: 'm-1', name: 'Coherence' }),
+      makeMetric({ id: 'm-2', name: 'Relevance' }),
+    ]);
     renderDialog();
     await screen.findByText('Coherence');
 
@@ -132,12 +122,10 @@ describe('SelectMetricsDialog', () => {
 
   it('filters metrics by search query (description match)', async () => {
     const user = userEvent.setup();
-    mockGetMetrics.mockResolvedValue(
-      makePaginatedResponse([
-        makeMetric({ id: 'm-1', name: 'Alpha', description: 'judges fluency' }),
-        makeMetric({ id: 'm-2', name: 'Beta', description: 'checks safety' }),
-      ])
-    );
+    mockGetAllMetrics.mockResolvedValue([
+      makeMetric({ id: 'm-1', name: 'Alpha', description: 'judges fluency' }),
+      makeMetric({ id: 'm-2', name: 'Beta', description: 'checks safety' }),
+    ]);
     renderDialog();
     await screen.findByText('Alpha');
 
@@ -149,9 +137,9 @@ describe('SelectMetricsDialog', () => {
 
   it('shows "No metrics match your search" when search yields no results', async () => {
     const user = userEvent.setup();
-    mockGetMetrics.mockResolvedValue(
-      makePaginatedResponse([makeMetric({ id: 'm-1', name: 'Coherence' })])
-    );
+    mockGetAllMetrics.mockResolvedValue([
+      makeMetric({ id: 'm-1', name: 'Coherence' }),
+    ]);
     renderDialog();
     await screen.findByText('Coherence');
 
@@ -167,11 +155,9 @@ describe('SelectMetricsDialog', () => {
     const user = userEvent.setup();
     const onSelect = jest.fn();
     const onClose = jest.fn();
-    mockGetMetrics.mockResolvedValue(
-      makePaginatedResponse([
-        makeMetric({ id: 'metric-abc', name: 'Precision' }),
-      ])
-    );
+    mockGetAllMetrics.mockResolvedValue([
+      makeMetric({ id: 'metric-abc', name: 'Precision' }),
+    ]);
     renderDialog({ onSelect, onClose });
     await screen.findByText('Precision');
 
@@ -195,35 +181,33 @@ describe('SelectMetricsDialog', () => {
   });
 
   it('applies scope filter: only shows metrics matching the given scope', async () => {
-    mockGetMetrics.mockResolvedValue(
-      makePaginatedResponse([
-        makeMetric({
-          id: 'm-1',
-          name: 'Single Turn Metric',
-          metric_scope: ['Single-Turn'],
-        }),
-        makeMetric({
-          id: 'm-2',
-          name: 'Multi Turn Metric',
-          metric_scope: ['Multi-Turn'],
-        }),
-      ])
-    );
-    renderDialog({ scopeFilter: 'Single-Turn' as never });
+    mockGetAllMetrics.mockResolvedValue([
+      makeMetric({
+        id: 'm-1',
+        name: 'Single Turn Metric',
+        metric_scope: ['Single-Turn'],
+      }),
+      makeMetric({
+        id: 'm-2',
+        name: 'Multi Turn Metric',
+        metric_scope: ['Multi-Turn'],
+      }),
+    ]);
+    renderDialog({ scopeFilter: 'Single-Turn' });
     await screen.findByText('Single Turn Metric');
     expect(screen.queryByText('Multi Turn Metric')).not.toBeInTheDocument();
   });
 
   it('fetches metrics when the dialog opens (open=true)', async () => {
-    mockGetMetrics.mockResolvedValue(makePaginatedResponse([]));
+    mockGetAllMetrics.mockResolvedValue([]);
     renderDialog({ open: true });
     await waitFor(() => {
-      expect(mockGetMetrics).toHaveBeenCalledTimes(1);
+      expect(mockGetAllMetrics).toHaveBeenCalledTimes(1);
     });
   });
 
   it('does not fetch metrics when dialog is closed', () => {
     renderDialog({ open: false });
-    expect(mockGetMetrics).not.toHaveBeenCalled();
+    expect(mockGetAllMetrics).not.toHaveBeenCalled();
   });
 });

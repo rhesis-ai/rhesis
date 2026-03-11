@@ -1,6 +1,5 @@
 import React from 'react';
-import { useTheme } from '@mui/material/styles';
-import type { Theme } from '@mui/material/styles';
+import { useTheme, type Theme } from '@mui/material/styles';
 import { Card, CardContent, Typography, Box, Chip } from '@mui/material';
 
 export interface ChipData {

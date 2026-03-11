@@ -554,7 +554,7 @@ export default function ConversationHistory({
                       >
                         {(turn.context as string[]).map((item, idx, arr) => (
                           <Typography
-                            key={`ctx-${turn.turn}-${idx}`}
+                            key={`ctx-${turn.turn}-${item}`}
                             variant="body2"
                             sx={{
                               color: theme.palette.text.secondary,

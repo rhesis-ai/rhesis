@@ -315,9 +315,9 @@ export default function SelectMetricsDialog({
                           variant="outlined"
                         />
                       )}
-                      {metric.metric_scope?.map((scope, i) => (
+                      {metric.metric_scope?.map(scope => (
                         <Chip
-                          key={i}
+                          key={scope}
                           icon={getMetricScopeIcon(scope)}
                           label={scope}
                           size="small"
