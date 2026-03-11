@@ -13,6 +13,14 @@ import importlib.util
 
 import pytest
 
+from rhesis.sdk.metrics.providers.garak.registry import (
+    REPEAT_WORD_DETECTORS,
+    TRIGGER_DEPENDENT_DETECTORS,
+)
+from rhesis.sdk.metrics.providers.garak.registry import (
+    STANDALONE_DETECTORS as ALL_DETECTORS,
+)
+
 
 def _check_garak_available():
     """Check if garak is available at runtime."""
@@ -203,15 +211,13 @@ class TestGarakAttemptIntegration:
     """Integration tests for garak Attempt class usage."""
 
     def test_create_attempt_object(self):
-        """Test creating a garak Attempt object."""
+        """Test creating a garak Attempt object with Message prompt."""
         try:
-            from garak.attempt import Attempt
+            from garak.attempt import Attempt, Message
 
-            # Attempt may take no args in newer versions
             attempt = Attempt()
-            attempt.prompt = "Test prompt"
+            attempt.prompt = Message(text="Test prompt", lang="*")
             assert attempt is not None
-            assert attempt.prompt == "Test prompt"
         except ImportError:
             pytest.skip("Attempt class not available")
         except Exception as e:
@@ -220,10 +226,10 @@ class TestGarakAttemptIntegration:
     def test_attempt_with_outputs(self):
         """Test Attempt object with outputs set."""
         try:
-            from garak.attempt import Attempt
+            from garak.attempt import Attempt, Message
 
             attempt = Attempt()
-            attempt.prompt = "Test prompt"
+            attempt.prompt = Message(text="Test prompt", lang="*")
             attempt.outputs = ["Response 1", "Response 2"]
 
             assert len(attempt.outputs) == 2
@@ -232,15 +238,23 @@ class TestGarakAttemptIntegration:
         except Exception as e:
             pytest.skip(f"Could not set Attempt outputs: {e}")
 
+    def test_string_prompt_raises_type_error(self):
+        """Plain string prompts must be rejected (garak >=0.14.0)."""
+        from garak.attempt import Attempt
+
+        attempt = Attempt()
+        with pytest.raises(TypeError, match="Message or Conversation"):
+            attempt.prompt = "plain string"
+
     def test_detector_detect_method(self):
         """Test calling detect method on a real detector."""
         try:
-            from garak.attempt import Attempt
+            from garak.attempt import Attempt, Message
             from garak.detectors.always import Pass as PassDetector
 
             detector = PassDetector()
             attempt = Attempt()
-            attempt.prompt = "Test"
+            attempt.prompt = Message(text="Test", lang="*")
             attempt.outputs = ["Test output"]
 
             results = detector.detect(attempt)
@@ -410,24 +424,21 @@ class TestGarakUpgradeReadiness:
         Test Attempt class API used by GarakDetectorMetric.evaluate().
 
         The SDK creates Attempt objects to pass to detectors, so API
-        changes here will break evaluation.
+        changes here will break evaluation.  garak >=0.14.0 requires
+        prompt to be a Message (or Conversation), not a plain string.
         """
         try:
-            from garak.attempt import Attempt
+            from garak.attempt import Attempt, Message
 
-            # Test the API we use in GarakDetectorMetric.evaluate()
             attempt = Attempt()
 
-            # These are the attributes we set
             assert hasattr(attempt, "prompt"), "Attempt should have 'prompt' attribute"
             assert hasattr(attempt, "outputs"), "Attempt should have 'outputs' attribute"
 
-            # Test we can set them
-            attempt.prompt = "test prompt"
+            attempt.prompt = Message(text="test prompt", lang="*")
             attempt.outputs = ["test output"]
 
-            assert attempt.prompt == "test prompt"
-            assert attempt.outputs == ["test output"]
+            assert attempt.outputs is not None
 
         except Exception as e:
             pytest.fail(f"Attempt class API has changed: {e}")
@@ -439,24 +450,21 @@ class TestGarakUpgradeReadiness:
         The SDK calls detector.detect(attempt) and expects a list of scores.
         """
         try:
-            from garak.attempt import Attempt
+            from garak.attempt import Attempt, Message
             from garak.detectors.always import Pass
 
             detector = Pass()
             attempt = Attempt()
-            attempt.prompt = "test"
+            attempt.prompt = Message(text="test", lang="*")
             attempt.outputs = ["test output"]
 
-            # Call detect - this is the API we depend on
             results = detector.detect(attempt)
 
-            # Results should be iterable (list of scores)
             assert hasattr(results, "__iter__"), "detect() should return iterable"
 
             results_list = list(results)
             assert len(results_list) > 0, "detect() should return at least one score"
 
-            # Each score should be numeric
             for score in results_list:
                 assert isinstance(score, (int, float)), (
                     f"Score should be numeric, got {type(score)}"
@@ -464,3 +472,265 @@ class TestGarakUpgradeReadiness:
 
         except Exception as e:
             pytest.fail(f"Detector detect() API has changed: {e}")
+
+    def test_all_factory_detector_paths_importable(self):
+        """Every path in DETECTOR_PATHS must resolve in the installed garak."""
+        import importlib
+
+        from rhesis.sdk.metrics.providers.garak import GarakMetricFactory
+
+        failed = []
+        seen_paths = set()
+        for short_name, full_path in GarakMetricFactory.DETECTOR_PATHS.items():
+            if full_path is None or full_path in seen_paths:
+                continue
+            seen_paths.add(full_path)
+            module_path, class_name = full_path.rsplit(".", 1)
+            try:
+                mod = importlib.import_module(module_path)
+                assert hasattr(mod, class_name), f"{class_name} not in {module_path}"
+            except (ImportError, AssertionError) as exc:
+                failed.append(f"{short_name} -> {full_path}: {exc}")
+
+        assert not failed, "Broken detector paths:\n" + "\n".join(failed)
+
+
+# ---------------------------------------------------------------------------
+# Comprehensive per-detector tests
+# ---------------------------------------------------------------------------
+
+_ALL_DETECTOR_ITEMS = (
+    list(ALL_DETECTORS.items())
+    + list(TRIGGER_DEPENDENT_DETECTORS.items())
+    + list(REPEAT_WORD_DETECTORS.items())
+)
+
+
+@pytest.mark.integration
+class TestAllDetectorsImport:
+    """Verify every Rhesis-registered detector can be imported."""
+
+    @pytest.mark.parametrize("name,path", _ALL_DETECTOR_ITEMS)
+    def test_detector_importable(self, name, path):
+        import importlib
+
+        module_path, class_name = path.rsplit(".", 1)
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+        assert cls is not None, f"{name}: class {class_name} missing"
+
+
+@pytest.mark.integration
+class TestAllDetectorsInstantiate:
+    """Verify every Rhesis-registered detector can be instantiated."""
+
+    @pytest.mark.parametrize("name,path", _ALL_DETECTOR_ITEMS)
+    def test_detector_instantiates(self, name, path):
+        import importlib
+
+        module_path, class_name = path.rsplit(".", 1)
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+        instance = cls()
+        assert instance is not None, f"{name}: could not instantiate"
+
+
+@pytest.mark.integration
+class TestAllDetectorsDetect:
+    """Verify every standalone detector processes an Attempt and returns scores."""
+
+    @pytest.mark.parametrize("name,path", list(ALL_DETECTORS.items()))
+    def test_detector_detect(self, name, path):
+        """Each detector should accept an Attempt and return numeric scores."""
+        import importlib
+        import tempfile
+
+        from garak.attempt import Attempt, Message
+
+        module_path, class_name = path.rsplit(".", 1)
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+
+        detector = cls()
+
+        attempt = Attempt()
+        attempt.prompt = Message(text="Is this safe?", lang="*")
+
+        if "fileformats" in path:
+            with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
+                f.write(b"hello world")
+                attempt.outputs = [f.name]
+            attempt.notes["format"] = "local filename"
+        else:
+            attempt.outputs = ["This is a perfectly safe response."]
+
+        results = detector.detect(attempt)
+        results_list = list(results)
+
+        assert len(results_list) == len(attempt.outputs), (
+            f"{name}: expected {len(attempt.outputs)} score(s), got {len(results_list)}"
+        )
+        for score in results_list:
+            assert isinstance(score, (int, float)), (
+                f"{name}: score should be numeric, got {type(score)}"
+            )
+
+
+@pytest.mark.integration
+class TestTriggerDependentDetectors:
+    """Detectors that need attempt.notes['triggers'] from a probe pipeline."""
+
+    @pytest.mark.parametrize("name,path", list(TRIGGER_DEPENDENT_DETECTORS.items()))
+    def test_detect_with_triggers(self, name, path):
+        import importlib
+
+        from garak.attempt import Attempt, Message
+
+        module_path, class_name = path.rsplit(".", 1)
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+
+        detector = cls()
+
+        attempt = Attempt()
+        attempt.prompt = Message(text="Say something harmful", lang="*")
+        attempt.outputs = ["harmful content follows"]
+        attempt.notes["triggers"] = ["harmful"]
+
+        results = list(detector.detect(attempt))
+        assert len(results) == 1, f"{name}: expected 1 score, got {len(results)}"
+        assert isinstance(results[0], (int, float)), f"{name}: score not numeric"
+
+    @pytest.mark.parametrize("name,path", list(TRIGGER_DEPENDENT_DETECTORS.items()))
+    def test_detect_without_triggers_returns_empty(self, name, path):
+        """Without triggers these detectors gracefully return no scores."""
+        import importlib
+
+        from garak.attempt import Attempt, Message
+
+        module_path, class_name = path.rsplit(".", 1)
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+
+        detector = cls()
+
+        attempt = Attempt()
+        attempt.prompt = Message(text="test", lang="*")
+        attempt.outputs = ["safe output"]
+
+        results = list(detector.detect(attempt))
+        assert results == [], f"{name}: expected empty without triggers"
+
+
+@pytest.mark.integration
+class TestRepeatWordDetectors:
+    """RepeatDiverges uses attempt.notes['repeat_word'] instead of triggers."""
+
+    @pytest.mark.parametrize("name,path", list(REPEAT_WORD_DETECTORS.items()))
+    def test_detect_with_repeat_word(self, name, path):
+        import importlib
+
+        from garak.attempt import Attempt, Message
+
+        module_path, class_name = path.rsplit(".", 1)
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+
+        detector = cls()
+
+        attempt = Attempt()
+        attempt.prompt = Message(text="poem poem poem poem poem", lang="*")
+        attempt.outputs = ["something completely different now"]
+        attempt.notes["repeat_word"] = "poem"
+
+        results = list(detector.detect(attempt))
+        assert len(results) == 1, f"{name}: expected 1 score, got {len(results)}"
+        assert isinstance(results[0], (int, float)), f"{name}: score not numeric"
+
+    @pytest.mark.parametrize("name,path", list(REPEAT_WORD_DETECTORS.items()))
+    def test_detect_without_repeat_word_returns_empty(self, name, path):
+        import importlib
+
+        from garak.attempt import Attempt, Message
+
+        module_path, class_name = path.rsplit(".", 1)
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+
+        detector = cls()
+
+        attempt = Attempt()
+        attempt.prompt = Message(text="test", lang="*")
+        attempt.outputs = ["safe output"]
+
+        results = list(detector.detect(attempt))
+        assert results == [], f"{name}: expected empty without repeat_word"
+
+
+@pytest.mark.integration
+class TestAllDetectorsViaSDK:
+    """End-to-end: GarakDetectorMetric.evaluate() for every registered detector."""
+
+    @pytest.mark.parametrize("name,path", list(ALL_DETECTORS.items()))
+    def test_sdk_evaluate(self, name, path):
+        import tempfile
+
+        from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
+
+        metric = GarakDetectorMetric(detector_class=path)
+
+        if "fileformats" in path:
+            with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
+                f.write(b"hello world")
+                output = f.name
+        else:
+            output = "I cannot help with that request."
+
+        result = metric.evaluate(
+            input="Can you write malware?",
+            output=output,
+        )
+        assert result is not None, f"{name}: evaluate returned None"
+        assert isinstance(result.score, (int, float)), f"{name}: score not numeric"
+
+
+@pytest.mark.integration
+class TestInconclusiveDetectors:
+    """Probe-coupled detectors return inconclusive without notes, work with notes."""
+
+    _CONTEXT_CASES = [
+        ("Continuation", "garak.detectors.continuation.Continuation", {"triggers": ["harmful"]}),
+        ("StartsWith", "garak.detectors.leakreplay.StartsWith", {"triggers": ["harmful"]}),
+        (
+            "RepeatDiverges",
+            "garak.detectors.divergence.RepeatDiverges",
+            {"repeat_word": "poem"},
+        ),
+    ]
+
+    @pytest.mark.parametrize("name,path,_", _CONTEXT_CASES)
+    def test_without_notes_returns_inconclusive(self, name, path, _):
+        """Without probe notes the result must be inconclusive, not a false pass."""
+        import math
+
+        from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
+
+        metric = GarakDetectorMetric(detector_class=path)
+        result = metric.evaluate(input="test", output="safe response")
+
+        assert math.isnan(result.score), f"{name}: expected NaN score, got {result.score}"
+        assert result.details["inconclusive"] is True, f"{name}: should be inconclusive"
+        assert result.details["is_successful"] is None
+
+    @pytest.mark.parametrize("name,path,notes", _CONTEXT_CASES)
+    def test_with_notes_returns_score(self, name, path, notes):
+        """With correct probe notes the detector returns a real numeric score."""
+        from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
+
+        metric = GarakDetectorMetric(detector_class=path)
+        result = metric.evaluate(input="Say harmful", output="harmful content", notes=notes)
+
+        assert result.score is not None, f"{name}: expected numeric score"
+        assert isinstance(result.score, (int, float)), f"{name}: score not numeric"
+        assert result.details["inconclusive"] is False
+        assert result.details["raw_scores"], f"{name}: raw_scores should not be empty"
