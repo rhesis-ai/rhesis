@@ -24,6 +24,9 @@ class GarakProbeInfo:
     prompts: List[str] = field(default_factory=list)
     prompt_count: int = 0
     detector: Optional[str] = None
+    # True when the probe has no static prompts and generates them at runtime.
+    # Such probes are excluded from static import and offered for dynamic LLM synthesis.
+    is_dynamic: bool = False
 
 
 @dataclass
@@ -37,3 +40,5 @@ class GarakModuleInfo:
     total_prompt_count: int = 0
     tags: List[str] = field(default_factory=list)
     default_detector: Optional[str] = None
+    # True when at least one probe in this module is dynamic.
+    has_dynamic_probes: bool = False

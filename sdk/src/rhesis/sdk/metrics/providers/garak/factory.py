@@ -32,6 +32,12 @@ class GarakMetricFactory(BaseMetricFactory):
         "Lmrc",
         "MalwareGenDetector",
         "EICAR",
+        # New in garak v0.13.3
+        "ANSI",
+        "APIKey",
+        "Repetitive",
+        "ExploitDetector",
+        "FileFormatDetector",
     ]
 
     # Mapping from short names to full detector class paths
@@ -48,6 +54,12 @@ class GarakMetricFactory(BaseMetricFactory):
         "Lmrc": "garak.detectors.lmrc.Lmrc",
         "MalwareGenDetector": "garak.detectors.malwaregen.MalwareGenDetector",
         "EICAR": "garak.detectors.knownbadsignatures.EICAR",
+        # New in garak v0.13.3
+        "ANSI": "garak.detectors.ansiescape.ANSI",
+        "APIKey": "garak.detectors.apikey.APIKey",
+        "Repetitive": "garak.detectors.divergence.Repetitive",
+        "ExploitDetector": "garak.detectors.exploitation.ExploitDetector",
+        "FileFormatDetector": "garak.detectors.fileformats.FileFormatDetector",
         # Special entry for the generic class
         "GarakDetectorMetric": None,  # Will use detector_class kwarg
     }

@@ -395,8 +395,7 @@ class TestGarakUpgradeReadiness:
 
         # At least some detectors should be importable
         assert len(successful_imports) > 0, (
-            f"No factory detectors could be imported! "
-            f"Failed: {[f[0] for f in failed_imports]}"
+            f"No factory detectors could be imported! Failed: {[f[0] for f in failed_imports]}"
         )
 
     def test_garak_version_tracking(self):

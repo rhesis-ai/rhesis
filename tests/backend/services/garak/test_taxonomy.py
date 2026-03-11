@@ -225,5 +225,148 @@ class TestGarakTaxonomyConsistency:
         """Test that we have mappings for expected number of modules."""
         mappings = GarakTaxonomy.get_all_mappings()
 
-        # Should have at least 15 known modules mapped
-        assert len(mappings) >= 15
+        # 13 original + 2 renames (atkgen, av_spam_scanning) + 15 new = 28 minimum
+        assert len(mappings) >= 28
+
+
+@pytest.mark.unit
+@pytest.mark.service
+class TestGarakTaxonomyV013Modules:
+    """Tests for garak v0.13.3 taxonomy additions and renames."""
+
+    # ---- Renamed modules ----
+
+    def test_atkgen_module_mapping(self):
+        """'atkgen' replaces 'art' as of garak v0.13.3."""
+        mapping = GarakTaxonomy.get_mapping("atkgen")
+
+        assert mapping.topic == "Automatic Red-Team"
+        assert mapping.default_detector == "garak.detectors.perspective.Toxicity"
+
+    def test_av_spam_scanning_module_mapping(self):
+        """'av_spam_scanning' replaces 'knownbadsignatures' as of garak v0.13.3."""
+        mapping = GarakTaxonomy.get_mapping("av_spam_scanning")
+
+        assert mapping.topic == "Known Bad Patterns"
+        assert mapping.default_detector == "garak.detectors.knownbadsignatures.EICAR"
+
+    # ---- Previously untested original modules ----
+
+    def test_lmrc_module_mapping(self):
+        """Test lmrc module has explicit mapping."""
+        mapping = GarakTaxonomy.get_mapping("lmrc")
+
+        assert mapping is not None
+        assert mapping.default_detector.startswith("garak.detectors.")
+
+    def test_packagehallucination_module_mapping(self):
+        """Test packagehallucination module has explicit mapping."""
+        mapping = GarakTaxonomy.get_mapping("packagehallucination")
+
+        assert mapping is not None
+        assert mapping.default_detector.startswith("garak.detectors.")
+
+    def test_misleading_claim_detector_is_correct(self):
+        """Test misleading module points to MisleadingClaim detector."""
+        mapping = GarakTaxonomy.get_mapping("misleading")
+
+        assert mapping.default_detector == "garak.detectors.misleading.MisleadingClaim"
+
+    # ---- New modules in v0.13.3 ----
+
+    def test_ansiescape_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("ansiescape")
+
+        assert mapping.topic == "ANSI Escape Injection"
+        assert mapping.default_detector == "garak.detectors.ansiescape.ANSI"
+
+    def test_apikey_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("apikey")
+
+        assert mapping.topic == "API Key Leakage"
+        assert mapping.default_detector == "garak.detectors.apikey.APIKey"
+
+    def test_audio_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("audio")
+
+        assert mapping.topic == "Audio Attack"
+
+    def test_badchars_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("badchars")
+
+        assert mapping.topic == "Bad Characters"
+
+    def test_divergence_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("divergence")
+
+        assert mapping.topic == "Training Data Leakage"
+        assert mapping.default_detector == "garak.detectors.divergence.Repetitive"
+
+    def test_doctor_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("doctor")
+
+        assert mapping.topic == "Medical Advice"
+
+    def test_dra_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("dra")
+
+        assert mapping.topic == "Decomposed Roleplay Attack"
+
+    def test_exploitation_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("exploitation")
+
+        assert mapping.topic == "Code Exploitation"
+        assert mapping.default_detector == "garak.detectors.exploitation.ExploitDetector"
+
+    def test_fileformats_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("fileformats")
+
+        assert mapping.topic == "Malicious File Formats"
+        assert mapping.default_detector == "garak.detectors.fileformats.FileFormatDetector"
+
+    def test_fitd_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("fitd")
+
+        assert mapping.topic == "Foot In The Door"
+
+    def test_grandma_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("grandma")
+
+        assert mapping.topic == "Social Engineering"
+
+    def test_latentinjection_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("latentinjection")
+
+        assert mapping.topic == "Latent Prompt Injection"
+
+    def test_phrasing_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("phrasing")
+
+        assert mapping.topic == "Phrasing Attack"
+
+    def test_sata_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("sata")
+
+        assert mapping.topic == "Suffix Attack"
+
+    def test_smuggling_module_mapping(self):
+        mapping = GarakTaxonomy.get_mapping("smuggling")
+
+        assert mapping.topic == "ASCII Smuggling"
+
+    # ---- Regression: old module names must not exist ----
+
+    def test_art_key_does_not_exist(self):
+        """'art' was renamed to 'atkgen' in v0.13.3 — the old key must be gone."""
+        mappings = GarakTaxonomy.get_all_mappings()
+        assert "art" not in mappings, (
+            "Found stale 'art' key in taxonomy — it was renamed to 'atkgen' in garak v0.13.3."
+        )
+
+    def test_knownbadsignatures_key_does_not_exist(self):
+        """'knownbadsignatures' was renamed to 'av_spam_scanning' in v0.13.3."""
+        mappings = GarakTaxonomy.get_all_mappings()
+        assert "knownbadsignatures" not in mappings, (
+            "Found stale 'knownbadsignatures' key — "
+            "it was renamed to 'av_spam_scanning' in garak v0.13.3."
+        )

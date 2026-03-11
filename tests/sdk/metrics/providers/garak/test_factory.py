@@ -19,7 +19,7 @@ class TestFactoryListMetrics:
         metrics = factory.list_supported_metrics()
 
         assert isinstance(metrics, list)
-        assert len(metrics) == 12  # Based on SUPPORTED_DETECTORS
+        assert len(metrics) == 17  # 12 original + 5 new in garak v0.13.3
         assert "MitigationBypass" in metrics
         assert "Continuation" in metrics
         assert "MisleadingClaim" in metrics
@@ -32,6 +32,12 @@ class TestFactoryListMetrics:
         assert "Lmrc" in metrics
         assert "MalwareGenDetector" in metrics
         assert "EICAR" in metrics
+        # New in garak v0.13.3
+        assert "ANSI" in metrics
+        assert "APIKey" in metrics
+        assert "Repetitive" in metrics
+        assert "ExploitDetector" in metrics
+        assert "FileFormatDetector" in metrics
 
     def test_list_supported_metrics_returns_copy(self, factory):
         """Test that list_supported_metrics returns a copy."""
@@ -137,6 +143,41 @@ class TestFactoryCreateWithShortName:
 
         assert isinstance(metric, GarakDetectorMetric)
         assert metric.detector_class_path == "garak.detectors.knownbadsignatures.EICAR"
+
+    def test_create_ansi(self, factory):
+        """Test creating ANSI escape detector (new in garak v0.13.3)."""
+        metric = factory.create("ANSI")
+
+        assert isinstance(metric, GarakDetectorMetric)
+        assert metric.detector_class_path == "garak.detectors.ansiescape.ANSI"
+
+    def test_create_api_key(self, factory):
+        """Test creating APIKey detector (new in garak v0.13.3)."""
+        metric = factory.create("APIKey")
+
+        assert isinstance(metric, GarakDetectorMetric)
+        assert metric.detector_class_path == "garak.detectors.apikey.APIKey"
+
+    def test_create_repetitive(self, factory):
+        """Test creating Repetitive divergence detector (new in garak v0.13.3)."""
+        metric = factory.create("Repetitive")
+
+        assert isinstance(metric, GarakDetectorMetric)
+        assert metric.detector_class_path == "garak.detectors.divergence.Repetitive"
+
+    def test_create_exploit_detector(self, factory):
+        """Test creating ExploitDetector (new in garak v0.13.3)."""
+        metric = factory.create("ExploitDetector")
+
+        assert isinstance(metric, GarakDetectorMetric)
+        assert metric.detector_class_path == "garak.detectors.exploitation.ExploitDetector"
+
+    def test_create_file_format_detector(self, factory):
+        """Test creating FileFormatDetector (new in garak v0.13.3)."""
+        metric = factory.create("FileFormatDetector")
+
+        assert isinstance(metric, GarakDetectorMetric)
+        assert metric.detector_class_path == "garak.detectors.fileformats.FileFormatDetector"
 
     def test_create_with_threshold_only(self, factory):
         """Test creating short name detector with just threshold."""
@@ -359,3 +400,17 @@ class TestFactoryDetectorPaths:
                 assert len(parts) == 4, f"Path {path} doesn't have 4 parts"
                 assert parts[0] == "garak"
                 assert parts[1] == "detectors"
+
+    def test_new_v0_13_3_detector_paths(self, factory):
+        """Regression: all five new garak v0.13.3 detectors have correct paths."""
+        assert factory.DETECTOR_PATHS["ANSI"] == "garak.detectors.ansiescape.ANSI"
+        assert factory.DETECTOR_PATHS["APIKey"] == "garak.detectors.apikey.APIKey"
+        assert factory.DETECTOR_PATHS["Repetitive"] == "garak.detectors.divergence.Repetitive"
+        assert (
+            factory.DETECTOR_PATHS["ExploitDetector"]
+            == "garak.detectors.exploitation.ExploitDetector"
+        )
+        assert (
+            factory.DETECTOR_PATHS["FileFormatDetector"]
+            == "garak.detectors.fileformats.FileFormatDetector"
+        )

@@ -3,7 +3,7 @@ name = "rhesis-backend"
 version = "0.6.7"
 description = "Rhesis backend package"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 # Known unpatched vulnerabilities in transitive dependencies:
 # - orjson (CVE-2025-67221): no recursion limit for deeply nested JSON. No patch available.
 dependencies = [
@@ -58,7 +58,7 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.45b0",
     "passlib[bcrypt]>=1.7.4",
     "bcrypt>=4.0.0,<5.0.0",
-    "garak>=0.9.0",
+    "garak>=0.13.0",
     "mcp-atlassian>=0.13.0",
     "fastxlsx>=0.2.0",
     "sendgrid>=6.12.5",
@@ -101,6 +101,11 @@ explicit = true
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "fastmcp>=2.14.0",
+]
+# garak>=0.13.0 declares datasets<4.0 but ragas (via rhesis-sdk) requires datasets>=4.0.0.
+# The existing environment already uses datasets 4.x; this override keeps them compatible.
+override-dependencies = [
+    "datasets>=4.0.0",
 ]
 # CPU and GPU extras are mutually exclusive
 conflicts = [
