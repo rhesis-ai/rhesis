@@ -314,6 +314,8 @@ class PolyphemusLLM(BaseLLM):
             requests.exceptions.HTTPError: If the API request fails
             ValueError: If the response cannot be parsed
         """
+        timeout = kwargs.pop("timeout", DEFAULT_REQUEST_TIMEOUT)
+
         request_data = {
             "messages": messages,
             **kwargs,
@@ -324,7 +326,6 @@ class PolyphemusLLM(BaseLLM):
             request_data["model"] = self.model_name
 
         url = f"{self.base_url}/generate"
-        timeout = kwargs.pop("timeout", DEFAULT_REQUEST_TIMEOUT)
 
         # Calculate prompt size for debugging
         total_prompt_chars = sum(len(m.get("content", "")) for m in messages)
