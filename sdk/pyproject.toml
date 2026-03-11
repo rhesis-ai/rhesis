@@ -3,7 +3,7 @@ name = "rhesis-sdk"
 version = "0.6.8.post1"
 description = "SDK for testing and validating LLM applications"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     { name = "Engineering Team", email = "engineering@rhesis.ai" },
     { name = "Harry Cruz", email = "harry@rhesis.ai" },
@@ -86,7 +86,7 @@ huggingface = [
 
 # Garak LLM vulnerability scanner integration
 garak = [
-    "garak>=0.13.0",
+    "garak>=0.14.0",
 ]
 
 # Framework integrations for auto-instrumentation
@@ -145,7 +145,7 @@ dev = [
     "pyright>=1.1.407",
     "psycopg2-binary==2.9.9", # to match the version in the backend
     "pytest-cov>=7.0.0",
-    "garak>=0.13.0",
+    "garak>=0.14.0",
     "virtualenv>=20.36.1",
 ]
 
@@ -161,10 +161,14 @@ packages = [
 ]
 include = [
     "src/rhesis/py.typed",
+    "src/rhesis/sdk/metrics/providers/garak/detectors.yaml",
 ]
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.uv]
+override-dependencies = ["datasets>=4.0.0", "transformers>=5.0.0"]
 
 [tool.pyright]
 typeCheckingMode = "standard"
