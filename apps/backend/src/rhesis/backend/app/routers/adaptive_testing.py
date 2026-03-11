@@ -493,7 +493,7 @@ async def generate_outputs(
     "/{test_set_identifier}/evaluate",
     response_model=EvaluateResponse,
 )
-def evaluate_tests(
+async def evaluate_tests(
     test_set_identifier: str,
     body: EvaluateRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -508,7 +508,7 @@ def evaluate_tests(
     """
     organization_id, user_id = tenant_context
     try:
-        result = evaluate_tests_for_adaptive_set(
+        result = await evaluate_tests_for_adaptive_set(
             db=db,
             test_set_identifier=test_set_identifier,
             organization_id=str(organization_id),
@@ -632,7 +632,7 @@ async def generate_suggestion_outputs_endpoint(
     "/{test_set_identifier}/evaluate_suggestions",
     response_model=EvaluateSuggestionsResponse,
 )
-def evaluate_suggestions_endpoint(
+async def evaluate_suggestions_endpoint(
     test_set_identifier: str,
     body: EvaluateSuggestionsRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -650,7 +650,7 @@ def evaluate_suggestions_endpoint(
     items = [{"input": s.input, "output": s.output} for s in body.suggestions]
 
     try:
-        result = evaluate_suggestions(
+        result = await evaluate_suggestions(
             db=db,
             organization_id=str(organization_id),
             user_id=str(user_id),
