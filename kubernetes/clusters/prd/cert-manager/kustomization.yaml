@@ -7,7 +7,7 @@ resources:
 configMapGenerator:
   - name: cert-manager-config
     literals:
-      - acme-email=asad.miah@rhesis.ai
+      - acme-email=admin@rhesis.ai # need to change to the actual email
       - ingress-class=external
     options:
       annotations:
