@@ -57,9 +57,12 @@ class PolyphemusLLM(BaseLLM):
         if self.api_key is None:
             raise ValueError("RHESIS_API_KEY is not set")
 
-        # Backend/DB may pass "default"; server expects "polyphemus-default"
-        if not model_name or (model_name.strip() == "default"):
-            model_name = "polyphemus-default"
+        # Backend/DB may pass "default" or whitespace; use canonical default
+        mn = (model_name or "").strip()
+        if not mn or mn.lower() == "default":
+            model_name = DEFAULT_MODEL_NAME
+        else:
+            model_name = mn
         super().__init__(model_name, **kwargs)
 
     def load_model(self) -> Any:
