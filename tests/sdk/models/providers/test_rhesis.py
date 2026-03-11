@@ -1,8 +1,8 @@
 import os
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import aiohttp
 import pytest
-import requests
 from pydantic import BaseModel
 
 from rhesis.sdk.models.providers.native import (
@@ -19,6 +19,34 @@ class Capital(BaseModel):
 class Continent(BaseModel):
     name_of_continent: str
     capitals: list[Capital]
+
+
+def _mock_aiohttp_session(response_json=None, status=200, raise_for_status=None):
+    """Build a mock aiohttp.ClientSession for use with ``async with``.
+
+    aiohttp's session.post() returns a context manager synchronously,
+    so we use MagicMock for the call and AsyncMock for __aenter__/__aexit__.
+    """
+    mock_response = MagicMock()
+    mock_response.status = status
+    mock_response.json = AsyncMock(return_value=response_json)
+    if raise_for_status:
+        mock_response.raise_for_status.side_effect = raise_for_status
+    else:
+        mock_response.raise_for_status = MagicMock()
+
+    mock_post_ctx = MagicMock()
+    mock_post_ctx.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_post_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    mock_session = MagicMock()
+    mock_session.post = MagicMock(return_value=mock_post_ctx)
+
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    return mock_session_ctx, mock_session, mock_response
 
 
 class TestRhesisLLM:
@@ -85,174 +113,203 @@ class TestRhesisLLM:
         assert service.headers["Authorization"] == "Bearer test_api_key"
         assert service.headers["Content-Type"] == "application/json"
 
-    @patch("requests.post")
-    def test_create_completion_success(self, mock_post, service, mock_client):
+    @patch("aiohttp.ClientSession")
+    def test_create_completion_success(self, mock_session_class, service):
         """Test successful completion creation."""
-        # Mock the response
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "content": "Test response",
-            "status": "success",
-        }
-        mock_response.raise_for_status.return_value = None
-        mock_post.return_value = mock_response
-
-        # Load model to set up client and headers
-        service.load_model()
-
-        result = service.create_completion(
-            prompt="Test prompt", temperature=0.5, max_tokens=1000, schema="test_schema"
+        session_ctx, mock_session, mock_response = _mock_aiohttp_session(
+            response_json={"content": "Test response", "status": "success"},
         )
+        mock_session_class.return_value = session_ctx
+
+        service.load_model()
+        result = service.generate(prompt="Test prompt", temperature=0.5, max_tokens=1000)
 
         assert result == {"content": "Test response", "status": "success"}
 
-        # Verify the request was made correctly
-        mock_post.assert_called_once()
-        call_args = mock_post.call_args
+        mock_session.post.assert_called_once()
+        call_args = mock_session.post.call_args
         assert call_args[0][0] == "https://test.example.com/services/generate/content"
-        assert call_args[1]["headers"]["Authorization"] == "Bearer test_api_key"
         assert call_args[1]["json"]["prompt"] == "Test prompt"
         assert call_args[1]["json"]["temperature"] == 0.5
         assert call_args[1]["json"]["max_tokens"] == 1000
-        assert call_args[1]["json"]["schema"] == "test_schema"
 
-    @patch("requests.post")
-    def test_create_completion_http_error(self, mock_post, service, mock_client):
+    @patch("aiohttp.ClientSession")
+    def test_create_completion_http_error(self, mock_session_class, service):
         """Test completion creation with HTTP error."""
-        # Mock HTTP error
-        mock_response = Mock()
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("404 Not Found")
-        mock_post.return_value = mock_response
+        session_ctx, _, _ = _mock_aiohttp_session(
+            status=404,
+            raise_for_status=aiohttp.ClientResponseError(
+                request_info=MagicMock(),
+                history=(),
+                status=404,
+                message="Not Found",
+            ),
+        )
+        mock_session_class.return_value = session_ctx
 
         service.load_model()
+        result = service.generate(prompt="Test prompt")
+        assert result == "An error occurred while processing the request."
 
-        with pytest.raises(requests.exceptions.HTTPError):
-            service.create_completion(prompt="Test prompt")
-
-    @patch("requests.post")
-    def test_generate_with_schema_success(self, mock_post, service, mock_client):
+    @patch("aiohttp.ClientSession")
+    def test_generate_with_schema_success(self, mock_session_class, service):
         """Test generate method with schema on success."""
-        # Mock the response
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            "content": '{"name_of_continent": "Europe", "capitals": [{"name_of_capital": "London", "population": 9000000}]}',
+        response_data = {
+            "content": (
+                '{"name_of_continent": "Europe", '
+                '"capitals": [{"name_of_capital": "London", "population": 9000000}]}'
+            ),
             "status": "success",
         }
-        mock_response.raise_for_status.return_value = None
-        mock_post.return_value = mock_response
+        session_ctx, mock_session, _ = _mock_aiohttp_session(
+            response_json=response_data,
+        )
+        mock_session_class.return_value = session_ctx
 
         service.load_model()
-
         result = service.generate(prompt="Test prompt", schema=Continent)
 
-        assert result == mock_response.json.return_value
+        assert result == response_data
 
-        # Verify schema was converted to JSON schema format
-        call_args = mock_post.call_args
+        call_args = mock_session.post.call_args
         schema_data = call_args[1]["json"]["schema"]
         assert schema_data["type"] == "json_schema"
         assert schema_data["json_schema"]["name"] == "Continent"
         assert "properties" in schema_data["json_schema"]["schema"]
 
-    @patch("requests.post")
-    def test_generate_with_schema_error(self, mock_post, service, mock_client):
+    @patch("aiohttp.ClientSession")
+    def test_generate_with_schema_error(self, mock_session_class, service):
         """Test generate method with schema on error."""
-        # Mock HTTP error
-        mock_response = Mock()
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
-            "500 Internal Error"
+        session_ctx, _, _ = _mock_aiohttp_session(
+            status=500,
+            raise_for_status=aiohttp.ClientResponseError(
+                request_info=MagicMock(),
+                history=(),
+                status=500,
+                message="Internal Server Error",
+            ),
         )
-        mock_post.return_value = mock_response
+        mock_session_class.return_value = session_ctx
 
         service.load_model()
-
         result = service.generate(prompt="Test prompt", schema=Continent)
-
         assert result == {"error": "An error occurred while processing the request."}
 
     def test_default_parameters(self, service, mock_client):
         """Test default parameter values."""
         assert service.model_name == DEFAULT_LANGUAGE_MODEL_NAME
 
-    @patch("requests.post")
-    def test_create_completion_default_params(self, mock_post, service, mock_client):
+    @patch("aiohttp.ClientSession")
+    def test_create_completion_default_params(self, mock_session_class, service):
         """Test create_completion with default parameters."""
-        mock_response = Mock()
-        mock_response.json.return_value = {"content": "Test"}
-        mock_response.raise_for_status.return_value = None
-        mock_post.return_value = mock_response
+        session_ctx, mock_session, _ = _mock_aiohttp_session(
+            response_json={"content": "Test"},
+        )
+        mock_session_class.return_value = session_ctx
 
         service.load_model()
+        service.generate(prompt="Test")
 
-        result = service.create_completion(prompt="Test")
-
-        # Verify default values were used
-        call_args = mock_post.call_args
+        call_args = mock_session.post.call_args
         assert call_args[1]["json"]["temperature"] == 0.7
         assert call_args[1]["json"]["max_tokens"] == 4000
         assert call_args[1]["json"]["schema"] is None
 
-    @patch("requests.post")
-    def test_create_completion_custom_params(self, mock_post, service, mock_client):
+    @patch("aiohttp.ClientSession")
+    def test_create_completion_custom_params(self, mock_session_class, service):
         """Test create_completion with custom parameters."""
-        mock_response = Mock()
-        mock_response.json.return_value = {"content": "Test"}
-        mock_response.raise_for_status.return_value = None
-        mock_post.return_value = mock_response
+        session_ctx, mock_session, _ = _mock_aiohttp_session(
+            response_json={"content": "Test"},
+        )
+        mock_session_class.return_value = session_ctx
 
         service.load_model()
-
-        result = service.create_completion(
+        service.generate(
             prompt="Test",
             temperature=0.1,
             max_tokens=2000,
-            schema="custom_schema",
             custom_param="value",
         )
 
-        # Verify custom values were used
-        call_args = mock_post.call_args
+        call_args = mock_session.post.call_args
         assert call_args[1]["json"]["temperature"] == 0.1
         assert call_args[1]["json"]["max_tokens"] == 2000
-        assert call_args[1]["json"]["schema"] == "custom_schema"
         assert call_args[1]["json"]["custom_param"] == "value"
 
-    @patch("requests.post")
-    def test_generate_without_schema_success(self, mock_post, service, mock_client):
+    @patch("aiohttp.ClientSession")
+    def test_generate_without_schema_success(self, mock_session_class, service):
         """Test generate method without schema on success."""
-        # Mock the response
-        mock_response = Mock()
-        mock_response.json.return_value = {
+        session_ctx, mock_session, _ = _mock_aiohttp_session(
+            response_json={
+                "content": "This is a test response without schema validation.",
+                "status": "success",
+            },
+        )
+        mock_session_class.return_value = session_ctx
+
+        service.load_model()
+        result = service.generate(prompt="Tell me a joke.")
+
+        assert result == {
             "content": "This is a test response without schema validation.",
             "status": "success",
         }
-        mock_response.raise_for_status.return_value = None
-        mock_post.return_value = mock_response
 
-        service.load_model()
-
-        result = service.generate(prompt="Tell me a joke.")
-
-        assert result == mock_response.json.return_value
-
-        # Verify no schema was passed
-        call_args = mock_post.call_args
+        call_args = mock_session.post.call_args
         assert call_args[1]["json"]["schema"] is None
         assert call_args[1]["json"]["prompt"] == "Tell me a joke."
 
-    @patch("requests.post")
-    def test_generate_without_schema_error(self, mock_post, service, mock_client):
+    @patch("aiohttp.ClientSession")
+    def test_generate_without_schema_error(self, mock_session_class, service):
         """Test generate method without schema on error."""
-        # Mock HTTP error
-        mock_response = Mock()
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
-            "500 Internal Error"
+        session_ctx, _, _ = _mock_aiohttp_session(
+            status=500,
+            raise_for_status=aiohttp.ClientResponseError(
+                request_info=MagicMock(),
+                history=(),
+                status=500,
+                message="Internal Server Error",
+            ),
         )
-        mock_post.return_value = mock_response
+        mock_session_class.return_value = session_ctx
 
         service.load_model()
-
         result = service.generate(prompt="Tell me a joke.")
-
-        # Should return a string error message when no schema is provided
         assert result == "An error occurred while processing the request."
+
+    @patch("aiohttp.ClientSession")
+    def test_generate_batch_concurrent(self, mock_session_class, service):
+        """Test generate_batch runs prompts concurrently."""
+        responses = {
+            "Prompt A": {"response": "Prompt A"},
+            "Prompt B": {"response": "Prompt B"},
+            "Prompt C": {"response": "Prompt C"},
+        }
+
+        def mock_post(url, **kwargs):
+            prompt = kwargs["json"]["prompt"]
+            resp = MagicMock()
+            resp.status = 200
+            resp.raise_for_status = MagicMock()
+            resp.json = AsyncMock(return_value=responses[prompt])
+
+            ctx = MagicMock()
+            ctx.__aenter__ = AsyncMock(return_value=resp)
+            ctx.__aexit__ = AsyncMock(return_value=False)
+            return ctx
+
+        mock_session = MagicMock()
+        mock_session.post = mock_post
+
+        session_ctx = MagicMock()
+        session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+        session_ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session_class.return_value = session_ctx
+
+        service.load_model()
+        results = service.generate_batch(prompts=["Prompt A", "Prompt B", "Prompt C"])
+
+        assert len(results) == 3
+        assert results[0] == {"response": "Prompt A"}
+        assert results[1] == {"response": "Prompt B"}
+        assert results[2] == {"response": "Prompt C"}

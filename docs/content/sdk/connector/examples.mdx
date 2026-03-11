@@ -323,6 +323,52 @@ async def async_query(query: str, timeout: int = 30) -> dict:
         }`}
 </CodeBlock>
 
+## Tool-Calling Agent
+
+Endpoint that uses tools and returns tool call information for evaluation:
+
+<CodeBlock filename="tool_calling_agent.py" language="python">
+{`from rhesis.sdk import RhesisClient, endpoint
+
+client = RhesisClient(
+    api_key="your-api-key",
+    project_id="your-project-id",
+    environment="development",
+)
+
+@endpoint(
+    response_mapping={
+        "output": "$.response",
+        "tool_calls": "$.tool_calls",
+        "metadata": "$.metadata",
+    },
+)
+async def agent_with_tools(input: str, session_id: str = None) -> dict:
+    """Agent that invokes tools and reports them back."""
+    tool_calls = []
+
+    # Example: agent decides to call a weather API
+    weather = get_weather(input)
+    tool_calls.append({
+        "name": "get_weather",
+        "arguments": {"query": input},
+        "result": weather,
+    })
+
+    answer = synthesize_answer(input, weather)
+
+    return {
+        "output": answer,
+        "tool_calls": tool_calls,
+        "metadata": {"model": "gpt-4", "tools_used": len(tool_calls)},
+        "session_id": session_id,
+    }`}
+</CodeBlock>
+
+Rhesis stores `tool_calls` alongside the test result and makes them available to
+metrics that evaluate tool use (e.g., whether the correct tools were called with
+appropriate arguments).
+
 ## RAG Pipeline
 
 Complete RAG (Retrieval-Augmented Generation) example:

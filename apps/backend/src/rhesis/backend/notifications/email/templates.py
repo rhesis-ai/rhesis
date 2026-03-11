@@ -2,11 +2,11 @@
 Template service for email notifications.
 """
 
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.notifications.email.templates.email_fragments import (
     HTML_ERROR_DETAILS_SECTION,
     HTML_EXECUTION_TIME_ROW,
@@ -17,6 +17,8 @@ from rhesis.backend.notifications.email.templates.email_fragments import (
     TEXT_TEST_RUN_ID,
     TEXT_VIEW_RESULTS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateService:

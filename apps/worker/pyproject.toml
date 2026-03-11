@@ -52,6 +52,7 @@ dependencies = [
     "yaspin==3.0.2",
     "rhesis-sdk",
     "rhesis-penelope",
+    "sendgrid",
 ]
 
 [tool.uv]

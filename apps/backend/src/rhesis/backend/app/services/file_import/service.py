@@ -5,17 +5,19 @@ final test set creation through a stateful multi-step flow.
 """
 
 import json
+import logging
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.user import User
-from rhesis.backend.logging import logger
 
 from .mapping import auto_map_columns, is_llm_available, llm_map_columns
 from .parsers import detect_format, extract_headers_and_sample, parse_file
 from .storage import MAX_ROWS_PER_IMPORT, ImportSessionStore
 from .validators import validate_rows
+
+logger = logging.getLogger(__name__)
 
 
 class ImportService:

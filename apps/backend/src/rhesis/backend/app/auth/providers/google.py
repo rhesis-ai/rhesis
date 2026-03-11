@@ -4,6 +4,7 @@ Google OAuth Authentication Provider.
 This provider handles authentication via Google's OAuth 2.0 / OpenID Connect.
 """
 
+import logging
 import os
 from typing import Any, Optional
 
@@ -12,7 +13,8 @@ from fastapi import HTTPException, Request, status
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.providers.base import AuthProvider, AuthUser
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 class GoogleProvider(AuthProvider):

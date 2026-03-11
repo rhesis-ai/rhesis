@@ -5,6 +5,8 @@ Provides a multi-step flow for importing test sets from uploaded
 files (JSON, JSONL, CSV, Excel).
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -25,7 +27,8 @@ from rhesis.backend.app.schemas.file_import import (
 )
 from rhesis.backend.app.services.file_import import ImportService
 from rhesis.backend.app.services.file_import.exceptions import FileImportError
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 # Generic message for unexpected server errors (never expose internals)
 IMPORT_ERROR_GENERIC = "Import failed. Please try again or contact support."

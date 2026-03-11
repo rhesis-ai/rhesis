@@ -130,50 +130,30 @@ def test_generate_batch_returns_nested_structure():
 
 
 # Generation tests
-@patch.object(PromptSynthesizer, "_generate_batch")
-def test_generate_without_sources_small_batch(mock_generate_batch):
+def test_generate_without_sources_small_batch():
     """Test generation without sources for small number of tests."""
-    mock_generate_batch.return_value = [
+    mock_model = Mock(spec=BaseLLM)
+    mock_model.generate_batch.return_value = [
         {
-            "prompt": {
-                "content": "Test prompt 1",
-                "expected_response": "Response 1",
-                "language_code": "en",
-            },
-            "behavior": "test behavior 1",
-            "category": "test category 1",
-            "topic": "test topic 1",
-            "metadata": {"generated_by": "PromptSynthesizer"},
-        },
-        {
-            "prompt": {
-                "content": "Test prompt 2",
-                "expected_response": "Response 2",
-                "language_code": "en",
-            },
-            "behavior": "test behavior 2",
-            "category": "test category 2",
-            "topic": "test topic 2",
-            "metadata": {"generated_by": "PromptSynthesizer"},
-        },
-        {
-            "prompt": {
-                "content": "Test prompt 3",
-                "expected_response": "Response 3",
-                "language_code": "en",
-            },
-            "behavior": "test behavior 3",
-            "category": "test category 3",
-            "topic": "test topic 3",
-            "metadata": {"generated_by": "PromptSynthesizer"},
-        },
+            "tests": [
+                {
+                    "prompt_content": f"Test prompt {i + 1}",
+                    "prompt_expected_response": f"Response {i + 1}",
+                    "prompt_language_code": "en",
+                    "behavior": f"test behavior {i + 1}",
+                    "category": f"test category {i + 1}",
+                    "topic": f"test topic {i + 1}",
+                }
+                for i in range(3)
+            ]
+        }
     ]
 
-    synthesizer = PromptSynthesizer(prompt="Generate tests")
+    synthesizer = PromptSynthesizer(prompt="Generate tests", model=mock_model)
     result = synthesizer._generate_without_sources(num_tests=3)
 
     assert len(result) == 3
-    assert mock_generate_batch.called
+    assert mock_model.generate_batch.call_count == 1
 
     item0 = result[0]
     assert item0["prompt"]["content"] == "Test prompt 1"
@@ -182,32 +162,140 @@ def test_generate_without_sources_small_batch(mock_generate_batch):
     assert item0["behavior"] == "test behavior 1"
     assert item0["category"] == "test category 1"
     assert item0["topic"] == "test topic 1"
-    assert item0["metadata"] == {"generated_by": "PromptSynthesizer"}
-
-    item1 = result[1]
-    assert item1["prompt"]["content"] == "Test prompt 2"
-    assert item1["prompt"]["expected_response"] == "Response 2"
-    assert item1["prompt"]["language_code"] == "en"
-    assert item1["behavior"] == "test behavior 2"
-    assert item1["category"] == "test category 2"
-    assert item1["topic"] == "test topic 2"
-    assert item1["metadata"] == {"generated_by": "PromptSynthesizer"}
-
-    item2 = result[2]
-    assert item2["prompt"]["content"] == "Test prompt 3"
-    assert item2["prompt"]["expected_response"] == "Response 3"
-    assert item2["prompt"]["language_code"] == "en"
-    assert item2["behavior"] == "test behavior 3"
-    assert item2["category"] == "test category 3"
-    assert item2["topic"] == "test topic 3"
-    assert item2["metadata"] == {"generated_by": "PromptSynthesizer"}
+    assert item0["metadata"]["generated_by"] == "PromptSynthesizer"
 
 
+def test_generate_without_sources_large_batch():
+    """Test that large requests use model.generate_batch for parallel execution."""
+    mock_model = Mock(spec=BaseLLM)
+    batch_response = {
+        "tests": [
+            {
+                "prompt_content": f"Test {i}",
+                "prompt_expected_response": f"Response {i}",
+                "prompt_language_code": "en",
+                "behavior": "behavior",
+                "category": "category",
+                "topic": "topic",
+            }
+            for i in range(20)
+        ]
+    }
+    mock_model.generate_batch.return_value = [batch_response, batch_response]
+
+    synthesizer = PromptSynthesizer(prompt="Generate tests", model=mock_model, batch_size=20)
+    result = synthesizer._generate_without_sources(num_tests=40)
+
+    assert mock_model.generate_batch.call_count == 1
+    assert len(result) == 40
+
+
+def test_generate_without_sources_large_batch_with_remainder():
+    """Test large request where num_tests is not evenly divisible by batch_size."""
+    mock_model = Mock(spec=BaseLLM)
+    full_batch = {
+        "tests": [
+            {
+                "prompt_content": f"Test {i}",
+                "prompt_expected_response": f"Response {i}",
+                "prompt_language_code": "en",
+                "behavior": "behavior",
+                "category": "category",
+                "topic": "topic",
+            }
+            for i in range(5)
+        ]
+    }
+    remainder_batch = {
+        "tests": [
+            {
+                "prompt_content": f"Test r{i}",
+                "prompt_expected_response": f"Response r{i}",
+                "prompt_language_code": "en",
+                "behavior": "behavior",
+                "category": "category",
+                "topic": "topic",
+            }
+            for i in range(3)
+        ]
+    }
+    mock_model.generate_batch.return_value = [
+        full_batch,
+        full_batch,
+        remainder_batch,
+    ]
+
+    synthesizer = PromptSynthesizer(
+        prompt="Generate tests", model=mock_model, batch_size=5
+    )
+    result = synthesizer._generate_without_sources(num_tests=13)
+
+    assert mock_model.generate_batch.call_count == 1
+    assert len(result) == 13
+
+
+def test_large_batch_partial_failure_falls_back():
+    """Test that partial failures in generate_batch trigger sequential fallback."""
+    mock_model = Mock(spec=BaseLLM)
+    flat_tests_5 = {
+        "tests": [
+            {
+                "prompt_content": f"Test {i}",
+                "prompt_expected_response": f"Response {i}",
+                "prompt_language_code": "en",
+                "behavior": "behavior",
+                "category": "category",
+                "topic": "topic",
+            }
+            for i in range(5)
+        ]
+    }
+    mock_model.generate_batch.return_value = [
+        flat_tests_5,
+        {"error": "LLM failed"},
+    ]
+    mock_model.generate.return_value = flat_tests_5
+
+    synthesizer = PromptSynthesizer(prompt="Generate tests", model=mock_model, batch_size=5)
+    result = synthesizer._generate_without_sources(num_tests=10)
+
+    assert mock_model.generate_batch.call_count == 1
+    assert mock_model.generate.call_count == 1
+    assert len(result) == 10
+
+
+def test_large_batch_exception_falls_back():
+    """Test that generate_batch exception triggers full sequential fallback."""
+    mock_model = Mock(spec=BaseLLM)
+    flat_tests_5 = {
+        "tests": [
+            {
+                "prompt_content": f"Test {i}",
+                "prompt_expected_response": f"Response {i}",
+                "prompt_language_code": "en",
+                "behavior": "behavior",
+                "category": "category",
+                "topic": "topic",
+            }
+            for i in range(5)
+        ]
+    }
+    mock_model.generate_batch.side_effect = RuntimeError("batch failed")
+    mock_model.generate.return_value = flat_tests_5
+
+    synthesizer = PromptSynthesizer(prompt="Generate tests", model=mock_model, batch_size=5)
+    result = synthesizer._generate_without_sources(num_tests=10)
+
+    assert mock_model.generate_batch.call_count == 1
+    assert mock_model.generate.call_count == 2
+    assert len(result) == 10
+
+
+@patch.object(PromptSynthesizer, "_generate_parallel_batches", return_value=[])
 @patch.object(PromptSynthesizer, "_generate_batch")
-def test_generate_without_sources_large_batch(mock_generate_batch):
-    """Test generation without sources for large number of tests (chunking)."""
-    # Mock returns 20 tests per call
-    mock_generate_batch.return_value = [
+def test_batch_size_reduction_on_failure(mock_generate_batch, _mock_parallel):
+    """Test that batch size is halved when a batch fails and retries succeed."""
+    small_batch = [
         {
             "prompt": {
                 "content": f"Test {i}",
@@ -219,15 +307,68 @@ def test_generate_without_sources_large_batch(mock_generate_batch):
             "topic": "topic",
             "metadata": {"generated_by": "PromptSynthesizer"},
         }
-        for i in range(20)
+        for i in range(5)
+    ]
+    mock_generate_batch.side_effect = [
+        [],  # batch_size=10 fails
+        small_batch,  # retry with batch_size=5, succeeds
+        small_batch,  # remaining 5, succeeds
     ]
 
-    synthesizer = PromptSynthesizer(prompt="Generate tests", batch_size=20)
-    result = synthesizer._generate_without_sources(num_tests=40)
+    synthesizer = PromptSynthesizer(prompt="Generate tests", batch_size=10)
+    result = synthesizer._generate_without_sources(num_tests=10)
 
-    # Should be called twice (40 tests / 20 batch size)
+    assert len(result) == 10
+    assert mock_generate_batch.call_count == 3
+    assert mock_generate_batch.call_args_list[0][0][0] == 10
+    assert mock_generate_batch.call_args_list[1][0][0] == 5
+    assert mock_generate_batch.call_args_list[2][0][0] == 5
+
+
+@patch.object(PromptSynthesizer, "_generate_parallel_batches", return_value=[])
+@patch.object(PromptSynthesizer, "_generate_batch")
+def test_max_consecutive_failures_raises(mock_generate_batch, _mock_parallel):
+    """Test that generation stops after max consecutive failures."""
+    mock_generate_batch.return_value = []
+
+    synthesizer = PromptSynthesizer(prompt="Generate tests", batch_size=10)
+
+    with pytest.raises(ValueError, match="Failed to generate any valid test cases"):
+        synthesizer._generate_without_sources(num_tests=10)
+
+    # 10 -> 5 -> 2 (3 failures = _MAX_CONSECUTIVE_FAILURES)
+    assert mock_generate_batch.call_count == 3
+
+
+@patch.object(PromptSynthesizer, "_generate_parallel_batches", return_value=[])
+@patch.object(PromptSynthesizer, "_generate_batch")
+def test_batch_size_reduction_on_exception(mock_generate_batch, _mock_parallel):
+    """Test that exceptions in _generate_batch trigger batch size reduction."""
+    small_batch = [
+        {
+            "prompt": {
+                "content": "Test 0",
+                "expected_response": "Response 0",
+                "language_code": "en",
+            },
+            "behavior": "behavior",
+            "category": "category",
+            "topic": "topic",
+            "metadata": {"generated_by": "PromptSynthesizer"},
+        }
+    ]
+    mock_generate_batch.side_effect = [
+        RuntimeError("LLM timeout"),
+        small_batch,
+    ]
+
+    synthesizer = PromptSynthesizer(prompt="Generate tests", batch_size=2)
+    result = synthesizer._generate_without_sources(num_tests=1)
+
+    assert len(result) == 1
     assert mock_generate_batch.call_count == 2
-    assert len(result) == 40
+    assert mock_generate_batch.call_args_list[0][0][0] == 1
+    assert mock_generate_batch.call_args_list[1][0][0] == 1
 
 
 def test_generate_without_sources_invalid_num_tests():

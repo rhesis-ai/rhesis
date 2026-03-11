@@ -14,6 +14,11 @@ from uuid import uuid4
 
 import pytest
 
+from rhesis.backend.tasks.execution.constants import (
+    CONVERSATION_SUMMARY_KEY,
+    PENELOPE_MESSAGE_KEY,
+    TARGET_RESPONSE_KEY,
+)
 from rhesis.backend.tasks.execution.executors.output_providers import (
     MultiTurnOutput,
     MultiTurnTraceOutput,
@@ -161,7 +166,9 @@ class TestMultiTurnOutput:
         """MultiTurnOutput runs PenelopeAgent and returns metrics from the trace."""
         mock_penelope_result = MagicMock()
         mock_penelope_result.model_dump.return_value = {
-            "conversation_summary": [{"penelope_message": "Hi", "target_response": "Hello"}],
+            CONVERSATION_SUMMARY_KEY: [
+                {PENELOPE_MESSAGE_KEY: "Hi", TARGET_RESPONSE_KEY: "Hello"}
+            ],
             "metrics": {"goal_achieved": True},
         }
 
@@ -207,7 +214,7 @@ class TestMultiTurnOutput:
         """MultiTurnOutput creates PenelopeAgent without model when model is None."""
         mock_penelope_result = MagicMock()
         mock_penelope_result.model_dump.return_value = {
-            "conversation_summary": [],
+            CONVERSATION_SUMMARY_KEY: [],
             "metrics": {},
         }
 

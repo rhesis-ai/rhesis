@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union, cast
 
 from pydantic import BaseModel
-from tqdm.auto import tqdm
 
 from rhesis.sdk.entities.test_set import TestSet
 from rhesis.sdk.enums import TestType
@@ -27,25 +26,6 @@ from rhesis.sdk.synthesizers.utils import (
 logger = logging.getLogger(__name__)
 
 
-class Prompt(BaseModel):
-    content: str
-    expected_response: str
-    language_code: str
-
-
-class Test(BaseModel):
-    prompt: Prompt
-    behavior: str
-    category: str
-    topic: str
-    # Note: test_type is NOT included in the schema sent to the LLM
-    # It will be added programmatically after generation
-
-
-class Tests(BaseModel):
-    tests: List[Test]
-
-
 # Flat schema for LLM batch generation (easier for the model to produce).
 # Repacked to nested Test structure after generation.
 class FlatTest(BaseModel):
@@ -61,6 +41,10 @@ class FlatTests(BaseModel):
     tests: List[FlatTest]
 
 
+_MIN_BATCH_SIZE = 1
+_MAX_CONSECUTIVE_FAILURES = 3
+
+
 class TestSetSynthesizer(ABC):
     """Base class for all test set synthesizers."""
 
@@ -71,7 +55,7 @@ class TestSetSynthesizer(ABC):
         batch_size: int = 5,
         model: Optional[Union[str, BaseLLM]] = None,
         sources: Optional[List[SourceSpecification]] = None,
-        chunking_strategy: Optional[ChunkingStrategy] = SemanticChunker(max_tokens_per_chunk=1500),
+        chunking_strategy: Optional[ChunkingStrategy] = None,
     ):
         """
         Initialize the base synthesizer.
@@ -81,34 +65,19 @@ class TestSetSynthesizer(ABC):
             model: The model to use for generation (string name or BaseLLM instance)
             sources: Optional list of source specifications to extract content from
             chunking_strategy: Strategy for chunking source content
+                (defaults to SemanticChunker with 1500 max tokens per chunk)
         """
+        if batch_size < _MIN_BATCH_SIZE:
+            raise ValueError(f"batch_size must be >= {_MIN_BATCH_SIZE}, got {batch_size}")
         self.batch_size = batch_size
         self.prompt_template = load_prompt_template(self.prompt_template_file)
         self.sources = sources
-        self.chunker = chunking_strategy
+        self.chunker = chunking_strategy or SemanticChunker(max_tokens_per_chunk=1500)
 
         if isinstance(model, str) or model is None:
             self.model = get_model(model)
         else:
             self.model = model
-
-    def _process_with_progress(
-        self,
-        items: List[Any],
-        process_func: Any,
-        desc: str = "Processing",
-    ) -> List[Any]:
-        """Process items with a progress bar."""
-        results = []
-        with tqdm(total=len(items), desc=desc) as pbar:
-            for item in items:
-                result = process_func(item)
-                if isinstance(result, list):
-                    results.extend(result)
-                else:
-                    results.append(result)
-                pbar.update(1)
-        return results
 
     @abstractmethod
     def _get_template_context(self, **generate_kwargs: Any) -> Dict[str, Any]:
@@ -252,25 +221,64 @@ class TestSetSynthesizer(ABC):
         }
         return all_test_cases, test_set_metadata
 
+    def _process_batch_response(
+        self,
+        response: Any,
+        expected_size: int,
+        batch_index: int,
+    ) -> List[Dict[str, Any]]:
+        """Process a single response from model.generate or model.generate_batch."""
+        if isinstance(response, dict) and "error" in response:
+            logger.error(
+                "[Synthesizer] Batch %d: LLM returned error: %s",
+                batch_index,
+                response["error"],
+            )
+            return []
+
+        if not isinstance(response, dict) or "tests" not in response:
+            logger.error(
+                "[Synthesizer] Batch %d: unexpected response type=%s: %s",
+                batch_index,
+                type(response).__name__,
+                str(response)[:500],
+            )
+            return []
+
+        flat_tests = response["tests"][:expected_size]
+        return [
+            {
+                **self._flat_test_to_nested(flat),
+                "test_type": TestType.SINGLE_TURN.value,
+                "metadata": {
+                    "generated_by": self._get_synthesizer_name(),
+                },
+            }
+            for flat in flat_tests
+        ]
+
     def _generate_without_sources(self, num_tests: int = 5, **kwargs: Any) -> List[Dict[str, Any]]:
         """
-        Generate test cases with automatic chunking.
+        Generate test cases using model.generate_batch for parallel execution
+        when num_tests > batch_size, with sequential retry on failures.
+
+        Automatically reduces batch size on consecutive failures and retries.
 
         Args:
             num_tests: Total number of test cases to generate. Defaults to 5.
             **kwargs: Additional keyword arguments for test set generation
 
         Returns:
-            TestSet: A TestSet entity containing the generated test cases
+            List of test case dicts
         """
-
         if not isinstance(num_tests, int):
             raise TypeError("num_tests must be an integer")
 
         template_context = self._get_template_context(**kwargs)
 
-        all_test_cases = []
+        all_test_cases: List[Dict[str, Any]] = []
         generation_start = time.time()
+
         logger.info(
             "[Synthesizer] Starting generation: num_tests=%d, batch_size=%d, model=%s",
             num_tests,
@@ -278,130 +286,19 @@ class TestSetSynthesizer(ABC):
             getattr(self.model, "model_name", type(self.model).__name__),
         )
 
-        # For large numbers, use chunking to avoid JSON parsing issues
-        max_consecutive_failures = 3
-        if num_tests > self.batch_size:
-            # Generate in chunks
-            remaining_tests = num_tests
-            batch_num = 0
-            consecutive_failures = 0
-            while remaining_tests > 0:
-                batch_num += 1
-                chunk_size = min(self.batch_size, remaining_tests)
-                logger.info(
-                    "[Synthesizer] Batch %d: requesting %d tests "
-                    "(remaining=%d, total_so_far=%d, batch_size=%d)",
-                    batch_num,
-                    chunk_size,
-                    remaining_tests,
-                    len(all_test_cases),
-                    self.batch_size,
-                )
-                batch_start = time.time()
-                try:
-                    chunk_tests = self._generate_batch(chunk_size, **template_context)
-                    batch_elapsed = time.time() - batch_start
-                    logger.info(
-                        "[Synthesizer] Batch %d: received %d/%d tests in %.1fs",
-                        batch_num,
-                        len(chunk_tests),
-                        chunk_size,
-                        batch_elapsed,
-                    )
-
-                    if len(chunk_tests) == 0:
-                        consecutive_failures += 1
-                        logger.warning(
-                            "[Synthesizer] Batch %d: received 0 tests (%d/%d consecutive failures)",
-                            batch_num,
-                            consecutive_failures,
-                            max_consecutive_failures,
-                        )
-                        if consecutive_failures >= max_consecutive_failures:
-                            logger.error(
-                                "[Synthesizer] Aborting after %d consecutive "
-                                "empty batches (%d tests generated so far)",
-                                max_consecutive_failures,
-                                len(all_test_cases),
-                            )
-                            break
-                        if self.batch_size > 5:
-                            old_batch_size = self.batch_size
-                            self.batch_size = max(5, self.batch_size // 2)
-                            logger.warning(
-                                "[Synthesizer] Reducing batch_size %d -> %d",
-                                old_batch_size,
-                                self.batch_size,
-                            )
-                        continue
-
-                    consecutive_failures = 0
-                    all_test_cases.extend(chunk_tests)
-                    remaining_tests -= len(chunk_tests)
-
-                    # If short, reduce batch size for next attempt
-                    if len(chunk_tests) < chunk_size and self.batch_size > 5:
-                        old_batch_size = self.batch_size
-                        self.batch_size = max(5, self.batch_size // 2)
-                        logger.warning(
-                            "[Synthesizer] Batch %d: short by %d tests, "
-                            "reducing batch_size %d -> %d",
-                            batch_num,
-                            chunk_size - len(chunk_tests),
-                            old_batch_size,
-                            self.batch_size,
-                        )
-
-                except Exception as e:
-                    batch_elapsed = time.time() - batch_start
-                    consecutive_failures += 1
-                    logger.error(
-                        "[Synthesizer] Batch %d FAILED after %.1fs: %s: %s",
-                        batch_num,
-                        batch_elapsed,
-                        type(e).__name__,
-                        e,
-                        exc_info=True,
-                    )
-                    if consecutive_failures >= max_consecutive_failures:
-                        logger.error(
-                            "[Synthesizer] Aborting after %d consecutive "
-                            "failures (%d tests generated so far)",
-                            max_consecutive_failures,
-                            len(all_test_cases),
-                        )
-                        break
-                    if self.batch_size > 5:
-                        old_batch_size = self.batch_size
-                        self.batch_size = max(5, self.batch_size // 2)
-                        logger.warning(
-                            "[Synthesizer] Reducing batch_size %d -> %d after error",
-                            old_batch_size,
-                            self.batch_size,
-                        )
-                        continue
-                    else:
-                        logger.error(
-                            "[Synthesizer] batch_size at minimum (%d), "
-                            "aborting with %d tests generated",
-                            self.batch_size,
-                            len(all_test_cases),
-                        )
-                        break
-        else:
-            # Generate all tests in a single batch
-            logger.info(
-                "[Synthesizer] Single batch: requesting %d tests",
-                num_tests,
+        try:
+            batch_tests = self._generate_parallel_batches(num_tests, **template_context)
+            all_test_cases.extend(batch_tests)
+        except Exception:
+            logger.exception(
+                "[Synthesizer] Parallel batch generation failed, "
+                "falling back to sequential generation"
             )
-            batch_start = time.time()
-            all_test_cases = self._generate_batch(num_tests, **template_context)
-            batch_elapsed = time.time() - batch_start
-            logger.info(
-                "[Synthesizer] Single batch: received %d tests in %.1fs",
-                len(all_test_cases),
-                batch_elapsed,
-            )
+
+        remaining = num_tests - len(all_test_cases)
+        if remaining > 0:
+            sequential_tests = self._generate_with_retry(remaining, **template_context)
+            all_test_cases.extend(sequential_tests)
 
         total_elapsed = time.time() - generation_start
         logger.info(
@@ -412,11 +309,120 @@ class TestSetSynthesizer(ABC):
             len(all_test_cases) / total_elapsed if total_elapsed > 0 else 0,
         )
 
-        # Ensure we have some test cases
         if not all_test_cases:
             raise ValueError("Failed to generate any valid test cases")
 
         return all_test_cases
+
+    def _generate_with_retry(self, num_tests: int, **template_context: Any) -> List[Dict[str, Any]]:
+        """Generate tests sequentially with batch size reduction on failure."""
+        all_test_cases: List[Dict[str, Any]] = []
+        remaining = num_tests
+        current_batch_size = self.batch_size
+        consecutive_failures = 0
+
+        while remaining > 0:
+            if consecutive_failures >= _MAX_CONSECUTIVE_FAILURES:
+                logger.error(
+                    "[Synthesizer] Stopping after %d consecutive failures "
+                    "(batch_size=%d, generated=%d/%d)",
+                    consecutive_failures,
+                    current_batch_size,
+                    len(all_test_cases),
+                    num_tests,
+                )
+                break
+
+            batch_request_size = min(remaining, current_batch_size)
+
+            try:
+                tests = self._generate_batch(batch_request_size, **template_context)
+            except Exception:
+                logger.exception(
+                    "[Synthesizer] Exception in batch generation (batch_size=%d)",
+                    batch_request_size,
+                )
+                tests = []
+
+            if tests:
+                all_test_cases.extend(tests)
+                remaining -= len(tests)
+                consecutive_failures = 0
+                logger.info(
+                    "[Synthesizer] Batch succeeded: %d tests (remaining=%d)",
+                    len(tests),
+                    remaining,
+                )
+            else:
+                consecutive_failures += 1
+                if current_batch_size > _MIN_BATCH_SIZE:
+                    current_batch_size = max(_MIN_BATCH_SIZE, current_batch_size // 2)
+                    logger.warning(
+                        "[Synthesizer] Batch failed (attempt %d/%d), reducing batch size to %d",
+                        consecutive_failures,
+                        _MAX_CONSECUTIVE_FAILURES,
+                        current_batch_size,
+                    )
+                else:
+                    logger.warning(
+                        "[Synthesizer] Batch failed (attempt %d/%d) at minimum batch size %d",
+                        consecutive_failures,
+                        _MAX_CONSECUTIVE_FAILURES,
+                        _MIN_BATCH_SIZE,
+                    )
+
+        return all_test_cases
+
+    def _generate_parallel_batches(
+        self, num_tests: int, **template_context: Any
+    ) -> List[Dict[str, Any]]:
+        """Generate tests across multiple batches using model.generate_batch."""
+        num_full_batches = num_tests // self.batch_size
+        remainder = num_tests % self.batch_size
+
+        batch_sizes = [self.batch_size] * num_full_batches
+        if remainder > 0:
+            batch_sizes.append(remainder)
+
+        prompts = []
+        for bs in batch_sizes:
+            batch_context = {**template_context, "num_tests": bs}
+            prompts.append(self.prompt_template.render(**batch_context))
+
+        logger.info(
+            "[Synthesizer] Parallel batch generation: %d batches (%d x %d + %d remainder)",
+            len(batch_sizes),
+            num_full_batches,
+            self.batch_size,
+            remainder,
+        )
+
+        batch_start = time.time()
+        responses = cast(
+            List[Dict[str, Any]],
+            self.model.generate_batch(prompts=prompts, schema=FlatTests),
+        )
+        batch_elapsed = time.time() - batch_start
+
+        if len(responses) != len(batch_sizes):
+            raise ValueError(
+                f"generate_batch returned {len(responses)} responses for "
+                f"{len(batch_sizes)} prompts; counts must match"
+            )
+
+        all_tests: List[Dict[str, Any]] = []
+        for i, (response, expected_size) in enumerate(zip(responses, batch_sizes)):
+            tests = self._process_batch_response(response, expected_size, i + 1)
+            all_tests.extend(tests)
+
+        logger.info(
+            "[Synthesizer] Parallel batch generation: %d tests across %d batches in %.1fs",
+            len(all_tests),
+            len(batch_sizes),
+            batch_elapsed,
+        )
+
+        return all_tests
 
     def _flat_test_to_nested(self, flat: Dict[str, Any]) -> Dict[str, Any]:
         """Repack a flat test dict (LLM output) into the nested Test structure."""
@@ -437,7 +443,7 @@ class TestSetSynthesizer(ABC):
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
         """Generate a batch of test cases with improved error handling."""
-        template_context = {"num_tests": num_tests, **kwargs}
+        template_context = {**kwargs, "num_tests": num_tests}
         prompt = self.prompt_template.render(**template_context)
 
         logger.debug(
@@ -447,7 +453,6 @@ class TestSetSynthesizer(ABC):
             len(prompt),
         )
 
-        # Use flat schema for LLM (easier to generate), then repack to nested
         llm_start = time.time()
         response = cast(
             Dict[str, Any],
@@ -455,44 +460,12 @@ class TestSetSynthesizer(ABC):
         )
         llm_elapsed = time.time() - llm_start
 
-        # Check for error responses from the LLM — return empty list so
-        # the batch loop can retry or abort via consecutive-failure guard.
-        if isinstance(response, dict) and "error" in response:
-            logger.error(
-                "[Synthesizer] _generate_batch: LLM returned error after %.1fs: %s",
-                llm_elapsed,
-                response["error"],
-            )
-            return []
-
-        if not isinstance(response, dict) or "tests" not in response:
-            logger.error(
-                "[Synthesizer] _generate_batch: unexpected response type=%s after %.1fs: %s",
-                type(response).__name__,
-                llm_elapsed,
-                str(response)[:500],
-            )
-            return []
-
-        flat_tests = response["tests"][:num_tests]
         logger.debug(
-            "[Synthesizer] _generate_batch: LLM returned %d tests in %.1fs",
-            len(flat_tests),
+            "[Synthesizer] _generate_batch: LLM responded in %.1fs",
             llm_elapsed,
         )
 
-        tests = [
-            {
-                **self._flat_test_to_nested(flat),
-                "test_type": TestType.SINGLE_TURN.value,  # Set to Single-Turn
-                "metadata": {
-                    "generated_by": self._get_synthesizer_name(),
-                },
-            }
-            for flat in flat_tests
-        ]
-
-        return tests
+        return self._process_batch_response(response, num_tests, batch_index=0)
 
     def generate(self, num_tests: int = 5, **kwargs: Any) -> TestSet:
         """Generate test cases."""

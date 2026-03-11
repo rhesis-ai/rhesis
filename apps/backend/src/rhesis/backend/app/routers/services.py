@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -52,7 +53,8 @@ from rhesis.backend.app.services.mcp_service import (
 )
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/services",
@@ -243,8 +245,7 @@ async def generate_content_endpoint(request: GenerateContentRequest):
         # This respects the global configuration (currently vertex_ai/gemini-2.0-flash)
         model = get_model(DEFAULT_GENERATION_MODEL)
 
-        # Pass schema directly to the model - SDK handles provider-specific conversion
-        response = model.generate(prompt, schema=schema)
+        response = await model.a_generate(prompt, schema=schema)
 
         return response
     except Exception as e:
@@ -451,7 +452,7 @@ async def generate_test_config(
         )
 
         service = TestConfigGeneratorService(db=db, user=current_user)
-        result = service.generate_config(
+        result = await service.generate_config(
             request.prompt,
             organization_id=organization_id,
             project_id=str(request.project_id) if request.project_id else None,

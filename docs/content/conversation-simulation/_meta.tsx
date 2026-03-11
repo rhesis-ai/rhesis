@@ -6,7 +6,7 @@ const meta: MetaRecord = {
   examples: "Examples & Use Cases",
   configuration: "Configuration",
   "execution-trace": "Execution Trace",
-  extending: "Extending Penelope",
+  extending: "Extending",
 };
 
 export default meta;

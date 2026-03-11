@@ -6,11 +6,13 @@ SQLAlchemy query level. It works in conjunction with the QueryBuilder
 to provide multiple levels of control over soft delete behavior.
 """
 
+import logging
+
 from sqlalchemy import event
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import Query
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
 
 
 def setup_soft_delete_listener():

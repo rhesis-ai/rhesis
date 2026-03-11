@@ -1,12 +1,13 @@
 """Response mapping using Jinja2 templates and JSONPath."""
 
 import json
+import logging
 from typing import Any, Dict
 
 import jsonpath_ng
 from jinja2 import Template
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
 
 
 class ResponseMapper:

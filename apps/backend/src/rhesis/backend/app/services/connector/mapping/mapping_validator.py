@@ -1,11 +1,13 @@
 """Mapping validator for testing SDK function mappings."""
 
+import logging
 import uuid
 from typing import Any, Dict
 
 from rhesis.backend.app.services.connector.schemas import TestResultMessage
 from rhesis.backend.app.services.invokers.templating import TemplateRenderer
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 class MappingValidator:

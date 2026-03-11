@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -21,18 +21,15 @@ class TestGenerateContentEndpoint:
 
         expected_response = {"code": "def test_function():\n    return True"}
 
-        # Mock the get_model factory function to return a mock model
         with patch("rhesis.sdk.models.factory.get_model") as mock_get_model:
             mock_model = MagicMock()
-            mock_model.generate.return_value = expected_response
+            mock_model.a_generate = AsyncMock(return_value=expected_response)
             mock_get_model.return_value = mock_model
 
-            # Act
             result = await generate_content_endpoint(mock_request)
 
-            # Assert
             assert result == expected_response
-            mock_model.generate.assert_called_once_with(
+            mock_model.a_generate.assert_called_once_with(
                 "Generate a test function",
                 schema={"type": "object", "properties": {"code": {"type": "string"}}},
             )

@@ -15,12 +15,13 @@ from tenacity import (
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.app.models.metric import ScoreType
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
+
+logger = logging.getLogger(__name__)
 
 # Use inline factory creation to avoid circular imports
 # Implementation of the factory import will be delayed until needed
@@ -154,6 +155,7 @@ class MetricEvaluator:
         max_workers: int = 5,
         conversation_history: Optional[ConversationHistory] = None,
         metadata: Optional[Dict[str, Any]] = None,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
         Compute metrics using the configured backends in parallel.
@@ -185,13 +187,15 @@ class MetricEvaluator:
                         }
                     ]
             max_workers: Maximum number of parallel workers for metric computation
+            tool_calls: Optional list of tool calls made by the endpoint
 
         Returns:
             Dictionary containing scores and details for each metric
         """
-        # Store conversation history and metadata for metrics that accept them
+        # Store conversation history, metadata, and tool_calls for metrics that accept them
         self._conversation_history = conversation_history
         self._metadata = metadata
+        self._tool_calls = tool_calls
 
         if not metrics:
             logger.warning("No metrics provided for evaluation")
@@ -1074,6 +1078,8 @@ class MetricEvaluator:
             kwargs["conversation_history"] = self._conversation_history
         if "metadata" in params and self._metadata is not None:
             kwargs["metadata"] = self._metadata
+        if "tool_calls" in params and self._tool_calls is not None:
+            kwargs["tool_calls"] = self._tool_calls
         if "goal" in params:
             kwargs["goal"] = input_text
 

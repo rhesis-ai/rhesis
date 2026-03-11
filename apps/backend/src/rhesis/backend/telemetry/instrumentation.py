@@ -3,6 +3,7 @@ OpenTelemetry instrumentation with conditional export based on user preferences.
 """
 
 import hashlib
+import logging
 import os
 from contextvars import ContextVar
 from typing import Optional
@@ -13,7 +14,8 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 
-from rhesis.backend.logging.rhesis_logger import logger
+logger = logging.getLogger(__name__)
+
 
 # Sensitive metadata keys to filter out from telemetry
 # This blocklist prevents accidental exposure of credentials and PII

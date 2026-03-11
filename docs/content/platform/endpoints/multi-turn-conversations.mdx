@@ -222,6 +222,24 @@ prompt already included as the first message.
 }`}
 </CodeBlock>
 
+## Per-Turn Response Fields
+
+For both stateful and stateless endpoints, Rhesis captures response fields on
+every turn of the conversation. When your response mapping includes `context`,
+`metadata`, or `tool_calls`, these values are stored per turn and made available
+to conversational metrics during evaluation.
+
+| Field | Per-Turn Behavior |
+|-------|-------------------|
+| `output` | The assistant's response text for this turn |
+| `context` | Retrieval context returned by this turn (e.g., RAG sources) |
+| `metadata` | Structured metadata from this turn (e.g., confidence scores, model info) |
+| `tool_calls` | Tool/function calls made during this turn's response generation |
+
+Conversational metrics receive the full history including these per-turn fields,
+enabling evaluation of how tool usage, context, and metadata evolve across the
+conversation.
+
 ## Choosing Between Stateful and Stateless
 
 <Callout type="info">

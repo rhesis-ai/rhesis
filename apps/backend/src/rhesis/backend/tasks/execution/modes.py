@@ -5,14 +5,17 @@ This module provides helper functions for working with execution modes
 and test types in test configurations.
 """
 
+import logging
+
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.enums import ExecutionMode, TestType
 from rhesis.backend.tasks.utils import safe_uuid_convert
+
+logger = logging.getLogger(__name__)
 
 
 def get_execution_mode(test_config: TestConfiguration) -> ExecutionMode:

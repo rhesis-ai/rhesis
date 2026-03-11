@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -24,8 +25,9 @@ from rhesis.backend.app.utils.uuid_utils import (
     sanitize_uuid_field,
     validate_uuid_parameters,
 )
-from rhesis.backend.logging import logger
 from rhesis.sdk.models.factory import get_model
+
+logger = logging.getLogger(__name__)
 
 
 class _BulkEntityCache:
@@ -899,6 +901,16 @@ def bulk_create_tests(
             bulk_create_test_set_associations(
                 db=db,
                 test_ids=created_test_ids,
+                test_set_id=test_set_id,
+                organization_id=organization_id,
+                user_id=user_id,
+            )
+            from rhesis.backend.app.services.test_set import (
+                update_test_set_attributes,
+            )
+
+            update_test_set_attributes(
+                db=db,
                 test_set_id=test_set_id,
                 organization_id=organization_id,
                 user_id=user_id,

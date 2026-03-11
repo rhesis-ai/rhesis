@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 import os
 import uuid
 from typing import Any, Dict, Optional, Union
@@ -12,11 +13,12 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
-from rhesis.backend.logging import logger
 from rhesis.sdk.telemetry.constants import ConversationContext as ConversationConstants
 
 from .base import BaseEndpointInvoker
 from .common.schemas import ErrorResponse
+
+logger = logging.getLogger(__name__)
 
 # SDK function execution timeout in seconds
 # Configurable via environment variable for long-running LLM operations

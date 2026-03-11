@@ -30,6 +30,7 @@ import { formatDate } from '@/utils/date';
 interface TestSetDetailsSectionProps {
   testSet: TestSet;
   sessionToken: string;
+  testCount: number;
 }
 
 interface MetadataFieldProps {
@@ -82,6 +83,7 @@ function MetadataField({ label, items, maxVisible = 20 }: MetadataFieldProps) {
 export default function TestSetDetailsSection({
   testSet,
   sessionToken,
+  testCount,
 }: TestSetDetailsSectionProps) {
   const theme = useTheme();
   const [testRunDrawerOpen, setTestRunDrawerOpen] = useState(false);
@@ -256,7 +258,7 @@ export default function TestSetDetailsSection({
   const categories = testSet.attributes?.metadata?.categories || [];
   const topics = testSet.attributes?.metadata?.topics || [];
   const sources = testSet.attributes?.metadata?.sources || [];
-  const totalTests = testSet.attributes?.metadata?.total_tests || 0;
+  const totalTests = testCount;
 
   return (
     <>

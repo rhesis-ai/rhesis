@@ -3,6 +3,7 @@ This code implements the CRUD operations for the models in the application.
 """
 
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
@@ -35,7 +36,8 @@ from rhesis.backend.app.utils.crud_utils import (
 )
 from rhesis.backend.app.utils.name_generator import generate_memorable_name
 from rhesis.backend.app.utils.query_utils import QueryBuilder
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 
 class TraceRow(NamedTuple):
@@ -508,7 +510,6 @@ def get_test_sets(
     if has_runs is not None:
 
         def has_runs_filter(query):
-            from rhesis.backend.logging import logger
 
             logger.info(f"Applying has_runs filter: {has_runs}")
 
@@ -1299,7 +1300,6 @@ def assign_tag(
     user_id: str = None,
 ) -> models.Tag:
     """Create a tag if it doesn't exist and link it to an entity with organization filtering"""
-    from rhesis.backend.logging.rhesis_logger import logger
 
     logger.info(
         f"assign_tag called: tag.name={tag.name}, entity_id={entity_id}, entity_type={entity_type}"
@@ -1587,7 +1587,6 @@ def get_token_by_value(db: Session, token_value: str, organization_id: str = Non
     # This protects against the unlikely case of hash collisions
     if token and token.token != token_value:
         # Hash collision detected - this should be extremely rare
-        from rhesis.backend.logging import logger
 
         logger.warning(f"Token hash collision detected for token_id={token.id}")
         return None
@@ -2245,7 +2244,6 @@ def _preprocess_metric_data(
     """Preprocess metric data from SDK to convert string types to IDs."""
     from rhesis.backend.app.constants import EntityType
     from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
-    from rhesis.backend.logging import logger
 
     try:
         # Convert to dict.  For updates exclude both unset and None-valued
@@ -2336,7 +2334,6 @@ def create_metric(
     db: Session, metric: schemas.MetricCreate, organization_id: str = None, user_id: str = None
 ) -> models.Metric:
     """Create a new metric with optimized approach - no session variables needed."""
-    from rhesis.backend.logging import logger
 
     try:
         # Preprocess SDK data: convert string types to IDs

@@ -10,13 +10,15 @@ This service handles:
 - Bulk operations with proper error handling
 """
 
+import logging
 from typing import Optional, Type, TypeVar
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.utils.crud_utils import restore_item
-from rhesis.backend.logging import logger
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 

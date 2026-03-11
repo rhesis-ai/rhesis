@@ -84,6 +84,7 @@ class MetricConfig:
         MetricType.CUSTOM_PROMPT
     )  # Default for SDK metrics
     metric_scope: Optional[List[Union[str, MetricScope]]] = None  # list of scopes
+    explanation: Optional[str] = None
     requires_ground_truth: Optional[bool] = False
     requires_context: Optional[bool] = False
     id: Optional[str] = None  # ID from backend when pulled

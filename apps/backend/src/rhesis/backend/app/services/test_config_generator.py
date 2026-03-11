@@ -43,7 +43,7 @@ class TestConfigGeneratorService:
         # model is still used for the actual test generation.
         self.llm = get_model(DEFAULT_GENERATION_MODEL)
 
-    def generate_config(
+    async def generate_config(
         self,
         prompt: str,
         organization_id: Optional[str] = None,
@@ -121,7 +121,7 @@ class TestConfigGeneratorService:
         )
 
         # LLM will select behaviors from the list and generate topics and categories
-        llm_response = self.llm.generate(rendered_prompt, schema=TestConfigResponse)
+        llm_response = await self.llm.a_generate(rendered_prompt, schema=TestConfigResponse)
 
         # SDK providers return {"error": "..."} on failure instead of raising
         if isinstance(llm_response, dict) and "error" in llm_response:

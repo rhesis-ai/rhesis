@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import List, Optional
 from urllib.parse import urlparse
@@ -58,12 +59,13 @@ from rhesis.backend.app.utils.rate_limit import (
     limiter,
 )
 from rhesis.backend.app.utils.redact import redact_email
-from rhesis.backend.logging import logger
 from rhesis.backend.telemetry import (
     is_telemetry_enabled,
     set_telemetry_enabled,
     track_user_activity,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 

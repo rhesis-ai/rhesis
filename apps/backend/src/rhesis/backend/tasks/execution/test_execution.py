@@ -8,12 +8,10 @@ Helper functions are re-exported from executors.shared for backward compatibilit
 with existing tests and code.
 """
 
+import logging
 from typing import Any, Dict, Optional
 
 from sqlalchemy.orm import Session
-
-# Additional backward compatibility imports for functions moved during refactoring
-from rhesis.backend.logging.rhesis_logger import logger
 
 # Import factory for executor creation
 from rhesis.backend.tasks.execution.executors import create_executor
@@ -26,6 +24,8 @@ from rhesis.backend.tasks.execution.executors.output_providers import (
     TestResultOutput,
     TraceOutput,
 )
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # MAIN EXECUTION FUNCTION (Strategy Pattern Entry Point)

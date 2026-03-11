@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 
@@ -14,14 +15,13 @@ from rhesis.backend.app.services.task_management import validate_task_organizati
 from rhesis.backend.app.services.task_notification import send_task_assignment_notification
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
-
-# Use rhesis logger
-from rhesis.backend.logging import logger
 from rhesis.backend.telemetry import (
     is_telemetry_enabled,
     set_telemetry_enabled,
     track_feature_usage,
 )
+
+logger = logging.getLogger(__name__)
 
 # Create the detailed schema for Task
 TaskDetailSchema = create_detailed_schema(schemas.Task, models.Task)

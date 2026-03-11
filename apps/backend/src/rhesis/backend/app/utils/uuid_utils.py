@@ -1,7 +1,8 @@
+import logging
 from typing import Any, List, Optional
 from uuid import UUID
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
 
 
 def sanitize_uuid_field(value: Any) -> Optional[str]:

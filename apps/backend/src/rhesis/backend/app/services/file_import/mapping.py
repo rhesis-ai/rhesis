@@ -4,13 +4,15 @@ Provides heuristic auto-mapping and LLM-based fallback for mapping
 source file columns to the expected test data schema.
 """
 
+import logging
 import os
 from typing import Any, Dict, List, Optional
 
 from jinja2 import Template
 from pydantic import BaseModel, Field
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
+
 
 # Target fields the user's columns need to map to
 TARGET_FIELDS = [

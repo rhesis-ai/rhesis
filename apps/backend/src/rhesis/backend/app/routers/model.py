@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import List
 
@@ -21,6 +22,8 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 from rhesis.sdk.models.factory import get_available_embedding_models, get_available_language_models
+
+logger = logging.getLogger(__name__)
 
 # Create the detailed schema for Model (uses ModelRead to exclude API key from responses)
 ModelDetailSchema = create_detailed_schema(ModelRead, models.Model)
@@ -97,7 +100,7 @@ async def test_model_connection_endpoint(
         if endpoint is None or (isinstance(endpoint, str) and not endpoint.strip()):
             endpoint = db_model.endpoint
 
-    result = ModelConnectionService.test_connection(
+    result = await ModelConnectionService.test_connection(
         provider=request.provider,
         model_name=request.model_name,
         api_key=api_key,
@@ -226,7 +229,6 @@ async def test_model_connection(
     embedding for embedding models).
     """
     from rhesis.backend.app.services.model_connection import ModelConnectionService
-    from rhesis.backend.logging import logger
 
     logger.info(f"[MODEL_TEST] Testing connection for model_id={model_id}")
 
@@ -248,7 +250,7 @@ async def test_model_connection(
 
     try:
         # Use ModelConnectionService which makes an actual test call
-        result = ModelConnectionService.test_connection(
+        result = await ModelConnectionService.test_connection(
             provider=provider,
             model_name=model_name,
             api_key=api_key,

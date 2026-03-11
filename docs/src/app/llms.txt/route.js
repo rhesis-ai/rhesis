@@ -52,11 +52,11 @@ Rhesis is a collaborative testing platform that brings together developers, doma
 - Environment Variables: https://docs.rhesis.ai/development/environment-variables
 - Contributing: https://docs.rhesis.ai/development/contributing
 
-### Penelope
-- Overview: https://docs.rhesis.ai/penelope
-- Getting Started: https://docs.rhesis.ai/penelope/getting-started
-- Examples: https://docs.rhesis.ai/penelope/examples
-- Configuration: https://docs.rhesis.ai/penelope/configuration
+### Conversation Simulation
+- Overview: https://docs.rhesis.ai/conversation-simulation
+- Getting Started: https://docs.rhesis.ai/conversation-simulation/getting-started
+- Examples: https://docs.rhesis.ai/conversation-simulation/examples
+- Configuration: https://docs.rhesis.ai/conversation-simulation/configuration
 
 ## Key Features
 

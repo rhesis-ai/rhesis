@@ -1,0 +1,44 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Polyphemus
+
+Polyphemus is a Rhesis-managed language model built for adversarial test generation. It is designed to produce the kinds of prompts that commercial models routinely refuse: adversarial scenarios, sensitive edge cases, and inputs that probe policy boundaries.
+
+## What Makes Polyphemus Different
+
+Commercial models are optimized for safety and helpfulness. This makes them useful for many tasks, but it also means they will decline to generate prompts that violate their content policies—even when those prompts are needed specifically to test another system's behavior.
+
+Polyphemus is built for evaluation use cases. It generates adversarial content solely for the purpose of testing, and it maintains the linguistic quality and contextual understanding needed to produce realistic, useful test cases.
+
+Key properties:
+
+- Generates adversarial scenarios across a wide range of topics
+- Handles sensitive and policy-adjacent content for evaluation purposes
+- Maintains strong reasoning and language quality
+- Supports multi-turn conversations and structured output
+
+## Access
+
+Polyphemus requires approved access through Rhesis. This is because the model can generate sensitive content, and Rhesis reviews each request to ensure responsible use.
+
+See [Requesting Access](/adversarial-testing/requesting-access) for the full process.
+
+## Using Polyphemus
+
+Once approved, Polyphemus is available as a model provider in the SDK under the `polyphemus` provider name. It uses your `RHESIS_API_KEY` for authentication.
+
+<CodeBlock filename="polyphemus_basic.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+model = get_model("polyphemus")`}
+</CodeBlock>
+
+See [Using Polyphemus with the SDK](/adversarial-testing/sdk-usage) for full integration examples.
+
+## Environment Variables
+
+| Variable | Description | Default |
+|---|---|---|
+| `RHESIS_API_KEY` | Your Rhesis API key (required) | — |
+| `DEFAULT_POLYPHEMUS_URL` | Override the Polyphemus API endpoint | `https://polyphemus.rhesis.ai` |
+| `RHESIS_LLM_TIMEOUT` | Request timeout in seconds | `300` |

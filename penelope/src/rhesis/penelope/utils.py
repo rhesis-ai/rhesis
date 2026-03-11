@@ -12,7 +12,14 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from rhesis.penelope.context import ExecutionStatus, TestState
+from rhesis.penelope.context import (
+    TOOL_METADATA_KEY,
+    TOOL_OUTPUT_KEY,
+    TOOL_RESPONSE_KEY,
+    TOOL_SUCCESS_KEY,
+    ExecutionStatus,
+    TestState,
+)
 
 if TYPE_CHECKING:
     from rhesis.sdk.metrics.base import MetricResult
@@ -288,9 +295,9 @@ def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):
     content.append(f"{action}\n\n", style="white")
 
     # Show message sent and response received for target interaction tools
-    if ToolType.is_target_interaction(action) and result.get("success", False):
-        output = result.get("output", {})
-        metadata = result.get("metadata", {})
+    if ToolType.is_target_interaction(action) and result.get(TOOL_SUCCESS_KEY, False):
+        output = result.get(TOOL_OUTPUT_KEY, {})
+        metadata = result.get(TOOL_METADATA_KEY, {})
 
         # Extract message sent (from metadata)
         message_sent = metadata.get("message_sent")
@@ -321,7 +328,7 @@ def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):
             content.append("None\n\n", style="dim white")
 
         # Extract response received
-        response = output.get("response", "")
+        response = output.get(TOOL_RESPONSE_KEY, "")
         if response:
             content.append("Response Received: ", style="bold blue")
             # Truncate long responses for display
@@ -329,7 +336,7 @@ def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):
             content.append(f'"{display_response}"\n\n', style="cyan")
 
     content.append("Result: ", style="bold magenta")
-    content.append(f"{result.get('success', False)}", style="white")
+    content.append(f"{result.get(TOOL_SUCCESS_KEY, False)}", style="white")
 
     panel = Panel(content, title="Penelope's Turn", border_style="blue")
     console.print(panel)

@@ -1,5 +1,5 @@
-"""Override the default logging module with a custom logger."""
+"""Logging configuration for Rhesis backend."""
 
-from .rhesis_logger import logger
+from .logging_config import set_logger
 
-__all__ = ["logger"]
+__all__ = ["set_logger"]

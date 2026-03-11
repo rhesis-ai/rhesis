@@ -1,6 +1,7 @@
 # apps/backend/src/rhesis/backend/app/utils/encryption.py
 
 import hashlib
+import logging
 import os
 from typing import Optional
 
@@ -8,7 +9,8 @@ from cryptography.fernet import Fernet, InvalidToken
 from passlib.context import CryptContext
 from sqlalchemy import String, TypeDecorator
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
+
 
 # Password hashing context using bcrypt
 # bcrypt is intentionally separate from Fernet encryption:

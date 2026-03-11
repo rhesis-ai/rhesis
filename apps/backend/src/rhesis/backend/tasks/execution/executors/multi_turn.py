@@ -1,12 +1,12 @@
 """Multi-turn test executor using Penelope."""
 
+import logging
 from typing import Any, Dict, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test_configuration import TestConfiguration
-from rhesis.backend.logging.rhesis_logger import logger
 from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
 from rhesis.backend.tasks.execution.executors.data import get_test_and_prompt
 from rhesis.backend.tasks.execution.executors.output_providers import (
@@ -18,6 +18,8 @@ from rhesis.backend.tasks.execution.executors.results import (
     create_test_result_record,
 )
 from rhesis.backend.tasks.execution.executors.runners import MultiTurnRunner
+
+logger = logging.getLogger(__name__)
 
 
 class MultiTurnTestExecutor(BaseTestExecutor):

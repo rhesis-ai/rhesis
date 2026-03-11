@@ -13,6 +13,7 @@ can be overridden via the ``IMPORT_SESSION_DIR`` environment variable.
 """
 
 import json
+import logging
 import os
 import shutil
 import tempfile
@@ -22,7 +23,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional
 
-from rhesis.backend.logging import logger
+logger = logging.getLogger(__name__)
+
 
 # Default TTL: 30 minutes (configurable via env)
 DEFAULT_TTL_SECONDS = int(os.getenv("IMPORT_SESSION_TTL_SECONDS", "1800"))
