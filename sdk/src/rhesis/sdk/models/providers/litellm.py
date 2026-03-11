@@ -1,8 +1,10 @@
+import atexit
 import json
+import logging
 from typing import List, Optional, Type, Union
 
 import litellm
-from litellm import batch_completion, completion, embedding
+from litellm import acompletion, batch_completion, embedding
 from pydantic import BaseModel
 
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
@@ -10,6 +12,39 @@ from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding
 from rhesis.sdk.models.utils import validate_llm_response
 
 litellm.suppress_debug_info = True
+
+
+class _LiteLLMTransportErrorFilter(logging.Filter):
+    """Filter out SSL transport errors caused by litellm's LoggingWorker.
+
+    litellm's LoggingWorker._flush_on_exit() creates a temporary event loop
+    to flush queued logging coroutines at process exit.  When that loop
+    closes, the SSL transports on the HTTP connections used during the flush
+    attempt a close_notify on an already-closed socket — harmless but noisy.
+
+    The resulting "Fatal error on SSL transport" is logged by asyncio's
+    default exception handler through the 'asyncio' logger.  This filter
+    suppresses only those specific messages.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        if "Fatal error on SSL transport" in msg:
+            return False
+        if "Event loop is closed" in msg:
+            return False
+        return True
+
+
+def _install_litellm_transport_error_filter():
+    logging.getLogger("asyncio").addFilter(_LiteLLMTransportErrorFilter())
+
+
+# Registered AFTER litellm's LoggingWorker atexit handler (which was
+# registered at import time above).  atexit is LIFO, so this runs FIRST —
+# the filter is in place before the LoggingWorker flushes its queue.
+# During normal operation no filter is active on the asyncio logger.
+atexit.register(_install_litellm_transport_error_filter)
 
 
 class LiteLLM(BaseLLM):
@@ -58,7 +93,7 @@ class LiteLLM(BaseLLM):
         """
         pass
 
-    def generate(
+    async def a_generate(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
@@ -67,8 +102,11 @@ class LiteLLM(BaseLLM):
         **kwargs,
     ) -> Union[str, dict]:
         """
-        Run a chat completion using LiteLLM, returning the response.
+        Run an async chat completion using LiteLLM, returning the response.
         The schema will be used to validate the response if provided.
+
+        Called directly via ``await model.a_generate(...)`` or indirectly
+        through ``model.generate(...)`` which bridges via ``run_sync()``.
 
         Args:
             prompt: The user prompt
@@ -78,22 +116,19 @@ class LiteLLM(BaseLLM):
         Returns:
             str or dict: Raw text if no schema, validated dict if schema provided
         """
-        # handle system prompt
         messages = (
-            [{"role": "system", "content": system_prompt}, {"role": "user", "content": prompt}]
+            [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ]
             if system_prompt
             else [{"role": "user", "content": prompt}]
         )
 
-        # Handle schema format for LiteLLM
-        # Dict schemas must already be in OpenAI-wrapped format
-        # LiteLLM can handle both Pydantic models and OpenAI-wrapped dicts directly
-        response_format = schema
-
-        response = completion(
+        response = await acompletion(
             model=self.model_name,
             messages=messages,
-            response_format=response_format,
+            response_format=schema,
             api_key=self.api_key,
             api_base=self.api_base,
             api_version=self.api_version,
@@ -106,8 +141,7 @@ class LiteLLM(BaseLLM):
             response_content = json.loads(response_content)
             validate_llm_response(response_content, schema)
             return response_content
-        else:
-            return response_content
+        return response_content
 
     def generate_batch(
         self,

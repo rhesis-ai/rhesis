@@ -354,7 +354,7 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         self._vertex_config = self._load_vertex_config()
         return self._vertex_config
 
-    def generate(
+    async def a_generate(
         self,
         prompt: str,
         system_prompt: Optional[str] = None,
@@ -363,9 +363,11 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         **kwargs,
     ):
         """
-        Generate content using Vertex AI.
+        Generate content using Vertex AI (async).
 
-        This method overrides the parent to inject Vertex AI-specific parameters.
+        Overrides the parent to inject Vertex AI-specific parameters.
+        Called directly via ``await model.a_generate(...)`` or indirectly
+        through ``model.generate(...)`` which bridges via ``run_sync()``.
 
         Args:
             prompt: The text prompt
@@ -377,24 +379,23 @@ class VertexAILLM(VertexAICredentialsMixin, LiteLLM):
         Returns:
             Generated text or dict (if schema provided)
         """
-        # Inject Vertex AI-specific parameters
         kwargs["vertex_ai_project"] = self.model["project"]
         kwargs["vertex_ai_location"] = self.model["location"]
 
-        # Ensure credentials file exists
         credentials_path = self._ensure_credentials_file()
 
-        # Set credentials via environment variable for LiteLLM
         original_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
 
         try:
-            # Call parent generate method
-            return super().generate(
-                prompt=prompt, system_prompt=system_prompt, schema=schema, *args, **kwargs
+            return await super().a_generate(
+                prompt=prompt,
+                system_prompt=system_prompt,
+                schema=schema,
+                *args,
+                **kwargs,
             )
         finally:
-            # Restore original credentials environment variable
             if original_credentials:
                 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = original_credentials
             elif "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -148,6 +149,10 @@ class PolyphemusLLM(BaseLLM):
                 return {"error": "An error occurred while processing the request."}
 
             return "An error occurred while processing the request."
+
+    async def a_generate(self, *args, **kwargs) -> Any:
+        """Async version of generate. Runs sync generate() in a thread pool."""
+        return await asyncio.to_thread(self.generate, *args, **kwargs)
 
     def generate_batch(
         self,
