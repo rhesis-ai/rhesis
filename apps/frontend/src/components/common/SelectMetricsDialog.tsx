@@ -102,7 +102,7 @@ export default function SelectMetricsDialog({
     []
   );
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(open);
   const [error, setError] = React.useState<string | null>(null);
 
   const fetchMetrics = React.useCallback(async () => {
@@ -142,8 +142,12 @@ export default function SelectMetricsDialog({
   // Fetch metrics when dialog opens
   React.useEffect(() => {
     if (open) {
-      fetchMetrics();
+      setIsLoading(true);
+      setMetrics([]);
+      setFilteredMetrics([]);
+      setError(null);
       setSearchQuery('');
+      fetchMetrics();
     }
   }, [open, fetchMetrics]);
 
@@ -315,9 +319,9 @@ export default function SelectMetricsDialog({
                           variant="outlined"
                         />
                       )}
-                      {metric.metric_scope?.map((scope, i) => (
+                      {metric.metric_scope?.map(scope => (
                         <Chip
-                          key={i}
+                          key={scope}
                           icon={getMetricScopeIcon(scope)}
                           label={scope}
                           size="small"
