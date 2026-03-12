@@ -23,37 +23,25 @@ When you submit a review, it becomes the effective verdict for that test result.
 
 When adding a review, you choose a **target** — the part of the test result the review applies to. There are three targets available.
 
-<div style={{width: '100%', minHeight: '420px'}}>
+<div style={{width: '100%', minHeight: '200px', display: 'flex', justifyContent: 'center'}}>
+<div style={{width: '60%', minWidth: '400px'}}>
 
 ```mermaid
-%%{init: {'flowchart': {'nodeSpacing': 80, 'rankSpacing': 100}, 'themeVariables': {'fontSize': '16px'}}}%%
+%%{init: {'flowchart': {'nodeSpacing': 80, 'rankSpacing': 80}, 'themeVariables': {'fontSize': '16px'}}}%%
 graph TB
     TR["Target: Test Result<br/><small>Override the overall verdict</small>"]
+    M["Target: Metric<br/><small>Override one metric</small>"]
+    T["Target: Turn<br/><small>Override one conversation turn</small>"]
 
-    M1["Target: Metric — Answer Relevancy<br/><small>Override one metric</small>"]
-    M2["Target: Metric — Refusal Detection<br/><small>Override one metric</small>"]
-    M3["Target: Metric — Goal Achievement<br/><small>Override one metric</small>"]
-
-    T1["Target: Turn 1<br/><small>Override one turn</small>"]
-    T2["Target: Turn 2<br/><small>Override one turn</small>"]
-    T3["Target: Turn 3<br/><small>Override one turn</small>"]
-
-    TR --> M1
-    TR --> M2
-    TR --> M3
-    TR --> T1
-    TR --> T2
-    TR --> T3
+    TR --> M
+    TR --> T
 
     style TR fill:#2196F3,color:#fff
-    style M1 fill:#9c27b0,color:#fff
-    style M2 fill:#9c27b0,color:#fff
-    style M3 fill:#9c27b0,color:#fff
-    style T1 fill:#4caf50,color:#fff
-    style T2 fill:#4caf50,color:#fff
-    style T3 fill:#4caf50,color:#fff
+    style M fill:#9c27b0,color:#fff
+    style T fill:#4caf50,color:#fff
 ```
 
+</div>
 </div>
 
 ### Test Result Target
