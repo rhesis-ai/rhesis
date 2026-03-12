@@ -1,72 +1,98 @@
 ---
 name: sprint-review
-description: Generate a sprint review changelog from GitHub pull requests. Lists PRs by a given author since a given date, groups them into Features and Fixes, and writes a markdown summary.
+description: Generate a sprint review changelog from GitHub pull requests for all authors and save it to Notion.
 disable-model-invocation: true
 ---
 
 # Sprint Review
 
-Generate a markdown changelog from GitHub PRs for sprint review meetings.
+Generate a changelog from GitHub pull requests for sprint review meetings, grouped by author,
+then save it to Notion using the sprint review template.
 
-## Defaults
+## Inputs
 
-- **Time range**: last two weeks (14 days from today)
-- **Author**: the current GitHub user -- detect automatically via `gh api user --jq .login`
+- `days` (optional): number of days back from today (default: 14)
+- `end_date` (optional): ISO date `YYYY-MM-DD` in UTC (default: today UTC)
+- `repo` (optional): `owner/repo` to scope PRs (default: all accessible repos)
 
-Both can be overridden if the user explicitly provides a different author or date.
+## Date range rules
+
+- Use UTC dates only.
+- `end_date` defaults to today (UTC).
+- `start_date = end_date - (days - 1)` days.
+- Filter PRs with inclusive range: `created:<start_date>..<end_date>`.
 
 ## Workflow
 
-1. **Detect the current user** (unless explicitly provided):
+1. **Collect PRs** using GitHub search:
+   - Query: `is:pr created:<start_date>..<end_date>`
+   - Add `repo:<owner/repo>` if provided
+   - Fetch:
+     `number`, `title`, `state`, `draft`, `created_at`, `html_url`, `body`,
+     `pull_request.merged_at`, `author.login`
 
-```bash
-gh api user --jq .login
-```
+2. **Normalize status**:
+   - `merged` if `merged_at != null`
+   - `draft` if `draft == true`
+   - `open` if `state == open` and not draft
+   - `closed-unmerged` if `state == closed` and `merged_at == null`
 
-2. **Collect PRs** using GitHub CLI (default: last 14 days):
+3. **Group by author** (`author.login`).
 
-```bash
-gh pr list --author <username> --state all --search "created:>=<date>" --limit 100 \
-  --json number,title,state,createdAt,body,url \
-  | jq -r '.[] | "\(.number)|\(.title)|\(.state)|\(.createdAt)|\(.url)"'
-```
+4. **Classify PRs per author**:
+   - **Features**: capabilities, refactors, new APIs, architecture/performance improvements
+   - **Fixes**: bug fixes, dependency updates, CI/tooling/workflow/docs/chore cleanup
 
-3. **Fetch PR bodies** for context on what each PR does (use `--json body`).
+5. **Consolidate PRs with the same goal** under one entry per author/category.
 
-4. **Group PRs** into two sections:
-   - **Features** -- new capabilities, refactors, new providers, new APIs
-   - **Fixes** -- bug fixes, dependency patches, config corrections, minor chores
-
-5. **Consolidate similar PRs** under a single description when they share the same goal (e.g. two PRs making different parts of the SDK async-first).
-
-6. **Write the markdown file** to `docs/changelog-<username>.md` using this format:
+6. **Build markdown content** using this structure:
 
 ```markdown
-## PR Changelog -- <username> (<start date> -- <end date>)
+### Author: <author-login>
 
-### Features
-
+#### Features
 **Short heading**
-
 One-to-two sentence description.
+- [#123 PR title](https://github.com/org/repo/pull/123)
+- [#124 PR title](https://github.com/org/repo/pull/124) *(open)*
 
-- [#<number> -- <title>](<url>)
-- [#<number> -- <title>](<url>) *(open/draft if not merged)*
-
-### Fixes
-
+#### Fixes
 **Short heading**
-
 One sentence description.
-
-- [#<number> -- <title>](<url>)
+- [#125 PR title](https://github.com/org/repo/pull/125)
 ```
 
-## Formatting rules
+Rules:
+- For each author, keep this exact order:
+  - `### Author: ...`
+  - `#### Features`
+  - `#### Fixes`
+- If one category is empty, keep the heading and add `- None`.
+- Mark non-merged PRs with `*(open)*`, `*(draft)*`, or `*(closed-unmerged)*`.
+- No emojis.
 
-- Section headings: `###` for Features / Fixes
-- Entry headings: **bold text** (not a markdown heading)
-- Descriptions: 1-2 sentences max, focus on what changed and why it matters
-- PR links: bulleted list with `#<number> -- <title>` as link text
-- Mark non-merged PRs with *(open)* or *(draft)*
-- No emojis
+## Notion requirements (strict)
+
+1. Create the page under:
+   - **`Rhesis Gmbh- HQ / meetings`**
+
+2. Create the sprint page using this template:
+   - **`Sprint Review # @Today`**
+
+3. Insert the generated author/features/fixes markdown under the template section:
+   - **`Delivered`**
+   - Keep all other template sections unchanged.
+
+4. If `Delivered` is missing, create it and place the generated content there.
+
+## Output
+
+Return:
+- Notion page URL
+- Date range used
+- Total authors
+- Total PRs
+- Per-author counts (Features vs Fixes)
+
+If no PRs are found, still create/update the Notion page and place:
+`No PRs found for this range.`
