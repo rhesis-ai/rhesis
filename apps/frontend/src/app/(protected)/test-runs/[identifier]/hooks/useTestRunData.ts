@@ -4,12 +4,6 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { Prompt } from '@/utils/api-client/interfaces/prompt';
 import { Behavior } from '@/utils/api-client/interfaces/behavior';
-import { MetricDetail } from '@/utils/api-client/interfaces/metric';
-import { UUID } from 'crypto';
-
-interface BehaviorWithMetrics extends Behavior {
-  metrics: MetricDetail[];
-}
 
 interface UseTestRunDataProps {
   testRunId: string;
@@ -21,7 +15,8 @@ interface UseTestRunDataProps {
 interface UseTestRunDataReturn {
   testResults: TestResultDetail[];
   prompts: Record<string, Prompt>;
-  behaviors: BehaviorWithMetrics[];
+  behaviors: Behavior[];
+  availableMetrics: string[];
   loading: boolean;
   totalCount: number;
   error: string | null;
@@ -35,7 +30,8 @@ export function useTestRunData({
 }: UseTestRunDataProps): UseTestRunDataReturn {
   const [testResults, setTestResults] = useState<TestResultDetail[]>([]);
   const [prompts, setPrompts] = useState<Record<string, Prompt>>({});
-  const [behaviors, setBehaviors] = useState<BehaviorWithMetrics[]>([]);
+  const [behaviors, setBehaviors] = useState<Behavior[]>([]);
+  const [availableMetrics, setAvailableMetrics] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
@@ -54,14 +50,18 @@ export function useTestRunData({
       // Calculate skip based on pagination model
       const skip = paginationModel.page * paginationModel.pageSize;
 
-      // Fetch test results with pagination parameters (now includes nested prompt and behavior data)
-      const response = await testResultsClient.getTestResults({
-        filter: `test_run_id eq '${testRunId}'`,
-        skip: skip,
-        limit: paginationModel.pageSize,
-        sort_by: 'created_at',
-        sort_order: 'desc',
-      });
+      // Fetch test results, behaviors, and metrics used in this run in parallel
+      const [response, behaviorsData, metricsData] = await Promise.all([
+        testResultsClient.getTestResults({
+          filter: `test_run_id eq '${testRunId}'`,
+          skip: skip,
+          limit: paginationModel.pageSize,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+        }),
+        testRunsClient.getTestRunBehaviors(testRunId),
+        testRunsClient.getTestRunMetrics(testRunId),
+      ]);
 
       const results = response.data;
       setTotalCount(response.pagination.totalCount);
@@ -87,36 +87,8 @@ export function useTestRunData({
         {} as Record<string, Prompt>
       );
 
-      // Fetch only behaviors that have test results for this test run
-      const behaviorsData = await testRunsClient.getTestRunBehaviors(testRunId);
-
-      // Fetch metrics for each behavior
-      const behaviorClient = apiFactory.getBehaviorClient();
-      const behaviorsWithMetrics = await Promise.all(
-        behaviorsData.map(async behavior => {
-          try {
-            const behaviorMetrics = await behaviorClient.getBehaviorMetrics(
-              behavior.id as UUID
-            );
-            return {
-              ...behavior,
-              metrics: behaviorMetrics,
-            };
-          } catch (_error) {
-            return {
-              ...behavior,
-              metrics: [],
-            };
-          }
-        })
-      );
-
-      // Filter out behaviors that have no metrics (though this should be rare now)
-      const behaviorsWithMetricsFiltered = behaviorsWithMetrics.filter(
-        behavior => behavior.metrics.length > 0
-      );
-
-      setBehaviors(behaviorsWithMetricsFiltered);
+      setBehaviors(behaviorsData);
+      setAvailableMetrics(metricsData);
       setPrompts(promptsMap);
       setTestResults(results);
     } catch (_error) {
@@ -124,6 +96,7 @@ export function useTestRunData({
       setTestResults([]);
       setPrompts({});
       setBehaviors([]);
+      setAvailableMetrics([]);
     } finally {
       setLoading(false);
     }
@@ -137,10 +110,9 @@ export function useTestRunData({
     testResults,
     prompts,
     behaviors,
+    availableMetrics,
     loading,
     totalCount,
     error,
   };
 }
-
-export type { BehaviorWithMetrics };
