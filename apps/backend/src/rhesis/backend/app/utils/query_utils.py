@@ -239,6 +239,10 @@ class QueryBuilder:
                 self.query = self.query.order_by(desc(secondary_column))
             else:
                 self.query = self.query.order_by(secondary_column)
+        # Always append id ASC as a final unique tiebreaker so results are
+        # strictly deterministic even when all other sort keys are equal.
+        if self._sort_by and hasattr(self.model, "id"):
+            self.query = self.query.order_by(self.model.id)
 
     def _apply_pagination(self):
         """Apply pagination if configured"""
