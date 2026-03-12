@@ -415,7 +415,7 @@ export function renderMentionText(
       <Box
         component="span"
         key={`mention-${match.index}`}
-        sx={{
+        sx={theme => ({
           color: typeColors[type] || 'inherit',
           backgroundColor: typeBackgrounds[type] || 'transparent',
           borderRadius: `${theme.shape.borderRadius / 2}px`,
@@ -424,7 +424,7 @@ export function renderMentionText(
           fontWeight: 600,
           fontSize: 'inherit',
           whiteSpace: 'nowrap',
-        }}
+        })}
       >
         @{display}
       </Box>
