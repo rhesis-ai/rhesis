@@ -192,7 +192,10 @@ export default function GarakImportDialog({
     probes?: GarakProbeClass[]
   ): GarakProbeSelection[] => {
     const source =
-      probes ?? modules.flatMap(m => getModuleProbes(m)).filter(p => selectedProbes.has(p.full_name));
+      probes ??
+      modules
+        .flatMap(m => getModuleProbes(m))
+        .filter(p => selectedProbes.has(p.full_name));
     return source.map(p => ({
       module_name: p.module_name,
       class_name: p.class_name,
@@ -236,9 +239,7 @@ export default function GarakImportDialog({
         setDynamicPreviewCount(0);
       }
     } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to preview import'
-      );
+      setError(err instanceof Error ? err.message : 'Failed to preview import');
     } finally {
       setLoading(false);
     }
@@ -305,7 +306,12 @@ export default function GarakImportDialog({
         const maxSimulated = Math.floor(previewData.total_tests * 0.95);
         const progressInterval = setInterval(() => {
           setImportProgress(prev => {
-            if (!prev || prev.phase !== 'static' || prev.isComplete || !previewData)
+            if (
+              !prev ||
+              prev.phase !== 'static' ||
+              prev.isComplete ||
+              !previewData
+            )
               return prev;
             const testsPerInterval = Math.max(
               1,
@@ -326,8 +332,7 @@ export default function GarakImportDialog({
               ...prev,
               currentProbeIndex: probeIndex,
               currentTestCount: nextTestCount,
-              currentProbe:
-                previewData.probes[probeIndex] || prev.currentProbe,
+              currentProbe: previewData.probes[probeIndex] || prev.currentProbe,
             };
           });
         }, 500);
@@ -338,9 +343,7 @@ export default function GarakImportDialog({
         });
 
         clearInterval(progressInterval);
-        createdTestSetIds.push(
-          ...response.test_sets.map(ts => ts.test_set_id)
-        );
+        createdTestSetIds.push(...response.test_sets.map(ts => ts.test_set_id));
 
         setImportProgress(prev =>
           prev
@@ -377,8 +380,7 @@ export default function GarakImportDialog({
             prev
               ? {
                   ...prev,
-                  currentProbeIndex:
-                    (prev.staticImported || 0) + i,
+                  currentProbeIndex: (prev.staticImported || 0) + i,
                   currentProbe: {
                     module_name: probe.module_name,
                     class_name: probe.class_name,
@@ -673,8 +675,7 @@ export default function GarakImportDialog({
                                           color="warning"
                                           variant="outlined"
                                           sx={{
-                                            height: theme =>
-                                              theme.spacing(2.5),
+                                            height: theme => theme.spacing(2.5),
                                           }}
                                         />
                                       </Tooltip>
@@ -728,9 +729,7 @@ export default function GarakImportDialog({
             >
               <Stack spacing={2}>
                 <Stack direction="row" alignItems="center" spacing={1}>
-                  {!importProgress.isComplete && (
-                    <CircularProgress size={20} />
-                  )}
+                  {!importProgress.isComplete && <CircularProgress size={20} />}
                   <Typography variant="subtitle1" fontWeight="medium">
                     {importProgress.phase === 'static' &&
                       'Importing static probes...'}
@@ -811,10 +810,7 @@ export default function GarakImportDialog({
                     <Stack spacing={1}>
                       <Stack direction="row" alignItems="center" spacing={1}>
                         {importProgress.phase === 'dynamic' ? (
-                          <AutoAwesomeIcon
-                            fontSize="small"
-                            color="warning"
-                          />
+                          <AutoAwesomeIcon fontSize="small" color="warning" />
                         ) : (
                           <SecurityIcon fontSize="small" color="primary" />
                         )}
@@ -915,8 +911,7 @@ export default function GarakImportDialog({
                 )}
                 {preview.detector_count > 0 && (
                   <Typography variant="body2">
-                    Unique detectors:{' '}
-                    <strong>{preview.detector_count}</strong>
+                    Unique detectors: <strong>{preview.detector_count}</strong>
                   </Typography>
                 )}
               </Stack>
@@ -975,8 +970,7 @@ export default function GarakImportDialog({
         >
           {(() => {
             if (preparingImport || importing) return 'Importing...';
-            const { staticProbes, dynamicProbes } =
-              getSelectedProbeObjects();
+            const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
             if (staticProbes.length > 0 && dynamicProbes.length > 0)
               return `Import ${selectedProbes.size} Probes`;
             if (dynamicProbes.length > 0 && staticProbes.length === 0)

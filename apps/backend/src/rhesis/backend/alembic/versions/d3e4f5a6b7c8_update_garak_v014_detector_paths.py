@@ -49,17 +49,21 @@ PATH_UPDATES = [
 
 def upgrade() -> None:
     """Update detector paths to garak v0.14.0 class names."""
-    stmt = sa.text(
-        "UPDATE metric SET evaluation_prompt = :new_path WHERE evaluation_prompt = :old_path"
-    )
     for old_path, new_path in PATH_UPDATES:
-        op.execute(stmt, {"new_path": new_path, "old_path": old_path})
+        op.execute(
+            sa.text(
+                "UPDATE metric SET evaluation_prompt = :new_path"
+                " WHERE evaluation_prompt = :old_path"
+            ).bindparams(new_path=new_path, old_path=old_path)
+        )
 
 
 def downgrade() -> None:
     """Revert detector paths to pre-v0.14.0 class names."""
-    stmt = sa.text(
-        "UPDATE metric SET evaluation_prompt = :old_path WHERE evaluation_prompt = :new_path"
-    )
     for old_path, new_path in PATH_UPDATES:
-        op.execute(stmt, {"old_path": old_path, "new_path": new_path})
+        op.execute(
+            sa.text(
+                "UPDATE metric SET evaluation_prompt = :old_path"
+                " WHERE evaluation_prompt = :new_path"
+            ).bindparams(old_path=old_path, new_path=new_path)
+        )
