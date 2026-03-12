@@ -57,7 +57,7 @@ export interface TestConfigurationBase {
   prompt_id?: UUID;
   use_case_id?: UUID;
   test_set_id: UUID;
-  user_id: UUID;
+  user_id?: UUID;
   organization_id?: UUID;
   status_id?: UUID;
   attributes?: TestConfigurationAttributes;

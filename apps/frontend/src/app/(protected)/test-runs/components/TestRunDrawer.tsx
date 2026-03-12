@@ -176,13 +176,13 @@ export default function TestRunDrawer({
       const testConfigurationsClient =
         clientFactory.getTestConfigurationsClient();
 
-      const currentUserId = getCurrentUserId();
+      const currentUserId: UUID | undefined = getCurrentUserId();
 
       // Create test configuration
       const testConfigurationData: TestConfigurationCreate = {
         endpoint_id: endpoint.id as UUID,
         test_set_id: testSet.id as UUID,
-        user_id: currentUserId as UUID,
+        ...(currentUserId && { user_id: currentUserId }),
         organization_id: endpoint.organization_id as UUID,
       };
 
@@ -209,14 +209,13 @@ export default function TestRunDrawer({
           if (testRun) {
             const tagsClient = new TagsClient(sessionToken);
             const organizationId = endpoint.organization_id as UUID;
-            const userId = currentUserId as UUID;
 
             // Assign each tag to the test run
             for (const tagName of tags) {
               const tagPayload: TagCreate = {
                 name: tagName,
                 ...(organizationId && { organization_id: organizationId }),
-                ...(userId && { user_id: userId }),
+                ...(currentUserId && { user_id: currentUserId }),
               };
 
               await tagsClient.assignTagToEntity(
