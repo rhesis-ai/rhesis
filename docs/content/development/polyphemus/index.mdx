@@ -34,6 +34,19 @@ Polyphemus reads Vertex AI target configuration from environment variables:
 
 If required variables are missing, the service returns HTTP `400` with configuration error details.
 
+### Deployment region variable mapping (v0.2.8+)
+
+For CI/CD and model deployment workflows, region configuration was standardized around a shared
+`REGION` secret. The workflow then maps this to service-specific environment variables:
+
+| Context | Variable used | Where it is consumed |
+|---|---|---|
+| GitHub Actions secret/input | `REGION` | `.github/workflows/polyphemus.yml` and `apps/polyphemus/model_deployment/README.md` |
+| Vertex model deployment script | `GCP_REGION` | `apps/polyphemus/model_deployment/config.py` |
+| Running Polyphemus service | `POLYPHEMUS_LOCATION` | `apps/polyphemus/src/rhesis/polyphemus/routers/services.py` |
+
+This replaces older deployment references that used a Polyphemus-specific region variable name.
+
 ## Batch request and response format
 
 <CodeBlock filename="generate_batch_request.json" language="json">
