@@ -59,16 +59,18 @@ export default function StatusChip({
     status || (passed !== undefined ? (passed ? 'Pass' : 'Fail') : 'Error');
 
   // Determine icon based on status
+  const iconSx = { fontSize: finalIconSize, color: 'inherit' };
+
   const getIcon = () => {
     switch (actualStatus) {
       case 'Pass':
-        return <CheckCircleOutlineIcon sx={{ fontSize: finalIconSize }} />;
+        return <CheckCircleOutlineIcon sx={iconSx} />;
       case 'Fail':
-        return <CancelOutlinedIcon sx={{ fontSize: finalIconSize }} />;
+        return <CancelOutlinedIcon sx={iconSx} />;
       case 'Error':
-        return <ErrorOutlineIcon sx={{ fontSize: finalIconSize }} />;
+        return <ErrorOutlineIcon sx={iconSx} />;
       default:
-        return <CancelOutlinedIcon sx={{ fontSize: finalIconSize }} />;
+        return <CancelOutlinedIcon sx={iconSx} />;
     }
   };
 

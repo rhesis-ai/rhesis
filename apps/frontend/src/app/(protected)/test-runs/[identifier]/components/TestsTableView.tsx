@@ -27,11 +27,17 @@ import CheckIcon from '@mui/icons-material/Check';
 import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import {
+  TestResultDetail,
+  REVIEW_TARGET_TYPES,
+} from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer from './TestResultDrawer';
 import ReviewJudgementDrawer, { ReviewData } from './ReviewJudgementDrawer';
-import { findStatusByCategory } from '@/utils/test-result-status';
+import {
+  findStatusByCategory,
+  isPassedStatusName,
+} from '@/utils/test-result-status';
 
 interface TestsTableViewProps {
   tests: TestResultDetail[];
@@ -276,7 +282,7 @@ export default function TestsTableView({
         test.id,
         targetStatus.id,
         `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
-        { type: 'test', reference: null }
+        { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null }
       );
 
       // Poll for the updated test result with exponential backoff
@@ -349,11 +355,7 @@ export default function TestsTableView({
 
       // Check for human review FIRST (reviews override automated results)
       if (lastReview && lastReview.status?.name) {
-        const reviewStatusName = lastReview.status.name.toLowerCase();
-        const reviewPassed =
-          reviewStatusName.includes('pass') ||
-          reviewStatusName.includes('success') ||
-          reviewStatusName.includes('completed');
+        const reviewPassed = isPassedStatusName(lastReview.status.name);
 
         // Calculate conflict ourselves (don't trust backend's matches_review)
         // A conflict exists if the review decision differs from the automated decision
@@ -440,11 +442,7 @@ export default function TestsTableView({
 
     // If there's a review, use the review status
     if (lastReview && lastReview.status?.name) {
-      const reviewStatusName = lastReview.status.name.toLowerCase();
-      const reviewPassed =
-        reviewStatusName.includes('pass') ||
-        reviewStatusName.includes('success') ||
-        reviewStatusName.includes('completed');
+      const reviewPassed = isPassedStatusName(lastReview.status.name);
 
       // Calculate conflict ourselves (don't trust backend's matches_review)
       // A conflict exists if the review decision differs from the automated decision

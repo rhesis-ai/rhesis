@@ -8,7 +8,10 @@ import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import HistoryIcon from '@mui/icons-material/History';
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined';
 import RateReviewIcon from '@mui/icons-material/RateReview';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import {
+  TestResultDetail,
+  REVIEW_TARGET_TYPES,
+} from '@/utils/api-client/interfaces/test-results';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
 import TestDetailConversationTab from './TestDetailConversationTab';
@@ -218,7 +221,7 @@ export default function TestResultDrawer({
         test.id,
         targetStatus.id,
         `Confirmed automated ${automatedPassed ? 'pass' : 'fail'} result.`,
-        { type: 'test', reference: null }
+        { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null }
       );
 
       // Refresh the test result

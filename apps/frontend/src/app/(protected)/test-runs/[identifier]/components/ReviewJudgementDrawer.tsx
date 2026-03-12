@@ -7,19 +7,27 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Stack,
+  Chip,
   useTheme,
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
+import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import {
+  TestResultDetail,
+  REVIEW_TARGET_TYPES,
+  REVIEW_TARGET_LABELS,
+} from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import StatusChip from '@/components/common/StatusChip';
 import { findStatusByCategory } from '@/utils/test-result-status';
 import MentionTextInput, {
   MentionOption,
+  inferReviewTarget,
+  InferredTarget,
 } from '@/components/common/MentionTextInput';
 
 interface ReviewJudgementDrawerProps {
@@ -81,9 +89,47 @@ export default function ReviewJudgementDrawer({
     }));
   }, [test]);
 
-  // Calculate original test status
+  // Infer target from comment text
+  const inferredTarget: InferredTarget = useMemo(
+    () => inferReviewTarget(reason),
+    [reason]
+  );
+
+  const targetLabel = useMemo(
+    () => REVIEW_TARGET_LABELS[inferredTarget.type] ?? inferredTarget.type,
+    [inferredTarget]
+  );
+
+  // Calculate automated status of the targeted item
   const getOriginalStatus = useCallback((): 'passed' | 'failed' => {
     if (!test) return 'failed';
+
+    if (
+      inferredTarget.type === REVIEW_TARGET_TYPES.METRIC &&
+      inferredTarget.reference
+    ) {
+      const metrics = test.test_metrics?.metrics || {};
+      const metric = Object.entries(metrics).find(
+        ([name]) => name === inferredTarget.reference
+      );
+      return metric?.[1]?.is_successful ? 'passed' : 'failed';
+    }
+
+    if (
+      inferredTarget.type === REVIEW_TARGET_TYPES.TURN &&
+      inferredTarget.reference
+    ) {
+      const turns = test.test_output?.conversation_summary || [];
+      const turnNum = parseInt(
+        inferredTarget.reference.replace(/\D/g, ''),
+        10
+      );
+      const turn = turns.find(
+        (t: { turn: number }) => t.turn === turnNum
+      );
+      return turn?.success ? 'passed' : 'failed';
+    }
+
     const metrics = test.test_metrics?.metrics || {};
     const metricValues = Object.values(metrics);
     const totalMetrics = metricValues.length;
@@ -91,7 +137,7 @@ export default function ReviewJudgementDrawer({
     return totalMetrics > 0 && passedMetrics === totalMetrics
       ? 'passed'
       : 'failed';
-  }, [test]);
+  }, [test, inferredTarget]);
 
   const originalStatus = getOriginalStatus();
 
@@ -121,14 +167,19 @@ export default function ReviewJudgementDrawer({
   // Reset form when drawer opens or test changes
   useEffect(() => {
     if (open && test) {
-      const original = getOriginalStatus();
+      const metrics = test.test_metrics?.metrics || {};
+      const metricValues = Object.values(metrics);
+      const allPassed =
+        metricValues.length > 0 &&
+        metricValues.every(m => m.is_successful);
+      const defaultOriginal = allPassed ? 'passed' : 'failed';
       setNewStatus(
-        initialStatus ?? (original === 'passed' ? 'failed' : 'passed')
+        initialStatus ?? (defaultOriginal === 'passed' ? 'failed' : 'passed')
       );
       setReason(initialComment ?? '');
       setError('');
     }
-  }, [open, test, getOriginalStatus, initialComment, initialStatus]);
+  }, [open, test, initialComment, initialStatus]);
 
   const handleStatusChange = (
     _event: React.MouseEvent<HTMLElement>,
@@ -154,14 +205,17 @@ export default function ReviewJudgementDrawer({
 
     if (!test || !sessionToken) return;
 
-    // Only prevent matching original status if there's NO existing review
-    // If there's already a review, allow changing back to original (updating the review)
-    const hasExistingReview = !!test.last_review;
-    if (newStatus === originalStatus && !hasExistingReview) {
-      setError(
-        'New status must be different from the automated result. Use "Confirm Review" to agree with the automated result.'
-      );
-      return;
+    // For test_result targets without an existing review, prevent matching original
+    // For metric/turn targets, always allow (they're specific overrides)
+    if (inferredTarget.type === REVIEW_TARGET_TYPES.TEST_RESULT) {
+      const hasExistingReview = !!test.last_review;
+      if (newStatus === originalStatus && !hasExistingReview) {
+        setError(
+          'New status must be different from the automated result. '
+          + 'Use "Confirm Review" to agree with the automated result.'
+        );
+        return;
+      }
     }
 
     // Find the status ID for the new status using centralized utility
@@ -187,7 +241,7 @@ export default function ReviewJudgementDrawer({
         test.id,
         targetStatus.id,
         reason.trim(),
-        { type: 'test', reference: null }
+        inferredTarget
       );
 
       // Create review data for parent component
@@ -231,14 +285,36 @@ export default function ReviewJudgementDrawer({
       anchor="right"
       saveButtonText={submitting ? 'Saving...' : 'Submit Review'}
       error={error}
-      width={600}
+      width={theme.spacing(75)}
       loading={submitting || loadingStatuses}
     >
       <Stack spacing={3}>
-        {/* Original Status Section */}
+        {/* Review Target Indicator */}
         <Box>
           <Typography variant="body2" fontWeight={600} gutterBottom>
-            Original Status
+            Review Target
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <Chip
+              icon={<TrackChangesIcon />}
+              label={targetLabel}
+              size="small"
+              color={
+                inferredTarget.type === REVIEW_TARGET_TYPES.METRIC
+                  ? 'secondary'
+                  : inferredTarget.type === REVIEW_TARGET_TYPES.TURN
+                    ? 'info'
+                    : 'default'
+              }
+              variant="outlined"
+            />
+          </Box>
+        </Box>
+
+        {/* Automated Status of Target */}
+        <Box>
+          <Typography variant="body2" fontWeight={600} gutterBottom>
+            Current Automated Status
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
             <StatusChip
@@ -247,9 +323,18 @@ export default function ReviewJudgementDrawer({
               size="small"
               variant="filled"
             />
-            <Typography variant="body2" color="text.secondary">
-              {passedMetrics}/{totalMetrics} metrics passed
-            </Typography>
+            {inferredTarget.type === REVIEW_TARGET_TYPES.TEST_RESULT && (
+              <Typography variant="body2" color="text.secondary">
+                {passedMetrics}/{totalMetrics} metrics passed
+              </Typography>
+            )}
+            {inferredTarget.type === REVIEW_TARGET_TYPES.METRIC &&
+              inferredTarget.reference && (
+                <Typography variant="body2" color="text.secondary">
+                  Score:{' '}
+                  {metrics[inferredTarget.reference]?.score ?? 'N/A'}
+                </Typography>
+              )}
           </Box>
         </Box>
 
@@ -280,7 +365,9 @@ export default function ReviewJudgementDrawer({
                 },
               }}
             >
-              <CheckCircleOutlineIcon sx={{ mr: 1, fontSize: 18 }} />
+              <CheckCircleOutlineIcon
+                sx={{ mr: 1, fontSize: 'body2.fontSize' }}
+              />
               Pass
             </ToggleButton>
             <ToggleButton
@@ -297,7 +384,9 @@ export default function ReviewJudgementDrawer({
                 },
               }}
             >
-              <CancelOutlinedIcon sx={{ mr: 1, fontSize: 18 }} />
+              <CancelOutlinedIcon
+                sx={{ mr: 1, fontSize: 'body2.fontSize' }}
+              />
               Fail
             </ToggleButton>
           </ToggleButtonGroup>

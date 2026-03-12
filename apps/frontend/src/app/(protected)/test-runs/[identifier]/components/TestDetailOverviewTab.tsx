@@ -20,10 +20,7 @@ import TestResultTags from './TestResultTags';
 import StatusChip from '@/components/common/StatusChip';
 import FileAttachmentList from '@/components/common/FileAttachmentList';
 import { useFiles } from '@/hooks/useFiles';
-import {
-  getTestResultStatus,
-  getTestResultLabel,
-} from '@/utils/test-result-status';
+import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 
 interface TestDetailOverviewTabProps {
   test: TestResultDetail;
@@ -193,9 +190,19 @@ export default function TestDetailOverviewTab({
     return test.test_output?.output || 'No response available';
   }, [isMultiTurn, test]);
 
-  // Get the test result status (Pass, Fail, or Error)
-  const testStatus = useMemo(() => getTestResultStatus(test), [test]);
-  const testLabel = useMemo(() => getTestResultLabel(test), [test]);
+  const testStatus = useMemo(() => getEffectiveTestResultStatus(test), [test]);
+  const testLabel = useMemo(() => {
+    switch (testStatus) {
+      case 'Pass':
+        return 'Passed';
+      case 'Fail':
+        return 'Failed';
+      case 'Error':
+        return 'Error';
+      default:
+        return 'Unknown';
+    }
+  }, [testStatus]);
 
   // Render for Single-turn tests (original simple design)
   if (!isMultiTurn) {

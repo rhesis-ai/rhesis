@@ -23,7 +23,7 @@ import {
   ConversationTurn,
 } from '@/utils/api-client/interfaces/test-results';
 import {
-  getTestResultStatusWithReview,
+  getEffectiveTestResultStatus,
   hasConflictingReview,
   type TestResultStatus,
 } from '@/utils/test-result-status';
@@ -307,8 +307,7 @@ export default function TestsList({
       const metricValues = Object.values(metrics);
       const passedMetrics = metricValues.filter(m => m.is_successful).length;
       const totalMetrics = metricValues.length;
-      // Use human review status if available, otherwise use automated status
-      const status = getTestResultStatusWithReview(test);
+      const status = getEffectiveTestResultStatus(test);
 
       // Get turn count for multi-turn tests
       const turnCount =

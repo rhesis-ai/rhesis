@@ -27,13 +27,14 @@ import {
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import { alpha } from '@mui/material/styles';
 import {
   TestResultDetail,
   MetricResult,
   CriterionEvaluation,
+  Review,
+  REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
 import {
@@ -76,16 +77,20 @@ export default function TestDetailMetricsTab({
 
   // Determine if this is a multi-turn test by checking for Goal Achievement/Evaluation metric
   // Support flexible matching: any metric containing "goal" + ("achievement" OR "evaluation")
-  const goalAchievementMetric = useMemo(() => {
+  const goalAchievementEntry = useMemo(() => {
     const testMetrics = test.test_metrics?.metrics || {};
-    return Object.entries(testMetrics).find(([metricName]) => {
-      const lowerName = metricName.toLowerCase();
-      return (
-        lowerName.includes('goal') &&
-        (lowerName.includes('achievement') || lowerName.includes('evaluation'))
-      );
-    })?.[1];
+    return (
+      Object.entries(testMetrics).find(([metricName]) => {
+        const lowerName = metricName.toLowerCase();
+        return (
+          lowerName.includes('goal') &&
+          (lowerName.includes('achievement') || lowerName.includes('evaluation'))
+        );
+      }) || null
+    );
   }, [test]);
+  const goalMetricName = goalAchievementEntry?.[0] ?? null;
+  const goalAchievementMetric = goalAchievementEntry?.[1] ?? null;
   const isMultiTurn = !!goalAchievementMetric;
 
   const metricsData = useMemo(() => {
@@ -236,24 +241,14 @@ export default function TestDetailMetricsTab({
 
   // Extract Goal Achievement/Evaluation metric data if it exists
   const goalAchievementData = useMemo(() => {
-    const testMetrics = test.test_metrics?.metrics || {};
-    // Support flexible matching: any metric containing "goal" + ("achievement" OR "evaluation")
-    const goalMetricEntry = Object.entries(testMetrics).find(([metricName]) => {
-      const lowerName = metricName.toLowerCase();
-      return (
-        lowerName.includes('goal') &&
-        (lowerName.includes('achievement') || lowerName.includes('evaluation'))
-      );
-    });
-    const goalMetric = goalMetricEntry?.[1] as MetricResult & {
+    if (!goalAchievementMetric) return null;
+
+    const goalMetric = goalAchievementMetric as MetricResult & {
       criteria_met?: number;
       criteria_total?: number;
       confidence?: number;
     };
 
-    if (!goalMetric) return null;
-
-    // Criteria evaluations are in test_output.goal_evaluation, not in the metric itself
     const goalEvaluation = test.test_output?.goal_evaluation;
 
     return {
@@ -263,8 +258,9 @@ export default function TestDetailMetricsTab({
       isSuccessful: goalMetric.is_successful || false,
       criteriaEvaluations: goalEvaluation?.criteria_evaluations || [],
       reason: goalMetric.reason || '',
+      override: goalMetric.override,
     };
-  }, [test]);
+  }, [test, goalAchievementMetric]);
 
   // Compute additional (non-Goal Achievement) metrics for multi-turn tests
   const hasAdditionalMultiTurnMetrics = useMemo(() => {
@@ -290,6 +286,28 @@ export default function TestDetailMetricsTab({
       return !isGoalMetric;
     });
   }, [filteredMetrics, isMultiTurn]);
+
+  // Build a map of metric name -> latest review targeting that metric
+  const metricReviewMap = useMemo(() => {
+    const map = new Map<string, Review>();
+    const reviews = test.test_reviews?.reviews || [];
+    for (const review of reviews) {
+      const target = review.target;
+      if (
+        target?.type === REVIEW_TARGET_TYPES.METRIC &&
+        target.reference
+      ) {
+        const existing = map.get(target.reference);
+        if (
+          !existing ||
+          (review.updated_at || '') > (existing.updated_at || '')
+        ) {
+          map.set(target.reference, review);
+        }
+      }
+    }
+    return map;
+  }, [test.test_reviews]);
 
   const handleFilterChange = (
     _event: React.MouseEvent<HTMLElement>,
@@ -447,20 +465,43 @@ export default function TestDetailMetricsTab({
         )}
       </Grid>
       {/* Goal Achievement Details */}
-      {goalAchievementData && (
-        <Card sx={{ mb: 3 }} variant="outlined">
+      {goalAchievementData && goalMetricName && (() => {
+        const goalReview = metricReviewMap.get(goalMetricName);
+        const goalIsOverruled = !!goalAchievementData.override;
+        const goalIsConfirmed = !!goalReview && !goalIsOverruled;
+
+        return (
+        <Card
+          sx={{
+            mb: 3,
+            ...(goalIsOverruled && {
+              borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.warning.main}`,
+            }),
+            ...(goalIsConfirmed && {
+              borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.success.light}`,
+            }),
+          }}
+          variant="outlined"
+        >
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                mb: 3,
+              }}
+            >
               <CheckCircleOutlineIcon
                 sx={{
                   color: goalAchievementData.isSuccessful
                     ? 'success.main'
                     : 'error.main',
-                  fontSize: 20,
+                  fontSize: theme.typography.body1.fontSize,
                 }}
               />
               <Typography variant="subtitle1" fontWeight={600}>
-                Goal Achievement
+                {goalMetricName}
               </Typography>
               <StatusChip
                 passed={goalAchievementData.isSuccessful}
@@ -468,6 +509,30 @@ export default function TestDetailMetricsTab({
                 size="small"
                 variant="filled"
               />
+              <Box sx={{ flexGrow: 1 }} />
+              {onReviewMetric && (
+                <Tooltip title={`Review ${goalMetricName}`}>
+                  <IconButton
+                    size="small"
+                    onClick={() => onReviewMetric(goalMetricName)}
+                    sx={{
+                      padding: 0.5,
+                      color: theme.palette.text.secondary,
+                      '&:hover': {
+                        color: theme.palette.primary.main,
+                        backgroundColor: alpha(
+                          theme.palette.primary.main,
+                          theme.palette.action.hoverOpacity
+                        ),
+                      },
+                    }}
+                  >
+                    <RateReviewIcon
+                      sx={{ fontSize: theme.spacing(2) }}
+                    />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Box>
 
             <Grid container spacing={2}>
@@ -483,7 +548,7 @@ export default function TestDetailMetricsTab({
                   color="text.secondary"
                   sx={{
                     textTransform: 'uppercase',
-                    letterSpacing: 0.5,
+                    letterSpacing: theme.typography.overline.letterSpacing,
                     fontWeight: 600,
                   }}
                 >
@@ -509,7 +574,7 @@ export default function TestDetailMetricsTab({
                           : 0
                       }
                       sx={{
-                        height: 6,
+                        height: theme.spacing(0.75),
                         borderRadius: theme.shape.borderRadius,
                         backgroundColor: theme.palette.grey[200],
                         '& .MuiLinearProgress-bar': {
@@ -544,7 +609,7 @@ export default function TestDetailMetricsTab({
                   color="text.secondary"
                   sx={{
                     textTransform: 'uppercase',
-                    letterSpacing: 0.5,
+                    letterSpacing: theme.typography.overline.letterSpacing,
                     fontWeight: 600,
                   }}
                 >
@@ -564,7 +629,7 @@ export default function TestDetailMetricsTab({
                       variant="determinate"
                       value={goalAchievementData.confidence * 100}
                       sx={{
-                        height: 6,
+                        height: theme.spacing(0.75),
                         borderRadius: theme.shape.borderRadius,
                         backgroundColor: theme.palette.grey[200],
                         '& .MuiLinearProgress-bar': {
@@ -646,8 +711,8 @@ export default function TestDetailMetricsTab({
                             >
                               <Box
                                 sx={{
-                                  width: 6,
-                                  height: 6,
+                                  width: theme.spacing(0.75),
+                                  height: theme.spacing(0.75),
                                   borderRadius: theme.shape.circular,
                                   backgroundColor: criterion.met
                                     ? 'success.main'
@@ -722,7 +787,8 @@ export default function TestDetailMetricsTab({
             </Grid>
           </CardContent>
         </Card>
-      )}
+        );
+      })()}
       {/* Metrics Details Table */}
       {(!isMultiTurn || hasAdditionalMultiTurnMetrics) && (
         <TableContainer>
@@ -760,53 +826,79 @@ export default function TestDetailMetricsTab({
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredMetricsForTable.map(metric => (
+                filteredMetricsForTable.map(metric => {
+                  const metricReview = metricReviewMap.get(metric.name);
+                  const isOverruled = !!metric.fullMetricData.override;
+                  const isConfirmed = !!metricReview && !isOverruled;
+
+                  return (
                   <TableRow
                     key={`${metric.behaviorName}-${metric.name}`}
                     sx={{
                       '&:hover': {
                         backgroundColor: theme.palette.action.hover,
                       },
+                      ...(isOverruled && {
+                        borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.warning.main}`,
+                      }),
+                      ...(isConfirmed && {
+                        borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.success.light}`,
+                      }),
                     }}
                   >
                     <TableCell>
-                      <StatusChip
-                        passed={metric.passed}
-                        label={metric.passed ? 'Pass' : 'Fail'}
-                        size="small"
-                        variant="filled"
-                        sx={{ minWidth: 80 }}
-                      />
+                      <Tooltip
+                        title={
+                          isOverruled
+                            ? `Reviewed by ${metricReview?.user?.name}: status changed to ${metricReview?.status?.name}`
+                            : isConfirmed
+                              ? `Confirmed by ${metricReview?.user?.name}`
+                              : ''
+                        }
+                        disableHoverListener={!metricReview}
+                        arrow
+                      >
+                        <Box>
+                          <StatusChip
+                            passed={metric.passed}
+                            label={metric.passed ? 'Pass' : 'Fail'}
+                            size="small"
+                            variant="filled"
+                            sx={{ minWidth: theme.spacing(10) }}
+                          />
+                        </Box>
+                      </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <Box
-                        sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                      <Tooltip
+                        title={metric.description || ''}
+                        arrow
+                        placement="top"
+                        enterDelay={300}
+                        leaveDelay={0}
+                        disableHoverListener={!metric.description}
                       >
-                        <Typography variant="body2" fontWeight={500}>
+                        <Typography
+                          variant="body2"
+                          fontWeight={500}
+                          sx={{
+                            ...(onReviewMetric && {
+                              color: theme.palette.primary.main,
+                              cursor: 'pointer',
+                              '&:hover': {
+                                textDecoration: 'underline',
+                              },
+                            }),
+                          }}
+                          onClick={
+                            onReviewMetric
+                              ? () => onReviewMetric(metric.name)
+                              : undefined
+                          }
+                        >
                           {metric.name}
                         </Typography>
-                        {metric.description && (
-                          <Tooltip
-                            title={metric.description}
-                            arrow
-                            placement="top"
-                            enterDelay={300}
-                            leaveDelay={0}
-                          >
-                            <InfoOutlinedIcon
-                              sx={{
-                                fontSize: 16,
-                                color: 'action.active',
-                                opacity: 0.6,
-                                cursor: 'help',
-                                '&:hover': {
-                                  opacity: 1,
-                                },
-                              }}
-                            />
-                          </Tooltip>
-                        )}
-                      </Box>
+                      </Tooltip>
                     </TableCell>
                     <TableCell>
                       {metric.fullMetricData.reason ? (
@@ -841,7 +933,7 @@ export default function TestDetailMetricsTab({
                                 color: theme.palette.primary.main,
                                 backgroundColor: alpha(
                                   theme.palette.primary.main,
-                                  0.1
+                                  theme.palette.action.hoverOpacity
                                 ),
                               },
                             }}
@@ -854,7 +946,8 @@ export default function TestDetailMetricsTab({
                       </TableCell>
                     )}
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

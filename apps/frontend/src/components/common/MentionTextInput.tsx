@@ -4,6 +4,10 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { MentionsInput, Mention, SuggestionDataItem } from 'react-mentions';
 import { Box, Typography, useTheme, FormHelperText } from '@mui/material';
 import { alpha } from '@mui/material/styles';
+import {
+  REVIEW_TARGET_TYPES,
+  type ReviewTargetType,
+} from '@/utils/api-client/interfaces/test-results';
 
 export interface MentionOption {
   id: string;
@@ -275,6 +279,7 @@ export default function MentionTextInput({
             fontFamily: theme.typography.fontFamily,
             lineHeight: String(theme.typography.body2.lineHeight),
             minHeight,
+            pointerEvents: 'none' as const,
           },
           suggestions: {
             backgroundColor: 'transparent',
@@ -299,6 +304,7 @@ export default function MentionTextInput({
             },
             highlighter: {
               minHeight,
+              pointerEvents: 'none' as const,
             },
           },
         }}
@@ -415,4 +421,34 @@ export function renderMentionText(
   }
 
   return parts.length > 0 ? <>{parts}</> : text;
+}
+
+export interface InferredTarget {
+  type: ReviewTargetType;
+  reference: string | null;
+}
+
+/**
+ * Infer the review target from mention markup in comment text.
+ * Returns the first metric or turn mention found; defaults to test_result.
+ */
+export function inferReviewTarget(text: string): InferredTarget {
+  const mentionRegex =
+    /@\[([^\]]+)\]\(((?:metric|turn):[^)]*(?:\([^)]*\))*[^)]*)\)/g;
+  let match;
+
+  while ((match = mentionRegex.exec(text)) !== null) {
+    const display = match[1];
+    const fullId = match[2];
+    const type = fullId.split(':')[0];
+
+    if (type === REVIEW_TARGET_TYPES.METRIC) {
+      return { type: REVIEW_TARGET_TYPES.METRIC, reference: display };
+    }
+    if (type === REVIEW_TARGET_TYPES.TURN) {
+      return { type: REVIEW_TARGET_TYPES.TURN, reference: display };
+    }
+  }
+
+  return { type: REVIEW_TARGET_TYPES.TEST_RESULT, reference: null };
 }

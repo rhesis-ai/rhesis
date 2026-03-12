@@ -2,7 +2,11 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Typography } from '@mui/material';
-import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
+import {
+  TestResultDetail,
+  Review,
+  REVIEW_TARGET_TYPES,
+} from '@/utils/api-client/interfaces/test-results';
 import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ConversationHistory from '@/components/common/ConversationHistory';
@@ -89,6 +93,33 @@ export default function TestDetailConversationTab({
     [turnTraceMap]
   );
 
+  // Build a map of turn number -> latest review targeting that turn
+  const turnReviewMap = useMemo(() => {
+    const map: Record<number, Review> = {};
+    const reviews = test.test_reviews?.reviews || [];
+    for (const review of reviews) {
+      if (
+        review.target?.type === REVIEW_TARGET_TYPES.TURN &&
+        review.target.reference
+      ) {
+        const turnNum = parseInt(
+          review.target.reference.replace(/\D/g, ''),
+          10
+        );
+        if (!isNaN(turnNum)) {
+          const existing = map[turnNum];
+          if (
+            !existing ||
+            (review.updated_at || '') > (existing.updated_at || '')
+          ) {
+            map[turnNum] = review;
+          }
+        }
+      }
+    }
+    return map;
+  }, [test.test_reviews]);
+
   // Determine if this is a multi-turn test
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
@@ -152,6 +183,7 @@ export default function TestDetailConversationTab({
         reviewMatchesAutomated={test.matches_review === true}
         isConfirmingReview={isConfirmingReview}
         maxHeight="100%"
+        turnReviewMap={turnReviewMap}
       />
       <TraceDrawer
         open={traceDrawerOpen}
