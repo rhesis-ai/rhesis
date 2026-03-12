@@ -6313,7 +6313,7 @@ requires-dist = [
     { name = "faker" },
     { name = "fastapi" },
     { name = "fastxlsx", specifier = ">=0.2.0" },
-    { name = "garak", specifier = ">=0.13.0" },
+    { name = "garak", specifier = ">=0.14.0" },
     { name = "gcsfs", specifier = ">=2025.9.0" },
     { name = "google-genai", specifier = ">=1.13.0" },
     { name = "gunicorn", specifier = ">=21.2.0" },
