@@ -22,7 +22,7 @@ import { useRouter } from 'next/navigation';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Tag } from '@/utils/api-client/interfaces/tag';
 import { Typography, Box, Alert, Chip } from '@mui/material';
-import { ChatIcon, DescriptionIcon } from '@/components/icons';
+import { AttachFileIcon, ChatIcon, DescriptionIcon } from '@/components/icons';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestDrawer from './TestDrawer';
@@ -261,6 +261,25 @@ export default function TestsTable({
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <DescriptionIcon
+                sx={{ fontSize: 'small', color: 'text.secondary' }}
+              />
+              <Typography variant="body2">{count}</Typography>
+            </Box>
+          );
+        },
+      },
+      {
+        field: 'counts.files',
+        headerName: 'Attachments',
+        width: 100,
+        sortable: false,
+        filterable: false,
+        renderCell: params => {
+          const count = params.row.counts?.files || 0;
+          if (count === 0) return null;
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <AttachFileIcon
                 sx={{ fontSize: 'small', color: 'text.secondary' }}
               />
               <Typography variant="body2">{count}</Typography>

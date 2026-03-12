@@ -1,5 +1,6 @@
-from sqlalchemy import Column, ForeignKey, Integer, Table
+from sqlalchemy import Column, ForeignKey, Integer, Table, and_, case, select
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -83,6 +84,29 @@ class Test(
         viewonly=True,
         uselist=True,
     )
+
+    @hybrid_property
+    def content(self):
+        if self.test_configuration and self.test_configuration.get("goal"):
+            return self.test_configuration["goal"]
+        return self.prompt.content if self.prompt else None
+
+    @content.expression
+    def content(cls):
+        from .prompt import Prompt
+
+        # Mirror Python semantics: treat NULL and empty-string goal as absent
+        goal_is_present = and_(
+            cls.test_configuration["goal"].astext.isnot(None),
+            cls.test_configuration["goal"].astext != "",
+        )
+        return case(
+            (goal_is_present, cls.test_configuration["goal"].astext),
+            else_=select(Prompt.content)
+            .where(Prompt.id == cls.prompt_id)
+            .correlate(cls)
+            .scalar_subquery(),
+        )
 
     def to_searchable_text(self) -> str:
         """

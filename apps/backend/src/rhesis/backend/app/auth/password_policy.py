@@ -90,9 +90,10 @@ def get_password_policy() -> PasswordPolicyConfig:
 
 def _build_user_inputs(
     context: Optional[dict[str, str]],
+    blocked_words: frozenset[str] = _CONTEXT_BLOCKED_WORDS,
 ) -> list[str]:
     """Derive zxcvbn user_inputs and context words from caller-supplied context."""
-    inputs: list[str] = list(_CONTEXT_BLOCKED_WORDS)
+    inputs: list[str] = list(blocked_words)
     if not context:
         return inputs
 
@@ -113,13 +114,14 @@ def _build_user_inputs(
 def _check_context_words(
     password: str,
     context: Optional[dict[str, str]],
+    blocked_words: frozenset[str] = _CONTEXT_BLOCKED_WORDS,
 ) -> Optional[str]:
     """
     Return the matched word if the password contains a context-specific word,
     else None. Only words >= _MIN_CONTEXT_WORD_LENGTH chars are checked.
     """
     pw_lower = password.casefold()
-    words = _build_user_inputs(context)
+    words = _build_user_inputs(context, blocked_words=blocked_words)
     for word in words:
         w = word.casefold()
         if len(w) >= _MIN_CONTEXT_WORD_LENGTH and w in pw_lower:
@@ -130,6 +132,7 @@ def _check_context_words(
 def _check_strength_score(
     password: str,
     context: Optional[dict[str, str]],
+    blocked_words: frozenset[str] = _CONTEXT_BLOCKED_WORDS,
 ) -> tuple[int, str | None]:
     """
     Evaluate password strength with zxcvbn.
@@ -137,7 +140,7 @@ def _check_strength_score(
     zxcvbn's built-in dictionaries cover ~30k common passwords,
     names, and keyboard patterns.
     """
-    user_inputs = _build_user_inputs(context)
+    user_inputs = _build_user_inputs(context, blocked_words=blocked_words)
     result = zxcvbn(password, user_inputs=user_inputs)
     score: int = result["score"]
     warning: str | None = None
@@ -186,7 +189,9 @@ async def validate_password(
             detail=(f"Password must be at most {policy.max_length} characters"),
         )
 
-    matched_word = _check_context_words(password, context)
+    matched_word = _check_context_words(
+        password, context, blocked_words=policy.context_blocked_words
+    )
     if matched_word:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -194,7 +199,9 @@ async def validate_password(
         )
 
     if policy.min_strength_score > 0:
-        score, warning = _check_strength_score(password, context)
+        score, warning = _check_strength_score(
+            password, context, blocked_words=policy.context_blocked_words
+        )
         if score < policy.min_strength_score:
             detail = "Password is too weak. Please choose a stronger password."
             if warning:
