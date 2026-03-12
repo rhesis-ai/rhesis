@@ -199,7 +199,10 @@ class EmailProvider(AuthProvider):
                 detail="Email and password are required",
             )
 
-        validate_password(password)
+        validate_password(
+            password,
+            context={"email": email, "name": name or ""},
+        )
 
         if not db:
             raise HTTPException(

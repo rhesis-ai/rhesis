@@ -101,10 +101,11 @@ class ProviderInfo(BaseModel):
 
 
 class PasswordPolicyResponse(BaseModel):
-    """Password policy exposed to frontend (min/max length)."""
+    """Password policy exposed to frontend for client-side validation."""
 
     min_length: int
     max_length: int
+    min_strength_score: int
 
 
 class ProvidersResponse(BaseModel):
@@ -281,6 +282,7 @@ async def get_providers():
         password_policy=PasswordPolicyResponse(
             min_length=policy.min_length,
             max_length=policy.max_length,
+            min_strength_score=policy.min_strength_score,
         ),
     )
 
@@ -777,7 +779,10 @@ async def reset_password(
             detail="Invalid reset token",
         )
 
-    validate_password(body.new_password)
+    validate_password(
+        body.new_password,
+        context={"email": user.email, "name": user.name or ""},
+    )
     user.password_hash = hash_password(body.new_password)
     # Preserve original provider_type — setting a password is additive,
     # not a provider migration. Users can log in via either method.
