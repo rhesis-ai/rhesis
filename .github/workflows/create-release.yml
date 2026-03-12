@@ -1,3 +1,6 @@
+# This workflow creates the release branch, bumps versions, generates changelogs, and opens a PR.
+# Staging deployment is handled by release.yml, which triggers on push to release/* branches.
+# This ensures the build uses the release branch (with bumped versions), not main.
 name: "[Release] 2. Create and deploy (stg)"
 
 on:
@@ -128,27 +131,3 @@ jobs:
             --head $BRANCH_NAME
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
-
-  backend-deploy:
-    needs: release
-    uses: ./.github/workflows/backend.yml
-    with:
-      environment: stg
-      reason: "Release deployment to staging"
-    secrets: inherit
-
-  frontend-deploy:
-    needs: release
-    uses: ./.github/workflows/frontend.yml
-    with:
-      environment: stg
-      reason: "Release deployment to staging"
-    secrets: inherit
-
-  worker-deploy:
-    needs: release
-    uses: ./.github/workflows/worker.yml
-    with:
-      environment: stg
-      reason: "Release deployment to dev"
-    secrets: inherit
