@@ -20,10 +20,16 @@ class GarakProbeInfo:
     class_name: str
     full_name: str
     description: str
+    # Explicit attack objective from probe_class.goal (distinct from the docstring).
+    # May be None for probes that do not declare a goal attribute.
+    goal: Optional[str] = None
     tags: List[str] = field(default_factory=list)
     prompts: List[str] = field(default_factory=list)
     prompt_count: int = 0
     detector: Optional[str] = None
+    # True when the probe has no static prompts and generates them at runtime.
+    # Such probes are excluded from static import and offered for dynamic LLM synthesis.
+    is_dynamic: bool = False
 
 
 @dataclass
@@ -37,3 +43,5 @@ class GarakModuleInfo:
     total_prompt_count: int = 0
     tags: List[str] = field(default_factory=list)
     default_detector: Optional[str] = None
+    # True when at least one probe in this module is dynamic.
+    has_dynamic_probes: bool = False

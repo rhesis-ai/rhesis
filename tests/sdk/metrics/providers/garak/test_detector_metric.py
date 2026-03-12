@@ -292,19 +292,21 @@ class TestGarakDetectorMetricEvaluate:
         metric._detector = mock_detector
 
         mock_attempt = MagicMock()
+        mock_message = MagicMock()
         mock_attempt_cls = MagicMock(return_value=mock_attempt)
+        mock_message_cls = MagicMock(return_value=mock_message)
 
         with patch.dict(
             "sys.modules",
             {
                 "garak": MagicMock(),
-                "garak.attempt": MagicMock(Attempt=mock_attempt_cls),
+                "garak.attempt": MagicMock(Attempt=mock_attempt_cls, Message=mock_message_cls),
             },
         ):
             metric.evaluate(input="Test input prompt", output="Model output response")
 
-        # Verify Attempt was configured correctly
-        assert mock_attempt.prompt == "Test input prompt"
+        mock_message_cls.assert_called_once_with(text="Test input prompt", lang="*")
+        assert mock_attempt.prompt == mock_message
         assert mock_attempt.outputs == ["Model output response"]
 
     def test_evaluate_handles_import_error(self):
@@ -359,7 +361,13 @@ class TestGarakDetectorMetricEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
     def test_evaluate_with_empty_output_list(self):
-        """Test evaluate when detector returns empty list."""
+        """Test evaluate when detector returns empty list.
+
+        In garak v0.14, empty scores are treated as inconclusive rather
+        than silently passing.
+        """
+        import math
+
         mock_detector = MagicMock()
         mock_detector.detect.return_value = []
 
@@ -371,14 +379,17 @@ class TestGarakDetectorMetricEdgeCases:
             "sys.modules",
             {
                 "garak": MagicMock(),
-                "garak.attempt": MagicMock(Attempt=MagicMock(return_value=mock_attempt)),
+                "garak.attempt": MagicMock(
+                    Attempt=MagicMock(return_value=mock_attempt),
+                    Message=MagicMock(),
+                ),
             },
         ):
             result = metric.evaluate(input="Test", output="Response")
 
-        # Empty list should default to 0.0
-        assert result.score == 0.0
-        assert result.details["is_successful"] is True
+        assert math.isnan(result.score)
+        assert result.details["inconclusive"] is True
+        assert result.details["is_successful"] is None
 
     def test_evaluate_with_tuple_result(self):
         """Test evaluate when detector returns a tuple instead of list."""
@@ -437,17 +448,19 @@ class TestGarakDetectorMetricEdgeCases:
         metric._detector = mock_detector
 
         mock_attempt = MagicMock()
+        mock_message = MagicMock()
         mock_attempt_cls = MagicMock(return_value=mock_attempt)
+        mock_message_cls = MagicMock(return_value=mock_message)
 
         with patch.dict(
             "sys.modules",
             {
                 "garak": MagicMock(),
-                "garak.attempt": MagicMock(Attempt=mock_attempt_cls),
+                "garak.attempt": MagicMock(Attempt=mock_attempt_cls, Message=mock_message_cls),
             },
         ):
-            # Should not raise error with empty input
             result = metric.evaluate(input="", output="Response")
 
-        assert mock_attempt.prompt == ""
+        mock_message_cls.assert_called_once_with(text="", lang="*")
+        assert mock_attempt.prompt == mock_message
         assert result is not None

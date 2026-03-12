@@ -14,7 +14,7 @@ from rhesis.backend.app.constants import (
     ERROR_INVALID_UUID,
     ERROR_TEST_SET_NOT_FOUND,
     EntityType,
-    TestType,
+    TestSetType,
 )
 from rhesis.backend.app.models import Prompt, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
@@ -145,7 +145,7 @@ def bulk_create_test_set(
     test_set_data: Dict[str, Any] | schemas.TestSetBulkCreate,
     organization_id: str,
     user_id: str,
-    test_set_type: TestType = None,
+    test_set_type: TestSetType = None,
 ) -> models.TestSet:
     """Create a test set with its associated tests in a single operation.
 
@@ -154,8 +154,8 @@ def bulk_create_test_set(
         test_set_data: Test set data (dict or schema)
         organization_id: Organization ID
         user_id: User ID
-        test_set_type: Test set type (TestType.SINGLE_TURN or TestType.MULTI_TURN).
-                      If not provided, defaults to TestType.SINGLE_TURN.
+        test_set_type: Test set type (TestSetType.SINGLE_TURN or TestSetType.MULTI_TURN).
+                      If not provided, defaults to TestSetType.SINGLE_TURN.
 
     Returns:
         Created TestSet model instance
@@ -192,7 +192,7 @@ def bulk_create_test_set(
 
         # Use provided test_set_type or fall back to default
         if test_set_type:
-            test_set_type_value = TestType.get_value(test_set_type)
+            test_set_type_value = TestSetType.get_value(test_set_type)
         else:
             test_set_type_value = defaults["test_set"]["test_set_type"]
 

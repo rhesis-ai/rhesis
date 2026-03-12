@@ -202,9 +202,7 @@ class TestGarakTaxonomyIntegration:
         """Test that taxonomy detector paths follow garak conventions."""
         from rhesis.backend.app.services.garak.taxonomy import GarakTaxonomy
 
-        mappings = GarakTaxonomy.get_all_mappings()
-
-        for module_name, mapping in mappings.items():
+        for module_name, mapping in GarakTaxonomy.MODULE_MAPPINGS.items():
             detector = mapping.default_detector
             assert detector.startswith("garak.detectors."), (
                 f"Detector for {module_name} should start with 'garak.detectors.'"
@@ -394,11 +392,10 @@ class TestGarakUpgradeReadiness:
 
         from rhesis.backend.app.services.garak.taxonomy import GarakTaxonomy
 
-        mappings = GarakTaxonomy.get_all_mappings()
         failed_imports = []
         successful_imports = []
 
-        for module_name, mapping in mappings.items():
+        for module_name, mapping in GarakTaxonomy.MODULE_MAPPINGS.items():
             detector_path = mapping.default_detector
 
             # Parse the detector path

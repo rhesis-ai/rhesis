@@ -11,7 +11,7 @@
 # ============================================================================
 # STAGE 1: Builder - Install dependencies and build artifacts
 # ============================================================================
-FROM mirror.gcr.io/library/python:3.10.17-slim AS builder
+FROM mirror.gcr.io/library/python:3.12.8-slim AS builder
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
@@ -84,7 +84,7 @@ COPY apps/backend/src /app/src
 # ============================================================================
 # STAGE 2: Runtime - Create minimal runtime image
 # ============================================================================
-FROM mirror.gcr.io/library/python:3.10.17-slim AS runtime
+FROM mirror.gcr.io/library/python:3.12.8-slim AS runtime
 # Copy uv and uvx (required for MCP servers that use uvx)
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Copy Bun from official image (lighter than Node.js, required for bunx to run MCP servers)

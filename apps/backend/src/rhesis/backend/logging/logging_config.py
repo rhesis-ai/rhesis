@@ -5,7 +5,8 @@ import sys
 
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+if os.environ.get("SQLALCHEMY_DB_MODE") != "test":
+    load_dotenv(override=True)
 
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 LOG_DIR = os.environ.get("LOG_DIR", "logs")
