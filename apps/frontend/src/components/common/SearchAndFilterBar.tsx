@@ -44,11 +44,12 @@ export default function SearchAndFilterBar({
     >
       {/* Top row: Search and Action buttons */}
       <Box
+        data-testid="search-action-row"
         sx={{
           display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
+          flexDirection: { xs: 'column', md: 'row' },
           gap: 2,
-          alignItems: { xs: 'stretch', sm: 'center' },
+          alignItems: { xs: 'stretch', md: 'center' },
           justifyContent: 'space-between',
         }}
       >
@@ -107,6 +108,7 @@ export default function SearchAndFilterBar({
       {/* Filter row: inline filter chips and controls */}
       {children && (
         <Box
+          data-testid="filter-row"
           sx={{
             display: 'flex',
             gap: 1.5,

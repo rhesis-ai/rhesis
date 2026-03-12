@@ -162,11 +162,24 @@ describe('SearchAndFilterBar', () => {
      * the Filters badge button and the New Metric action button to collapse into a
      * floating card that overlapped the metric cards below.
      *
-     * The fix moves children to their own dedicated row. These tests enforce that
-     * structural invariant so the regression cannot be reintroduced silently.
+     * The fix moves children to their own dedicated row (`data-testid="filter-row"`),
+     * separate from the search + action row (`data-testid="search-action-row"`).
+     * Tests use those stable hooks rather than `parentElement` traversal so a future
+     * internal DOM restructure does not silently break the assertions.
      */
 
-    it('renders filter children in a different container than the action button', () => {
+    it('renders filter children inside the dedicated filter-row container', () => {
+      render(
+        <SearchAndFilterBar {...defaultProps}>
+          <button data-testid="filter-chip">All</button>
+        </SearchAndFilterBar>
+      );
+
+      const filterRow = screen.getByTestId('filter-row');
+      expect(filterRow).toContainElement(screen.getByTestId('filter-chip'));
+    });
+
+    it('renders the action button inside search-action-row, not filter-row', () => {
       const onAddNew = jest.fn();
       render(
         <SearchAndFilterBar
@@ -178,16 +191,15 @@ describe('SearchAndFilterBar', () => {
         </SearchAndFilterBar>
       );
 
-      const filterChip = screen.getByTestId('filter-chip');
       const actionButton = screen.getByRole('button', { name: /new metric/i });
+      const searchActionRow = screen.getByTestId('search-action-row');
+      const filterRow = screen.getByTestId('filter-row');
 
-      // Filter children container must not contain the action button
-      expect(filterChip.parentElement).not.toContainElement(actionButton);
-      // Action button container must not contain the filter chip
-      expect(actionButton.parentElement).not.toContainElement(filterChip);
+      expect(searchActionRow).toContainElement(actionButton);
+      expect(filterRow).not.toContainElement(actionButton);
     });
 
-    it('renders the Filters child button in a different container than the New Metric action button', () => {
+    it('renders filter children in filter-row, not in search-action-row', () => {
       const onAddNew = jest.fn();
       render(
         <SearchAndFilterBar
@@ -200,18 +212,14 @@ describe('SearchAndFilterBar', () => {
       );
 
       const filtersChild = screen.getByTestId('filters-child');
-      const newMetricButton = screen.getByRole('button', {
-        name: /new metric/i,
-      });
+      const searchActionRow = screen.getByTestId('search-action-row');
+      const filterRow = screen.getByTestId('filter-row');
 
-      expect(filtersChild.parentElement).not.toBe(
-        newMetricButton.parentElement
-      );
-      expect(filtersChild.parentElement).not.toContainElement(newMetricButton);
-      expect(newMetricButton.parentElement).not.toContainElement(filtersChild);
+      expect(filterRow).toContainElement(filtersChild);
+      expect(searchActionRow).not.toContainElement(filtersChild);
     });
 
-    it('renders many filter chips without placing the action button in the children container', () => {
+    it('renders many filter chips in filter-row without leaking the action button into it', () => {
       // Simulates the exact metrics-page scenario: All + 5 backend tabs + Filters button
       const chips = ['All', 'Custom', 'Garak', 'Rhesis', 'Deepeval', 'Ragas'];
       const onAddNew = jest.fn();
@@ -231,44 +239,25 @@ describe('SearchAndFilterBar', () => {
         </SearchAndFilterBar>
       );
 
-      // Every chip and the Filters child must be present
-      chips.forEach(label =>
-        expect(
-          screen.getByTestId(`chip-${label.toLowerCase()}`)
-        ).toBeInTheDocument()
-      );
-      expect(screen.getByTestId('filters-child')).toBeInTheDocument();
-
+      const filterRow = screen.getByTestId('filter-row');
       const actionButton = screen.getByRole('button', { name: /new metric/i });
 
-      // None of the filter children's containers should contain the action button
-      chips.forEach(label => {
-        const chip = screen.getByTestId(`chip-${label.toLowerCase()}`);
-        expect(chip.parentElement).not.toContainElement(actionButton);
-      });
-      expect(
-        screen.getByTestId('filters-child').parentElement
-      ).not.toContainElement(actionButton);
+      // Every chip and the Filters child must be inside filter-row
+      chips.forEach(label =>
+        expect(filterRow).toContainElement(
+          screen.getByTestId(`chip-${label.toLowerCase()}`)
+        )
+      );
+      expect(filterRow).toContainElement(screen.getByTestId('filters-child'));
+
+      // The action button must NOT be inside filter-row
+      expect(filterRow).not.toContainElement(actionButton);
     });
 
-    it('renders filter children in a sibling container to the search-and-actions row', () => {
-      const onAddNew = jest.fn();
-      render(
-        <SearchAndFilterBar
-          {...defaultProps}
-          onAddNew={onAddNew}
-          addNewLabel="New Metric"
-        >
-          <button data-testid="filter-chip">All</button>
-        </SearchAndFilterBar>
-      );
+    it('does not render filter-row when no children are provided', () => {
+      render(<SearchAndFilterBar {...defaultProps} />);
 
-      const searchInput = screen.getByPlaceholderText('Search...');
-      const filterChip = screen.getByTestId('filter-chip');
-
-      // The filter chip must not share a direct parent with the search input,
-      // because they live in separate rows of the outer column.
-      expect(filterChip.parentElement).not.toContainElement(searchInput);
+      expect(screen.queryByTestId('filter-row')).not.toBeInTheDocument();
     });
   });
 
