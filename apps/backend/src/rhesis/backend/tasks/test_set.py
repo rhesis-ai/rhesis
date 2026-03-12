@@ -323,6 +323,13 @@ def generate_and_save_test_set(
             num_sources=len(source_specifications),
         )
 
+        # Normalize test_type to canonical Title-Case form, accepting snake_case from clients
+        resolved_type = TestSetType.from_string(test_type) if test_type else None
+        if resolved_type is None:
+            valid = [t.value for t in TestSetType]
+            raise ValueError(f"Unsupported test_type {test_type!r}. Valid values: {valid}")
+        test_type = resolved_type.value
+
         # Create synthesizer with full config
         if test_type == TestSetType.SINGLE_TURN.value:
             synthesizer = ConfigSynthesizer(
@@ -336,6 +343,8 @@ def generate_and_save_test_set(
                 config=generation_config,
                 model=model,
             )
+        else:
+            raise ValueError(f"Unsupported test_type {test_type!r}")
 
         self.log_with_context(
             "info",

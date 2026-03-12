@@ -48,12 +48,17 @@ class TestSetType(Enum):
 
     @classmethod
     def from_string(cls, value: str):
-        """Get enum from string value (case-insensitive comparison)"""
+        """Get enum from string value (case-insensitive, accepts snake_case and hyphenated).
+
+        Maps both 'single_turn' and 'Single-Turn' to TestSetType.SINGLE_TURN, so API
+        clients that use snake_case conventions are handled transparently.
+        """
         if not value:
             return None
-        value_lower = value.lower()
+        # Normalize underscores to hyphens so snake_case aliases work (single_turn → single-turn)
+        normalized = value.lower().replace("_", "-")
         for test_set_type in cls:
-            if test_set_type.value.lower() == value_lower:
+            if test_set_type.value.lower() == normalized:
                 return test_set_type
         return None
 

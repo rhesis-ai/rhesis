@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import UUID4, BaseModel, Field, model_validator
+from pydantic import UUID4, BaseModel, Field, field_validator, model_validator
 
 from rhesis.backend.app.constants import TestSetType
 
@@ -98,6 +98,19 @@ class GenerateTestsRequest(BaseModel):
     sources: Optional[List[SourceData]] = None
     name: Optional[str] = None  # Used only for bulk generation to name the test set
     test_type: Optional[str] = TestSetType.SINGLE_TURN.value
+
+    @field_validator("test_type", mode="before")
+    @classmethod
+    def normalize_test_type(cls, v: Optional[str]) -> Optional[str]:
+        """Normalize test_type to canonical form, accepting snake_case (single_turn) or
+        hyphenated (Single-Turn) from any client."""
+        if v is None:
+            return v
+        resolved = TestSetType.from_string(v)
+        if resolved is None:
+            valid = [t.value for t in TestSetType]
+            raise ValueError(f"Unsupported test_type {v!r}. Valid values: {valid}")
+        return resolved.value
 
 
 class TestPrompt(BaseModel):

@@ -10,6 +10,7 @@ Create Date: 2026-03-10
 
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
 
 revision: str = "d3e4f5a6b7c8"
@@ -48,17 +49,17 @@ PATH_UPDATES = [
 
 def upgrade() -> None:
     """Update detector paths to garak v0.14.0 class names."""
+    stmt = sa.text(
+        "UPDATE metric SET evaluation_prompt = :new_path WHERE evaluation_prompt = :old_path"
+    )
     for old_path, new_path in PATH_UPDATES:
-        op.execute(
-            f"UPDATE metric SET evaluation_prompt = '{new_path}' "
-            f"WHERE evaluation_prompt = '{old_path}'"
-        )
+        op.execute(stmt, {"new_path": new_path, "old_path": old_path})
 
 
 def downgrade() -> None:
     """Revert detector paths to pre-v0.14.0 class names."""
+    stmt = sa.text(
+        "UPDATE metric SET evaluation_prompt = :old_path WHERE evaluation_prompt = :new_path"
+    )
     for old_path, new_path in PATH_UPDATES:
-        op.execute(
-            f"UPDATE metric SET evaluation_prompt = '{old_path}' "
-            f"WHERE evaluation_prompt = '{new_path}'"
-        )
+        op.execute(stmt, {"old_path": old_path, "new_path": new_path})
