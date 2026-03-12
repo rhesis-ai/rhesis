@@ -205,8 +205,7 @@ class GarakGenerateRequest(BaseModel):
     name: Optional[str] = Field(
         None,
         description=(
-            "Custom name for the generated test set. "
-            "Defaults to 'Garak Dynamic: <module>.<class>'."
+            "Custom name for the generated test set. Defaults to 'Garak Dynamic: <module>.<class>'."
         ),
     )
     num_tests: Optional[int] = Field(
