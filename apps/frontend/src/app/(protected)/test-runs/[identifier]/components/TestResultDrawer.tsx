@@ -459,6 +459,7 @@ export default function TestResultDrawer({
               currentUserPicture={currentUserPicture}
               elevation={0}
               onCountsChange={handleCountsChange}
+              additionalMetadata={{ test_run_id: testRunId }}
             />
           </TabPanel>
         </Box>

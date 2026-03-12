@@ -55,6 +55,7 @@ interface TestRunMainViewProps {
     description?: string;
     metrics: Array<{ name: string; description?: string }>;
   }>;
+  availableMetrics: string[];
   loading?: boolean;
   currentUserId: string;
   currentUserName: string;
@@ -70,6 +71,7 @@ export default function TestRunMainView({
   testResults: initialTestResults,
   prompts,
   behaviors,
+  availableMetrics,
   loading = false,
   currentUserId,
   currentUserName,
@@ -683,15 +685,7 @@ export default function TestRunMainView({
             filter={filter}
             onFilterChange={handleFilterChange}
             availableBehaviors={behaviors}
-            availableMetrics={
-              behaviors
-                ? Array.from(
-                    new Map(
-                      behaviors.flatMap(b => b.metrics).map(m => [m.name, m])
-                    ).values()
-                  )
-                : []
-            }
+            availableMetrics={availableMetrics.map(name => ({ name }))}
             onDownload={handleDownload}
             onCompare={handleCompare}
             isDownloading={isDownloading}

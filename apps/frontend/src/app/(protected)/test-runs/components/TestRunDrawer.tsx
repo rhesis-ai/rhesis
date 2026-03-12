@@ -7,24 +7,20 @@ import {
   Autocomplete,
   TextField,
   Box,
-  Avatar,
   Typography,
   Divider,
   Stack,
 } from '@mui/material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { User } from '@/utils/api-client/interfaces/user';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { TestConfigurationCreate } from '@/utils/api-client/interfaces/test-configuration';
-import PersonIcon from '@mui/icons-material/Person';
 import { UUID } from 'crypto';
 import { useNotifications } from '@/components/common/NotificationContext';
 import BaseTag from '@/components/common/BaseTag';
 import { EntityType, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
-import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 import { pollForTestRun } from '@/utils/test-run-utils';
 import { getApiErrorMessage } from '@/utils/error-utils';
 
@@ -46,13 +42,10 @@ export default function TestRunDrawer({
   const notifications = useNotifications();
   const [error, setError] = React.useState<string>();
   const [loading, setLoading] = React.useState(false);
-  const [assignee, setAssignee] = React.useState<User | null>(null);
-  const [owner, setOwner] = React.useState<User | null>(null);
   const [testSet, setTestSet] = React.useState<TestSet | null>(null);
   const [project, setProject] = React.useState<Project | null>(null);
   const [endpoint, setEndpoint] = React.useState<Endpoint | null>(null);
 
-  const [users, setUsers] = React.useState<User[]>([]);
   const [testSets, setTestSets] = React.useState<TestSet[]>([]);
   const [projects, setProjects] = React.useState<Project[]>([]);
   const [endpoints, setEndpoints] = React.useState<Endpoint[]>([]);
@@ -61,7 +54,7 @@ export default function TestRunDrawer({
   );
   const [tags, setTags] = React.useState<string[]>([]);
 
-  const getCurrentUserId = useCallback(() => {
+  const getCurrentUserId = useCallback((): UUID | undefined => {
     try {
       const [, payloadBase64] = sessionToken.split('.');
       const base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
@@ -70,7 +63,7 @@ export default function TestRunDrawer({
 
       const payload = JSON.parse(
         Buffer.from(paddedBase64, 'base64').toString('utf-8')
-      );
+      ) as { user?: { id?: UUID } };
       return payload.user?.id;
     } catch (_err) {
       return undefined;
@@ -87,31 +80,19 @@ export default function TestRunDrawer({
         setError(undefined);
 
         const clientFactory = new ApiClientFactory(sessionToken);
-        const usersClient = clientFactory.getUsersClient();
         const testSetsClient = clientFactory.getTestSetsClient();
         const projectsClient = clientFactory.getProjectsClient();
         const endpointsClient = clientFactory.getEndpointsClient();
 
-        const currentUserId = getCurrentUserId();
-
         try {
-          const [
-            fetchedUsers,
-            fetchedTestSets,
-            fetchedProjects,
-            fetchedEndpoints,
-          ] = await Promise.all([
-            usersClient.getUsers(),
-            testSetsClient.getTestSets({ limit: 100 }),
-            projectsClient.getProjects(),
-            endpointsClient.getEndpoints(),
-          ]);
+          const [fetchedTestSets, fetchedProjects, fetchedEndpoints] =
+            await Promise.all([
+              testSetsClient.getTestSets({ limit: 100 }),
+              projectsClient.getProjects(),
+              endpointsClient.getEndpoints(),
+            ]);
 
           // Ensure we always set arrays, never undefined
-          const usersArray = Array.isArray(fetchedUsers?.data)
-            ? fetchedUsers.data
-            : [];
-          setUsers(usersArray);
           setTestSets(
             Array.isArray(fetchedTestSets?.data) ? fetchedTestSets.data : []
           );
@@ -134,38 +115,19 @@ export default function TestRunDrawer({
 
           // Set initial values if editing
           if (testRun) {
-            if (testRun.assignee_id) {
-              const currentAssignee = usersArray.find(
-                u => u.id === testRun.assignee_id
-              );
-              setAssignee(currentAssignee || null);
-            }
-            if (testRun.owner_id) {
-              const currentOwner = usersArray.find(
-                u => u.id === testRun.owner_id
-              );
-              setOwner(currentOwner || null);
-            }
             // Set tags if available
             if (testRun.tags && testRun.tags.length > 0) {
               setTags(testRun.tags.map(tag => tag.name));
             } else {
               setTags([]);
             }
-            // Add test set, project and endpoint initialization if available in testRun
           } else {
-            // Set default owner as current user for new test runs
-            if (currentUserId) {
-              const currentUser = usersArray.find(u => u.id === currentUserId);
-              setOwner(currentUser || null);
-            }
             // Reset tags for new test runs
             setTags([]);
           }
         } catch (_fetchError) {
           setError('Failed to load required data');
           // Ensure state remains as empty arrays even on error
-          setUsers([]);
           setTestSets([]);
           setProjects([]);
           setEndpoints([]);
@@ -214,11 +176,13 @@ export default function TestRunDrawer({
       const testConfigurationsClient =
         clientFactory.getTestConfigurationsClient();
 
+      const currentUserId = getCurrentUserId();
+
       // Create test configuration
       const testConfigurationData: TestConfigurationCreate = {
         endpoint_id: endpoint.id as UUID,
         test_set_id: testSet.id as UUID,
-        user_id: owner?.id as UUID,
+        ...(currentUserId && { user_id: currentUserId }),
         organization_id: endpoint.organization_id as UUID,
       };
 
@@ -245,14 +209,13 @@ export default function TestRunDrawer({
           if (testRun) {
             const tagsClient = new TagsClient(sessionToken);
             const organizationId = endpoint.organization_id as UUID;
-            const userId = owner?.id as UUID;
 
             // Assign each tag to the test run
             for (const tagName of tags) {
               const tagPayload: TagCreate = {
                 name: tagName,
                 ...(organizationId && { organization_id: organizationId }),
-                ...(userId && { user_id: userId }),
+                ...(currentUserId && { user_id: currentUserId }),
               };
 
               await tagsClient.assignTagToEntity(
@@ -286,34 +249,6 @@ export default function TestRunDrawer({
     }
   };
 
-  const getUserDisplayName = (user: User) => {
-    return (
-      user.name ||
-      `${user.given_name || ''} ${user.family_name || ''}`.trim() ||
-      user.email
-    );
-  };
-
-  const renderUserOption = (
-    props: React.HTMLAttributes<HTMLLIElement> & { key?: string },
-    option: User
-  ) => {
-    const { key, ...otherProps } = props;
-    return (
-      <Box component="li" key={key} {...otherProps}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar
-            src={option.picture}
-            sx={{ width: AVATAR_SIZES.SMALL, height: AVATAR_SIZES.SMALL }}
-          >
-            <PersonIcon />
-          </Avatar>
-          {getUserDisplayName(option)}
-        </Box>
-      </Box>
-    );
-  };
-
   return (
     <BaseDrawer
       open={open}
@@ -325,78 +260,6 @@ export default function TestRunDrawer({
       saveButtonText="Execute Now"
     >
       <Stack spacing={3}>
-        {/* Workflow Section */}
-        <Stack spacing={2}>
-          <Typography variant="subtitle2" color="text.secondary">
-            Workflow
-          </Typography>
-
-          <Stack spacing={2}>
-            <Autocomplete
-              options={Array.isArray(users) ? users : []}
-              value={assignee}
-              onChange={(_, newValue) => setAssignee(newValue)}
-              getOptionLabel={getUserDisplayName}
-              renderOption={renderUserOption}
-              fullWidth
-              renderInput={params => (
-                <TextField
-                  {...params}
-                  label="Assignee"
-                  InputProps={{
-                    ...params.InputProps,
-                    startAdornment: assignee && (
-                      <Avatar
-                        src={assignee.picture}
-                        sx={{
-                          width: AVATAR_SIZES.SMALL,
-                          height: AVATAR_SIZES.SMALL,
-                          mr: 1,
-                        }}
-                      >
-                        <PersonIcon />
-                      </Avatar>
-                    ),
-                  }}
-                />
-              )}
-            />
-
-            <Autocomplete
-              options={Array.isArray(users) ? users : []}
-              value={owner}
-              onChange={(_, newValue) => setOwner(newValue)}
-              getOptionLabel={getUserDisplayName}
-              renderOption={renderUserOption}
-              fullWidth
-              renderInput={params => (
-                <TextField
-                  {...params}
-                  label="Owner"
-                  required
-                  InputProps={{
-                    ...params.InputProps,
-                    startAdornment: owner && (
-                      <Avatar
-                        src={owner.picture}
-                        sx={{
-                          width: AVATAR_SIZES.SMALL,
-                          height: AVATAR_SIZES.SMALL,
-                          mr: 1,
-                        }}
-                      >
-                        <PersonIcon />
-                      </Avatar>
-                    ),
-                  }}
-                />
-              )}
-            />
-          </Stack>
-        </Stack>
-
-        <Divider />
-
         {/* Test Run Configuration Section */}
         <Stack spacing={2}>
           <Typography variant="subtitle2" color="text.secondary">
