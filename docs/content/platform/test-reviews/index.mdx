@@ -1,6 +1,6 @@
 # Test Reviews
 
-Override automated test evaluations with human judgement. When a test run produces results you disagree with, reviews let you correct them at the level that matters — the overall result, a specific metric, or an individual conversation turn.
+Override automated test evaluations with human judgement. When a test run produces results you disagree with, reviews let you correct them at the target that matters — the overall result, a specific metric, or an individual conversation turn.
 
 <Callout type="default">
   **What are Test Reviews?** A test review is a human judgement that can override or confirm the automated pass/fail verdict for a test result. Reviews are tracked per reviewer and never erase the original automated outcome — both are visible side by side.
@@ -15,28 +15,28 @@ Reviews let you:
 - Correct automated verdicts that missed important context
 - Document the reasoning behind a human judgement for your team
 - Distinguish between automated and human-verified results at a glance
-- Work at the right level of granularity — overall, per metric, or per turn
+- Work at the right target of granularity — overall, per metric, or per turn
 
 Reviews do not change the original automated result. The original score is preserved and shown alongside the human verdict.
 
-## The Three Levels of Review
+## Review Targets
 
-Reviews can be applied at three levels of granularity. Each level gives you a different lens into the test result.
+When adding a review, you choose a **target** — the part of the test result the review applies to. There are three targets available.
 
 <div style={{width: '100%', minHeight: '420px'}}>
 
 ```mermaid
 %%{init: {'flowchart': {'nodeSpacing': 80, 'rankSpacing': 100}, 'themeVariables': {'fontSize': '16px'}}}%%
 graph TB
-    TR["Test Result<br/><small>Override the overall verdict</small>"]
+    TR["Target: Test Result<br/><small>Override the overall verdict</small>"]
 
-    M1["Metric: Answer Relevancy<br/><small>Override one metric</small>"]
-    M2["Metric: Refusal Detection<br/><small>Override one metric</small>"]
-    M3["Metric: Goal Achievement<br/><small>Override one metric</small>"]
+    M1["Target: Metric — Answer Relevancy<br/><small>Override one metric</small>"]
+    M2["Target: Metric — Refusal Detection<br/><small>Override one metric</small>"]
+    M3["Target: Metric — Goal Achievement<br/><small>Override one metric</small>"]
 
-    T1["Turn 1<br/><small>Override one turn</small>"]
-    T2["Turn 2<br/><small>Override one turn</small>"]
-    T3["Turn 3<br/><small>Override one turn</small>"]
+    T1["Target: Turn 1<br/><small>Override one turn</small>"]
+    T2["Target: Turn 2<br/><small>Override one turn</small>"]
+    T3["Target: Turn 3<br/><small>Override one turn</small>"]
 
     TR --> M1
     TR --> M2
@@ -56,23 +56,23 @@ graph TB
 
 </div>
 
-### Test Result Level
+### Test Result Target
 
-The broadest level. A test result review applies a single Pass or Fail verdict to the entire test outcome.
+The broadest target. A test result review applies a single Pass or Fail verdict to the entire test outcome.
 
-Use this when you want to mark a test as passing or failing overall, without commenting on individual metrics or turns. This is the most common type of review and suitable for quick assessments.
+Use this when you want to mark a test as passing or failing overall, without commenting on individual metrics or turns. This is the most common review target and suitable for quick assessments.
 
-### Metric Level
+### Metric Target
 
 A metric review targets one specific evaluation criterion within a test result. For example, if a result failed on "Answer Relevancy" but you believe the response was actually relevant, you can override that metric in isolation without affecting any other metrics.
 
 Use this when you agree with most of the automated evaluation but want to correct a specific metric that was scored incorrectly.
 
-### Turn Level
+### Turn Target
 
 Available for multi-turn tests only. A turn review targets a single conversation turn within a multi-turn test result. Each turn in a conversation can receive its own Pass or Fail verdict independently of the others.
 
-Use this when a multi-turn conversation contains a mix of good and poor turns, and you want to record precise feedback at the turn level rather than painting the whole result with one verdict.
+Use this when a multi-turn conversation contains a mix of good and poor turns, and you want to record precise feedback at the turn target rather than painting the whole result with one verdict.
 
 ---
 
@@ -98,7 +98,7 @@ The test result will immediately reflect your review verdict. The original autom
 5. Optionally use `@metric-name` mentions in your comment to reference specific metrics
 6. Click **Save**
 
-Your review applies only to that metric. Other metrics retain their automated verdicts.
+Your review applies only to that metric target. Other metrics retain their automated verdicts.
 
 ### Reviewing a Conversation Turn
 
@@ -110,7 +110,7 @@ Your review applies only to that metric. Other metrics retain their automated ve
 6. Add a comment — you can mention specific turns using `@turn-N` syntax
 7. Click **Save**
 
-Turn-level reviews let you capture fine-grained feedback on exactly where a multi-turn conversation succeeded or fell short.
+Turn target reviews let you capture fine-grained feedback on exactly where a multi-turn conversation succeeded or fell short.
 
 ---
 
@@ -136,8 +136,8 @@ The original automated outcome is always available to view in the detail panel, 
 
 ## Tips
 
-- Use **metric-level reviews** when the automated scoring of a specific criterion is wrong, but the overall evaluation is mostly correct.
-- Use **turn-level reviews** in multi-turn tests to pinpoint exactly which step in a conversation went wrong.
+- Use the **metric target** when the automated scoring of a specific criterion is wrong, but the overall evaluation is mostly correct.
+- Use the **turn target** in multi-turn tests to pinpoint exactly which step in a conversation went wrong.
 - Always add a **comment** to your review. It creates an audit trail and helps teammates understand why the verdict was changed.
 - Reviews are per-user and timestamped. If multiple team members review the same result, each review is stored and attributed to its author.
 
