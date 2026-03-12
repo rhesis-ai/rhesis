@@ -145,6 +145,9 @@ export function MCPConnectionDialog({
     };
   } | null>(null);
   const [connectionTested, setConnectionTested] = useState(false);
+  // Tracks whether the user has modified credential fields in edit mode.
+  // A re-test is only required when this is true.
+  const [credentialsModified, setCredentialsModified] = useState(false);
 
   // GitHub repository fields
   const [repositoryUrl, setRepositoryUrl] = useState('');
@@ -235,7 +238,8 @@ export function MCPConnectionDialog({
         setLoading(false);
         setShowAdvancedConfig(!!tool.tool_metadata);
         setTestResult(null);
-        setConnectionTested(true); // Skip test requirement in edit mode
+        setConnectionTested(false);
+        setCredentialsModified(false);
       } else if (provider) {
         // Create mode: reset to defaults
         setName('');
@@ -261,6 +265,7 @@ export function MCPConnectionDialog({
         setShowAdvancedConfig(isCustomProvider);
         setTestResult(null);
         setConnectionTested(false);
+        setCredentialsModified(false);
       }
     }
   }, [
@@ -276,17 +281,19 @@ export function MCPConnectionDialog({
   // Note: name and description changes don't affect connection validity
   useEffect(() => {
     if (!isEditMode) {
-      // In create mode, reset only when credential fields change
-      // (not when name/description change, as they don't affect connection)
+      // In create mode, reset whenever credential-related fields change
       setConnectionTested(false);
       setTestResult(null);
     } else {
-      // In edit mode, reset if any credential field was changed
-      const tokenChanged = authToken && authToken !== '************';
-      const urlChanged = instanceUrl && instanceUrl !== '************';
-      const usernameChanged = username && username !== '************';
+      // In edit mode, derive modified state from current field values so that
+      // reverting a field back to the placeholder resets the flag correctly.
+      const tokenChanged = Boolean(authToken && authToken !== '************');
+      const urlChanged = Boolean(instanceUrl && instanceUrl !== '************');
+      const usernameChanged = Boolean(username && username !== '************');
+      const modified = tokenChanged || urlChanged || usernameChanged;
 
-      if (tokenChanged || urlChanged || usernameChanged) {
+      setCredentialsModified(modified);
+      if (modified) {
         setConnectionTested(false);
         setTestResult(null);
       }
@@ -404,10 +411,74 @@ export function MCPConnectionDialog({
         tool_metadata?: Record<string, unknown>;
       };
 
-      if (isEditMode && tool?.id) {
-        // In edit mode, use existing tool ID
+      if (isEditMode && tool?.id && !credentialsModified) {
+        // Edit mode, no credential changes — test existing stored credentials
         testRequest = {
           tool_id: tool.id,
+        };
+      } else if (isEditMode && tool?.id && credentialsModified) {
+        // Edit mode with changed credentials — test new credentials directly
+        const currentProviderType =
+          provider?.type_value || tool.tool_provider_type?.type_value;
+
+        if (!currentProviderType) {
+          setError('Provider type not available. Please try again.');
+          setTestingConnection(false);
+          return;
+        }
+
+        const credentialKey = getCredentialKey(currentProviderType);
+        let credentials: Record<string, string> = {};
+        let parsedMetadata: Record<string, unknown> | undefined = undefined;
+
+        if (currentProviderType === 'jira') {
+          const normalizedUrl = normalizeUrl(instanceUrl);
+          credentials = {
+            JIRA_URL: normalizedUrl,
+            JIRA_USERNAME: username.trim(),
+            JIRA_API_TOKEN: authToken.trim(),
+          };
+        } else if (currentProviderType === 'confluence') {
+          const normalizedUrl = normalizeUrl(instanceUrl);
+          credentials = {
+            CONFLUENCE_URL: normalizedUrl,
+            CONFLUENCE_USERNAME: username.trim(),
+            CONFLUENCE_API_TOKEN: authToken.trim(),
+          };
+        } else {
+          credentials = {
+            [credentialKey]: authToken.trim(),
+          };
+        }
+
+        if (currentProviderType === 'github' && repositoryUrl.trim()) {
+          const repoData = parseRepositoryUrl(repositoryUrl);
+          if (!repoData) {
+            setError(
+              'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
+            );
+            setTestingConnection(false);
+            return;
+          }
+          parsedMetadata = { repository: repoData };
+        }
+
+        if (isCustomProvider && toolMetadata.trim()) {
+          const validatedMetadata = validateToolMetadata(toolMetadata);
+          if (validatedMetadata === null) {
+            setError(
+              'Please fix the JSON configuration errors before testing.'
+            );
+            setTestingConnection(false);
+            return;
+          }
+          parsedMetadata = { ...(parsedMetadata || {}), ...validatedMetadata };
+        }
+
+        testRequest = {
+          provider_type_id: tool.tool_provider_type?.id,
+          credentials,
+          tool_metadata: parsedMetadata,
         };
       } else {
         // In create mode, use direct parameters
@@ -999,6 +1070,33 @@ export function MCPConnectionDialog({
                       ) : null,
                   }}
                 />
+                {/* GitHub Repository Configuration — placed before Test Connection */}
+                {providerType === 'github' && (
+                  <>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{
+                        fontWeight: 600,
+                        mb: 1,
+                        color: 'primary.main',
+                        mt: 1,
+                      }}
+                    >
+                      Repository Scope
+                    </Typography>
+
+                    <TextField
+                      label="Repository URL"
+                      fullWidth
+                      required
+                      value={repositoryUrl}
+                      onChange={e => setRepositoryUrl(e.target.value)}
+                      placeholder="https://github.com/owner/repo"
+                      helperText="Specify the GitHub repository for this connection"
+                    />
+                  </>
+                )}
+
                 <Box sx={{ mt: 1 }}>
                   <Button
                     variant="outlined"
@@ -1008,6 +1106,8 @@ export function MCPConnectionDialog({
                       testingConnection ||
                       loading ||
                       !authToken ||
+                      // GitHub: require repository URL before testing
+                      (providerType === 'github' && !repositoryUrl.trim()) ||
                       // For Jira/Confluence: in create mode, always require URL and username
                       // In edit mode, only require them if any credential field was touched
                       (!isEditMode &&
@@ -1094,28 +1194,6 @@ export function MCPConnectionDialog({
                       </Typography>
                     </Box>
                   )}
-              </>
-            )}
-
-            {/* GitHub Repository Configuration */}
-            {providerType === 'github' && (
-              <>
-                <Typography
-                  variant="subtitle1"
-                  sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 2 }}
-                >
-                  Repository Scope
-                </Typography>
-
-                <TextField
-                  label="Repository URL"
-                  fullWidth
-                  required
-                  value={repositoryUrl}
-                  onChange={e => setRepositoryUrl(e.target.value)}
-                  placeholder="https://github.com/owner/repo"
-                  helperText="Specify the GitHub repository for this connection"
-                />
               </>
             )}
 
@@ -1240,14 +1318,17 @@ export function MCPConnectionDialog({
             </Alert>
           </Box>
         )}
-        {isEditMode && !connectionTested && !testResult && (
-          <Box sx={{ px: 3, pb: 1 }}>
-            <Alert severity="info">
-              Please test the connection with the updated credentials before
-              saving.
-            </Alert>
-          </Box>
-        )}
+        {isEditMode &&
+          credentialsModified &&
+          !connectionTested &&
+          !testResult && (
+            <Box sx={{ px: 3, pb: 1 }}>
+              <Alert severity="info">
+                Please test the connection with the updated credentials before
+                saving.
+              </Alert>
+            </Box>
+          )}
 
         <DialogActions
           sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}
@@ -1274,7 +1355,7 @@ export function MCPConnectionDialog({
                 (!instanceUrl || !username)) ||
               (!isEditMode && isCustomProvider && !toolMetadata.trim()) ||
               (!isEditMode && !connectionTested) ||
-              (isEditMode && !connectionTested) || // Require test if any credential changed in edit mode
+              (isEditMode && credentialsModified && !connectionTested) || // Require test only if credentials were changed
               loading ||
               !!jsonError
             }
