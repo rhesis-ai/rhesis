@@ -393,7 +393,6 @@ async def sync_test_set(
 @router.post("/generate", response_model=GarakGenerateResponse, status_code=202)
 async def generate_dynamic_probe(
     request: GarakGenerateRequest,
-    db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
     probe_service: GarakProbeService = Depends(get_probe_service),
 ):
