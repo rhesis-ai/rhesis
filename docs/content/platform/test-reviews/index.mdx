@@ -41,9 +41,9 @@ graph TB
     TR --> M1
     TR --> M2
     TR --> M3
-    M3 --> T1
-    M3 --> T2
-    M3 --> T3
+    TR --> T1
+    TR --> T2
+    TR --> T3
 
     style TR fill:#2196F3,color:#fff
     style M1 fill:#9c27b0,color:#fff
@@ -98,7 +98,7 @@ The test result will immediately reflect your review verdict. The original autom
 3. Locate the metric you want to override
 4. Click the **Review** icon on the metric row in the grid — this opens a review modal
 5. Select **Pass** or **Fail**
-6. Optionally use `@metric-name` mentions in your comment to reference specific metrics
+6. Optionally type `@` in your comment and select a metric from the suggestions to reference it
 7. Click **Save**
 
 Your review applies only to that metric target. Other metrics retain their automated verdicts.
@@ -110,7 +110,7 @@ Your review applies only to that metric target. Other metrics retain their autom
 3. Each turn shows its automated Pass or Fail label
 4. Click the **Review** icon on the turn you want to assess — this opens a review modal
 5. Select **Pass** or **Fail**
-6. Add a comment — you can mention specific turns using `@turn-N` syntax
+6. Add a comment — type `@` to select a specific turn from the suggestions picker
 7. Click **Save**
 
 Turn target reviews let you capture fine-grained feedback on exactly where a multi-turn conversation succeeded or fell short.
@@ -127,13 +127,13 @@ To remove a review, click the delete icon on the review. Removing a review resto
 
 ## Review Indicators
 
-After a review is added, the platform shows a clear indicator so you can tell at a glance which results have human feedback:
+After a review is added, the platform shows clear visual indicators so you can tell at a glance which results have human feedback:
 
-- A **reviewer badge** appears on test results that have been reviewed
-- The **review verdict** (Pass or Fail) is displayed alongside — or in place of — the automated verdict
-- Metrics and turns that have been individually reviewed show their own verdict badge
-
-The original automated outcome is always available to view in the detail panel alongside the human verdict.
+- A green **Confirmed** chip (with a checkmark icon) appears next to the status on any test result that has been reviewed
+- The status chip updates to reflect the human verdict — the original automated result is still visible in the detail panel for comparison
+- In the **Metrics** tab, reviewed metric rows are highlighted and display the overridden status alongside the automated score
+- In the **Conversation** tab, reviewed turn rows show the human verdict next to the automated turn result
+- A review icon on each metric and turn row lets you open the review drawer directly from the list
 
 ---
 
