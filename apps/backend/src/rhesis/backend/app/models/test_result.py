@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import (
     Column,
@@ -7,9 +7,15 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.schemas.test_result import VALID_TARGET_TYPES
+
 from .base import Base
 from .guid import GUID
 from .mixins import CommentsMixin, CountsMixin, FilesMixin, TagsMixin, TasksMixin
+
+_LEGACY_TEST_TYPE = "test"
+_TEST_RESULT_TYPE = VALID_TARGET_TYPES[0]  # "test_result"
+_TEST_RESULT_TYPES = (_TEST_RESULT_TYPE, _LEGACY_TEST_TYPE)
 
 
 class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesMixin):
@@ -31,45 +37,41 @@ class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesM
     organization = relationship("Organization", back_populates="test_results")
     test = relationship("Test", back_populates="test_results")
 
-    @property
-    def last_review(self) -> Optional[Dict[str, Any]]:
-        """
-        Get the most recent review from test_reviews based on updated_at timestamp.
-
-        Returns:
-            The most recent review object, or None if no reviews exist.
-        """
+    def _get_all_reviews(self) -> List[Dict[str, Any]]:
         if not self.test_reviews or not isinstance(self.test_reviews, dict):
-            return None
-
+            return []
         reviews = self.test_reviews.get("reviews", [])
         if not reviews or not isinstance(reviews, list):
+            return []
+        return reviews
+
+    @staticmethod
+    def _get_target_type(review: Dict[str, Any]) -> str:
+        target = review.get("target") or {}
+        return target.get("type", _TEST_RESULT_TYPE)
+
+    @property
+    def last_review(self) -> Optional[Dict[str, Any]]:
+        """Most recent test_result-level review (for overall status comparison)."""
+        reviews = self._get_all_reviews()
+        test_result_reviews = [r for r in reviews if self._get_target_type(r) in _TEST_RESULT_TYPES]
+        if not test_result_reviews:
             return None
 
-        # Sort reviews by updated_at timestamp (most recent first)
-        # Handle cases where updated_at might not exist by falling back to created_at
         sorted_reviews = sorted(
-            reviews,
+            test_result_reviews,
             key=lambda r: r.get("updated_at") or r.get("created_at") or "",
             reverse=True,
         )
-
-        return sorted_reviews[0] if sorted_reviews else None
+        return sorted_reviews[0]
 
     @property
     def matches_review(self) -> bool:
-        """
-        Check if the test result's status_id matches the status_id from the latest review.
-
-        Returns:
-            True if the test result status matches the latest review status, False otherwise.
-            Returns False if there are no reviews or if either status is missing.
-        """
+        """Check if the test result status matches the latest test_result-level review."""
         last_review = self.last_review
         if not last_review:
             return False
 
-        # Get the status from the review
         review_status = last_review.get("status")
         if not review_status or not isinstance(review_status, dict):
             return False
@@ -78,5 +80,36 @@ class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesM
         if not review_status_id or not self.status_id:
             return False
 
-        # Convert both to strings for comparison (they might be UUID objects or strings)
         return str(self.status_id) == str(review_status_id)
+
+    @property
+    def review_summary(self) -> Optional[Dict[str, Any]]:
+        """Per-target-type summary of reviews for frontend consumption."""
+        reviews = self._get_all_reviews()
+        if not reviews:
+            return None
+
+        summary: Dict[str, Any] = {}
+        for review in reviews:
+            target_type = self._get_target_type(review)
+            if target_type == _LEGACY_TEST_TYPE:
+                target_type = _TEST_RESULT_TYPE
+            target = review.get("target") or {}
+            reference = target.get("reference")
+            key = f"{target_type}:{reference}" if reference else target_type
+
+            ts = review.get("updated_at") or review.get("created_at") or ""
+            existing = summary.get(key)
+            if not existing or ts > (
+                existing.get("updated_at") or existing.get("created_at") or ""
+            ):
+                summary[key] = {
+                    "target_type": target_type,
+                    "reference": reference,
+                    "status": review.get("status"),
+                    "user": review.get("user"),
+                    "updated_at": ts,
+                    "review_id": review.get("review_id"),
+                }
+
+        return summary
