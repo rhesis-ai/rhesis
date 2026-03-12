@@ -199,7 +199,7 @@ class EmailProvider(AuthProvider):
                 detail="Email and password are required",
             )
 
-        validate_password(
+        await validate_password(
             password,
             context={"email": email, "name": name or ""},
         )

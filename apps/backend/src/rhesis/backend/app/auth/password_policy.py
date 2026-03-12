@@ -149,7 +149,7 @@ def _check_strength_score(
     return score, warning
 
 
-def validate_password(
+async def validate_password(
     password: str,
     context: Optional[dict[str, str]] = None,
 ) -> None:
@@ -204,35 +204,26 @@ def validate_password(
                 detail=detail,
             )
 
-    if policy.check_breached and _check_breached_sync(password):
+    if policy.check_breached and await _check_breached(password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=("This password has been found in a data breach. Please choose another."),
         )
 
 
-async def check_breached_password(password: str) -> bool:
+async def _check_breached(password: str) -> bool:
     """
-    Check if password appears in HaveIBeenPwned breach database.
-
-    Uses k-Anonymity: only the first 5 chars of the SHA-1 hash
-    are sent; full password never leaves the client.
-    """
-    return _check_breached_sync(password)
-
-
-def _check_breached_sync(password: str) -> bool:
-    """
-    Synchronous breached password check via HaveIBeenPwned k-Anonymity API.
-    Returns True if the password has been breached.
+    Async breached password check via HaveIBeenPwned k-Anonymity API.
+    Only the first 5 chars of the SHA-1 hash are sent; the full
+    password never leaves the server.
     """
     digest = hashlib.sha1(password.encode("utf-8", errors="replace")).hexdigest()
     prefix = digest[:5].upper()
     suffix = digest[5:].upper()
 
     try:
-        with httpx.Client(timeout=5.0) as client:
-            response = client.get(f"{_HIBP_API_URL}/{prefix}")
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{_HIBP_API_URL}/{prefix}")
             response.raise_for_status()
             body = response.text
     except httpx.HTTPError as e:

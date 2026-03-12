@@ -779,7 +779,7 @@ async def reset_password(
             detail="Invalid reset token",
         )
 
-    validate_password(
+    await validate_password(
         body.new_password,
         context={"email": user.email, "name": user.name or ""},
     )
