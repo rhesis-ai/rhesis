@@ -1,6 +1,12 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useRef } from 'react';
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useRef,
+  useEffect,
+} from 'react';
 import {
   Box,
   Paper,
@@ -122,6 +128,18 @@ export default function TestRunMainView({
     document.addEventListener('mouseup', handleMouseUp);
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
+  }, []);
+
+  // Restore body styles if the component unmounts mid-drag (e.g. client-side navigation).
+  // We cannot remove the per-drag closure listeners without storing them in refs, but
+  // resetting the body styles prevents the stuck cursor / non-selectable text bug.
+  useEffect(() => {
+    return () => {
+      if (isDraggingRef.current) {
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
   }, []);
 
   // Track only updates to test results (not all test results)
