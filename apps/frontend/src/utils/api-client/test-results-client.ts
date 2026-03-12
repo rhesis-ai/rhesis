@@ -3,6 +3,7 @@ import { API_ENDPOINTS } from './config';
 import {
   Review,
   ReviewTarget,
+  REVIEW_TARGET_TYPES,
   TestResult,
   TestResultCreate,
   TestResultUpdate,
@@ -199,7 +200,10 @@ export class TestResultsClient extends BaseApiClient {
     testResultId: string,
     statusId: string,
     comments: string,
-    target: ReviewTarget = { type: 'test', reference: null }
+    target: ReviewTarget = {
+      type: REVIEW_TARGET_TYPES.TEST_RESULT,
+      reference: null,
+    }
   ): Promise<Review> {
     return this.fetch<Review>(
       `${API_ENDPOINTS.testResults}/${testResultId}/reviews`,

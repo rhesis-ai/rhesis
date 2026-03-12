@@ -25,7 +25,7 @@ import Link from 'next/link';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { formatDate } from '@/utils/date';
-import { getTestResultStatus } from '@/utils/test-result-status';
+import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 
 interface TestRunHeaderProps {
   testRun: TestRunDetail;
@@ -161,7 +161,7 @@ export default function TestRunHeader({
       // Use unified status determination for both single-turn and multi-turn tests
       // This checks test_metrics.metrics[].is_successful which is set by backend
       // for both single-turn (SDK metrics) and multi-turn (Penelope metrics)
-      const status = getTestResultStatus(result);
+      const status = getEffectiveTestResultStatus(result);
 
       if (status === 'Error') {
         executionErrors++;

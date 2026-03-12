@@ -2,6 +2,14 @@ import { UUID } from 'crypto';
 import { UserReference, Organization, Status } from './tests';
 import { Tag } from './tag';
 
+// Override marker added by backend when a human review changes a metric or turn value
+export interface OverrideMarker {
+  original_value: boolean;
+  review_id: string;
+  overridden_by: string;
+  overridden_at: string;
+}
+
 // Metric interfaces
 export interface MetricResult {
   score: number | string;
@@ -11,6 +19,7 @@ export interface MetricResult {
   reference_score?: string;
   description: string;
   is_successful: boolean;
+  override?: OverrideMarker;
 }
 
 export interface TestMetrics {
@@ -32,6 +41,7 @@ export interface ConversationTurn {
   tool_calls?: Array<Record<string, unknown>>;
   session_id: string;
   success: boolean;
+  override?: OverrideMarker;
 }
 
 export interface CriterionEvaluation {
@@ -88,6 +98,22 @@ export interface TestOutput {
 }
 
 // Test Reviews interfaces
+
+export const REVIEW_TARGET_TYPES = {
+  TEST_RESULT: 'test_result',
+  TURN: 'turn',
+  METRIC: 'metric',
+} as const;
+
+export type ReviewTargetType =
+  (typeof REVIEW_TARGET_TYPES)[keyof typeof REVIEW_TARGET_TYPES];
+
+export const REVIEW_TARGET_LABELS: Record<ReviewTargetType, string> = {
+  [REVIEW_TARGET_TYPES.TEST_RESULT]: 'Test Result',
+  [REVIEW_TARGET_TYPES.TURN]: 'Turn',
+  [REVIEW_TARGET_TYPES.METRIC]: 'Metric',
+};
+
 export interface ReviewUser {
   user_id: UUID;
   name: string;
@@ -99,7 +125,7 @@ export interface ReviewStatus {
 }
 
 export interface ReviewTarget {
-  type: 'test' | 'metric';
+  type: ReviewTargetType;
   reference: string | null;
 }
 
@@ -267,12 +293,22 @@ export type TestResultCreate = TestResultBase;
 
 export type TestResultUpdate = Partial<TestResultBase>;
 
+export interface ReviewSummaryEntry {
+  target_type: string;
+  reference: string | null;
+  status: ReviewStatus;
+  user: ReviewUser;
+  updated_at: string;
+  review_id: string;
+}
+
 export interface TestResult extends TestResultBase {
   id: UUID;
   created_at: string;
   updated_at: string;
   last_review?: Review;
   matches_review?: boolean;
+  review_summary?: Record<string, ReviewSummaryEntry>;
 }
 
 export interface TestResultDetail extends TestResult {

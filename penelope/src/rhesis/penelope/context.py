@@ -20,6 +20,11 @@ def _serialize_dt(dt: Optional[datetime], _info) -> Optional[str]:
     return dt.isoformat() if dt else None
 
 
+# All known names for the goal-achievement metric, including legacy variants kept
+# for backward compatibility with stored test results.
+_GOAL_METRIC_NAMES = ("goal_achievement", "goal_evaluation", "penelope_goal_evaluation")
+
+
 class ToolType(str, Enum):
     """
     Enumeration of tool types for reliable tool classification.
@@ -78,10 +83,10 @@ class ToolType(str, Enum):
         desc = "The exact name of the tool to use. Must match one of the available tools:\n"
         desc += "TARGET INTERACTION TOOLS (complete turns):\n"
         for tool in target_tools:
-            desc += f"- {tool}: {cls._get_tool_description(tool)}\n"
+            desc += f"- {tool.value}: {cls._get_tool_description(tool)}\n"
         desc += "INTERNAL TOOLS (within turns):\n"
         for tool in internal_tools:
-            desc += f"- {tool}: {cls._get_tool_description(tool)}\n"
+            desc += f"- {tool.value}: {cls._get_tool_description(tool)}\n"
         return desc.rstrip()  # Remove trailing newline
 
     @classmethod
@@ -661,7 +666,7 @@ class TestState:
                 result
                 for result in self.metric_results
                 if result.details.get("is_goal_achievement_metric", False)
-                or result.details.get("name") == "penelope_goal_evaluation"
+                or result.details.get("name") in _GOAL_METRIC_NAMES
             ]
             if goal_results:
                 # Use the last (most recent) goal evaluation result
@@ -806,7 +811,7 @@ class TestState:
             metric_dict = self._flatten_metric_result(metric_result)
 
             # Extract display name from details
-            metric_name = metric_dict.get("name", "penelope_goal_evaluation")
+            metric_name = metric_dict.get("name", "goal_achievement")
             display_name = " ".join(word.capitalize() for word in metric_name.split("_"))
 
             # Check if this is a goal achievement metric using stored property

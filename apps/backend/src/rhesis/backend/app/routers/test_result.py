@@ -14,6 +14,10 @@ from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
 )
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.services.review_override import (
+    apply_review_override,
+    revert_override,
+)
 from rhesis.backend.app.services.stats import get_test_result_stats
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -580,10 +584,22 @@ def add_review(
     # Mark as modified for SQLAlchemy
     flag_modified(db_test_result, "test_reviews")
 
-    # Flush to write changes and refresh to get updated state
-    # Transaction commit is handled by the session context manager
+    # Apply override to source data (metrics / turns)
+    apply_review_override(
+        db_test_result,
+        review.target.type,
+        review.target.reference,
+        status_details,
+        current_user,
+        new_review["review_id"],
+    )
+
     db.flush()
     db.refresh(db_test_result)
+    # Commit before returning so the updated test_output is visible to the
+    # immediately following GET /test_results/{id} call on the frontend.
+    # Without this, FastAPI's dependency-cleanup commit races the next request.
+    db.commit()
 
     return new_review
 
@@ -632,19 +648,25 @@ def update_review(
     if review_to_update is None:
         raise HTTPException(status_code=404, detail="Review not found")
 
+    old_target = review_to_update.get("target", {})
+
     # Update fields if provided
+    status_changed = False
     if review.status_id is not None:
         status_details = _get_status_details(db, review.status_id, organization_id)
         review_to_update["status"] = status_details
+        status_changed = True
 
     if review.comments is not None:
         review_to_update["comments"] = review.comments
 
+    target_changed = False
     if review.target is not None:
         review_to_update["target"] = {
             "type": review.target.type,
             "reference": review.target.reference,
         }
+        target_changed = True
 
     # Update timestamp
     review_to_update["updated_at"] = datetime.utcnow().isoformat()
@@ -656,10 +678,32 @@ def update_review(
     # Mark as modified for SQLAlchemy
     flag_modified(db_test_result, "test_reviews")
 
-    # Flush to write changes and refresh to get updated state
-    # Transaction commit is handled by the session context manager
+    # Re-apply override when status or target changed
+    if status_changed or target_changed:
+        if target_changed:
+            # Pass [] for remaining_reviews: the old-target override is
+            # unconditionally cleared here. apply_review_override() immediately
+            # re-installs the correct value for the new target within the same
+            # flush, so no replacement search is needed.
+            revert_override(
+                db_test_result,
+                old_target.get("type", ""),
+                old_target.get("reference"),
+                review_id,
+                [],
+            )
+        apply_review_override(
+            db_test_result,
+            review_to_update["target"]["type"],
+            review_to_update["target"].get("reference"),
+            review_to_update["status"],
+            current_user,
+            review_id,
+        )
+
     db.flush()
     db.refresh(db_test_result)
+    db.commit()
 
     return review_to_update
 
@@ -708,12 +752,17 @@ def delete_review(
 
     # Update metadata if there are remaining reviews
     if reviews:
-        # Get the latest review's status for metadata
-        latest_review = max(reviews, key=lambda r: r.get("updated_at", r.get("created_at", "")))
+        latest_review = max(
+            reviews,
+            key=lambda r: r.get("updated_at", r.get("created_at", "")),
+        )
         latest_status = latest_review.get("status", {"status_id": None, "name": "Unknown"})
-        _update_review_metadata(db_test_result.test_reviews, current_user, latest_status)
+        _update_review_metadata(
+            db_test_result.test_reviews,
+            current_user,
+            latest_status,
+        )
     else:
-        # No reviews left, clear metadata
         db_test_result.test_reviews["metadata"] = {
             "last_updated_at": datetime.utcnow().isoformat(),
             "last_updated_by": {
@@ -725,12 +774,20 @@ def delete_review(
             "summary": "All reviews removed",
         }
 
-    # Mark as modified for SQLAlchemy
     flag_modified(db_test_result, "test_reviews")
 
-    # Flush to write changes
-    # Transaction commit is handled by the session context manager
+    # Revert override on source data
+    target = deleted_review.get("target", {})
+    revert_override(
+        db_test_result,
+        target.get("type", ""),
+        target.get("reference"),
+        review_id,
+        reviews,
+    )
+
     db.flush()
+    db.commit()
 
     return {
         "message": "Review deleted successfully",

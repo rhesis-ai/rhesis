@@ -201,7 +201,7 @@ class PenelopeAgent:
 
         # Case 3: Create default GoalAchievementJudge
         default_judge = GoalAchievementJudge(
-            name="penelope_goal_evaluation",
+            name="goal_achievement",
             description="Evaluates goal achievement in Penelope test conversations",
             model=model,
             threshold=PenelopeConfig.get_goal_achievement_threshold(),

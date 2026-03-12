@@ -3,7 +3,7 @@ name = "rhesis-penelope"
 version = "0.1.0"
 description = "Intelligent multi-turn testing agent for AI applications"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     { name = "Engineering Team", email = "engineering@rhesis.ai" },
     { name = "Harry Cruz", email = "harry@rhesis.ai" },

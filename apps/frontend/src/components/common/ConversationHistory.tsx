@@ -19,6 +19,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import {
   ConversationTurn,
   GoalEvaluation,
+  Review,
 } from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
 import { getProjectIconComponent } from '@/components/common/ProjectIcons';
@@ -37,9 +38,10 @@ interface ConversationHistoryProps {
   onReviewTurn?: (turnNumber: number, turnSuccess: boolean) => void;
   onConfirmAutomatedReview?: () => void;
   hasExistingReview?: boolean;
-  reviewMatchesAutomated?: boolean; // True if review matches automated result, false if conflict
+  reviewMatchesAutomated?: boolean;
   isConfirmingReview?: boolean;
   maxHeight?: number | string;
+  turnReviewMap?: Map<number, Review>;
 }
 
 /**
@@ -59,6 +61,7 @@ export default function ConversationHistory({
   reviewMatchesAutomated = true,
   isConfirmingReview = false,
   maxHeight = 600,
+  turnReviewMap = new Map<number, Review>(),
 }: ConversationHistoryProps) {
   const theme = useTheme();
 
@@ -185,14 +188,23 @@ export default function ConversationHistory({
       {actualConversationTurns.map((turn, index) => {
         const criteriaForTurn = getCriteriaForTurn(turn.turn);
 
-        // Determine turn status based on criteria evaluation
-        // If there are criteria for this turn, use those to determine pass/fail
-        // Otherwise, don't show a status chip (tool success is not meaningful for users)
         const turnHasCriteria = criteriaForTurn.length > 0;
         const turnCriteriaMet =
           turnHasCriteria && criteriaForTurn.every(c => c.met);
-        const _turnCriteriaFailed =
-          turnHasCriteria && criteriaForTurn.some(c => !c.met);
+
+        // Priority: human override > criteria evaluation > raw tool-call success.
+        // Turns not referenced by any criterion still show a status based on
+        // whether the target call itself succeeded (turn.success).
+        const turnPassed = turn.override
+          ? turn.success
+          : turnHasCriteria
+            ? turnCriteriaMet
+            : turn.success;
+        const showTurnStatus = true;
+
+        const turnReview = turnReviewMap.get(turn.turn);
+        const turnIsOverruled = !!turn.override;
+        const turnIsConfirmed = !!turnReview && !turnIsOverruled;
 
         return (
           <Box key={turn.turn} sx={{ mb: 4 }}>
@@ -205,18 +217,37 @@ export default function ConversationHistory({
                 mb: 2.5,
               }}
             >
-              <Chip
-                label={`Turn ${turn.turn}`}
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
+              <Tooltip
+                title={
+                  turnIsOverruled
+                    ? `Reviewed by ${turnReview?.user?.name}: status changed to ${turnReview?.status?.name}`
+                    : turnIsConfirmed
+                      ? `Confirmed by ${turnReview?.user?.name}`
+                      : ''
+                }
+                disableHoverListener={!turnReview}
+                arrow
+              >
+                <Chip
+                  label={`Turn ${turn.turn}`}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  sx={{
+                    ...(turnIsOverruled && {
+                      borderColor: theme.palette.warning.main,
+                    }),
+                    ...(turnIsConfirmed && {
+                      borderColor: theme.palette.success.light,
+                    }),
+                  }}
+                />
+              </Tooltip>
 
-              {/* Result Status Chip - Only show if there are criteria for this turn */}
-              {turnHasCriteria && (
+              {showTurnStatus && (
                 <StatusChip
-                  status={turnCriteriaMet ? 'Pass' : 'Fail'}
-                  label={turnCriteriaMet ? 'Passed' : 'Failed'}
+                  status={turnPassed ? 'Pass' : 'Fail'}
+                  label={turnPassed ? 'Passed' : 'Failed'}
                   size="small"
                   variant="filled"
                 />
