@@ -844,6 +844,15 @@ export default function TestDetailOverviewTab({
           </Collapse>
         </Box>
       )}
+
+      {/* Tags Section */}
+      <Box sx={{ mb: 3 }}>
+        <TestResultTags
+          sessionToken={sessionToken}
+          testResult={test}
+          onUpdate={onTestResultUpdate}
+        />
+      </Box>
     </Box>
   );
 }
