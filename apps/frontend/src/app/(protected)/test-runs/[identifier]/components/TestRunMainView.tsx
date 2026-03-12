@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -97,35 +97,32 @@ export default function TestRunMainView({
   const splitContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
 
-  const handleResizeStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      isDraggingRef.current = true;
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        if (!isDraggingRef.current || !splitContainerRef.current) return;
-        const rect = splitContainerRef.current.getBoundingClientRect();
-        const offsetX = moveEvent.clientX - rect.left;
-        const percent = (offsetX / rect.width) * 100;
-        const clamped = Math.min(Math.max(percent, 20), 60);
-        setListWidthPercent(clamped);
-      };
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingRef.current || !splitContainerRef.current) return;
+      const rect = splitContainerRef.current.getBoundingClientRect();
+      const offsetX = moveEvent.clientX - rect.left;
+      const percent = (offsetX / rect.width) * 100;
+      const clamped = Math.min(Math.max(percent, 20), 60);
+      setListWidthPercent(clamped);
+    };
 
-      const handleMouseUp = () => {
-        isDraggingRef.current = false;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      };
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
 
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    },
-    []
-  );
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
 
   // Track only updates to test results (not all test results)
   const [testResultUpdates, setTestResultUpdates] = useState<

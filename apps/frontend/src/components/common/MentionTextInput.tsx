@@ -124,8 +124,7 @@ export default function MentionTextInput({
       focused: boolean
     ) => {
       const item = suggestion as ExtendedSuggestionDataItem;
-      const prevItem =
-        index > 0 ? filteredDataRef.current[index - 1] : null;
+      const prevItem = index > 0 ? filteredDataRef.current[index - 1] : null;
       const showGroupHeader = !prevItem || prevItem.type !== item.type;
 
       return (
@@ -199,10 +198,14 @@ export default function MentionTextInput({
 
   const mentionTypeMap = useMemo(() => {
     const map = new Map<string, 'user' | 'metric' | 'turn'>();
-    const regex = /@\[([^\]]+)\]\(((?:user|metric|turn):[^)]*(?:\([^)]*\))*[^)]*)\)/g;
+    const regex =
+      /@\[([^\]]+)\]\(((?:user|metric|turn):[^)]*(?:\([^)]*\))*[^)]*)\)/g;
     let match;
     while ((match = regex.exec(value)) !== null) {
-      map.set(`@${match[1]}`, match[2].split(':')[0] as 'user' | 'metric' | 'turn');
+      map.set(
+        `@${match[1]}`,
+        match[2].split(':')[0] as 'user' | 'metric' | 'turn'
+      );
     }
     return map;
   }, [value]);
@@ -210,7 +213,7 @@ export default function MentionTextInput({
   const applyHighlightColors = useCallback(() => {
     if (!containerRef.current || mentionTypeMap.size === 0) return;
     const mentionElements = containerRef.current.querySelectorAll('strong');
-    mentionElements.forEach((el) => {
+    mentionElements.forEach(el => {
       const text = el.textContent?.trim();
       if (text && mentionTypeMap.has(text)) {
         const type = mentionTypeMap.get(text)!;
@@ -236,9 +239,7 @@ export default function MentionTextInput({
     return () => observer.disconnect();
   }, [applyHighlightColors]);
 
-  const borderColor = error
-    ? theme.palette.error.main
-    : theme.palette.divider;
+  const borderColor = error ? theme.palette.error.main : theme.palette.divider;
 
   const focusBorderColor = error
     ? theme.palette.error.main
@@ -344,14 +345,14 @@ export default function MentionTextInput({
           </Box>
         )}
         a11ySuggestionsListLabel="Mention suggestions"
-        onFocus={(e) => {
+        onFocus={e => {
           const target = e.target as HTMLElement;
           if (target.style) {
             target.style.borderColor = focusBorderColor;
             target.style.borderWidth = '2px';
           }
         }}
-        onBlur={(e) => {
+        onBlur={e => {
           const target = e.target as HTMLElement;
           if (target.style) {
             target.style.borderColor = borderColor;
@@ -361,7 +362,10 @@ export default function MentionTextInput({
       >
         <Mention
           trigger="@"
-          data={(search: string, callback: (data: SuggestionDataItem[]) => void) => {
+          data={(
+            search: string,
+            callback: (data: SuggestionDataItem[]) => void
+          ) => {
             const filtered = combinedData.filter(item =>
               (item.display ?? '').toLowerCase().includes(search.toLowerCase())
             );
@@ -393,7 +397,8 @@ export function renderMentionText(
   typeColors: Record<string, string>,
   typeBackgrounds: Record<string, string>
 ): React.ReactNode {
-  const mentionRegex = /@\[([^\]]+)\]\(((?:user|metric|turn):.+?)\)(?=\s|@\[|$)/g;
+  const mentionRegex =
+    /@\[([^\]]+)\]\(((?:user|metric|turn):.+?)\)(?=\s|@\[|$)/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match;
@@ -413,7 +418,7 @@ export function renderMentionText(
         sx={{
           color: typeColors[type] || 'inherit',
           backgroundColor: typeBackgrounds[type] || 'transparent',
-          borderRadius: 0.5,
+          borderRadius: `${theme.shape.borderRadius / 2}px`,
           px: 0.5,
           py: 0.125,
           fontWeight: 600,

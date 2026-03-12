@@ -84,7 +84,8 @@ export default function TestDetailMetricsTab({
         const lowerName = metricName.toLowerCase();
         return (
           lowerName.includes('goal') &&
-          (lowerName.includes('achievement') || lowerName.includes('evaluation'))
+          (lowerName.includes('achievement') ||
+            lowerName.includes('evaluation'))
         );
       }) || null
     );
@@ -293,10 +294,7 @@ export default function TestDetailMetricsTab({
     const reviews = test.test_reviews?.reviews || [];
     for (const review of reviews) {
       const target = review.target;
-      if (
-        target?.type === REVIEW_TARGET_TYPES.METRIC &&
-        target.reference
-      ) {
+      if (target?.type === REVIEW_TARGET_TYPES.METRIC && target.reference) {
         const existing = map.get(target.reference);
         if (
           !existing ||
@@ -465,330 +463,337 @@ export default function TestDetailMetricsTab({
         )}
       </Grid>
       {/* Goal Achievement Details */}
-      {goalAchievementData && goalMetricName && (() => {
-        const goalReview = metricReviewMap.get(goalMetricName);
-        const goalIsOverruled = !!goalAchievementData.override;
-        const goalIsConfirmed = !!goalReview && !goalIsOverruled;
+      {goalAchievementData &&
+        goalMetricName &&
+        (() => {
+          const goalReview = metricReviewMap.get(goalMetricName);
+          const goalIsOverruled = !!goalAchievementData.override;
+          const goalIsConfirmed = !!goalReview && !goalIsOverruled;
 
-        return (
-        <Card
-          sx={{
-            mb: 3,
-            ...(goalIsOverruled && {
-              borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.warning.main}`,
-            }),
-            ...(goalIsConfirmed && {
-              borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.success.light}`,
-            }),
-          }}
-          variant="outlined"
-        >
-          <CardContent>
-            <Box
+          return (
+            <Card
               sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
                 mb: 3,
+                ...(goalIsOverruled && {
+                  borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.warning.main}`,
+                }),
+                ...(goalIsConfirmed && {
+                  borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.success.light}`,
+                }),
               }}
+              variant="outlined"
             >
-              <CheckCircleOutlineIcon
-                sx={{
-                  color: goalAchievementData.isSuccessful
-                    ? 'success.main'
-                    : 'error.main',
-                  fontSize: theme.typography.body1.fontSize,
-                }}
-              />
-              <Typography variant="subtitle1" fontWeight={600}>
-                {goalMetricName}
-              </Typography>
-              <StatusChip
-                passed={goalAchievementData.isSuccessful}
-                label={goalAchievementData.isSuccessful ? 'Pass' : 'Fail'}
-                size="small"
-                variant="filled"
-              />
-              <Box sx={{ flexGrow: 1 }} />
-              {onReviewMetric && (
-                <Tooltip title={`Review ${goalMetricName}`}>
-                  <IconButton
-                    size="small"
-                    onClick={() => onReviewMetric(goalMetricName)}
+              <CardContent>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mb: 3,
+                  }}
+                >
+                  <CheckCircleOutlineIcon
                     sx={{
-                      padding: 0.5,
-                      color: theme.palette.text.secondary,
-                      '&:hover': {
-                        color: theme.palette.primary.main,
-                        backgroundColor: alpha(
-                          theme.palette.primary.main,
-                          theme.palette.action.hoverOpacity
-                        ),
-                      },
+                      color: goalAchievementData.isSuccessful
+                        ? 'success.main'
+                        : 'error.main',
+                      fontSize: theme.typography.body1.fontSize,
+                    }}
+                  />
+                  <Typography variant="subtitle1" fontWeight={600}>
+                    {goalMetricName}
+                  </Typography>
+                  <StatusChip
+                    passed={goalAchievementData.isSuccessful}
+                    label={goalAchievementData.isSuccessful ? 'Pass' : 'Fail'}
+                    size="small"
+                    variant="filled"
+                  />
+                  <Box sx={{ flexGrow: 1 }} />
+                  {onReviewMetric && (
+                    <Tooltip title={`Review ${goalMetricName}`}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onReviewMetric(goalMetricName)}
+                        sx={{
+                          padding: 0.5,
+                          color: theme.palette.text.secondary,
+                          '&:hover': {
+                            color: theme.palette.primary.main,
+                            backgroundColor: alpha(
+                              theme.palette.primary.main,
+                              theme.palette.action.hoverOpacity
+                            ),
+                          },
+                        }}
+                      >
+                        <RateReviewIcon sx={{ fontSize: theme.spacing(2) }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+
+                <Grid container spacing={2}>
+                  {/* Criteria Progress */}
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6,
                     }}
                   >
-                    <RateReviewIcon
-                      sx={{ fontSize: theme.spacing(2) }}
-                    />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
-
-            <Grid container spacing={2}>
-              {/* Criteria Progress */}
-              <Grid
-                size={{
-                  xs: 12,
-                  md: 6,
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{
-                    textTransform: 'uppercase',
-                    letterSpacing: theme.typography.overline.letterSpacing,
-                    fontWeight: 600,
-                  }}
-                >
-                  Criteria Progress
-                </Typography>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2,
-                    mt: 1.5,
-                    mb: 1,
-                  }}
-                >
-                  <Box sx={{ flexGrow: 1 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={
-                        goalAchievementData.criteriaTotal > 0
-                          ? (goalAchievementData.criteriaMet /
-                              goalAchievementData.criteriaTotal) *
-                            100
-                          : 0
-                      }
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
                       sx={{
-                        height: theme.spacing(0.75),
-                        borderRadius: theme.shape.borderRadius,
-                        backgroundColor: theme.palette.grey[200],
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor: goalAchievementData.isSuccessful
-                            ? theme.palette.success.main
-                            : theme.palette.error.main,
-                        },
+                        textTransform: 'uppercase',
+                        letterSpacing: theme.typography.overline.letterSpacing,
+                        fontWeight: 600,
                       }}
-                    />
-                  </Box>
-                  <Typography variant="body2" fontWeight={600}>
-                    {goalAchievementData.criteriaMet}/
-                    {goalAchievementData.criteriaTotal}
-                  </Typography>
-                </Box>
-                <Typography variant="caption" color="text.secondary">
-                  {goalAchievementData.criteriaTotal > 0
-                    ? `${((goalAchievementData.criteriaMet / goalAchievementData.criteriaTotal) * 100).toFixed(0)}% of criteria met`
-                    : 'No criteria'}
-                </Typography>
-              </Grid>
-
-              {/* Confidence */}
-              <Grid
-                size={{
-                  xs: 12,
-                  md: 6,
-                }}
-              >
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{
-                    textTransform: 'uppercase',
-                    letterSpacing: theme.typography.overline.letterSpacing,
-                    fontWeight: 600,
-                  }}
-                >
-                  Confidence
-                </Typography>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2,
-                    mt: 1.5,
-                    mb: 1,
-                  }}
-                >
-                  <Box sx={{ flexGrow: 1 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={goalAchievementData.confidence * 100}
-                      sx={{
-                        height: theme.spacing(0.75),
-                        borderRadius: theme.shape.borderRadius,
-                        backgroundColor: theme.palette.grey[200],
-                        '& .MuiLinearProgress-bar': {
-                          backgroundColor:
-                            goalAchievementData.confidence === 1
-                              ? theme.palette.success.main
-                              : goalAchievementData.confidence >= 0.7
-                                ? theme.palette.warning.main
-                                : theme.palette.error.main,
-                        },
-                      }}
-                    />
-                  </Box>
-                  <Typography variant="body2" fontWeight={600}>
-                    {(goalAchievementData.confidence * 100).toFixed(0)}%
-                  </Typography>
-                </Box>
-                <Typography variant="caption" color="text.secondary">
-                  {goalAchievementData.confidence === 1
-                    ? 'High confidence'
-                    : goalAchievementData.confidence >= 0.7
-                      ? 'Medium confidence'
-                      : 'Low confidence'}
-                </Typography>
-              </Grid>
-
-              {/* Criteria Breakdown */}
-              {goalAchievementData.criteriaEvaluations &&
-                goalAchievementData.criteriaEvaluations.length > 0 && (
-                  <Grid size={12}>
-                    <Divider sx={{ my: 2 }} />
+                    >
+                      Criteria Progress
+                    </Typography>
                     <Box
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
+                        gap: 2,
+                        mt: 1.5,
+                        mb: 1,
                       }}
-                      onClick={() => setCriteriaExpanded(!criteriaExpanded)}
                     >
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        fontWeight={600}
-                      >
-                        Criteria Breakdown (
-                        {goalAchievementData.criteriaEvaluations.length})
+                      <Box sx={{ flexGrow: 1 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={
+                            goalAchievementData.criteriaTotal > 0
+                              ? (goalAchievementData.criteriaMet /
+                                  goalAchievementData.criteriaTotal) *
+                                100
+                              : 0
+                          }
+                          sx={{
+                            height: theme.spacing(0.75),
+                            borderRadius: theme.shape.borderRadius,
+                            backgroundColor: theme.palette.grey[200],
+                            '& .MuiLinearProgress-bar': {
+                              backgroundColor: goalAchievementData.isSuccessful
+                                ? theme.palette.success.main
+                                : theme.palette.error.main,
+                            },
+                          }}
+                        />
+                      </Box>
+                      <Typography variant="body2" fontWeight={600}>
+                        {goalAchievementData.criteriaMet}/
+                        {goalAchievementData.criteriaTotal}
                       </Typography>
-                      <IconButton
-                        size="small"
-                        sx={{
-                          transform: criteriaExpanded
-                            ? 'rotate(180deg)'
-                            : 'rotate(0deg)',
-                          transition: theme.transitions.create('transform', {
-                            duration: theme.transitions.duration.shortest,
-                          }),
-                        }}
-                      >
-                        <ExpandMoreIcon />
-                      </IconButton>
                     </Box>
-                    <Collapse
-                      in={criteriaExpanded}
-                      timeout="auto"
-                      unmountOnExit
-                    >
-                      <List dense disablePadding sx={{ mt: 2 }}>
-                        {goalAchievementData.criteriaEvaluations.map(
-                          (criterion: CriterionEvaluation) => (
-                            <ListItem
-                              key={criterion.criterion}
-                              disablePadding
-                              sx={{
-                                py: 0.75,
-                                display: 'flex',
-                                alignItems: 'flex-start',
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  width: theme.spacing(0.75),
-                                  height: theme.spacing(0.75),
-                                  borderRadius: theme.shape.circular,
-                                  backgroundColor: criterion.met
-                                    ? 'success.main'
-                                    : 'error.main',
-                                  mt: 0.75,
-                                  mr: 1.5,
-                                  flexShrink: 0,
-                                }}
-                              />
-                              <ListItemText
-                                primary={
-                                  <Typography
-                                    variant="body2"
-                                    color="text.primary"
-                                  >
-                                    {criterion.criterion}
-                                  </Typography>
-                                }
-                                sx={{ m: 0 }}
-                              />
-                            </ListItem>
-                          )
-                        )}
-                      </List>
-                    </Collapse>
+                    <Typography variant="caption" color="text.secondary">
+                      {goalAchievementData.criteriaTotal > 0
+                        ? `${((goalAchievementData.criteriaMet / goalAchievementData.criteriaTotal) * 100).toFixed(0)}% of criteria met`
+                        : 'No criteria'}
+                    </Typography>
                   </Grid>
-                )}
 
-              {/* Collapsible Reason */}
-              {goalAchievementData.reason && (
-                <Grid size={12}>
-                  <Divider sx={{ my: 1 }} />
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer',
+                  {/* Confidence */}
+                  <Grid
+                    size={{
+                      xs: 12,
+                      md: 6,
                     }}
-                    onClick={() => setReasonExpanded(!reasonExpanded)}
                   >
                     <Typography
-                      variant="body2"
+                      variant="caption"
                       color="text.secondary"
-                      fontWeight={600}
-                    >
-                      Detailed Reasoning
-                    </Typography>
-                    <IconButton
-                      size="small"
                       sx={{
-                        transform: reasonExpanded
-                          ? 'rotate(180deg)'
-                          : 'rotate(0deg)',
-                        transition: theme.transitions.create('transform', {
-                          duration: theme.transitions.duration.shortest,
-                        }),
+                        textTransform: 'uppercase',
+                        letterSpacing: theme.typography.overline.letterSpacing,
+                        fontWeight: 600,
                       }}
                     >
-                      <ExpandMoreIcon />
-                    </IconButton>
-                  </Box>
-                  <Collapse in={reasonExpanded} timeout="auto" unmountOnExit>
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {goalAchievementData.reason}
+                      Confidence
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        mt: 1.5,
+                        mb: 1,
+                      }}
+                    >
+                      <Box sx={{ flexGrow: 1 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={goalAchievementData.confidence * 100}
+                          sx={{
+                            height: theme.spacing(0.75),
+                            borderRadius: theme.shape.borderRadius,
+                            backgroundColor: theme.palette.grey[200],
+                            '& .MuiLinearProgress-bar': {
+                              backgroundColor:
+                                goalAchievementData.confidence === 1
+                                  ? theme.palette.success.main
+                                  : goalAchievementData.confidence >= 0.7
+                                    ? theme.palette.warning.main
+                                    : theme.palette.error.main,
+                            },
+                          }}
+                        />
+                      </Box>
+                      <Typography variant="body2" fontWeight={600}>
+                        {(goalAchievementData.confidence * 100).toFixed(0)}%
                       </Typography>
                     </Box>
-                  </Collapse>
+                    <Typography variant="caption" color="text.secondary">
+                      {goalAchievementData.confidence === 1
+                        ? 'High confidence'
+                        : goalAchievementData.confidence >= 0.7
+                          ? 'Medium confidence'
+                          : 'Low confidence'}
+                    </Typography>
+                  </Grid>
+
+                  {/* Criteria Breakdown */}
+                  {goalAchievementData.criteriaEvaluations &&
+                    goalAchievementData.criteriaEvaluations.length > 0 && (
+                      <Grid size={12}>
+                        <Divider sx={{ my: 2 }} />
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: 'pointer',
+                          }}
+                          onClick={() => setCriteriaExpanded(!criteriaExpanded)}
+                        >
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            fontWeight={600}
+                          >
+                            Criteria Breakdown (
+                            {goalAchievementData.criteriaEvaluations.length})
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            sx={{
+                              transform: criteriaExpanded
+                                ? 'rotate(180deg)'
+                                : 'rotate(0deg)',
+                              transition: theme.transitions.create(
+                                'transform',
+                                {
+                                  duration: theme.transitions.duration.shortest,
+                                }
+                              ),
+                            }}
+                          >
+                            <ExpandMoreIcon />
+                          </IconButton>
+                        </Box>
+                        <Collapse
+                          in={criteriaExpanded}
+                          timeout="auto"
+                          unmountOnExit
+                        >
+                          <List dense disablePadding sx={{ mt: 2 }}>
+                            {goalAchievementData.criteriaEvaluations.map(
+                              (criterion: CriterionEvaluation) => (
+                                <ListItem
+                                  key={criterion.criterion}
+                                  disablePadding
+                                  sx={{
+                                    py: 0.75,
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                  }}
+                                >
+                                  <Box
+                                    sx={{
+                                      width: theme.spacing(0.75),
+                                      height: theme.spacing(0.75),
+                                      borderRadius: theme.shape.circular,
+                                      backgroundColor: criterion.met
+                                        ? 'success.main'
+                                        : 'error.main',
+                                      mt: 0.75,
+                                      mr: 1.5,
+                                      flexShrink: 0,
+                                    }}
+                                  />
+                                  <ListItemText
+                                    primary={
+                                      <Typography
+                                        variant="body2"
+                                        color="text.primary"
+                                      >
+                                        {criterion.criterion}
+                                      </Typography>
+                                    }
+                                    sx={{ m: 0 }}
+                                  />
+                                </ListItem>
+                              )
+                            )}
+                          </List>
+                        </Collapse>
+                      </Grid>
+                    )}
+
+                  {/* Collapsible Reason */}
+                  {goalAchievementData.reason && (
+                    <Grid size={12}>
+                      <Divider sx={{ my: 1 }} />
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => setReasonExpanded(!reasonExpanded)}
+                      >
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          fontWeight={600}
+                        >
+                          Detailed Reasoning
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          sx={{
+                            transform: reasonExpanded
+                              ? 'rotate(180deg)'
+                              : 'rotate(0deg)',
+                            transition: theme.transitions.create('transform', {
+                              duration: theme.transitions.duration.shortest,
+                            }),
+                          }}
+                        >
+                          <ExpandMoreIcon />
+                        </IconButton>
+                      </Box>
+                      <Collapse
+                        in={reasonExpanded}
+                        timeout="auto"
+                        unmountOnExit
+                      >
+                        <Box sx={{ mt: 2 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {goalAchievementData.reason}
+                          </Typography>
+                        </Box>
+                      </Collapse>
+                    </Grid>
+                  )}
                 </Grid>
-              )}
-            </Grid>
-          </CardContent>
-        </Card>
-        );
-      })()}
+              </CardContent>
+            </Card>
+          );
+        })()}
       {/* Metrics Details Table */}
       {(!isMultiTurn || hasAdditionalMultiTurnMetrics) && (
         <TableContainer>
@@ -804,18 +809,13 @@ export default function TestDetailMetricsTab({
                 <TableCell width={onReviewMetric ? '47%' : '55%'}>
                   Reason
                 </TableCell>
-                {onReviewMetric && (
-                  <TableCell width="10%" align="right" />
-                )}
+                {onReviewMetric && <TableCell width="10%" align="right" />}
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredMetricsForTable.length === 0 ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={onReviewMetric ? 4 : 3}
-                    align="center"
-                  >
+                  <TableCell colSpan={onReviewMetric ? 4 : 3} align="center">
                     <Typography
                       variant="body2"
                       color="text.secondary"
@@ -832,120 +832,120 @@ export default function TestDetailMetricsTab({
                   const isConfirmed = !!metricReview && !isOverruled;
 
                   return (
-                  <TableRow
-                    key={`${metric.behaviorName}-${metric.name}`}
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: theme.palette.action.hover,
-                      },
-                      ...(isOverruled && {
-                        borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.warning.main}`,
-                      }),
-                      ...(isConfirmed && {
-                        borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.success.light}`,
-                      }),
-                    }}
-                  >
-                    <TableCell>
-                      <Tooltip
-                        title={
-                          isOverruled
-                            ? `Reviewed by ${metricReview?.user?.name}: status changed to ${metricReview?.status?.name}`
-                            : isConfirmed
-                              ? `Confirmed by ${metricReview?.user?.name}`
-                              : ''
-                        }
-                        disableHoverListener={!metricReview}
-                        arrow
-                      >
-                        <Box>
-                          <StatusChip
-                            passed={metric.passed}
-                            label={metric.passed ? 'Pass' : 'Fail'}
-                            size="small"
-                            variant="filled"
-                            sx={{ minWidth: theme.spacing(10) }}
-                          />
-                        </Box>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip
-                        title={metric.description || ''}
-                        arrow
-                        placement="top"
-                        enterDelay={300}
-                        leaveDelay={0}
-                        disableHoverListener={!metric.description}
-                      >
-                        <Typography
-                          variant="body2"
-                          fontWeight={500}
-                          sx={{
-                            ...(onReviewMetric && {
-                              color: theme.palette.primary.main,
-                              cursor: 'pointer',
-                              '&:hover': {
-                                textDecoration: 'underline',
-                              },
-                            }),
-                          }}
-                          onClick={
-                            onReviewMetric
-                              ? () => onReviewMetric(metric.name)
-                              : undefined
+                    <TableRow
+                      key={`${metric.behaviorName}-${metric.name}`}
+                      sx={{
+                        '&:hover': {
+                          backgroundColor: theme.palette.action.hover,
+                        },
+                        ...(isOverruled && {
+                          borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.warning.main}`,
+                        }),
+                        ...(isConfirmed && {
+                          borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.success.light}`,
+                        }),
+                      }}
+                    >
+                      <TableCell>
+                        <Tooltip
+                          title={
+                            isOverruled
+                              ? `Reviewed by ${metricReview?.user?.name}: status changed to ${metricReview?.status?.name}`
+                              : isConfirmed
+                                ? `Confirmed by ${metricReview?.user?.name}`
+                                : ''
                           }
+                          disableHoverListener={!metricReview}
+                          arrow
                         >
-                          {metric.name}
-                        </Typography>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      {metric.fullMetricData.reason ? (
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            wordBreak: 'break-word',
-                          }}
-                        >
-                          {metric.fullMetricData.reason}
-                        </Typography>
-                      ) : (
-                        <Typography
-                          variant="caption"
-                          color="text.disabled"
-                          fontStyle="italic"
-                        >
-                          No reason provided
-                        </Typography>
-                      )}
-                    </TableCell>
-                    {onReviewMetric && (
-                      <TableCell align="right">
-                        <Tooltip title="Review this metric">
-                          <IconButton
-                            size="small"
-                            onClick={() => onReviewMetric(metric.name)}
-                            sx={{
-                              padding: 0.5,
-                              color: theme.palette.text.secondary,
-                              '&:hover': {
-                                color: theme.palette.primary.main,
-                                backgroundColor: alpha(
-                                  theme.palette.primary.main,
-                                  theme.palette.action.hoverOpacity
-                                ),
-                              },
-                            }}
-                          >
-                            <RateReviewIcon
-                              sx={{ fontSize: theme.spacing(2) }}
+                          <Box>
+                            <StatusChip
+                              passed={metric.passed}
+                              label={metric.passed ? 'Pass' : 'Fail'}
+                              size="small"
+                              variant="filled"
+                              sx={{ minWidth: theme.spacing(10) }}
                             />
-                          </IconButton>
+                          </Box>
                         </Tooltip>
                       </TableCell>
-                    )}
-                  </TableRow>
+                      <TableCell>
+                        <Tooltip
+                          title={metric.description || ''}
+                          arrow
+                          placement="top"
+                          enterDelay={300}
+                          leaveDelay={0}
+                          disableHoverListener={!metric.description}
+                        >
+                          <Typography
+                            variant="body2"
+                            fontWeight={500}
+                            sx={{
+                              ...(onReviewMetric && {
+                                color: theme.palette.primary.main,
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  textDecoration: 'underline',
+                                },
+                              }),
+                            }}
+                            onClick={
+                              onReviewMetric
+                                ? () => onReviewMetric(metric.name)
+                                : undefined
+                            }
+                          >
+                            {metric.name}
+                          </Typography>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell>
+                        {metric.fullMetricData.reason ? (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              wordBreak: 'break-word',
+                            }}
+                          >
+                            {metric.fullMetricData.reason}
+                          </Typography>
+                        ) : (
+                          <Typography
+                            variant="caption"
+                            color="text.disabled"
+                            fontStyle="italic"
+                          >
+                            No reason provided
+                          </Typography>
+                        )}
+                      </TableCell>
+                      {onReviewMetric && (
+                        <TableCell align="right">
+                          <Tooltip title="Review this metric">
+                            <IconButton
+                              size="small"
+                              onClick={() => onReviewMetric(metric.name)}
+                              sx={{
+                                padding: 0.5,
+                                color: theme.palette.text.secondary,
+                                '&:hover': {
+                                  color: theme.palette.primary.main,
+                                  backgroundColor: alpha(
+                                    theme.palette.primary.main,
+                                    theme.palette.action.hoverOpacity
+                                  ),
+                                },
+                              }}
+                            >
+                              <RateReviewIcon
+                                sx={{ fontSize: theme.spacing(2) }}
+                              />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      )}
+                    </TableRow>
                   );
                 })
               )}

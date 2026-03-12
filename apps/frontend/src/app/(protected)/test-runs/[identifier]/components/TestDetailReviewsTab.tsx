@@ -539,22 +539,31 @@ export default function TestDetailReviewsTab({
                       </Box>
 
                       {/* Review Metadata */}
-                      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          gap: 2,
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                        }}
+                      >
                         <Chip
                           icon={<TrackChangesIcon />}
                           label={
                             REVIEW_TARGET_LABELS[
-                              review.target?.type as keyof typeof REVIEW_TARGET_LABELS
-                            ] ?? REVIEW_TARGET_LABELS[REVIEW_TARGET_TYPES.TEST_RESULT]
+                              review.target
+                                ?.type as keyof typeof REVIEW_TARGET_LABELS
+                            ] ??
+                            REVIEW_TARGET_LABELS[
+                              REVIEW_TARGET_TYPES.TEST_RESULT
+                            ]
                           }
                           size="small"
                           variant="outlined"
                           color={
-                            review.target?.type ===
-                            REVIEW_TARGET_TYPES.METRIC
+                            review.target?.type === REVIEW_TARGET_TYPES.METRIC
                               ? 'secondary'
-                              : review.target?.type ===
-                                  REVIEW_TARGET_TYPES.TURN
+                              : review.target?.type === REVIEW_TARGET_TYPES.TURN
                                 ? 'info'
                                 : 'default'
                           }

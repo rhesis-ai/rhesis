@@ -42,7 +42,6 @@ interface ReviewJudgementDrawerProps {
   mentionableTurns?: MentionOption[];
 }
 
-
 export default function ReviewJudgementDrawer({
   open,
   onClose,
@@ -93,13 +92,8 @@ export default function ReviewJudgementDrawer({
       inferredTarget.reference
     ) {
       const turns = test.test_output?.conversation_summary || [];
-      const turnNum = parseInt(
-        inferredTarget.reference.replace(/\D/g, ''),
-        10
-      );
-      const turn = turns.find(
-        (t: { turn: number }) => t.turn === turnNum
-      );
+      const turnNum = parseInt(inferredTarget.reference.replace(/\D/g, ''), 10);
+      const turn = turns.find((t: { turn: number }) => t.turn === turnNum);
       return turn?.success ? 'passed' : 'failed';
     }
 
@@ -143,8 +137,7 @@ export default function ReviewJudgementDrawer({
       const metrics = test.test_metrics?.metrics || {};
       const metricValues = Object.values(metrics);
       const allPassed =
-        metricValues.length > 0 &&
-        metricValues.every(m => m.is_successful);
+        metricValues.length > 0 && metricValues.every(m => m.is_successful);
       const defaultOriginal = allPassed ? 'passed' : 'failed';
       setNewStatus(
         initialStatus ?? (defaultOriginal === 'passed' ? 'failed' : 'passed')
@@ -184,8 +177,8 @@ export default function ReviewJudgementDrawer({
       const hasExistingReview = !!test.last_review;
       if (newStatus === originalStatus && !hasExistingReview) {
         setError(
-          'New status must be different from the automated result. '
-          + 'Use "Confirm Review" to agree with the automated result.'
+          'New status must be different from the automated result. ' +
+            'Use "Confirm Review" to agree with the automated result.'
         );
         return;
       }
@@ -295,8 +288,7 @@ export default function ReviewJudgementDrawer({
             {inferredTarget.type === REVIEW_TARGET_TYPES.METRIC &&
               inferredTarget.reference && (
                 <Typography variant="body2" color="text.secondary">
-                  Score:{' '}
-                  {metrics[inferredTarget.reference]?.score ?? 'N/A'}
+                  Score: {metrics[inferredTarget.reference]?.score ?? 'N/A'}
                 </Typography>
               )}
           </Box>
@@ -348,9 +340,7 @@ export default function ReviewJudgementDrawer({
                 },
               }}
             >
-              <CancelOutlinedIcon
-                sx={{ mr: 1, fontSize: 'body2.fontSize' }}
-              />
+              <CancelOutlinedIcon sx={{ mr: 1, fontSize: 'body2.fontSize' }} />
               Fail
             </ToggleButton>
           </ToggleButtonGroup>
@@ -360,7 +350,7 @@ export default function ReviewJudgementDrawer({
         <MentionTextInput
           label="Review Comments *"
           value={reason}
-          onChange={(val) => {
+          onChange={val => {
             setReason(val);
             setError('');
           }}
@@ -373,7 +363,6 @@ export default function ReviewJudgementDrawer({
           }
           minRows={4}
         />
-
       </Stack>
     </BaseDrawer>
   );

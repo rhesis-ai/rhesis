@@ -28,7 +28,10 @@ import TestDetailHistoryTab from './TestDetailHistoryTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { findStatusByCategory } from '@/utils/test-result-status';
-import { MentionOption, toMentionId } from '@/components/common/MentionTextInput';
+import {
+  MentionOption,
+  toMentionId,
+} from '@/components/common/MentionTextInput';
 import ReviewJudgementDrawer from './ReviewJudgementDrawer';
 
 interface TestDetailPanelProps {
@@ -165,7 +168,9 @@ export default function TestDetailPanel({
   };
 
   const handleReviewMetric = (metricName: string) => {
-    setReviewDrawerComment(`@[${metricName}](metric:${toMentionId(metricName)}) `);
+    setReviewDrawerComment(
+      `@[${metricName}](metric:${toMentionId(metricName)}) `
+    );
     setReviewDrawerStatus(undefined);
     setReviewDrawerOpen(true);
   };
@@ -235,13 +240,11 @@ export default function TestDetailPanel({
   const mentionableTurns: MentionOption[] = useMemo(() => {
     const summary = test?.test_output?.conversation_summary;
     if (!summary || !Array.isArray(summary)) return [];
-    return summary.map(
-      (turn: { turn: number }) => ({
-        id: String(turn.turn),
-        display: `Turn ${turn.turn}`,
-        type: 'turn' as const,
-      })
-    );
+    return summary.map((turn: { turn: number }) => ({
+      id: String(turn.turn),
+      display: `Turn ${turn.turn}`,
+      type: 'turn' as const,
+    }));
   }, [test]);
 
   const handleReviewDrawerSave = useCallback(
