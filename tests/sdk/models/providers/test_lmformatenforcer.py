@@ -15,7 +15,11 @@ from rhesis.sdk.errors import (
     NO_MODEL_NAME_PROVIDED,
     WARNING_TOKENIZER_ALREADY_LOADED_RELOAD,
 )
-from rhesis.sdk.models import LMFormatEnforcerLLM
+
+try:
+    from rhesis.sdk.models import LMFormatEnforcerLLM
+except ImportError:
+    pytest.skip("LMFormatEnforcerLLM not available in this environment", allow_module_level=True)
 
 
 class TestLMFormatEnforcerLLM:
