@@ -7,15 +7,17 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from rhesis.backend.app.schemas.test_result import VALID_TARGET_TYPES
+from rhesis.backend.app.schemas.test_result import (
+    LEGACY_TARGET_TEST,
+    REVIEW_TARGET_TEST_RESULT,
+)
 
 from .base import Base
 from .guid import GUID
 from .mixins import CommentsMixin, CountsMixin, FilesMixin, TagsMixin, TasksMixin
 
-_LEGACY_TEST_TYPE = "test"
-_TEST_RESULT_TYPE = VALID_TARGET_TYPES[0]  # "test_result"
-_TEST_RESULT_TYPES = (_TEST_RESULT_TYPE, _LEGACY_TEST_TYPE)
+_TEST_RESULT_TYPE = REVIEW_TARGET_TEST_RESULT
+_TEST_RESULT_TYPES = (REVIEW_TARGET_TEST_RESULT, LEGACY_TARGET_TEST)
 
 
 class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesMixin):
@@ -50,61 +52,36 @@ class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesM
         target = review.get("target") or {}
         return target.get("type", _TEST_RESULT_TYPE)
 
-    @property
-    def last_review(self) -> Optional[Dict[str, Any]]:
-        """Most recent test_result-level review (for overall status comparison)."""
-        reviews = self._get_all_reviews()
-        test_result_reviews = [r for r in reviews if self._get_target_type(r) in _TEST_RESULT_TYPES]
-        if not test_result_reviews:
-            return None
+    def _compute_review_state(
+        self,
+    ) -> tuple:
+        """
+        Single-pass over all reviews. Returns (last_review, matches_review, review_summary).
 
-        sorted_reviews = sorted(
-            test_result_reviews,
-            key=lambda r: r.get("updated_at") or r.get("created_at") or "",
-            reverse=True,
-        )
-        return sorted_reviews[0]
-
-    @property
-    def matches_review(self) -> bool:
-        """Check if the test result status matches the latest test_result-level review."""
-        last_review = self.last_review
-        if not last_review:
-            return False
-
-        review_status = last_review.get("status")
-        if not review_status or not isinstance(review_status, dict):
-            return False
-
-        review_status_id = review_status.get("status_id")
-        if not review_status_id or not self.status_id:
-            return False
-
-        return str(self.status_id) == str(review_status_id)
-
-    @property
-    def review_summary(self) -> Optional[Dict[str, Any]]:
-        """Per-target-type summary of reviews for frontend consumption."""
+        Consolidates the three derived properties so callers can obtain all
+        values without repeated iteration.
+        """
         reviews = self._get_all_reviews()
         if not reviews:
-            return None
+            return None, False, None
 
         summary: Dict[str, Any] = {}
+        test_result_level: List[Dict[str, Any]] = []
+
         for review in reviews:
-            target_type = self._get_target_type(review)
-            if target_type == _LEGACY_TEST_TYPE:
-                target_type = _TEST_RESULT_TYPE
+            raw_type = self._get_target_type(review)
+            canonical_type = _TEST_RESULT_TYPE if raw_type == LEGACY_TARGET_TEST else raw_type
+
+            # Accumulate per-target summary (latest review wins per key)
             target = review.get("target") or {}
             reference = target.get("reference")
-            key = f"{target_type}:{reference}" if reference else target_type
-
+            key = f"{canonical_type}:{reference}" if reference else canonical_type
             ts = review.get("updated_at") or review.get("created_at") or ""
             existing = summary.get(key)
-            if not existing or ts > (
-                existing.get("updated_at") or existing.get("created_at") or ""
-            ):
+            existing_ts = existing.get("updated_at") or existing.get("created_at") or ""
+            if not existing or ts > existing_ts:
                 summary[key] = {
-                    "target_type": target_type,
+                    "target_type": canonical_type,
                     "reference": reference,
                     "status": review.get("status"),
                     "user": review.get("user"),
@@ -112,4 +89,40 @@ class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesM
                     "review_id": review.get("review_id"),
                 }
 
-        return summary
+            # Collect test_result-level reviews for last_review calculation
+            if raw_type in _TEST_RESULT_TYPES:
+                test_result_level.append(review)
+
+        # Determine last_review
+        last_review: Optional[Dict[str, Any]] = None
+        if test_result_level:
+            last_review = max(
+                test_result_level,
+                key=lambda r: r.get("updated_at") or r.get("created_at") or "",
+            )
+
+        # Determine matches_review
+        matches = False
+        if last_review:
+            review_status = last_review.get("status")
+            if review_status and isinstance(review_status, dict):
+                review_status_id = review_status.get("status_id")
+                if review_status_id and self.status_id:
+                    matches = str(self.status_id) == str(review_status_id)
+
+        return last_review, matches, summary if summary else None
+
+    @property
+    def last_review(self) -> Optional[Dict[str, Any]]:
+        """Most recent test_result-level review (for overall status comparison)."""
+        return self._compute_review_state()[0]
+
+    @property
+    def matches_review(self) -> bool:
+        """Check if the test result status matches the latest test_result-level review."""
+        return self._compute_review_state()[1]
+
+    @property
+    def review_summary(self) -> Optional[Dict[str, Any]]:
+        """Per-target-type summary of reviews for frontend consumption."""
+        return self._compute_review_state()[2]

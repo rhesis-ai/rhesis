@@ -34,30 +34,25 @@ interface ReviewJudgementDrawerProps {
   open: boolean;
   onClose: () => void;
   test: TestResultDetail | null;
-  currentUserName: string;
   sessionToken: string;
-  onSave: (testId: string, reviewData: ReviewData) => Promise<void>;
+  onSave: (testId: string) => Promise<void>;
   initialComment?: string;
   initialStatus?: 'passed' | 'failed';
+  mentionableMetrics?: MentionOption[];
+  mentionableTurns?: MentionOption[];
 }
 
-export interface ReviewData {
-  originalStatus: 'passed' | 'failed';
-  newStatus: 'passed' | 'failed';
-  reason: string;
-  overruledBy: string;
-  overruledAt: string;
-}
 
 export default function ReviewJudgementDrawer({
   open,
   onClose,
   test,
-  currentUserName,
   sessionToken,
   onSave,
   initialComment,
   initialStatus,
+  mentionableMetrics = [],
+  mentionableTurns = [],
 }: ReviewJudgementDrawerProps) {
   const theme = useTheme();
   const [newStatus, setNewStatus] = useState<'passed' | 'failed'>('passed');
@@ -66,28 +61,6 @@ export default function ReviewJudgementDrawer({
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  const mentionableMetrics: MentionOption[] = useMemo(() => {
-    if (!test?.test_metrics?.metrics) return [];
-    return Object.keys(test.test_metrics.metrics).map(name => ({
-      id: name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, ''),
-      display: name,
-      type: 'metric' as const,
-    }));
-  }, [test]);
-
-  const mentionableTurns: MentionOption[] = useMemo(() => {
-    const summary = test?.test_output?.conversation_summary;
-    if (!summary || !Array.isArray(summary)) return [];
-    return summary.map((turn: { turn: number }) => ({
-      id: String(turn.turn),
-      display: `Turn ${turn.turn}`,
-      type: 'turn' as const,
-    }));
-  }, [test]);
 
   // Infer target from comment text
   const inferredTarget: InferredTarget = useMemo(
@@ -244,16 +217,7 @@ export default function ReviewJudgementDrawer({
         inferredTarget
       );
 
-      // Create review data for parent component
-      const reviewData: ReviewData = {
-        originalStatus,
-        newStatus,
-        reason: reason.trim(),
-        overruledBy: currentUserName,
-        overruledAt: new Date().toISOString(),
-      };
-
-      await onSave(test.id, reviewData);
+      await onSave(test.id);
       onClose();
     } catch (_err) {
       setError('Failed to save review. Please try again.');

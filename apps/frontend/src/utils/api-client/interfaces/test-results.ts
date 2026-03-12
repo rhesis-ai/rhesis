@@ -4,8 +4,7 @@ import { Tag } from './tag';
 
 // Override marker added by backend when a human review changes a metric or turn value
 export interface OverrideMarker {
-  original_is_successful?: boolean;
-  original_success?: boolean;
+  original_value: boolean;
   review_id: string;
   overridden_by: string;
   overridden_at: string;

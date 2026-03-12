@@ -178,33 +178,14 @@ export function getTestResultStatus(test: TestResultDetail): TestResultStatus {
  * @param test - The test result detail object
  * @returns The test status: 'Pass', 'Fail', or 'Error'
  */
+/**
+ * @deprecated Use getEffectiveTestResultStatus instead, which also
+ * accounts for metric- and turn-level overrides via the backend status field.
+ */
 export function getTestResultStatusWithReview(
   test: TestResultDetail
 ): TestResultStatus {
-  // If there's a human review, prioritize it
-  if (test.last_review && test.last_review.status?.name) {
-    const reviewStatusName = String(test.last_review.status.name).toLowerCase();
-    const reviewPassed =
-      reviewStatusName.includes('pass') ||
-      reviewStatusName.includes('success') ||
-      reviewStatusName.includes('completed');
-
-    // Check if test has valid metrics (either single-turn metrics or multi-turn goal_evaluation)
-    const hasMetrics =
-      test.test_metrics?.metrics &&
-      Object.keys(test.test_metrics.metrics).length > 0;
-    const hasGoalEvaluation = test.test_output?.goal_evaluation;
-
-    // Return 'Error' only if there are no metrics AND no goal evaluation
-    if (!hasMetrics && !hasGoalEvaluation) {
-      return 'Error';
-    }
-
-    return reviewPassed ? 'Pass' : 'Fail';
-  }
-
-  // Fall back to automated metrics
-  return getTestResultStatus(test);
+  return getEffectiveTestResultStatus(test);
 }
 
 /**

@@ -33,7 +33,7 @@ import {
 } from '@/utils/api-client/interfaces/test-results';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import TestResultDrawer from './TestResultDrawer';
-import ReviewJudgementDrawer, { ReviewData } from './ReviewJudgementDrawer';
+import ReviewJudgementDrawer from './ReviewJudgementDrawer';
 import {
   findStatusByCategory,
   isPassedStatusName,
@@ -213,10 +213,7 @@ export default function TestsTableView({
     setOverruleDrawerOpen(true);
   };
 
-  const handleOverruleSave = async (
-    testId: string,
-    _reviewData: ReviewData
-  ) => {
+  const handleOverruleSave = async (testId: string) => {
     try {
       // Fetch the updated test result from the backend
       const clientFactory = new ApiClientFactory(sessionToken);
@@ -1044,7 +1041,6 @@ export default function TestsTableView({
         open={overruleDrawerOpen}
         onClose={() => setOverruleDrawerOpen(false)}
         test={testToOverrule}
-        currentUserName={currentUserName}
         sessionToken={sessionToken}
         onSave={handleOverruleSave}
       />

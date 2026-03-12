@@ -15,6 +15,17 @@ export interface MentionOption {
   type: 'user' | 'metric' | 'turn';
 }
 
+/**
+ * Convert a display name to a URL-safe mention ID.
+ * e.g. "Goal Achievement" -> "goal-achievement"
+ */
+export function toMentionId(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+}
+
 interface MentionTextInputProps {
   value: string;
   onChange: (value: string) => void;

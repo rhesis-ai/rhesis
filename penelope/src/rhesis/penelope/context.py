@@ -20,6 +20,11 @@ def _serialize_dt(dt: Optional[datetime], _info) -> Optional[str]:
     return dt.isoformat() if dt else None
 
 
+# All known names for the goal-achievement metric, including legacy variants kept
+# for backward compatibility with stored test results.
+_GOAL_METRIC_NAMES = ("goal_achievement", "goal_evaluation", "penelope_goal_evaluation")
+
+
 class ToolType(str, Enum):
     """
     Enumeration of tool types for reliable tool classification.
@@ -661,11 +666,7 @@ class TestState:
                 result
                 for result in self.metric_results
                 if result.details.get("is_goal_achievement_metric", False)
-                or result.details.get("name") in (
-                    "goal_achievement",
-                    "goal_evaluation",
-                    "penelope_goal_evaluation",
-                )
+                or result.details.get("name") in _GOAL_METRIC_NAMES
             ]
             if goal_results:
                 # Use the last (most recent) goal evaluation result

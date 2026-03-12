@@ -95,7 +95,7 @@ export default function TestDetailConversationTab({
 
   // Build a map of turn number -> latest review targeting that turn
   const turnReviewMap = useMemo(() => {
-    const map: Record<number, Review> = {};
+    const map = new Map<number, Review>();
     const reviews = test.test_reviews?.reviews || [];
     for (const review of reviews) {
       if (
@@ -107,12 +107,12 @@ export default function TestDetailConversationTab({
           10
         );
         if (!isNaN(turnNum)) {
-          const existing = map[turnNum];
+          const existing = map.get(turnNum);
           if (
             !existing ||
             (review.updated_at || '') > (existing.updated_at || '')
           ) {
-            map[turnNum] = review;
+            map.set(turnNum, review);
           }
         }
       }

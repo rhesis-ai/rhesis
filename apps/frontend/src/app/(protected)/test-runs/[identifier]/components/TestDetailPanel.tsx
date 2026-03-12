@@ -28,8 +28,8 @@ import TestDetailHistoryTab from './TestDetailHistoryTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { findStatusByCategory } from '@/utils/test-result-status';
-import { MentionOption } from '@/components/common/MentionTextInput';
-import ReviewJudgementDrawer, { ReviewData } from './ReviewJudgementDrawer';
+import { MentionOption, toMentionId } from '@/components/common/MentionTextInput';
+import ReviewJudgementDrawer from './ReviewJudgementDrawer';
 
 interface TestDetailPanelProps {
   test: TestResultDetail | null;
@@ -165,11 +165,7 @@ export default function TestDetailPanel({
   };
 
   const handleReviewMetric = (metricName: string) => {
-    const metricId = metricName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-    setReviewDrawerComment(`@[${metricName}](metric:${metricId}) `);
+    setReviewDrawerComment(`@[${metricName}](metric:${toMentionId(metricName)}) `);
     setReviewDrawerStatus(undefined);
     setReviewDrawerOpen(true);
   };
@@ -230,7 +226,7 @@ export default function TestDetailPanel({
   const mentionableMetrics: MentionOption[] = useMemo(() => {
     if (!test?.test_metrics?.metrics) return [];
     return Object.keys(test.test_metrics.metrics).map(name => ({
-      id: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      id: toMentionId(name),
       display: name,
       type: 'metric' as const,
     }));
@@ -249,7 +245,7 @@ export default function TestDetailPanel({
   }, [test]);
 
   const handleReviewDrawerSave = useCallback(
-    async (testId: string, _reviewData: ReviewData) => {
+    async (testId: string) => {
       try {
         const clientFactory = new ApiClientFactory(sessionToken);
         const testResultsClient = clientFactory.getTestResultsClient();
@@ -454,11 +450,12 @@ export default function TestDetailPanel({
         open={reviewDrawerOpen}
         onClose={() => setReviewDrawerOpen(false)}
         test={test}
-        currentUserName={currentUserName}
         sessionToken={sessionToken}
         onSave={handleReviewDrawerSave}
         initialComment={reviewDrawerComment}
         initialStatus={reviewDrawerStatus}
+        mentionableMetrics={mentionableMetrics}
+        mentionableTurns={mentionableTurns}
       />
     </Paper>
   );
