@@ -41,6 +41,7 @@ interface ProviderInfo {
 interface PasswordPolicy {
   min_length: number;
   max_length: number;
+  min_strength_score: number;
 }
 
 interface AuthFormProps {
@@ -198,6 +199,12 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error(
+            'Too many attempts. Please wait a while before trying again.'
+          );
+        }
+
         // Check for migrated Auth0 user without a password
         const detail = data.detail;
         if (
@@ -211,7 +218,10 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         }
 
         const message = typeof detail === 'object' ? detail?.message : detail;
-        throw new Error(message || 'Authentication failed');
+        const fallback = isRegistration
+          ? 'Registration failed'
+          : 'Authentication failed';
+        throw new Error(message || fallback);
       }
 
       // Use NextAuth to establish session with tokens from backend
@@ -392,7 +402,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 }
                 helperText={
                   isRegistration
-                    ? `Minimum ${passwordPolicy?.min_length ?? 8} characters`
+                    ? `Minimum ${passwordPolicy?.min_length ?? 12} characters`
                     : undefined
                 }
                 inputRef={passwordInputRef}

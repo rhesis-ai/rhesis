@@ -172,8 +172,8 @@ describe('validatePhone', () => {
 
 describe('validatePassword', () => {
   it('accepts valid passwords', () => {
-    expect(validatePassword('password123').isValid).toBe(true);
-    expect(validatePassword('12345678').isValid).toBe(true);
+    expect(validatePassword('password12345').isValid).toBe(true);
+    expect(validatePassword('123456789012').isValid).toBe(true);
   });
 
   it('rejects empty passwords', () => {
@@ -196,14 +196,15 @@ describe('validatePassword', () => {
   });
 
   it('respects custom policy', () => {
-    const policy = { min_length: 12, max_length: 64 };
+    const policy = { min_length: 12, max_length: 64, min_strength_score: 2 };
     expect(validatePassword('short123', policy).isValid).toBe(false);
     expect(validatePassword('longenough12', policy).isValid).toBe(true);
   });
 
   it('has correct default policy', () => {
-    expect(DEFAULT_PASSWORD_POLICY.min_length).toBe(8);
+    expect(DEFAULT_PASSWORD_POLICY.min_length).toBe(12);
     expect(DEFAULT_PASSWORD_POLICY.max_length).toBe(128);
+    expect(DEFAULT_PASSWORD_POLICY.min_strength_score).toBe(2);
   });
 });
 

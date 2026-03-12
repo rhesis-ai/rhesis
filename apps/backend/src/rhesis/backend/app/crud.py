@@ -1964,7 +1964,9 @@ def get_test_run_behaviors(
 
 
 def get_test_run_metrics(
-    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+    db: Session,
+    test_run_id: uuid.UUID,
+    organization_id: uuid.UUID | str | None = None,
 ) -> List[str]:
     """Get distinct metric names actually evaluated in a specific test run.
 
@@ -1979,15 +1981,19 @@ def get_test_run_metrics(
     query = db.query(metric_key).filter(
         models.TestResult.test_run_id == test_run_id,
         models.TestResult.test_metrics.isnot(None),
-        # Guard against non-object values (null, scalar, array) which would
-        # cause jsonb_object_keys to error at the Postgres level
         func.jsonb_typeof(models.TestResult.test_metrics["metrics"]) == "object",
     )
 
     if organization_id:
-        from uuid import UUID
-
-        query = query.filter(models.TestResult.organization_id == UUID(organization_id))
+        try:
+            org_uuid = (
+                organization_id
+                if isinstance(organization_id, uuid.UUID)
+                else uuid.UUID(str(organization_id))
+            )
+        except ValueError:
+            return []
+        query = query.filter(models.TestResult.organization_id == org_uuid)
 
     return sorted({name for (name,) in query.distinct().all()})
 
