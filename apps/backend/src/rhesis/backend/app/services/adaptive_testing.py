@@ -2,11 +2,14 @@
 
 Converts backend Test models into SDK TestTreeData structures,
 providing tree, tests-only, and topics-only views.
-Also provides generation of test outputs by invoking an endpoint.
+Also provides generation of test outputs by invoking an endpoint
+and evaluation of tests using specified metrics.
 """
 
 import asyncio
 import logging
+import random
+import re
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -17,7 +20,11 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import crud, models, schemas
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.services.test import create_test_set_associations
-from rhesis.backend.app.utils.crud_utils import get_or_create_topic, get_or_create_type_lookup
+from rhesis.backend.app.utils.crud_utils import (
+    get_or_create_behavior,
+    get_or_create_topic,
+    get_or_create_type_lookup,
+)
 from rhesis.sdk.adaptive_testing.schemas import (
     TestTreeData,
     TestTreeNode,
@@ -277,7 +284,14 @@ def create_adaptive_test_set(
     models.TestSet
         The created test set
     """
+    behavior = get_or_create_behavior(
+        db=db,
+        name=ADAPTIVE_TESTING_BEHAVIOR,
+        organization_id=organization_id,
+        user_id=user_id,
+    )
     attributes = {
+        "behaviors": [str(behavior.id)],
         "metadata": {"behaviors": [ADAPTIVE_TESTING_BEHAVIOR]},
     }
     test_set_type_lookup = get_or_create_type_lookup(
@@ -398,6 +412,7 @@ def create_test_node(
     topic: str = "",
     output: str = "",
     labeler: str = "user",
+    label: str = "",
     model_score: float = 0.0,
 ) -> TestTreeNode:
     """Create a test node in the adaptive testing tree.
@@ -407,9 +422,6 @@ def create_test_node(
     not yet have a topic_marker in the tree the function delegates to
     :func:`create_topic_node` so the hierarchy stays valid. Topic is
     optional; tests without a topic are allowed.
-
-    The label is intentionally not settable at creation time; new tests
-    are always created without a label.
 
     Parameters
     ----------
@@ -429,6 +441,8 @@ def create_test_node(
         Expected or actual output (default ``""``)
     labeler : str
         Who labelled this test (default ``"user"``)
+    label : str, optional
+        Label: 'pass', 'fail', or '' (default ``""``)
     model_score : float
         Model score for the test (default ``0.0``)
 
@@ -474,7 +488,7 @@ def create_test_node(
         prompt_id=db_prompt.id,
         test_metadata={
             "output": output,
-            "label": "",
+            "label": label,
             "labeler": labeler,
             "model_score": model_score,
         },
@@ -1027,3 +1041,614 @@ async def generate_outputs_for_tests(
         "failed": failed,
         "updated": updated,
     }
+
+
+# ---------------------------------------------------------------------------
+# Evaluate tests
+# ---------------------------------------------------------------------------
+
+
+def _build_eligible_tests(
+    tests: List[models.Test],
+    test_ids: Optional[List[UUID]] = None,
+    topic: Optional[str] = None,
+    include_subtopics: bool = True,
+) -> List[models.Test]:
+    """Filter tests to those eligible for evaluation.
+
+    Excludes topic markers, tests without prompts, and applies optional
+    test_ids / topic filters (same logic as generate_outputs_for_tests).
+    """
+    eligible: List[models.Test] = []
+    for t in tests:
+        meta = t.test_metadata or {}
+        if meta.get("label") == "topic_marker":
+            continue
+        if not t.prompt or not (t.prompt.content or "").strip():
+            continue
+        if test_ids is not None and t.id not in test_ids:
+            continue
+        if topic is not None and topic != "":
+            t_topic = (t.topic.name if t.topic and hasattr(t.topic, "name") else "") or ""
+            if include_subtopics:
+                if t_topic != topic and not t_topic.startswith(topic + "/"):
+                    continue
+            else:
+                if t_topic != topic:
+                    continue
+        eligible.append(t)
+    return eligible
+
+
+def evaluate_tests_for_adaptive_set(
+    db: Session,
+    test_set_identifier: str,
+    organization_id: str,
+    user_id: str,
+    metric_names: List[str],
+    test_ids: Optional[List[UUID]] = None,
+    topic: Optional[str] = None,
+    include_subtopics: bool = True,
+) -> Dict[str, Any]:
+    """Evaluate adaptive testing tests with the specified metrics.
+
+    For each eligible test, runs every requested metric through the
+    standard ``MetricEvaluator`` pipeline (same as test execution) and
+    persists the results in ``test_metadata`` (label, labeler,
+    model_score) so they are reflected in the TestTreeNode view.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    test_set_identifier : str
+        Test set identifier (UUID, nano_id, or slug)
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+    metric_names : list of str
+        Metric names to evaluate (must exist in the organization)
+    test_ids : list of UUID, optional
+        Limit evaluation to these test IDs
+    topic : str, optional
+        Limit evaluation to tests under this topic path
+    include_subtopics : bool, default True
+        When topic is set, include subtopics or not
+
+    Returns
+    -------
+    dict
+        - evaluated: number of tests evaluated
+        - results: list of {test_id, label, labeler, model_score}
+        - failed: list of {test_id, error}
+
+    Raises
+    ------
+    ValueError
+        If any metric name does not exist or the test set is not found.
+    """
+    from rhesis.backend.metrics.evaluator import MetricEvaluator
+    from rhesis.backend.tasks.execution.executors.metrics import (
+        determine_status_from_metrics,
+    )
+    from rhesis.backend.tasks.execution.test import get_evaluation_model
+
+    # 1. Resolve metrics by name using get_metrics with OData filter
+    name_clauses = " or ".join(f"name eq '{n}'" for n in metric_names)
+    resolved_metrics = crud.get_metrics(
+        db,
+        skip=0,
+        limit=len(metric_names),
+        filter=name_clauses,
+        organization_id=organization_id,
+    )
+    found_names = {m.name for m in resolved_metrics}
+    missing = [n for n in metric_names if n not in found_names]
+    if missing:
+        raise ValueError(f"Metric does not exist: {', '.join(missing)}")
+
+    # 2. Resolve test set
+    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    if db_test_set is None:
+        raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
+
+    # 3. Load and filter eligible tests
+    tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
+    eligible = _build_eligible_tests(tests, test_ids, topic, include_subtopics)
+
+    # 4. Get evaluation model and create evaluator
+    model = get_evaluation_model(db, user_id)
+    metrics_evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
+
+    # 5. Evaluate each test using the standard metric pipeline
+    results: List[Dict[str, Any]] = []
+    failed: List[Dict[str, str]] = []
+
+    for test in eligible:
+        test_id_str = str(test.id)
+        input_text = (test.prompt.content or "").strip()
+        output_text = (test.test_metadata or {}).get("output", "")
+
+        if not output_text or output_text == "[no output]":
+            logger.warning(
+                f"Test {test_id_str} has no output to evaluate — run generate_outputs first"
+            )
+            failed.append({"test_id": test_id_str, "error": "no output"})
+            continue
+
+        try:
+            metrics_results = metrics_evaluator.evaluate(
+                input_text=input_text,
+                output_text=output_text,
+                expected_output="",
+                context=[],
+                metrics=list(resolved_metrics),
+            )
+
+            valid_results = {k: v for k, v in metrics_results.items() if isinstance(v, dict)}
+
+            if not valid_results:
+                logger.warning(f"Evaluator returned no valid metric results for test {test_id_str}")
+                failed.append({"test_id": test_id_str, "error": "no metric results"})
+                continue
+
+            status = determine_status_from_metrics(metrics_results)
+            agg_label = "pass" if status == "Pass" else "fail"
+            agg_labeler = ", ".join(metric_names)
+
+            scores = [v.get("score", 0.0) for v in valid_results.values()]
+            agg_score = sum(scores) / len(scores) if scores else 0.0
+
+            # 6. Persist to test_metadata
+            meta = dict(test.test_metadata or {})
+            meta["label"] = agg_label
+            meta["labeler"] = agg_labeler
+            meta["model_score"] = agg_score
+            if len(resolved_metrics) > 1:
+                meta["evaluation"] = [
+                    {
+                        "label": ("pass" if r.get("is_successful") else "fail"),
+                        "labeler": r.get("name", key),
+                        "model_score": r.get("score", 0.0),
+                    }
+                    for key, r in valid_results.items()
+                ]
+            elif "evaluation" in meta:
+                del meta["evaluation"]
+            test.test_metadata = meta
+
+            metrics_summary = {
+                k: (v.get("score"), v.get("is_successful")) for k, v in valid_results.items()
+            }
+            logger.debug(
+                f"Test {test_id_str}: label={agg_label}, "
+                f"score={agg_score:.3f}, metrics={metrics_summary}"
+            )
+
+            results.append(
+                {
+                    "test_id": test_id_str,
+                    "label": agg_label,
+                    "labeler": agg_labeler,
+                    "model_score": agg_score,
+                }
+            )
+        except Exception as e:
+            logger.warning(
+                f"Evaluation failed for test {test_id_str}: {e}",
+                exc_info=True,
+            )
+            meta = dict(test.test_metadata or {})
+            meta["label"] = "error"
+            meta["labeler"] = ", ".join(metric_names)
+            meta["model_score"] = 0.0
+            test.test_metadata = meta
+            failed.append({"test_id": test_id_str, "error": str(e)})
+
+    db.flush()
+
+    logger.info(
+        f"Evaluate: test_set={test_set_identifier}, "
+        f"metrics={metric_names!r}, topic={topic!r}, "
+        f"evaluated={len(results)}, failed={len(failed)}"
+    )
+
+    return {
+        "evaluated": len(results),
+        "results": results,
+        "failed": failed,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Generate suggestions
+# ---------------------------------------------------------------------------
+
+
+def _get_generation_model(db: Session, user_id: str):
+    """Get the user's configured generation model for suggestion generation."""
+    from rhesis.backend.app.constants import DEFAULT_GENERATION_MODEL
+    from rhesis.backend.app.utils.user_model_utils import (
+        get_user_generation_model,
+    )
+
+    try:
+        user = crud.get_user_by_id(db, user_id)
+        if user:
+            return get_user_generation_model(db, user)
+    except Exception as e:
+        logger.warning(f"Error fetching user generation model: {e}")
+
+    from rhesis.sdk.models.factory import get_model
+
+    return get_model(DEFAULT_GENERATION_MODEL)
+
+
+def _build_suggestion_prompt(
+    examples: List[Dict[str, str]],
+    topic: str,
+    num_suggestions: int,
+) -> str:
+    """Build a prompt asking the LLM to generate new test inputs."""
+    lines = [
+        "You are a test generation assistant. "
+        "Given example test inputs for an AI system, "
+        "generate new diverse test inputs.\n"
+    ]
+
+    if topic:
+        lines.append(f"Topic: {topic}\n")
+
+    lines.append("Example test inputs:")
+    for i, ex in enumerate(examples, 1):
+        ex_topic = ex.get("topic", "")
+        ex_input = ex.get("input", "")
+        if ex_topic:
+            lines.append(f"{i}. [{ex_topic}] {ex_input}")
+        else:
+            lines.append(f"{i}. {ex_input}")
+
+    lines.append(
+        f"\nGenerate exactly {num_suggestions} new, diverse test inputs. "
+        "Each test input should be on its own line, "
+        "prefixed with its number (e.g. '1. ...'). "
+        "Output only the numbered list, nothing else."
+    )
+
+    return "\n".join(lines)
+
+
+def _parse_suggestions(raw_text: str, topic: str) -> List[Dict[str, str]]:
+    """Parse LLM output into individual suggestion dicts."""
+    suggestions: List[Dict[str, str]] = []
+    for line in raw_text.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        cleaned = re.sub(r"^\d+[\.\)]\s*", "", line).strip()
+        if not cleaned:
+            continue
+        suggestions.append({"topic": topic or "", "input": cleaned})
+    return suggestions
+
+
+def generate_suggestions(
+    db: Session,
+    test_set_identifier: str,
+    organization_id: str,
+    user_id: str,
+    topic: Optional[str] = None,
+    num_examples: int = 10,
+    num_suggestions: int = 20,
+) -> Dict[str, Any]:
+    """Generate test suggestions using an LLM.
+
+    Randomly selects existing tests as examples, builds a prompt,
+    and asks the LLM to generate new test inputs.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    test_set_identifier : str
+        Test set identifier (UUID, nano_id, or slug)
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+    topic : str, optional
+        If provided, filter examples and scope suggestions to this topic
+    num_examples : int
+        Number of existing tests to sample as examples (default 10)
+    num_suggestions : int
+        Number of new tests to generate (default 20)
+
+    Returns
+    -------
+    dict
+        - suggestions: list of {topic, input}
+        - num_examples_used: how many examples were actually used
+    """
+    db_test_set = crud.resolve_test_set(test_set_identifier, db, organization_id=organization_id)
+    if db_test_set is None:
+        raise ValueError(f"Test set not found: {test_set_identifier}")
+
+    tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
+
+    eligible = _build_eligible_tests(tests, topic=topic)
+
+    if not eligible:
+        logger.info(
+            f"No eligible tests for suggestions in test_set={test_set_identifier}, topic={topic!r}"
+        )
+        return {"suggestions": [], "num_examples_used": 0}
+
+    sample_size = min(num_examples, len(eligible))
+    sampled = random.sample(eligible, sample_size)
+
+    examples = []
+    for t in sampled:
+        t_topic = t.topic.name if t.topic and hasattr(t.topic, "name") else ""
+        examples.append(
+            {
+                "topic": t_topic,
+                "input": (t.prompt.content or "").strip(),
+            }
+        )
+
+    prompt_text = _build_suggestion_prompt(examples, topic or "", num_suggestions)
+
+    model = _get_generation_model(db, user_id)
+
+    try:
+        raw_output = model.generate(prompt_text)
+    except Exception as e:
+        logger.error(f"LLM generation failed: {e}", exc_info=True)
+        raise ValueError(f"LLM generation failed: {e}") from e
+
+    suggestions = _parse_suggestions(raw_output, topic or "")
+
+    logger.info(
+        f"Generated {len(suggestions)} suggestions for "
+        f"test_set={test_set_identifier}, topic={topic!r}, "
+        f"examples_used={sample_size}"
+    )
+
+    return {
+        "suggestions": suggestions,
+        "num_examples_used": sample_size,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Invoke endpoint for suggestions (non-persisted)
+# ---------------------------------------------------------------------------
+
+
+async def invoke_endpoint_for_suggestions(
+    db: Session,
+    endpoint_id: str,
+    inputs: List[Dict[str, str]],
+    organization_id: str,
+    user_id: str,
+) -> Dict[str, Any]:
+    """Invoke an endpoint for non-persisted suggestion inputs.
+
+    Similar to generate_outputs_for_tests but operates on raw
+    input strings and does not persist results to the database.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    endpoint_id : str
+        Endpoint UUID to invoke
+    inputs : list of dict
+        Each dict has 'input' (str) and optionally 'topic' (str)
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+
+    Returns
+    -------
+    dict
+        - generated: count of successful invocations
+        - results: list of {input, output, error}
+    """
+    from rhesis.backend.app.database import (
+        get_db_with_tenant_variables,
+    )
+    from rhesis.backend.app.dependencies import get_endpoint_service
+    from rhesis.backend.tasks.execution.executors.results import (
+        process_endpoint_result,
+    )
+
+    svc = get_endpoint_service()
+    semaphore = asyncio.Semaphore(10)
+
+    async def _invoke_one(
+        input_text: str,
+    ) -> tuple:
+        async with semaphore:
+            try:
+                with get_db_with_tenant_variables(organization_id, user_id) as task_db:
+                    result = await svc.invoke_endpoint(
+                        db=task_db,
+                        endpoint_id=endpoint_id,
+                        input_data={"input": input_text},
+                        organization_id=organization_id,
+                        user_id=user_id,
+                    )
+                processed = process_endpoint_result(result)
+                output = (processed.get("output") or "").strip() or "[no output]"
+                return (input_text, output, None)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"Suggestion output generation failed: {e}")
+                return (input_text, "", str(e))
+
+    tasks = [_invoke_one(item["input"]) for item in inputs]
+    raw_results = await asyncio.gather(*tasks)
+
+    results = []
+    generated = 0
+    for input_text, output, error in raw_results:
+        results.append(
+            {
+                "input": input_text,
+                "output": output,
+                "error": error,
+            }
+        )
+        if error is None:
+            generated += 1
+
+    logger.info(
+        f"Suggestion outputs: endpoint={endpoint_id}, "
+        f"generated={generated}, failed={len(inputs) - generated}"
+    )
+
+    return {"generated": generated, "results": results}
+
+
+# ---------------------------------------------------------------------------
+# Evaluate suggestions (non-persisted)
+# ---------------------------------------------------------------------------
+
+
+def evaluate_suggestions(
+    db: Session,
+    organization_id: str,
+    user_id: str,
+    metric_names: List[str],
+    suggestions: List[Dict[str, str]],
+) -> Dict[str, Any]:
+    """Evaluate non-persisted suggestion input/output pairs.
+
+    Similar to evaluate_tests_for_adaptive_set but operates on raw
+    input/output pairs and does not persist results.
+
+    Parameters
+    ----------
+    db : Session
+        Database session
+    organization_id : str
+        Organization ID for tenant isolation
+    user_id : str
+        User ID for tenant isolation
+    metric_names : list of str
+        Metric names to evaluate
+    suggestions : list of dict
+        Each dict has 'input' and 'output' strings
+
+    Returns
+    -------
+    dict
+        - evaluated: count of successful evaluations
+        - results: list of {input, label, labeler, model_score, error}
+    """
+    from rhesis.backend.metrics.evaluator import MetricEvaluator
+    from rhesis.backend.tasks.execution.executors.metrics import (
+        determine_status_from_metrics,
+    )
+    from rhesis.backend.tasks.execution.test import (
+        get_evaluation_model,
+    )
+
+    name_clauses = " or ".join(f"name eq '{n}'" for n in metric_names)
+    resolved_metrics = crud.get_metrics(
+        db,
+        skip=0,
+        limit=len(metric_names),
+        filter=name_clauses,
+        organization_id=organization_id,
+    )
+    found_names = {m.name for m in resolved_metrics}
+    missing = [n for n in metric_names if n not in found_names]
+    if missing:
+        raise ValueError(f"Metric does not exist: {', '.join(missing)}")
+
+    model = get_evaluation_model(db, user_id)
+    evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
+
+    results: List[Dict[str, Any]] = []
+    evaluated = 0
+
+    for item in suggestions:
+        input_text = item["input"]
+        output_text = item["output"]
+
+        if not output_text or output_text == "[no output]":
+            results.append(
+                {
+                    "input": input_text,
+                    "label": "",
+                    "labeler": "",
+                    "model_score": 0.0,
+                    "error": "no output to evaluate",
+                }
+            )
+            continue
+
+        try:
+            metrics_results = evaluator.evaluate(
+                input_text=input_text,
+                output_text=output_text,
+                expected_output="",
+                context=[],
+                metrics=list(resolved_metrics),
+            )
+
+            valid = {k: v for k, v in metrics_results.items() if isinstance(v, dict)}
+
+            if not valid:
+                results.append(
+                    {
+                        "input": input_text,
+                        "label": "",
+                        "labeler": "",
+                        "model_score": 0.0,
+                        "error": "no metric results",
+                    }
+                )
+                continue
+
+            status = determine_status_from_metrics(metrics_results)
+            label = "pass" if status == "Pass" else "fail"
+            labeler = ", ".join(metric_names)
+            scores = [v.get("score", 0.0) for v in valid.values()]
+            score = sum(scores) / len(scores) if scores else 0.0
+
+            results.append(
+                {
+                    "input": input_text,
+                    "label": label,
+                    "labeler": labeler,
+                    "model_score": score,
+                    "error": None,
+                }
+            )
+            evaluated += 1
+
+        except Exception as e:
+            logger.warning(
+                f"Suggestion evaluation failed: {e}",
+                exc_info=True,
+            )
+            results.append(
+                {
+                    "input": input_text,
+                    "label": "error",
+                    "labeler": ", ".join(metric_names),
+                    "model_score": 0.0,
+                    "error": str(e),
+                }
+            )
+
+    logger.info(
+        f"Suggestion evaluation: metrics={metric_names!r}, "
+        f"evaluated={evaluated}, total={len(suggestions)}"
+    )
+
+    return {"evaluated": evaluated, "results": results}
