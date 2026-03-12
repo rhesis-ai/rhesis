@@ -106,10 +106,11 @@ class GarakDynamicGenerator:
             lines.append("")
 
         # Explicit goal (probe_class.goal attribute — distinct from the docstring).
-        # Falls back to description only when no dedicated goal is declared.
-        goal = probe_info.goal or probe_info.description
-        lines.append(f"Goal: {goal}")
-        lines.append("")
+        # Only emit the Goal line when a dedicated goal exists; if it is absent the
+        # description above already conveys the intent, so we skip it to avoid duplication.
+        if probe_info.goal:
+            lines.append(f"Goal: {probe_info.goal}")
+            lines.append("")
 
         # Security standards / attack vectors derived from tags
         if tag_descriptions:
