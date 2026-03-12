@@ -57,6 +57,10 @@ pythonpath = ["src"]
 asyncio_mode = "auto"
 
 [tool.uv]
+# Force minimum versions for transitive dependencies with security advisories
+constraint-dependencies = [
+    "tornado>=6.5.5",
+]
 # garak>=0.14.0 declares datasets<4.0 but ragas (via rhesis-sdk) requires
 # datasets>=4.0.0.  This override keeps both packages compatible, matching
 # the same override already present in apps/backend/pyproject.toml.

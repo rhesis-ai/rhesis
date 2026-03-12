@@ -102,6 +102,8 @@ explicit = true
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "fastmcp>=2.14.0",
+    "langgraph>=1.0.10",
+    "tornado>=6.5.5",
 ]
 # garak>=0.13.0 declares datasets<4.0 but ragas (via rhesis-sdk) requires datasets>=4.0.0.
 # The existing environment already uses datasets 4.x; this override keeps them compatible.

@@ -58,6 +58,11 @@ dependencies = [
 [tool.uv]
 # Use CPU-only PyTorch to reduce image size (~200MB instead of ~3GB)
 # garak requires torch, but the worker doesn't need GPU support
+# Force minimum versions for transitive dependencies with security advisories
+constraint-dependencies = [
+    "langgraph>=1.0.10",
+    "tornado>=6.5.5",
+]
 # garak>=0.14.0 declares datasets<4.0 but ragas (via rhesis-sdk) requires datasets>=4.0.0.
 # The existing environment already uses datasets 4.x; this override keeps them compatible.
 override-dependencies = [
