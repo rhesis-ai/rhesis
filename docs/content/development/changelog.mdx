@@ -8,6 +8,75 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.6.9] - 2026-03-12
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.8**
+- **Frontend 0.6.9**
+- **SDK 0.6.9**
+- **Polyphemus 0.2.8**
+
+### Summary
+
+This release introduces **targeted review annotations with override-aware test results**, **SDK-side metric
+execution via `@metric`**, and **richer per-turn conversational evaluation data** including context, metadata,
+and tool calls.
+
+### Featured Capabilities
+
+**Targeted Review Annotations**
+
+Human reviews now support more precise targeting and status reconciliation:
+
+- **Review Targets**: Reviews can target the full test result, a specific metric, or a specific turn
+- **Mention-driven Targeting**: Review comments support categorized mentions for metrics and turns
+- **Override Propagation**: Applied reviews can override metric and turn pass/fail values in stored result data
+- **Effective Status UX**: Header/list/overview views now reflect review-adjusted status behavior
+
+**SDK-side Metrics with `@metric`**
+
+Custom metric functions can now execute through the SDK connector:
+
+- **New Decorator**: Register metric functions with `@metric`
+- **Connector Protocol Support**: Backend can invoke registered SDK metric functions during evaluation
+- **Signature Validation**: Metric functions must provide `input` and `output` (with optional `expected_output`
+  and `context`)
+
+**Conversation Evaluation Enrichment**
+
+Multi-turn evaluations now carry more structured per-turn detail:
+
+- **Per-turn Metadata**: Metadata is preserved at turn granularity
+- **Per-turn Context**: Retrieval context (RAG sources) is available separately from metadata
+- **Per-turn Tool Calls**: Tool/function calls are propagated across mapping, evaluation, and UI rendering
+
+### Backend Highlights
+- Added multi-target reviews for test results, turns, and metrics
+- Added `@metric` connector support for SDK-side metric execution
+- Added per-turn metadata/context/tool_calls in conversation evaluation pipelines
+- Refactored logging to standard Python `logging` configuration
+- Added security hardening for connector message limits, idle timeout, and rate limiting
+
+### Frontend Highlights
+- Added mention-enabled review comments and target-aware review UI
+- Added resizable split panel behavior in test run detail workflows
+- Improved project list UX with search, status filters, and pagination
+- Surfaced review override effects in test run summary components
+
+### SDK Highlights
+- Added `@metric` decorator support for connector-registered metrics
+- Added async-first model generation flow across providers
+- Added per-turn context/metadata/tool_calls propagation for conversational evaluation
+- Added synthesizer batch retry logic and related stability fixes
+
+### Polyphemus Highlights
+- Added `POST /generate_batch` for multi-request generation
+- Upgraded runtime baseline to Python 3.12
+- Added rolling model replacement flow for Vertex AI deployments
+- Applied dependency updates for security and compatibility
+
 ## [0.6.8] - 2026-03-05
 
 ### Platform Release
