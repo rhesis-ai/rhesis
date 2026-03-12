@@ -116,6 +116,7 @@ export interface TestDetail extends Test {
   counts?: {
     comments: number;
     tasks: number;
+    files: number;
   };
 }
 
