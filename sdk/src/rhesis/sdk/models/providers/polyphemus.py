@@ -57,6 +57,12 @@ class PolyphemusLLM(BaseLLM):
         if self.api_key is None:
             raise ValueError("RHESIS_API_KEY is not set")
 
+        # Backend/DB may pass "default" or whitespace; use canonical default
+        mn = (model_name or "").strip()
+        if not mn or mn.lower() == "default":
+            model_name = DEFAULT_MODEL_NAME
+        else:
+            model_name = mn
         super().__init__(model_name, **kwargs)
 
     def load_model(self) -> Any:
@@ -314,6 +320,8 @@ class PolyphemusLLM(BaseLLM):
             requests.exceptions.HTTPError: If the API request fails
             ValueError: If the response cannot be parsed
         """
+        timeout = kwargs.pop("timeout", DEFAULT_REQUEST_TIMEOUT)
+
         request_data = {
             "messages": messages,
             **kwargs,
@@ -324,7 +332,6 @@ class PolyphemusLLM(BaseLLM):
             request_data["model"] = self.model_name
 
         url = f"{self.base_url}/generate"
-        timeout = kwargs.pop("timeout", DEFAULT_REQUEST_TIMEOUT)
 
         # Calculate prompt size for debugging
         total_prompt_chars = sum(len(m.get("content", "")) for m in messages)

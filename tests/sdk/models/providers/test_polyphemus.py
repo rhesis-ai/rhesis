@@ -22,7 +22,7 @@ class TestPolyphemusLLM:
         llm = PolyphemusLLM(api_key=api_key)
         assert llm.api_key == api_key
         assert llm.base_url == DEFAULT_POLYPHEMUS_URL
-        assert llm.model_name == ""
+        assert llm.model_name == "polyphemus-default"
 
     def test_init_with_env_api_key(self):
         """Test initialization with environment variable API key"""
@@ -209,7 +209,7 @@ class TestPolyphemusLLM:
 
     @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
     def test_generate_without_model_name(self, mock_post):
-        """Test generate method without model name doesn't include model in request"""
+        """Test generate method without model name uses default polyphemus-default"""
         mock_response = Mock()
         mock_response.json.return_value = {"choices": [{"message": {"content": "Test response"}}]}
         mock_response.raise_for_status = Mock()
@@ -221,7 +221,7 @@ class TestPolyphemusLLM:
         llm.generate(prompt)
 
         call_args = mock_post.call_args
-        assert "model" not in call_args.kwargs["json"]
+        assert call_args.kwargs["json"]["model"] == "polyphemus-default"
 
     @patch("rhesis.sdk.models.providers.polyphemus.requests.post")
     def test_strip_reasoning_tokens(self, mock_post):
