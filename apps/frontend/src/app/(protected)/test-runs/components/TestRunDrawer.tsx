@@ -54,7 +54,7 @@ export default function TestRunDrawer({
   );
   const [tags, setTags] = React.useState<string[]>([]);
 
-  const getCurrentUserId = useCallback(() => {
+  const getCurrentUserId = useCallback((): UUID | undefined => {
     try {
       const [, payloadBase64] = sessionToken.split('.');
       const base64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
@@ -63,7 +63,7 @@ export default function TestRunDrawer({
 
       const payload = JSON.parse(
         Buffer.from(paddedBase64, 'base64').toString('utf-8')
-      );
+      ) as { user?: { id?: UUID } };
       return payload.user?.id;
     } catch (_err) {
       return undefined;
@@ -176,7 +176,7 @@ export default function TestRunDrawer({
       const testConfigurationsClient =
         clientFactory.getTestConfigurationsClient();
 
-      const currentUserId: UUID | undefined = getCurrentUserId();
+      const currentUserId = getCurrentUserId();
 
       // Create test configuration
       const testConfigurationData: TestConfigurationCreate = {

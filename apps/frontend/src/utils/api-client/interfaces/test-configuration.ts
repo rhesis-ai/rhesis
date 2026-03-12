@@ -57,13 +57,18 @@ export interface TestConfigurationBase {
   prompt_id?: UUID;
   use_case_id?: UUID;
   test_set_id: UUID;
-  user_id?: UUID;
+  user_id: UUID;
   organization_id?: UUID;
   status_id?: UUID;
   attributes?: TestConfigurationAttributes;
 }
 
-export type TestConfigurationCreate = TestConfigurationBase;
+export interface TestConfigurationCreate extends Omit<
+  TestConfigurationBase,
+  'user_id'
+> {
+  user_id?: UUID;
+}
 
 export type TestConfigurationUpdate = Partial<TestConfigurationBase>;
 
