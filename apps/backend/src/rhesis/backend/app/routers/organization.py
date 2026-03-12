@@ -26,6 +26,33 @@ from rhesis.backend.notifications import email_service
 
 logger = logging.getLogger(__name__)
 
+
+def _get_instance_state(db: Session, obj) -> str:
+    """Return a short string describing the SQLAlchemy instance state of an ORM object."""
+    from sqlalchemy import inspect as sa_inspect
+
+    try:
+        state = sa_inspect(obj)
+        flags = []
+        if state.transient:
+            flags.append("transient")
+        if state.pending:
+            flags.append("pending")
+        if state.persistent:
+            flags.append("persistent")
+        if state.detached:
+            flags.append("detached")
+        if state.deleted:
+            flags.append("deleted")
+        if state.expired:
+            flags.append("expired")
+        if state.modified:
+            flags.append("modified")
+        return "|".join(flags) if flags else "unknown"
+    except Exception as exc:
+        return f"error:{exc}"
+
+
 router = APIRouter(
     prefix="/organizations", tags=["organizations"], responses={404: {"description": "Not found"}}
 )
@@ -131,16 +158,36 @@ async def initialize_organization_data(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Load initial data for an organization if onboarding is not complete."""
+    logger.info(
+        "load-initial-data called: org_id=%s user_id=%s user_email=%s",
+        organization_id,
+        current_user.id,
+        current_user.email,
+    )
     try:
         org = crud.get_organization(db, organization_id=organization_id)
         if not org:
             raise HTTPException(status_code=404, detail="Organization not found")
 
+        logger.info(
+            "Organization fetched: id=%s name=%r is_onboarding_complete=%s sqlalchemy_state=%s",
+            org.id,
+            org.name,
+            org.is_onboarding_complete,
+            _get_instance_state(db, org),
+        )
+
         if org.is_onboarding_complete:
             raise HTTPException(status_code=400, detail="Organization already initialized")
 
         # Load initial data and get the default model IDs
+        logger.info("Starting load_initial_data for org_id=%s", organization_id)
         default_model_ids = load_initial_data(db, str(organization_id), str(current_user.id))
+        logger.info(
+            "load_initial_data complete: default_model_ids=%s org_state_after=%s",
+            default_model_ids,
+            _get_instance_state(db, org),
+        )
 
         # Update user settings with the default models for generation, evaluation, and embedding
         if default_model_ids:
@@ -168,7 +215,7 @@ async def initialize_organization_data(
             )
         except Exception as test_exec_error:
             # Log the error but don't fail the entire onboarding
-            print(f"⚠ Warning: Initial test execution failed: {test_exec_error}")
+            logger.warning("Initial test execution failed: %s", test_exec_error)
             test_execution_summary = {
                 "status": "error",
                 "message": (
@@ -183,8 +230,20 @@ async def initialize_organization_data(
         # Mark onboarding as completed
         org.is_onboarding_complete = True
 
+        logger.info(
+            "Pre-commit state: org_id=%s org_state=%s session_dirty=%s session_new=%s "
+            "in_transaction=%s",
+            org.id,
+            _get_instance_state(db, org),
+            [type(o).__name__ for o in db.dirty],
+            [type(o).__name__ for o in db.new],
+            db.in_transaction(),
+        )
+
         # Explicitly commit the transaction before scheduling emails
         db.commit()
+
+        logger.info("Commit successful: org_id=%s is_onboarding_complete=True", organization_id)
 
         # Prepare response after successful commit
         response = {
@@ -199,6 +258,12 @@ async def initialize_organization_data(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.exception(
+            "load-initial-data failed: org_id=%s error_type=%s error=%s",
+            organization_id,
+            type(e).__name__,
+            e,
+        )
         raise HTTPException(
             status_code=500, detail=f"Failed to initialize organization data: {str(e)}"
         )
