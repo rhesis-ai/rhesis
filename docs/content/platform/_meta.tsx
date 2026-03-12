@@ -25,6 +25,7 @@ const meta: MetaRecord = {
   },
   "results-overview": "Overview",
   "test-runs": "Test Runs",
+  "test-reviews": "Test Reviews",
   tasks: "Tasks",
   "---development": {
     type: "separator",
