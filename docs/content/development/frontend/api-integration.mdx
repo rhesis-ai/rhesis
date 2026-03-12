@@ -215,6 +215,63 @@ export const projectsApi = {
 };`}
 </CodeBlock>
 
+### WebSocket API for Playground chat
+
+In addition to REST clients, the frontend Playground uses WebSocket events for interactive endpoint chat.
+The shared message types live in:
+
+- `apps/frontend/src/utils/websocket/types.ts`
+- `apps/backend/src/rhesis/backend/app/schemas/websocket.py`
+
+Core chat event types:
+
+- `chat.message`
+- `chat.response`
+- `chat.error`
+
+#### `chat.message` payload (frontend → backend)
+
+| Field | Required | Description |
+|---|---|---|
+| `endpoint_id` | Yes | UUID of the endpoint to invoke |
+| `message` | Yes | User message text |
+| `conversation_id` | No | Conversation continuity identifier |
+| `files` | No | Attachments with `filename`, `content_type`, `data` |
+
+<CodeBlock filename="chat-message.json" language="json">
+{`{
+  "type": "chat.message",
+  "correlation_id": "corr_123",
+  "payload": {
+    "endpoint_id": "6f3b...",
+    "message": "Analyze the attached file",
+    "conversation_id": "session-abc",
+    "files": [
+      {
+        "filename": "input.json",
+        "content_type": "application/json",
+        "data": "<base64>"
+      }
+    ]
+  }
+}`}
+</CodeBlock>
+
+#### `chat.response` payload (backend → frontend)
+
+| Field | Required | Description |
+|---|---|---|
+| `output` | Yes | Endpoint response text |
+| `endpoint_id` | Yes | Invoked endpoint ID |
+| `trace_id` | No | Trace identifier for opening the trace drawer |
+| `conversation_id` | No | Canonical conversation ID returned by backend |
+| `output_files` | No | Files returned by the endpoint |
+
+<Callout type="info">
+  Playground chat messages are size-limited by backend WebSocket handling (10 MB max per message).
+  Keep attachment payloads below this limit.
+</Callout>
+
 ### Type Definitions
 
 API types are defined to match the Rhesis backend API response structures:
