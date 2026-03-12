@@ -4,7 +4,7 @@ Normalizes all existing review target types from 'test' to 'test_result'
 to support the new multi-target review system (test_result, turn, metric).
 
 Revision ID: c4d5e6f7a8b9
-Revises: b3f7a9c2d1e4
+Revises: d3e4f5a6b7c8
 Create Date: 2026-03-11
 
 """
@@ -14,7 +14,7 @@ from typing import Sequence, Union
 from alembic import op
 
 revision: str = "c4d5e6f7a8b9"
-down_revision: Union[str, None] = "b3f7a9c2d1e4"
+down_revision: Union[str, None] = "d3e4f5a6b7c8"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
