@@ -157,9 +157,15 @@ class CountsMixin:
         return len(self.tasks) if hasattr(self, "tasks") and self.tasks else 0
 
     @property
+    @safe_relationship(default_factory=int)
+    def files_count(self):
+        """Get the count of files for this entity"""
+        return len(self.files) if hasattr(self, "files") and self.files else 0
+
+    @property
     @safe_relationship(default_factory=dict)
     def counts(self):
-        """Get the counts of comments and tasks for this entity"""
+        """Get the counts of comments, tasks, and files for this entity"""
         counts = {}
 
         # Add comment count if the model has comments relationship
@@ -169,6 +175,10 @@ class CountsMixin:
         # Add task count if the model has tasks relationship
         if hasattr(self, "tasks"):
             counts["tasks"] = self.tasks_count
+
+        # Add file count if the model has files relationship
+        if hasattr(self, "files"):
+            counts["files"] = self.files_count
 
         return counts
 
