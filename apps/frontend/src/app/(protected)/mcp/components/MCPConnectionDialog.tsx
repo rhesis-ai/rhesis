@@ -1069,7 +1069,12 @@ export function MCPConnectionDialog({
                   <>
                     <Typography
                       variant="subtitle1"
-                      sx={{ fontWeight: 600, mb: 1, color: 'primary.main', mt: 1 }}
+                      sx={{
+                        fontWeight: 600,
+                        mb: 1,
+                        color: 'primary.main',
+                        mt: 1,
+                      }}
                     >
                       Repository Scope
                     </Typography>
@@ -1307,13 +1312,17 @@ export function MCPConnectionDialog({
             </Alert>
           </Box>
         )}
-        {isEditMode && credentialsModified && !connectionTested && !testResult && (
-          <Box sx={{ px: 3, pb: 1 }}>
-            <Alert severity="info">
-              Please test the connection with the updated credentials before saving.
-            </Alert>
-          </Box>
-        )}
+        {isEditMode &&
+          credentialsModified &&
+          !connectionTested &&
+          !testResult && (
+            <Box sx={{ px: 3, pb: 1 }}>
+              <Alert severity="info">
+                Please test the connection with the updated credentials before
+                saving.
+              </Alert>
+            </Box>
+          )}
 
         <DialogActions
           sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}
