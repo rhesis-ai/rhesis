@@ -41,7 +41,7 @@ interface ConversationHistoryProps {
   reviewMatchesAutomated?: boolean;
   isConfirmingReview?: boolean;
   maxHeight?: number | string;
-  turnReviewMap?: Record<number, Review>;
+  turnReviewMap?: Map<number, Review>;
 }
 
 /**
@@ -61,7 +61,7 @@ export default function ConversationHistory({
   reviewMatchesAutomated = true,
   isConfirmingReview = false,
   maxHeight = 600,
-  turnReviewMap = {},
+  turnReviewMap = new Map<number, Review>(),
 }: ConversationHistoryProps) {
   const theme = useTheme();
 
@@ -192,12 +192,17 @@ export default function ConversationHistory({
         const turnCriteriaMet =
           turnHasCriteria && criteriaForTurn.every(c => c.met);
 
-        // When a human override exists, use the overridden success value;
-        // otherwise fall back to automated criteria evaluation.
-        const turnPassed = turn.override ? turn.success : turnCriteriaMet;
-        const showTurnStatus = turnHasCriteria || !!turn.override;
+        // Priority: human override > criteria evaluation > raw tool-call success.
+        // Turns not referenced by any criterion still show a status based on
+        // whether the target call itself succeeded (turn.success).
+        const turnPassed = turn.override
+          ? turn.success
+          : turnHasCriteria
+            ? turnCriteriaMet
+            : turn.success;
+        const showTurnStatus = true;
 
-        const turnReview = turnReviewMap[turn.turn];
+        const turnReview = turnReviewMap.get(turn.turn);
         const turnIsOverruled = !!turn.override;
         const turnIsConfirmed = !!turnReview && !turnIsOverruled;
 
