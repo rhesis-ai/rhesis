@@ -23,6 +23,39 @@ Reviews do not change the original automated result. The original score is prese
 
 Reviews can be applied at three levels of granularity. Each level gives you a different lens into the test result.
 
+<div style={{display: 'flex', justifyContent: 'center'}}>
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 40, 'rankSpacing': 60}}}%%
+graph TB
+    TR["Test Result<br/><small>Override the overall verdict</small>"]
+
+    M1["Metric: Answer Relevancy<br/><small>Override one metric</small>"]
+    M2["Metric: Refusal Detection<br/><small>Override one metric</small>"]
+    M3["Metric: Goal Achievement<br/><small>Override one metric</small>"]
+
+    T1["Turn 1<br/><small>Override one turn</small>"]
+    T2["Turn 2<br/><small>Override one turn</small>"]
+    T3["Turn 3<br/><small>Override one turn</small>"]
+
+    TR --> M1
+    TR --> M2
+    TR --> M3
+    M3 --> T1
+    M3 --> T2
+    M3 --> T3
+
+    style TR fill:#2196F3,color:#fff
+    style M1 fill:#9c27b0,color:#fff
+    style M2 fill:#9c27b0,color:#fff
+    style M3 fill:#9c27b0,color:#fff
+    style T1 fill:#4caf50,color:#fff
+    style T2 fill:#4caf50,color:#fff
+    style T3 fill:#4caf50,color:#fff
+```
+
+</div>
+
 ### Test Result Level
 
 The broadest level. A test result review applies a single Pass or Fail verdict to the entire test outcome.
