@@ -1752,6 +1752,7 @@ def get_tests(
         filter,
         organization_id=organization_id,
         user_id=user_id,
+        secondary_sort_by="content",
     )
 
 

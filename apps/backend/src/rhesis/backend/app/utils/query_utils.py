@@ -46,6 +46,8 @@ class QueryBuilder:
         self._limit = None
         self._sort_by = None
         self._sort_order = "asc"
+        self._secondary_sort_by = None
+        self._secondary_sort_order = "asc"
 
     def with_joinedloads(
         self, skip_many_to_many: bool = True, skip_one_to_many: bool = False
@@ -171,14 +173,33 @@ class QueryBuilder:
         return self
 
     def with_sorting(
-        self, sort_by: Optional[str] = None, sort_order: str = "asc"
+        self,
+        sort_by: Optional[str] = None,
+        sort_order: str = "asc",
+        secondary_sort_by: Optional[str] = None,
+        secondary_sort_order: str = "asc",
     ) -> "QueryBuilder":
-        """Add sorting parameters"""
+        """Add sorting parameters.
+
+        Args:
+            sort_by: Primary sort field name.
+            sort_order: Primary sort direction ('asc' or 'desc').
+            secondary_sort_by: Optional tiebreaker field applied after the
+                primary sort. Useful when many rows share the same primary
+                value (e.g. identical timestamps).
+            secondary_sort_order: Direction for the secondary sort ('asc' or
+                'desc'). Defaults to 'asc'.
+        """
         if sort_by:
             validate_sort_field(self.model, sort_by)
         validate_sort_order(sort_order)
+        if secondary_sort_by:
+            validate_sort_field(self.model, secondary_sort_by)
+            validate_sort_order(secondary_sort_order)
         self._sort_by = sort_by
         self._sort_order = sort_order.lower()
+        self._secondary_sort_by = secondary_sort_by
+        self._secondary_sort_order = secondary_sort_order.lower()
         return self
 
     def with_custom_filter(self, filter_func: Callable[[Query], Query]) -> "QueryBuilder":
@@ -212,6 +233,16 @@ class QueryBuilder:
                 self.query = self.query.order_by(desc(order_column))
             else:
                 self.query = self.query.order_by(order_column)
+        if self._secondary_sort_by:
+            secondary_column = getattr(self.model, self._secondary_sort_by)
+            if self._secondary_sort_order == "desc":
+                self.query = self.query.order_by(desc(secondary_column))
+            else:
+                self.query = self.query.order_by(secondary_column)
+        # Always append id ASC as a final unique tiebreaker so results are
+        # strictly deterministic even when all other sort keys are equal.
+        if self._sort_by and hasattr(self.model, "id"):
+            self.query = self.query.order_by(self.model.id)
 
     def _apply_pagination(self):
         """Apply pagination if configured"""
