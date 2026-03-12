@@ -101,7 +101,7 @@ class CommentsMixin:
             primaryjoin=(
                 f"and_({cls.__name__}.id == foreign(Comment.entity_id), "
                 f"Comment.entity_type == '{cls.__name__}', "
-                f"Comment.deleted_at == None)"
+                f"Comment.deleted_at.is_(None))"
             ),
             viewonly=True,
             uselist=True,
@@ -119,7 +119,7 @@ class FilesMixin:
             primaryjoin=(
                 f"and_({cls.__name__}.id == foreign(File.entity_id), "
                 f"File.entity_type == '{cls.__name__}', "
-                f"File.deleted_at == None)"
+                f"File.deleted_at.is_(None))"
             ),
             viewonly=True,
             uselist=True,
@@ -137,7 +137,7 @@ class TasksMixin:
             primaryjoin=(
                 f"and_({cls.__name__}.id == foreign(Task.entity_id), "
                 f"Task.entity_type == '{cls.__name__}', "
-                f"Task.deleted_at == None)"
+                f"Task.deleted_at.is_(None))"
             ),
             viewonly=True,
             uselist=True,
