@@ -37,10 +37,21 @@ ENVIRONMENT = (os.getenv("ENVIRONMENT", "dev") or "dev").strip().lower()
 MODEL_PATH = os.getenv("POLYPHEMUS_MODEL_PATH", "")
 DEFAULT_MODEL = os.getenv("POLYPHEMUS_DEFAULT_MODEL", "")
 MODEL_BUCKET = os.getenv("POLYPHEMUS_MODEL_BUCKET", "")
-MAX_MODEL_LEN = os.getenv("MAX_MODEL_LEN", 4096)
+
+
+def _parse_int_env(name: str, default: str) -> int:
+    """Parse an environment variable as int; raise ValueError with a clear message if invalid."""
+    raw = os.getenv(name, default)
+    try:
+        return int(raw)
+    except ValueError as e:
+        raise ValueError(f"{name} must be a valid integer, got {raw!r}") from e
+
+
+MAX_MODEL_LEN = _parse_int_env("MAX_MODEL_LEN", "4096")
 MACHINE_TYPE = os.getenv("MACHINE_TYPE", "g2-standard-12")
 ACCELERATOR_TYPE = os.getenv("ACCELERATOR_TYPE", "NVIDIA_L4")
-ACCELERATOR_COUNT = os.getenv("ACCELERATOR_COUNT", 1)
+ACCELERATOR_COUNT = _parse_int_env("ACCELERATOR_COUNT", "1")
 
 # Derived: bucket URI (from POLYPHEMUS_MODEL_PATH or POLYPHEMUS_MODEL_BUCKET)
 # e.g. POLYPHEMUS_MODEL_PATH=gs://your-bucket-name/cache -> BUCKET_URI=gs://your-bucket-name
