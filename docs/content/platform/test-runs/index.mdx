@@ -51,6 +51,29 @@ Reviews allow human evaluators to validate or override automated test evaluation
    - **Fail**: The test fails the metric
 4. Add a comment explaining your review decision
 
+### Review targets and override behavior (v0.6.9+)
+
+Reviews can now target different parts of a test result, not only the overall result.
+
+| Target type | What it reviews | Reference format |
+|---|---|---|
+| `test_result` | Overall pass/fail decision for the test result | `null` |
+| `metric` | A specific metric result in `test_metrics` | Metric name |
+| `turn` | A specific turn in multi-turn conversation output | Turn label such as `Turn 3` |
+
+When a review targets a metric or turn, Rhesis stores an override marker on the affected object and recomputes
+effective status in the test run views.
+
+<Callout type="info">
+  In review comments, type `@` to mention metrics or turns. The first metric or turn mention determines the
+  review target automatically.
+</Callout>
+
+<CodeBlock filename="review-mention-format.txt" language="text">
+{`@[Goal Achievement](metric:goal-achievement)
+@[Turn 2](turn:turn-2)`}
+</CodeBlock>
+
 ## Compare Test Runs
 
 Compare test runs to identify regressions and improvements between executions.

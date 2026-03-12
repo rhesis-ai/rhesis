@@ -3,6 +3,7 @@ export default {
   changelog: "Changelog",
   frontend: "Frontend (Platform)",
   backend: "Backend",
+  polyphemus: "Polyphemus",
   connector: "Development Connector",
   worker: "Worker",
   "tracing-system": "Tracing System",
