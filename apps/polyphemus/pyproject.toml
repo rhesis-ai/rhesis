@@ -1,7 +1,7 @@
 [project]
 name = "polyphemus"
 version = "0.2.7"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     # FastAPI and server dependencies
     "fastapi>=0.100.0",
@@ -55,6 +55,14 @@ dev = [
 testpaths = ["../../tests/polyphemus"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+
+[tool.uv]
+# garak>=0.14.0 declares datasets<4.0 but ragas (via rhesis-sdk) requires
+# datasets>=4.0.0.  This override keeps both packages compatible, matching
+# the same override already present in apps/backend/pyproject.toml.
+override-dependencies = [
+    "datasets>=4.0.0",
+]
 
 [tool.uv.sources.rhesis-sdk]
 path = "../../sdk"
