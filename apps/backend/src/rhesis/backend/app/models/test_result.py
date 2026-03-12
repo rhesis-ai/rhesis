@@ -78,7 +78,8 @@ class TestResult(Base, TagsMixin, CommentsMixin, TasksMixin, CountsMixin, FilesM
             key = f"{canonical_type}:{reference}" if reference else canonical_type
             ts = review.get("updated_at") or review.get("created_at") or ""
             existing = summary.get(key)
-            existing_ts = existing.get("updated_at") or existing.get("created_at") or ""
+            _ex = existing or {}
+            existing_ts = _ex.get("updated_at") or _ex.get("created_at") or ""
             if not existing or ts > existing_ts:
                 summary[key] = {
                     "target_type": canonical_type,
