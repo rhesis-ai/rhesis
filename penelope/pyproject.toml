@@ -90,6 +90,12 @@ include = ["src/rhesis/py.typed"]
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.uv]
+# Force minimum versions for transitive dependencies with security advisories
+constraint-dependencies = [
+    "tornado>=6.5.5",
+]
+
 [tool.uv.sources]
 rhesis-sdk = { path = "../sdk", editable = true }
 

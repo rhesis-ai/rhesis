@@ -168,6 +168,7 @@ include = [
 allow-direct-references = true
 
 [tool.uv]
+constraint-dependencies = ["tornado>=6.5.5"]
 override-dependencies = ["datasets>=4.0.0", "transformers>=5.0.0"]
 
 [tool.pyright]
