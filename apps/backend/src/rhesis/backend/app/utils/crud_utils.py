@@ -448,6 +448,7 @@ def get_items_detail(
     nested_relationships: dict = None,
     organization_id: str = None,
     user_id: str = None,
+    secondary_sort_by: str | None = None,
 ) -> List[T]:
     """
     Get multiple items with optimized relationship loading using optimized approach.
@@ -476,7 +477,7 @@ def get_items_detail(
         .with_visibility_filter()
         .with_odata_filter(filter)
         .with_pagination(skip, limit)
-        .with_sorting(sort_by, sort_order)
+        .with_sorting(sort_by, sort_order, secondary_sort_by=secondary_sort_by)
         .all()
     )
 
