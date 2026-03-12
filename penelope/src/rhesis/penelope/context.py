@@ -83,10 +83,10 @@ class ToolType(str, Enum):
         desc = "The exact name of the tool to use. Must match one of the available tools:\n"
         desc += "TARGET INTERACTION TOOLS (complete turns):\n"
         for tool in target_tools:
-            desc += f"- {tool}: {cls._get_tool_description(tool)}\n"
+            desc += f"- {tool.value}: {cls._get_tool_description(tool)}\n"
         desc += "INTERNAL TOOLS (within turns):\n"
         for tool in internal_tools:
-            desc += f"- {tool}: {cls._get_tool_description(tool)}\n"
+            desc += f"- {tool.value}: {cls._get_tool_description(tool)}\n"
         return desc.rstrip()  # Remove trailing newline
 
     @classmethod
