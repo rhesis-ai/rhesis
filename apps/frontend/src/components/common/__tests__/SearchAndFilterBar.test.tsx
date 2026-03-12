@@ -153,6 +153,125 @@ describe('SearchAndFilterBar', () => {
     expect(screen.getByTestId('custom-filter')).toBeInTheDocument();
   });
 
+  describe('layout structure', () => {
+    /**
+     * Regression tests for the filter-overflow bug on the metrics page.
+     *
+     * When many backend filter chips are present (All, Custom, Garak, Rhesis,
+     * Deepeval, Ragas) the ButtonGroup exceeded the inline children area, causing
+     * the Filters badge button and the New Metric action button to collapse into a
+     * floating card that overlapped the metric cards below.
+     *
+     * The fix moves children to their own dedicated row. These tests enforce that
+     * structural invariant so the regression cannot be reintroduced silently.
+     */
+
+    it('renders filter children in a different container than the action button', () => {
+      const onAddNew = jest.fn();
+      render(
+        <SearchAndFilterBar
+          {...defaultProps}
+          onAddNew={onAddNew}
+          addNewLabel="New Metric"
+        >
+          <button data-testid="filter-chip">All</button>
+        </SearchAndFilterBar>
+      );
+
+      const filterChip = screen.getByTestId('filter-chip');
+      const actionButton = screen.getByRole('button', { name: /new metric/i });
+
+      // Filter children container must not contain the action button
+      expect(filterChip.parentElement).not.toContainElement(actionButton);
+      // Action button container must not contain the filter chip
+      expect(actionButton.parentElement).not.toContainElement(filterChip);
+    });
+
+    it('renders the Filters child button in a different container than the New Metric action button', () => {
+      const onAddNew = jest.fn();
+      render(
+        <SearchAndFilterBar
+          {...defaultProps}
+          onAddNew={onAddNew}
+          addNewLabel="New Metric"
+        >
+          <button data-testid="filters-child">Filters</button>
+        </SearchAndFilterBar>
+      );
+
+      const filtersChild = screen.getByTestId('filters-child');
+      const newMetricButton = screen.getByRole('button', {
+        name: /new metric/i,
+      });
+
+      expect(filtersChild.parentElement).not.toBe(
+        newMetricButton.parentElement
+      );
+      expect(filtersChild.parentElement).not.toContainElement(newMetricButton);
+      expect(newMetricButton.parentElement).not.toContainElement(filtersChild);
+    });
+
+    it('renders many filter chips without placing the action button in the children container', () => {
+      // Simulates the exact metrics-page scenario: All + 5 backend tabs + Filters button
+      const chips = ['All', 'Custom', 'Garak', 'Rhesis', 'Deepeval', 'Ragas'];
+      const onAddNew = jest.fn();
+
+      render(
+        <SearchAndFilterBar
+          {...defaultProps}
+          onAddNew={onAddNew}
+          addNewLabel="New Metric"
+        >
+          {chips.map(label => (
+            <button key={label} data-testid={`chip-${label.toLowerCase()}`}>
+              {label}
+            </button>
+          ))}
+          <button data-testid="filters-child">Filters</button>
+        </SearchAndFilterBar>
+      );
+
+      // Every chip and the Filters child must be present
+      chips.forEach(label =>
+        expect(
+          screen.getByTestId(`chip-${label.toLowerCase()}`)
+        ).toBeInTheDocument()
+      );
+      expect(screen.getByTestId('filters-child')).toBeInTheDocument();
+
+      const actionButton = screen.getByRole('button', { name: /new metric/i });
+
+      // None of the filter children's containers should contain the action button
+      chips.forEach(label => {
+        const chip = screen.getByTestId(`chip-${label.toLowerCase()}`);
+        expect(chip.parentElement).not.toContainElement(actionButton);
+      });
+      expect(
+        screen.getByTestId('filters-child').parentElement
+      ).not.toContainElement(actionButton);
+    });
+
+    it('renders filter children in a sibling container to the search-and-actions row', () => {
+      const onAddNew = jest.fn();
+      render(
+        <SearchAndFilterBar
+          {...defaultProps}
+          onAddNew={onAddNew}
+          addNewLabel="New Metric"
+        >
+          <button data-testid="filter-chip">All</button>
+        </SearchAndFilterBar>
+      );
+
+      const searchInput = screen.getByPlaceholderText('Search...');
+      const filterChip = screen.getByTestId('filter-chip');
+
+      // The filter chip must not share a direct parent with the search input,
+      // because they live in separate rows of the outer column.
+      expect(filterChip.parentElement).not.toContainElement(searchInput);
+    });
+  });
+
   describe('focus retention while typing', () => {
     it('retains focus after each keystroke', async () => {
       render(<ControlledSearchBar />);
