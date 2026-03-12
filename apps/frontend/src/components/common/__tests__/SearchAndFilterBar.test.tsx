@@ -162,10 +162,9 @@ describe('SearchAndFilterBar', () => {
      * the Filters badge button and the New Metric action button to collapse into a
      * floating card that overlapped the metric cards below.
      *
-     * The fix moves children to their own dedicated row (`data-testid="filter-row"`),
-     * separate from the search + action row (`data-testid="search-action-row"`).
-     * Tests use those stable hooks rather than `parentElement` traversal so a future
-     * internal DOM restructure does not silently break the assertions.
+     * The key invariant: filter children live in `data-testid="filter-row"` and
+     * action buttons live in `data-testid="actions-box"` — these two containers
+     * must never contain each other's elements.
      */
 
     it('renders filter children inside the dedicated filter-row container', () => {
@@ -179,7 +178,7 @@ describe('SearchAndFilterBar', () => {
       expect(filterRow).toContainElement(screen.getByTestId('filter-chip'));
     });
 
-    it('renders the action button inside search-action-row, not filter-row', () => {
+    it('renders the action button inside actions-box, not filter-row', () => {
       const onAddNew = jest.fn();
       render(
         <SearchAndFilterBar
@@ -192,14 +191,14 @@ describe('SearchAndFilterBar', () => {
       );
 
       const actionButton = screen.getByRole('button', { name: /new metric/i });
-      const searchActionRow = screen.getByTestId('search-action-row');
+      const actionsBox = screen.getByTestId('actions-box');
       const filterRow = screen.getByTestId('filter-row');
 
-      expect(searchActionRow).toContainElement(actionButton);
+      expect(actionsBox).toContainElement(actionButton);
       expect(filterRow).not.toContainElement(actionButton);
     });
 
-    it('renders filter children in filter-row, not in search-action-row', () => {
+    it('renders filter children in filter-row, not in actions-box', () => {
       const onAddNew = jest.fn();
       render(
         <SearchAndFilterBar
@@ -212,11 +211,11 @@ describe('SearchAndFilterBar', () => {
       );
 
       const filtersChild = screen.getByTestId('filters-child');
-      const searchActionRow = screen.getByTestId('search-action-row');
+      const actionsBox = screen.getByTestId('actions-box');
       const filterRow = screen.getByTestId('filter-row');
 
       expect(filterRow).toContainElement(filtersChild);
-      expect(searchActionRow).not.toContainElement(filtersChild);
+      expect(actionsBox).not.toContainElement(filtersChild);
     });
 
     it('renders many filter chips in filter-row without leaking the action button into it', () => {

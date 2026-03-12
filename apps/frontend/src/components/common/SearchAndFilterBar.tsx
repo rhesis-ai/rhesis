@@ -35,22 +35,24 @@ export default function SearchAndFilterBar({
 }: SearchAndFilterBarProps) {
   return (
     <Box
+      data-testid="search-action-row"
       sx={{
         display: 'flex',
-        flexDirection: 'column',
-        gap: 1.5,
+        flexDirection: { xs: 'column', md: 'row' },
+        gap: 2,
+        alignItems: { xs: 'stretch', md: 'center' },
+        justifyContent: 'space-between',
         mb: 3,
       }}
     >
-      {/* Top row: Search and Action buttons */}
+      {/* Left side: Search and inline filters */}
       <Box
-        data-testid="search-action-row"
         sx={{
           display: 'flex',
-          flexDirection: { xs: 'column', md: 'row' },
+          flexDirection: { xs: 'column', sm: 'row' },
           gap: 2,
-          alignItems: { xs: 'stretch', md: 'center' },
-          justifyContent: 'space-between',
+          flex: 1,
+          alignItems: { xs: 'stretch', sm: 'center' },
         }}
       >
         <TextField
@@ -66,59 +68,59 @@ export default function SearchAndFilterBar({
               </InputAdornment>
             ),
           }}
-          sx={{ minWidth: { xs: '100%', sm: theme => theme.spacing(31) } }}
+          sx={{ minWidth: { xs: '100%', sm: 250 } }}
         />
-
-        {/* Action buttons */}
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 1,
-            flexShrink: 0,
-            alignItems: 'center',
-          }}
-        >
-          {renderAddButton
-            ? renderAddButton()
-            : onAddNew && (
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<AddIcon />}
-                  onClick={onAddNew}
-                  sx={{ whiteSpace: 'nowrap' }}
-                >
-                  {addNewLabel}
-                </Button>
-              )}
-          {hasActiveFilters && onReset && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<ClearIcon />}
-              onClick={onReset}
-              sx={{ whiteSpace: 'nowrap' }}
-            >
-              Reset
-            </Button>
-          )}
-        </Box>
+        {children && (
+          <Box
+            data-testid="filter-row"
+            sx={{
+              display: 'flex',
+              gap: 2,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+            }}
+          >
+            {children}
+          </Box>
+        )}
       </Box>
 
-      {/* Filter row: inline filter chips and controls */}
-      {children && (
-        <Box
-          data-testid="filter-row"
-          sx={{
-            display: 'flex',
-            gap: 1.5,
-            flexWrap: 'wrap',
-            alignItems: 'center',
-          }}
-        >
-          {children}
-        </Box>
-      )}
+      {/* Right side: Action buttons */}
+      <Box
+        data-testid="actions-box"
+        sx={{
+          display: 'flex',
+          gap: 1,
+          flexShrink: 0,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
+        {renderAddButton
+          ? renderAddButton()
+          : onAddNew && (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={onAddNew}
+                sx={{ whiteSpace: 'nowrap' }}
+              >
+                {addNewLabel}
+              </Button>
+            )}
+        {hasActiveFilters && onReset && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<ClearIcon />}
+            onClick={onReset}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Reset
+          </Button>
+        )}
+      </Box>
     </Box>
   );
 }
