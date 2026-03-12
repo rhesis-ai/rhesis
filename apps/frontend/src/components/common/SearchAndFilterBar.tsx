@@ -38,66 +38,42 @@ export default function SearchAndFilterBar({
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 2,
+        gap: 1.5,
         mb: 3,
       }}
     >
-      {/* Top row: Search and Actions */}
+      {/* Top row: Search and Action buttons */}
       <Box
         sx={{
           display: 'flex',
-          flexDirection: { xs: 'column', md: 'row' },
+          flexDirection: { xs: 'column', sm: 'row' },
           gap: 2,
-          alignItems: { xs: 'stretch', md: 'center' },
+          alignItems: { xs: 'stretch', sm: 'center' },
           justifyContent: 'space-between',
         }}
       >
-        {/* Left side: Search and inline filters */}
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: 2,
-            flex: 1,
-            alignItems: { xs: 'stretch', sm: 'center' },
+        <TextField
+          size="small"
+          placeholder={searchPlaceholder}
+          value={searchValue}
+          onChange={e => onSearchChange(e.target.value)}
+          variant="outlined"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
           }}
-        >
-          <TextField
-            size="small"
-            placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={e => onSearchChange(e.target.value)}
-            variant="outlined"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ minWidth: { xs: '100%', sm: theme => theme.spacing(31) } }}
-          />
-          {children && (
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 2,
-                flexWrap: 'wrap',
-                alignItems: 'center',
-              }}
-            >
-              {children}
-            </Box>
-          )}
-        </Box>
+          sx={{ minWidth: { xs: '100%', sm: theme => theme.spacing(31) } }}
+        />
 
-        {/* Right side: Action buttons */}
+        {/* Action buttons */}
         <Box
           sx={{
             display: 'flex',
             gap: 1,
             flexShrink: 0,
-            flexWrap: 'wrap',
             alignItems: 'center',
           }}
         >
@@ -127,6 +103,20 @@ export default function SearchAndFilterBar({
           )}
         </Box>
       </Box>
+
+      {/* Filter row: inline filter chips and controls */}
+      {children && (
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1.5,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+          }}
+        >
+          {children}
+        </Box>
+      )}
     </Box>
   );
 }
