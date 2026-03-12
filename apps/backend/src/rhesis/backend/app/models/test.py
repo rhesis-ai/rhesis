@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, Table, case, select
+from sqlalchemy import Column, ForeignKey, Integer, Table, and_, case, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship
@@ -95,11 +95,13 @@ class Test(
     def content(cls):
         from .prompt import Prompt
 
+        # Mirror Python semantics: treat NULL and empty-string goal as absent
+        goal_is_present = and_(
+            cls.test_configuration["goal"].astext.isnot(None),
+            cls.test_configuration["goal"].astext != "",
+        )
         return case(
-            (
-                cls.test_configuration["goal"].astext.isnot(None),
-                cls.test_configuration["goal"].astext,
-            ),
+            (goal_is_present, cls.test_configuration["goal"].astext),
             else_=select(Prompt.content)
             .where(Prompt.id == cls.prompt_id)
             .correlate(cls)
