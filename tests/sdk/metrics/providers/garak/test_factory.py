@@ -3,6 +3,12 @@
 import pytest
 
 from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric, GarakMetricFactory
+from rhesis.sdk.metrics.providers.garak.registry import (
+    DETECTOR_PATHS,
+    DETECTORS,
+    LEGACY_ALIASES,
+    SUPPORTED_NAMES,
+)
 
 
 @pytest.fixture
@@ -19,30 +25,18 @@ class TestFactoryListMetrics:
         metrics = factory.list_supported_metrics()
 
         assert isinstance(metrics, list)
-        assert len(metrics) == 12  # Based on SUPPORTED_DETECTORS
-        assert "MitigationBypass" in metrics
-        assert "Continuation" in metrics
-        assert "MisleadingClaim" in metrics
-        assert "PerspectiveToxicity" in metrics
-        assert "XSSDetector" in metrics
-        assert "LeakReplayDetector" in metrics
-        assert "DoNotAnswerDetector" in metrics
-        assert "SnowballDetector" in metrics
-        assert "PackageHallucination" in metrics
-        assert "Lmrc" in metrics
-        assert "MalwareGenDetector" in metrics
-        assert "EICAR" in metrics
+        assert len(metrics) == len(SUPPORTED_NAMES)
+        for name in SUPPORTED_NAMES:
+            assert name in metrics, f"{name} missing from supported metrics"
 
     def test_list_supported_metrics_returns_copy(self, factory):
         """Test that list_supported_metrics returns a copy."""
         metrics1 = factory.list_supported_metrics()
         metrics2 = factory.list_supported_metrics()
 
-        # Should be equal but not the same object
         assert metrics1 == metrics2
         assert metrics1 is not metrics2
 
-        # Modifying one should not affect the other
         metrics1.append("FakeMetric")
         assert "FakeMetric" not in metrics2
 
@@ -50,93 +44,31 @@ class TestFactoryListMetrics:
 class TestFactoryCreateWithShortName:
     """Tests for creating metrics using short detector names."""
 
-    def test_create_mitigation_bypass(self, factory):
-        """Test creating MitigationBypass detector."""
-        metric = factory.create("MitigationBypass")
+    @pytest.mark.parametrize(
+        "name",
+        SUPPORTED_NAMES,
+        ids=SUPPORTED_NAMES,
+    )
+    def test_create_by_canonical_name(self, factory, name):
+        """Each canonical detector name creates a valid metric."""
+        metric = factory.create(name)
 
         assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.mitigation.MitigationBypass"
-        assert metric.name == "MitigationBypass"
+        expected_path = DETECTOR_PATHS[name]
+        assert metric.detector_class_path == expected_path
+        assert metric.name == name
 
-    def test_create_continuation(self, factory):
-        """Test creating Continuation detector."""
-        metric = factory.create("Continuation")
-
-        assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.continuation.Continuation"
-
-    def test_create_misleading_claim(self, factory):
-        """Test creating MisleadingClaim detector."""
-        metric = factory.create("MisleadingClaim")
-
-        assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.misleading.MisleadingClaim"
-
-    def test_create_perspective_toxicity(self, factory):
-        """Test creating PerspectiveToxicity detector (API-based, no torch needed)."""
-        metric = factory.create("PerspectiveToxicity")
+    @pytest.mark.parametrize(
+        "alias,expected_path",
+        sorted(LEGACY_ALIASES.items()),
+        ids=sorted(LEGACY_ALIASES.keys()),
+    )
+    def test_create_by_legacy_alias(self, factory, alias, expected_path):
+        """Legacy short names still resolve to the correct v0.14 path."""
+        metric = factory.create(alias)
 
         assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.perspective.Toxicity"
-
-    def test_create_xss_detector(self, factory):
-        """Test creating XSSDetector."""
-        metric = factory.create("XSSDetector")
-
-        assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.xss.XSSDetector"
-
-    def test_create_leak_replay_detector(self, factory):
-        """Test creating LeakReplayDetector."""
-        metric = factory.create("LeakReplayDetector")
-
-        assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.leakreplay.LeakReplayDetector"
-
-    def test_create_do_not_answer_detector(self, factory):
-        """Test creating DoNotAnswerDetector."""
-        metric = factory.create("DoNotAnswerDetector")
-
-        assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.donotanswer.DoNotAnswerDetector"
-
-    def test_create_snowball_detector(self, factory):
-        """Test creating SnowballDetector."""
-        metric = factory.create("SnowballDetector")
-
-        assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.snowball.SnowballDetector"
-
-    def test_create_package_hallucination(self, factory):
-        """Test creating PackageHallucination."""
-        metric = factory.create("PackageHallucination")
-
-        assert isinstance(metric, GarakDetectorMetric)
-        assert (
-            metric.detector_class_path
-            == "garak.detectors.packagehallucination.PackageHallucination"
-        )
-
-    def test_create_lmrc(self, factory):
-        """Test creating Lmrc detector."""
-        metric = factory.create("Lmrc")
-
-        assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.lmrc.Lmrc"
-
-    def test_create_malware_gen_detector(self, factory):
-        """Test creating MalwareGenDetector."""
-        metric = factory.create("MalwareGenDetector")
-
-        assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.malwaregen.MalwareGenDetector"
-
-    def test_create_eicar(self, factory):
-        """Test creating EICAR detector."""
-        metric = factory.create("EICAR")
-
-        assert isinstance(metric, GarakDetectorMetric)
-        assert metric.detector_class_path == "garak.detectors.knownbadsignatures.EICAR"
+        assert metric.detector_class_path == expected_path
 
     def test_create_with_threshold_only(self, factory):
         """Test creating short name detector with just threshold."""
@@ -144,7 +76,6 @@ class TestFactoryCreateWithShortName:
 
         assert isinstance(metric, GarakDetectorMetric)
         assert metric.threshold == 0.7
-        # Name defaults to the detector short name
         assert metric.name == "MitigationBypass"
 
     def test_create_with_description_only(self, factory):
@@ -253,8 +184,6 @@ class TestFactoryParameterFiltering:
 
     def test_unsupported_params_are_filtered(self, factory):
         """Test that unsupported parameters are filtered out."""
-        # These params from metric config shouldn't cause issues
-        # Note: we don't pass class_name as kwarg since it conflicts with the method param
         metric = factory.create(
             "MitigationBypass",
             score_type="numeric",
@@ -287,18 +216,15 @@ class TestFactoryErrorHandling:
             factory.create("UnknownDetector")
         except ValueError as e:
             error_msg = str(e)
-            # Should mention at least some available detectors
             assert "MitigationBypass" in error_msg or "Supported detectors" in error_msg
 
     def test_create_with_invalid_path_format(self, factory):
         """Test that non-garak paths without dots raise error."""
-        # Single word that's not a known short name
         with pytest.raises(ValueError, match="Unknown Garak detector"):
             factory.create("SingleWord")
 
     def test_create_with_non_garak_path(self, factory):
         """Test that non-garak prefixed paths raise error."""
-        # Path that doesn't start with garak.
         with pytest.raises(ValueError, match="Unknown Garak detector"):
             factory.create("other.detectors.Something")
 
@@ -317,13 +243,10 @@ class TestFactoryIntegration:
 
     def test_factory_instances_are_independent(self, factory):
         """Test that created instances are independent."""
-        # Use threshold only to avoid the duplicate name issue
         metric1 = factory.create("MitigationBypass", threshold=0.3)
         metric2 = factory.create("MitigationBypass", threshold=0.7)
 
-        # Different thresholds
         assert metric1.threshold != metric2.threshold
-        # Different instances
         assert metric1 is not metric2
 
     def test_create_same_detector_twice(self, factory):
@@ -331,9 +254,7 @@ class TestFactoryIntegration:
         metric1 = factory.create("Continuation")
         metric2 = factory.create("Continuation")
 
-        # Should be same type with same path
         assert metric1.detector_class_path == metric2.detector_class_path
-        # But different instances
         assert metric1 is not metric2
 
 
@@ -354,8 +275,18 @@ class TestFactoryDetectorPaths:
     def test_all_paths_follow_naming_convention(self, factory):
         """Test that all paths follow the garak.detectors.<module>.<Class> convention."""
         for detector_name, path in factory.DETECTOR_PATHS.items():
-            if path is not None:  # Skip GarakDetectorMetric
+            if path is not None:
                 parts = path.split(".")
                 assert len(parts) == 4, f"Path {path} doesn't have 4 parts"
                 assert parts[0] == "garak"
                 assert parts[1] == "detectors"
+
+    def test_registry_detector_count(self):
+        """Ensure the YAML registry has the expected number of detectors."""
+        assert len(DETECTORS) == 17
+
+    def test_all_registry_detectors_in_factory(self, factory):
+        """Every detector in the YAML registry is reachable via the factory."""
+        for d in DETECTORS:
+            metric = factory.create(d.name)
+            assert metric.detector_class_path == d.path

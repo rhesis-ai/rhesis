@@ -19,6 +19,13 @@ class GarakProbeClassResponse(BaseModel):
     prompt_count: int = Field(..., description="Number of prompts in this probe")
     tags: List[str] = Field(default_factory=list, description="Probe-specific tags")
     detector: Optional[str] = Field(None, description="Recommended detector for this probe")
+    is_dynamic: bool = Field(
+        False,
+        description=(
+            "True when the probe has no static prompts and must be generated dynamically "
+            "via LLM synthesis. Use POST /garak/generate to create a test set for these probes."
+        ),
+    )
 
 
 class GarakProbeModuleResponse(BaseModel):
@@ -37,6 +44,13 @@ class GarakProbeModuleResponse(BaseModel):
     rhesis_category: str = Field(..., description="Mapped Rhesis category")
     rhesis_topic: str = Field(..., description="Mapped Rhesis topic")
     rhesis_behavior: str = Field(..., description="Mapped Rhesis behavior")
+    has_dynamic_probes: bool = Field(
+        False,
+        description=(
+            "True when at least one probe in this module must be generated dynamically. "
+            "Use POST /garak/generate to create test sets for those probes."
+        ),
+    )
     probes: List[GarakProbeClassResponse] = Field(
         default_factory=list, description="Individual probe classes in this module"
     )
@@ -167,3 +181,53 @@ class GarakErrorResponse(BaseModel):
 
     error: str = Field(..., description="Error message")
     detail: Optional[str] = Field(None, description="Detailed error information")
+
+
+class GarakGenerateRequest(BaseModel):
+    """
+    Request schema for dynamically generating a test set from a dynamic garak probe.
+
+    Dynamic probes have no static prompts — they generate them at runtime (e.g. via
+    RL agents, NLTK, or external ML models). This endpoint synthesises semantically
+    equivalent prompts using the user's configured LLM and saves the result as a
+    Rhesis test set, preserving all garak metadata (goal, tags, OWASP references) so
+    the test set is fully queryable by security standard.
+    """
+
+    module_name: str = Field(
+        ...,
+        description="Garak probe module name (e.g., 'fitd', 'atkgen', 'topic')",
+    )
+    class_name: str = Field(
+        ...,
+        description="Garak probe class name (e.g., 'FITD', 'Tox', 'WordNet')",
+    )
+    name: Optional[str] = Field(
+        None,
+        description=(
+            "Custom name for the generated test set. Defaults to 'Garak Dynamic: <module>.<class>'."
+        ),
+    )
+    num_tests: Optional[int] = Field(
+        None,
+        ge=1,
+        le=500,
+        description=(
+            "Number of tests to generate. "
+            "If omitted a random value between 100 and 200 is chosen automatically."
+        ),
+    )
+
+
+class GarakGenerateResponse(BaseModel):
+    """Response schema for a dynamic probe generation request."""
+
+    task_id: str = Field(..., description="Celery task ID — use to poll for completion.")
+    probe_full_name: str = Field(
+        ..., description="Full probe identifier (e.g., 'fitd.FITD') for reference."
+    )
+    num_tests: int = Field(..., description="Number of tests that will be generated.")
+    message: str = Field(
+        ...,
+        description="Human-readable status message.",
+    )

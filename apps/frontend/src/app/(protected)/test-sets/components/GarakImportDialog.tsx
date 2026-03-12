@@ -19,6 +19,7 @@ import {
   IconButton,
   Collapse,
   LinearProgress,
+  Tooltip,
   alpha,
 } from '@mui/material';
 import {
@@ -26,6 +27,7 @@ import {
   Security as SecurityIcon,
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
+  AutoAwesome as AutoAwesomeIcon,
 } from '@mui/icons-material';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type {
@@ -34,6 +36,7 @@ import type {
   GarakImportPreviewResponse,
   GarakProbeSelection,
   GarakProbePreview,
+  GarakGenerateResponse,
 } from '@/utils/api-client/garak-client';
 
 interface GarakImportDialogProps {
@@ -67,11 +70,16 @@ export default function GarakImportDialog({
   );
   // Progress tracking during import
   const [importProgress, setImportProgress] = React.useState<{
+    phase: 'static' | 'dynamic' | 'done';
     currentProbeIndex: number;
     totalProbes: number;
     currentTestCount: number;
     totalTests: number;
     currentProbe: GarakProbePreview | null;
+    staticImported: number;
+    dynamicLaunched: number;
+    dynamicTotal: number;
+    dynamicResults: GarakGenerateResponse[];
     isComplete: boolean;
   } | null>(null);
 
@@ -163,20 +171,35 @@ export default function GarakImportDialog({
     setPreview(null);
   };
 
-  // Build probe selections for API
-  const buildProbeSelections = (): GarakProbeSelection[] => {
-    const selections: GarakProbeSelection[] = [];
+  const getSelectedProbeObjects = () => {
+    const staticProbes: GarakProbeClass[] = [];
+    const dynamicProbes: GarakProbeClass[] = [];
     for (const module of modules) {
       for (const probe of getModuleProbes(module)) {
         if (selectedProbes.has(probe.full_name)) {
-          selections.push({
-            module_name: probe.module_name,
-            class_name: probe.class_name,
-          });
+          if (probe.is_dynamic) {
+            dynamicProbes.push(probe);
+          } else {
+            staticProbes.push(probe);
+          }
         }
       }
     }
-    return selections;
+    return { staticProbes, dynamicProbes };
+  };
+
+  const buildProbeSelections = (
+    probes?: GarakProbeClass[]
+  ): GarakProbeSelection[] => {
+    const source =
+      probes ??
+      modules
+        .flatMap(m => getModuleProbes(m))
+        .filter(p => selectedProbes.has(p.full_name));
+    return source.map(p => ({
+      module_name: p.module_name,
+      class_name: p.class_name,
+    }));
   };
 
   const handlePreview = async () => {
@@ -189,15 +212,32 @@ export default function GarakImportDialog({
       setLoading(true);
       setError(undefined);
 
+      const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
       const clientFactory = new ApiClientFactory(sessionToken);
       const garakClient = clientFactory.getGarakClient();
 
-      const previewResponse = await garakClient.previewImport({
-        probes: buildProbeSelections(),
-        name_prefix: 'Garak',
-      });
+      if (staticProbes.length > 0) {
+        const previewResponse = await garakClient.previewImport({
+          probes: buildProbeSelections(staticProbes),
+          name_prefix: 'Garak',
+        });
+        setPreview(previewResponse);
+      } else {
+        setPreview({
+          garak_version: garakVersion,
+          total_test_sets: 0,
+          total_tests: 0,
+          detector_count: 0,
+          detectors: [],
+          probes: [],
+        });
+      }
 
-      setPreview(previewResponse);
+      if (dynamicProbes.length > 0) {
+        setDynamicPreviewCount(dynamicProbes.length);
+      } else {
+        setDynamicPreviewCount(0);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to preview import');
     } finally {
@@ -205,120 +245,189 @@ export default function GarakImportDialog({
     }
   };
 
+  const [dynamicPreviewCount, setDynamicPreviewCount] =
+    React.useState<number>(0);
+
   const handleImport = async () => {
     if (selectedProbes.size === 0) {
       setError('Please select at least one probe');
       return;
     }
 
-    // First get preview to show progress
-    let previewData = preview;
-    if (!previewData) {
-      try {
-        setPreparingImport(true);
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const garakClient = clientFactory.getGarakClient();
-        previewData = await garakClient.previewImport({
-          probes: buildProbeSelections(),
-          name_prefix: 'Garak',
-        });
-        setPreview(previewData);
-      } catch (err: unknown) {
-        setError(
-          err instanceof Error ? err.message : 'Failed to get import preview'
-        );
-        setPreparingImport(false);
-        return;
-      } finally {
-        setPreparingImport(false);
-      }
-    }
+    const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
+    const totalProbes = staticProbes.length + dynamicProbes.length;
+
+    if (totalProbes === 0) return;
 
     try {
       setImporting(true);
       setError(undefined);
 
-      // Calculate cumulative test counts for progress tracking
-      const cumulativeTestCounts = previewData.probes.reduce<number[]>(
-        (acc, probe, idx) => {
-          const prevCount = idx > 0 ? acc[idx - 1] : 0;
-          acc.push(prevCount + probe.prompt_count);
-          return acc;
-        },
-        []
-      );
-
-      // Initialize progress tracking with total tests
-      setImportProgress({
-        currentProbeIndex: 0,
-        totalProbes: previewData.probes.length,
-        currentTestCount: 0,
-        totalTests: previewData.total_tests,
-        currentProbe: previewData.probes[0] || null,
-        isComplete: false,
-      });
-
-      // Simulate progress updates while import happens
-      // Cap at 95% until the import actually completes
-      const maxSimulatedProgress = Math.floor(previewData.total_tests * 0.95);
-      const progressInterval = setInterval(() => {
-        setImportProgress(prev => {
-          if (!prev || !previewData || prev.isComplete) return prev;
-
-          // Calculate estimated tests per interval based on total tests
-          // Aim to reach ~95% over the expected import time
-          const testsPerInterval = Math.max(
-            1,
-            Math.ceil(previewData.total_tests / 60)
-          ); // ~30 seconds to reach 95%
-          const nextTestCount = Math.min(
-            prev.currentTestCount + testsPerInterval,
-            maxSimulatedProgress
-          );
-
-          // Find which probe we're on based on cumulative test count
-          let probeIndex = prev.currentProbeIndex;
-          while (
-            probeIndex < cumulativeTestCounts.length - 1 &&
-            nextTestCount >= cumulativeTestCounts[probeIndex]
-          ) {
-            probeIndex++;
-          }
-
-          return {
-            ...prev,
-            currentProbeIndex: probeIndex,
-            currentTestCount: nextTestCount,
-            currentProbe: previewData.probes[probeIndex] || prev.currentProbe,
-          };
-        });
-      }, 500);
-
       const clientFactory = new ApiClientFactory(sessionToken);
       const garakClient = clientFactory.getGarakClient();
+      const createdTestSetIds: string[] = [];
 
-      const response = await garakClient.importProbes({
-        probes: buildProbeSelections(),
-        name_prefix: 'Garak',
-      });
+      // --- Phase 1: Import static probes ---
+      if (staticProbes.length > 0) {
+        let previewData = preview;
+        if (!previewData || previewData.probes.length === 0) {
+          setPreparingImport(true);
+          previewData = await garakClient.previewImport({
+            probes: buildProbeSelections(staticProbes),
+            name_prefix: 'Garak',
+          });
+          setPreview(previewData);
+          setPreparingImport(false);
+        }
 
-      clearInterval(progressInterval);
+        const cumulativeTestCounts = previewData.probes.reduce<number[]>(
+          (acc, probe, idx) => {
+            const prevCount = idx > 0 ? acc[idx - 1] : 0;
+            acc.push(prevCount + probe.prompt_count);
+            return acc;
+          },
+          []
+        );
 
-      // Show completion at 100%
-      setImportProgress({
-        currentProbeIndex: previewData.probes.length,
-        totalProbes: previewData.probes.length,
-        currentTestCount: previewData.total_tests,
-        totalTests: previewData.total_tests,
-        currentProbe: null,
-        isComplete: true,
-      });
+        setImportProgress({
+          phase: 'static',
+          currentProbeIndex: 0,
+          totalProbes,
+          currentTestCount: 0,
+          totalTests: previewData.total_tests,
+          currentProbe: previewData.probes[0] || null,
+          staticImported: 0,
+          dynamicLaunched: 0,
+          dynamicTotal: dynamicProbes.length,
+          dynamicResults: [],
+          isComplete: false,
+        });
 
-      // Small delay to show completion before closing
-      await new Promise(resolve => setTimeout(resolve, 500));
+        const maxSimulated = Math.floor(previewData.total_tests * 0.95);
+        const progressInterval = setInterval(() => {
+          setImportProgress(prev => {
+            if (
+              !prev ||
+              prev.phase !== 'static' ||
+              prev.isComplete ||
+              !previewData
+            )
+              return prev;
+            const testsPerInterval = Math.max(
+              1,
+              Math.ceil(previewData.total_tests / 60)
+            );
+            const nextTestCount = Math.min(
+              prev.currentTestCount + testsPerInterval,
+              maxSimulated
+            );
+            let probeIndex = prev.currentProbeIndex;
+            while (
+              probeIndex < cumulativeTestCounts.length - 1 &&
+              nextTestCount >= cumulativeTestCounts[probeIndex]
+            ) {
+              probeIndex++;
+            }
+            return {
+              ...prev,
+              currentProbeIndex: probeIndex,
+              currentTestCount: nextTestCount,
+              currentProbe: previewData.probes[probeIndex] || prev.currentProbe,
+            };
+          });
+        }, 500);
 
-      // Pass all created test set IDs
-      onSuccess?.(response.test_sets.map(ts => ts.test_set_id));
+        const response = await garakClient.importProbes({
+          probes: buildProbeSelections(staticProbes),
+          name_prefix: 'Garak',
+        });
+
+        clearInterval(progressInterval);
+        createdTestSetIds.push(...response.test_sets.map(ts => ts.test_set_id));
+
+        setImportProgress(prev =>
+          prev
+            ? {
+                ...prev,
+                currentTestCount: previewData!.total_tests,
+                staticImported: staticProbes.length,
+              }
+            : prev
+        );
+      }
+
+      // --- Phase 2: Launch dynamic probe generation ---
+      if (dynamicProbes.length > 0) {
+        setImportProgress(prev => ({
+          phase: 'dynamic',
+          currentProbeIndex: prev ? prev.staticImported : 0,
+          totalProbes,
+          currentTestCount: prev?.currentTestCount ?? 0,
+          totalTests: prev?.totalTests ?? 0,
+          currentProbe: null,
+          staticImported: prev?.staticImported ?? 0,
+          dynamicLaunched: 0,
+          dynamicTotal: dynamicProbes.length,
+          dynamicResults: [],
+          isComplete: false,
+        }));
+
+        const dynamicResults: GarakGenerateResponse[] = [];
+
+        for (let i = 0; i < dynamicProbes.length; i++) {
+          const probe = dynamicProbes[i];
+          setImportProgress(prev =>
+            prev
+              ? {
+                  ...prev,
+                  currentProbeIndex: (prev.staticImported || 0) + i,
+                  currentProbe: {
+                    module_name: probe.module_name,
+                    class_name: probe.class_name,
+                    full_name: probe.full_name,
+                    test_set_name: `Garak Dynamic: ${probe.full_name}`,
+                    prompt_count: 0,
+                    detector: probe.detector,
+                  },
+                }
+              : prev
+          );
+
+          const result = await garakClient.generateDynamicProbe({
+            module_name: probe.module_name,
+            class_name: probe.class_name,
+          });
+          dynamicResults.push(result);
+
+          setImportProgress(prev =>
+            prev
+              ? {
+                  ...prev,
+                  dynamicLaunched: i + 1,
+                  dynamicResults: [...dynamicResults],
+                }
+              : prev
+          );
+        }
+      }
+
+      // --- Done ---
+      setImportProgress(prev =>
+        prev
+          ? {
+              ...prev,
+              phase: 'done',
+              currentProbe: null,
+              isComplete: true,
+            }
+          : prev
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      if (createdTestSetIds.length > 0) {
+        onSuccess?.(createdTestSetIds);
+      }
       handleClose();
     } catch (err: unknown) {
       setError(
@@ -327,6 +436,7 @@ export default function GarakImportDialog({
       setImportProgress(null);
     } finally {
       setImporting(false);
+      setPreparingImport(false);
     }
   };
 
@@ -336,6 +446,7 @@ export default function GarakImportDialog({
     setError(undefined);
     setImportProgress(null);
     setPreparingImport(false);
+    setDynamicPreviewCount(0);
     onClose();
   };
 
@@ -451,11 +562,41 @@ export default function GarakImportDialog({
                                 size="small"
                                 variant="outlined"
                               />
-                              <Chip
-                                label={`${module.total_prompt_count} prompts`}
-                                size="small"
-                                variant="outlined"
-                              />
+                              {module.has_dynamic_probes &&
+                              module.total_prompt_count === 0 ? (
+                                <Tooltip title="Prompts are generated at runtime using your LLM">
+                                  <Chip
+                                    icon={<AutoAwesomeIcon />}
+                                    label="Dynamic"
+                                    size="small"
+                                    color="warning"
+                                    variant="outlined"
+                                  />
+                                </Tooltip>
+                              ) : module.has_dynamic_probes ? (
+                                <>
+                                  <Chip
+                                    label={`${module.total_prompt_count} prompts`}
+                                    size="small"
+                                    variant="outlined"
+                                  />
+                                  <Tooltip title="Some probes generate prompts at runtime using your LLM">
+                                    <Chip
+                                      icon={<AutoAwesomeIcon />}
+                                      label="+ Dynamic"
+                                      size="small"
+                                      color="warning"
+                                      variant="outlined"
+                                    />
+                                  </Tooltip>
+                                </>
+                              ) : (
+                                <Chip
+                                  label={`${module.total_prompt_count} prompts`}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                              )}
                             </Stack>
                             <Typography variant="body2" color="text.secondary">
                               {module.description}
@@ -525,14 +666,29 @@ export default function GarakImportDialog({
                                     >
                                       {probe.class_name}
                                     </Typography>
-                                    <Chip
-                                      label={`${probe.prompt_count} tests`}
-                                      size="small"
-                                      variant="outlined"
-                                      sx={{
-                                        height: theme => theme.spacing(2.5),
-                                      }}
-                                    />
+                                    {probe.is_dynamic ? (
+                                      <Tooltip title="Prompts will be generated at runtime using your LLM">
+                                        <Chip
+                                          icon={<AutoAwesomeIcon />}
+                                          label="Dynamic"
+                                          size="small"
+                                          color="warning"
+                                          variant="outlined"
+                                          sx={{
+                                            height: theme => theme.spacing(2.5),
+                                          }}
+                                        />
+                                      </Tooltip>
+                                    ) : (
+                                      <Chip
+                                        label={`${probe.prompt_count} tests`}
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{
+                                          height: theme => theme.spacing(2.5),
+                                        }}
+                                      />
+                                    )}
                                   </Stack>
                                   <Typography
                                     variant="caption"
@@ -573,56 +729,111 @@ export default function GarakImportDialog({
             >
               <Stack spacing={2}>
                 <Stack direction="row" alignItems="center" spacing={1}>
-                  <CircularProgress size={20} />
+                  {!importProgress.isComplete && <CircularProgress size={20} />}
                   <Typography variant="subtitle1" fontWeight="medium">
-                    Importing Garak Probes...
+                    {importProgress.phase === 'static' &&
+                      'Importing static probes...'}
+                    {importProgress.phase === 'dynamic' &&
+                      'Generating dynamic probes...'}
+                    {importProgress.phase === 'done' && 'Complete'}
                   </Typography>
                 </Stack>
 
-                <Box>
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    mb={0.5}
-                  >
-                    <Typography variant="body2" color="text.secondary">
-                      {importProgress.currentTestCount.toLocaleString()} of{' '}
-                      {importProgress.totalTests.toLocaleString()} tests
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {importProgress.currentProbeIndex + 1} of{' '}
-                      {importProgress.totalProbes} probes
-                    </Typography>
-                  </Stack>
-                  <LinearProgress
-                    variant="determinate"
-                    value={
-                      (importProgress.currentTestCount /
-                        importProgress.totalTests) *
-                      100
-                    }
-                    sx={theme => ({
-                      height: theme.spacing(1),
-                      borderRadius: theme.spacing(0.5),
-                    })}
-                  />
-                </Box>
+                {importProgress.phase === 'static' &&
+                  importProgress.totalTests > 0 && (
+                    <Box>
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        mb={0.5}
+                      >
+                        <Typography variant="body2" color="text.secondary">
+                          {importProgress.currentTestCount.toLocaleString()} of{' '}
+                          {importProgress.totalTests.toLocaleString()} tests
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {Math.min(
+                            importProgress.currentProbeIndex + 1,
+                            importProgress.totalProbes
+                          )}{' '}
+                          of {importProgress.totalProbes} probes
+                        </Typography>
+                      </Stack>
+                      <LinearProgress
+                        variant="determinate"
+                        value={
+                          (importProgress.currentTestCount /
+                            importProgress.totalTests) *
+                          100
+                        }
+                        sx={theme => ({
+                          height: theme.spacing(1),
+                          borderRadius: theme.spacing(0.5),
+                        })}
+                      />
+                    </Box>
+                  )}
+
+                {importProgress.phase === 'dynamic' && (
+                  <Box>
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      mb={0.5}
+                    >
+                      <Typography variant="body2" color="text.secondary">
+                        Launching LLM generation tasks...
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {importProgress.dynamicLaunched} of{' '}
+                        {importProgress.dynamicTotal} probes
+                      </Typography>
+                    </Stack>
+                    <LinearProgress
+                      variant="determinate"
+                      value={
+                        (importProgress.dynamicLaunched /
+                          importProgress.dynamicTotal) *
+                        100
+                      }
+                      sx={theme => ({
+                        height: theme.spacing(1),
+                        borderRadius: theme.spacing(0.5),
+                      })}
+                      color="warning"
+                    />
+                  </Box>
+                )}
 
                 {importProgress.currentProbe && (
                   <Paper variant="outlined" sx={{ p: 2 }}>
                     <Stack spacing={1}>
                       <Stack direction="row" alignItems="center" spacing={1}>
-                        <SecurityIcon fontSize="small" color="primary" />
+                        {importProgress.phase === 'dynamic' ? (
+                          <AutoAwesomeIcon fontSize="small" color="warning" />
+                        ) : (
+                          <SecurityIcon fontSize="small" color="primary" />
+                        )}
                         <Typography variant="body1" fontWeight="medium">
                           {importProgress.currentProbe.test_set_name}
                         </Typography>
                       </Stack>
                       <Stack direction="row" spacing={2}>
-                        <Chip
-                          label={`${importProgress.currentProbe.prompt_count} prompts`}
-                          size="small"
-                          variant="outlined"
-                        />
+                        {importProgress.phase === 'dynamic' ? (
+                          <Chip
+                            icon={<AutoAwesomeIcon />}
+                            label="Generating via LLM"
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Chip
+                            label={`${importProgress.currentProbe.prompt_count} prompts`}
+                            size="small"
+                            variant="outlined"
+                          />
+                        )}
                         {importProgress.currentProbe.detector && (
                           <Chip
                             label={importProgress.currentProbe.detector}
@@ -640,16 +851,34 @@ export default function GarakImportDialog({
                 )}
 
                 {importProgress.isComplete && (
-                  <Stack
-                    direction="row"
-                    alignItems="center"
-                    spacing={1}
-                    sx={{ color: 'success.main' }}
-                  >
-                    <CheckCircleIcon />
-                    <Typography variant="body1" fontWeight="medium">
-                      Import complete!
-                    </Typography>
+                  <Stack spacing={1}>
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                      sx={{ color: 'success.main' }}
+                    >
+                      <CheckCircleIcon />
+                      <Typography variant="body1" fontWeight="medium">
+                        Import complete!
+                      </Typography>
+                    </Stack>
+                    {importProgress.staticImported > 0 && (
+                      <Typography variant="body2" color="text.secondary">
+                        {importProgress.staticImported} static probe
+                        {importProgress.staticImported !== 1 ? 's' : ''}{' '}
+                        imported
+                      </Typography>
+                    )}
+                    {importProgress.dynamicResults.length > 0 && (
+                      <Typography variant="body2" color="text.secondary">
+                        {importProgress.dynamicResults.length} dynamic probe
+                        {importProgress.dynamicResults.length !== 1
+                          ? 's'
+                          : ''}{' '}
+                        — generation started in background
+                      </Typography>
+                    )}
                   </Stack>
                 )}
               </Stack>
@@ -663,18 +892,30 @@ export default function GarakImportDialog({
                 Import Preview
               </Typography>
               <Stack spacing={0.5}>
-                <Typography variant="body2">
-                  Test sets to create:{' '}
-                  <strong>{preview.total_test_sets}</strong>
-                </Typography>
-                <Typography variant="body2">
-                  Total tests: <strong>{preview.total_tests}</strong>
-                </Typography>
-                <Typography variant="body2">
-                  Unique detectors: <strong>{preview.detector_count}</strong>
-                </Typography>
+                {preview.total_test_sets > 0 && (
+                  <>
+                    <Typography variant="body2">
+                      Static test sets:{' '}
+                      <strong>{preview.total_test_sets}</strong>
+                    </Typography>
+                    <Typography variant="body2">
+                      Static tests: <strong>{preview.total_tests}</strong>
+                    </Typography>
+                  </>
+                )}
+                {dynamicPreviewCount > 0 && (
+                  <Typography variant="body2">
+                    Dynamic probes (LLM generation):{' '}
+                    <strong>{dynamicPreviewCount}</strong>
+                  </Typography>
+                )}
+                {preview.detector_count > 0 && (
+                  <Typography variant="body2">
+                    Unique detectors: <strong>{preview.detector_count}</strong>
+                  </Typography>
+                )}
               </Stack>
-              {preview.probes.length <= 5 && (
+              {preview.probes.length > 0 && preview.probes.length <= 5 && (
                 <Box mt={1}>
                   <Typography variant="caption" color="text.secondary">
                     Test sets:{' '}
@@ -727,9 +968,15 @@ export default function GarakImportDialog({
             ) : undefined
           }
         >
-          {preparingImport || importing
-            ? 'Importing...'
-            : `Import ${selectedProbes.size} Probe${selectedProbes.size !== 1 ? 's' : ''}`}
+          {(() => {
+            if (preparingImport || importing) return 'Importing...';
+            const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
+            if (staticProbes.length > 0 && dynamicProbes.length > 0)
+              return `Import ${selectedProbes.size} Probes`;
+            if (dynamicProbes.length > 0 && staticProbes.length === 0)
+              return `Generate ${dynamicProbes.length} Probe${dynamicProbes.length !== 1 ? 's' : ''}`;
+            return `Import ${selectedProbes.size} Probe${selectedProbes.size !== 1 ? 's' : ''}`;
+          })()}
         </Button>
       </DialogActions>
     </Dialog>

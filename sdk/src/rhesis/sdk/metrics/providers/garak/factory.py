@@ -10,6 +10,7 @@ from typing import List
 from rhesis.sdk.metrics.base import BaseMetric, BaseMetricFactory
 
 from .detector_metric import GarakDetectorMetric
+from .registry import DETECTOR_PATHS, SUPPORTED_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -17,43 +18,10 @@ logger = logging.getLogger(__name__)
 class GarakMetricFactory(BaseMetricFactory):
     """Factory for creating Garak detector metrics."""
 
-    # Common Garak detectors
-    # Note: All these detectors work WITHOUT PyTorch (API-based or string matching)
-    SUPPORTED_DETECTORS = [
-        "MitigationBypass",
-        "Continuation",
-        "MisleadingClaim",
-        "PerspectiveToxicity",  # Uses Google Perspective API, no local ML
-        "XSSDetector",
-        "LeakReplayDetector",
-        "DoNotAnswerDetector",
-        "SnowballDetector",
-        "PackageHallucination",
-        "Lmrc",
-        "MalwareGenDetector",
-        "EICAR",
-    ]
+    SUPPORTED_DETECTORS = SUPPORTED_NAMES
 
-    # Mapping from short names to full detector class paths
-    DETECTOR_PATHS = {
-        "MitigationBypass": "garak.detectors.mitigation.MitigationBypass",
-        "Continuation": "garak.detectors.continuation.Continuation",
-        "MisleadingClaim": "garak.detectors.misleading.MisleadingClaim",
-        "PerspectiveToxicity": "garak.detectors.perspective.Toxicity",  # API-based, no torch
-        "XSSDetector": "garak.detectors.xss.XSSDetector",
-        "LeakReplayDetector": "garak.detectors.leakreplay.LeakReplayDetector",
-        "DoNotAnswerDetector": "garak.detectors.donotanswer.DoNotAnswerDetector",
-        "SnowballDetector": "garak.detectors.snowball.SnowballDetector",
-        "PackageHallucination": "garak.detectors.packagehallucination.PackageHallucination",
-        "Lmrc": "garak.detectors.lmrc.Lmrc",
-        "MalwareGenDetector": "garak.detectors.malwaregen.MalwareGenDetector",
-        "EICAR": "garak.detectors.knownbadsignatures.EICAR",
-        # Special entry for the generic class
-        "GarakDetectorMetric": None,  # Will use detector_class kwarg
-    }
+    DETECTOR_PATHS = DETECTOR_PATHS
 
-    # Parameters that GarakDetectorMetric actually accepts
-    # Only pass these; ignore everything else from metric config
     ACCEPTED_PARAMS = {"name", "description", "model", "threshold"}
 
     def _filter_kwargs(self, kwargs: dict) -> dict:
@@ -77,19 +45,15 @@ class GarakMetricFactory(BaseMetricFactory):
         Returns:
             GarakDetectorMetric instance
         """
-        # If class_name is GarakDetectorMetric, get detector_class from kwargs
         if class_name == "GarakDetectorMetric":
             detector_class = kwargs.pop("detector_class", None)
             if not detector_class:
-                # Try evaluation_prompt which stores the detector class in the backend
                 detector_class = kwargs.pop("evaluation_prompt", None)
             if not detector_class:
                 raise ValueError("detector_class is required when creating GarakDetectorMetric")
-            # Filter out metric config params that shouldn't go to detector
             filtered_kwargs = self._filter_kwargs(kwargs)
             return GarakDetectorMetric(detector_class=detector_class, **filtered_kwargs)
 
-        # If class_name is a short name, look it up
         if class_name in self.DETECTOR_PATHS:
             detector_class = self.DETECTOR_PATHS[class_name]
             if detector_class is None:
@@ -101,7 +65,6 @@ class GarakMetricFactory(BaseMetricFactory):
                 **filtered_kwargs,
             )
 
-        # If class_name looks like a full path, use it directly
         if "." in class_name and class_name.startswith("garak."):
             filtered_kwargs = self._filter_kwargs(kwargs)
             return GarakDetectorMetric(
@@ -116,4 +79,4 @@ class GarakMetricFactory(BaseMetricFactory):
 
     def list_supported_metrics(self) -> List[str]:
         """List all supported Garak detector metrics."""
-        return self.SUPPORTED_DETECTORS.copy()
+        return list(self.SUPPORTED_DETECTORS)

@@ -34,27 +34,32 @@ class EntityType(Enum):
         return entity_type
 
 
-# Test Types Enum - Aligned with initial_data.json type_lookup values
-class TestType(Enum):
+# TestSetType Enum - DB-level test set classification aligned with initial_data.json type_lookup
+class TestSetType(Enum):
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
 
     @classmethod
-    def get_value(cls, test_type):
-        """Get the string value of a test type"""
-        if isinstance(test_type, cls):
-            return test_type.value
-        return test_type
+    def get_value(cls, test_set_type):
+        """Get the string value of a test set type"""
+        if isinstance(test_set_type, cls):
+            return test_set_type.value
+        return test_set_type
 
     @classmethod
     def from_string(cls, value: str):
-        """Get enum from string value (case-insensitive comparison)"""
+        """Get enum from string value (case-insensitive, accepts snake_case and hyphenated).
+
+        Maps both 'single_turn' and 'Single-Turn' to TestSetType.SINGLE_TURN, so API
+        clients that use snake_case conventions are handled transparently.
+        """
         if not value:
             return None
-        value_lower = value.lower()
-        for test_type in cls:
-            if test_type.value.lower() == value_lower:
-                return test_type
+        # Normalize underscores to hyphens so snake_case aliases work (single_turn → single-turn)
+        normalized = value.lower().replace("_", "-")
+        for test_set_type in cls:
+            if test_set_type.value.lower() == normalized:
+                return test_set_type
         return None
 
 

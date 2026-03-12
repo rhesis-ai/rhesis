@@ -30,13 +30,13 @@ class GarakTaxonomy:
 
     # Mapping of Garak probe modules to Rhesis taxonomy
     MODULE_MAPPINGS: Dict[str, GarakMapping] = {
-        "art": GarakMapping(
+        "atkgen": GarakMapping(
             category="Harmful",
             topic="Automatic Red-Team",
             behavior="Robustness",
-            # ART uses a separate model to generate adversarial prompts
+            # atkgen (formerly 'art') uses a separate model to generate adversarial prompts
             default_detector="garak.detectors.perspective.Toxicity",
-            description="Automatic Red-Team (ART) adversarial prompt generation",
+            description="Automatic Red-Team (atkgen) adversarial prompt generation",
         ),
         "dan": GarakMapping(
             category="Harmful",
@@ -112,12 +112,13 @@ class GarakTaxonomy:
             default_detector="garak.detectors.mitigation.MitigationBypass",
             description="Greedy Coordinate Gradient adversarial suffixes",
         ),
-        "knownbadsignatures": GarakMapping(
+        "av_spam_scanning": GarakMapping(
             category="Harmful",
             topic="Known Bad Patterns",
             behavior="Compliance",
+            # Renamed from 'knownbadsignatures' in garak v0.13.3
             default_detector="garak.detectors.knownbadsignatures.EICAR",
-            description="Known malicious content signatures",
+            description="Known malicious content signatures (AV/spam scanning)",
         ),
         "suffix": GarakMapping(
             category="Harmful",
@@ -182,6 +183,101 @@ class GarakTaxonomy:
             default_detector="garak.detectors.mitigation.MitigationBypass",
             description="Base64 encoded attack payloads",
         ),
+        # New in garak v0.13.3
+        "ansiescape": GarakMapping(
+            category="Harmful",
+            topic="ANSI Escape Injection",
+            behavior="Compliance",
+            default_detector="garak.detectors.ansiescape.ANSI",
+            description="ANSI escape sequence injection attacks",
+        ),
+        "apikey": GarakMapping(
+            category="Harmful",
+            topic="API Key Leakage",
+            behavior="Compliance",
+            default_detector="garak.detectors.apikey.APIKey",
+            description="Probes that attempt to extract API keys from model output",
+        ),
+        # NOTE: "audio" and "fileformats" are intentionally absent — they are excluded
+        # from probe enumeration (see GarakProbeService.EXCLUDED_MODULES) because they
+        # operate on binary payloads and have no meaningful text representation in Rhesis.
+        "badchars": GarakMapping(
+            category="Harmful",
+            topic="Bad Characters",
+            behavior="Robustness",
+            default_detector="garak.detectors.mitigation.MitigationBypass",
+            description="Imperceptible Unicode character perturbation attacks",
+        ),
+        "divergence": GarakMapping(
+            category="Harmful",
+            topic="Training Data Leakage",
+            behavior="Compliance",
+            default_detector="garak.detectors.divergence.Repetitive",
+            description="Probes that cause training data memorization/divergence",
+        ),
+        "doctor": GarakMapping(
+            category="Harmful",
+            topic="Medical Advice",
+            behavior="Compliance",
+            default_detector="garak.detectors.mitigation.MitigationBypass",
+            description="Probes for inappropriate medical or clinical advice generation",
+        ),
+        "dra": GarakMapping(
+            category="Harmful",
+            topic="Decomposed Roleplay Attack",
+            behavior="Robustness",
+            default_detector="garak.detectors.mitigation.MitigationBypass",
+            description="Decomposed Roleplay Attack (DRA) jailbreak prompts",
+        ),
+        "exploitation": GarakMapping(
+            category="Harmful",
+            topic="Code Exploitation",
+            behavior="Compliance",
+            default_detector="garak.detectors.exploitation.ExploitDetector",
+            description="Probes for exploit code and vulnerability generation",
+        ),
+        "fitd": GarakMapping(
+            category="Harmful",
+            topic="Foot In The Door",
+            behavior="Robustness",
+            default_detector="garak.detectors.mitigation.MitigationBypass",
+            description="Foot-in-the-door social engineering attack probes",
+        ),
+        "grandma": GarakMapping(
+            category="Harmful",
+            topic="Social Engineering",
+            behavior="Robustness",
+            default_detector="garak.detectors.mitigation.MitigationBypass",
+            description="Grandma/roleplay social engineering jailbreak attacks",
+        ),
+        "latentinjection": GarakMapping(
+            category="Harmful",
+            topic="Latent Prompt Injection",
+            behavior="Compliance",
+            default_detector="garak.detectors.mitigation.MitigationBypass",
+            description="Latent/hidden prompt injection attack probes",
+        ),
+        "phrasing": GarakMapping(
+            category="Harmful",
+            topic="Phrasing Attack",
+            behavior="Robustness",
+            default_detector="garak.detectors.mitigation.MitigationBypass",
+            description="Phrasing-based jailbreak and bypass attack probes",
+        ),
+        "sata": GarakMapping(
+            category="Harmful",
+            topic="Suffix Attack",
+            behavior="Robustness",
+            default_detector="garak.detectors.mitigation.MitigationBypass",
+            description="Structured Adversarial Text Attack (SATA) probes",
+        ),
+        "smuggling": GarakMapping(
+            category="Harmful",
+            topic="ASCII Smuggling",
+            behavior="Compliance",
+            default_detector="garak.detectors.mitigation.MitigationBypass",
+            description="ASCII/Unicode smuggling prompt injection attacks",
+        ),
     }
 
     # Default mapping for unknown modules
@@ -205,33 +301,3 @@ class GarakTaxonomy:
             GarakMapping with category, topic, behavior, and detector
         """
         return cls.MODULE_MAPPINGS.get(module_name, cls.DEFAULT_MAPPING)
-
-    @classmethod
-    def get_category(cls, module_name: str) -> str:
-        """Get the Rhesis category for a Garak module."""
-        return cls.get_mapping(module_name).category
-
-    @classmethod
-    def get_topic(cls, module_name: str) -> str:
-        """Get the Rhesis topic for a Garak module."""
-        return cls.get_mapping(module_name).topic
-
-    @classmethod
-    def get_behavior(cls, module_name: str) -> str:
-        """Get the Rhesis behavior for a Garak module."""
-        return cls.get_mapping(module_name).behavior
-
-    @classmethod
-    def get_default_detector(cls, module_name: str) -> str:
-        """Get the default Garak detector for a module."""
-        return cls.get_mapping(module_name).default_detector
-
-    @classmethod
-    def list_mapped_modules(cls) -> list:
-        """List all Garak modules with explicit mappings."""
-        return list(cls.MODULE_MAPPINGS.keys())
-
-    @classmethod
-    def get_all_mappings(cls) -> Dict[str, GarakMapping]:
-        """Get all module mappings."""
-        return cls.MODULE_MAPPINGS.copy()
