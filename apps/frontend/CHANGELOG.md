@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.9] - 2026-03-12
+
+### Added
+
+- Added multi-target review annotations for test runs (turns, metrics, test results).
+- Added categorized @mention support in review comments for metrics and conversation turns.
+- Added resizable split panel to the test list / detail view.
+- Added configurable anchor prop to BaseDrawer.
+- Added pagination, search, and filters to the projects list.
+- Added per-turn metadata, context, and tool_calls to conversation evaluation.
+- Added comprehensive E2E test coverage for all overview and detail pages.
+- Added dynamic probe support to garak import.
+
+### Changed
+
+- Updated TestRunHeader pass rate, TestsList, and overview tab to reflect review overrides.
+- Improved metric selection dialog with auto-focus, full metric fetching, and scope filtering.
+- Renamed "Penelope" documentation section to "Conversation Simulation".
+- Upgraded garak to v0.14 with dynamic probe generation and code quality fixes.
+- Updated docker base image to python 3.12.
+- Improved metric selection dialog and centralized metric scopes.
+
+### Fixed
+
+- Fixed MuiDrawer theme override scoping to prevent ToggleButton color overrides.
+- Fixed issue where turns without criteria didn't show pass/fail labels.
+- Fixed TypeScript errors in PlaygroundChat and client-auth tests.
+- Fixed SelectMetricsDialog loading state reliability.
+- Fixed TypeScript type errors in new test files.
+- Fixed disambiguation of duplicate project names and metric scope filter.
+- Fixed emoji linter violation for penelope icon.
+- Fixed test set execute button being disabled for manually created test sets.
+- Fixed 21 Dependabot security vulnerabilities.
+- Fixed test set metadata after bulk test creation and use actual count for execute button.
+- Fixed CI failures in e2e and a11y tests.
+- Fixed remaining e2e test failures.
+- Fixed endpoints heading and projects-crud click-through tests.
+- Fixed op.execute() call and frontend prettier formatting.
+- Fixed no-op migration.
+- Fixed omission of Goal line in \_build_prompt when no dedicated goal exists.
+- Fixed preservation of mappings when LLM correction omits them.
+- Fixed use of double-brace syntax in placeholder examples.
+- Fixed use of tool.value in generate_tool_description f-strings.
+- Fixed use of sx theme callback in renderMentionText.
+- Fixed guard against None in \_compute_review_state existing_ts.
+- Fixed restoration of body styles on unmount during resize drag.
+- Fixed deep-copy input dict in MessageHistoryManager.add_message.
+- Fixed null from ProjectsQueryParams.$filter type.
+- Fixed index-based React key for context list items.
+
+### Removed
+
+- Removed threatening attribution alert from review modal.
+- Removed unused auth0-lock dependency.
+
+### Refactor
+
+- Renamed goal metric to `goal_achievement` to align with the SDK.
+- Extracted review service layer and addressed DRY violations.
+- Replaced magic strings with TestSetType constants.
+- Replaced tool message keys with named constants.
+- Addressed code review findings in garak services.
+
 ## [0.6.8] - 2026-03-05
 
 ### Added
