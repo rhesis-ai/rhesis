@@ -48,6 +48,50 @@ These variables are available in your request body templates using Jinja2 syntax
 | `messages` | No | Full conversation history as an array of message objects. Used for stateless endpoints that require the entire history with every request. |
 | `system_prompt` | No | System prompt text. Rhesis prepends it to the `messages` array and strips it from the final request body before sending. |
 
+### Playground chat file attachments
+
+When you test an endpoint in **Playground**, the chat composer can attach files and send them as part of the `files` request variable.
+
+Supported upload types in Playground:
+
+- `image/jpeg`, `image/png`, `image/gif`, `image/webp`
+- `application/pdf`
+- `application/json`
+- `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` (XLSX)
+- `application/vnd.ms-excel` (XLS)
+- `text/csv`
+
+Playground sends attachments over WebSocket as base64 payloads. Keep the full message payload under 10 MB, otherwise the backend rejects the message.
+
+| Playground payload field | Required | Description |
+|---|---|---|
+| `endpoint_id` | Yes | Endpoint to invoke |
+| `message` | Yes | User message text |
+| `conversation_id` | No | Conversation ID for multi-turn continuity |
+| `files` | No | List of attachments with `filename`, `content_type`, and `data` |
+
+<CodeBlock filename="playground-chat-message.json" language="json">
+  {`{
+  "type": "chat.message",
+  "payload": {
+    "endpoint_id": "8d9c...",
+    "message": "Summarize the attached spreadsheet",
+    "files": [
+      {
+        "filename": "claims.xlsx",
+        "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "data": "<base64>"
+      }
+    ]
+  }
+}`}
+</CodeBlock>
+
+<Callout type="info">
+  Provider-specific Jinja filters such as `to_anthropic`, `to_openai`, and `to_gemini` are documented in
+  [Single-Turn Endpoints](/platform/endpoints/single-turn#file-format-filters).
+</Callout>
+
 ### Response Variables
 
 These variables are extracted from your API response using JSONPath or Jinja2 expressions in the response mapping. Rhesis uses them for evaluation, display, and conversation tracking.
