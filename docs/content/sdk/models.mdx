@@ -128,6 +128,20 @@ All models share a consistent interface. The primary function is `generate`, whi
 - `prompt`: The text prompt for generation
 - `schema`: (optional) A Pydantic schema defining the structure of the generated text
 
+### Language model generation APIs (v0.6.9+)
+
+Language-model providers in the SDK are async-first. You can use:
+
+| Method | Execution style | Typical use |
+|---|---|---|
+| `generate(...)` | Synchronous convenience wrapper | Scripts and notebooks without explicit async code |
+| `a_generate(...)` | Native async call | Async services, workers, and concurrent pipelines |
+| `generate_batch(...)` | Multi-prompt batch call | High-throughput generation for datasets or evaluations |
+
+<Callout type="info">
+  `generate(...)` internally bridges to `a_generate(...)`. If your application is already async, prefer `a_generate(...)` directly.
+</Callout>
+
 **Generate text using prompt only:**
 
 <CodeBlock filename="generate_text.py" language="python">
@@ -236,7 +250,27 @@ results = model.generate_batch(
 - Generating multiple test variations
 - Any scenario requiring parallel LLM calls
 
-Note: Batch processing is currently available for LiteLLM-based providers (OpenAI, Gemini, and other supported providers).
+Batch processing is available for LiteLLM-based providers and `rhesis` language models.
+
+<CodeBlock filename="async_generation.py" language="python">
+{`import asyncio
+from rhesis.sdk.models import get_model
+
+model = get_model("rhesis")
+
+async def main():
+    single = await model.a_generate("Summarize why unit tests matter.")
+    batch = model.generate_batch(
+        prompts=[
+            "Give one CI best practice.",
+            "Give one code review best practice.",
+        ]
+    )
+    print(single)
+    print(batch)
+
+asyncio.run(main())`}
+</CodeBlock>
 
 
 ### Using models with synthesizers and metrics
