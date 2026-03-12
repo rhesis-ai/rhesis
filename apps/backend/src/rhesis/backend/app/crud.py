@@ -1979,6 +1979,9 @@ def get_test_run_metrics(
     query = db.query(metric_key).filter(
         models.TestResult.test_run_id == test_run_id,
         models.TestResult.test_metrics.isnot(None),
+        # Guard against non-object values (null, scalar, array) which would
+        # cause jsonb_object_keys to error at the Postgres level
+        func.jsonb_typeof(models.TestResult.test_metrics["metrics"]) == "object",
     )
 
     if organization_id:
