@@ -63,7 +63,12 @@ export interface TestConfigurationBase {
   attributes?: TestConfigurationAttributes;
 }
 
-export type TestConfigurationCreate = TestConfigurationBase;
+export interface TestConfigurationCreate extends Omit<
+  TestConfigurationBase,
+  'user_id'
+> {
+  user_id?: UUID;
+}
 
 export type TestConfigurationUpdate = Partial<TestConfigurationBase>;
 
