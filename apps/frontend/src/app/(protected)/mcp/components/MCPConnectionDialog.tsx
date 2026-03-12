@@ -285,14 +285,15 @@ export function MCPConnectionDialog({
       setConnectionTested(false);
       setTestResult(null);
     } else {
-      // In edit mode, only mark credentials as modified if the user actually
-      // changed a credential field (i.e. cleared the placeholder and typed)
-      const tokenChanged = authToken && authToken !== '************';
-      const urlChanged = instanceUrl && instanceUrl !== '************';
-      const usernameChanged = username && username !== '************';
+      // In edit mode, derive modified state from current field values so that
+      // reverting a field back to the placeholder resets the flag correctly.
+      const tokenChanged = Boolean(authToken && authToken !== '************');
+      const urlChanged = Boolean(instanceUrl && instanceUrl !== '************');
+      const usernameChanged = Boolean(username && username !== '************');
+      const modified = tokenChanged || urlChanged || usernameChanged;
 
-      if (tokenChanged || urlChanged || usernameChanged) {
-        setCredentialsModified(true);
+      setCredentialsModified(modified);
+      if (modified) {
         setConnectionTested(false);
         setTestResult(null);
       }
@@ -452,9 +453,14 @@ export function MCPConnectionDialog({
 
         if (currentProviderType === 'github' && repositoryUrl.trim()) {
           const repoData = parseRepositoryUrl(repositoryUrl);
-          if (repoData) {
-            parsedMetadata = { repository: repoData };
+          if (!repoData) {
+            setError(
+              'Invalid repository URL. Please use format: https://github.com/owner/repo or owner/repo'
+            );
+            setTestingConnection(false);
+            return;
           }
+          parsedMetadata = { repository: repoData };
         }
 
         if (isCustomProvider && toolMetadata.trim()) {
