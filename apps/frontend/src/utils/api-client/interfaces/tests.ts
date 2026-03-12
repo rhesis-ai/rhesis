@@ -114,8 +114,8 @@ export interface TestDetail extends Test {
   organization?: Organization;
   priorityLevel?: PriorityLevel;
   counts?: {
-    comments: number;
-    tasks: number;
+    comments?: number;
+    tasks?: number;
     files?: number;
   };
 }
