@@ -1,0 +1,115 @@
+# Test Reviews
+
+Override automated test evaluations with human judgement. When a test run produces results you disagree with, reviews let you correct them at the level that matters — the overall result, a specific metric, or an individual conversation turn.
+
+<Callout type="default">
+  **What are Test Reviews?** A test review is a human judgement that can override or confirm the automated pass/fail verdict for a test result. Reviews are tracked per reviewer and never erase the original automated outcome — both are visible side by side.
+</Callout>
+
+## Why Use Reviews
+
+Automated metrics are a strong signal, but they are not infallible. A model response might be technically correct but stylistically wrong for your brand, or a refusal that looks like a failure might actually be the right behavior in a specific context.
+
+Reviews let you:
+
+- Correct automated verdicts that missed important context
+- Document the reasoning behind a human judgement for your team
+- Distinguish between automated and human-verified results at a glance
+- Work at the right level of granularity — overall, per metric, or per turn
+
+Reviews do not change the original automated result. The original score is preserved and shown alongside the human verdict.
+
+## The Three Levels of Review
+
+Reviews can be applied at three levels of granularity. Each level gives you a different lens into the test result.
+
+### Test Result Level
+
+The broadest level. A test result review applies a single Pass or Fail verdict to the entire test outcome.
+
+Use this when you want to mark a test as passing or failing overall, without commenting on individual metrics or turns. This is the most common type of review and suitable for quick assessments.
+
+### Metric Level
+
+A metric review targets one specific evaluation criterion within a test result. For example, if a result failed on "Answer Relevancy" but you believe the response was actually relevant, you can override that metric in isolation without affecting any other metrics.
+
+Use this when you agree with most of the automated evaluation but want to correct a specific metric that was scored incorrectly.
+
+### Turn Level
+
+Available for multi-turn tests only. A turn review targets a single conversation turn within a multi-turn test result. Each turn in a conversation can receive its own Pass or Fail verdict independently of the others.
+
+Use this when a multi-turn conversation contains a mix of good and poor turns, and you want to record precise feedback at the turn level rather than painting the whole result with one verdict.
+
+---
+
+## Adding a Review
+
+### Reviewing a Test Result
+
+1. Open a **Test Run** from the [Test Runs](/platform/test-runs) page
+2. Find the test result you want to review and click on it
+3. In the test detail view, click **Add Review**
+4. Select **Pass** or **Fail** as the verdict
+5. Add a comment explaining your decision
+6. Click **Save**
+
+The test result will immediately reflect your review verdict. The original automated result is preserved and visible in the detail panel.
+
+### Reviewing a Specific Metric
+
+1. Open a test result detail
+2. Locate the metric you want to override in the metrics section
+3. Click the review icon next to the metric name
+4. Select **Pass** or **Fail**
+5. Optionally use `@metric-name` mentions in your comment to reference specific metrics
+6. Click **Save**
+
+Your review applies only to that metric. Other metrics retain their automated verdicts.
+
+### Reviewing a Conversation Turn
+
+1. Open a multi-turn test result
+2. Navigate to the **Conversation** tab
+3. Each turn shows its automated Pass or Fail label
+4. Click **Add Review** on the turn you want to assess
+5. Select **Pass** or **Fail**
+6. Add a comment — you can mention specific turns using `@turn-N` syntax
+7. Click **Save**
+
+Turn-level reviews let you capture fine-grained feedback on exactly where a multi-turn conversation succeeded or fell short.
+
+---
+
+## Updating and Removing Reviews
+
+To update an existing review, open the test result detail and click the edit icon on the review. You can change the verdict, update the comment, or both. The original automated result is never affected.
+
+To remove a review, click the delete icon on the review. Removing a review restores the display to show the original automated result. All other reviews on the same test result remain unchanged.
+
+---
+
+## Review Indicators
+
+After a review is added, the platform shows a clear indicator so you can tell at a glance which results have human feedback:
+
+- A **reviewer badge** appears on test results that have been reviewed
+- The **review verdict** (Pass or Fail) is displayed alongside — or in place of — the automated verdict
+- Metrics and turns that have been individually reviewed show their own verdict badge
+
+The original automated outcome is always available to view in the detail panel, even when a review overrides it.
+
+---
+
+## Tips
+
+- Use **metric-level reviews** when the automated scoring of a specific criterion is wrong, but the overall evaluation is mostly correct.
+- Use **turn-level reviews** in multi-turn tests to pinpoint exactly which step in a conversation went wrong.
+- Always add a **comment** to your review. It creates an audit trail and helps teammates understand why the verdict was changed.
+- Reviews are per-user and timestamped. If multiple team members review the same result, each review is stored and attributed to its author.
+
+---
+
+<Callout type="default">
+  **Next Steps** - Run a test set from [Test Execution](/platform/test-execution) - Explore results in [Test Runs](/platform/test-runs) - Learn how metrics are configured in [Metrics](/platform/metrics)
+</Callout>
