@@ -1963,6 +1963,32 @@ def get_test_run_behaviors(
     )
 
 
+def get_test_run_metrics(
+    db: Session, test_run_id: uuid.UUID, organization_id: str = None
+) -> List[str]:
+    """Get distinct metric names actually evaluated in a specific test run.
+
+    Derives metric names from the test_metrics JSONB field of test results,
+    ensuring only metrics that were truly executed are returned.
+    """
+    query = db.query(models.TestResult.test_metrics).filter(
+        models.TestResult.test_run_id == test_run_id,
+        models.TestResult.test_metrics.isnot(None),
+    )
+
+    if organization_id:
+        from uuid import UUID
+
+        query = query.filter(models.TestResult.organization_id == UUID(organization_id))
+
+    metric_names: set[str] = set()
+    for (test_metrics,) in query.all():
+        if test_metrics and "metrics" in test_metrics:
+            metric_names.update(test_metrics["metrics"].keys())
+
+    return sorted(metric_names)
+
+
 def create_test_run(
     db: Session, test_run: schemas.TestRunCreate, organization_id: str = None, user_id: str = None
 ) -> models.TestRun:
