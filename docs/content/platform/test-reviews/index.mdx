@@ -3,7 +3,7 @@
 Override automated test evaluations with human judgement. When a test run produces results you disagree with, reviews let you correct them at the target that matters — the overall result, a specific metric, or an individual conversation turn.
 
 <Callout type="default">
-  **What are Test Reviews?** A test review is a human judgement that can override or confirm the automated pass/fail verdict for a test result. Reviews are tracked per reviewer and never erase the original automated outcome — both are visible side by side.
+  **What are Test Reviews?** A test review is a human judgement that overrides the automated pass/fail verdict for a test result. The original automated outcome is kept for reference, so you always know what the system scored before a human weighed in.
 </Callout>
 
 ## Why Use Reviews
@@ -17,7 +17,7 @@ Reviews let you:
 - Distinguish between automated and human-verified results at a glance
 - Work at the right target of granularity — overall, per metric, or per turn
 
-Reviews do not change the original automated result. The original score is preserved and shown alongside the human verdict.
+When you submit a review, it becomes the effective verdict for that test result. The original automated result is preserved alongside it so you always have a record of what the system scored before human input.
 
 ## Review Targets
 
@@ -89,7 +89,7 @@ Use this when a multi-turn conversation contains a mix of good and poor turns, a
 5. Add a comment explaining your decision
 6. Click **Save**
 
-The test result will immediately reflect your review verdict. The original automated result is preserved and visible in the detail panel.
+The test result will immediately reflect your review verdict. The original automated result is kept for reference and visible in the detail panel.
 
 ### Reviewing a Specific Metric
 
@@ -119,7 +119,7 @@ Turn target reviews let you capture fine-grained feedback on exactly where a mul
 
 ## Updating and Removing Reviews
 
-To update an existing review, open the test result detail and click the edit icon on the review. You can change the verdict, update the comment, or both. The original automated result is never affected.
+To update an existing review, open the test result detail and click the edit icon on the review. You can change the verdict, update the comment, or both. The original automated result remains on record regardless of how the review changes.
 
 To remove a review, click the delete icon on the review. Removing a review restores the display to show the original automated result. All other reviews on the same test result remain unchanged.
 
@@ -133,7 +133,7 @@ After a review is added, the platform shows a clear indicator so you can tell at
 - The **review verdict** (Pass or Fail) is displayed alongside — or in place of — the automated verdict
 - Metrics and turns that have been individually reviewed show their own verdict badge
 
-The original automated outcome is always available to view in the detail panel, even when a review overrides it.
+The original automated outcome is always available to view in the detail panel alongside the human verdict.
 
 ---
 
