@@ -1968,10 +1968,15 @@ def get_test_run_metrics(
 ) -> List[str]:
     """Get distinct metric names actually evaluated in a specific test run.
 
-    Derives metric names from the test_metrics JSONB field of test results,
-    ensuring only metrics that were truly executed are returned.
+    Uses jsonb_object_keys() in Postgres to extract and deduplicate metric
+    names at the database level, avoiding transferring full JSONB payloads
+    to the application layer.
     """
-    query = db.query(models.TestResult.test_metrics).filter(
+    metric_key = func.jsonb_object_keys(models.TestResult.test_metrics["metrics"]).label(
+        "metric_name"
+    )
+
+    query = db.query(metric_key).filter(
         models.TestResult.test_run_id == test_run_id,
         models.TestResult.test_metrics.isnot(None),
     )
@@ -1981,12 +1986,7 @@ def get_test_run_metrics(
 
         query = query.filter(models.TestResult.organization_id == UUID(organization_id))
 
-    metric_names: set[str] = set()
-    for (test_metrics,) in query.all():
-        if test_metrics and "metrics" in test_metrics:
-            metric_names.update(test_metrics["metrics"].keys())
-
-    return sorted(metric_names)
+    return sorted({name for (name,) in query.distinct().all()})
 
 
 def create_test_run(
