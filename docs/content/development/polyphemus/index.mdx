@@ -1,0 +1,83 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Polyphemus (Development)
+
+Polyphemus is the model-serving service used for adversarial generation workloads.
+It proxies generation requests to Vertex AI and exposes authenticated REST endpoints.
+
+## Runtime and deployment notes
+
+- Runtime baseline: Python `>=3.12`
+- Router module: `apps/polyphemus/src/rhesis/polyphemus/routers/services.py`
+- Request schemas: `apps/polyphemus/src/rhesis/polyphemus/schemas/schemas.py`
+
+## API endpoints
+
+Polyphemus exposes two primary generation endpoints:
+
+| Endpoint | Purpose | Auth |
+|---|---|---|
+| `POST /generate` | Single generation request | Bearer token required |
+| `POST /generate_batch` | Batch generation for multiple requests | Bearer token required |
+
+`/generate_batch` accepts up to `50` items per call (`MAX_BATCH_SIZE`).
+
+## Environment configuration
+
+Polyphemus reads Vertex AI target configuration from environment variables:
+
+| Variable | Required | Description |
+|---|---|---|
+| `POLYPHEMUS_ENDPOINT_ID` | Yes | Vertex AI endpoint identifier |
+| `POLYPHEMUS_PROJECT_ID` | Yes | GCP project ID for endpoint invocation |
+| `POLYPHEMUS_LOCATION` | No | Vertex AI region (defaults to `us-central1`) |
+
+If required variables are missing, the service returns HTTP `400` with configuration error details.
+
+## Batch request and response format
+
+<CodeBlock filename="generate_batch_request.json" language="json">
+{`{
+  "requests": [
+    {
+      "messages": [
+        { "role": "user", "content": "Summarize this policy document." }
+      ],
+      "temperature": 0.7,
+      "max_tokens": 1024
+    },
+    {
+      "messages": [
+        { "role": "user", "content": "Extract key risks from this response." }
+      ],
+      "temperature": 0.2
+    }
+  ]
+}`}
+</CodeBlock>
+
+<CodeBlock filename="generate_batch_response.json" language="json">
+{`{
+  "responses": [
+    {
+      "choices": [{ "message": { "content": "..." } }],
+      "model": "vertex_ai/model",
+      "usage": { "prompt_tokens": 120, "completion_tokens": 85 }
+    },
+    {
+      "error": "Generation timeout"
+    }
+  ]
+}`}
+</CodeBlock>
+
+<Callout type="info">
+  Rate limiting is applied through `check_rate_limit`. For batch calls, one HTTP request counts as one
+  rate-limit unit regardless of item count.
+</Callout>
+
+## Related pages
+
+- [Adversarial Testing Overview](/adversarial-testing)
+- [Polyphemus product docs](/adversarial-testing/polyphemus)
+- [Development Changelog](/development/changelog)
