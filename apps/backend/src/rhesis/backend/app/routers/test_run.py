@@ -340,6 +340,18 @@ def get_test_run_behaviors(
     return behaviors
 
 
+@router.get("/{test_run_id}/metrics", response_model=List[str])
+def get_test_run_metrics(
+    test_run_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """Get distinct metric names actually evaluated in this test run's results"""
+    organization_id, _user_id = tenant_context
+    return crud.get_test_run_metrics(db, test_run_id=test_run_id, organization_id=organization_id)
+
+
 @router.put("/{test_run_id}", response_model=schemas.TestRun)
 @handle_database_exceptions(
     entity_name="test run", custom_unique_message="Test run with this configuration already exists"

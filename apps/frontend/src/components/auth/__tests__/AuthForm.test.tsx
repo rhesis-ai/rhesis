@@ -32,7 +32,7 @@ const makeProvidersResponse = (overrides: Record<string, unknown> = {}) => ({
       enabled: true,
     },
   ],
-  password_policy: { min_length: 8, max_length: 128 },
+  password_policy: { min_length: 12, max_length: 128, min_strength_score: 2 },
   ...overrides,
 });
 
@@ -368,7 +368,7 @@ describe('AuthForm — registration mode', () => {
 
   it('shows password minimum length helper text', async () => {
     await renderAndWaitForLoad({ isRegistration: true });
-    expect(screen.getByText(/minimum 8 characters/i)).toBeInTheDocument();
+    expect(screen.getByText(/minimum 12 characters/i)).toBeInTheDocument();
   });
 
   it('shows a validation error when the password is too short', async () => {

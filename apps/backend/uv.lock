@@ -6214,7 +6214,7 @@ wheels = [
 
 [[package]]
 name = "rhesis-backend"
-version = "0.6.7"
+version = "0.6.8"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -6273,6 +6273,7 @@ dependencies = [
     { name = "uvicorn" },
     { name = "websockets" },
     { name = "yaspin" },
+    { name = "zxcvbn" },
 ]
 
 [package.optional-dependencies]
@@ -6362,6 +6363,7 @@ requires-dist = [
     { name = "uvicorn" },
     { name = "websockets", specifier = "==15.0.1" },
     { name = "yaspin", specifier = "==3.1.0" },
+    { name = "zxcvbn", specifier = ">=4.4.24" },
 ]
 provides-extras = ["cpu", "gpu"]
 
@@ -6439,7 +6441,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.6.8.post1"
+version = "0.6.9"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
@@ -8469,4 +8471,13 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c2/38/f249a2050ad1eea0bb364046153942e34abba95dd5520af199aed86fbb49/zstandard-0.25.0-cp314-cp314-win32.whl", hash = "sha256:da469dc041701583e34de852d8634703550348d5822e66a0c827d39b05365b12", size = 444513, upload-time = "2025-09-14T22:18:20.61Z" },
     { url = "https://files.pythonhosted.org/packages/3a/43/241f9615bcf8ba8903b3f0432da069e857fc4fd1783bd26183db53c4804b/zstandard-0.25.0-cp314-cp314-win_amd64.whl", hash = "sha256:c19bcdd826e95671065f8692b5a4aa95c52dc7a02a4c5a0cac46deb879a017a2", size = 516118, upload-time = "2025-09-14T22:18:17.849Z" },
     { url = "https://files.pythonhosted.org/packages/f0/ef/da163ce2450ed4febf6467d77ccb4cd52c4c30ab45624bad26ca0a27260c/zstandard-0.25.0-cp314-cp314-win_arm64.whl", hash = "sha256:d7541afd73985c630bafcd6338d2518ae96060075f9463d7dc14cfb33514383d", size = 476940, upload-time = "2025-09-14T22:18:19.088Z" },
+]
+
+[[package]]
+name = "zxcvbn"
+version = "4.5.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/40/9366940b1484fd4e9423c8decbbf34a73bf52badb36281e082fe02b57aca/zxcvbn-4.5.0.tar.gz", hash = "sha256:70392c0fff39459d7f55d0211151401e79e76fcc6e2c22b61add62900359c7c1", size = 411249, upload-time = "2025-02-19T19:03:02.699Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c2/16/7410f8e714a109d43d17f4e27c8eabb351557653a9b570db1bd7dfdfd822/zxcvbn-4.5.0-py2.py3-none-any.whl", hash = "sha256:2b6eed621612ce6d65e6e4c7455b966acee87d0280e257956b1f06ccc66bd5ff", size = 409397, upload-time = "2025-02-19T19:03:00.521Z" },
 ]

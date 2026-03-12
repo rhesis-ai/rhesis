@@ -13,6 +13,56 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+## [0.6.9] - 2026-03-12
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.6.8**
+- **Frontend 0.6.9**
+- **SDK 0.6.9**
+- **Polyphemus 0.2.8**
+
+### Summary of Changes
+
+**Backend v0.6.8:**
+- Adds multi-target review annotations for test runs, allowing reviews of turns, metrics, and test results with override logic to mutate test data based on review verdicts.
+- Introduces SDK-side metric evaluation via a new `@metric` decorator and connector protocol, enabling client-side metric execution and integration with the backend.
+- Enhances conversation evaluation with per-turn metadata, context, and tool_calls, providing richer information for conversational metrics and judges.
+- Refactors backend logging to use the standard Python `logging` library, improving maintainability and configurability.
+
+
+**Frontend v0.6.9:**
+- Adds multi-target review annotations, including @mention support in review comments, resizable split panels, and review overrides reflected in test results.
+- Enhances conversation evaluation with per-turn metadata, context, and tool_calls, displayed in the conversation history.
+- Improves project management with pagination, search, and filters in the projects list, along with disambiguation of duplicate project names.
+- Upgrades dependencies to address security vulnerabilities and adds comprehensive E2E test coverage for all overview and detail pages.
+
+
+**SDK v0.6.9:**
+- Fix: Resolved issues with the Polyphemus provider, including bad requests and updated default model name.
+- Feature: Upgraded Garak to v0.14 with dynamic probe generation, centralized detector registry, and code quality improvements.
+- Feature: Implemented async-first model generation for improved performance, including updates to LiteLLM, RhesisLLM, and VertexAILLM providers.
+- Feature: Added per-turn metadata, context (RAG sources), and tool_calls to conversation evaluation, enhancing conversational metrics and providing more detailed information in the UI.
+- Feature: Implemented batch processing and retry mechanisms in the synthesizer for more efficient test set generation.
+- Fix: Resolved multiple security vulnerabilities by upgrading dependencies and adding npm overrides.
+
+
+**Polyphemus v0.2.8:**
+- Upgraded to Python 3.12 with corresponding dependency updates and conflict resolution.
+- Added `generate_batch` endpoint for handling multiple requests.
+- Implemented rolling model replacement for Vertex AI deployments to ensure zero-downtime updates.
+- Resolved multiple security vulnerabilities in dependencies.
+
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+- [Polyphemus Changelog](apps/polyphemus/CHANGELOG.md)
+
+
+
 ## [0.6.8] - 2026-03-05
 
 ### Platform Release

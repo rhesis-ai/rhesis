@@ -27,6 +27,7 @@ import { DEFAULT_PASSWORD_POLICY, validatePassword } from '@/utils/validation';
 interface PasswordPolicy {
   min_length: number;
   max_length: number;
+  min_strength_score: number;
 }
 
 export default function ResetPasswordPage() {
@@ -122,6 +123,11 @@ export default function ResetPasswordPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error(
+            'Too many attempts. Please wait a while before trying again.'
+          );
+        }
         throw new Error(data.detail || 'Failed to reset password');
       }
 
@@ -248,7 +254,7 @@ export default function ResetPasswordPage() {
                       fullWidth
                       size="small"
                       autoComplete="new-password"
-                      helperText={`Minimum ${passwordPolicy?.min_length ?? 8} characters`}
+                      helperText={`Minimum ${passwordPolicy?.min_length ?? 12} characters`}
                       inputRef={passwordInputRef}
                       InputProps={{
                         endAdornment: (
