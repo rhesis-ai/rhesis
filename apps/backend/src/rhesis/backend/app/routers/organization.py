@@ -206,28 +206,12 @@ async def initialize_organization_data(
                 )
                 db.flush()
 
-        # Execute initial test runs to validate the loaded data
-        # This is non-blocking - if it fails, onboarding still completes
-        test_execution_summary = None
-        try:
-            test_execution_summary = execute_initial_test_runs(
-                db=db, organization_id=str(organization_id), user_id=str(current_user.id)
-            )
-        except Exception as test_exec_error:
-            # Log the error but don't fail the entire onboarding
-            logger.warning("Initial test execution failed: %s", test_exec_error)
-            test_execution_summary = {
-                "status": "error",
-                "message": (
-                    f"Test execution failed but onboarding completed: {str(test_exec_error)}"
-                ),
-                "submitted": 0,
-                "failed": 0,
-                "test_set_count": 0,
-                "endpoint_count": 0,
-            }
-
-        # Mark onboarding as completed
+        # Mark onboarding as completed and commit while session variables are
+        # still valid on the original connection. execute_initial_test_runs must
+        # come AFTER this commit because it calls db.commit() internally, which
+        # causes SQLAlchemy to release the connection back to the pool. The new
+        # connection checked out afterwards would no longer have
+        # app.current_organization set, causing the RLS UPDATE to match 0 rows.
         org.is_onboarding_complete = True
 
         logger.info(
@@ -240,10 +224,29 @@ async def initialize_organization_data(
             db.in_transaction(),
         )
 
-        # Explicitly commit the transaction before scheduling emails
         db.commit()
 
         logger.info("Commit successful: org_id=%s is_onboarding_complete=True", organization_id)
+
+        # Execute initial test runs after the org is marked complete.
+        # This is non-blocking - if it fails, onboarding has already succeeded.
+        test_execution_summary = None
+        try:
+            test_execution_summary = execute_initial_test_runs(
+                db=db, organization_id=str(organization_id), user_id=str(current_user.id)
+            )
+        except Exception as test_exec_error:
+            logger.warning("Initial test execution failed: %s", test_exec_error)
+            test_execution_summary = {
+                "status": "error",
+                "message": (
+                    f"Test execution failed but onboarding completed: {str(test_exec_error)}"
+                ),
+                "submitted": 0,
+                "failed": 0,
+                "test_set_count": 0,
+                "endpoint_count": 0,
+            }
 
         # Prepare response after successful commit
         response = {
