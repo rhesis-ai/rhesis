@@ -9,6 +9,7 @@ from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context,
 )
+from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.dependencies import (
     get_db_session,
     get_tenant_context,
@@ -168,6 +169,13 @@ async def initialize_organization_data(
         org.is_onboarding_complete = True
 
         db.commit()
+
+        # Re-apply tenant session variables on the connection now held by the
+        # session. db.commit() releases the connection back to the pool in
+        # SQLAlchemy 2.x; the next operation checks out a fresh connection that
+        # has no app.current_organization set. Without this, any RLS-protected
+        # query inside execute_initial_test_runs would run without tenant context.
+        set_session_variables(db, str(organization_id), str(current_user.id))
 
         # Execute initial test runs after the org is marked complete.
         # This is non-blocking - if it fails, onboarding has already succeeded.
