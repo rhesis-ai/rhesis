@@ -36,6 +36,7 @@ export default function TestDetailConversationTab({
   const [traces, setTraces] = useState<TraceSummary[]>([]);
   const [traceDrawerOpen, setTraceDrawerOpen] = useState(false);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
+  const [selectedTurnNumber, setSelectedTurnNumber] = useState<number | null>(null);
 
   // Fetch traces for this test result
   useEffect(() => {
@@ -87,6 +88,7 @@ export default function TestDetailConversationTab({
       const trace = turnTraceMap.get(turnNumber);
       if (trace) {
         setSelectedTraceId(trace.trace_id);
+        setSelectedTurnNumber(turnNumber);
         setTraceDrawerOpen(true);
       }
     },
@@ -187,10 +189,14 @@ export default function TestDetailConversationTab({
       />
       <TraceDrawer
         open={traceDrawerOpen}
-        onClose={() => setTraceDrawerOpen(false)}
+        onClose={() => {
+          setTraceDrawerOpen(false);
+          setSelectedTurnNumber(null);
+        }}
         traceId={selectedTraceId}
         projectId={projectId}
         sessionToken={sessionToken}
+        initialTurnIndex={selectedTurnNumber !== null ? selectedTurnNumber - 1 : undefined}
       />
     </Box>
   );
