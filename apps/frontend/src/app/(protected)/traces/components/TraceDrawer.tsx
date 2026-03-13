@@ -500,13 +500,20 @@ export default function TraceDrawer({
                 p: viewTab === tabIndices.tree ? theme => theme.spacing(2) : 0,
               }}
             >
-              {showConversationTab && viewTab === 0 && (
-                <ConversationTraceView
-                  trace={trace}
-                  sessionToken={sessionToken}
-                  onSpanSelect={handleSpanSelect}
-                  rootSpans={trace.root_spans}
-                />
+              {showConversationTab && (
+                <Box
+                  sx={{
+                    display: viewTab === 0 ? 'block' : 'none',
+                    height: '100%',
+                  }}
+                >
+                  <ConversationTraceView
+                    trace={trace}
+                    sessionToken={sessionToken}
+                    onSpanSelect={handleSpanSelect}
+                    rootSpans={trace.root_spans}
+                  />
+                </Box>
               )}
               {viewTab === tabIndices.tree && (
                 <SpanTreeView
