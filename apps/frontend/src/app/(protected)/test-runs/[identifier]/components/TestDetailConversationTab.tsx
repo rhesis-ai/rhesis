@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import {
   TestResultDetail,
   ConversationTurn,
@@ -37,7 +37,6 @@ export default function TestDetailConversationTab({
 }: TestDetailConversationTabProps) {
   const [traces, setTraces] = useState<TraceSummary[]>([]);
   const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
-  const [filesReady, setFilesReady] = useState(false);
   const [traceDrawerOpen, setTraceDrawerOpen] = useState(false);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [selectedTurnNumber, setSelectedTurnNumber] = useState<number | null>(
@@ -47,11 +46,10 @@ export default function TestDetailConversationTab({
   // Fetch traces, trace detail, and span files in one chain.
   // All state is set together at the end to avoid intermediate renders.
   useEffect(() => {
-    if (!test.id || !sessionToken) return;
-
-    setFilesReady(false);
     setSpanFiles([]);
     setTraces([]);
+
+    if (!test.id || !sessionToken) return;
 
     const load = async () => {
       try {
@@ -90,8 +88,6 @@ export default function TestDetailConversationTab({
         setSpanFiles(files);
       } catch {
         // Silently fail — traces and files are optional
-      } finally {
-        setFilesReady(true);
       }
     };
 
@@ -172,22 +168,6 @@ export default function TestDetailConversationTab({
   }, [baseConversation, spanFiles]);
   const hasConversation =
     isMultiTurn && conversationSummary && conversationSummary.length > 0;
-
-  // Wait for file loading to complete before rendering so files don't pop in
-  if (isMultiTurn && hasConversation && !filesReady) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: 300,
-        }}
-      >
-        <CircularProgress size={32} />
-      </Box>
-    );
-  }
 
   // If not a multi-turn test, show message
   if (!isMultiTurn) {

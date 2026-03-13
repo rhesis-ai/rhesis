@@ -111,9 +111,10 @@ export default function ConversationTraceView({
     };
 
     load();
-    // rootSpans is intentionally read from closure rather than listed as a
-    // dependency.  The parent passes trace.root_spans which is a new array
-    // reference on every render; trace.trace_id is the stable identity.
+    // rootSpans is intentionally omitted from deps. The parent derives it
+    // directly from trace.root_spans, so it can only carry new spans when
+    // trace.trace_id changes — which is already a dep. Adding rootSpans would
+    // trigger a re-fetch on every render (new array reference each time).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trace.trace_id, trace.test_result?.id, sessionToken]);
 
