@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Type
 
 from pydantic import BaseModel
 
+from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult
 from rhesis.sdk.metrics.constants import ThresholdOperator
 
@@ -69,10 +70,23 @@ class NumericEvaluationMixin:
             - score: float field
             - reason: str field
         """
-        # Get base details (prompt, score_type, etc.)
+        return run_sync(
+            self._a_execute_numeric_evaluation(
+                prompt=prompt,
+                response_schema=response_schema,
+                additional_details=additional_details,
+            )
+        )
+
+    async def _a_execute_numeric_evaluation(
+        self,
+        prompt: str,
+        response_schema: Type[BaseModel],
+        additional_details: Optional[Dict[str, Any]] = None,
+    ) -> MetricResult:
+        """Async version of _execute_numeric_evaluation."""
         details = self._get_base_details(prompt)
 
-        # Get threshold operator value (handle both enum and string)
         threshold_operator_value = (
             (
                 self.threshold_operator.value
@@ -83,7 +97,6 @@ class NumericEvaluationMixin:
             else None
         )
 
-        # Add threshold-related fields
         details.update(
             {
                 "threshold_operator": threshold_operator_value,
@@ -93,16 +106,13 @@ class NumericEvaluationMixin:
             }
         )
 
-        # Add any additional mode-specific details
         if additional_details:
             details.update(additional_details)
 
         try:
-            # Generate LLM response with structured output
-            response = self.model.generate(prompt, schema=response_schema)
-            response = response_schema(**response)  # type: ignore
+            response = await self.model.a_generate(prompt, schema=response_schema)
+            response = response_schema(**response)  # type: ignore[arg-type]
 
-            # Validate required fields exist on the response schema
             if not hasattr(response, "score"):
                 raise ValueError(
                     f"Response schema {response_schema.__name__} must have 'score' field"
@@ -112,14 +122,10 @@ class NumericEvaluationMixin:
                     f"Response schema {response_schema.__name__} must have 'reason' field"
                 )
 
-            # Extract score and reason
             score = response.score
             reason = response.reason
-
-            # Evaluate score against threshold
             is_successful = self._evaluate_score(score=score)
 
-            # Update details with evaluation results
             details.update(
                 {
                     "score": score,
@@ -128,14 +134,10 @@ class NumericEvaluationMixin:
                 }
             )
 
-            # Capture all additional structured fields from the response
-            # This includes fields like criteria_evaluations, confidence, all_criteria_met, etc.
-            # that are specific to certain judge types (e.g., GoalAchievementJudge)
             response_dict = response.model_dump(exclude={"score", "reason"})
             details.update(response_dict)
 
             return MetricResult(score=score, details=details)
 
         except Exception as e:
-            # Handle errors with standard error handling
             return self._handle_evaluation_error(e, details, 0.0)

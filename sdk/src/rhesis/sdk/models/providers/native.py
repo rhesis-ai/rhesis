@@ -122,20 +122,28 @@ class RhesisLLM(BaseLLM):
         schema: Optional[Union[Type[BaseModel], dict]] = None,
         **kwargs: Any,
     ) -> List[Any]:
-        """Run concurrent batch chat completions and return the responses."""
+        """Run concurrent batch chat completions and return the responses.
+
+        A single aiohttp.ClientSession is shared across all concurrent
+        requests so that connections are pooled instead of opening N
+        independent sessions.
+        """
 
         async def _batch():
-            return await asyncio.gather(
-                *[
-                    self.a_generate(
-                        p,
-                        system_prompt=system_prompt,
-                        schema=schema,
-                        **kwargs,
-                    )
-                    for p in prompts
-                ]
-            )
+            timeout = aiohttp.ClientTimeout(total=DEFAULT_REQUEST_TIMEOUT)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                return await asyncio.gather(
+                    *[
+                        self.a_generate(
+                            p,
+                            system_prompt=system_prompt,
+                            schema=schema,
+                            _session=session,
+                            **kwargs,
+                        )
+                        for p in prompts
+                    ]
+                )
 
         return run_sync(_batch())
 
@@ -154,7 +162,10 @@ class RhesisLLM(BaseLLM):
             temperature: Sampling temperature (0-1)
             max_tokens: Maximum tokens to generate
             schema: Optional schema for structured output
-            **kwargs: Additional parameters to pass to the API
+            **kwargs: Additional parameters to pass to the API.
+                The private ``_session`` key, if present, supplies a
+                shared :class:`aiohttp.ClientSession` (used by
+                ``generate_batch`` for connection pooling).
 
         Returns:
             Dict[str, Any]: The raw response from the API
@@ -162,6 +173,8 @@ class RhesisLLM(BaseLLM):
         Raises:
             aiohttp.ClientResponseError: If the API request fails
         """
+        _session: Optional[aiohttp.ClientSession] = kwargs.pop("_session", None)
+
         request_data = {
             "prompt": prompt,
             "temperature": temperature,
@@ -180,10 +193,11 @@ class RhesisLLM(BaseLLM):
             max_tokens,
         )
 
-        timeout = aiohttp.ClientTimeout(total=DEFAULT_REQUEST_TIMEOUT)
         request_start = time.time()
 
-        async with aiohttp.ClientSession(timeout=timeout) as session:
+        async def _do_request(
+            session: aiohttp.ClientSession,
+        ) -> Dict[str, Any]:
             async with session.post(url, headers=self.headers, json=request_data) as response:
                 request_elapsed = time.time() - request_start
 
@@ -202,6 +216,13 @@ class RhesisLLM(BaseLLM):
 
                 result: Dict[str, Any] = await response.json()
                 return result
+
+        if _session is not None:
+            return await _do_request(_session)
+
+        timeout = aiohttp.ClientTimeout(total=DEFAULT_REQUEST_TIMEOUT)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            return await _do_request(session)
 
 
 class RhesisEmbedder(BaseEmbedder):

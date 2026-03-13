@@ -5,6 +5,7 @@ from typing import Any, Optional, Union
 
 from deepeval.models.base_model import DeepEvalBaseLLM
 
+from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.models.base import BaseLLM
 
 logger = logging.getLogger(__name__)
@@ -40,11 +41,7 @@ class DeepEvalModelWrapper(DeepEvalBaseLLM):
         Returns:
             Generated response (str or schema instance if schema provided)
         """
-        # Generate response (all our models support schema parameter)
-        result = self._model.generate(prompt, schema=schema, **kwargs)
-
-        # Convert to schema if provided
-        return self._convert_to_schema(result, schema) if schema else result
+        return run_sync(self.a_generate(prompt=prompt, schema=schema, **kwargs))
 
     async def a_generate(
         self, prompt: str, schema: Optional[Any] = None, **kwargs

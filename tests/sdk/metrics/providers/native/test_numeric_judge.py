@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -101,8 +101,10 @@ def test_evaluate_successful_evaluation(metric):
     metric.threshold = 5.0
     metric.threshold_operator = ThresholdOperator.GREATER_THAN_OR_EQUAL
 
-    with patch.object(metric.model, "generate") as mock_generate:
-        mock_generate.return_value = {
+    with patch.object(
+        metric.model, "a_generate", new_callable=AsyncMock
+    ) as mock_a_generate:
+        mock_a_generate.return_value = {
             "score": 7.5,
             "reason": "The output demonstrates good understanding and accuracy",
         }
@@ -129,8 +131,8 @@ def test_evaluate_successful_evaluation(metric):
         assert "prompt" in result.details
 
         # Verify model was called with correct parameters
-        mock_generate.assert_called_once()
-        call_args = mock_generate.call_args
+        mock_a_generate.assert_called_once()
+        call_args = mock_a_generate.call_args
         assert "schema" in call_args.kwargs
 
 
@@ -142,9 +144,10 @@ def test_evaluate_error_handling(metric):
     metric.threshold = 5.0
     metric.threshold_operator = ThresholdOperator.GREATER_THAN_OR_EQUAL
 
-    # Mock the model to raise an exception
-    with patch.object(metric.model, "generate") as mock_generate:
-        mock_generate.side_effect = Exception("LLM service unavailable")
+    with patch.object(
+        metric.model, "a_generate", new_callable=AsyncMock
+    ) as mock_a_generate:
+        mock_a_generate.side_effect = Exception("LLM service unavailable")
 
         # Call evaluate method
         result = metric.evaluate(
@@ -259,8 +262,10 @@ def test_evaluate_passes_tool_calls_to_template(metric):
     metric.max_score = 10.0
     metric.threshold = 5.0
 
-    with patch.object(metric.model, "generate") as mock_generate:
-        mock_generate.return_value = {"score": 8.0, "reason": "ok"}
+    with patch.object(
+        metric.model, "a_generate", new_callable=AsyncMock
+    ) as mock_a_generate:
+        mock_a_generate.return_value = {"score": 8.0, "reason": "ok"}
 
         result = metric.evaluate(
             input="Q",
@@ -271,7 +276,7 @@ def test_evaluate_passes_tool_calls_to_template(metric):
         )
 
         assert result.score == 8.0
-        call_args = mock_generate.call_args
+        call_args = mock_a_generate.call_args
         prompt = call_args[0][0]
         assert "Tool Calls:" in prompt
         assert "get_weather" in prompt

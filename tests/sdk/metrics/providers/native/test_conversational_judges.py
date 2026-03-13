@@ -180,7 +180,7 @@ def test_goal_achievement_judge_evaluate_with_mock(mock_model, sample_conversati
     judge = GoalAchievementJudge(model=mock_model, threshold=0.7)
 
     # Mock the LLM response with all required fields
-    mock_model.generate.return_value = {
+    mock_model.a_generate.return_value = {
         "score": 0.85,
         "reason": "The conversation successfully achieves the goal. "
         "The assistant provides clear information about auto insurance options.",
@@ -222,7 +222,7 @@ def test_goal_achievement_judge_evaluate_below_threshold(mock_model, sample_conv
     judge = GoalAchievementJudge(model=mock_model, threshold=0.9)
 
     # Mock a lower score with partial criteria met
-    mock_model.generate.return_value = {
+    mock_model.a_generate.return_value = {
         "score": 0.6,
         "reason": "The goal was only partially achieved.",
         "criteria_evaluations": [
@@ -256,7 +256,7 @@ def test_goal_achievement_judge_evaluate_without_goal(mock_model, sample_convers
     """Test evaluation without explicit goal."""
     judge = GoalAchievementJudge(model=mock_model)
 
-    mock_model.generate.return_value = {
+    mock_model.a_generate.return_value = {
         "score": 0.75,
         "reason": "The conversation shows good progress toward an implicit goal.",
         "criteria_evaluations": [
@@ -281,8 +281,7 @@ def test_goal_achievement_judge_evaluate_error_handling(mock_model, sample_conve
     """Test error handling in evaluate method."""
     judge = GoalAchievementJudge(model=mock_model)
 
-    # Mock an exception
-    mock_model.generate.side_effect = Exception("LLM API error")
+    mock_model.a_generate.side_effect = Exception("LLM API error")
 
     result = judge.evaluate(conversation_history=sample_conversation)
 
@@ -444,7 +443,7 @@ def test_evaluate_passes_has_assistant_metadata_to_template(mock_model):
 
     with patch.object(judge, "_get_prompt_template", wraps=judge._get_prompt_template) as mock_pt:
         # Trigger prompt generation via a mocked evaluate call
-        mock_model.generate.return_value = {
+        mock_model.a_generate.return_value = {
             "score": 0.8,
             "reason": "ok",
             "criteria_evaluations": [],

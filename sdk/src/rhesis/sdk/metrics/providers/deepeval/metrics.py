@@ -1,5 +1,6 @@
 from typing import List, Optional, Union
 
+from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricType
 from rhesis.sdk.metrics.providers.deepeval.metric_base import DeepEvalMetricBase
 from rhesis.sdk.metrics.utils import retry_evaluation
@@ -27,13 +28,12 @@ class DeepEvalAnswerRelevancy(DeepEvalMetricBase):
         self.threshold = threshold
 
     @retry_evaluation()
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-    ) -> MetricResult:
+    def evaluate(self, input: str, output: str) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, output=output))
+
+    async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -66,12 +66,13 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
 
     @retry_evaluation()
     def evaluate(
-        self,
-        input: str,
-        output: str,
-        context: Optional[List[str]] = None,
+        self, input: str, output: str, context: Optional[List[str]] = None
     ) -> MetricResult:
-        # Validate that context is provided
+        return run_sync(self.a_evaluate(input=input, output=output, context=context))
+
+    async def a_evaluate(
+        self, input: str, output: str, context: Optional[List[str]] = None
+    ) -> MetricResult:
         if not context or len(context) == 0:
             return MetricResult(
                 score=0.0,
@@ -84,7 +85,7 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input, output, context=context)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -116,12 +117,10 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
         self.threshold = threshold
 
     @retry_evaluation()
-    def evaluate(
-        self,
-        input: str,
-        context: Optional[List[str]] = None,
-    ) -> MetricResult:
-        # Validate that context is provided
+    def evaluate(self, input: str, context: Optional[List[str]] = None) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, context=context))
+
+    async def a_evaluate(self, input: str, context: Optional[List[str]] = None) -> MetricResult:
         if not context or len(context) == 0:
             return MetricResult(
                 score=0.0,
@@ -135,7 +134,7 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input=input, context=context)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -174,7 +173,22 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
         expected_output: Optional[str] = None,
         context: Optional[List[str]] = None,
     ) -> MetricResult:
-        # Validate that context is provided
+        return run_sync(
+            self.a_evaluate(
+                input=input,
+                output=output,
+                expected_output=expected_output,
+                context=context,
+            )
+        )
+
+    async def a_evaluate(
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str] = None,
+        context: Optional[List[str]] = None,
+    ) -> MetricResult:
         if not context or len(context) == 0:
             return MetricResult(
                 score=0.0,
@@ -188,7 +202,7 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input, output, expected_output, context)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -227,7 +241,22 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
         expected_output: Optional[str] = None,
         context: Optional[List[str]] = None,
     ) -> MetricResult:
-        # Validate that context is provided
+        return run_sync(
+            self.a_evaluate(
+                input=input,
+                output=output,
+                expected_output=expected_output,
+                context=context,
+            )
+        )
+
+    async def a_evaluate(
+        self,
+        input: str,
+        output: str,
+        expected_output: Optional[str] = None,
+        context: Optional[List[str]] = None,
+    ) -> MetricResult:
         if not context or len(context) == 0:
             return MetricResult(
                 score=0.0,
@@ -241,7 +270,7 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
                 },
             )
         test_case = self._create_test_case(input, output, expected_output, context)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -273,13 +302,12 @@ class DeepEvalBias(DeepEvalMetricBase):
         self.threshold = threshold
 
     @retry_evaluation()
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-    ) -> MetricResult:
+    def evaluate(self, input: str, output: str) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, output=output))
+
+    async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -311,13 +339,12 @@ class DeepEvalToxicity(DeepEvalMetricBase):
         self.threshold = threshold
 
     @retry_evaluation()
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-    ) -> MetricResult:
+    def evaluate(self, input: str, output: str) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, output=output))
+
+    async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -350,7 +377,6 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
         )
         from deepeval.metrics import NonAdviceMetric  # type: ignore
 
-        # Default to common advice types if not provided
         if advice_types is None:
             advice_types = ["legal", "medical", "financial"]
         self._metric = NonAdviceMetric(
@@ -359,13 +385,12 @@ class DeepEvalNonAdvice(DeepEvalMetricBase):
         self.threshold = threshold
 
     @retry_evaluation()
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-    ) -> MetricResult:
+    def evaluate(self, input: str, output: str) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, output=output))
+
+    async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -402,13 +427,12 @@ class DeepEvalMisuse(DeepEvalMetricBase):
         self.threshold = threshold
 
     @retry_evaluation()
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-    ) -> MetricResult:
+    def evaluate(self, input: str, output: str) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, output=output))
+
+    async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -440,13 +464,12 @@ class DeepEvalPIILeakage(DeepEvalMetricBase):
         self.threshold = threshold
 
     @retry_evaluation()
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-    ) -> MetricResult:
+    def evaluate(self, input: str, output: str) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, output=output))
+
+    async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -479,7 +502,6 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
         )
         from deepeval.metrics import RoleViolationMetric  # type: ignore
 
-        # Default to a generic helpful assistant role if not provided
         if role is None:
             role = "helpful assistant"
         self._metric = RoleViolationMetric(
@@ -488,13 +510,12 @@ class DeepEvalRoleViolation(DeepEvalMetricBase):
         self.threshold = threshold
 
     @retry_evaluation()
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-    ) -> MetricResult:
+    def evaluate(self, input: str, output: str) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, output=output))
+
+    async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input=input, output=output)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -526,19 +547,17 @@ class DeepTeamIllegal(DeepEvalMetricBase):
         )
         from deepteam.metrics import IllegalMetric  # type: ignore
 
-        # Use a sensible default if no category is provided
         category = illegal_category or "general"
         self._metric = IllegalMetric(illegal_category=category, model=self._deepeval_model)
         self.illegal_category = category
 
     @retry_evaluation()
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-    ) -> MetricResult:
+    def evaluate(self, input: str, output: str) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, output=output))
+
+    async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
@@ -569,19 +588,17 @@ class DeepTeamSafety(DeepEvalMetricBase):
         )
         from deepteam.metrics import SafetyMetric  # type: ignore
 
-        # Use a sensible default if no category is provided
         category = safety_category or "general"
         self._metric = SafetyMetric(safety_category=category, model=self._deepeval_model)
         self.safety_category = category
 
     @retry_evaluation()
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-    ) -> MetricResult:
+    def evaluate(self, input: str, output: str) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, output=output))
+
+    async def a_evaluate(self, input: str, output: str) -> MetricResult:
         test_case = self._create_test_case(input, output)
-        self._metric.measure(test_case)
+        await self._metric.a_measure(test_case)
         return MetricResult(
             score=self._metric.score,
             details={
