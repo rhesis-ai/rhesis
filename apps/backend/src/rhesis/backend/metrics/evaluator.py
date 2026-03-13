@@ -1,78 +1,112 @@
-import concurrent.futures
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy.orm import Session
-from tenacity import (
-    before_sleep_log,
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
-from rhesis.backend.metrics.metric_service import (
-    build_metric_evaluate_params,
-    prepare_metrics,
-    validate_metric_configs,
-)
-from rhesis.backend.metrics.result_builder import MetricResultBuilder
+from rhesis.backend.metrics.backends.base import MetricBackendStrategy
+from rhesis.backend.metrics.backends.local import LocalBackendStrategy
+from rhesis.backend.metrics.backends.connector import ConnectorBackendStrategy, ConnectorMetricSender
+from rhesis.backend.metrics.metric_service import validate_metric_configs
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
-from rhesis.backend.metrics.sdk_evaluator import (
-    SdkMetricSender,
-    build_sender_not_configured_results,
-    evaluate_sdk_metrics,
-)
-from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
+from rhesis.sdk.metrics import MetricConfig
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
 logger = logging.getLogger(__name__)
 
-# Use inline factory creation to avoid circular imports
-# Implementation of the factory import will be delayed until needed
-
-# ============================================================================
-# CONFIGURATION CONSTANTS
-# ============================================================================
-
-# Overall timeout for all metrics in a batch (10 minutes)
-METRIC_OVERALL_TIMEOUT = 600
-
-# Maximum number of retry attempts for transient failures
-METRIC_MAX_RETRIES = 3
-
-# Retry backoff configuration (exponential: 1s, 2s, 4s, 8s, 10s)
-METRIC_RETRY_MIN_WAIT = 1  # seconds
-METRIC_RETRY_MAX_WAIT = 10  # seconds
-
 
 class MetricEvaluator:
-    """Evaluator class that handles metric computation using configured backends."""
+    """Evaluator that dispatches metric computation to registered backend strategies.
+
+    Responsibilities (SRP):
+      - Validate and normalize raw metric configs.
+      - Group configs by their backend identifier.
+      - Dispatch each group to the matching strategy.
+      - Merge results and return.
+
+    Adding a new backend requires only a new :class:`MetricBackendStrategy`
+    implementation and registering it – ``evaluate()`` is never modified.
+    """
 
     def __init__(
         self,
         model: Optional[Any] = None,
         db: Optional[Session] = None,
         organization_id: Optional[str] = None,
-        sdk_metric_sender: Optional[SdkMetricSender] = None,
-    ):
+        connector_metric_sender: Optional[ConnectorMetricSender] = None,
+        extra_strategies: Optional[List[MetricBackendStrategy]] = None,
+    ) -> None:
         """
-        Initialize evaluator with factory and score evaluator.
+        Initialize evaluator with optional backend strategy overrides.
 
         Args:
-            model: Optional default model for metrics evaluation.
+            model: Optional default LLM model for local metric evaluation.
             db: Optional database session for fetching metric-specific models.
             organization_id: Optional organization ID for secure model lookups.
-            sdk_metric_sender: Optional async callable for dispatching SDK
-                metrics.  Signature: (metric_run_id, metric_name, inputs)
-                -> result dict.  When *None*, SDK-backend metrics are skipped.
+            connector_metric_sender: Optional async callable for connector-backend metrics.
+                Signature: (metric_run_id, metric_name, inputs) -> result dict.
+                When *None*, connector-backend metrics return error results.
+            extra_strategies: Optional additional (or replacement) strategies.
+                Each strategy is registered by its ``backend_value()``.  Use
+                this for testing or to add custom backends without subclassing.
         """
-        self.score_evaluator = ScoreEvaluator()
-        self.model = model
-        self.db = db
-        self.organization_id = organization_id
-        self._sdk_metric_sender = sdk_metric_sender
+        score_evaluator = ScoreEvaluator()
+
+        self._local_strategy: MetricBackendStrategy = LocalBackendStrategy(
+            model=model,
+            db=db,
+            organization_id=organization_id,
+            score_evaluator=score_evaluator,
+        )
+
+        # Build the named strategy registry (backend_value -> strategy)
+        self._strategies: Dict[str, MetricBackendStrategy] = {
+            "sdk": ConnectorBackendStrategy(
+                connector_metric_sender=connector_metric_sender,
+                score_evaluator=score_evaluator,
+            ),
+        }
+
+        if extra_strategies:
+            for strategy in extra_strategies:
+                self._strategies[strategy.backend_value()] = strategy
+
+    # -------------------------------------------------------------------------
+    # Backward-compatible attribute accessors
+    # (tests and callers that read evaluator.model / .db / .organization_id)
+    # -------------------------------------------------------------------------
+
+    @property
+    def model(self) -> Optional[Any]:
+        return self._local_strategy._model  # type: ignore[attr-defined]
+
+    @model.setter
+    def model(self, value: Optional[Any]) -> None:
+        self._local_strategy._model = value  # type: ignore[attr-defined]
+
+    @property
+    def db(self) -> Optional[Session]:
+        return self._local_strategy._db  # type: ignore[attr-defined]
+
+    @db.setter
+    def db(self, value: Optional[Session]) -> None:
+        self._local_strategy._db = value  # type: ignore[attr-defined]
+
+    @property
+    def organization_id(self) -> Optional[str]:
+        return self._local_strategy._organization_id  # type: ignore[attr-defined]
+
+    @organization_id.setter
+    def organization_id(self, value: Optional[str]) -> None:
+        self._local_strategy._organization_id = value  # type: ignore[attr-defined]
+
+    # -------------------------------------------------------------------------
+    # Backward-compatible delegation to LocalBackendStrategy internals
+    # (tests that call evaluator._evaluate_metric() directly)
+    # -------------------------------------------------------------------------
+
+    def _evaluate_metric(self, metric: Any, *args: Any, **kwargs: Any) -> Any:
+        return self._local_strategy._evaluate_metric(metric, *args, **kwargs)  # type: ignore[attr-defined]
 
     def evaluate(
         self,
@@ -87,44 +121,27 @@ class MetricEvaluator:
         tool_calls: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
-        Compute metrics using the configured backends in parallel.
+        Compute metrics using the configured backends.
 
         Args:
-            input_text: The input query or question
-            output_text: The actual output from the LLM
-            expected_output: The expected or reference output
-            context: List of context strings used for the response
-            metrics: List of Metric models, MetricConfig objects, or config dictionaries, e.g.
-                    [
-                        # Database Metric model (direct from DB query)
-                        db.query(Metric).first(),
-
-                        # MetricConfig object
-                        MetricConfig(
-                            class_name="DeepEvalAnswerRelevancy",
-                            backend="deepeval",
-                            threshold=0.7,
-                            description="Measures how relevant the answer is to the question"
-                        ),
-
-                        # Plain dictionary
-                        {
-                            "class_name": "DeepEvalFaithfulness",
-                            "backend": "deepeval",
-                            "threshold": 0.8,
-                            "description": "Measures how faithful the answer is to the context"
-                        }
-                    ]
-            max_workers: Maximum number of parallel workers for metric computation
-            tool_calls: Optional list of tool calls made by the endpoint
+            input_text: The input query or question.
+            output_text: The actual output from the LLM.
+            expected_output: The expected or reference output.
+            context: List of context strings used for the response.
+            metrics: List of Metric models, MetricConfig objects, or config dicts.
+            max_workers: Maximum number of parallel workers for local backends.
+            conversation_history: Optional conversation history.
+            metadata: Optional metadata dict.
+            tool_calls: Optional list of tool calls made by the endpoint.
 
         Returns:
-            Dictionary containing scores and details for each metric
+            Dictionary containing scores and details for each metric.
         """
         if not metrics:
             logger.warning("No metrics provided for evaluation")
             return {}
 
+        # Step 1: validate and normalize raw configs
         metric_configs, invalid_metric_results = validate_metric_configs(metrics)
 
         if not metric_configs:
@@ -134,562 +151,33 @@ class MetricEvaluator:
                     f"Returning {len(invalid_metric_results)} invalid metrics as error results"
                 )
                 return invalid_metric_results
-            else:
-                logger.warning("No metrics found at all, returning empty results")
-                return {}
+            logger.warning("No metrics found at all, returning empty results")
+            return {}
 
-        # Split SDK metrics from local metrics
-        local_configs: List[MetricConfig] = []
-        sdk_configs: List[MetricConfig] = []
+        # Step 2: group configs by backend
+        configs_by_backend: Dict[str, List[MetricConfig]] = {}
         for config in metric_configs:
             backend_val = getattr(config.backend, "value", config.backend)
-            if backend_val == "sdk":
-                sdk_configs.append(config)
-            else:
-                local_configs.append(config)
+            configs_by_backend.setdefault(backend_val, []).append(config)
 
-        results = {}
-
-        # Evaluate local metrics through the standard pipeline
-        if local_configs:
-            metric_tasks = prepare_metrics(
-                local_configs,
-                expected_output,
-                context,
-                model=self.model,
-                db=self.db,
-                organization_id=self.organization_id,
-            )
-            results = self._execute_metrics_in_parallel(
-                metric_tasks,
+        # Step 3: dispatch each group to the matching strategy
+        results: Dict[str, Any] = {}
+        for backend_val, backend_configs in configs_by_backend.items():
+            strategy = self._strategies.get(backend_val, self._local_strategy)
+            backend_results = strategy.evaluate(
+                backend_configs,
                 input_text,
                 output_text,
                 expected_output,
                 context,
-                max_workers,
+                max_workers=max_workers,
                 conversation_history=conversation_history,
                 metadata=metadata,
                 tool_calls=tool_calls,
             )
+            results.update(backend_results)
 
-        # Evaluate SDK metrics via connector RPC
-        if sdk_configs:
-            if not self._sdk_metric_sender:
-                logger.warning("Cannot evaluate SDK metrics: no sdk_metric_sender configured")
-                sdk_results = build_sender_not_configured_results(sdk_configs)
-            else:
-                sdk_results = evaluate_sdk_metrics(
-                    sdk_configs,
-                    input_text,
-                    output_text,
-                    expected_output,
-                    context,
-                    self._sdk_metric_sender,
-                    self.score_evaluator,
-                )
-            results.update(sdk_results)
-
-        # Merge invalid metric results into the final results
+        # Step 4: merge invalid metric results
         results.update(invalid_metric_results)
 
         return results
-
-    # ============================================================================
-    # METRIC KEY GENERATION
-    # ============================================================================
-
-    def _generate_unique_metric_keys(
-        self, metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]]
-    ) -> Tuple[List[str], Dict[str, Any]]:
-        """
-        Generate unique keys for each metric and initialize results dictionary.
-
-        Args:
-            metric_tasks: List of prepared metric tasks
-
-        Returns:
-            Tuple of (list of unique keys, initialized results dict)
-        """
-        metric_keys = []
-        used_keys = set()
-        results = {}
-
-        for class_name, metric, metric_config, backend in metric_tasks:
-            metric_name = metric_config.name
-            base_key = metric_name if metric_name and metric_name.strip() else class_name
-
-            # Ensure uniqueness
-            unique_key = base_key
-            counter = 1
-            while unique_key in used_keys:
-                unique_key = f"{base_key}_{counter}"
-                counter += 1
-
-            used_keys.add(unique_key)
-            metric_keys.append(unique_key)
-            # Pre-populate with None to track incomplete metrics
-            results[unique_key] = None
-
-        return metric_keys, results
-
-    # ============================================================================
-    # METRIC SUBMISSION
-    # ============================================================================
-
-    def _submit_metric_evaluations(
-        self,
-        executor: concurrent.futures.ThreadPoolExecutor,
-        metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]],
-        metric_keys: List[str],
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
-        *,
-        conversation_history: Optional[ConversationHistory] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[concurrent.futures.Future, Tuple[str, str, MetricConfig, str]]:
-        """
-        Submit all metric evaluation tasks to the executor.
-
-        Args:
-            executor: ThreadPoolExecutor instance
-            metric_tasks: List of prepared metric tasks
-            metric_keys: List of unique metric keys
-            input_text: Input text for evaluation
-            output_text: Output text for evaluation
-            expected_output: Expected output for evaluation
-            context: Context for evaluation
-            conversation_history: Optional conversation history for conversational metrics
-            metadata: Optional metadata dict
-            tool_calls: Optional list of tool calls
-
-        Returns:
-            Dictionary mapping futures to metric metadata
-        """
-        future_to_metric = {}
-
-        for (class_name, metric, metric_config, backend), unique_key in zip(
-            metric_tasks, metric_keys
-        ):
-            future = executor.submit(
-                self._evaluate_metric_with_retry,
-                metric,
-                input_text,
-                output_text,
-                expected_output,
-                context,
-                conversation_history=conversation_history,
-                metadata=metadata,
-                tool_calls=tool_calls,
-            )
-            future_to_metric[future] = (unique_key, class_name, metric_config, backend)
-
-        return future_to_metric
-
-    # ============================================================================
-    # RESULT COLLECTION
-    # ============================================================================
-
-    def _collect_metric_results(
-        self,
-        future_to_metric: Dict[concurrent.futures.Future, Tuple[str, str, MetricConfig, str]],
-        results: Dict[str, Any],
-        total_metrics: int,
-        timeout: int,
-    ) -> Tuple[int, int]:
-        """
-        Collect results as metrics complete, with overall timeout.
-
-        Args:
-            future_to_metric: Mapping of futures to metric metadata
-            results: Results dictionary to populate
-            total_metrics: Total number of metrics
-            timeout: Overall timeout in seconds
-
-        Returns:
-            Tuple of (completed_count, failed_count)
-        """
-        completed_count = 0
-        failed_count = 0
-
-        try:
-            # Process results as they complete with overall timeout
-            for future in concurrent.futures.as_completed(future_to_metric, timeout=timeout):
-                unique_key, class_name, metric_config, backend = future_to_metric[future]
-
-                try:
-                    # Process the result
-                    result = self._process_metric_result(future, class_name, metric_config, backend)
-                    results[unique_key] = result
-                    completed_count += 1
-                    logger.debug(
-                        f"✓ Metric '{unique_key}' completed successfully "
-                        f"({completed_count}/{total_metrics})"
-                    )
-                except Exception as e:
-                    # Ensure we always have a result, even for processing errors
-                    results[unique_key] = MetricResultBuilder.error(
-                        reason=f"Evaluation failed: {str(e)}",
-                        backend=backend,
-                        name=metric_config.name or class_name,
-                        class_name=class_name,
-                        description=metric_config.description or f"{class_name} evaluation metric",
-                        error=str(e),
-                        error_type=type(e).__name__,
-                        threshold=metric_config.threshold
-                        if metric_config.threshold is not None
-                        else 0.0,
-                    )
-                    failed_count += 1
-                    completed_count += 1
-                    logger.error(
-                        f"✗ Metric '{unique_key}' failed ({completed_count}/{total_metrics}): {e}"
-                    )
-
-        except concurrent.futures.TimeoutError:
-            logger.error(
-                f"⏱ Overall timeout ({timeout}s) reached. "
-                f"{completed_count}/{total_metrics} metrics completed"
-            )
-        except Exception as e:
-            logger.error(f"Unexpected error in result collection: {e}", exc_info=True)
-
-        return completed_count, failed_count
-
-    # ============================================================================
-    # INCOMPLETE METRIC HANDLING
-    # ============================================================================
-
-    def _handle_incomplete_metrics(
-        self,
-        results: Dict[str, Any],
-        metric_keys: List[str],
-        metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]],
-    ) -> int:
-        """
-        Handle metrics that didn't complete within timeout.
-
-        Args:
-            results: Results dictionary
-            metric_keys: List of unique metric keys
-            metric_tasks: List of prepared metric tasks
-
-        Returns:
-            Number of incomplete metrics
-        """
-        incomplete_metrics = [key for key, val in results.items() if val is None]
-
-        if incomplete_metrics:
-            logger.error(f"⚠ {len(incomplete_metrics)} metrics incomplete: {incomplete_metrics}")
-
-            # Create timeout results for incomplete metrics
-            for key in incomplete_metrics:
-                idx = metric_keys.index(key)
-                class_name, _, metric_config, backend = metric_tasks[idx]
-
-                results[key] = MetricResultBuilder.timeout(
-                    backend=backend,
-                    name=metric_config.name or class_name,
-                    class_name=class_name,
-                    description=metric_config.description or f"{class_name} evaluation metric",
-                    threshold=metric_config.threshold
-                    if metric_config.threshold is not None
-                    else 0.0,
-                    timeout_seconds=METRIC_OVERALL_TIMEOUT,
-                )
-
-        return len(incomplete_metrics)
-
-    # ============================================================================
-    # SUMMARY LOGGING
-    # ============================================================================
-
-    def _log_evaluation_summary(self, results: Dict[str, Any]) -> None:
-        """
-        Log a summary of the evaluation results.
-
-        Args:
-            results: Final results dictionary
-        """
-        successful = sum(1 for r in results.values() if r and r.get("is_successful", False))
-        failed = sum(1 for r in results.values() if r and not r.get("is_successful", False))
-
-        logger.info(
-            f"📊 Metric evaluation complete: {successful} successful, "
-            f"{failed} failed/timed out (total: {len(results)})"
-        )
-
-    # ============================================================================
-    # RETRY WRAPPER
-    # ============================================================================
-
-    def _evaluate_metric_with_retry(
-        self,
-        metric: BaseMetric,
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
-        *,
-        conversation_history: Optional[ConversationHistory] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-    ) -> MetricResult:
-        """
-        Evaluate a single metric with automatic retry on transient failures.
-
-        Uses tenacity for intelligent retry with exponential backoff.
-        Only retries on network/timeout errors, not validation errors.
-
-        Args:
-            metric: The metric instance to evaluate
-            input_text: The input query or question
-            output_text: The actual output from the LLM
-            expected_output: The expected or reference output
-            context: List of context strings used for the response
-            conversation_history: Optional conversation history for conversational metrics
-            metadata: Optional metadata dict
-            tool_calls: Optional list of tool calls
-
-        Returns:
-            MetricResult object with score and details
-
-        Raises:
-            Exception: After max retries exhausted
-        """
-
-        @retry(
-            retry=retry_if_exception_type((TimeoutError, ConnectionError, OSError)),
-            stop=stop_after_attempt(METRIC_MAX_RETRIES + 1),
-            wait=wait_exponential(
-                multiplier=1, min=METRIC_RETRY_MIN_WAIT, max=METRIC_RETRY_MAX_WAIT
-            ),
-            before_sleep=before_sleep_log(logger, logging.WARNING),
-            reraise=True,
-        )
-        def _execute_with_retry():
-            return self._evaluate_metric(
-                metric,
-                input_text,
-                output_text,
-                expected_output,
-                context,
-                conversation_history=conversation_history,
-                metadata=metadata,
-                tool_calls=tool_calls,
-            )
-
-        try:
-            return _execute_with_retry()
-        except Exception as e:
-            logger.error(
-                f"Metric '{metric.name}' failed after {METRIC_MAX_RETRIES + 1} attempts: {e}",
-                exc_info=True,
-            )
-            raise
-
-    # ============================================================================
-    # MAIN ORCHESTRATION METHOD
-    # ============================================================================
-
-    def _execute_metrics_in_parallel(
-        self,
-        metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]],
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
-        max_workers: int,
-        *,
-        conversation_history: Optional[ConversationHistory] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-    ) -> Dict[str, Any]:
-        """
-        Execute metrics in parallel with overall timeout and complete accountability.
-
-        This is the main orchestration method that coordinates metric evaluation.
-        It guarantees that every metric gets a result (success, error, or timeout).
-
-        Args:
-            metric_tasks: List of prepared metric tasks
-            input_text: The input query or question
-            output_text: The actual output from the LLM
-            expected_output: The expected or reference output
-            context: List of context strings used for the response
-            max_workers: Maximum number of parallel workers
-            conversation_history: Optional conversation history for conversational metrics
-            metadata: Optional metadata dict
-            tool_calls: Optional list of tool calls
-
-        Returns:
-            Dictionary of metric results
-        """
-        if not metric_tasks:
-            logger.warning("No metrics to evaluate")
-            return {}
-
-        # Step 1: Generate unique keys and initialize results
-        metric_keys, results = self._generate_unique_metric_keys(metric_tasks)
-        total_metrics = len(metric_tasks)
-
-        logger.info(
-            f"Starting parallel evaluation of {total_metrics} metrics: {list(results.keys())}"
-        )
-
-        # Step 2: Execute metrics in parallel
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks
-            future_to_metric = self._submit_metric_evaluations(
-                executor,
-                metric_tasks,
-                metric_keys,
-                input_text,
-                output_text,
-                expected_output,
-                context,
-                conversation_history=conversation_history,
-                metadata=metadata,
-                tool_calls=tool_calls,
-            )
-
-            # Step 3: Collect results as they complete
-            completed_count, failed_count = self._collect_metric_results(
-                future_to_metric,
-                results,
-                total_metrics,
-                METRIC_OVERALL_TIMEOUT,
-            )
-
-            # Step 4: Handle incomplete metrics (timeouts)
-            self._handle_incomplete_metrics(results, metric_keys, metric_tasks)
-
-        # Step 5: Log summary
-        self._log_evaluation_summary(results)
-
-        return results
-
-    def _evaluate_metric(
-        self,
-        metric: BaseMetric,
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
-        *,
-        conversation_history: Optional[ConversationHistory] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-    ) -> MetricResult:
-        """
-        Evaluate a single metric.
-
-        Args:
-            metric: The metric instance to evaluate
-            input_text: The input query or question
-            output_text: The actual output from the LLM
-            expected_output: The expected or reference output
-            context: List of context strings used for the response
-            conversation_history: Optional conversation history for conversational metrics
-            metadata: Optional metadata dict
-            tool_calls: Optional list of tool calls
-
-        Returns:
-            MetricResult object with score and details
-        """
-        logger.debug(f"Evaluating metric '{metric.name}'")
-        kwargs = build_metric_evaluate_params(
-            metric,
-            input_text,
-            output_text,
-            expected_output,
-            context,
-            conversation_history=conversation_history,
-            metadata=metadata,
-            tool_calls=tool_calls,
-        )
-        logger.debug(f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}")
-        return metric.evaluate(**kwargs)
-
-    def _process_metric_result(
-        self,
-        future: concurrent.futures.Future,
-        class_name: str,
-        metric_config: MetricConfig,
-        backend: str,
-    ) -> Dict[str, Any]:
-        """
-        Process the result of a metric evaluation.
-
-        Args:
-            future: The Future object containing the result
-            class_name: Name of the metric class
-            metric_config: Configuration for the metric
-            backend: Backend used for the metric
-
-        Returns:
-            Dictionary with processed metric results
-        """
-        try:
-            result = future.result()
-            description = metric_config.description or f"{class_name} evaluation metric"
-
-            if "is_successful" in result.details and result.details["is_successful"] is not None:
-                is_successful = result.details["is_successful"]
-                logger.debug(
-                    f"Using metric's own is_successful value for '{class_name}': {is_successful}"
-                )
-            else:
-                is_successful = self.score_evaluator.evaluate_score(
-                    score=result.score,
-                    threshold=metric_config.threshold,
-                    threshold_operator=metric_config.threshold_operator,
-                    reference_score=metric_config.reference_score,
-                    categories=metric_config.categories,
-                    passing_categories=metric_config.passing_categories,
-                )
-                logger.debug(
-                    f"Computed is_successful for '{class_name}' using score evaluator: "
-                    f"{is_successful}"
-                )
-
-            threshold = metric_config.threshold
-            reference_score = metric_config.reference_score
-            logger.debug(f"Completed metric '{class_name}' with score {result.score}")
-            return MetricResultBuilder.success(
-                score=result.score,
-                reason=result.details.get("reason", f"Score: {result.score}"),
-                is_successful=is_successful,
-                backend=backend,
-                name=metric_config.name or class_name,
-                class_name=class_name,
-                description=description,
-                threshold=threshold,
-                reference_score=reference_score,
-            )
-
-        except Exception as exc:
-            import traceback
-
-            logger.error(f"Metric '{class_name}' generated an exception: {exc}", exc_info=True)
-            logger.error(f"Backend: {backend}")
-            logger.error(f"Metric config: {metric_config}")
-            logger.error(f"Exception type: {type(exc).__name__}")
-            logger.error(f"Full traceback:\n{traceback.format_exc()}")
-
-            error_description = metric_config.description or f"{class_name} evaluation metric"
-            threshold = metric_config.threshold
-            reference_score = metric_config.reference_score
-            return MetricResultBuilder.error(
-                reason=f"Error: {str(exc)}",
-                backend=backend,
-                name=metric_config.name or class_name,
-                class_name=class_name,
-                description=error_description,
-                error=str(exc),
-                error_type=type(exc).__name__,
-                threshold=threshold,
-                reference_score=reference_score,
-            )
