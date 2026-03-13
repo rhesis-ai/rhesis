@@ -387,18 +387,28 @@ export default function TestDetailPanel({
         </TabPanel>
 
         {isMultiTurn && (
-          <TabPanel value={activeTab} index={1}>
-            <TestDetailConversationTab
-              test={test}
-              testSetType={testSetType}
-              sessionToken={sessionToken}
-              project={project}
-              projectName={projectName}
-              onReviewTurn={handleReviewTurn}
-              onConfirmAutomatedReview={handleConfirmAutomatedReview}
-              isConfirmingReview={isConfirmingReview}
-            />
-          </TabPanel>
+          <Box
+            role="tabpanel"
+            id="test-detail-tabpanel-1"
+            aria-labelledby="test-detail-tab-1"
+            sx={{
+              display: activeTab === 1 ? 'block' : 'none',
+              height: activeTab === 1 ? '100%' : undefined,
+            }}
+          >
+            <Box sx={{ height: '100%' }}>
+              <TestDetailConversationTab
+                test={test}
+                testSetType={testSetType}
+                sessionToken={sessionToken}
+                project={project}
+                projectName={projectName}
+                onReviewTurn={handleReviewTurn}
+                onConfirmAutomatedReview={handleConfirmAutomatedReview}
+                isConfirmingReview={isConfirmingReview}
+              />
+            </Box>
+          </Box>
         )}
 
         <TabPanel value={activeTab} index={isMultiTurn ? 2 : 1}>

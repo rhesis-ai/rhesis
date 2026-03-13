@@ -11,6 +11,7 @@ import {
   ConversationTurn,
   GoalEvaluation,
 } from '@/utils/api-client/interfaces/test-results';
+import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ConversationHistory from '@/components/common/ConversationHistory';
 
@@ -56,35 +57,62 @@ export default function ConversationTraceView({
   rootSpans,
 }: ConversationTraceViewProps) {
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
-  const [loading, setLoading] = useState(!!trace.test_result?.id);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
 
   useEffect(() => {
-    const fetchTestResult = async () => {
-      if (!trace.test_result?.id) {
-        setLoading(false);
-        return;
-      }
+    const load = async () => {
+      const clientFactory = new ApiClientFactory(sessionToken);
+
+      const testResultPromise = trace.test_result?.id
+        ? clientFactory
+            .getTestResultsClient()
+            .getTestResult(trace.test_result.id)
+        : Promise.resolve(null);
+
+      const filesPromise = rootSpans
+        ? Promise.all(
+            rootSpans.map(async span => {
+              if (!span.id) return [] as FileResponse[];
+              try {
+                return await clientFactory
+                  .getFilesClient()
+                  .getSpanFiles(span.id);
+              } catch {
+                return [] as FileResponse[];
+              }
+            })
+          )
+        : Promise.resolve([] as FileResponse[][]);
 
       try {
-        const clientFactory = new ApiClientFactory(sessionToken);
-        const client = clientFactory.getTestResultsClient();
-        const result = await client.getTestResult(trace.test_result.id);
+        const [result, files] = await Promise.all([
+          testResultPromise,
+          filesPromise,
+        ]);
         setTestResult(result);
+        if (files.some(f => f.length > 0)) {
+          setSpanFiles(files);
+        }
       } catch (err: unknown) {
         const errorMsg =
           err instanceof Error
             ? err.message
             : 'Failed to fetch test result details';
         setError(errorMsg);
-        console.error('Failed to fetch test result:', err);
+        console.error('Failed to fetch trace data:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTestResult();
-  }, [trace.test_result?.id, sessionToken]);
+    load();
+    // rootSpans is intentionally read from closure rather than listed as a
+    // dependency.  The parent passes trace.root_spans which is a new array
+    // reference on every render; trace.trace_id is the stable identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trace.trace_id, trace.test_result?.id, sessionToken]);
 
   if (loading) {
     return (
@@ -124,8 +152,16 @@ export default function ConversationTraceView({
       ? reconstructConversationFromSpans(rootSpans)
       : [];
 
-  const turns =
+  const baseTurns =
     conversationSummary.length > 0 ? conversationSummary : spanConversation;
+
+  const turns =
+    spanFiles.length > 0
+      ? baseTurns.map((turn, i) => ({
+          ...turn,
+          penelope_files: spanFiles[i] ?? [],
+        }))
+      : baseTurns;
 
   const handleResponseClick = (turnNumber: number) => {
     if (onSpanSelect && rootSpans) {
@@ -157,6 +193,7 @@ export default function ConversationTraceView({
         onSpanSelect && rootSpans ? handleResponseClick : undefined
       }
       maxHeight="100%"
+      sessionToken={sessionToken}
     />
   );
 }
