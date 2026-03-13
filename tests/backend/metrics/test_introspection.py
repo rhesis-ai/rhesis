@@ -227,14 +227,12 @@ class TestConversationalIntrospection:
 
     def test_conversation_history_passed_when_accepted(self):
         """Metrics accepting conversation_history receive it via introspection."""
-        evaluator = MetricEvaluator()
         history = ConversationHistory.from_messages(
             [
                 {"role": "user", "content": "Hello"},
                 {"role": "assistant", "content": "Hi there"},
             ]
         )
-        evaluator._conversation_history = history
 
         mock_metric = MagicMock()
         mock_metric.name = "ConversationalMetric"
@@ -264,9 +262,7 @@ class TestConversationalIntrospection:
 
     def test_conversation_history_not_passed_to_single_turn(self):
         """Single-turn metrics do not receive conversation_history."""
-        evaluator = MetricEvaluator()
         history = ConversationHistory.from_messages([{"role": "user", "content": "Hello"}])
-        evaluator._conversation_history = history
 
         mock_metric = MagicMock()
         mock_metric.name = "SingleTurnMetric"
@@ -291,9 +287,6 @@ class TestConversationalIntrospection:
 
     def test_conversation_history_none_not_passed(self):
         """When conversation_history is None, it is not passed even if accepted."""
-        evaluator = MetricEvaluator()
-        evaluator._conversation_history = None
-
         mock_metric = MagicMock()
         mock_metric.name = "ConversationalMetric"
 
