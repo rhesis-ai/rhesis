@@ -64,8 +64,10 @@ test.describe('File Attachments — test detail @new-feature', () => {
       return;
     }
 
-    // Attach the fixture file via the hidden file input
+    // Click the upload button first to mount the hidden file input, then attach
+    await uploadBtn.click();
     const fileInput = page.locator('input[type="file"]').first();
+    await expect(fileInput).toBeAttached({ timeout: 5_000 });
     await fileInput.setInputFiles(fixturePath);
 
     await page.waitForLoadState('networkidle');
@@ -93,13 +95,25 @@ test.describe('File Attachments — test detail @new-feature', () => {
     await page.waitForURL(/\/tests\/.+/, { timeout: 10_000 });
     await page.waitForLoadState('networkidle');
 
-    // Upload a file first
-    const fileInput = page.locator('input[type="file"]').first();
-    const hasFileInput = await fileInput
-      .isVisible({ timeout: 5_000 })
-      .catch(() => true);
+    // Look for the upload button and attach a file first
+    const uploadBtn = page
+      .getByRole('button', { name: /attach|upload|add file/i })
+      .first();
+    const hasUpload = await uploadBtn
+      .isVisible({ timeout: 10_000 })
+      .catch(() => false);
+    if (!hasUpload) {
+      test.skip(
+        true,
+        'File attachment button not found — skipping delete test'
+      );
+      return;
+    }
 
     try {
+      await uploadBtn.click();
+      const fileInput = page.locator('input[type="file"]').first();
+      await expect(fileInput).toBeAttached({ timeout: 5_000 });
       await fileInput.setInputFiles(fixturePath);
       await page.waitForLoadState('networkidle');
     } catch {
@@ -133,10 +147,14 @@ test.describe('File Attachments — test detail @new-feature', () => {
     }
 
     await page.waitForLoadState('networkidle');
+
+    // The attachment should be removed from the list
+    await expect(page.getByText(/fixture\.txt/i).first()).toBeHidden({
+      timeout: 10_000,
+    });
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
-    expect(hasFileInput !== null).toBeTruthy(); // suppress unused var lint
   });
 });
 
@@ -197,12 +215,10 @@ test.describe('File Attachments — playground @new-feature', () => {
       else await page.keyboard.press('Escape');
     }
 
-    // Try to attach a file
-    const fileInput = page.locator('input[type="file"]').first();
-    const hasFileInput = await fileInput
-      .isVisible({ timeout: 3_000 })
-      .catch(() => true);
+    // Try to attach a file via the hidden file input
     try {
+      const fileInput = page.locator('input[type="file"]').first();
+      await expect(fileInput).toBeAttached({ timeout: 3_000 });
       await fileInput.setInputFiles(fixturePath);
       await page.waitForLoadState('networkidle');
       await expect(page.locator('body')).not.toContainText(
@@ -211,6 +227,5 @@ test.describe('File Attachments — playground @new-feature', () => {
     } catch {
       test.skip(true, 'File input not accessible in Playground — skipping');
     }
-    expect(hasFileInput !== null).toBeTruthy(); // suppress unused var lint
   });
 });

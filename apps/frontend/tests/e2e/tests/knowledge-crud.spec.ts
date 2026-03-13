@@ -53,12 +53,9 @@ test.describe('Knowledge — CRUD @crud', () => {
 
     await knowledgePage.openUploadSourceDialog();
 
-    // Attach the fixture file via the hidden file input
+    // File inputs are often hidden — assert it's attached to the DOM before using it
     const fileInput = page.locator('input[type="file"]').first();
-    const hasFileInput = await fileInput
-      .isVisible({ timeout: 5_000 })
-      .catch(() => true);
-    // file inputs are often hidden — set the file path directly
+    await expect(fileInput).toBeAttached({ timeout: 5_000 });
     await fileInput.setInputFiles(fixturePath);
 
     // Override the auto-populated title with a unique name
@@ -81,7 +78,6 @@ test.describe('Knowledge — CRUD @crud', () => {
       visible,
       `Expected source "${UNIQUE_TITLE}" to appear in the grid`
     ).toBeTruthy();
-    expect(hasFileInput !== null).toBeTruthy(); // suppress unused var lint
   });
 
   test('can delete a knowledge source via the grid selection', async ({

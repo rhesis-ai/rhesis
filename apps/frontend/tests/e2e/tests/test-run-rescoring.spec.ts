@@ -129,7 +129,7 @@ test.describe('Test Runs — re-scoring @interaction', () => {
       return;
     }
 
-    // Record the initial row count
+    // Capture row count before navigating away so we can compare after re-run
     const initialRowCount = await page.locator('[role="row"]').count();
 
     await runsPage.clickFirstRow();
@@ -180,13 +180,27 @@ test.describe('Test Runs — re-scoring @interaction', () => {
       .getByRole('presentation')
       .waitFor({ state: 'hidden', timeout: 20_000 });
 
-    // Navigate back to the list and check that a new row exists
+    // Navigate back to the list and verify a new run was created
     await runsPage.goto();
     await runsPage.expectLoaded();
     await page.waitForLoadState('networkidle');
 
-    const newRowCount = await page.locator('[role="row"]').count();
-    expect(newRowCount).toBeGreaterThanOrEqual(initialRowCount);
+    // Prefer a deterministic signal: newly-created re-runs start in Queued state
+    const queuedRow = page
+      .locator('[role="row"]')
+      .filter({ hasText: /queued/i });
+    const hasQueuedRow = await queuedRow
+      .first()
+      .isVisible({ timeout: 10_000 })
+      .catch(() => false);
+
+    if (hasQueuedRow) {
+      await expect(queuedRow.first()).toBeVisible();
+    } else {
+      // Runs may have progressed past Queued; fall back to row count comparison
+      const newRowCount = await page.locator('[role="row"]').count();
+      expect(newRowCount).toBeGreaterThanOrEqual(initialRowCount);
+    }
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );

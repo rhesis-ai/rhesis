@@ -1,12 +1,77 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import { TestRunsPage } from '../pages/TestRunsPage';
 
 /**
  * Test Run creation flow tests.
  *
  * Covers: D1.2 (create test run drawer) and the new Queued status chip (#1415).
- * Requires at least one Test Set and one Endpoint to exist in the backend.
+ * Requires at least one Test Set, Project, and Endpoint to exist in the backend.
  */
+
+/**
+ * Selects the first available option from a labeled combobox inside the drawer.
+ * Returns 'ok' if selection succeeded or the field is not present,
+ * 'skip' if the field is present but no options are available.
+ */
+async function selectDrawerCombo(
+  page: Page,
+  labelPattern: RegExp
+): Promise<'ok' | 'skip'> {
+  const drawer = page.locator('[role="presentation"]');
+  const combo = drawer.getByRole('combobox', { name: labelPattern });
+  if (!(await combo.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    return 'ok';
+  }
+  await combo.click();
+  const firstOption = page.getByRole('option').first();
+  if (!(await firstOption.isVisible({ timeout: 8_000 }).catch(() => false))) {
+    await page.keyboard.press('Escape');
+    return 'skip';
+  }
+  await firstOption.click();
+  return 'ok';
+}
+
+/**
+ * Fills all required fields in the Create Test Run drawer:
+ * name, Test Set, Project, and Endpoint.
+ * Returns false (and calls test.skip) if a required selection has no options.
+ */
+async function fillCreateTestRunDrawer(
+  page: Page,
+  name: string
+): Promise<boolean> {
+  const nameInput = page
+    .locator('[role="presentation"]')
+    .getByRole('textbox', { name: /name/i })
+    .first();
+  if (!(await nameInput.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    test.skip(true, 'Name field not found in drawer — skipping');
+    return false;
+  }
+  await nameInput.fill(name);
+
+  const testSetResult = await selectDrawerCombo(page, /test set/i);
+  if (testSetResult === 'skip') {
+    test.skip(true, 'No test sets available — skipping');
+    return false;
+  }
+
+  const projectResult = await selectDrawerCombo(page, /project/i);
+  if (projectResult === 'skip') {
+    test.skip(true, 'No projects available — skipping');
+    return false;
+  }
+
+  const endpointResult = await selectDrawerCombo(page, /endpoint/i);
+  if (endpointResult === 'skip') {
+    test.skip(true, 'No endpoints available — skipping');
+    return false;
+  }
+
+  return true;
+}
+
 test.describe('Test Runs — creation @crud', () => {
   test('can open the Create Test Run drawer', async ({ page }) => {
     const runsPage = new TestRunsPage(page);
@@ -65,41 +130,8 @@ test.describe('Test Runs — creation @crud', () => {
       .getByRole('presentation')
       .waitFor({ state: 'visible', timeout: 10_000 });
 
-    // Fill in the run name
-    const nameInput = page
-      .locator('[role="presentation"]')
-      .getByRole('textbox', { name: /name/i })
-      .first();
-    const hasName = await nameInput
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!hasName) {
-      test.skip(true, 'Name field not found in drawer — skipping');
-      return;
-    }
-    await nameInput.fill(UNIQUE_NAME);
-
-    // Select a test set from the dropdown
-    const testSetSelect = page
-      .locator('[role="presentation"] [aria-haspopup="listbox"]')
-      .first();
-    const hasTestSetSelect = await testSetSelect
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (hasTestSetSelect) {
-      await testSetSelect.click();
-      const firstOption = page.getByRole('option').first();
-      const hasOption = await firstOption
-        .isVisible({ timeout: 8_000 })
-        .catch(() => false);
-      if (hasOption) {
-        await firstOption.click();
-      } else {
-        await page.keyboard.press('Escape');
-        test.skip(true, 'No test sets available to select — skipping');
-        return;
-      }
-    }
+    const filled = await fillCreateTestRunDrawer(page, UNIQUE_NAME);
+    if (!filled) return;
 
     // Submit the form
     const submitBtn = page
@@ -151,39 +183,8 @@ test.describe('Test Runs — creation @crud', () => {
       .getByRole('presentation')
       .waitFor({ state: 'visible', timeout: 10_000 });
 
-    const nameInput = page
-      .locator('[role="presentation"]')
-      .getByRole('textbox', { name: /name/i })
-      .first();
-    const hasName = await nameInput
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!hasName) {
-      test.skip(true, 'Name field not found — skipping');
-      return;
-    }
-    await nameInput.fill(UNIQUE_NAME);
-
-    // Try to select a test set
-    const testSetSelect = page
-      .locator('[role="presentation"] [aria-haspopup="listbox"]')
-      .first();
-    const hasTestSetSelect = await testSetSelect
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (hasTestSetSelect) {
-      await testSetSelect.click();
-      const firstOption = page.getByRole('option').first();
-      const hasOption = await firstOption
-        .isVisible({ timeout: 8_000 })
-        .catch(() => false);
-      if (hasOption) await firstOption.click();
-      else {
-        await page.keyboard.press('Escape');
-        test.skip(true, 'No test sets available — skipping');
-        return;
-      }
-    }
+    const filled = await fillCreateTestRunDrawer(page, UNIQUE_NAME);
+    if (!filled) return;
 
     const submitBtn = page
       .locator('[role="presentation"]')
