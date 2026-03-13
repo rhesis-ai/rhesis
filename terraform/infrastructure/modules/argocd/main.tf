@@ -9,6 +9,22 @@
 # We use null_resource + local-exec because ArgoCD's Kustomize install creates
 # dozens of CRDs that should NOT live in Terraform state — ArgoCD owns them
 # after bootstrap.
+#
+# Prerequisites:
+#   - gcloud CLI >= 450.0.0
+#   - kubectl >= 1.28
+#   - gke-gcloud-auth-plugin (install: gcloud components install gke-gcloud-auth-plugin)
+#   - VPN connectivity to the target cluster's private endpoint
+#
+
+terraform {
+  required_providers {
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
+  }
+}
 
 locals {
   # Use /tmp to avoid writing credentials inside the repo tree (interrupted apply could leak).
@@ -82,7 +98,7 @@ resource "null_resource" "argocd_install" {
 
   triggers = {
     cluster_name  = var.cluster_name
-    kustomize_dir = "${var.repo_root}/kubernetes/bootstrap/argocd"
+    manifest_hash = sha256(file("${var.repo_root}/kubernetes/bootstrap/argocd/kustomization.yaml"))
   }
 
   provisioner "local-exec" {
@@ -111,8 +127,8 @@ resource "null_resource" "argocd_root_app" {
   depends_on = [null_resource.argocd_wait]
 
   triggers = {
-    cluster_name = var.cluster_name
-    base_yaml    = "${var.repo_root}/kubernetes/clusters/${var.environment}/base.yaml"
+    cluster_name   = var.cluster_name
+    base_yaml_hash = sha256(file("${var.repo_root}/kubernetes/clusters/${var.environment}/base.yaml"))
   }
 
   provisioner "local-exec" {

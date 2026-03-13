@@ -9,9 +9,7 @@ spec:
     repoURL: https://github.com/rhesis-ai/rhesis.git
     targetRevision: main
     path: kubernetes/clusters/prd
-    directory:
-      recurse: true
-      exclude: '{external-secrets/*,external-dns/*,internal-dns/*,ingress-nginx-external/*,ingress-nginx-internal/*,cert-manager/*,**/kustomization.yaml}'
+    kustomize: {}
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
