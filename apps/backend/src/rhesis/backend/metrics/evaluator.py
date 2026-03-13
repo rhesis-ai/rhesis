@@ -729,7 +729,9 @@ class MetricEvaluator:
             MetricResult object with score and details
         """
         logger.debug(f"Evaluating metric '{metric.name}'")
-        ch = conversation_history if conversation_history is not None else self._conversation_history
+        ch = (
+            conversation_history if conversation_history is not None else self._conversation_history
+        )
         meta = metadata if metadata is not None else self._metadata
         tools = tool_calls if tool_calls is not None else self._tool_calls
         kwargs = build_metric_evaluate_params(
