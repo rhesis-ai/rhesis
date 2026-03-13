@@ -584,8 +584,19 @@ class MetricEvaluator:
                     )
                 except Exception as e:
                     # Ensure we always have a result, even for processing errors
-                    error_result = self._create_error_result(class_name, metric_config, backend, e)
-                    results[unique_key] = error_result
+                    results[unique_key] = MetricResultBuilder.error(
+                        reason=f"Evaluation failed: {str(e)}",
+                        backend=backend,
+                        name=metric_config.name or class_name,
+                        class_name=class_name,
+                        description=metric_config.description
+                        or f"{class_name} evaluation metric",
+                        error=str(e),
+                        error_type=type(e).__name__,
+                        threshold=metric_config.threshold
+                        if metric_config.threshold is not None
+                        else 0.0,
+                    )
                     failed_count += 1
                     completed_count += 1
                     logger.error(
@@ -633,7 +644,17 @@ class MetricEvaluator:
                 idx = metric_keys.index(key)
                 class_name, _, metric_config, backend = metric_tasks[idx]
 
-                results[key] = self._create_timeout_result(class_name, metric_config, backend)
+                results[key] = MetricResultBuilder.timeout(
+                    backend=backend,
+                    name=metric_config.name or class_name,
+                    class_name=class_name,
+                    description=metric_config.description
+                    or f"{class_name} evaluation metric",
+                    threshold=metric_config.threshold
+                    if metric_config.threshold is not None
+                    else 0.0,
+                    timeout_seconds=METRIC_OVERALL_TIMEOUT,
+                )
 
         return len(incomplete_metrics)
 
@@ -708,66 +729,6 @@ class MetricEvaluator:
                 exc_info=True,
             )
             raise
-
-    # ============================================================================
-    # ERROR RESULT HELPERS
-    # ============================================================================
-
-    def _create_error_result(
-        self,
-        class_name: str,
-        metric_config: MetricConfig,
-        backend: str,
-        exception: Exception,
-    ) -> Dict[str, Any]:
-        """
-        Create a consistent error result for a failed metric.
-
-        Args:
-            class_name: Name of the metric class
-            metric_config: Configuration for the metric
-            backend: Backend used for the metric
-            exception: The exception that occurred
-
-        Returns:
-            Dictionary with error result
-        """
-        return MetricResultBuilder.error(
-            reason=f"Evaluation failed: {str(exception)}",
-            backend=backend,
-            name=metric_config.name or class_name,
-            class_name=class_name,
-            description=metric_config.description or f"{class_name} evaluation metric",
-            error=str(exception),
-            error_type=type(exception).__name__,
-            threshold=metric_config.threshold if metric_config.threshold is not None else 0.0,
-        )
-
-    def _create_timeout_result(
-        self,
-        class_name: str,
-        metric_config: MetricConfig,
-        backend: str,
-    ) -> Dict[str, Any]:
-        """
-        Create a result for metrics that timed out.
-
-        Args:
-            class_name: Name of the metric class
-            metric_config: Configuration for the metric
-            backend: Backend used for the metric
-
-        Returns:
-            Dictionary with timeout result
-        """
-        return MetricResultBuilder.timeout(
-            backend=backend,
-            name=metric_config.name or class_name,
-            class_name=class_name,
-            description=metric_config.description or f"{class_name} evaluation metric",
-            threshold=metric_config.threshold if metric_config.threshold is not None else 0.0,
-            timeout_seconds=METRIC_OVERALL_TIMEOUT,
-        )
 
     # ============================================================================
     # MAIN ORCHESTRATION METHOD
