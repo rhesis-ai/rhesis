@@ -14,10 +14,10 @@ from tenacity import (
 )
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
-from rhesis.backend.app.models.metric import ScoreType
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
+from rhesis.sdk.metrics.base import ScoreType
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 

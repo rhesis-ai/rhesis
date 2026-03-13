@@ -9,20 +9,7 @@ from rhesis.backend.app.schemas.status import Status
 from rhesis.backend.app.schemas.tag import Tag
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
 from rhesis.backend.app.schemas.user import UserReference
-
-
-class ScoreType(str, Enum):
-    NUMERIC = "numeric"
-    CATEGORICAL = "categorical"
-
-
-class ThresholdOperator(str, Enum):
-    EQUAL = "="
-    LESS_THAN = "<"
-    GREATER_THAN = ">"
-    LESS_THAN_OR_EQUAL = "<="
-    GREATER_THAN_OR_EQUAL = ">="
-    NOT_EQUAL = "!="
+from rhesis.sdk.metrics.base import ScoreType, ThresholdOperator
 
 
 class MetricScope(str, Enum):
