@@ -16,7 +16,7 @@ from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 logger = logging.getLogger(__name__)
 
 
-def call_metric_with_introspection(
+def build_metric_evaluate_params(
     metric: BaseMetric,
     input_text: str,
     output_text: str,
@@ -25,16 +25,15 @@ def call_metric_with_introspection(
     conversation_history: Optional[Any] = None,
     metadata: Optional[Dict[str, Any]] = None,
     tool_calls: Optional[List[Dict[str, Any]]] = None,
-) -> Any:
+) -> Dict[str, Any]:
     """
-    Call metric.evaluate() with only the parameters it accepts.
+    Build kwargs for metric.evaluate() from evaluation inputs using introspection.
 
-    Uses introspection to check the metric's signature and only passes
-    parameters that are actually defined. This allows metrics to have
-    different signatures (e.g., ContextualRelevancy doesn't need output).
+    Inspects the metric's evaluate signature and only includes parameters
+    that are actually defined (e.g., ContextualRelevancy doesn't need output).
 
     Args:
-        metric: The metric instance to evaluate
+        metric: The metric instance
         input_text: The input query or question
         output_text: The actual output from the LLM
         expected_output: The expected or reference output
@@ -44,7 +43,7 @@ def call_metric_with_introspection(
         tool_calls: Optional list of tool calls
 
     Returns:
-        MetricResult from the metric's evaluate() method
+        Dict of kwargs to pass to metric.evaluate()
     """
     sig = inspect.signature(metric.evaluate)
     params = sig.parameters
@@ -67,8 +66,7 @@ def call_metric_with_introspection(
     if "goal" in params:
         kwargs["goal"] = input_text
 
-    logger.debug(f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}")
-    return metric.evaluate(**kwargs)
+    return kwargs
 
 
 def metric_model_to_config(metric: MetricModel) -> MetricConfig:
