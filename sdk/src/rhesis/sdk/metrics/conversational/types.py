@@ -9,6 +9,7 @@ These types follow the widely-adopted standard format compatible with:
 - Most LLM providers
 """
 
+import json
 from typing import Any, Dict, Generator, List, Literal, Optional, Tuple, Union
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -244,6 +245,83 @@ class ConversationHistory(BaseModel):
                 i += 1
         return tool_calls_list
 
+    def _format_conversation(self) -> str:
+        """
+        Return a structured transcript with numbered turns and inline metadata.
+
+        Groups consecutive user/assistant message pairs into numbered turns.
+        When an assistant message carries metadata, context, or tool calls they
+        are rendered inline beneath the assistant response.
+
+        Example output::
+
+            Turn 1:
+              User: Hello
+              Assistant: Hi there
+              Metadata: {"intent": "greeting"}
+
+            Turn 2:
+              User: How are you?
+              Assistant: I'm fine
+
+        Use this method when the formatted text will be sent to an LLM judge so
+        that metadata remains contextually tied to its turn.
+        """
+        formatted_turns = []
+        turn_number = 0
+        messages = self.messages
+        i = 0
+
+        while i < len(messages):
+            role, content, _ = self._msg_attrs(messages[i])
+
+            if not content:
+                i += 1
+                continue
+
+            if role == "user":
+                turn_number += 1
+                lines = [f"Turn {turn_number}:", f"  User: {content}"]
+                if i + 1 < len(messages):
+                    nxt_role, nxt_content, nxt_meta = self._msg_attrs(messages[i + 1])
+                    if nxt_role == "assistant" and nxt_content:
+                        lines.append(f"  Assistant: {nxt_content}")
+                        nxt_ctx = self._msg_context(messages[i + 1])
+                        if nxt_ctx:
+                            lines.append(f"  Context: {json.dumps(nxt_ctx, indent=2)}")
+                        if nxt_meta:
+                            lines.append(f"  Metadata: {json.dumps(nxt_meta, indent=2)}")
+                        nxt_tc = self._msg_tool_calls(messages[i + 1])
+                        if nxt_tc:
+                            lines.append(f"  Tool Calls: {json.dumps(nxt_tc, indent=2)}")
+                        i += 2
+                    else:
+                        i += 1
+                else:
+                    i += 1
+                formatted_turns.append("\n".join(lines))
+
+            elif role == "assistant":
+                turn_number += 1
+                _, _, meta = self._msg_attrs(messages[i])
+                ctx = self._msg_context(messages[i])
+                tc = self._msg_tool_calls(messages[i])
+                lines = [f"Turn {turn_number}:", f"  Assistant: {content}"]
+                if ctx:
+                    lines.append(f"  Context: {json.dumps(ctx, indent=2)}")
+                if meta:
+                    lines.append(f"  Metadata: {json.dumps(meta, indent=2)}")
+                if tc:
+                    lines.append(f"  Tool Calls: {json.dumps(tc, indent=2)}")
+                formatted_turns.append("\n".join(lines))
+                i += 1
+
+            else:
+                formatted_turns.append(f"[{role}]: {content}")
+                i += 1
+
+        return "\n\n".join(formatted_turns)
+
     def to_text(self) -> str:
         """
         Return a flat transcript of the conversation as role-prefixed lines.
@@ -252,18 +330,21 @@ class ConversationHistory(BaseModel):
 
             User: Hello
             Assistant: Hi there
+
             User: How are you?
             Assistant: I'm fine
 
         Only messages with content are included. The role is title-cased
         (e.g. "user" → "User", "assistant" → "Assistant").
+        Metadata, context, and tool calls are excluded — use _format_conversation()
+        when those fields need to be visible to an LLM judge.
         """
         parts = []
         for msg in self.messages:
             role, content, _ = self._msg_attrs(msg)
             if content:
                 parts.append(f"{role.capitalize()}: {content}")
-        return "\n".join(parts)
+        return "\n\n".join(parts)
 
     def to_dict_list(self) -> List[Dict[str, Any]]:
         """Convert all messages to dict format."""
