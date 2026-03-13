@@ -1,6 +1,6 @@
 """Add files to Insurance Chatbot endpoint request_mapping
 
-Adds ``"files": "{{ files }}"`` to the ``request_mapping`` JSONB column of
+Adds ``"files": "{{ files }}"`` to the ``request_mapping`` json column of
 every "Insurance Chatbot" endpoint that does not yet have it, so that file
 attachments on tests are forwarded to the chatbot during execution.
 
