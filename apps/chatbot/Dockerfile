@@ -35,14 +35,18 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Copy the SDK directory (required dependency)
 COPY sdk /app/sdk/
 
-# Add SDK to the project dependencies
-RUN uv add /app/sdk
-
-# Install chatbot dependencies (which includes the SDK)
-RUN uv sync
+# Fix the SDK source path (pyproject.toml and uv.lock reference ../../sdk locally,
+# but in Docker the SDK lives at /app/sdk). Patch both files then sync with the
+# frozen lock to avoid a full re-resolution (which fails due to extras conflicts).
+RUN sed -i 's|../../sdk|/app/sdk|g' pyproject.toml uv.lock && \
+    uv sync --frozen --no-dev
 
 # Now copy the rest of your source (scripts, modules, etc.)
 COPY apps/chatbot /app/
+
+# Re-apply the SDK path patch: the COPY above overwrites pyproject.toml and uv.lock
+# with their original repo versions (containing ../../sdk), so we patch them again.
+RUN sed -i 's|../../sdk|/app/sdk|g' pyproject.toml uv.lock
 
 # Remove build dependencies after installing Python packages
 RUN apt-get purge -y build-essential \
