@@ -51,8 +51,6 @@ def upgrade() -> None:
         {"name": ENDPOINT_NAME},
     )
 
-    print(f"  ✓ Patched request_mapping for '{ENDPOINT_NAME}' endpoints missing the files key")
-
 
 def downgrade() -> None:
     """Remove the files key from request_mapping."""
@@ -69,5 +67,3 @@ def downgrade() -> None:
         ),
         {"name": ENDPOINT_NAME},
     )
-
-    print(f"  ✓ Removed files key from request_mapping for '{ENDPOINT_NAME}' endpoints")
