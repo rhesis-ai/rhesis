@@ -459,13 +459,11 @@ class MetricEvaluator:
         Returns:
             List of tuples containing (class_name, metric_instance, metric_config, backend)
         """
-        # Filter out any None values that might have slipped through
-        valid_metrics = [metric for metric in metrics if metric is not None]
 
-        logger.info(f"Preparing {len(valid_metrics)} metrics for evaluation")
+        logger.info(f"Preparing {len(metrics)} metrics for evaluation")
         metric_tasks = []
 
-        for metric_config in valid_metrics:
+        for metric_config in metrics:
             class_name = metric_config.class_name
             backend = getattr(
                 metric_config.backend, "value", metric_config.backend
@@ -475,14 +473,8 @@ class MetricEvaluator:
             model_id = (metric_config.parameters or {}).get("model_id")
 
             try:
-                # Validate essential metric configuration
-                if not class_name:
-                    logger.error(f"Metric configuration missing class_name: {metric_config}")
-                    continue
-
-                if not backend:
-                    logger.error(f"Metric configuration missing backend: {metric_config}")
-                    continue
+                # class_name and backend are already validated by diagnose_invalid_metric()
+                # before configs reach this method.
 
                 # Prepare parameters for the metric
                 metric_params = {"threshold": threshold, **parameters}
