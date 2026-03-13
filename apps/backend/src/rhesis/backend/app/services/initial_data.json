@@ -909,7 +909,8 @@
             },
             "request_mapping": {
                 "message": "{{ input }}",
-                "session_id": "{{ session_id }}"
+                "session_id": "{{ session_id }}",
+                "files": "{{ files }}"
             },
             "response_mapping": {
                 "output": "$.message",
