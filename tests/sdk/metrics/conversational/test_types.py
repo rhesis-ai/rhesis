@@ -581,7 +581,7 @@ def test_format_conversation_basic_structure():
         {"role": "assistant", "content": "Hi there"},
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     assert "Turn 1:" in result
     assert "  User: Hello" in result
     assert "  Assistant: Hi there" in result
@@ -596,7 +596,7 @@ def test_format_conversation_multi_turn_numbering():
         {"role": "assistant", "content": "A2"},
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     assert "Turn 1:" in result
     assert "Turn 2:" in result
     assert "Turn 3:" not in result
@@ -611,7 +611,7 @@ def test_format_conversation_blank_lines_between_turns():
         {"role": "assistant", "content": "A2"},
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     assert "\n\n" in result
     turns = result.split("\n\n")
     assert len(turns) == 2
@@ -628,7 +628,7 @@ def test_format_conversation_inline_metadata():
         },
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     assert "  Metadata:" in result
     assert '"confidence"' in result
     assert "0.95" in result
@@ -642,7 +642,7 @@ def test_format_conversation_inline_context():
         {"role": "assistant", "content": "A", "context": ["chunk 1", "chunk 2"]},
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     assert "  Context:" in result
     assert "chunk 1" in result
     assert "chunk 2" in result
@@ -659,7 +659,7 @@ def test_format_conversation_inline_tool_calls():
         },
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     assert "  Tool Calls:" in result
     assert "search" in result
 
@@ -673,7 +673,7 @@ def test_format_conversation_partial_metadata():
         {"role": "assistant", "content": "A2", "metadata": {"key": "val"}},
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     turns = result.split("\n\n")
     assert "Metadata" not in turns[0]
     assert "Metadata" in turns[1]
@@ -686,7 +686,7 @@ def test_format_conversation_no_metadata_no_extra_lines():
         {"role": "assistant", "content": "Hi"},
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     assert "Metadata" not in result
     assert "Context" not in result
     assert "Tool Calls" not in result
@@ -701,7 +701,7 @@ def test_format_conversation_metadata_tied_to_correct_turn():
         {"role": "assistant", "content": "A2", "metadata": {"tag": "important"}},
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     turn1_text, turn2_text = result.split("\n\n")
     assert "tag" not in turn1_text
     assert "tag" in turn2_text
@@ -720,7 +720,7 @@ def test_format_conversation_all_fields_inline():
         },
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     assert "  Context:" in result
     assert "  Metadata:" in result
     assert "  Tool Calls:" in result
@@ -734,7 +734,7 @@ def test_format_conversation_standalone_assistant():
         {"role": "assistant", "content": "You're welcome"},
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     assert "Turn 1:" in result
     assert "  Assistant: Welcome!" in result
     assert "Turn 2:" in result
@@ -748,7 +748,7 @@ def test_format_conversation_system_message():
         {"role": "assistant", "content": "Hi"},
     ]
     conv = ConversationHistory.from_messages(messages)
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     assert "[system]: You are helpful." in result
     assert "Turn 1:" in result
 
@@ -756,5 +756,45 @@ def test_format_conversation_system_message():
 def test_format_conversation_empty():
     """Empty conversation returns an empty string."""
     conv = ConversationHistory.from_messages([])
-    result = conv._format_conversation()
+    result = conv.format_conversation()
     assert result == ""
+
+
+def test_format_conversation_tool_call_only_assistant():
+    """Assistant message with content=None but tool_calls is not silently dropped."""
+    messages = [
+        {"role": "user", "content": "Search for X"},
+        {"role": "assistant", "content": None, "tool_calls": [{"name": "search", "arguments": {"q": "X"}}]},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.format_conversation()
+    assert "Turn 1:" in result
+    assert "  User: Search for X" in result
+    assert "  Tool Calls:" in result
+    assert "search" in result
+    assert "Assistant:" not in result  # no text content, so Assistant: line is omitted
+
+
+def test_format_conversation_tool_call_only_standalone_assistant():
+    """Standalone assistant with content=None but tool_calls is not dropped."""
+    messages = [
+        {"role": "assistant", "content": None, "tool_calls": [{"name": "fn"}]},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.format_conversation()
+    assert "Turn 1:" in result
+    assert "  Tool Calls:" in result
+    assert "fn" in result
+
+
+def test_format_conversation_metadata_only_assistant():
+    """Assistant message with content=None but metadata is not silently dropped."""
+    messages = [
+        {"role": "user", "content": "Q"},
+        {"role": "assistant", "content": None, "metadata": {"intent": "search"}},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.format_conversation()
+    assert "Turn 1:" in result
+    assert "  Metadata:" in result
+    assert "intent" in result

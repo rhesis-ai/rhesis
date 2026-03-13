@@ -198,11 +198,11 @@ def evaluate_multi_turn_metrics(
     conversation_summary = stored_output.get(CONVERSATION_SUMMARY_KEY, [])
     conversation_history = _build_conversation_history(conversation_summary)
 
-    # Use _format_conversation() so that per-turn metadata, context, and tool calls
+    # Use format_conversation() so that per-turn metadata, context, and tool calls
     # are rendered inline within each turn. Both single-turn judges (NumericJudge,
     # CategoricalJudge) and ConversationalJudge therefore see the same rich
     # structured transcript as their output/conversation_text input.
-    conversation_text = conversation_history._format_conversation() if conversation_history else ""
+    conversation_text = conversation_history.format_conversation() if conversation_history else ""
 
     try:
         results = metrics_evaluator.evaluate(

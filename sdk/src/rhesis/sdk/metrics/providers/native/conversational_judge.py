@@ -441,7 +441,7 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
         """
         Format conversation history as readable text for the prompt.
 
-        Delegates to ConversationHistory._format_conversation() which groups
+        Delegates to ConversationHistory.format_conversation() which groups
         user/assistant pairs into numbered turns and renders metadata, context,
         and tool calls inline beneath each assistant response.
 
@@ -451,7 +451,7 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
         Returns:
             Formatted conversation text with per-turn metadata inline
         """
-        return conversation_history._format_conversation()
+        return conversation_history.format_conversation()
 
     @staticmethod
     def _count_turns(conversation_history: ConversationHistory) -> int:
