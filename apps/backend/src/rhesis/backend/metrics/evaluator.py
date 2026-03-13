@@ -442,8 +442,7 @@ class MetricEvaluator:
                         backend=backend,
                         name=metric_config.name or class_name,
                         class_name=class_name,
-                        description=metric_config.description
-                        or f"{class_name} evaluation metric",
+                        description=metric_config.description or f"{class_name} evaluation metric",
                         error=str(e),
                         error_type=type(e).__name__,
                         threshold=metric_config.threshold
@@ -501,8 +500,7 @@ class MetricEvaluator:
                     backend=backend,
                     name=metric_config.name or class_name,
                     class_name=class_name,
-                    description=metric_config.description
-                    or f"{class_name} evaluation metric",
+                    description=metric_config.description or f"{class_name} evaluation metric",
                     threshold=metric_config.threshold
                     if metric_config.threshold is not None
                     else 0.0,
@@ -755,9 +753,7 @@ class MetricEvaluator:
         """
         try:
             result = future.result()
-            description = (
-                metric_config.description or f"{class_name} evaluation metric"
-            )
+            description = metric_config.description or f"{class_name} evaluation metric"
 
             if "is_successful" in result.details and result.details["is_successful"] is not None:
                 is_successful = result.details["is_successful"]
@@ -802,9 +798,7 @@ class MetricEvaluator:
             logger.error(f"Exception type: {type(exc).__name__}")
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
 
-            error_description = (
-                metric_config.description or f"{class_name} evaluation metric"
-            )
+            error_description = metric_config.description or f"{class_name} evaluation metric"
             threshold = metric_config.threshold
             reference_score = metric_config.reference_score
             return MetricResultBuilder.error(

@@ -30,13 +30,9 @@ def metric_model_to_config(metric: MetricModel) -> MetricConfig:
         "context_required",
     ]
     config = {field: getattr(metric, field, None) for field in common_fields}
-    config["backend"] = (
-        metric.backend_type.type_value if metric.backend_type else "rhesis"
-    )
+    config["backend"] = metric.backend_type.type_value if metric.backend_type else "rhesis"
     config["name"] = config["name"] or f"Metric_{metric.id}"
-    config["description"] = (
-        config["description"] or f"Metric evaluation for {metric.class_name}"
-    )
+    config["description"] = config["description"] or f"Metric evaluation for {metric.class_name}"
     config["score_type"] = config["score_type"] or ScoreType.NUMERIC.value
 
     score_type = metric.score_type or ScoreType.NUMERIC.value
@@ -44,9 +40,7 @@ def metric_model_to_config(metric: MetricModel) -> MetricConfig:
         config["categories"] = metric.categories
         config["passing_categories"] = metric.passing_categories
     else:
-        config["threshold"] = (
-            metric.threshold if metric.threshold is not None else 0.5
-        )
+        config["threshold"] = metric.threshold if metric.threshold is not None else 0.5
         config["threshold_operator"] = metric.threshold_operator
         if metric.min_score is not None:
             config["min_score"] = metric.min_score
@@ -128,9 +122,7 @@ def validate_metric_configs(
         error_reason = diagnose_invalid_metric(config)
         if error_reason and error_reason != "unknown validation error":
             invalid_key = f"InvalidMetric_{i}"
-            backend_str = (
-                getattr(config.backend, "value", config.backend) or "unknown"
-            )
+            backend_str = getattr(config.backend, "value", config.backend) or "unknown"
             invalid_metric_results[invalid_key] = MetricResultBuilder.error(
                 reason=f"Invalid metric configuration: {error_reason}",
                 backend=backend_str,
@@ -140,16 +132,13 @@ def validate_metric_configs(
                 error=error_reason,
                 threshold=0.0,
             )
-            logger.warning(
-                f"Invalid metric configuration {i}: {error_reason}"
-            )
+            logger.warning(f"Invalid metric configuration {i}: {error_reason}")
         else:
             metric_configs.append(config)
 
     if invalid_metric_results:
         logger.warning(
-            f"Found {len(invalid_metric_results)} invalid metrics "
-            f"that will be reported as errors"
+            f"Found {len(invalid_metric_results)} invalid metrics that will be reported as errors"
         )
 
     logger.debug(
@@ -192,13 +181,11 @@ def _resolve_metric_model(
             return llm
 
         logger.warning(
-            f"[METRIC_MODEL] Model ID {model_id} not found for "
-            f"metric '{metric_name_for_log}'"
+            f"[METRIC_MODEL] Model ID {model_id} not found for metric '{metric_name_for_log}'"
         )
     except Exception as e:
         logger.warning(
-            f"[METRIC_MODEL] Error fetching metric-specific model for "
-            f"'{metric_name_for_log}': {e}"
+            f"[METRIC_MODEL] Error fetching metric-specific model for '{metric_name_for_log}': {e}"
         )
     return None
 
@@ -250,8 +237,7 @@ def prepare_metrics(
             if metric_model is None and model is not None:
                 metric_model = model
                 logger.debug(
-                    f"[METRIC_MODEL] Using user's default model for "
-                    f"'{metric_name_for_log}'"
+                    f"[METRIC_MODEL] Using user's default model for '{metric_name_for_log}'"
                 )
 
             if metric_model is not None:
@@ -261,8 +247,7 @@ def prepare_metrics(
 
             metric_name = metric_config.name or class_name
             logger.debug(
-                f"[SDK_DIRECT] Creating metric directly via SDK: "
-                f"{metric_name or class_name}"
+                f"[SDK_DIRECT] Creating metric directly via SDK: {metric_name or class_name}"
             )
 
             config_dict = dataclasses.asdict(metric_config)
@@ -280,9 +265,7 @@ def prepare_metrics(
             factory_params.pop("parameters", None)
 
             try:
-                metric = MetricFactory.create(
-                    backend, class_name, **factory_params
-                )
+                metric = MetricFactory.create(backend, class_name, **factory_params)
             except Exception as create_error:
                 logger.error(
                     f"[SDK_DIRECT] Failed to create metric "
