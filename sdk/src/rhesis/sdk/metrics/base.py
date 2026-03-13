@@ -36,6 +36,7 @@ class Backend(str, Enum):
     RAGAS = "ragas"
     CUSTOM = "custom"
     GARAK = "garak"
+    SDK = "sdk"
 
 
 class ScoreType(str, Enum):
@@ -88,6 +89,24 @@ class MetricConfig:
     requires_ground_truth: Optional[bool] = False
     requires_context: Optional[bool] = False
     id: Optional[str] = None  # ID from backend when pulled
+
+    # Scoring fields (optional on base; subclasses add validation)
+    threshold: Optional[float] = None
+    threshold_operator: Optional[str] = None
+    min_score: Optional[float] = None
+    max_score: Optional[float] = None
+    categories: Optional[List[str]] = None
+    passing_categories: Optional[List[str]] = None
+    reference_score: Optional[str] = None
+
+    # Evaluation fields
+    evaluation_prompt: Optional[str] = None
+    evaluation_steps: Optional[str] = None
+    reasoning: Optional[str] = None
+    evaluation_examples: Optional[str] = None
+
+    # Extra parameters bucket (e.g. for factory kwargs)
+    parameters: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
         if isinstance(self.backend, str):

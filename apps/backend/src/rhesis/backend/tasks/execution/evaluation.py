@@ -185,14 +185,14 @@ def evaluate_multi_turn_metrics(
         return {}
 
     from rhesis.backend.tasks.execution.executors.runners import (
-        _build_sdk_metric_sender,
+        _build_connector_metric_sender,
     )
 
     metrics_evaluator = MetricEvaluator(
         model=model,
         db=db,
         organization_id=organization_id,
-        sdk_metric_sender=_build_sdk_metric_sender(project_id, environment),
+        connector_metric_sender=_build_connector_metric_sender(project_id, environment),
     )
 
     conversation_summary = stored_output.get(CONVERSATION_SUMMARY_KEY, [])
