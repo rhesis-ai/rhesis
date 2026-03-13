@@ -1,6 +1,6 @@
 import concurrent.futures
 import logging
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from sqlalchemy.orm import Session
 from tenacity import (
@@ -19,6 +19,11 @@ from rhesis.backend.metrics.metric_service import (
 )
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
+from rhesis.backend.metrics.sdk_evaluator import (
+    SdkMetricSender,
+    build_sender_not_configured_results,
+    evaluate_sdk_metrics,
+)
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
@@ -45,19 +50,12 @@ METRIC_RETRY_MAX_WAIT = 10  # seconds
 class MetricEvaluator:
     """Evaluator class that handles metric computation using configured backends."""
 
-    # Type alias for the injected SDK metric sender.
-    # Signature: (metric_run_id, metric_name, inputs) -> result dict
-    SdkMetricSender = Callable[
-        [str, str, Dict[str, Any]],
-        Awaitable[Dict[str, Any]],
-    ]
-
     def __init__(
         self,
         model: Optional[Any] = None,
         db: Optional[Session] = None,
         organization_id: Optional[str] = None,
-        sdk_metric_sender: Optional["MetricEvaluator.SdkMetricSender"] = None,
+        sdk_metric_sender: Optional[SdkMetricSender] = None,
     ):
         """
         Initialize evaluator with factory and score evaluator.
@@ -176,143 +174,23 @@ class MetricEvaluator:
 
         # Evaluate SDK metrics via connector RPC
         if sdk_configs:
-            sdk_results = self._evaluate_sdk_metrics(
-                sdk_configs, input_text, output_text, expected_output, context
-            )
+            if not self._sdk_metric_sender:
+                logger.warning("Cannot evaluate SDK metrics: no sdk_metric_sender configured")
+                sdk_results = build_sender_not_configured_results(sdk_configs)
+            else:
+                sdk_results = evaluate_sdk_metrics(
+                    sdk_configs,
+                    input_text,
+                    output_text,
+                    expected_output,
+                    context,
+                    self._sdk_metric_sender,
+                    self.score_evaluator,
+                )
             results.update(sdk_results)
 
         # Merge invalid metric results into the final results
         results.update(invalid_metric_results)
-
-        return results
-
-    def _evaluate_sdk_metrics(
-        self,
-        sdk_configs: List[MetricConfig],
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
-    ) -> Dict[str, Any]:
-        """
-        Evaluate SDK-side metrics via the connector RPC.
-
-        Args:
-            sdk_configs: List of metric configurations with backend="sdk"
-            input_text: The input query
-            output_text: The actual LLM output
-            expected_output: The expected output
-            context: List of context strings
-
-        Returns:
-            Dictionary of metric results keyed by metric name
-        """
-        if not self._sdk_metric_sender:
-            logger.warning("Cannot evaluate SDK metrics: no sdk_metric_sender configured")
-            return {
-                (c.name or f"SDKMetric_{i}"): MetricResultBuilder.error(
-                    reason="SDK metric sender not configured",
-                    backend="sdk",
-                    name=c.name or f"SDKMetric_{i}",
-                    class_name=c.class_name or "Unknown",
-                    error="sdk_metric_sender not configured",
-                )
-                for i, c in enumerate(sdk_configs)
-            }
-
-        import asyncio
-        import uuid
-
-        results = {}
-
-        for config in sdk_configs:
-            metric_name = config.name or ""
-            class_name = config.class_name or metric_name
-            description = config.description or f"SDK metric: {class_name}"
-            threshold = config.threshold if config.threshold is not None else 0.0
-
-            metric_run_id = str(uuid.uuid4())
-
-            inputs = {
-                "input": input_text,
-                "output": output_text,
-                "expected_output": expected_output or "",
-                "context": context or [],
-            }
-
-            try:
-                loop = None
-                try:
-                    loop = asyncio.get_running_loop()
-                except RuntimeError:
-                    pass
-
-                coro = self._sdk_metric_sender(metric_run_id, class_name, inputs)
-
-                if loop and loop.is_running():
-                    with concurrent.futures.ThreadPoolExecutor() as pool:
-                        sdk_result = pool.submit(asyncio.run, coro).result(timeout=60)
-                else:
-                    sdk_result = asyncio.run(coro)
-
-                if "error" in sdk_result and "status" not in sdk_result:
-                    results[metric_name or class_name] = MetricResultBuilder.error(
-                        reason=sdk_result.get("details", sdk_result.get("error", "Unknown error")),
-                        backend="sdk",
-                        name=metric_name,
-                        class_name=class_name,
-                        description=description,
-                        error=sdk_result.get("error"),
-                        threshold=threshold,
-                    )
-                elif sdk_result.get("status") == "error":
-                    results[metric_name or class_name] = MetricResultBuilder.error(
-                        reason=sdk_result.get("error", "SDK metric error"),
-                        backend="sdk",
-                        name=metric_name,
-                        class_name=class_name,
-                        description=description,
-                        error=sdk_result.get("error"),
-                        threshold=threshold,
-                        duration_ms=sdk_result.get("duration_ms"),
-                    )
-                else:
-                    score = sdk_result.get("score", 0.0)
-                    details = sdk_result.get("details", {})
-                    threshold_op = config.threshold_operator or ">="
-                    is_successful = self.score_evaluator.evaluate_score(
-                        score=score,
-                        threshold=threshold,
-                        threshold_operator=threshold_op,
-                    )
-
-                    results[metric_name or class_name] = MetricResultBuilder.success(
-                        score=score,
-                        reason=details.get("reason", f"SDK metric score: {score}"),
-                        is_successful=is_successful,
-                        backend="sdk",
-                        name=metric_name,
-                        class_name=class_name,
-                        description=description,
-                        threshold=threshold,
-                        duration_ms=sdk_result.get("duration_ms"),
-                    )
-
-            except Exception as e:
-                logger.error(
-                    f"Error evaluating SDK metric '{class_name}': {e}",
-                    exc_info=True,
-                )
-                results[metric_name or class_name] = MetricResultBuilder.error(
-                    reason=f"SDK metric evaluation failed: {e}",
-                    backend="sdk",
-                    name=metric_name,
-                    class_name=class_name,
-                    description=description,
-                    error=str(e),
-                    error_type=type(e).__name__,
-                    threshold=threshold,
-                )
 
         return results
 
