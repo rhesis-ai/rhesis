@@ -8,7 +8,7 @@ evaluate() signatures and returns only the kwargs each metric accepts.
 import inspect
 from unittest.mock import MagicMock
 
-from rhesis.backend.metrics.metric_service import build_metric_evaluate_params
+from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
 from rhesis.sdk.metrics import MetricResult
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
@@ -343,7 +343,7 @@ class TestIntrospectionCompleteness:
         """Every required param in any metric's evaluate() must be in SUPPORTED_PARAMS.
 
         If this test fails, update build_metric_evaluate_params() in
-        metric_service.py to handle the new parameter, then add it to
+        metric_config.py to handle the new parameter, then add it to
         SUPPORTED_PARAMS above.
         """
         metric_classes = self._get_all_metric_classes()
@@ -370,6 +370,6 @@ class TestIntrospectionCompleteness:
         assert unsupported == [], (
             "Unsupported required parameters found in metric evaluate() "
             "signatures. Update build_metric_evaluate_params() in "
-            "metric_service.py and SUPPORTED_PARAMS in this test:\n"
+            "metric_config.py and SUPPORTED_PARAMS in this test:\n"
             + "\n".join(f"  - {u}" for u in unsupported)
         )

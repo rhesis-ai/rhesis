@@ -66,7 +66,9 @@ class ConnectorBackendStrategy:
             return {}
 
         if not self._connector_metric_sender:
-            logger.warning("Cannot evaluate connector metrics: no connector_metric_sender configured")
+            logger.warning(
+                "Cannot evaluate connector metrics: no connector_metric_sender configured"
+            )
             return _build_sender_not_configured_results(configs)
 
         return _evaluate_connector_metrics(

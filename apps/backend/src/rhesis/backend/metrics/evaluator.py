@@ -10,7 +10,7 @@ from rhesis.backend.metrics.backends.connector import (
     ConnectorMetricSender,
 )
 from rhesis.backend.metrics.backends.local import LocalBackendStrategy
-from rhesis.backend.metrics.metric_service import validate_metric_configs
+from rhesis.backend.metrics.metric_config import validate_metric_configs
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.sdk.metrics import MetricConfig
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
