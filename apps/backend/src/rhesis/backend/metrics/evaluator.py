@@ -5,8 +5,11 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.metrics.backends.base import MetricBackendStrategy
+from rhesis.backend.metrics.backends.connector import (
+    ConnectorBackendStrategy,
+    ConnectorMetricSender,
+)
 from rhesis.backend.metrics.backends.local import LocalBackendStrategy
-from rhesis.backend.metrics.backends.connector import ConnectorBackendStrategy, ConnectorMetricSender
 from rhesis.backend.metrics.metric_service import validate_metric_configs
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.sdk.metrics import MetricConfig
@@ -70,43 +73,6 @@ class MetricEvaluator:
         if extra_strategies:
             for strategy in extra_strategies:
                 self._strategies[strategy.backend_value()] = strategy
-
-    # -------------------------------------------------------------------------
-    # Backward-compatible attribute accessors
-    # (tests and callers that read evaluator.model / .db / .organization_id)
-    # -------------------------------------------------------------------------
-
-    @property
-    def model(self) -> Optional[Any]:
-        return self._local_strategy._model  # type: ignore[attr-defined]
-
-    @model.setter
-    def model(self, value: Optional[Any]) -> None:
-        self._local_strategy._model = value  # type: ignore[attr-defined]
-
-    @property
-    def db(self) -> Optional[Session]:
-        return self._local_strategy._db  # type: ignore[attr-defined]
-
-    @db.setter
-    def db(self, value: Optional[Session]) -> None:
-        self._local_strategy._db = value  # type: ignore[attr-defined]
-
-    @property
-    def organization_id(self) -> Optional[str]:
-        return self._local_strategy._organization_id  # type: ignore[attr-defined]
-
-    @organization_id.setter
-    def organization_id(self, value: Optional[str]) -> None:
-        self._local_strategy._organization_id = value  # type: ignore[attr-defined]
-
-    # -------------------------------------------------------------------------
-    # Backward-compatible delegation to LocalBackendStrategy internals
-    # (tests that call evaluator._evaluate_metric() directly)
-    # -------------------------------------------------------------------------
-
-    def _evaluate_metric(self, metric: Any, *args: Any, **kwargs: Any) -> Any:
-        return self._local_strategy._evaluate_metric(metric, *args, **kwargs)  # type: ignore[attr-defined]
 
     def evaluate(
         self,
