@@ -217,7 +217,9 @@ class SingleTurnRunner(BaseRunner):
                 model=model,
                 db=db,
                 organization_id=organization_id,
-                connector_metric_sender=_build_connector_metric_sender(ep_project_id, ep_environment),
+                connector_metric_sender=_build_connector_metric_sender(
+                    ep_project_id, ep_environment
+                ),
             )
 
             if model:
