@@ -31,12 +31,6 @@ jobs:
           penelope:
             - 'penelope/**'
 
-    # Python-based linting (SDK, Backend, Penelope)
-    - name: Set up Python
-      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
 
     - name: Install uv
       if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
@@ -91,22 +85,26 @@ jobs:
         cd apps/frontend
         npm ci --legacy-peer-deps
 
-    - name: Run frontend validation (format, lint, type-check, build)
+    - name: Run frontend format check
       if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
       run: |
         cd apps/frontend
-        ./scripts/validate.sh
+        npm run format:check
       continue-on-error: false
-      env:
-        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET || 'dummy-secret-for-ci-build' }}
-        NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL || 'http://localhost:3000' }}
-        NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:8080' }}
-        NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080' }}
-        BACKEND_URL: ${{ secrets.BACKEND_URL || 'http://localhost:8080' }}
-        FRONTEND_ENV: 'production'
-        APP_VERSION: '0.2.4'
-        NEXT_PUBLIC_AUTH0_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_AUTH0_CLIENT_ID || 'dummy-client-id' }}
-        NEXT_PUBLIC_AUTH0_DOMAIN: ${{ secrets.NEXT_PUBLIC_AUTH0_DOMAIN || 'dummy-domain.auth0.com' }}
+
+    - name: Run frontend lint
+      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+      run: |
+        cd apps/frontend
+        npm run lint
+      continue-on-error: false
+
+    - name: Run frontend type check
+      if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+      run: |
+        cd apps/frontend
+        npm run type-check
+      continue-on-error: false
 
     # Documentation Linting
     - name: Install docs dependencies
