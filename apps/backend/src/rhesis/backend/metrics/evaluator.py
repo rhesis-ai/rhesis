@@ -62,12 +62,15 @@ class MetricEvaluator:
             score_evaluator=score_evaluator,
         )
 
+        self._connector_strategy: MetricBackendStrategy = ConnectorBackendStrategy(
+            connector_metric_sender=connector_metric_sender,
+            score_evaluator=score_evaluator,
+        )
+
         # Build the named strategy registry (backend_value -> strategy)
         self._strategies: Dict[str, MetricBackendStrategy] = {
-            "sdk": ConnectorBackendStrategy(
-                connector_metric_sender=connector_metric_sender,
-                score_evaluator=score_evaluator,
-            ),
+            self._local_strategy.backend_value(): self._local_strategy,
+            self._connector_strategy.backend_value(): self._connector_strategy,
         }
 
         if extra_strategies:
@@ -123,7 +126,8 @@ class MetricEvaluator:
         # Step 2: group configs by backend
         configs_by_backend: Dict[str, List[MetricConfig]] = {}
         for config in metric_configs:
-            backend_val = getattr(config.backend, "value", config.backend)
+            raw = getattr(config.backend, "value", config.backend)
+            backend_val: str = raw if isinstance(raw, str) else "__local__"
             configs_by_backend.setdefault(backend_val, []).append(config)
 
         # Step 3: dispatch each group to the matching strategy
