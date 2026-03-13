@@ -31,12 +31,6 @@ jobs:
           penelope:
             - 'penelope/**'
 
-    # Python-based linting (SDK, Backend, Penelope)
-    - name: Set up Python
-      if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10"
 
     - name: Install uv
       if: steps.filter.outputs.sdk == 'true' || steps.filter.outputs.backend == 'true' || steps.filter.outputs.penelope == 'true' || github.event_name == 'workflow_dispatch'
