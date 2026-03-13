@@ -39,6 +39,7 @@ class Backend(str, Enum):
 
 
 class ScoreType(str, Enum):
+    BINARY = "binary"
     NUMERIC = "numeric"
     CATEGORICAL = "categorical"
 

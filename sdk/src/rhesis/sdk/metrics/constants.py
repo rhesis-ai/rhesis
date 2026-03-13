@@ -15,6 +15,7 @@ OPERATOR_MAP: Dict[ThresholdOperator, Callable[[Any, Any], bool]] = {
 
 # Valid operators for different score types
 VALID_OPERATORS_BY_SCORE_TYPE = {
+    ScoreType.BINARY: {ThresholdOperator.EQUAL, ThresholdOperator.NOT_EQUAL},
     ScoreType.CATEGORICAL: {ThresholdOperator.EQUAL, ThresholdOperator.NOT_EQUAL},
     ScoreType.NUMERIC: set(ThresholdOperator),  # All operators are valid for numeric
 }
