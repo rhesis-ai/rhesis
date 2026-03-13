@@ -51,9 +51,7 @@ def upgrade() -> None:
         {"name": ENDPOINT_NAME},
     )
 
-    print(
-        f"  ✓ Patched request_mapping for '{ENDPOINT_NAME}' endpoints missing the files key"
-    )
+    print(f"  ✓ Patched request_mapping for '{ENDPOINT_NAME}' endpoints missing the files key")
 
 
 def downgrade() -> None:
