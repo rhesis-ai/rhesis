@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Box,
   Paper,
@@ -16,14 +16,17 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import CheckIcon from '@mui/icons-material/Check';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import {
   ConversationTurn,
   GoalEvaluation,
   Review,
 } from '@/utils/api-client/interfaces/test-results';
+import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import StatusChip from '@/components/common/StatusChip';
 import { getProjectIconComponent } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
+import { ApiClientFactory } from '@/utils/api-client/client-factory';
 
 // Superhero (female) emoji built from code points to avoid linter emoji detection.
 // U+1F9B8 (superhero) + U+200D (ZWJ) + U+2640 (female sign) + U+FE0F (variation selector)
@@ -42,6 +45,8 @@ interface ConversationHistoryProps {
   isConfirmingReview?: boolean;
   maxHeight?: number | string;
   turnReviewMap?: Map<number, Review>;
+  /** Required when turns carry penelope_files for authenticated downloads. */
+  sessionToken?: string;
 }
 
 /**
@@ -62,8 +67,29 @@ export default function ConversationHistory({
   isConfirmingReview = false,
   maxHeight = 600,
   turnReviewMap = new Map<number, Review>(),
+  sessionToken,
 }: ConversationHistoryProps) {
   const theme = useTheme();
+
+  const handleDownloadFile = useCallback(
+    async (file: FileResponse) => {
+      if (!sessionToken) return;
+      try {
+        const factory = new ApiClientFactory(sessionToken);
+        const client = factory.getFilesClient();
+        const blob = await client.getFileContent(file.id);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.filename;
+        link.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Failed to download file:', err);
+      }
+    },
+    [sessionToken]
+  );
 
   // Get the project icon component
   const ProjectIcon = getProjectIconComponent(project);
@@ -410,11 +436,49 @@ export default function ConversationHistory({
                   sx={{
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
-                    mb: turn.penelope_reasoning ? 1 : 0,
+                    mb:
+                      turn.penelope_reasoning ||
+                      (turn.penelope_files && turn.penelope_files.length > 0)
+                        ? 1
+                        : 0,
                   }}
                 >
                   {turn.penelope_message}
                 </Typography>
+
+                {turn.penelope_files &&
+                  turn.penelope_files.length > 0 &&
+                  sessionToken && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 0.5,
+                        mt: 0.5,
+                      }}
+                    >
+                      {turn.penelope_files.map(file => (
+                        <Chip
+                          key={file.id}
+                          icon={
+                            <AttachFileIcon
+                              sx={{ fontSize: theme.spacing(2) }}
+                            />
+                          }
+                          label={file.filename}
+                          size="small"
+                          variant="outlined"
+                          clickable
+                          onClick={() => handleDownloadFile(file)}
+                          sx={{
+                            color: 'text.secondary',
+                            borderColor: theme.palette.divider,
+                            fontSize: theme.typography.caption.fontSize,
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  )}
 
                 {/* Penelope's Reasoning (collapsible within message) */}
                 {turn.penelope_reasoning && (

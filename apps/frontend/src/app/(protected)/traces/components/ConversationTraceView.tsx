@@ -11,6 +11,7 @@ import {
   ConversationTurn,
   GoalEvaluation,
 } from '@/utils/api-client/interfaces/test-results';
+import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ConversationHistory from '@/components/common/ConversationHistory';
 
@@ -58,6 +59,7 @@ export default function ConversationTraceView({
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
   const [loading, setLoading] = useState(!!trace.test_result?.id);
   const [error, setError] = useState<string | null>(null);
+  const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
 
   useEffect(() => {
     const fetchTestResult = async () => {
@@ -85,6 +87,32 @@ export default function ConversationTraceView({
 
     fetchTestResult();
   }, [trace.test_result?.id, sessionToken]);
+
+  useEffect(() => {
+    if (!rootSpans) return;
+
+    const loadSpanFiles = async () => {
+      const clientFactory = new ApiClientFactory(sessionToken);
+      const filesClient = clientFactory.getFilesClient();
+
+      const results = await Promise.all(
+        rootSpans.map(async span => {
+          if (!span.id) return [] as FileResponse[];
+          try {
+            return await filesClient.getSpanFiles(span.id);
+          } catch {
+            return [] as FileResponse[];
+          }
+        })
+      );
+
+      if (results.some(files => files.length > 0)) {
+        setSpanFiles(results);
+      }
+    };
+
+    loadSpanFiles().catch(console.error);
+  }, [rootSpans, sessionToken]);
 
   if (loading) {
     return (
@@ -124,8 +152,16 @@ export default function ConversationTraceView({
       ? reconstructConversationFromSpans(rootSpans)
       : [];
 
-  const turns =
+  const baseTurns =
     conversationSummary.length > 0 ? conversationSummary : spanConversation;
+
+  const turns =
+    spanFiles.length > 0
+      ? baseTurns.map((turn, i) => ({
+          ...turn,
+          penelope_files: spanFiles[i] ?? [],
+        }))
+      : baseTurns;
 
   const handleResponseClick = (turnNumber: number) => {
     if (onSpanSelect && rootSpans) {
@@ -157,6 +193,7 @@ export default function ConversationTraceView({
         onSpanSelect && rootSpans ? handleResponseClick : undefined
       }
       maxHeight="100%"
+      sessionToken={sessionToken}
     />
   );
 }

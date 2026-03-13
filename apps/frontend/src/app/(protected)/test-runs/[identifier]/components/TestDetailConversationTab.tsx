@@ -4,10 +4,15 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import {
   TestResultDetail,
+  ConversationTurn,
   Review,
   REVIEW_TARGET_TYPES,
 } from '@/utils/api-client/interfaces/test-results';
-import { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
+import {
+  TraceSummary,
+  SpanNode,
+} from '@/utils/api-client/interfaces/telemetry';
+import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ConversationHistory from '@/components/common/ConversationHistory';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
@@ -34,9 +39,13 @@ export default function TestDetailConversationTab({
   isConfirmingReview = false,
 }: TestDetailConversationTabProps) {
   const [traces, setTraces] = useState<TraceSummary[]>([]);
+  const [rootSpans, setRootSpans] = useState<SpanNode[]>([]);
+  const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
   const [traceDrawerOpen, setTraceDrawerOpen] = useState(false);
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
-  const [selectedTurnNumber, setSelectedTurnNumber] = useState<number | null>(null);
+  const [selectedTurnNumber, setSelectedTurnNumber] = useState<
+    number | null
+  >(null);
 
   // Fetch traces for this test result
   useEffect(() => {
@@ -50,12 +59,21 @@ export default function TestDetailConversationTab({
           test_result_id: test.id as string,
           limit: 100,
         });
-        // Sort by start_time to align with turn order
         const sorted = [...response.traces].sort(
           (a, b) =>
-            new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+            new Date(a.start_time).getTime() -
+            new Date(b.start_time).getTime()
         );
         setTraces(sorted);
+
+        // Fetch full trace detail to get root_spans (for file loading)
+        if (sorted.length > 0) {
+          const detail = await client.getTrace(
+            sorted[0].trace_id,
+            sorted[0].project_id
+          );
+          setRootSpans(detail.root_spans);
+        }
       } catch {
         // Silently fail — traces are optional
       }
@@ -63,6 +81,33 @@ export default function TestDetailConversationTab({
 
     fetchTraces();
   }, [test.id, sessionToken]);
+
+  // Load files attached to each root span
+  useEffect(() => {
+    if (rootSpans.length === 0) return;
+
+    const loadSpanFiles = async () => {
+      const factory = new ApiClientFactory(sessionToken);
+      const filesClient = factory.getFilesClient();
+
+      const results = await Promise.all(
+        rootSpans.map(async span => {
+          if (!span.id) return [] as FileResponse[];
+          try {
+            return await filesClient.getSpanFiles(span.id);
+          } catch {
+            return [] as FileResponse[];
+          }
+        })
+      );
+
+      if (results.some(files => files.length > 0)) {
+        setSpanFiles(results);
+      }
+    };
+
+    loadSpanFiles().catch(console.error);
+  }, [rootSpans, sessionToken]);
 
   // Map turn numbers to trace — multi-turn conversations share a single trace
   // with each turn as a root span, so all turns map to the same trace
@@ -126,8 +171,16 @@ export default function TestDetailConversationTab({
   const isMultiTurn =
     testSetType?.toLowerCase().includes('multi-turn') || false;
 
-  // Get conversation summary
-  const conversationSummary = test.test_output?.conversation_summary;
+  // Get conversation summary, merging any span files as penelope_files
+  const baseConversation = test.test_output?.conversation_summary;
+  const conversationSummary: ConversationTurn[] | undefined = useMemo(() => {
+    if (!baseConversation) return undefined;
+    if (spanFiles.length === 0) return baseConversation;
+    return baseConversation.map((turn, i) => ({
+      ...turn,
+      penelope_files: spanFiles[i] ?? [],
+    }));
+  }, [baseConversation, spanFiles]);
   const hasConversation =
     isMultiTurn && conversationSummary && conversationSummary.length > 0;
 
@@ -186,6 +239,7 @@ export default function TestDetailConversationTab({
         isConfirmingReview={isConfirmingReview}
         maxHeight="100%"
         turnReviewMap={turnReviewMap}
+        sessionToken={sessionToken}
       />
       <TraceDrawer
         open={traceDrawerOpen}

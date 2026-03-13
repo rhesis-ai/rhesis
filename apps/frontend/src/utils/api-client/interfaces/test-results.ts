@@ -1,6 +1,7 @@
 import { UUID } from 'crypto';
 import { UserReference, Organization, Status } from './tests';
 import { Tag } from './tag';
+import { FileResponse } from './file';
 
 // Override marker added by backend when a human review changes a metric or turn value
 export interface OverrideMarker {
@@ -42,6 +43,7 @@ export interface ConversationTurn {
   session_id: string;
   success: boolean;
   override?: OverrideMarker;
+  penelope_files?: FileResponse[];
 }
 
 export interface CriterionEvaluation {
