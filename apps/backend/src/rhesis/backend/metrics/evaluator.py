@@ -1,5 +1,4 @@
 import concurrent.futures
-import inspect
 import logging
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
 
@@ -13,7 +12,11 @@ from tenacity import (
 )
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
-from rhesis.backend.metrics.metric_service import prepare_metrics, validate_metric_configs
+from rhesis.backend.metrics.metric_service import (
+    call_metric_with_introspection,
+    prepare_metrics,
+    validate_metric_configs,
+)
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
@@ -652,60 +655,6 @@ class MetricEvaluator:
 
         return results
 
-    def _call_metric_with_introspection(
-        self,
-        metric: BaseMetric,
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
-    ) -> MetricResult:
-        """
-        Call metric.evaluate() with only the parameters it accepts.
-
-        Uses introspection to check the metric's signature and only passes
-        parameters that are actually defined. This allows metrics to have
-        different signatures (e.g., ContextualRelevancy doesn't need output).
-
-        Args:
-            metric: The metric instance to evaluate
-            input_text: The input query or question
-            output_text: The actual output from the LLM
-            expected_output: The expected or reference output
-            context: List of context strings used for the response
-
-        Returns:
-            MetricResult object with score and details
-        """
-        # Inspect the metric's evaluate signature
-        sig = inspect.signature(metric.evaluate)
-        params = sig.parameters
-
-        # Build kwargs with only the parameters the metric accepts
-        kwargs = {}
-
-        # Check each potential parameter and include if present in signature
-        if "input" in params:
-            kwargs["input"] = input_text
-        if "output" in params:
-            kwargs["output"] = output_text
-        if "expected_output" in params:
-            kwargs["expected_output"] = expected_output
-        if "context" in params:
-            kwargs["context"] = context
-        if "conversation_history" in params and self._conversation_history is not None:
-            kwargs["conversation_history"] = self._conversation_history
-        if "metadata" in params and self._metadata is not None:
-            kwargs["metadata"] = self._metadata
-        if "tool_calls" in params and self._tool_calls is not None:
-            kwargs["tool_calls"] = self._tool_calls
-        if "goal" in params:
-            kwargs["goal"] = input_text
-
-        logger.debug(f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}")
-
-        return metric.evaluate(**kwargs)
-
     def _evaluate_metric(
         self,
         metric: BaseMetric,
@@ -728,8 +677,15 @@ class MetricEvaluator:
             MetricResult object with score and details
         """
         logger.debug(f"Evaluating metric '{metric.name}'")
-        return self._call_metric_with_introspection(
-            metric, input_text, output_text, expected_output, context
+        return call_metric_with_introspection(
+            metric,
+            input_text,
+            output_text,
+            expected_output,
+            context,
+            conversation_history=self._conversation_history,
+            metadata=self._metadata,
+            tool_calls=self._tool_calls,
         )
 
     def _process_metric_result(

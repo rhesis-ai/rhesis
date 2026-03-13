@@ -1,4 +1,5 @@
 import dataclasses
+import inspect
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
@@ -13,6 +14,61 @@ from rhesis.sdk.metrics.base import ScoreType
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 
 logger = logging.getLogger(__name__)
+
+
+def call_metric_with_introspection(
+    metric: BaseMetric,
+    input_text: str,
+    output_text: str,
+    expected_output: str,
+    context: List[str],
+    conversation_history: Optional[Any] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    tool_calls: Optional[List[Dict[str, Any]]] = None,
+) -> Any:
+    """
+    Call metric.evaluate() with only the parameters it accepts.
+
+    Uses introspection to check the metric's signature and only passes
+    parameters that are actually defined. This allows metrics to have
+    different signatures (e.g., ContextualRelevancy doesn't need output).
+
+    Args:
+        metric: The metric instance to evaluate
+        input_text: The input query or question
+        output_text: The actual output from the LLM
+        expected_output: The expected or reference output
+        context: List of context strings used for the response
+        conversation_history: Optional conversation history for conversational metrics
+        metadata: Optional metadata dict
+        tool_calls: Optional list of tool calls
+
+    Returns:
+        MetricResult from the metric's evaluate() method
+    """
+    sig = inspect.signature(metric.evaluate)
+    params = sig.parameters
+
+    kwargs: Dict[str, Any] = {}
+    if "input" in params:
+        kwargs["input"] = input_text
+    if "output" in params:
+        kwargs["output"] = output_text
+    if "expected_output" in params:
+        kwargs["expected_output"] = expected_output
+    if "context" in params:
+        kwargs["context"] = context
+    if "conversation_history" in params and conversation_history is not None:
+        kwargs["conversation_history"] = conversation_history
+    if "metadata" in params and metadata is not None:
+        kwargs["metadata"] = metadata
+    if "tool_calls" in params and tool_calls is not None:
+        kwargs["tool_calls"] = tool_calls
+    if "goal" in params:
+        kwargs["goal"] = input_text
+
+    logger.debug(f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}")
+    return metric.evaluate(**kwargs)
 
 
 def metric_model_to_config(metric: MetricModel) -> MetricConfig:
