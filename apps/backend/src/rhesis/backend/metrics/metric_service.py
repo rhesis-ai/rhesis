@@ -1,11 +1,14 @@
 import dataclasses
 import logging
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+from uuid import UUID
+
+from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
-from rhesis.sdk.metrics import MetricConfig
+from rhesis.sdk.metrics import BaseMetric, MetricConfig
 from rhesis.sdk.metrics.base import ScoreType
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 
@@ -155,3 +158,156 @@ def validate_metric_configs(
     )
 
     return metric_configs, invalid_metric_results
+
+
+def _resolve_metric_model(
+    model_id: str,
+    db: Session,
+    organization_id: Optional[str],
+    metric_name_for_log: str,
+) -> Optional[Any]:
+    """Fetch a metric-specific LLM model from the database and instantiate it."""
+    try:
+        from rhesis.backend.app import crud
+        from rhesis.sdk.models.factory import get_model
+
+        model_record = crud.get_model(
+            db,
+            UUID(model_id) if isinstance(model_id, str) else model_id,
+            organization_id,
+        )
+
+        if model_record and model_record.provider_type:
+            llm = get_model(
+                provider=model_record.provider_type.type_value,
+                model_name=model_record.model_name,
+                api_key=model_record.key,
+            )
+            logger.info(
+                f"[METRIC_MODEL] Using metric-specific model for "
+                f"'{metric_name_for_log}': {model_record.name} "
+                f"(provider={model_record.provider_type.type_value}, "
+                f"model={model_record.model_name})"
+            )
+            return llm
+
+        logger.warning(
+            f"[METRIC_MODEL] Model ID {model_id} not found for "
+            f"metric '{metric_name_for_log}'"
+        )
+    except Exception as e:
+        logger.warning(
+            f"[METRIC_MODEL] Error fetching metric-specific model for "
+            f"'{metric_name_for_log}': {e}"
+        )
+    return None
+
+
+def prepare_metrics(
+    metrics: List[MetricConfig],
+    expected_output: Optional[str],
+    context: Optional[List[str]] = None,
+    model: Optional[Any] = None,
+    db: Optional[Session] = None,
+    organization_id: Optional[str] = None,
+) -> List[Tuple[str, BaseMetric, MetricConfig, str]]:
+    """Instantiate metric objects via SDK factory, resolving models from DB.
+
+    Args:
+        metrics: List of metric configurations (may contain None values).
+        expected_output: The expected output (to check if ground truth is required).
+        context: List of context strings (to check if context is required).
+        model: Optional default LLM model for metrics evaluation.
+        db: Optional database session for fetching metric-specific models.
+        organization_id: Optional organization ID for secure model lookups.
+
+    Returns:
+        List of tuples containing (class_name, metric_instance, metric_config, backend).
+    """
+    logger.info(f"Preparing {len(metrics)} metrics for evaluation")
+    metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]] = []
+
+    for metric_config in metrics:
+        class_name = metric_config.class_name
+        backend = getattr(metric_config.backend, "value", metric_config.backend)
+        threshold = metric_config.threshold
+        parameters = metric_config.parameters or {}
+        model_id = parameters.get("model_id")
+
+        try:
+            metric_params: Dict[str, Any] = {"threshold": threshold, **parameters}
+            metric_name_for_log = metric_config.name or class_name
+
+            # Determine which model to use for this metric
+            # Priority: metric-specific model > user's default model > system default
+            metric_model = None
+
+            if model_id and db:
+                metric_model = _resolve_metric_model(
+                    model_id, db, organization_id, metric_name_for_log
+                )
+
+            if metric_model is None and model is not None:
+                metric_model = model
+                logger.debug(
+                    f"[METRIC_MODEL] Using user's default model for "
+                    f"'{metric_name_for_log}'"
+                )
+
+            if metric_model is not None:
+                metric_params["model"] = metric_model
+
+            from rhesis.sdk.metrics import MetricFactory
+
+            metric_name = metric_config.name or class_name
+            logger.debug(
+                f"[SDK_DIRECT] Creating metric directly via SDK: "
+                f"{metric_name or class_name}"
+            )
+
+            config_dict = dataclasses.asdict(metric_config)
+            if metric_params:
+                if config_dict.get("parameters") is None:
+                    config_dict["parameters"] = {}
+                config_dict["parameters"].update(metric_params)
+
+            params_dict = config_dict.get("parameters", {})
+            factory_params = {**config_dict}
+            factory_params.update(params_dict)
+
+            factory_params.pop("class_name", None)
+            factory_params.pop("backend", None)
+            factory_params.pop("parameters", None)
+
+            try:
+                metric = MetricFactory.create(
+                    backend, class_name, **factory_params
+                )
+            except Exception as create_error:
+                logger.error(
+                    f"[SDK_DIRECT] Failed to create metric "
+                    f"'{metric_name or class_name}' "
+                    f"(class: {class_name}, backend: {backend}): "
+                    f"{create_error}",
+                    exc_info=True,
+                )
+                continue
+
+            if metric.requires_ground_truth and expected_output is None:
+                logger.debug(
+                    f"Skipping metric '{class_name}' as it requires "
+                    f"ground truth which is not provided"
+                )
+                continue
+
+            metric_tasks.append((class_name, metric, metric_config, backend))
+
+        except Exception as e:
+            metric_name = metric_config.name or class_name
+            error_msg = (
+                f"Error preparing metric '{metric_name or class_name}' "
+                f"(class: '{class_name}', backend: '{backend}'): {str(e)}"
+            )
+            logger.error(error_msg, exc_info=True)
+
+    return metric_tasks
