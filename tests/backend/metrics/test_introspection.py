@@ -9,6 +9,7 @@ import inspect
 from unittest.mock import MagicMock, patch
 
 from rhesis.backend.metrics.evaluator import MetricEvaluator
+from rhesis.backend.metrics.metric_service import build_metric_evaluate_params
 from rhesis.sdk.metrics import MetricResult
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
@@ -247,13 +248,15 @@ class TestConversationalIntrospection:
 
         mock_metric.evaluate = evaluate_conv
 
-        result = evaluator._call_metric_with_introspection(
-            metric=mock_metric,
+        kwargs = build_metric_evaluate_params(
+            mock_metric,
             input_text="Achieve the goal",
             output_text="conversation text",
             expected_output="",
             context=[],
+            conversation_history=history,
         )
+        result = mock_metric.evaluate(**kwargs)
 
         assert result.score == 0.8
         assert received["conversation_history"] is history
@@ -274,13 +277,15 @@ class TestConversationalIntrospection:
         mock_metric.evaluate = evaluate_single
 
         # Should NOT raise TypeError — conversation_history is filtered out
-        result = evaluator._call_metric_with_introspection(
-            metric=mock_metric,
+        kwargs = build_metric_evaluate_params(
+            mock_metric,
             input_text="test",
             output_text="response",
             expected_output="",
             context=[],
+            conversation_history=history,
         )
+        result = mock_metric.evaluate(**kwargs)
 
         assert result.score == 0.9
 
@@ -307,13 +312,15 @@ class TestConversationalIntrospection:
 
         mock_metric.evaluate = evaluate_conv
 
-        result = evaluator._call_metric_with_introspection(
-            metric=mock_metric,
+        kwargs = build_metric_evaluate_params(
+            mock_metric,
             input_text="goal text",
             output_text="output",
             expected_output="",
             context=[],
+            conversation_history=None,
         )
+        result = mock_metric.evaluate(**kwargs)
 
         assert result.score == 0.7
         assert "conversation_history" not in received_keys
@@ -372,12 +379,12 @@ class TestIntrospectionCompleteness:
     """Guard against missing parameter support in introspection.
 
     Scans all concrete metric classes and verifies that every parameter
-    in their evaluate() signature is handled by _call_metric_with_introspection.
+    in their evaluate() signature is handled by build_metric_evaluate_params.
     This prevents the class of bug where new metric types silently fail
     because the evaluator doesn't know about their parameters.
     """
 
-    # Parameters that _call_metric_with_introspection knows how to provide
+    # Parameters that build_metric_evaluate_params knows how to provide
     SUPPORTED_PARAMS = {
         "self",
         "input",
@@ -386,6 +393,8 @@ class TestIntrospectionCompleteness:
         "context",
         "conversation_history",
         "goal",
+        "metadata",
+        "tool_calls",
     }
 
     def _get_all_metric_classes(self):
@@ -414,7 +423,7 @@ class TestIntrospectionCompleteness:
         """Every param in any metric's evaluate() must be supported.
 
         If this test fails, you need to update
-        _call_metric_with_introspection() in evaluator.py to handle
+        build_metric_evaluate_params() in metric_service.py to handle
         the new parameter, then add it to SUPPORTED_PARAMS above.
         """
         metric_classes = self._get_all_metric_classes()
@@ -443,7 +452,7 @@ class TestIntrospectionCompleteness:
 
         assert unsupported == [], (
             "Unsupported required parameters found in metric evaluate() "
-            "signatures. Update _call_metric_with_introspection() in "
-            "evaluator.py and SUPPORTED_PARAMS in this test:\n"
+            "signatures. Update build_metric_evaluate_params() in "
+            "metric_service.py and SUPPORTED_PARAMS in this test:\n"
             + "\n".join(f"  - {u}" for u in unsupported)
         )

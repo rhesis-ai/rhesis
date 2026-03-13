@@ -13,7 +13,7 @@ from tenacity import (
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.metrics.metric_service import (
-    call_metric_with_introspection,
+    build_metric_evaluate_params,
     prepare_metrics,
     validate_metric_configs,
 )
@@ -76,6 +76,8 @@ class MetricEvaluator:
         self.organization_id = organization_id
         self._sdk_metric_sender = sdk_metric_sender
         self._conversation_history: Optional[ConversationHistory] = None
+        self._metadata: Optional[Dict[str, Any]] = None
+        self._tool_calls: Optional[List[Dict[str, Any]]] = None
 
     def evaluate(
         self,
@@ -124,7 +126,6 @@ class MetricEvaluator:
         Returns:
             Dictionary containing scores and details for each metric
         """
-        # Store conversation history, metadata, and tool_calls for metrics that accept them
         self._conversation_history = conversation_history
         self._metadata = metadata
         self._tool_calls = tool_calls
@@ -169,7 +170,15 @@ class MetricEvaluator:
                 organization_id=self.organization_id,
             )
             results = self._execute_metrics_in_parallel(
-                metric_tasks, input_text, output_text, expected_output, context, max_workers
+                metric_tasks,
+                input_text,
+                output_text,
+                expected_output,
+                context,
+                max_workers,
+                conversation_history=conversation_history,
+                metadata=metadata,
+                tool_calls=tool_calls,
             )
 
         # Evaluate SDK metrics via connector RPC
@@ -365,6 +374,10 @@ class MetricEvaluator:
         output_text: str,
         expected_output: str,
         context: List[str],
+        *,
+        conversation_history: Optional[ConversationHistory] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[concurrent.futures.Future, Tuple[str, str, MetricConfig, str]]:
         """
         Submit all metric evaluation tasks to the executor.
@@ -377,6 +390,9 @@ class MetricEvaluator:
             output_text: Output text for evaluation
             expected_output: Expected output for evaluation
             context: Context for evaluation
+            conversation_history: Optional conversation history for conversational metrics
+            metadata: Optional metadata dict
+            tool_calls: Optional list of tool calls
 
         Returns:
             Dictionary mapping futures to metric metadata
@@ -393,6 +409,9 @@ class MetricEvaluator:
                 output_text,
                 expected_output,
                 context,
+                conversation_history=conversation_history,
+                metadata=metadata,
+                tool_calls=tool_calls,
             )
             future_to_metric[future] = (unique_key, class_name, metric_config, backend)
 
@@ -542,6 +561,10 @@ class MetricEvaluator:
         output_text: str,
         expected_output: str,
         context: List[str],
+        *,
+        conversation_history: Optional[ConversationHistory] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
     ) -> MetricResult:
         """
         Evaluate a single metric with automatic retry on transient failures.
@@ -555,6 +578,9 @@ class MetricEvaluator:
             output_text: The actual output from the LLM
             expected_output: The expected or reference output
             context: List of context strings used for the response
+            conversation_history: Optional conversation history for conversational metrics
+            metadata: Optional metadata dict
+            tool_calls: Optional list of tool calls
 
         Returns:
             MetricResult object with score and details
@@ -573,7 +599,16 @@ class MetricEvaluator:
             reraise=True,
         )
         def _execute_with_retry():
-            return self._evaluate_metric(metric, input_text, output_text, expected_output, context)
+            return self._evaluate_metric(
+                metric,
+                input_text,
+                output_text,
+                expected_output,
+                context,
+                conversation_history=conversation_history,
+                metadata=metadata,
+                tool_calls=tool_calls,
+            )
 
         try:
             return _execute_with_retry()
@@ -596,6 +631,10 @@ class MetricEvaluator:
         expected_output: str,
         context: List[str],
         max_workers: int,
+        *,
+        conversation_history: Optional[ConversationHistory] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
         Execute metrics in parallel with overall timeout and complete accountability.
@@ -610,6 +649,9 @@ class MetricEvaluator:
             expected_output: The expected or reference output
             context: List of context strings used for the response
             max_workers: Maximum number of parallel workers
+            conversation_history: Optional conversation history for conversational metrics
+            metadata: Optional metadata dict
+            tool_calls: Optional list of tool calls
 
         Returns:
             Dictionary of metric results
@@ -637,6 +679,9 @@ class MetricEvaluator:
                 output_text,
                 expected_output,
                 context,
+                conversation_history=conversation_history,
+                metadata=metadata,
+                tool_calls=tool_calls,
             )
 
             # Step 3: Collect results as they complete
@@ -662,6 +707,10 @@ class MetricEvaluator:
         output_text: str,
         expected_output: str,
         context: List[str],
+        *,
+        conversation_history: Optional[ConversationHistory] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        tool_calls: Optional[List[Dict[str, Any]]] = None,
     ) -> MetricResult:
         """
         Evaluate a single metric.
@@ -672,21 +721,29 @@ class MetricEvaluator:
             output_text: The actual output from the LLM
             expected_output: The expected or reference output
             context: List of context strings used for the response
+            conversation_history: Optional conversation history for conversational metrics
+            metadata: Optional metadata dict
+            tool_calls: Optional list of tool calls
 
         Returns:
             MetricResult object with score and details
         """
         logger.debug(f"Evaluating metric '{metric.name}'")
-        return call_metric_with_introspection(
+        ch = conversation_history if conversation_history is not None else self._conversation_history
+        meta = metadata if metadata is not None else self._metadata
+        tools = tool_calls if tool_calls is not None else self._tool_calls
+        kwargs = build_metric_evaluate_params(
             metric,
             input_text,
             output_text,
             expected_output,
             context,
-            conversation_history=self._conversation_history,
-            metadata=self._metadata,
-            tool_calls=self._tool_calls,
+            conversation_history=ch,
+            metadata=meta,
+            tool_calls=tools,
         )
+        logger.debug(f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}")
+        return metric.evaluate(**kwargs)
 
     def _process_metric_result(
         self,
