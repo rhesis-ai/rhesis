@@ -14,6 +14,7 @@ from tenacity import (
 )
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
+from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
@@ -217,41 +218,32 @@ class MetricEvaluator:
                 if error_reason and error_reason != "unknown validation error":
                     # Create error result for invalid metric
                     invalid_key = f"InvalidMetric_{i}"
-                    invalid_metric_results[invalid_key] = {
-                        "score": 0.0,
-                        "reason": f"Invalid metric configuration: {error_reason}",
-                        "is_successful": False,
-                        "threshold": 0.0,
-                        "backend": config.get("backend", "unknown")
-                        if isinstance(config, dict)
-                        else getattr(config, "backend", "unknown"),
-                        "name": config.get("name", invalid_key)
-                        if isinstance(config, dict)
-                        else getattr(config, "name", invalid_key),
-                        "class_name": config.get("class_name", "Unknown")
-                        if isinstance(config, dict)
-                        else getattr(config, "class_name", "Unknown"),
-                        "description": f"Failed to load metric: {error_reason}",
-                        "error": error_reason,
-                    }
+                    invalid_metric_results[invalid_key] = MetricResultBuilder.error(
+                        reason=f"Invalid metric configuration: {error_reason}",
+                        backend=self._get_config_value(config, "backend", "unknown"),
+                        name=self._get_config_value(config, "name", invalid_key),
+                        class_name=self._get_config_value(config, "class_name", "Unknown"),
+                        description=f"Failed to load metric: {error_reason}",
+                        error=error_reason,
+                        threshold=0.0,
+                    )
                     logger.warning(f"Invalid metric configuration {i}: {error_reason}")
                 else:
                     metric_configs.append(config)
             else:
                 # Invalid config type
                 invalid_key = f"InvalidMetric_{i}"
-                invalid_metric_results[invalid_key] = {
-                    "score": 0.0,
-                    "reason": f"Invalid config type: {type(config).__name__}",
-                    "is_successful": False,
-                    "threshold": 0.0,
-                    "backend": "unknown",
-                    "name": invalid_key,
-                    "class_name": "Unknown",
-                    "description": f"Invalid config type: {type(config).__name__}",
-                    "error": f"Invalid config type: {type(config).__name__}",
-                }
-                logger.warning(f"Invalid config type for metric {i}: {type(config).__name__}")
+                type_name = type(config).__name__
+                invalid_metric_results[invalid_key] = MetricResultBuilder.error(
+                    reason=f"Invalid config type: {type_name}",
+                    backend="unknown",
+                    name=invalid_key,
+                    class_name="Unknown",
+                    description=f"Invalid config type: {type_name}",
+                    error=f"Invalid config type: {type_name}",
+                    threshold=0.0,
+                )
+                logger.warning(f"Invalid config type for metric {i}: {type_name}")
 
         # Log summary
         if invalid_metric_results:
@@ -335,15 +327,13 @@ class MetricEvaluator:
         if not self._sdk_metric_sender:
             logger.warning("Cannot evaluate SDK metrics: no sdk_metric_sender configured")
             return {
-                self._get_config_value(c, "name", f"SDKMetric_{i}"): {
-                    "score": 0.0,
-                    "reason": "SDK metric sender not configured",
-                    "is_successful": False,
-                    "backend": "sdk",
-                    "name": self._get_config_value(c, "name", f"SDKMetric_{i}"),
-                    "class_name": self._get_config_value(c, "class_name", "Unknown"),
-                    "error": "sdk_metric_sender not configured",
-                }
+                self._get_config_value(c, "name", f"SDKMetric_{i}"): MetricResultBuilder.error(
+                    reason="SDK metric sender not configured",
+                    backend="sdk",
+                    name=self._get_config_value(c, "name", f"SDKMetric_{i}"),
+                    class_name=self._get_config_value(c, "class_name", "Unknown"),
+                    error="sdk_metric_sender not configured",
+                )
                 for i, c in enumerate(sdk_configs)
             }
 
@@ -383,32 +373,26 @@ class MetricEvaluator:
                     sdk_result = asyncio.run(coro)
 
                 if "error" in sdk_result and "status" not in sdk_result:
-                    results[metric_name or class_name] = {
-                        "score": 0.0,
-                        "reason": sdk_result.get(
-                            "details", sdk_result.get("error", "Unknown error")
-                        ),
-                        "is_successful": False,
-                        "backend": "sdk",
-                        "name": metric_name,
-                        "class_name": class_name,
-                        "description": description,
-                        "error": sdk_result.get("error"),
-                        "threshold": threshold,
-                    }
+                    results[metric_name or class_name] = MetricResultBuilder.error(
+                        reason=sdk_result.get("details", sdk_result.get("error", "Unknown error")),
+                        backend="sdk",
+                        name=metric_name,
+                        class_name=class_name,
+                        description=description,
+                        error=sdk_result.get("error"),
+                        threshold=threshold,
+                    )
                 elif sdk_result.get("status") == "error":
-                    results[metric_name or class_name] = {
-                        "score": 0.0,
-                        "reason": sdk_result.get("error", "SDK metric error"),
-                        "is_successful": False,
-                        "backend": "sdk",
-                        "name": metric_name,
-                        "class_name": class_name,
-                        "description": description,
-                        "error": sdk_result.get("error"),
-                        "threshold": threshold,
-                        "duration_ms": sdk_result.get("duration_ms"),
-                    }
+                    results[metric_name or class_name] = MetricResultBuilder.error(
+                        reason=sdk_result.get("error", "SDK metric error"),
+                        backend="sdk",
+                        name=metric_name,
+                        class_name=class_name,
+                        description=description,
+                        error=sdk_result.get("error"),
+                        threshold=threshold,
+                        duration_ms=sdk_result.get("duration_ms"),
+                    )
                 else:
                     score = sdk_result.get("score", 0.0)
                     details = sdk_result.get("details", {})
@@ -419,34 +403,33 @@ class MetricEvaluator:
                         threshold_operator=threshold_op,
                     )
 
-                    results[metric_name or class_name] = {
-                        "score": score,
-                        "reason": details.get("reason", f"SDK metric score: {score}"),
-                        "is_successful": is_successful,
-                        "backend": "sdk",
-                        "name": metric_name,
-                        "class_name": class_name,
-                        "description": description,
-                        "threshold": threshold,
-                        "duration_ms": sdk_result.get("duration_ms"),
-                    }
+                    results[metric_name or class_name] = MetricResultBuilder.success(
+                        score=score,
+                        reason=details.get("reason", f"SDK metric score: {score}"),
+                        is_successful=is_successful,
+                        backend="sdk",
+                        name=metric_name,
+                        class_name=class_name,
+                        description=description,
+                        threshold=threshold,
+                        duration_ms=sdk_result.get("duration_ms"),
+                    )
 
             except Exception as e:
                 logger.error(
                     f"Error evaluating SDK metric '{class_name}': {e}",
                     exc_info=True,
                 )
-                results[metric_name or class_name] = {
-                    "score": 0.0,
-                    "reason": f"SDK metric evaluation failed: {e}",
-                    "is_successful": False,
-                    "backend": "sdk",
-                    "name": metric_name,
-                    "class_name": class_name,
-                    "description": description,
-                    "error": str(e),
-                    "threshold": threshold,
-                }
+                results[metric_name or class_name] = MetricResultBuilder.error(
+                    reason=f"SDK metric evaluation failed: {e}",
+                    backend="sdk",
+                    name=metric_name,
+                    class_name=class_name,
+                    description=description,
+                    error=str(e),
+                    error_type=type(e).__name__,
+                    threshold=threshold,
+                )
 
         return results
 
@@ -915,20 +898,18 @@ class MetricEvaluator:
         Returns:
             Dictionary with error result
         """
-        return {
-            "score": 0.0,
-            "reason": f"Evaluation failed: {str(exception)}",
-            "is_successful": False,
-            "backend": backend,
-            "name": self._get_config_value(metric_config, "name", class_name),
-            "class_name": class_name,
-            "description": self._get_config_value(
+        return MetricResultBuilder.error(
+            reason=f"Evaluation failed: {str(exception)}",
+            backend=backend,
+            name=self._get_config_value(metric_config, "name", class_name),
+            class_name=class_name,
+            description=self._get_config_value(
                 metric_config, "description", f"{class_name} evaluation metric"
             ),
-            "error": str(exception),
-            "error_type": type(exception).__name__,
-            "threshold": self._get_config_value(metric_config, "threshold", 0.0),
-        }
+            error=str(exception),
+            error_type=type(exception).__name__,
+            threshold=self._get_config_value(metric_config, "threshold", 0.0),
+        )
 
     def _create_timeout_result(
         self,
@@ -947,20 +928,16 @@ class MetricEvaluator:
         Returns:
             Dictionary with timeout result
         """
-        return {
-            "score": 0.0,
-            "reason": f"Metric evaluation timed out after {METRIC_OVERALL_TIMEOUT}s",
-            "is_successful": False,
-            "backend": backend,
-            "name": self._get_config_value(metric_config, "name", class_name),
-            "class_name": class_name,
-            "description": self._get_config_value(
+        return MetricResultBuilder.timeout(
+            backend=backend,
+            name=self._get_config_value(metric_config, "name", class_name),
+            class_name=class_name,
+            description=self._get_config_value(
                 metric_config, "description", f"{class_name} evaluation metric"
             ),
-            "error": "Timeout",
-            "error_type": "TimeoutError",
-            "threshold": self._get_config_value(metric_config, "threshold", 0.0),
-        }
+            threshold=self._get_config_value(metric_config, "threshold", 0.0),
+            timeout_seconds=METRIC_OVERALL_TIMEOUT,
+        )
 
     # ============================================================================
     # MAIN ORCHESTRATION METHOD
@@ -1163,29 +1140,20 @@ class MetricEvaluator:
                     f"{is_successful}"
                 )
 
-            # Store results - structure depends on metric type
-            processed_result = {
-                "score": result.score,
-                "reason": result.details.get("reason", f"Score: {result.score}"),
-                "is_successful": is_successful,
-                "backend": backend,
-                "name": self._get_config_value(metric_config, "name"),
-                "class_name": class_name,  # Include class_name for identification
-                "description": description,
-            }
-
-            # Add threshold or reference_score based on metric type
             threshold = self._get_config_value(metric_config, "threshold")
             reference_score = self._get_config_value(metric_config, "reference_score")
-            if threshold is not None:
-                # Numeric metric - include threshold
-                processed_result["threshold"] = threshold
-            elif reference_score is not None:
-                # Binary/categorical metric - include reference_score
-                processed_result["reference_score"] = reference_score
-
             logger.debug(f"Completed metric '{class_name}' with score {result.score}")
-            return processed_result
+            return MetricResultBuilder.success(
+                score=result.score,
+                reason=result.details.get("reason", f"Score: {result.score}"),
+                is_successful=is_successful,
+                backend=backend,
+                name=self._get_config_value(metric_config, "name"),
+                class_name=class_name,
+                description=description,
+                threshold=threshold,
+                reference_score=reference_score,
+            )
 
         except Exception as exc:
             import traceback
@@ -1196,27 +1164,19 @@ class MetricEvaluator:
             logger.error(f"Exception type: {type(exc).__name__}")
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
 
-            # Store error information in results
-            error_result = {
-                "score": 0.0,
-                "reason": f"Error: {str(exc)}",
-                "is_successful": False,
-                "backend": backend,
-                "name": self._get_config_value(metric_config, "name"),
-                "class_name": class_name,  # Include class_name for identification
-                "description": description
-                if "description" in locals()
-                else f"{class_name} evaluation metric",
-                "error": str(exc),
-                "exception_type": type(exc).__name__,
-            }
-
-            # Add threshold or reference_score for error results too
+            error_description = (
+                description if "description" in locals() else f"{class_name} evaluation metric"
+            )
             threshold = self._get_config_value(metric_config, "threshold")
             reference_score = self._get_config_value(metric_config, "reference_score")
-            if threshold is not None:
-                error_result["threshold"] = threshold
-            elif reference_score is not None:
-                error_result["reference_score"] = reference_score
-
-            return error_result
+            return MetricResultBuilder.error(
+                reason=f"Error: {str(exc)}",
+                backend=backend,
+                name=self._get_config_value(metric_config, "name"),
+                class_name=class_name,
+                description=error_description,
+                error=str(exc),
+                error_type=type(exc).__name__,
+                threshold=threshold,
+                reference_score=reference_score,
+            )
