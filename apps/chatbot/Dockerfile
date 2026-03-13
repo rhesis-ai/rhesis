@@ -44,6 +44,10 @@ RUN sed -i 's|../../sdk|/app/sdk|g' pyproject.toml uv.lock && \
 # Now copy the rest of your source (scripts, modules, etc.)
 COPY apps/chatbot /app/
 
+# Re-apply the SDK path patch: the COPY above overwrites pyproject.toml and uv.lock
+# with their original repo versions (containing ../../sdk), so we patch them again.
+RUN sed -i 's|../../sdk|/app/sdk|g' pyproject.toml uv.lock
+
 # Remove build dependencies after installing Python packages
 RUN apt-get purge -y build-essential \
     && apt-get autoremove -y \
