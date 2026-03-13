@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/local"
       version = "~> 2.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
   }
   backend "gcs" {
     prefix = "terraform/infrastructure/envs/prd"
@@ -94,6 +98,18 @@ module "ingress_prd" {
   internal_lb_ip       = local.cidrs.prd.ingress_internal_ip
 
   depends_on = [module.prd]
+}
+
+module "argocd_prd" {
+  source = "../../modules/argocd"
+
+  project_id   = var.project_id
+  region       = var.region
+  cluster_name = module.gke_prd.cluster_name
+  environment  = "prd"
+  repo_root    = abspath("${path.module}/../../../..")
+
+  depends_on = [module.gke_prd]
 }
 
 # Generate cluster.env for ingress-nginx-internal (single source of truth)

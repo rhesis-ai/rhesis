@@ -4,6 +4,8 @@ resource "google_service_account" "eso" {
   project      = var.project_id
 }
 
+# Project-level secretAccessor: intentional for simplicity so ESO can read any secret
+# in this project. For tighter scope, use google_secret_manager_secret_iam_member per secret.
 resource "google_project_iam_member" "eso_secret_accessor" {
   project = var.project_id
   role    = "roles/secretmanager.secretAccessor"
