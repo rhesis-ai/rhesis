@@ -58,9 +58,7 @@ def diagnose_invalid_metric(config: MetricConfig) -> str:
     ):
         missing_fields.append("class_name")
     backend_val = getattr(config.backend, "value", config.backend)
-    if not backend_val or (
-        isinstance(backend_val, str) and not backend_val.strip()
-    ):
+    if not backend_val or (isinstance(backend_val, str) and not backend_val.strip()):
         missing_fields.append("backend")
     if missing_fields:
         return f"missing or empty required fields: {', '.join(missing_fields)}"
