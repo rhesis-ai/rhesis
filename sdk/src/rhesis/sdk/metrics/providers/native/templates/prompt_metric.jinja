@@ -1,12 +1,12 @@
 You will be given an input and the content to evaluate. The content may be:
-- A single LLM response, optionally accompanied by separate Metadata and Tool Calls sections.
+- A single LLM response, optionally accompanied by separate Metadata and tool calls sections.
 - A multi-turn conversation transcript, where each turn may include the following inline fields:
     - Assistant: the response text
     - Context: retrieval sources used to generate the response (e.g. RAG documents)
     - Metadata: structured data returned by the endpoint (e.g. confidence scores, citations)
-    - Tool Calls: functions or APIs invoked during the response
+    - Tool calls: functions or APIs invoked during the response
 
-Use all available information — including Context, Metadata, and Tool Calls — when making
+Use all available information — including context, metadata, and tool calls — when making
 your evaluation. Do not ignore these fields; they are part of the system's observable behavior.
 
 Your task is to rate the content based on the following criteria.
@@ -34,7 +34,7 @@ Examples:
 Input Query:
 {{ input if input|trim else "No input provided" }}
 
-{% if context_text|trim %}
+{% if context_text|trim and context_text|trim != "No context provided." %}
 Context Information:
 {{ context_text }}
 Note: This context was retrieved and used to generate the response. Consider whether the

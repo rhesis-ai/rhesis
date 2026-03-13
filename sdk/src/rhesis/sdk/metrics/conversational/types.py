@@ -245,13 +245,39 @@ class ConversationHistory(BaseModel):
                 i += 1
         return tool_calls_list
 
-    def _format_conversation(self) -> str:
+    @staticmethod
+    def _msg_is_renderable(msg: Any) -> bool:
+        """Return True if the message has anything worth rendering.
+
+        For assistant messages, tool_calls, metadata, or context are considered
+        renderable even when the text content is empty or None. This prevents
+        tool-call-only turns (content=None, tool_calls=[...]) from being silently
+        dropped during formatting.
+
+        For all other roles, non-empty text content is required.
+        """
+        role, content, metadata = ConversationHistory._msg_attrs(msg)
+        if content:
+            return True
+        if role == "assistant":
+            return bool(
+                metadata
+                or ConversationHistory._msg_context(msg)
+                or ConversationHistory._msg_tool_calls(msg)
+            )
+        return False
+
+    def format_conversation(self) -> str:
         """
         Return a structured transcript with numbered turns and inline metadata.
 
         Groups consecutive user/assistant message pairs into numbered turns.
         When an assistant message carries metadata, context, or tool calls they
         are rendered inline beneath the assistant response.
+
+        Assistant messages with no text content but with tool_calls, metadata,
+        or context are included — only the ``Assistant:`` text line is omitted
+        for such messages so the structured fields are still visible.
 
         Example output::
 
@@ -261,8 +287,8 @@ class ConversationHistory(BaseModel):
               Metadata: {"intent": "greeting"}
 
             Turn 2:
-              User: How are you?
-              Assistant: I'm fine
+              User: Search for X
+              Tool Calls: [{"name": "search", "arguments": {"q": "X"}}]
 
         Use this method when the formatted text will be sent to an LLM judge so
         that metadata remains contextually tied to its turn.
@@ -275,17 +301,18 @@ class ConversationHistory(BaseModel):
         while i < len(messages):
             role, content, _ = self._msg_attrs(messages[i])
 
-            if not content:
+            if not self._msg_is_renderable(messages[i]):
                 i += 1
                 continue
 
             if role == "user":
                 turn_number += 1
                 lines = [f"Turn {turn_number}:", f"  User: {content}"]
-                if i + 1 < len(messages):
+                if i + 1 < len(messages) and self._msg_is_renderable(messages[i + 1]):
                     nxt_role, nxt_content, nxt_meta = self._msg_attrs(messages[i + 1])
-                    if nxt_role == "assistant" and nxt_content:
-                        lines.append(f"  Assistant: {nxt_content}")
+                    if nxt_role == "assistant":
+                        if nxt_content:
+                            lines.append(f"  Assistant: {nxt_content}")
                         nxt_ctx = self._msg_context(messages[i + 1])
                         if nxt_ctx:
                             lines.append(f"  Context: {json.dumps(nxt_ctx, indent=2)}")
@@ -306,7 +333,9 @@ class ConversationHistory(BaseModel):
                 _, _, meta = self._msg_attrs(messages[i])
                 ctx = self._msg_context(messages[i])
                 tc = self._msg_tool_calls(messages[i])
-                lines = [f"Turn {turn_number}:", f"  Assistant: {content}"]
+                lines = [f"Turn {turn_number}:"]
+                if content:
+                    lines.append(f"  Assistant: {content}")
                 if ctx:
                     lines.append(f"  Context: {json.dumps(ctx, indent=2)}")
                 if meta:
@@ -336,7 +365,7 @@ class ConversationHistory(BaseModel):
 
         Only messages with content are included. The role is title-cased
         (e.g. "user" → "User", "assistant" → "Assistant").
-        Metadata, context, and tool calls are excluded — use _format_conversation()
+        Metadata, context, and tool calls are excluded — use format_conversation()
         when those fields need to be visible to an LLM judge.
         """
         parts = []
