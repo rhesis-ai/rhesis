@@ -1,10 +1,15 @@
 import dataclasses
-from typing import Any, Dict, Union
+import logging
+from typing import Any, Dict, List, Tuple, Union
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
+from rhesis.backend.metrics.result_builder import MetricResultBuilder
+from rhesis.backend.metrics.utils import diagnose_invalid_metric
 from rhesis.sdk.metrics import MetricConfig
 from rhesis.sdk.metrics.base import ScoreType
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
+
+logger = logging.getLogger(__name__)
 
 
 def metric_model_to_config(metric: MetricModel) -> MetricConfig:
@@ -86,3 +91,67 @@ def normalize_config(
     if isinstance(config, dict):
         return dict_to_metric_config(config)
     raise TypeError(f"Unsupported config type: {type(config).__name__}")
+
+
+def validate_metric_configs(
+    metrics: List[Union[Dict[str, Any], MetricConfig, MetricModel]],
+) -> Tuple[List[MetricConfig], Dict[str, Any]]:
+    """Normalize and validate raw metric configs.
+
+    Returns:
+        Tuple of (valid MetricConfig list, dict of invalid metric error results).
+    """
+    metric_configs: List[MetricConfig] = []
+    invalid_metric_results: Dict[str, Any] = {}
+
+    for i, raw_config in enumerate(metrics):
+        try:
+            config = normalize_config(raw_config)
+        except TypeError:
+            invalid_key = f"InvalidMetric_{i}"
+            type_name = type(raw_config).__name__
+            invalid_metric_results[invalid_key] = MetricResultBuilder.error(
+                reason=f"Invalid config type: {type_name}",
+                backend="unknown",
+                name=invalid_key,
+                class_name="Unknown",
+                description=f"Invalid config type: {type_name}",
+                error=f"Invalid config type: {type_name}",
+                threshold=0.0,
+            )
+            logger.warning(f"Invalid config type for metric {i}: {type_name}")
+            continue
+
+        error_reason = diagnose_invalid_metric(config)
+        if error_reason and error_reason != "unknown validation error":
+            invalid_key = f"InvalidMetric_{i}"
+            backend_str = (
+                getattr(config.backend, "value", config.backend) or "unknown"
+            )
+            invalid_metric_results[invalid_key] = MetricResultBuilder.error(
+                reason=f"Invalid metric configuration: {error_reason}",
+                backend=backend_str,
+                name=config.name or invalid_key,
+                class_name=config.class_name or "Unknown",
+                description=f"Failed to load metric: {error_reason}",
+                error=error_reason,
+                threshold=0.0,
+            )
+            logger.warning(
+                f"Invalid metric configuration {i}: {error_reason}"
+            )
+        else:
+            metric_configs.append(config)
+
+    if invalid_metric_results:
+        logger.warning(
+            f"Found {len(invalid_metric_results)} invalid metrics "
+            f"that will be reported as errors"
+        )
+
+    logger.debug(
+        f"Using {len(metric_configs)} valid metrics and "
+        f"{len(invalid_metric_results)} invalid metrics"
+    )
+
+    return metric_configs, invalid_metric_results
