@@ -10,7 +10,7 @@ more than once and handles organisations that configured this ahead of the
 release.
 
 Revision ID: a2b3c4d5e6f7
-Revises: f25f0800e881
+Revises: c4d5e6f7a8b9
 Create Date: 2026-03-13
 """
 
@@ -20,7 +20,7 @@ from alembic import op
 from sqlalchemy import text
 
 revision: str = "a2b3c4d5e6f7"
-down_revision: Union[str, None] = "f25f0800e881"
+down_revision: Union[str, None] = "c4d5e6f7a8b9"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
