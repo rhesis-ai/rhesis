@@ -99,6 +99,8 @@ Ensure `kubectl` is pointed at the dev cluster (`kubectl config current-context`
 kubectl kustomize kubernetes/clusters/dev/external-secrets/
 ```
 
+Need to change: need to change the dev, stg, prd project_id and service_account based on the environment.
+
 This should output the Namespace, ClusterSecretStore, Application, and a local ConfigMap — all with the correct `rhesis-dev-sandbox` project ID.
 
 **Step 2b — Apply Namespace and ESO Application first:**

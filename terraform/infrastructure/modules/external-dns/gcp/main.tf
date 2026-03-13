@@ -29,4 +29,8 @@ resource "google_secret_manager_secret" "cloudflare_api_token" {
 resource "google_secret_manager_secret_version" "cloudflare_api_token_placeholder" {
   secret      = google_secret_manager_secret.cloudflare_api_token.id
   secret_data = "PLACEHOLDER_CLOUDFLARE_API_TOKEN"
+
+  lifecycle {
+    ignore_changes= [secret_data]
+  }
 }

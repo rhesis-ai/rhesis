@@ -22,7 +22,7 @@ spec:
                 name: cloudflare-api-token
                 key: cf-api-token
         domainFilters:
-          - PLACEHOLDER
+          - internal-example.com
         policy: upsert-only
         txtOwnerId: PLACEHOLDER
         sources:

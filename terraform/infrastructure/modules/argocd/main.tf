@@ -11,8 +11,10 @@
 # after bootstrap.
 
 locals {
+  # Use /tmp to avoid writing credentials inside the repo tree (interrupted apply could leak).
+  kubeconfig_path = "/tmp/.kubeconfig-rhesis-${var.environment}"
   kubeconfig_env = {
-    KUBECONFIG                 = "${path.module}/.kubeconfig-${var.environment}"
+    KUBECONFIG                 = local.kubeconfig_path
     USE_GKE_GCLOUD_AUTH_PLUGIN = "True"
   }
 }
@@ -127,6 +129,6 @@ resource "null_resource" "cleanup_kubeconfig" {
   }
 
   provisioner "local-exec" {
-    command = "rm -f ${path.module}/.kubeconfig-${var.environment}"
+    command = "rm -f ${local.kubeconfig_path}"
   }
 }

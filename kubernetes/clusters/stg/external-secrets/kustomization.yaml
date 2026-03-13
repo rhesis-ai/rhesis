@@ -7,6 +7,7 @@ resources:
 configMapGenerator:
   - name: eso-config
     literals:
+    # need to change to the actual project id and service account email for stg
       - gcp-project-id=rhesis-dev-sandbox
       - eso-service-account-email=eso-stg@rhesis-dev-sandbox.iam.gserviceaccount.com
     options:
