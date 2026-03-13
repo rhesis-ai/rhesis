@@ -62,6 +62,11 @@ export default function ConversationTraceView({
   const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
 
   useEffect(() => {
+    setLoading(true);
+    setError(null);
+    setSpanFiles([]);
+    setTestResult(null);
+
     const load = async () => {
       const clientFactory = new ApiClientFactory(sessionToken);
 
@@ -92,9 +97,7 @@ export default function ConversationTraceView({
           filesPromise,
         ]);
         setTestResult(result);
-        if (files.some(f => f.length > 0)) {
-          setSpanFiles(files);
-        }
+        setSpanFiles(files);
       } catch (err: unknown) {
         const errorMsg =
           err instanceof Error

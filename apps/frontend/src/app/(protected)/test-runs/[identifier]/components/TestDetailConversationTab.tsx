@@ -49,6 +49,10 @@ export default function TestDetailConversationTab({
   useEffect(() => {
     if (!test.id || !sessionToken) return;
 
+    setFilesReady(false);
+    setSpanFiles([]);
+    setTraces([]);
+
     const load = async () => {
       try {
         const factory = new ApiClientFactory(sessionToken);
@@ -83,9 +87,7 @@ export default function TestDetailConversationTab({
         }
 
         setTraces(sorted);
-        if (files.some(f => f.length > 0)) {
-          setSpanFiles(files);
-        }
+        setSpanFiles(files);
       } catch {
         // Silently fail — traces and files are optional
       } finally {
