@@ -1,4 +1,5 @@
 import concurrent.futures
+import dataclasses
 import inspect
 import logging
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
@@ -78,22 +79,8 @@ class MetricEvaluator:
         self._conversation_history: Optional[ConversationHistory] = None
 
     @staticmethod
-    def _get_config_value(
-        config: Union[Dict, MetricConfig, MetricModel], key: str, default: Any = None
-    ) -> Any:
-        """Helper to get a value from dict, MetricConfig, or Metric model."""
-        if isinstance(config, dict):
-            return config.get(key, default)
-        return getattr(config, key, default)
-
-    @staticmethod
-    def _metric_model_to_dict(metric: MetricModel) -> Dict[str, Any]:
-        """Convert a Metric database model to SDK-compatible config dict.
-
-        Uses the SDK's backend_config_to_sdk_config utility to ensure proper
-        field name conversion (e.g., ground_truth_required -> requires_ground_truth).
-        """
-        # Common fields to extract from the metric model
+    def _metric_model_to_config(metric: MetricModel) -> MetricConfig:
+        """Convert a Metric database model to a MetricConfig."""
         common_fields = [
             "name",
             "class_name",
@@ -106,45 +93,74 @@ class MetricEvaluator:
             "ground_truth_required",
             "context_required",
         ]
-
-        # Build config dict by extracting common fields
         config = {field: getattr(metric, field, None) for field in common_fields}
-
-        # Add derived fields
-        config["backend"] = metric.backend_type.type_value if metric.backend_type else "rhesis"
-        config["model_id"] = str(metric.model_id) if metric.model_id else None
-
-        # Set defaults for required fields
+        config["backend"] = (
+            metric.backend_type.type_value if metric.backend_type else "rhesis"
+        )
         config["name"] = config["name"] or f"Metric_{metric.id}"
         config["description"] = (
             config["description"] or f"Metric evaluation for {metric.class_name}"
         )
         config["score_type"] = config["score_type"] or ScoreType.NUMERIC.value
 
-        # Add score type specific fields using enum
         score_type = metric.score_type or ScoreType.NUMERIC.value
         if score_type == ScoreType.CATEGORICAL.value:
             config["categories"] = metric.categories
             config["passing_categories"] = metric.passing_categories
         else:
-            # Numeric metrics
-            config["threshold"] = metric.threshold if metric.threshold is not None else 0.5
+            config["threshold"] = (
+                metric.threshold if metric.threshold is not None else 0.5
+            )
             config["threshold_operator"] = metric.threshold_operator
             if metric.min_score is not None:
                 config["min_score"] = metric.min_score
             if metric.max_score is not None:
                 config["max_score"] = metric.max_score
 
-        # Add model information if available
-        if metric.model and metric.model.provider_type:
-            config["provider"] = metric.model.provider_type.type_value
-            config["model"] = metric.model.model_name
-
-        # Convert backend field names to SDK field names
-        # This handles ground_truth_required -> requires_ground_truth
         config = backend_config_to_sdk_config(config)
+        field_names = {f.name for f in dataclasses.fields(MetricConfig)}
+        filtered = {k: v for k, v in config.items() if k in field_names}
+        cfg = MetricConfig(**filtered)
+        # Backend-only: carry model_id/provider/model in parameters for model resolution
+        model_id = str(metric.model_id) if metric.model_id else None
+        if model_id or (metric.model and metric.model.provider_type):
+            cfg.parameters = dict(cfg.parameters or {})
+            if model_id:
+                cfg.parameters["model_id"] = model_id
+            if metric.model and metric.model.provider_type:
+                cfg.parameters["provider"] = metric.model.provider_type.type_value
+                cfg.parameters["model"] = metric.model.model_name
+        return cfg
 
-        return config
+    @staticmethod
+    def _dict_to_metric_config(config: Dict[str, Any]) -> MetricConfig:
+        """Convert a dict to MetricConfig, flattening nested 'parameters' into top-level."""
+        params = config.get("parameters") or {}
+        if not isinstance(params, dict):
+            params = {}
+        merged = {**config, **params}
+        # Preserve backend-only model fields inside parameters (not on MetricConfig)
+        params = dict(params)
+        for key in ("model_id", "provider", "model"):
+            if key in merged:
+                params[key] = merged[key]
+        merged["parameters"] = params
+        field_names = {f.name for f in dataclasses.fields(MetricConfig)}
+        filtered = {k: v for k, v in merged.items() if k in field_names}
+        return MetricConfig(**filtered)
+
+    @staticmethod
+    def _normalize_config(
+        config: Union[Dict[str, Any], MetricConfig, MetricModel],
+    ) -> MetricConfig:
+        """Normalize any supported config type to MetricConfig."""
+        if isinstance(config, MetricConfig):
+            return config
+        if isinstance(config, MetricModel):
+            return MetricEvaluator._metric_model_to_config(config)
+        if isinstance(config, dict):
+            return MetricEvaluator._dict_to_metric_config(config)
+        raise TypeError(f"Unsupported config type: {type(config).__name__}")
 
     def evaluate(
         self,
@@ -202,38 +218,15 @@ class MetricEvaluator:
             logger.warning("No metrics provided for evaluation")
             return {}
 
-        # Convert Metric models to dicts first, then validate
-        metric_configs = []
-        invalid_metric_results = {}  # Store results for invalid metrics
+        metric_configs: List[MetricConfig] = []
+        invalid_metric_results = {}
 
-        for i, config in enumerate(metrics):
-            # Convert MetricModel to dict if needed
-            if isinstance(config, MetricModel):
-                config = self._metric_model_to_dict(config)
-
-            # Accept MetricConfig objects and dicts
-            if isinstance(config, (MetricConfig, dict)):
-                # Validate basic fields
-                error_reason = diagnose_invalid_metric(config)
-                if error_reason and error_reason != "unknown validation error":
-                    # Create error result for invalid metric
-                    invalid_key = f"InvalidMetric_{i}"
-                    invalid_metric_results[invalid_key] = MetricResultBuilder.error(
-                        reason=f"Invalid metric configuration: {error_reason}",
-                        backend=self._get_config_value(config, "backend", "unknown"),
-                        name=self._get_config_value(config, "name", invalid_key),
-                        class_name=self._get_config_value(config, "class_name", "Unknown"),
-                        description=f"Failed to load metric: {error_reason}",
-                        error=error_reason,
-                        threshold=0.0,
-                    )
-                    logger.warning(f"Invalid metric configuration {i}: {error_reason}")
-                else:
-                    metric_configs.append(config)
-            else:
-                # Invalid config type
+        for i, raw_config in enumerate(metrics):
+            try:
+                config = self._normalize_config(raw_config)
+            except TypeError:
                 invalid_key = f"InvalidMetric_{i}"
-                type_name = type(config).__name__
+                type_name = type(raw_config).__name__
                 invalid_metric_results[invalid_key] = MetricResultBuilder.error(
                     reason=f"Invalid config type: {type_name}",
                     backend="unknown",
@@ -244,6 +237,26 @@ class MetricEvaluator:
                     threshold=0.0,
                 )
                 logger.warning(f"Invalid config type for metric {i}: {type_name}")
+                continue
+
+            error_reason = diagnose_invalid_metric(config)
+            if error_reason and error_reason != "unknown validation error":
+                invalid_key = f"InvalidMetric_{i}"
+                backend_str = (
+                    getattr(config.backend, "value", config.backend) or "unknown"
+                )
+                invalid_metric_results[invalid_key] = MetricResultBuilder.error(
+                    reason=f"Invalid metric configuration: {error_reason}",
+                    backend=backend_str,
+                    name=config.name or invalid_key,
+                    class_name=config.class_name or "Unknown",
+                    description=f"Failed to load metric: {error_reason}",
+                    error=error_reason,
+                    threshold=0.0,
+                )
+                logger.warning(f"Invalid metric configuration {i}: {error_reason}")
+            else:
+                metric_configs.append(config)
 
         # Log summary
         if invalid_metric_results:
@@ -269,15 +282,11 @@ class MetricEvaluator:
                 return {}
 
         # Split SDK metrics from local metrics
-        local_configs = []
-        sdk_configs = []
+        local_configs: List[MetricConfig] = []
+        sdk_configs: List[MetricConfig] = []
         for config in metric_configs:
-            backend = (
-                config.get("backend")
-                if isinstance(config, dict)
-                else getattr(config, "backend", None)
-            )
-            if backend == "sdk":
+            backend_val = getattr(config.backend, "value", config.backend)
+            if backend_val == "sdk":
                 sdk_configs.append(config)
             else:
                 local_configs.append(config)
@@ -305,7 +314,7 @@ class MetricEvaluator:
 
     def _evaluate_sdk_metrics(
         self,
-        sdk_configs: List[Union[Dict[str, Any], MetricConfig]],
+        sdk_configs: List[MetricConfig],
         input_text: str,
         output_text: str,
         expected_output: str,
@@ -327,11 +336,11 @@ class MetricEvaluator:
         if not self._sdk_metric_sender:
             logger.warning("Cannot evaluate SDK metrics: no sdk_metric_sender configured")
             return {
-                self._get_config_value(c, "name", f"SDKMetric_{i}"): MetricResultBuilder.error(
+                (c.name or f"SDKMetric_{i}"): MetricResultBuilder.error(
                     reason="SDK metric sender not configured",
                     backend="sdk",
-                    name=self._get_config_value(c, "name", f"SDKMetric_{i}"),
-                    class_name=self._get_config_value(c, "class_name", "Unknown"),
+                    name=c.name or f"SDKMetric_{i}",
+                    class_name=c.class_name or "Unknown",
                     error="sdk_metric_sender not configured",
                 )
                 for i, c in enumerate(sdk_configs)
@@ -343,10 +352,10 @@ class MetricEvaluator:
         results = {}
 
         for config in sdk_configs:
-            metric_name = self._get_config_value(config, "name", "")
-            class_name = self._get_config_value(config, "class_name", metric_name)
-            description = self._get_config_value(config, "description", f"SDK metric: {class_name}")
-            threshold = self._get_config_value(config, "threshold", 0.0)
+            metric_name = config.name or ""
+            class_name = config.class_name or metric_name
+            description = config.description or f"SDK metric: {class_name}"
+            threshold = config.threshold if config.threshold is not None else 0.0
 
             metric_run_id = str(uuid.uuid4())
 
@@ -396,7 +405,7 @@ class MetricEvaluator:
                 else:
                     score = sdk_result.get("score", 0.0)
                     details = sdk_result.get("details", {})
-                    threshold_op = self._get_config_value(config, "threshold_operator", ">=")
+                    threshold_op = config.threshold_operator or ">="
                     is_successful = self.score_evaluator.evaluate_score(
                         score=score,
                         threshold=threshold,
@@ -435,7 +444,7 @@ class MetricEvaluator:
 
     def _prepare_metrics(
         self,
-        metrics: List[Optional[MetricConfig]],
+        metrics: List[MetricConfig],
         expected_output: Optional[str],
         context: List[str] = None,
     ) -> List[Tuple[str, BaseMetric, MetricConfig, str]]:
@@ -457,21 +466,13 @@ class MetricEvaluator:
         metric_tasks = []
 
         for metric_config in valid_metrics:
-            # Handle both dict and MetricConfig objects
-            if isinstance(metric_config, dict):
-                class_name = metric_config.get("class_name")
-                backend = metric_config.get("backend")
-                threshold = metric_config.get("threshold")
-                parameters = metric_config.get("parameters", {})
-                model_id = metric_config.get("model_id")
-            else:
-                class_name = metric_config.class_name
-                backend = metric_config.backend
-                threshold = metric_config.threshold
-                parameters = (
-                    metric_config.parameters if hasattr(metric_config, "parameters") else {}
-                )
-                model_id = metric_config.model_id if hasattr(metric_config, "model_id") else None
+            class_name = metric_config.class_name
+            backend = getattr(
+                metric_config.backend, "value", metric_config.backend
+            )
+            threshold = metric_config.threshold
+            parameters = metric_config.parameters or {}
+            model_id = (metric_config.parameters or {}).get("model_id")
 
             try:
                 # Validate essential metric configuration
@@ -510,9 +511,7 @@ class MetricEvaluator:
                                 model_name=model_record.model_name,
                                 api_key=model_record.key,
                             )
-                            metric_name_for_log = self._get_config_value(
-                                metric_config, "name", class_name
-                            )
+                            metric_name_for_log = metric_config.name or class_name
                             logger.info(
                                 f"[METRIC_MODEL] Using metric-specific model for "
                                 f"'{metric_name_for_log}': {model_record.name} "
@@ -520,17 +519,13 @@ class MetricEvaluator:
                                 f"model={model_record.model_name})"
                             )
                         else:
-                            metric_name_for_log = self._get_config_value(
-                                metric_config, "name", class_name
-                            )
+                            metric_name_for_log = metric_config.name or class_name
                             logger.warning(
                                 f"[METRIC_MODEL] Model ID {model_id} not found for "
                                 f"metric '{metric_name_for_log}'"
                             )
                     except Exception as e:
-                        metric_name_for_log = self._get_config_value(
-                            metric_config, "name", class_name
-                        )
+                        metric_name_for_log = metric_config.name or class_name
                         logger.warning(
                             f"[METRIC_MODEL] Error fetching metric-specific model for "
                             f"'{metric_name_for_log}': {e}"
@@ -539,7 +534,7 @@ class MetricEvaluator:
                 # 2. Fall back to user's default evaluation model if no metric-specific model
                 if metric_model is None and self.model is not None:
                     metric_model = self.model
-                    metric_name_for_log = self._get_config_value(metric_config, "name", class_name)
+                    metric_name_for_log = metric_config.name or class_name
                     logger.debug(
                         f"[METRIC_MODEL] Using user's default model for '{metric_name_for_log}'"
                     )
@@ -551,22 +546,15 @@ class MetricEvaluator:
                 # Instantiate the metric directly using SDK MetricFactory
                 from rhesis.sdk.metrics import MetricFactory
 
-                metric_name = (
-                    metric_config.get("name")
-                    if isinstance(metric_config, dict)
-                    else getattr(metric_config, "name", class_name)
-                )
+                metric_name = metric_config.name or class_name
                 logger.debug(
                     f"[SDK_DIRECT] Creating metric directly via SDK: {metric_name or class_name}"
                 )
 
-                # Merge metric_params (which includes the model) into metric_config
-                config_dict = (
-                    metric_config.to_dict() if hasattr(metric_config, "to_dict") else metric_config
-                )
+                # Merge metric_params (which includes the model) into config dict for factory
+                config_dict = dataclasses.asdict(metric_config)
                 if metric_params:
-                    # Add model to config's parameters
-                    if "parameters" not in config_dict:
+                    if config_dict.get("parameters") is None:
                         config_dict["parameters"] = {}
                     config_dict["parameters"].update(metric_params)
 
@@ -605,12 +593,7 @@ class MetricEvaluator:
                 metric_tasks.append((class_name, metric, metric_config, backend))
 
             except Exception as e:
-                # Create a more informative error message that includes backend and metric name
-                metric_name = (
-                    metric_config.get("name")
-                    if isinstance(metric_config, dict)
-                    else getattr(metric_config, "name", class_name)
-                )
+                metric_name = metric_config.name or class_name
                 error_msg = (
                     f"Error preparing metric '{metric_name or class_name}' (class: '{class_name}', "
                     f"backend: '{backend}'): {str(e)}"
@@ -640,12 +623,7 @@ class MetricEvaluator:
         results = {}
 
         for class_name, metric, metric_config, backend in metric_tasks:
-            # Get preferred name
-            metric_name = (
-                metric_config.get("name")
-                if isinstance(metric_config, dict)
-                else getattr(metric_config, "name", None)
-            )
+            metric_name = metric_config.name
             base_key = metric_name if metric_name and metric_name.strip() else class_name
 
             # Ensure uniqueness
@@ -882,7 +860,7 @@ class MetricEvaluator:
     def _create_error_result(
         self,
         class_name: str,
-        metric_config: Union[Dict, MetricConfig],
+        metric_config: MetricConfig,
         backend: str,
         exception: Exception,
     ) -> Dict[str, Any]:
@@ -901,20 +879,18 @@ class MetricEvaluator:
         return MetricResultBuilder.error(
             reason=f"Evaluation failed: {str(exception)}",
             backend=backend,
-            name=self._get_config_value(metric_config, "name", class_name),
+            name=metric_config.name or class_name,
             class_name=class_name,
-            description=self._get_config_value(
-                metric_config, "description", f"{class_name} evaluation metric"
-            ),
+            description=metric_config.description or f"{class_name} evaluation metric",
             error=str(exception),
             error_type=type(exception).__name__,
-            threshold=self._get_config_value(metric_config, "threshold", 0.0),
+            threshold=metric_config.threshold if metric_config.threshold is not None else 0.0,
         )
 
     def _create_timeout_result(
         self,
         class_name: str,
-        metric_config: Union[Dict, MetricConfig],
+        metric_config: MetricConfig,
         backend: str,
     ) -> Dict[str, Any]:
         """
@@ -930,12 +906,10 @@ class MetricEvaluator:
         """
         return MetricResultBuilder.timeout(
             backend=backend,
-            name=self._get_config_value(metric_config, "name", class_name),
+            name=metric_config.name or class_name,
             class_name=class_name,
-            description=self._get_config_value(
-                metric_config, "description", f"{class_name} evaluation metric"
-            ),
-            threshold=self._get_config_value(metric_config, "threshold", 0.0),
+            description=metric_config.description or f"{class_name} evaluation metric",
+            threshold=metric_config.threshold if metric_config.threshold is not None else 0.0,
             timeout_seconds=METRIC_OVERALL_TIMEOUT,
         )
 
@@ -1111,44 +1085,38 @@ class MetricEvaluator:
         """
         try:
             result = future.result()
-            # Get description from config or use a default
             description = (
-                self._get_config_value(metric_config, "description")
-                or f"{class_name} evaluation metric"
+                metric_config.description or f"{class_name} evaluation metric"
             )
 
-            # Determine is_successful value
-            # Priority: Use metric's own is_successful if provided, otherwise compute it
             if "is_successful" in result.details and result.details["is_successful"] is not None:
-                # Trust the metric's own evaluation (e.g., DeepEval, Ragas)
                 is_successful = result.details["is_successful"]
                 logger.debug(
                     f"Using metric's own is_successful value for '{class_name}': {is_successful}"
                 )
             else:
-                # Compute is_successful using our score evaluator
                 is_successful = self.score_evaluator.evaluate_score(
                     score=result.score,
-                    threshold=self._get_config_value(metric_config, "threshold"),
-                    threshold_operator=self._get_config_value(metric_config, "threshold_operator"),
-                    reference_score=self._get_config_value(metric_config, "reference_score"),
-                    categories=self._get_config_value(metric_config, "categories"),
-                    passing_categories=self._get_config_value(metric_config, "passing_categories"),
+                    threshold=metric_config.threshold,
+                    threshold_operator=metric_config.threshold_operator,
+                    reference_score=metric_config.reference_score,
+                    categories=metric_config.categories,
+                    passing_categories=metric_config.passing_categories,
                 )
                 logger.debug(
                     f"Computed is_successful for '{class_name}' using score evaluator: "
                     f"{is_successful}"
                 )
 
-            threshold = self._get_config_value(metric_config, "threshold")
-            reference_score = self._get_config_value(metric_config, "reference_score")
+            threshold = metric_config.threshold
+            reference_score = metric_config.reference_score
             logger.debug(f"Completed metric '{class_name}' with score {result.score}")
             return MetricResultBuilder.success(
                 score=result.score,
                 reason=result.details.get("reason", f"Score: {result.score}"),
                 is_successful=is_successful,
                 backend=backend,
-                name=self._get_config_value(metric_config, "name"),
+                name=metric_config.name or class_name,
                 class_name=class_name,
                 description=description,
                 threshold=threshold,
@@ -1165,14 +1133,14 @@ class MetricEvaluator:
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
 
             error_description = (
-                description if "description" in locals() else f"{class_name} evaluation metric"
+                metric_config.description or f"{class_name} evaluation metric"
             )
-            threshold = self._get_config_value(metric_config, "threshold")
-            reference_score = self._get_config_value(metric_config, "reference_score")
+            threshold = metric_config.threshold
+            reference_score = metric_config.reference_score
             return MetricResultBuilder.error(
                 reason=f"Error: {str(exc)}",
                 backend=backend,
-                name=self._get_config_value(metric_config, "name"),
+                name=metric_config.name or class_name,
                 class_name=class_name,
                 description=error_description,
                 error=str(exc),

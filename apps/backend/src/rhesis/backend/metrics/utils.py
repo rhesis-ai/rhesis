@@ -39,12 +39,12 @@ def run_evaluation(
     )
 
 
-def diagnose_invalid_metric(config: Union[Dict[str, Any], MetricConfig]) -> str:
+def diagnose_invalid_metric(config: MetricConfig) -> str:
     """
     Diagnose the reason why a metric configuration is invalid.
 
     Args:
-        config: The metric configuration
+        config: The metric configuration (must be MetricConfig; normalize before calling).
 
     Returns:
         A string describing the reason why the metric configuration is invalid
@@ -52,35 +52,17 @@ def diagnose_invalid_metric(config: Union[Dict[str, Any], MetricConfig]) -> str:
     if config is None:
         return "configuration is None"
 
-    if isinstance(config, MetricConfig):
-        missing_fields = []
-        if not config.class_name or (
-            isinstance(config.class_name, str) and not config.class_name.strip()
-        ):
-            missing_fields.append("class_name")
-        if not config.backend or (isinstance(config.backend, str) and not config.backend.strip()):
-            missing_fields.append("backend")
-        if missing_fields:
-            return f"missing or empty required fields: {', '.join(missing_fields)}"
-    elif isinstance(config, dict):
-        missing_fields = []
-        if (
-            "class_name" not in config
-            or config["class_name"] is None
-            or (isinstance(config["class_name"], str) and not config["class_name"].strip())
-        ):
-            missing_fields.append("class_name")
-        if (
-            "backend" not in config
-            or config["backend"] is None
-            or (isinstance(config["backend"], str) and not config["backend"].strip())
-        ):
-            missing_fields.append("backend")
-        if missing_fields:
-            return f"missing or empty required fields: {', '.join(missing_fields)}"
-    else:
-        return (
-            f"invalid configuration type: {type(config).__name__} (expected dict or MetricConfig)"
-        )
+    missing_fields = []
+    if not config.class_name or (
+        isinstance(config.class_name, str) and not config.class_name.strip()
+    ):
+        missing_fields.append("class_name")
+    backend_val = getattr(config.backend, "value", config.backend)
+    if not backend_val or (
+        isinstance(backend_val, str) and not backend_val.strip()
+    ):
+        missing_fields.append("backend")
+    if missing_fields:
+        return f"missing or empty required fields: {', '.join(missing_fields)}"
 
     return "unknown validation error"
