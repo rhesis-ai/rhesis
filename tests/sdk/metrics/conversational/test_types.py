@@ -505,3 +505,256 @@ def test_get_assistant_tool_calls_independent_from_context_and_metadata():
     assert conv.get_assistant_context() == [["rag chunk"]]
     assert conv.get_assistant_metadata() == [{"confidence": 0.8}]
     assert conv.get_assistant_tool_calls() == [[{"name": "search"}]]
+
+
+# ============================================================================
+# ConversationHistory.to_text() tests
+# ============================================================================
+
+
+def test_to_text_simple():
+    """to_text() returns role-prefixed lines separated by blank lines."""
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi there"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.to_text()
+    assert result == "User: Hello\n\nAssistant: Hi there"
+
+
+def test_to_text_multi_turn():
+    """to_text() separates each turn pair with a blank line."""
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi"},
+        {"role": "user", "content": "How are you?"},
+        {"role": "assistant", "content": "Fine"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.to_text()
+    assert result == "User: Hello\n\nAssistant: Hi\n\nUser: How are you?\n\nAssistant: Fine"
+
+
+def test_to_text_skips_empty_content():
+    """to_text() skips messages with empty or None content."""
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": ""},
+        {"role": "user", "content": "Anyone there?"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.to_text()
+    assert result == "User: Hello\n\nUser: Anyone there?"
+
+
+def test_to_text_excludes_metadata():
+    """to_text() never includes metadata, context, or tool_calls."""
+    messages = [
+        {"role": "user", "content": "What is RAG?"},
+        {
+            "role": "assistant",
+            "content": "RAG is retrieval augmented generation.",
+            "metadata": {"confidence": 0.95},
+            "context": ["doc1"],
+            "tool_calls": [{"name": "search"}],
+        },
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv.to_text()
+    assert "metadata" not in result.lower()
+    assert "confidence" not in result
+    assert "doc1" not in result
+    assert "search" not in result
+    assert "RAG is retrieval augmented generation." in result
+
+
+# ============================================================================
+# ConversationHistory._format_conversation() tests
+# ============================================================================
+
+
+def test_format_conversation_basic_structure():
+    """_format_conversation() produces numbered turns with indented role lines."""
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi there"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    assert "Turn 1:" in result
+    assert "  User: Hello" in result
+    assert "  Assistant: Hi there" in result
+
+
+def test_format_conversation_multi_turn_numbering():
+    """Each user/assistant pair gets its own incrementing turn number."""
+    messages = [
+        {"role": "user", "content": "Q1"},
+        {"role": "assistant", "content": "A1"},
+        {"role": "user", "content": "Q2"},
+        {"role": "assistant", "content": "A2"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    assert "Turn 1:" in result
+    assert "Turn 2:" in result
+    assert "Turn 3:" not in result
+
+
+def test_format_conversation_blank_lines_between_turns():
+    """Turns are separated by blank lines (double newline)."""
+    messages = [
+        {"role": "user", "content": "Q1"},
+        {"role": "assistant", "content": "A1"},
+        {"role": "user", "content": "Q2"},
+        {"role": "assistant", "content": "A2"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    assert "\n\n" in result
+    turns = result.split("\n\n")
+    assert len(turns) == 2
+
+
+def test_format_conversation_inline_metadata():
+    """Metadata appears inline beneath the assistant response in its turn."""
+    messages = [
+        {"role": "user", "content": "What is RAG?"},
+        {
+            "role": "assistant",
+            "content": "RAG is retrieval augmented generation.",
+            "metadata": {"confidence": 0.95, "source": "docs"},
+        },
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    assert "  Metadata:" in result
+    assert '"confidence"' in result
+    assert "0.95" in result
+    assert '"source"' in result
+
+
+def test_format_conversation_inline_context():
+    """Context appears inline beneath the assistant response."""
+    messages = [
+        {"role": "user", "content": "Q"},
+        {"role": "assistant", "content": "A", "context": ["chunk 1", "chunk 2"]},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    assert "  Context:" in result
+    assert "chunk 1" in result
+    assert "chunk 2" in result
+
+
+def test_format_conversation_inline_tool_calls():
+    """Tool calls appear inline beneath the assistant response."""
+    messages = [
+        {"role": "user", "content": "Search for X"},
+        {
+            "role": "assistant",
+            "content": "Found it.",
+            "tool_calls": [{"name": "search", "arguments": {"q": "X"}}],
+        },
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    assert "  Tool Calls:" in result
+    assert "search" in result
+
+
+def test_format_conversation_partial_metadata():
+    """Only turns with metadata show a Metadata block; others do not."""
+    messages = [
+        {"role": "user", "content": "Q1"},
+        {"role": "assistant", "content": "A1"},  # no metadata
+        {"role": "user", "content": "Q2"},
+        {"role": "assistant", "content": "A2", "metadata": {"key": "val"}},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    turns = result.split("\n\n")
+    assert "Metadata" not in turns[0]
+    assert "Metadata" in turns[1]
+
+
+def test_format_conversation_no_metadata_no_extra_lines():
+    """When no metadata/context/tool_calls exist, no extra lines are added."""
+    messages = [
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    assert "Metadata" not in result
+    assert "Context" not in result
+    assert "Tool Calls" not in result
+
+
+def test_format_conversation_metadata_tied_to_correct_turn():
+    """Metadata from turn 2 does not bleed into turn 1's text block."""
+    messages = [
+        {"role": "user", "content": "Q1"},
+        {"role": "assistant", "content": "A1"},
+        {"role": "user", "content": "Q2"},
+        {"role": "assistant", "content": "A2", "metadata": {"tag": "important"}},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    turn1_text, turn2_text = result.split("\n\n")
+    assert "tag" not in turn1_text
+    assert "tag" in turn2_text
+
+
+def test_format_conversation_all_fields_inline():
+    """All three fields (metadata, context, tool_calls) render together in one turn."""
+    messages = [
+        {"role": "user", "content": "Q"},
+        {
+            "role": "assistant",
+            "content": "A",
+            "context": ["rag chunk"],
+            "metadata": {"confidence": 0.9},
+            "tool_calls": [{"name": "fn"}],
+        },
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    assert "  Context:" in result
+    assert "  Metadata:" in result
+    assert "  Tool Calls:" in result
+
+
+def test_format_conversation_standalone_assistant():
+    """A standalone assistant message (no preceding user) gets its own turn."""
+    messages = [
+        {"role": "assistant", "content": "Welcome!"},
+        {"role": "user", "content": "Thanks"},
+        {"role": "assistant", "content": "You're welcome"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    assert "Turn 1:" in result
+    assert "  Assistant: Welcome!" in result
+    assert "Turn 2:" in result
+
+
+def test_format_conversation_system_message():
+    """System messages are rendered without a turn number."""
+    messages = [
+        {"role": "system", "content": "You are helpful."},
+        {"role": "user", "content": "Hello"},
+        {"role": "assistant", "content": "Hi"},
+    ]
+    conv = ConversationHistory.from_messages(messages)
+    result = conv._format_conversation()
+    assert "[system]: You are helpful." in result
+    assert "Turn 1:" in result
+
+
+def test_format_conversation_empty():
+    """Empty conversation returns an empty string."""
+    conv = ConversationHistory.from_messages([])
+    result = conv._format_conversation()
+    assert result == ""

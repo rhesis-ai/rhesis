@@ -441,77 +441,17 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
         """
         Format conversation history as readable text for the prompt.
 
-        Groups consecutive user/assistant message pairs into numbered turns,
-        where each turn represents one interaction (user message + assistant response).
-        When an assistant message carries metadata, it is rendered inline under
-        the assistant response as a "Metadata:" block.
+        Delegates to ConversationHistory._format_conversation() which groups
+        user/assistant pairs into numbered turns and renders metadata, context,
+        and tool calls inline beneath each assistant response.
 
         Args:
             conversation_history: The conversation to format
 
         Returns:
-            Formatted conversation text
+            Formatted conversation text with per-turn metadata inline
         """
-        import json
-
-        formatted_turns = []
-        turn_number = 0
-        messages = conversation_history.messages
-        i = 0
-
-        while i < len(messages):
-            role, content, _ = ConversationHistory._msg_attrs(messages[i])
-
-            if not content:
-                i += 1
-                continue
-
-            if role == "user":
-                turn_number += 1
-                lines = [f"Turn {turn_number}:", f"  User: {content}"]
-                if i + 1 < len(messages):
-                    nxt_role, nxt_content, nxt_meta = ConversationHistory._msg_attrs(
-                        messages[i + 1]
-                    )
-                    if nxt_role == "assistant" and nxt_content:
-                        lines.append(f"  Assistant: {nxt_content}")
-                        nxt_ctx = ConversationHistory._msg_context(messages[i + 1])
-                        if nxt_ctx:
-                            lines.append(f"  Context: {json.dumps(nxt_ctx, indent=2)}")
-                        if nxt_meta:
-                            lines.append(f"  Metadata: {json.dumps(nxt_meta, indent=2)}")
-                        nxt_tc = ConversationHistory._msg_tool_calls(messages[i + 1])
-                        if nxt_tc:
-                            lines.append(f"  Tool Calls: {json.dumps(nxt_tc, indent=2)}")
-                        i += 2
-                    else:
-                        i += 1
-                else:
-                    i += 1
-                formatted_turns.append("\n".join(lines))
-
-            elif role == "assistant":
-                # Standalone assistant message (no preceding user message)
-                turn_number += 1
-                _, _, meta = ConversationHistory._msg_attrs(messages[i])
-                ctx = ConversationHistory._msg_context(messages[i])
-                tc = ConversationHistory._msg_tool_calls(messages[i])
-                lines = [f"Turn {turn_number}:", f"  Assistant: {content}"]
-                if ctx:
-                    lines.append(f"  Context: {json.dumps(ctx, indent=2)}")
-                if meta:
-                    lines.append(f"  Metadata: {json.dumps(meta, indent=2)}")
-                if tc:
-                    lines.append(f"  Tool Calls: {json.dumps(tc, indent=2)}")
-                formatted_turns.append("\n".join(lines))
-                i += 1
-
-            else:
-                # System or other messages — include without a turn number
-                formatted_turns.append(f"[{role}]: {content}")
-                i += 1
-
-        return "\n\n".join(formatted_turns)
+        return conversation_history._format_conversation()
 
     @staticmethod
     def _count_turns(conversation_history: ConversationHistory) -> int:
