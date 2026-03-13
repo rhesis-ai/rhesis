@@ -47,14 +47,14 @@ def _get_endpoint_routing(
     return None, None
 
 
-def _build_sdk_metric_sender(
+def _build_connector_metric_sender(
     project_id: Optional[str],
     environment: Optional[str],
 ):
-    """Build an async callable that dispatches SDK metrics via RPC.
+    """Build an async callable that dispatches connector metrics via WebSocket RPC.
 
     Returns None when project/environment are unavailable, which tells
-    the evaluator to skip SDK metrics.
+    the evaluator to skip connector metrics.
     """
     if not project_id or not environment:
         return None
@@ -217,7 +217,7 @@ class SingleTurnRunner(BaseRunner):
                 model=model,
                 db=db,
                 organization_id=organization_id,
-                sdk_metric_sender=_build_sdk_metric_sender(ep_project_id, ep_environment),
+                connector_metric_sender=_build_connector_metric_sender(ep_project_id, ep_environment),
             )
 
             if model:
