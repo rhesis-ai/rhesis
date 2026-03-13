@@ -418,6 +418,11 @@ async def chat(
     if not isinstance(conversation_history, list):
         conversation_history = sessions[session_id].messages.copy()
 
+    # Same guard: Jinja2 renders ``{{ file_contents | default(none) }}`` as
+    # the string "None" rather than Python None when no files are present.
+    if not isinstance(file_contents, list):
+        file_contents = None
+
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
     response_generator = endpoint_module.get_response_generator(use_case)
