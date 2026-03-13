@@ -15,10 +15,9 @@ from tenacity import (
 )
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
-from rhesis.backend.metrics.metric_service import normalize_config
+from rhesis.backend.metrics.metric_service import validate_metric_configs
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
-from rhesis.backend.metrics.utils import diagnose_invalid_metric
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
@@ -133,57 +132,7 @@ class MetricEvaluator:
             logger.warning("No metrics provided for evaluation")
             return {}
 
-        metric_configs: List[MetricConfig] = []
-        invalid_metric_results = {}
-
-        for i, raw_config in enumerate(metrics):
-            try:
-                config = normalize_config(raw_config)
-            except TypeError:
-                invalid_key = f"InvalidMetric_{i}"
-                type_name = type(raw_config).__name__
-                invalid_metric_results[invalid_key] = MetricResultBuilder.error(
-                    reason=f"Invalid config type: {type_name}",
-                    backend="unknown",
-                    name=invalid_key,
-                    class_name="Unknown",
-                    description=f"Invalid config type: {type_name}",
-                    error=f"Invalid config type: {type_name}",
-                    threshold=0.0,
-                )
-                logger.warning(f"Invalid config type for metric {i}: {type_name}")
-                continue
-
-            error_reason = diagnose_invalid_metric(config)
-            if error_reason and error_reason != "unknown validation error":
-                invalid_key = f"InvalidMetric_{i}"
-                backend_str = (
-                    getattr(config.backend, "value", config.backend) or "unknown"
-                )
-                invalid_metric_results[invalid_key] = MetricResultBuilder.error(
-                    reason=f"Invalid metric configuration: {error_reason}",
-                    backend=backend_str,
-                    name=config.name or invalid_key,
-                    class_name=config.class_name or "Unknown",
-                    description=f"Failed to load metric: {error_reason}",
-                    error=error_reason,
-                    threshold=0.0,
-                )
-                logger.warning(f"Invalid metric configuration {i}: {error_reason}")
-            else:
-                metric_configs.append(config)
-
-        # Log summary
-        if invalid_metric_results:
-            logger.warning(
-                f"Found {len(invalid_metric_results)} invalid metrics "
-                f"that will be reported as errors"
-            )
-
-        logger.debug(
-            f"Using {len(metric_configs)} valid metrics and "
-            f"{len(invalid_metric_results)} invalid metrics"
-        )
+        metric_configs, invalid_metric_results = validate_metric_configs(metrics)
 
         if not metric_configs:
             logger.warning("No valid metrics found after parsing")
