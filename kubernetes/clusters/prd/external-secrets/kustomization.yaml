@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/external-secrets
+
+configMapGenerator:
+  - name: eso-config
+    literals:
+      - gcp-project-id=rhesis-dev-sandbox
+      - eso-service-account-email=eso-prd@rhesis-dev-sandbox.iam.gserviceaccount.com
+    options:
+      annotations:
+        config.kubernetes.io/local-config: "true"
+      disableNameSuffixHash: true
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: eso-config
+      fieldPath: data.gcp-project-id
+    targets:
+      - select:
+          kind: ClusterSecretStore
+          name: gcp-secret-manager
+        fieldPaths:
+          - spec.provider.gcpsm.projectID
+  - source:
+      kind: ConfigMap
+      name: eso-config
+      fieldPath: data.eso-service-account-email
+    targets:
+      - select:
+          kind: Application
+          name: external-secrets
+        fieldPaths:
+          - spec.source.helm.valuesObject.serviceAccount.annotations.[iam.gke.io/gcp-service-account]

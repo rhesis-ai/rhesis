@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ingress-nginx-internal
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://kubernetes.github.io/ingress-nginx
+    chart: ingress-nginx
+    targetRevision: "4.14.3"
+    helm:
+      valuesObject:
+        controller:
+          ingressClassResource:
+            name: internal
+            enabled: true
+            default: true
+            controllerValue: k8s.io/ingress-nginx-internal
+          ingressClass: internal
+          service:
+            enabled: true
+            external:
+              enabled: false
+            internal:
+              enabled: true
+              type: LoadBalancer
+              loadBalancerIP: PLACEHOLDER
+              annotations:
+                cloud.google.com/load-balancer-type: Internal
+                networking.gke.io/internal-load-balancer-subnet: PLACEHOLDER
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ingress-nginx-internal
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

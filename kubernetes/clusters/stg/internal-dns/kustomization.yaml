@@ -1,0 +1,70 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/internal-dns
+
+configMapGenerator:
+  - name: internal-dns-config
+    literals:
+      - tsig-secret-gcp-key=internal-dns-tsig-key-stg
+      - rfc2136-host=10.4.1.200
+      - tsig-keyname=tsig-stg
+      - domain-filter=rhesis.internal
+      - txt-owner-id=stg-internal-dns
+    options:
+      annotations:
+        config.kubernetes.io/local-config: "true"
+      disableNameSuffixHash: true
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: internal-dns-config
+      fieldPath: data.tsig-secret-gcp-key
+    targets:
+      - select:
+          kind: ExternalSecret
+          name: internal-dns-tsig-key
+        fieldPaths:
+          - spec.data.0.remoteRef.key
+  - source:
+      kind: ConfigMap
+      name: internal-dns-config
+      fieldPath: data.rfc2136-host
+    targets:
+      - select:
+          kind: Application
+          name: internal-dns
+        fieldPaths:
+          - spec.source.helm.valuesObject.env.0.value
+  - source:
+      kind: ConfigMap
+      name: internal-dns-config
+      fieldPath: data.tsig-keyname
+    targets:
+      - select:
+          kind: Application
+          name: internal-dns
+        fieldPaths:
+          - spec.source.helm.valuesObject.env.3.value
+  - source:
+      kind: ConfigMap
+      name: internal-dns-config
+      fieldPath: data.domain-filter
+    targets:
+      - select:
+          kind: Application
+          name: internal-dns
+        fieldPaths:
+          - spec.source.helm.valuesObject.domainFilters.0
+  - source:
+      kind: ConfigMap
+      name: internal-dns-config
+      fieldPath: data.txt-owner-id
+    targets:
+      - select:
+          kind: Application
+          name: internal-dns
+        fieldPaths:
+          - spec.source.helm.valuesObject.txtOwnerId

@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: internal-dns
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://kubernetes-sigs.github.io/external-dns/
+    chart: external-dns
+    targetRevision: 1.20.0
+    helm:
+      releaseName: internal-dns
+      valuesObject:
+        provider:
+          name: rfc2136
+        env:
+          - name: EXTERNAL_DNS_RFC2136_HOST
+            value: PLACEHOLDER
+          - name: EXTERNAL_DNS_RFC2136_PORT
+            value: "53"
+          - name: EXTERNAL_DNS_RFC2136_ZONE
+            value: rhesis.internal
+          - name: EXTERNAL_DNS_RFC2136_TSIG_KEYNAME
+            value: PLACEHOLDER
+          - name: EXTERNAL_DNS_RFC2136_TSIG_SECRET_ALG
+            value: hmac-sha256
+          - name: EXTERNAL_DNS_RFC2136_TSIG_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: internal-dns-tsig-key
+                key: tsig-secret
+        domainFilters:
+          - PLACEHOLDER
+        policy: upsert-only
+        txtOwnerId: PLACEHOLDER
+        sources:
+          - service
+          - ingress
+        registry: txt
+        txtPrefix: internaldns-
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

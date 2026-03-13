@@ -8,10 +8,37 @@ variable "region" {
   type        = string
 }
 
+variable "enabled_environments" {
+  description = "Which environments to deploy (e.g. [\"dev\"] for dev-only)"
+  type        = list(string)
+  default     = ["dev", "stg", "prd"]
+
+  validation {
+    condition = alltrue([
+      for env in var.enabled_environments : contains(["dev", "stg", "prd"], env)
+    ])
+    error_message = "Allowed values: dev, stg, prd."
+  }
+}
+
 variable "wireguard_deletion_protection" {
   description = "Enable deletion protection for WireGuard server"
   type        = bool
   default     = true
+}
+
+variable "gke_deletion_protection" {
+  description = "Enable deletion protection per GKE cluster (dev/stg typically false, prd true)"
+  type = object({
+    dev = bool
+    stg = bool
+    prd = bool
+  })
+  default = {
+    dev = false
+    stg = false
+    prd = true
+  }
 }
 
 variable "wireguard_peers" {
