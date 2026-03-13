@@ -75,9 +75,6 @@ class MetricEvaluator:
         self.db = db
         self.organization_id = organization_id
         self._sdk_metric_sender = sdk_metric_sender
-        self._conversation_history: Optional[ConversationHistory] = None
-        self._metadata: Optional[Dict[str, Any]] = None
-        self._tool_calls: Optional[List[Dict[str, Any]]] = None
 
     def evaluate(
         self,
@@ -126,10 +123,6 @@ class MetricEvaluator:
         Returns:
             Dictionary containing scores and details for each metric
         """
-        self._conversation_history = conversation_history
-        self._metadata = metadata
-        self._tool_calls = tool_calls
-
         if not metrics:
             logger.warning("No metrics provided for evaluation")
             return {}
@@ -729,20 +722,15 @@ class MetricEvaluator:
             MetricResult object with score and details
         """
         logger.debug(f"Evaluating metric '{metric.name}'")
-        ch = (
-            conversation_history if conversation_history is not None else self._conversation_history
-        )
-        meta = metadata if metadata is not None else self._metadata
-        tools = tool_calls if tool_calls is not None else self._tool_calls
         kwargs = build_metric_evaluate_params(
             metric,
             input_text,
             output_text,
             expected_output,
             context,
-            conversation_history=ch,
-            metadata=meta,
-            tool_calls=tools,
+            conversation_history=conversation_history,
+            metadata=metadata,
+            tool_calls=tool_calls,
         )
         logger.debug(f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}")
         return metric.evaluate(**kwargs)
