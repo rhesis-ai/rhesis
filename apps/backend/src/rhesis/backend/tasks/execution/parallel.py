@@ -92,18 +92,6 @@ def execute_tests_in_parallel(
     job = chord(tasks, callback).apply_async()
     logger.info(f"Chord created with ID: {job.id} for {len(tasks)} tasks")
 
-    # Patch in chord IDs now that we have them (diagnostic metadata only,
-    # not required by collect_results or any worker hot-path).
-    update_test_run_start(
-        session,
-        test_run,
-        ExecutionMode.PARALLEL,
-        len(tasks),
-        start_time,
-        chord_id=job.id,
-        chord_parent_id=job.parent.id if job.parent else None,
-    )
-
     # Return standardized result using shared utility
     return create_execution_result(
         test_run,
