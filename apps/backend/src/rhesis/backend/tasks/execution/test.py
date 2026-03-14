@@ -16,7 +16,7 @@ from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.execution.test_execution import execute_test
-from rhesis.backend.tasks.utils import increment_test_run_progress
+from rhesis.backend.tasks.utils import increment_test_run_progress  # noqa: F401 - used in commented-out progress tracking below
 from rhesis.backend.worker import app
 
 logger = logging.getLogger(__name__)
@@ -139,24 +139,33 @@ def update_progress(
         organization_id: Organization ID
         user_id: User ID
     """
-    was_successful = (
-        isinstance(result, dict) and result.get("status") != "failed" and result is not None
-    )
-
-    with get_db_with_tenant_variables(organization_id, user_id) as db:
-        progress_updated = increment_test_run_progress(
-            db=db,
-            test_run_id=test_run_id,
-            test_id=test_id,
-            was_successful=was_successful,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-
-    if progress_updated:
-        logger.debug(f"Updated test run progress for test {test_id}, successful: {was_successful}")
-    else:
-        logger.warning(f"Failed to update test run progress for test {test_id}")
+    # TODO: increment_test_run_progress is disabled due to a race condition.
+    # It is intended to support live progress updates in the frontend
+    # (tracking completed_tests / failed_tests in test_run.attributes).
+    # The problem: all parallel workers do a read-modify-write on the same JSONB
+    # column with no locking, so updates are silently lost under concurrency and
+    # a straggler worker can clobber the final status written by collect_results.
+    # The frontend currently derives all stats from TestResult rows directly, so
+    # these counters are not consumed anywhere right now.
+    # To re-enable: replace with an atomic SQL jsonb_set increment or a dedicated
+    # progress table so each worker write is independent.
+    #
+    # was_successful = (
+    #     isinstance(result, dict) and result.get("status") != "failed" and result is not None
+    # )
+    # with get_db_with_tenant_variables(organization_id, user_id) as db:
+    #     progress_updated = increment_test_run_progress(
+    #         db=db,
+    #         test_run_id=test_run_id,
+    #         test_id=test_id,
+    #         was_successful=was_successful,
+    #         organization_id=organization_id,
+    #         user_id=user_id,
+    #     )
+    # if progress_updated:
+    #     logger.debug(f"Updated test run progress for test {test_id}, successful: {was_successful}")
+    # else:
+    #     logger.warning(f"Failed to update test run progress for test {test_id}")
 
 
 def create_failure_result(test_id: str, exception: Exception) -> Dict[str, Any]:

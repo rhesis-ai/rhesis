@@ -16,7 +16,7 @@ from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.results import collect_results
-from rhesis.backend.tasks.utils import increment_test_run_progress
+from rhesis.backend.tasks.utils import increment_test_run_progress  # noqa: F401 - used in commented-out progress tracking below
 
 logger = logging.getLogger(__name__)
 
@@ -80,26 +80,27 @@ def store_test_result(
         test_id: Test ID
         result: Test result dictionary
     """
-    try:
-        # Determine if test was successful
-        was_successful = (
-            result.get("status") not in ["failed", "error"] and result.get("error") is None
-        )
-
-        # Update test run progress (this updates completed_tests/failed_tests attributes)
-        increment_test_run_progress(
-            db=session,
-            test_run_id=test_run_id,
-            test_id=test_id,
-            was_successful=was_successful,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-
-        logger.debug(f"Updated test run progress for test {test_id}, successful: {was_successful}")
-
-    except Exception as e:
-        logger.error(f"Failed to store test result for test {test_id}: {str(e)}")
+    # TODO: increment_test_run_progress is disabled due to a race condition.
+    # See the full explanation in tasks/execution/test.py (update_progress).
+    # Short version: non-atomic read-modify-write on a shared JSONB column under
+    # parallel execution causes lost updates and potential clobber of final status.
+    # Counters are not read by the frontend today; needs atomic SQL fix to re-enable.
+    #
+    # try:
+    #     was_successful = (
+    #         result.get("status") not in ["failed", "error"] and result.get("error") is None
+    #     )
+    #     increment_test_run_progress(
+    #         db=session,
+    #         test_run_id=test_run_id,
+    #         test_id=test_id,
+    #         was_successful=was_successful,
+    #         organization_id=organization_id,
+    #         user_id=user_id,
+    #     )
+    #     logger.debug(f"Updated test run progress for test {test_id}, successful: {was_successful}")
+    # except Exception as e:
+    #     logger.error(f"Failed to store test result for test {test_id}: {str(e)}")
 
 
 def create_execution_result(

@@ -75,14 +75,25 @@ def execute_tests_in_parallel(
         }
     )
 
-    # Record start time before chord execution
     start_time = datetime.utcnow()
 
-    # Execute the chord
+    # Commit critical metadata BEFORE dispatching so workers always see a consistent
+    # test_run record (total_tests, execution_mode, started_at) regardless of how
+    # quickly the first task finishes.
+    update_test_run_start(
+        session,
+        test_run,
+        ExecutionMode.PARALLEL,
+        len(tasks),
+        start_time,
+    )
+
+    # Dispatch after the write is committed — workers may start immediately.
     job = chord(tasks, callback).apply_async()
     logger.info(f"Chord created with ID: {job.id} for {len(tasks)} tasks")
 
-    # Update test run with chord information using shared utility
+    # Patch in chord IDs now that we have them (diagnostic metadata only,
+    # not required by collect_results or any worker hot-path).
     update_test_run_start(
         session,
         test_run,
