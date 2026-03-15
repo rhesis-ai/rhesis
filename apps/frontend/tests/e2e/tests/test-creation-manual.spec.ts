@@ -92,7 +92,9 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, 'Single-Turn select button not found — skipping');
       return;
     }
-    await singleTurnSelect.click();
+    // force: true bypasses the "stable" check — the MUI Dialog entry animation
+    // keeps the button technically "moving" for ~225ms even after it is visible.
+    await singleTurnSelect.click({ force: true });
 
     // Step 2: The creation method modal should now be visible
     const creationMethodVisible = await page
@@ -148,7 +150,7 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, 'Single-Turn select button not found — skipping');
       return;
     }
-    await singleTurnSelect.click();
+    await singleTurnSelect.click({ force: true });
 
     // Click "Start Writing" / "Write Tests Manually"
     const manualBtn = page
@@ -213,7 +215,7 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, 'Single-Turn select button not found — skipping');
       return;
     }
-    await singleTurnSelect.click();
+    await singleTurnSelect.click({ force: true });
 
     const manualBtn = page
       .getByRole('button', { name: /start writing|write.*manually|manual/i })
@@ -308,7 +310,7 @@ test.describe('Tests — manual creation wizard @crud', () => {
       test.skip(true, 'Single-Turn select button not found — skipping');
       return;
     }
-    await singleTurnSelect.click();
+    await singleTurnSelect.click({ force: true });
 
     const manualBtn = page
       .getByRole('button', { name: /start writing|write.*manually|manual/i })

@@ -62,8 +62,10 @@ export class BehaviorsPage extends BasePage {
   /** Open the "New Behavior" drawer and wait for it to slide in. */
   async openNewBehaviorDrawer() {
     await this.newBehaviorButton.click();
+    // Use .MuiDrawer-modal to target only modal drawers (not the docked nav sidebar
+    // which also has .MuiDrawer-root but is anchored left and always hidden).
     await this.page
-      .locator('.MuiDrawer-root')
+      .locator('.MuiDrawer-modal')
       .first()
       .waitFor({ state: 'visible', timeout: 10_000 });
   }
@@ -102,10 +104,12 @@ export class BehaviorsPage extends BasePage {
 
   /** Wait for the drawer to close after submission. */
   async waitForDrawerClosed() {
-    // Scope to .MuiDrawer-root to avoid matching MuiSnackbar which also uses
-    // role="presentation" and stays visible after a successful submission.
+    // Use .MuiDrawer-modal to avoid two pitfalls:
+    // 1. MuiSnackbar also uses role="presentation" and stays visible after submit.
+    // 2. .MuiDrawer-root also matches the docked nav sidebar (always hidden),
+    //    causing .first() to return the wrong element.
     await this.page
-      .locator('.MuiDrawer-root')
+      .locator('.MuiDrawer-modal')
       .first()
       .waitFor({ state: 'hidden', timeout: 15_000 });
   }
