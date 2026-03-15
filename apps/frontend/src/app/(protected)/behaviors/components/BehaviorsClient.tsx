@@ -562,8 +562,8 @@ export default function BehaviorsClient({
           onDelete={
             !isNewBehavior &&
             editingBehavior.id &&
-            behaviors.find(b => b.id === editingBehavior.id)?.metrics.length ===
-              0
+            behaviors.find(b => b.id === editingBehavior.id)?.metrics
+              ?.length === 0
               ? handleDeleteBehavior
               : undefined
           }

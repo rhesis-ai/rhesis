@@ -118,6 +118,7 @@ test.describe('Tests — manual creation wizard @crud', () => {
   });
 
   test('can navigate to the manual test writer page', async ({ page }) => {
+    test.slow(); // Multi-step wizard with sequential waits; needs more than the default 30 s.
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
@@ -184,6 +185,7 @@ test.describe('Tests — manual creation wizard @crud', () => {
   test('can fill a test row and add a second row on the manual writer page', async ({
     page,
   }) => {
+    test.slow(); // This test walks through multiple wizard steps; needs more than the default 30 s.
     const testsPage = new TestsPage(page);
     await testsPage.goto();
     await testsPage.expectLoaded();
@@ -277,6 +279,7 @@ test.describe('Tests — manual creation wizard @crud', () => {
   });
 
   test('can save tests from the manual writer page', async ({ page }) => {
+    test.slow(); // Multi-step wizard with sequential waits; needs more than the default 30 s.
     const UNIQUE_SET_NAME = `e2e-manual-${Date.now()}`;
 
     const testsPage = new TestsPage(page);

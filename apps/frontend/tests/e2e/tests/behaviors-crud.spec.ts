@@ -55,14 +55,15 @@ test.describe('Behaviors — CRUD @crud', () => {
     // --- Edit: click pencil icon on the card ---
     await behaviorsPage.clickEditOnCard(UNIQUE_NAME);
 
-    // The edit drawer should open
+    // The edit drawer should open — use :not([aria-hidden="true"]) to avoid
+    // matching the permanently-hidden BehaviorMetricsViewer portal.
     await page
-      .getByRole('presentation')
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .waitFor({ state: 'visible', timeout: 10_000 });
 
     // Clear and re-fill the name
     const nameInput = page
-      .locator('[role="presentation"]')
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .getByRole('textbox', { name: /name/i })
       .first();
     await nameInput.clear();
@@ -70,14 +71,14 @@ test.describe('Behaviors — CRUD @crud', () => {
 
     // Save changes
     await page
-      .locator('[role="presentation"]')
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .getByRole('button', { name: /save changes|save/i })
       .first()
       .click();
 
     // Drawer should close
     await page
-      .getByRole('presentation')
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .waitFor({ state: 'hidden', timeout: 15_000 });
     await page.waitForLoadState('networkidle');
 

@@ -62,21 +62,23 @@ export class BehaviorsPage extends BasePage {
   /** Open the "New Behavior" drawer and wait for it to slide in. */
   async openNewBehaviorDrawer() {
     await this.newBehaviorButton.click();
-    // Use .MuiDrawer-modal to target only modal drawers (not the docked nav sidebar
-    // which also has .MuiDrawer-root but is anchored left and always hidden).
+    // BehaviorMetricsViewer also renders a permanent right-anchored Drawer with
+    // keepMounted:true — it stays in the DOM hidden (aria-hidden="true") at all
+    // times. Use :not([aria-hidden="true"]) so we only match the drawer that is
+    // actually open (the BehaviorDrawer), not the permanently-hidden viewer portal.
     await this.page
-      .locator('.MuiDrawer-modal')
-      .first()
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .waitFor({ state: 'visible', timeout: 10_000 });
   }
 
   /**
    * Fill the Name field inside the currently open drawer.
-   * Scoped to [role="presentation"] to avoid matching page-level inputs.
+   * Scoped to the open (non-aria-hidden) right drawer to avoid matching
+   * hidden portals (e.g., BehaviorMetricsViewer) or page-level inputs.
    */
   async fillBehaviorName(name: string) {
     await this.page
-      .locator('[role="presentation"]')
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .getByRole('textbox', { name: /name/i })
       .first()
       .fill(name);
@@ -85,7 +87,7 @@ export class BehaviorsPage extends BasePage {
   /** Fill the Description field inside the drawer. */
   async fillBehaviorDescription(description: string) {
     const descInput = this.page
-      .locator('[role="presentation"]')
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .getByRole('textbox', { name: /description/i });
     const visible = await descInput
       .isVisible({ timeout: 5_000 })
@@ -96,7 +98,7 @@ export class BehaviorsPage extends BasePage {
   /** Submit the drawer by clicking "Add Behavior" or equivalent save button. */
   async submitNewBehavior() {
     const addBtn = this.page
-      .locator('[role="presentation"]')
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .getByRole('button', { name: /add behavior|save/i })
       .first();
     await addBtn.click();
@@ -104,13 +106,11 @@ export class BehaviorsPage extends BasePage {
 
   /** Wait for the drawer to close after submission. */
   async waitForDrawerClosed() {
-    // Use .MuiDrawer-modal to avoid two pitfalls:
-    // 1. MuiSnackbar also uses role="presentation" and stays visible after submit.
-    // 2. .MuiDrawer-root also matches the docked nav sidebar (always hidden),
-    //    causing .first() to return the wrong element.
+    // Wait until no right-anchored drawer is open. When MUI closes a Drawer it
+    // adds aria-hidden="true" back to the portal root, so
+    // :not([aria-hidden="true"]) stops matching → waitFor hidden succeeds.
     await this.page
-      .locator('.MuiDrawer-modal')
-      .first()
+      .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .waitFor({ state: 'hidden', timeout: 15_000 });
   }
 
