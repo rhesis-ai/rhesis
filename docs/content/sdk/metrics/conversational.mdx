@@ -67,6 +67,44 @@ conversation = ConversationHistory.from_messages([
 ])`}
 </CodeBlock>
 
+### Assistant turn fields (v0.6.9+)
+
+Assistant messages can include additional structured fields that are consumed by conversational judges:
+
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `metadata` | `dict[str, Any]` | Structured per-turn metadata returned by your endpoint |
+| `context` | `list[Any]` | Retrieval context (for example, RAG sources) |
+| `tool_calls` | `list[dict[str, Any]]` | Tool invocation records associated with the assistant turn |
+
+<CodeBlock filename="conversation_with_turn_fields.py" language="python">
+{`from rhesis.sdk.metrics import ConversationHistory
+
+conversation = ConversationHistory.from_messages([
+    {"role": "user", "content": "Find policy details for claim #A-123."},
+    {
+        "role": "assistant",
+        "content": "I found the claim and policy summary.",
+        "context": [
+            {"source": "claims_db", "id": "A-123"},
+            {"source": "policy_doc", "section": "coverage_limits"},
+        ],
+        "metadata": {"latency_ms": 420, "model": "rhesis-default"},
+        "tool_calls": [
+            {"id": "call_1", "function": {"name": "lookup_claim"}}
+        ],
+    },
+])
+
+print(conversation.get_assistant_metadata())
+print(conversation.get_assistant_context())
+print(conversation.get_assistant_tool_calls())`}
+</CodeBlock>
+
+<Callout type="info">
+  These fields are optional. If they are omitted for a turn, helper methods return `None` for that position.
+</Callout>
+
 ## Quick Start
 
 ### Turn Relevancy
