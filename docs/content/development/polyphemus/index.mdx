@@ -36,16 +36,17 @@ If required variables are missing, the service returns HTTP `400` with configura
 
 ### Deployment region variable mapping (v0.2.8+)
 
-For CI/CD and model deployment workflows, region configuration was standardized around a shared
-`REGION` secret. The workflow then maps this to service-specific environment variables:
+Region configuration uses two separate variables depending on context:
 
-| Context | Variable used | Where it is consumed |
-|---|---|---|
-| GitHub Actions secret/input | `REGION` | `.github/workflows/polyphemus.yml` and `apps/polyphemus/model_deployment/README.md` |
-| Vertex model deployment script | `GCP_REGION` | `apps/polyphemus/model_deployment/config.py` |
-| Running Polyphemus service | `POLYPHEMUS_LOCATION` | `apps/polyphemus/src/rhesis/polyphemus/routers/services.py` |
+| Context | Variable | Source | Where it is consumed |
+|---|---|---|---|
+| GitHub Actions CI/CD workflow | `REGION` | `secrets.REGION` (falls back to `secrets.TF_VAR_REGION`, then `us-central1`) | `.github/workflows/polyphemus.yml` |
+| Running Polyphemus service | `POLYPHEMUS_LOCATION` | Set to `$REGION` by the CI workflow | `apps/polyphemus/src/rhesis/polyphemus/routers/services.py` |
+| Vertex model deployment script | `GCP_REGION` | Set directly in the local environment (not mapped from `REGION`) | `apps/polyphemus/model_deployment/config.py` |
 
-This replaces older deployment references that used a Polyphemus-specific region variable name.
+The workflow maps `REGION` → `POLYPHEMUS_LOCATION` automatically for service deployments.
+The model deployment script reads `GCP_REGION` independently; when running it locally you must
+export `GCP_REGION` yourself (see `apps/polyphemus/model_deployment/.env.example`).
 
 ## Batch request and response format
 

@@ -260,11 +260,13 @@ model = get_model("rhesis")
 
 async def main():
     single = await model.a_generate("Summarize why unit tests matter.")
-    batch = model.generate_batch(
+    # generate_batch is synchronous; use asyncio.to_thread to avoid blocking the event loop
+    batch = await asyncio.to_thread(
+        model.generate_batch,
         prompts=[
             "Give one CI best practice.",
             "Give one code review best practice.",
-        ]
+        ],
     )
     print(single)
     print(batch)
