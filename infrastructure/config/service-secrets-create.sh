@@ -127,6 +127,7 @@ function show_usage() {
   echo "  POLYPHEMUS_MODEL_BUCKET                  Model bucket for Polyphemus"
   echo "  POLYPHEMUS_MODEL_PATH                    Model path for Polyphemus"
   echo "  GCP_SERVICE_ACCOUNT                       GCP service account for Polyphemus"
+  echo "  SENDGRID_API_KEY                           Sendgrid API key for dynamic template emails"
   echo "  SENDGRID_DAY_1_EMAIL_TEMPLATE_ID           Sendgrid day 1 email template ID"
   echo "  SENDGRID_DAY_2_EMAIL_TEMPLATE_ID           Sendgrid day 2 email template ID"
   echo "  SENDGRID_DAY_3_EMAIL_TEMPLATE_ID           Sendgrid day 3 email template ID"
@@ -329,6 +330,7 @@ SERVICE_VARS=(
   "GCP_SERVICE_ACCOUNT"
 
   # sendgrid email
+  "SENDGRID_API_KEY"
   "SENDGRID_DAY_1_EMAIL_TEMPLATE_ID"
   "SENDGRID_DAY_2_EMAIL_TEMPLATE_ID"
   "SENDGRID_DAY_3_EMAIL_TEMPLATE_ID"
