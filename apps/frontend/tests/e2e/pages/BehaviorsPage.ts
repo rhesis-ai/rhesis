@@ -63,7 +63,8 @@ export class BehaviorsPage extends BasePage {
   async openNewBehaviorDrawer() {
     await this.newBehaviorButton.click();
     await this.page
-      .getByRole('presentation')
+      .locator('.MuiDrawer-root')
+      .first()
       .waitFor({ state: 'visible', timeout: 10_000 });
   }
 
@@ -101,8 +102,11 @@ export class BehaviorsPage extends BasePage {
 
   /** Wait for the drawer to close after submission. */
   async waitForDrawerClosed() {
+    // Scope to .MuiDrawer-root to avoid matching MuiSnackbar which also uses
+    // role="presentation" and stays visible after a successful submission.
     await this.page
-      .getByRole('presentation')
+      .locator('.MuiDrawer-root')
+      .first()
       .waitFor({ state: 'hidden', timeout: 15_000 });
   }
 

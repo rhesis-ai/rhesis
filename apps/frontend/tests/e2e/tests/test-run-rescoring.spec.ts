@@ -197,9 +197,10 @@ test.describe('Test Runs — re-scoring @interaction', () => {
     if (hasQueuedRow) {
       await expect(queuedRow.first()).toBeVisible();
     } else {
-      // Runs may have progressed past Queued; fall back to row count comparison
+      // Runs may have progressed past Queued; fall back to strict count check.
+      // Using > (not >=) so the assertion only passes when a new row was added.
       const newRowCount = await page.locator('[role="row"]').count();
-      expect(newRowCount).toBeGreaterThanOrEqual(initialRowCount);
+      expect(newRowCount).toBeGreaterThan(initialRowCount);
     }
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'

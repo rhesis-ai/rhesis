@@ -54,8 +54,12 @@ test.describe('Tasks — CRUD @crud', () => {
     }
     await saveBtn.click();
 
-    // Should navigate back to /tasks or to the task detail page
-    await page.waitForURL(/\/tasks($|\/)/, { timeout: 15_000 });
+    // Wait for redirect away from /tasks/create (to the list or detail page).
+    // The plain pattern /\/tasks($|\/)/ would match /tasks/create immediately,
+    // causing the next goto('/tasks') to ERR_ABORTED during an ongoing redirect.
+    await page.waitForURL(url => !url.pathname.endsWith('/tasks/create'), {
+      timeout: 15_000,
+    });
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
@@ -90,7 +94,9 @@ test.describe('Tasks — CRUD @crud', () => {
       return;
     }
     await saveBtn.click();
-    await page.waitForURL(/\/tasks($|\/)/, { timeout: 15_000 });
+    await page.waitForURL(url => !url.pathname.endsWith('/tasks/create'), {
+      timeout: 15_000,
+    });
     await page.waitForLoadState('networkidle');
 
     // --- Navigate to the task detail page ---
@@ -177,7 +183,9 @@ test.describe('Tasks — CRUD @crud', () => {
       return;
     }
     await saveBtn.click();
-    await page.waitForURL(/\/tasks($|\/)/, { timeout: 15_000 });
+    await page.waitForURL(url => !url.pathname.endsWith('/tasks/create'), {
+      timeout: 15_000,
+    });
 
     // Navigate to the tasks list
     await tasksPage.goto();
