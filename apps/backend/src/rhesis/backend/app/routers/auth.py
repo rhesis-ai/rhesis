@@ -835,6 +835,8 @@ async def request_magic_link(
                 is_active=True,
             )
             user = crud.create_user(db, user_data)
+            db.commit()
+            db.refresh(user)
             is_new_user = True
             logger.info(
                 "New user created via magic link: %s",
