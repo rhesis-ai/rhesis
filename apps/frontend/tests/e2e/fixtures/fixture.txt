@@ -1,0 +1,1 @@
+This is a small fixture file used by Playwright E2E tests to verify file upload functionality.
