@@ -141,6 +141,24 @@ class TestGarakDetectorMetricDetectorLoading:
 
         mock_detector_class.assert_called_once_with(custom_param="value", another_param=42)
 
+    @patch("importlib.import_module")
+    def test_detector_loading_overrides_local_model(self, mock_import):
+        """ToxicCommentModel should be substituted with PerspectiveToxicity."""
+        mock_module = MagicMock()
+        mock_detector_class = MagicMock()
+        mock_module.Toxicity = mock_detector_class
+        mock_import.return_value = mock_module
+
+        metric = GarakDetectorMetric(
+            detector_class="garak.detectors.unsafe_content.ToxicCommentModel"
+        )
+        mock_import.reset_mock()
+
+        _ = metric.detector
+
+        mock_import.assert_called_once_with("garak.detectors.perspective")
+        mock_detector_class.assert_called_once()
+
     def test_invalid_detector_path_raises_error(self):
         """Test that invalid detector path raises ImportError."""
         metric = GarakDetectorMetric(detector_class="InvalidPath")
