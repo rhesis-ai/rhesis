@@ -1,0 +1,46 @@
+# Playground
+
+Interact freely with any endpoint — send messages, attach files, view traces, and capture test cases — all without writing a line of code.
+
+<div style={{ display: "flex", justifyContent: "center", margin: "24px 0" }}>
+  <img
+    src="/screenshots/rhesis-ai-playground.png"
+    alt="Playground"
+    style={{
+      border: "2px solid var(--rhesis-primary-dark)",
+      borderRadius: "8px",
+      width: "100%",
+    }}
+  />
+</div>
+
+## Getting Started
+
+Open the Playground from any endpoint page. Select the endpoint you want to test, then start typing in the message box. There's no setup required — just choose an endpoint and start a conversation.
+
+For endpoints that support file inputs, you can attach images, PDFs, or audio files directly in the message composer. See [Multi-modal Testing](/multimodal-testing) for supported formats and limits.
+
+## Side-by-Side Comparison
+
+The Playground supports a split-screen mode where you can run two conversations in parallel against the same or different endpoints. This is useful for:
+
+- Comparing responses from different model configurations
+- Evaluating prompt changes before committing them
+- Checking how two endpoints handle the same inputs
+
+Each side operates independently — you can send different messages or share the same input to see how responses diverge.
+
+## Viewing Traces
+
+After each response, click on the agent's reply to open the associated trace. The trace shows the full span tree for that turn — including any tool calls, retrieval steps, or agent handoffs triggered by your message.
+
+This gives you immediate feedback on what happened inside your endpoint without leaving the Playground. See [Tracing](/tracing) for more on how traces are structured.
+
+## Creating Tests
+
+Any conversation can be saved as a test directly from the Playground:
+
+- Click the **lab icon** on the conversation window to create a test from the current conversation.
+- Click the **plus icon** to open a new chat window and start a fresh conversation.
+
+You'll be prompted to assign a category, topic, behavior, and optional expected output before saving. Tests capture the full message context, including any attached files, so they can be replayed exactly during test execution.
