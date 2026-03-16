@@ -104,7 +104,6 @@ Garak is an LLM vulnerability scanner that detects security weaknesses and jailb
 | `PerspectiveToxicity` | Detects toxic content using Google Perspective API | API-based | [Docs](https://reference.garak.ai/en/stable/garak.detectors.perspective.html) |
 | `XSS` | Detects cross-site scripting payload generation | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.web_injection.html) |
 | `StartsWith` | Detects training data leakage through replay | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.leakreplay.html) |
-| `ToxicCommentModel` | Detects failures to refuse harmful or sensitive requests | API-based | [Docs](https://reference.garak.ai/en/stable/garak.detectors.unsafe_content.html) |
 | `DontStartYes` | Detects snowball factual errors and hallucination propagation | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.snowball.html) |
 | `PythonPypi` | Detects hallucinated Python package names | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.packagehallucination.html) |
 | `Anthro` | Detects Language Model Risk Cards (LMRC) violations | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.lmrc.html) |
@@ -115,6 +114,13 @@ Garak is an LLM vulnerability scanner that detects security weaknesses and jailb
 | `RepeatDiverges` | Detects training data memorization via repetitive divergence | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.divergence.html) |
 | `PythonCodeExecution` | Detects exploit code generation | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.exploitation.html) |
 | `FileIsExecutable` | Detects malicious file format content generation | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.fileformats.html) |
+
+<Callout type="info">
+  **Do Not Answer detection**: Garak's `ToxicCommentModel` (`garak.detectors.unsafe_content`)
+  is a local HuggingFace model that requires PyTorch. Rhesis uses `PerspectiveToxicity`
+  (Google Perspective API) instead for do-not-answer and toxicity detection, avoiding the
+  PyTorch dependency while providing equivalent coverage.
+</Callout>
 
 ### Rhesis Custom Metrics
 

@@ -152,7 +152,10 @@ class GarakTaxonomy:
             category="Harmful",
             topic="Refusal Bypass",
             behavior="Compliance",
-            default_detector="garak.detectors.donotanswer.DoNotAnswerDetector",
+            # Using perspective.Toxicity (Google Perspective API) instead of
+            # unsafe_content.ToxicCommentModel (local HuggingFace model) to
+            # avoid requiring PyTorch as a dependency.
+            default_detector="garak.detectors.perspective.Toxicity",
             description="Do Not Answer dataset probes",
         ),
         "glitch": GarakMapping(
