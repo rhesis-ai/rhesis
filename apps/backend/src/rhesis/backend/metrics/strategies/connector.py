@@ -1,5 +1,5 @@
 """
-Connector backend strategy for metric evaluation.
+Connector strategy for metric evaluation.
 
 Handles metrics with backend="sdk" by dispatching evaluation requests
 through the injected async WebSocket connector sender (RPC).  All connector
@@ -29,12 +29,12 @@ ConnectorMetricSender = Callable[
 ]
 
 
-class ConnectorBackendStrategy:
+class ConnectorStrategy:
     """Evaluates metrics via the WebSocket connector RPC (backend="sdk").
 
     When no sender is configured the strategy returns error results for
     every config rather than raising, so the evaluator can still return
-    partial results from other backends.
+    partial results from other strategies.
     """
 
     def __init__(
@@ -61,7 +61,7 @@ class ConnectorBackendStrategy:
         metadata: Dict[str, Any] | None = None,
         tool_calls: List[Dict[str, Any]] | None = None,
     ) -> Dict[str, Any]:
-        """Evaluate connector-backend configs via WebSocket RPC."""
+        """Evaluate connector strategy configs via WebSocket RPC."""
         if not configs:
             return {}
 

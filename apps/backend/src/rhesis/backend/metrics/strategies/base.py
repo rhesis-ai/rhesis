@@ -1,8 +1,8 @@
 """
-Backend strategy protocol for metric evaluation.
+Strategy protocol for metric evaluation.
 
-Defines the interface that all metric backend strategies must implement,
-allowing MetricEvaluator to dispatch to different backends (local, sdk, etc.)
+Defines the interface that all metric strategies must implement,
+allowing MetricEvaluator to dispatch to different strategies (local, sdk, etc.)
 without being coupled to their concrete implementations.
 """
 
@@ -11,10 +11,10 @@ from typing import Any, Dict, List, Protocol
 from rhesis.sdk.metrics import MetricConfig
 
 
-class MetricBackendStrategy(Protocol):
-    """Strategy for evaluating metrics for a given backend (local, sdk, etc.).
+class MetricStrategy(Protocol):
+    """Strategy for evaluating metrics (local, sdk, etc.).
 
-    Concrete implementations handle the specifics of each evaluation backend
+    Concrete implementations handle the specifics of each evaluation
     (parallel thread execution, RPC calls, remote APIs, etc.).  The evaluator
     only knows about this protocol and never imports the concrete classes.
     """
@@ -36,15 +36,15 @@ class MetricBackendStrategy(Protocol):
         metadata: Dict[str, Any] | None = None,
         tool_calls: List[Dict[str, Any]] | None = None,
     ) -> Dict[str, Any]:
-        """Evaluate all configs for this backend.
+        """Evaluate all configs for this strategy.
 
         Args:
-            configs: Metric configurations assigned to this backend.
+            configs: Metric configurations assigned to this strategy.
             input_text: The input query or question.
             output_text: The actual LLM output.
             expected_output: The expected or reference output.
             context: List of context strings used for the response.
-            max_workers: Maximum parallel workers (used by local backends).
+            max_workers: Maximum parallel workers (used by local strategy).
             conversation_history: Optional conversation history.
             metadata: Optional metadata dict.
             tool_calls: Optional list of tool calls made by the endpoint.

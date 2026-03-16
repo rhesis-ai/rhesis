@@ -1,5 +1,5 @@
 """
-Local backend strategy for metric evaluation.
+Local strategy for metric evaluation.
 
 Handles all metrics that run locally (rhesis, deepeval, etc.) via the SDK
 MetricFactory.  Owns the parallel execution pipeline that was previously
@@ -40,7 +40,7 @@ METRIC_RETRY_MIN_WAIT = 1
 METRIC_RETRY_MAX_WAIT = 10
 
 
-class LocalBackendStrategy:
+class LocalStrategy:
     """Evaluates metrics locally via the SDK MetricFactory.
 
     Handles all non-sdk backends (rhesis, deepeval, etc.) by instantiating
@@ -76,7 +76,7 @@ class LocalBackendStrategy:
         metadata: Dict[str, Any] | None = None,
         tool_calls: List[Dict[str, Any]] | None = None,
     ) -> Dict[str, Any]:
-        """Evaluate all local-backend configs in parallel."""
+        """Evaluate all local strategy configs in parallel."""
         metric_tasks = prepare_metrics(
             configs,
             expected_output,

@@ -1,5 +1,5 @@
 """
-Test MetricEvaluator orchestration and LocalBackendStrategy behavior.
+Test MetricEvaluator orchestration and LocalStrategy behavior.
 
 These tests validate the evaluator orchestration logic in the backend
 and will serve as regression guards during the migration to SDK metrics.
@@ -8,33 +8,33 @@ and will serve as regression guards during the migration to SDK metrics.
 from unittest.mock import MagicMock, patch
 
 from rhesis.backend.metrics import Evaluator, MetricResult
-from rhesis.backend.metrics.backends.local import LocalBackendStrategy
+from rhesis.backend.metrics.strategies.local import LocalStrategy
 
 
-class TestLocalBackendStrategyInit:
-    """Test LocalBackendStrategy stores constructor args correctly."""
+class TestLocalStrategyInit:
+    """Test LocalStrategy stores constructor args correctly."""
 
     def test_defaults_to_none(self):
-        strategy = LocalBackendStrategy()
+        strategy = LocalStrategy()
 
         assert strategy._model is None
         assert strategy._db is None
         assert strategy._organization_id is None
 
     def test_with_model(self):
-        strategy = LocalBackendStrategy(model="gpt-4")
+        strategy = LocalStrategy(model="gpt-4")
 
         assert strategy._model == "gpt-4"
 
     def test_with_db_and_org(self):
         sentinel_db = MagicMock()
-        strategy = LocalBackendStrategy(db=sentinel_db, organization_id="org-123")
+        strategy = LocalStrategy(db=sentinel_db, organization_id="org-123")
 
         assert strategy._db is sentinel_db
         assert strategy._organization_id == "org-123"
 
     def test_backend_value(self):
-        strategy = LocalBackendStrategy()
+        strategy = LocalStrategy()
 
         assert strategy.backend_value() == "__local__"
 

@@ -4,14 +4,14 @@ from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
-from rhesis.backend.metrics.backends.base import MetricBackendStrategy
-from rhesis.backend.metrics.backends.connector import (
-    ConnectorBackendStrategy,
-    ConnectorMetricSender,
-)
-from rhesis.backend.metrics.backends.local import LocalBackendStrategy
 from rhesis.backend.metrics.metric_config import validate_metric_configs
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
+from rhesis.backend.metrics.strategies.base import MetricStrategy
+from rhesis.backend.metrics.strategies.connector import (
+    ConnectorMetricSender,
+    ConnectorStrategy,
+)
+from rhesis.backend.metrics.strategies.local import LocalStrategy
 from rhesis.sdk.metrics import MetricConfig
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
@@ -27,7 +27,7 @@ class MetricEvaluator:
       - Dispatch each group to the matching strategy.
       - Merge results and return.
 
-    Adding a new backend requires only a new :class:`MetricBackendStrategy`
+    Adding a new strategy requires only a new :class:`MetricStrategy`
     implementation and registering it – ``evaluate()`` is never modified.
     """
 
@@ -37,7 +37,7 @@ class MetricEvaluator:
         db: Optional[Session] = None,
         organization_id: Optional[str] = None,
         connector_metric_sender: Optional[ConnectorMetricSender] = None,
-        extra_strategies: Optional[List[MetricBackendStrategy]] = None,
+        extra_strategies: Optional[List[MetricStrategy]] = None,
     ) -> None:
         """
         Initialize evaluator with optional backend strategy overrides.
@@ -55,20 +55,20 @@ class MetricEvaluator:
         """
         score_evaluator = ScoreEvaluator()
 
-        self._local_strategy: MetricBackendStrategy = LocalBackendStrategy(
+        self._local_strategy: MetricStrategy = LocalStrategy(
             model=model,
             db=db,
             organization_id=organization_id,
             score_evaluator=score_evaluator,
         )
 
-        self._connector_strategy: MetricBackendStrategy = ConnectorBackendStrategy(
+        self._connector_strategy: MetricStrategy = ConnectorStrategy(
             connector_metric_sender=connector_metric_sender,
             score_evaluator=score_evaluator,
         )
 
         # Build the named strategy registry (backend_value -> strategy)
-        self._strategies: Dict[str, MetricBackendStrategy] = {
+        self._strategies: Dict[str, MetricStrategy] = {
             self._local_strategy.backend_value(): self._local_strategy,
             self._connector_strategy.backend_value(): self._connector_strategy,
         }
@@ -98,7 +98,7 @@ class MetricEvaluator:
             expected_output: The expected or reference output.
             context: List of context strings used for the response.
             metrics: List of Metric models, MetricConfig objects, or config dicts.
-            max_workers: Maximum number of parallel workers for local backends.
+            max_workers: Maximum number of parallel workers for local strategy.
             conversation_history: Optional conversation history.
             metadata: Optional metadata dict.
             tool_calls: Optional list of tool calls made by the endpoint.
