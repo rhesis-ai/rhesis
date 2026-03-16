@@ -117,8 +117,10 @@ Garak is an LLM vulnerability scanner that detects security weaknesses and jailb
 
 <Callout type="info">
   **Do Not Answer detection**: Garak's `ToxicCommentModel` is a local model that cannot be
-  run ad hoc. When importing test sets via the Rhesis platform, `PerspectiveToxicity`
-  (Google Perspective API) is used instead for do-not-answer and toxicity detection.
+  run ad hoc. Both the Rhesis SDK and the platform automatically substitute
+  `PerspectiveToxicity` (Google Perspective API) for do-not-answer and toxicity detection.
+  Rhesis Cloud provides this key automatically. Self-hosted deployments require a
+  `PERSPECTIVE_API_KEY` environment variable.
 </Callout>
 
 ### Rhesis Custom Metrics
