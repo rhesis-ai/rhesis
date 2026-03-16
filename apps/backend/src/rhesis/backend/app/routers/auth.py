@@ -42,6 +42,7 @@ from rhesis.backend.app.auth.used_token_store import (
     claim_token_jti,
 )
 from rhesis.backend.app.auth.user_utils import (
+    _send_welcome_email,
     find_or_create_user,
     find_or_create_user_from_auth,
 )
@@ -563,6 +564,9 @@ async def register_with_email(
         refresh_tok = create_refresh_token(db, str(user.id))
         db.commit()
 
+        # Send welcome email (best-effort)
+        _send_welcome_email(user)
+
         # Send verification email (best-effort)
         try:
             token = create_email_verification_token(str(user.id), user.email)
@@ -831,6 +835,8 @@ async def request_magic_link(
                 is_active=True,
             )
             user = crud.create_user(db, user_data)
+            db.commit()
+            db.refresh(user)
             is_new_user = True
             logger.info(
                 "New user created via magic link: %s",
@@ -861,6 +867,10 @@ async def request_magic_link(
         )
     except Exception as e:
         logger.warning(f"Failed to send magic link email: {e}")
+
+    # Send welcome email for newly created accounts (best-effort)
+    if is_new_user:
+        _send_welcome_email(user)
 
     return {
         "success": True,
