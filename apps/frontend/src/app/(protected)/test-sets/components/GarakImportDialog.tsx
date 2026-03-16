@@ -233,11 +233,7 @@ export default function GarakImportDialog({
         });
       }
 
-      if (dynamicProbes.length > 0) {
-        setDynamicPreviewCount(dynamicProbes.length);
-      } else {
-        setDynamicPreviewCount(0);
-      }
+      setDynamicPreviewProbes(dynamicProbes);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to preview import');
     } finally {
@@ -245,8 +241,9 @@ export default function GarakImportDialog({
     }
   };
 
-  const [dynamicPreviewCount, setDynamicPreviewCount] =
-    React.useState<number>(0);
+  const [dynamicPreviewProbes, setDynamicPreviewProbes] = React.useState<
+    GarakProbeClass[]
+  >([]);
 
   const handleImport = async () => {
     if (selectedProbes.size === 0) {
@@ -423,12 +420,17 @@ export default function GarakImportDialog({
           : prev
       );
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const hasDynamic = dynamicProbes.length > 0;
+      if (!hasDynamic) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
 
       if (createdTestSetIds.length > 0) {
         onSuccess?.(createdTestSetIds);
       }
-      handleClose();
+      if (!hasDynamic) {
+        handleClose();
+      }
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : 'Failed to import Garak probes'
@@ -441,13 +443,16 @@ export default function GarakImportDialog({
   };
 
   const handleClose = () => {
+    onClose();
+  };
+
+  const resetState = () => {
     setSelectedProbes(new Set());
     setPreview(null);
     setError(undefined);
     setImportProgress(null);
     setPreparingImport(false);
-    setDynamicPreviewCount(0);
-    onClose();
+    setDynamicPreviewProbes([]);
   };
 
   const toggleModuleExpand = (moduleName: string) => {
@@ -463,8 +468,18 @@ export default function GarakImportDialog({
   // Count selected probes for display
   const allProbesCount = modules.flatMap(m => getModuleProbes(m)).length;
 
+  const isCompleteWithDynamic =
+    !!importProgress?.isComplete &&
+    importProgress.dynamicResults.length > 0;
+
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="md"
+      fullWidth
+      TransitionProps={{ onExited: resetState }}
+    >
       <DialogTitle>
         <Stack direction="row" alignItems="center" spacing={1}>
           <SecurityIcon color="primary" />
@@ -483,8 +498,8 @@ export default function GarakImportDialog({
             </Alert>
           )}
 
-          {/* Probe Selection - Hide when importing */}
-          {!importing && (
+          {/* Probe Selection - Hide when importing or showing completion */}
+          {!importing && !isCompleteWithDynamic && (
             <Box>
               <Stack
                 direction="row"
@@ -716,15 +731,15 @@ export default function GarakImportDialog({
           )}
 
           {/* Import Progress */}
-          {importing && importProgress && (
+          {(importing || isCompleteWithDynamic) && importProgress && (
             <Paper
               elevation={0}
               sx={theme => ({
                 p: 3,
                 bgcolor: alpha(theme.palette.primary.main, 0.08),
-                border: '1px solid',
+                border: 1,
                 borderColor: alpha(theme.palette.primary.main, 0.24),
-                borderRadius: theme.shape.borderRadius / 4,
+                borderRadius: 1,
               })}
             >
               <Stack spacing={2}>
@@ -864,20 +879,52 @@ export default function GarakImportDialog({
                       </Typography>
                     </Stack>
                     {importProgress.staticImported > 0 && (
-                      <Typography variant="body2" color="text.secondary">
-                        {importProgress.staticImported} static probe
-                        {importProgress.staticImported !== 1 ? 's' : ''}{' '}
-                        imported
-                      </Typography>
+                      <Stack spacing={0.5}>
+                        <Typography variant="body2" color="text.secondary">
+                          {importProgress.staticImported} static probe
+                          {importProgress.staticImported !== 1 ? 's' : ''}{' '}
+                          imported:
+                        </Typography>
+                        {preview?.probes.map(p => (
+                          <Typography
+                            key={p.full_name}
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ pl: 2 }}
+                          >
+                            • {p.test_set_name} ({p.prompt_count} tests)
+                          </Typography>
+                        ))}
+                      </Stack>
                     )}
                     {importProgress.dynamicResults.length > 0 && (
-                      <Typography variant="body2" color="text.secondary">
-                        {importProgress.dynamicResults.length} dynamic probe
-                        {importProgress.dynamicResults.length !== 1
-                          ? 's'
-                          : ''}{' '}
-                        — generation started in background
-                      </Typography>
+                      <Stack spacing={0.5}>
+                        <Typography variant="body2" color="text.secondary">
+                          {importProgress.dynamicResults.length} dynamic probe
+                          {importProgress.dynamicResults.length !== 1
+                            ? 's'
+                            : ''}{' '}
+                          — generation started in background:
+                        </Typography>
+                        {importProgress.dynamicResults.map(result => (
+                          <Typography
+                            key={result.task_id}
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ pl: 2 }}
+                          >
+                            • {result.probe_full_name}
+                          </Typography>
+                        ))}
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mt: 0.5 }}
+                        >
+                          Once generation completes, the test sets will appear
+                          in your test sets list.
+                        </Typography>
+                      </Stack>
                     )}
                   </Stack>
                 )}
@@ -886,7 +933,7 @@ export default function GarakImportDialog({
           )}
 
           {/* Preview */}
-          {preview && !importing && (
+          {preview && !importing && !isCompleteWithDynamic && (
             <Alert severity="info" icon={false}>
               <Typography variant="subtitle2" gutterBottom>
                 Import Preview
@@ -903,11 +950,22 @@ export default function GarakImportDialog({
                     </Typography>
                   </>
                 )}
-                {dynamicPreviewCount > 0 && (
-                  <Typography variant="body2">
-                    Dynamic probes (LLM generation):{' '}
-                    <strong>{dynamicPreviewCount}</strong>
-                  </Typography>
+                {dynamicPreviewProbes.length > 0 && (
+                  <>
+                    <Typography variant="body2">
+                      Dynamic probes (LLM generation):{' '}
+                      <strong>{dynamicPreviewProbes.length}</strong>
+                    </Typography>
+                    {dynamicPreviewProbes.map(probe => (
+                      <Typography
+                        key={probe.full_name}
+                        variant="body2"
+                        sx={{ pl: 2 }}
+                      >
+                        • {probe.full_name}
+                      </Typography>
+                    ))}
+                  </>
                 )}
                 {preview.detector_count > 0 && (
                   <Typography variant="body2">
@@ -931,53 +989,66 @@ export default function GarakImportDialog({
       <DialogActions>
         <Button
           onClick={handleClose}
-          disabled={importing || preparingImport}
+          disabled={
+            (importing || preparingImport) && !isCompleteWithDynamic
+          }
           sx={{
             '&.Mui-disabled': {
               color: 'text.disabled',
             },
           }}
         >
-          Cancel
+          {isCompleteWithDynamic ? 'Close' : 'Cancel'}
         </Button>
-        <Button
-          onClick={handlePreview}
-          disabled={
-            loading || importing || preparingImport || selectedProbes.size === 0
-          }
-          variant="outlined"
-          sx={{
-            '&.Mui-disabled': {
-              color: 'text.disabled',
-              borderColor: 'action.disabled',
-            },
-          }}
-        >
-          Preview
-        </Button>
-        <Button
-          onClick={handleImport}
-          disabled={
-            loading || importing || preparingImport || selectedProbes.size === 0
-          }
-          variant="contained"
-          color="primary"
-          startIcon={
-            preparingImport || importing ? (
-              <CircularProgress size={16} />
-            ) : undefined
-          }
-        >
-          {(() => {
-            if (preparingImport || importing) return 'Importing...';
-            const { staticProbes, dynamicProbes } = getSelectedProbeObjects();
-            if (staticProbes.length > 0 && dynamicProbes.length > 0)
-              return `Import ${selectedProbes.size} Probes`;
-            if (dynamicProbes.length > 0 && staticProbes.length === 0)
-              return `Generate ${dynamicProbes.length} Probe${dynamicProbes.length !== 1 ? 's' : ''}`;
-            return `Import ${selectedProbes.size} Probe${selectedProbes.size !== 1 ? 's' : ''}`;
-          })()}
-        </Button>
+        {!isCompleteWithDynamic && (
+          <>
+            <Button
+              onClick={handlePreview}
+              disabled={
+                loading ||
+                importing ||
+                preparingImport ||
+                selectedProbes.size === 0
+              }
+              variant="outlined"
+              sx={{
+                '&.Mui-disabled': {
+                  color: 'text.disabled',
+                  borderColor: 'action.disabled',
+                },
+              }}
+            >
+              Preview
+            </Button>
+            <Button
+              onClick={handleImport}
+              disabled={
+                loading ||
+                importing ||
+                preparingImport ||
+                selectedProbes.size === 0
+              }
+              variant="contained"
+              color="primary"
+              startIcon={
+                preparingImport || importing ? (
+                  <CircularProgress size={16} />
+                ) : undefined
+              }
+            >
+              {(() => {
+                if (preparingImport || importing) return 'Importing...';
+                const { staticProbes, dynamicProbes } =
+                  getSelectedProbeObjects();
+                if (staticProbes.length > 0 && dynamicProbes.length > 0)
+                  return `Import ${selectedProbes.size} Probes`;
+                if (dynamicProbes.length > 0 && staticProbes.length === 0)
+                  return `Generate ${dynamicProbes.length} Probe${dynamicProbes.length !== 1 ? 's' : ''}`;
+                return `Import ${selectedProbes.size} Probe${selectedProbes.size !== 1 ? 's' : ''}`;
+              })()}
+            </Button>
+          </>
+        )}
       </DialogActions>
     </Dialog>
   );
