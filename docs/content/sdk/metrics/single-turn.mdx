@@ -116,10 +116,9 @@ Garak is an LLM vulnerability scanner that detects security weaknesses and jailb
 | `FileIsExecutable` | Detects malicious file format content generation | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.fileformats.html) |
 
 <Callout type="info">
-  **Do Not Answer detection**: Garak's `ToxicCommentModel` (`garak.detectors.unsafe_content`)
-  is a local HuggingFace model that requires PyTorch. Rhesis uses `PerspectiveToxicity`
-  (Google Perspective API) instead for do-not-answer and toxicity detection, avoiding the
-  PyTorch dependency while providing equivalent coverage.
+  **Do Not Answer detection**: Garak's `ToxicCommentModel` is a local model that cannot be
+  run ad hoc in Rhesis. For do-not-answer and toxicity detection, Rhesis uses
+  `PerspectiveToxicity` (Google Perspective API) instead.
 </Callout>
 
 ### Rhesis Custom Metrics
