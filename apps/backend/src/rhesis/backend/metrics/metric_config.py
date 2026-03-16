@@ -155,19 +155,22 @@ def validate_metric_configs(
     for i, raw_config in enumerate(metrics):
         try:
             config = normalize_config(raw_config)
-        except TypeError:
+        except (TypeError, ValueError) as e:
             invalid_key = f"InvalidMetric_{i}"
-            type_name = type(raw_config).__name__
+            if isinstance(e, TypeError):
+                reason = f"Invalid config type: {type(raw_config).__name__}"
+            else:
+                reason = str(e)
             invalid_metric_results[invalid_key] = MetricResultBuilder.error(
-                reason=f"Invalid config type: {type_name}",
+                reason=reason,
                 backend="unknown",
                 name=invalid_key,
                 class_name="Unknown",
-                description=f"Invalid config type: {type_name}",
-                error=f"Invalid config type: {type_name}",
+                description=reason,
+                error=reason,
                 threshold=0.0,
             )
-            logger.warning(f"Invalid config type for metric {i}: {type_name}")
+            logger.warning(f"Invalid metric config for metric {i}: {reason}")
             continue
 
         error_reason = diagnose_invalid_metric(config)
