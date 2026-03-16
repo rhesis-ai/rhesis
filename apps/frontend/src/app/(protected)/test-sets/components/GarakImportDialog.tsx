@@ -469,8 +469,7 @@ export default function GarakImportDialog({
   const allProbesCount = modules.flatMap(m => getModuleProbes(m)).length;
 
   const isCompleteWithDynamic =
-    !!importProgress?.isComplete &&
-    importProgress.dynamicResults.length > 0;
+    !!importProgress?.isComplete && importProgress.dynamicResults.length > 0;
 
   return (
     <Dialog
@@ -739,7 +738,7 @@ export default function GarakImportDialog({
                 bgcolor: alpha(theme.palette.primary.main, 0.08),
                 border: 1,
                 borderColor: alpha(theme.palette.primary.main, 0.24),
-                borderRadius: 1,
+                borderRadius: 2,
               })}
             >
               <Stack spacing={2}>
@@ -989,9 +988,7 @@ export default function GarakImportDialog({
       <DialogActions>
         <Button
           onClick={handleClose}
-          disabled={
-            (importing || preparingImport) && !isCompleteWithDynamic
-          }
+          disabled={(importing || preparingImport) && !isCompleteWithDynamic}
           sx={{
             '&.Mui-disabled': {
               color: 'text.disabled',
