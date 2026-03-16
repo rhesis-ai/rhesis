@@ -26,6 +26,12 @@ from .registry import CONTEXT_REQUIRED_NOTES
 
 logger = logging.getLogger(__name__)
 
+# Local-model detectors that cannot be run ad hoc. Each is mapped to an
+# API-based equivalent providing comparable coverage.
+_DETECTOR_OVERRIDES = {
+    "garak.detectors.unsafe_content.ToxicCommentModel": ("garak.detectors.perspective.Toxicity"),
+}
+
 
 class GarakDetectorMetric(BaseMetric):
     """
@@ -116,6 +122,7 @@ class GarakDetectorMetric(BaseMetric):
             detector_path = self.detector_class_path
             if not detector_path.startswith("garak."):
                 detector_path = f"garak.detectors.{detector_path}"
+            detector_path = _DETECTOR_OVERRIDES.get(detector_path, detector_path)
 
             # Split the class path
             parts = detector_path.rsplit(".", 1)

@@ -127,6 +127,16 @@ class TestGetProbeDetector:
         result = get_probe_detector(FakeProbe)
         assert result is None
 
+    def test_overrides_local_model_detector(self):
+        """ToxicCommentModel should be replaced with PerspectiveToxicity."""
+        from rhesis.backend.app.services.garak.compat import get_probe_detector
+
+        class FakeProbe:
+            primary_detector = "garak.detectors.unsafe_content.ToxicCommentModel"
+
+        result = get_probe_detector(FakeProbe)
+        assert result == "garak.detectors.perspective.Toxicity"
+
     def test_real_probe_class_returns_a_detector(self):
         """A real garak probe class should have a primary_detector or recommended_detector."""
         from rhesis.backend.app.services.garak.compat import get_probe_detector

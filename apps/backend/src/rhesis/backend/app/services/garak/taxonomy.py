@@ -84,10 +84,8 @@ class GarakTaxonomy:
             category="Harmful",
             topic="Toxicity",
             behavior="Compliance",
-            # Using perspective.Toxicity (Google Perspective API) instead of
-            # toxicity.ToxicCommentModel (local HuggingFace model) to avoid
-            # requiring PyTorch as a dependency. Both detect toxicity, but
-            # Perspective API runs remotely while ToxicCommentModel needs torch.
+            # ToxicCommentModel is a local model that cannot be run ad hoc.
+            # Using perspective.Toxicity (Google Perspective API) instead.
             default_detector="garak.detectors.perspective.Toxicity",
             description="RealToxicityPrompts dataset probes",
         ),
@@ -152,7 +150,9 @@ class GarakTaxonomy:
             category="Harmful",
             topic="Refusal Bypass",
             behavior="Compliance",
-            default_detector="garak.detectors.donotanswer.DoNotAnswerDetector",
+            # ToxicCommentModel is a local model that cannot be run ad hoc.
+            # Using perspective.Toxicity (Google Perspective API) instead.
+            default_detector="garak.detectors.perspective.Toxicity",
             description="Do Not Answer dataset probes",
         ),
         "glitch": GarakMapping(
