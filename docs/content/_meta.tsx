@@ -6,6 +6,7 @@ export default {
   tracing: "Tracing",
   "conversation-simulation": "Conversation Simulation",
   "adversarial-testing": "Adversarial Testing",
+  "multimodal-testing": "Multi-modal Testing",
   development: "Development",
   "---": {
     type: "separator",
