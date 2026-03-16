@@ -16,7 +16,9 @@ from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.results import collect_results
-from rhesis.backend.tasks.utils import increment_test_run_progress  # noqa: F401 - used in commented-out progress tracking below
+from rhesis.backend.tasks.utils import (
+    increment_test_run_progress,  # noqa: F401 - used in commented-out progress tracking below
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,8 @@ def update_test_run_start(
     **extra_attributes,
 ) -> None:
     """
-    Update test run with start information.
+    Update test run with start information and commit so other processes
+    (e.g. Celery workers) see the updated metadata immediately.
 
     Args:
         session: Database session
@@ -58,6 +61,7 @@ def update_test_run_start(
         organization_id=str(test_run.organization_id) if test_run.organization_id else None,
         user_id=str(test_run.user_id) if test_run.user_id else None,
     )
+    session.commit()
 
 
 def store_test_result(
