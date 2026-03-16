@@ -2,12 +2,13 @@ import json
 import logging
 import os
 import re
-from typing import Generator, List, Literal
+from typing import AsyncGenerator, Generator, List, Literal
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from rhesis.sdk import RhesisClient, endpoint, observe
+from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.models.factory import get_model
 
 # Output mode type
@@ -101,14 +102,20 @@ class ResponseGenerator:
             logger.error(f"Error loading system prompt: {str(e)}")
             return "You are a helpful assistant. Please provide clear and helpful responses."
 
-    def get_assistant_response(
+    async def get_assistant_response(
         self,
         prompt: str,
         conversation_history: List[dict] = None,
+        file_contents: list[dict] | None = None,
         mode: OutputMode = "text",
     ) -> str:
         """Get a complete response from the assistant with optional conversation history."""
-        return "".join(self.stream_assistant_response(prompt, conversation_history, mode=mode))
+        chunks = []
+        async for chunk in self.stream_assistant_response(
+            prompt, conversation_history, file_contents, mode=mode
+        ):
+            chunks.append(chunk)
+        return "".join(chunks)
 
     @observe()
     def _build_conversation_prompt(
@@ -147,18 +154,18 @@ class ResponseGenerator:
         provider=_provider,
         model=_model_name,
     )
-    def _invoke_llm(self, full_prompt: str, mode: OutputMode = "text"):
+    async def _invoke_llm(self, full_prompt: str, mode: OutputMode = "text"):
         """Invoke the language model to generate a response."""
         # Vertex AI via LiteLLM has issues with streaming (CustomStreamWrapper)
         # Use non-streaming response which works reliably
         kwargs = {"stream": False}
         if mode == "json":
             kwargs["schema"] = ChatResponse
-        response = self.model.generate(full_prompt, **kwargs)
+        response = await self.model.a_generate(full_prompt, **kwargs)
         return response
 
     @observe()
-    def _extract_response_content(self, response, mode: OutputMode = "text") -> str:
+    def _extract_response_content(self, response, mode: OutputMode = "text") -> str | dict:
         """Extract text content from LLM response."""
         if mode == "json":
             if isinstance(response, ChatResponse):
@@ -178,13 +185,13 @@ class ResponseGenerator:
         return str(response) if response else ""
 
     @observe()
-    def stream_assistant_response(
+    async def stream_assistant_response(
         self,
         prompt: str,
         conversation_history: List[dict] = None,
         file_contents: list[dict] | None = None,
         mode: OutputMode = "text",
-    ) -> Generator[str, None, None]:
+    ) -> AsyncGenerator[str, None]:
         """Stream the assistant's response using SDK model with conversation history.
 
         Args:
@@ -203,7 +210,7 @@ class ResponseGenerator:
             )
 
             # Invoke LLM
-            response = self._invoke_llm(full_prompt, mode=mode)
+            response = await self._invoke_llm(full_prompt, mode=mode)
 
             # Extract and yield content
             content = self._extract_response_content(response, mode=mode)
@@ -251,20 +258,20 @@ class ResponseGenerator:
         model=_model_name,
         purpose="context_generation",
     )
-    def _generate_context_fragments_llm(self, full_prompt: str) -> str:
+    async def _generate_context_fragments_llm(self, full_prompt: str) -> str:
         """Invoke LLM to generate context fragments."""
-        response = self.model.generate(full_prompt)
+        response = await self.model.a_generate(full_prompt)
         return response
 
     @observe()
-    def generate_context(self, prompt: str) -> List[str]:
+    async def generate_context(self, prompt: str) -> List[str]:
         """Generate context fragments for a prompt."""
         try:
             # Build prompt
             full_prompt = self._build_context_prompt(prompt)
 
             # Invoke LLM for context generation
-            response = self._generate_context_fragments_llm(full_prompt)
+            response = await self._generate_context_fragments_llm(full_prompt)
 
             # Parse the response
             response_text = response if isinstance(response, str) else str(response)
@@ -399,13 +406,13 @@ into one of four categories.
         model=_model_name,
         purpose="intent_classification",
     )
-    def _classify_intent_llm(self, full_prompt: str) -> IntentClassification:
+    async def _classify_intent_llm(self, full_prompt: str) -> IntentClassification:
         """Invoke LLM to classify intent with structured output."""
-        response = self.model.generate(full_prompt, schema=IntentClassification)
+        response = await self.model.a_generate(full_prompt, schema=IntentClassification)
         return response
 
     @observe()
-    def recognize_intent(self, prompt: str) -> dict:
+    async def recognize_intent(self, prompt: str) -> dict:
         """Recognize intent from a user prompt.
 
         Args:
@@ -419,7 +426,7 @@ into one of four categories.
             full_prompt = self._build_intent_classification_prompt(prompt)
 
             # Invoke LLM for intent classification with Pydantic schema
-            intent_result = self._classify_intent_llm(full_prompt)
+            intent_result = await self._classify_intent_llm(full_prompt)
 
             # Convert Pydantic model to dict
             if isinstance(intent_result, IntentClassification):
@@ -475,7 +482,7 @@ def get_response_generator(use_case: str = "insurance") -> ResponseGenerator:
     return ResponseGenerator(use_case)
 
 
-def get_assistant_response(
+async def get_assistant_response(
     prompt: str,
     use_case: str = "insurance",
     conversation_history: List[dict] = None,
@@ -484,23 +491,21 @@ def get_assistant_response(
 ) -> str:
     """Get a complete response from the assistant with optional conversation history."""
     response_generator = get_response_generator(use_case)
-    return "".join(
-        response_generator.stream_assistant_response(
-            prompt, conversation_history, file_contents, mode=mode
-        )
+    return await response_generator.get_assistant_response(
+        prompt, conversation_history, file_contents, mode=mode
     )
 
 
-def stream_assistant_response(
+async def stream_assistant_response(
     prompt: str,
     use_case: str = "insurance",
     conversation_history: List[dict] = None,
     file_contents: list[dict] | None = None,
     mode: OutputMode = "text",
-) -> Generator[str, None, None]:
+) -> AsyncGenerator[str, None]:
     """Stream the assistant's response with optional conversation history.
 
-    This function is decorated with @endpoint to enable remote testing
+    This function is the primary async implementation for remote testing
     from the Rhesis platform.
 
     Args:
@@ -525,14 +530,10 @@ def stream_assistant_response(
         response_generator = get_response_generator(use_case)
         logger.info("Response generator created successfully")
 
-        result_generator = response_generator.stream_assistant_response(
-            prompt, conversation_history, file_contents, mode=mode
-        )
-        logger.info("Starting to stream response...")
-
-        # Stream and log chunks
         chunk_count = 0
-        for chunk in result_generator:
+        async for chunk in response_generator.stream_assistant_response(
+            prompt, conversation_history, file_contents, mode=mode
+        ):
             chunk_count += 1
             if chunk_count <= 3:  # Log first 3 chunks
                 logger.info(
@@ -555,10 +556,45 @@ def stream_assistant_response(
         raise
 
 
-def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
+def _collect_stream_chunks(
+    prompt: str,
+    use_case: str,
+    conversation_history: List[dict] | None,
+    file_contents: list[dict] | None,
+    mode: OutputMode,
+) -> List[str]:
+    """Collect all chunks from async stream (for sync wrapper)."""
+
+    async def _collect() -> List[str]:
+        chunks = []
+        async for chunk in stream_assistant_response(
+            prompt, use_case, conversation_history, file_contents, mode
+        ):
+            chunks.append(chunk)
+        return chunks
+
+    return run_sync(_collect())
+
+
+def stream_assistant_response_sync(
+    prompt: str,
+    use_case: str = "insurance",
+    conversation_history: List[dict] = None,
+    file_contents: list[dict] | None = None,
+    mode: OutputMode = "text",
+) -> Generator[str, None, None]:
+    """Sync wrapper for stream_assistant_response for sync contexts (e.g. Streamlit).
+
+    Yields chunks after collecting them from the async implementation.
+    """
+    chunks = _collect_stream_chunks(prompt, use_case, conversation_history, file_contents, mode)
+    yield from chunks
+
+
+async def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
     """Generate context fragments for a prompt."""
     response_generator = get_response_generator(use_case)
-    return response_generator.generate_context(prompt)
+    return await response_generator.generate_context(prompt)
 
 
 @endpoint(
@@ -573,7 +609,7 @@ def generate_context(prompt: str, use_case: str = "insurance") -> List[str]:
         "metadata": "{{ {'intent': intent, 'confidence': confidence} | tojson }}",
     },
 )
-def recognize_intent_endpoint(prompt: str, use_case: str = "insurance") -> dict:
+async def recognize_intent_endpoint(prompt: str, use_case: str = "insurance") -> dict:
     """
     Standalone SDK endpoint for testing intent recognition.
 
@@ -594,7 +630,7 @@ def recognize_intent_endpoint(prompt: str, use_case: str = "insurance") -> dict:
         response_generator = get_response_generator(use_case)
         logger.info("Response generator created successfully")
 
-        result = response_generator.recognize_intent(prompt)
+        result = await response_generator.recognize_intent(prompt)
 
         logger.info(f"✅ Intent recognized: {result}")
         logger.info("=" * 80)
