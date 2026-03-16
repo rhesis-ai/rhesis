@@ -16,6 +16,7 @@ const meta: MetaRecord = {
     title: "Testing",
   },
   "tests-generation": "Generation",
+  playground: "Playground",
   tests: "Tests",
   "test-sets": "Test Sets",
   "test-execution": "Test Execution",
