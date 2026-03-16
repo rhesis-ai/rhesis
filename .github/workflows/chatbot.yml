@@ -197,7 +197,7 @@ jobs:
             CONCURRENCY="80"
             echo "🧪 Staging configuration: ${MEMORY} memory, ${CPU} CPU, ${MIN_INSTANCES}-${MAX_INSTANCES} instances"
           else
-            MEMORY="2Gi"
+            MEMORY="4Gi"
             CPU="1"
             MIN_INSTANCES="1"
             MAX_INSTANCES="5"
