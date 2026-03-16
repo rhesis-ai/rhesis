@@ -104,7 +104,7 @@ class TestGarakTaxonomyMappings:
         mapping = GarakTaxonomy.get_mapping("donotanswer")
 
         assert mapping.topic == "Refusal Bypass"
-        assert mapping.default_detector == "garak.detectors.donotanswer.DoNotAnswerDetector"
+        assert mapping.default_detector == "garak.detectors.perspective.Toxicity"
 
     def test_leakreplay_module_mapping(self):
         """Test leakreplay module mapping."""
