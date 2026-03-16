@@ -34,8 +34,33 @@ test.describe('Playground — full flow @crud', () => {
     const playgroundPage = new PlaygroundPage(page);
     await playgroundPage.goto();
     await playgroundPage.expectLoaded();
-    // Reuses the existing robust content-visible check that includes `main` as fallback
-    await playgroundPage.expectContentVisible();
+
+    // Wait actively (with polling) for the main content area — more reliable
+    // than zero-timeout isVisible() checks because it survives slow hydration.
+    await page
+      .locator('main, [role="main"]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 20_000 });
+
+    await waitForEndpointSelectorReady(page);
+
+    // Either the endpoint combobox, the "no endpoints" alert, or just `main`
+    // confirms the page rendered correctly.
+    const combobox = page.locator('[role="combobox"]').first();
+    const noEndpointsAlert = page.getByText(/no endpoints available/i);
+    const mainEl = page.locator('main, [role="main"]').first();
+
+    const hasCombobox = await combobox.isVisible().catch(() => false);
+    const hasNoEndpoints = await noEndpointsAlert
+      .isVisible()
+      .catch(() => false);
+    const hasMain = await mainEl.isVisible().catch(() => false);
+
+    expect(
+      hasCombobox || hasNoEndpoints || hasMain,
+      'Expected endpoint selector, no-endpoints message, or main content to be rendered'
+    ).toBeTruthy();
+
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
@@ -403,30 +428,65 @@ test.describe('Playground — full flow @crud', () => {
     await firstOption.click();
     await page.waitForLoadState('networkidle');
 
-    // The multi-turn create-test button is enabled only after ≥2 messages.
-    // Look for the single-turn science icon on a user message bubble instead.
-    const createTestBtn = page.getByRole('button', {
-      name: /create.*test from this message|create single.turn test/i,
-    });
-
-    // If no messages yet, the button won't be present — skip gracefully
-    const hasBtn = await createTestBtn
-      .isVisible({ timeout: 3_000 })
-      .catch(() => false);
-    if (!hasBtn) {
+    // Skip if WebSocket is disconnected — sending a message would have no effect
+    const disconnectedChip = page.getByText(/disconnected/i).first();
+    if (
+      await disconnectedChip.isVisible({ timeout: 3_000 }).catch(() => false)
+    ) {
       test.skip(
         true,
-        'No conversation messages present — create-test button unavailable, skipping'
+        'WebSocket disconnected — skipping create-test drawer test'
       );
       return;
     }
 
-    await createTestBtn.first().click();
+    const messageInput = page.getByPlaceholder(/type your message/i);
+    if (
+      !(await messageInput.isVisible({ timeout: 10_000 }).catch(() => false))
+    ) {
+      test.skip(true, 'Message input not visible — skipping');
+      return;
+    }
 
-    // The drawer should open with the title "Create Single-Turn Test"
-    const drawerTitle = page.getByText(
-      /create single.turn test|create multi.turn test/i
-    );
-    await expect(drawerTitle.first()).toBeVisible({ timeout: 10_000 });
+    // Send a message so that a user bubble appears. The per-message
+    // "Create single-turn test" icon button only exists on existing bubbles.
+    const testMessage = 'e2e-create-test-drawer-trigger';
+    await messageInput.fill(testMessage);
+    await page.keyboard.press('Enter');
+
+    // Wait for the user message bubble
+    const userBubble = page.getByText(testMessage).first();
+    const bubbleAppeared = await userBubble
+      .isVisible({ timeout: 15_000 })
+      .catch(() => false);
+    if (!bubbleAppeared) {
+      test.skip(
+        true,
+        'User message bubble did not appear — WebSocket may be unavailable, skipping'
+      );
+      return;
+    }
+
+    // Hover to reveal the per-message icon button (ScienceOutlinedIcon)
+    await userBubble.hover();
+
+    const createTestBtn = page.getByRole('button', {
+      name: /create single.turn test from this message/i,
+    });
+    const hasBtn = await createTestBtn
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false);
+    if (!hasBtn) {
+      test.skip(true, 'Create-test button not visible after hover — skipping');
+      return;
+    }
+
+    await createTestBtn.click();
+
+    // The CreateTestFromConversationDrawer should open
+    const drawerTitle = page
+      .getByText(/create single.turn test|create multi.turn test/i)
+      .first();
+    await expect(drawerTitle).toBeVisible({ timeout: 10_000 });
   });
 });
