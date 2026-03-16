@@ -429,7 +429,7 @@ async def chat(
     tool_calls = []
 
     # Generate context using the instance
-    context_fragments = response_generator.generate_context(message)
+    context_fragments = await response_generator.generate_context(message)
     tool_calls.append(
         {
             "name": "generate_context",
@@ -439,7 +439,7 @@ async def chat(
     )
 
     # Recognize intent from the current message
-    intent_result = response_generator.recognize_intent(message)
+    intent_result = await response_generator.recognize_intent(message)
     tool_calls.append(
         {
             "name": "recognize_intent",
@@ -449,14 +449,14 @@ async def chat(
     )
 
     # Get assistant response using the same instance
-    chunks = list(
-        response_generator.stream_assistant_response(
-            message,
-            conversation_history=conversation_history,
-            file_contents=file_contents,
-            mode=mode,
-        )
-    )
+    chunks = []
+    async for chunk in response_generator.stream_assistant_response(
+        message,
+        conversation_history=conversation_history,
+        file_contents=file_contents,
+        mode=mode,
+    ):
+        chunks.append(chunk)
 
     if mode == "json":
         # In JSON mode, the generator yields dicts

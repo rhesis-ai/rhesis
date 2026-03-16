@@ -16,6 +16,7 @@ Run this script to see nested spans in your Rhesis dashboard.
 For detailed usage guide, see: playground/telemetry/SDK_USAGE_GUIDE.md
 """
 
+import asyncio
 import logging
 
 from dotenv import load_dotenv
@@ -37,7 +38,7 @@ load_dotenv()
     description="Demo chatbot with enhanced tracing",
     span_name="demo.chatbot_interaction",  # Custom span name
 )
-def demo_chat_with_tracing(question: str, use_case: str = "insurance") -> dict:
+async def demo_chat_with_tracing(question: str, use_case: str = "insurance") -> dict:
     """
     Demonstrate enhanced tracing with the chatbot.
 
@@ -50,12 +51,14 @@ def demo_chat_with_tracing(question: str, use_case: str = "insurance") -> dict:
 
     # Generate context (will create nested spans for LLM invocation and parsing)
     logger.info("📚 Generating context fragments...")
-    context_fragments = generate_context(question, use_case=use_case)
+    context_fragments = await generate_context(question, use_case=use_case)
     logger.info(f"✅ Generated {len(context_fragments)} context fragments")
 
-    # Stream assistant response (will create nested spans for conversation building and LLM invocation)
+    # Stream assistant response (nested spans for conversation building and LLM)
     logger.info("🤖 Streaming assistant response...")
-    response_chunks = list(stream_assistant_response(question, use_case=use_case))
+    response_chunks = []
+    async for chunk in stream_assistant_response(question, use_case=use_case):
+        response_chunks.append(chunk)
     full_response = "".join(response_chunks)
     logger.info(f"✅ Response complete: {len(full_response)} characters")
 
@@ -97,7 +100,7 @@ def main():
         print(f"{'─' * 80}\n")
 
         try:
-            result = demo_chat_with_tracing(question)
+            result = asyncio.run(demo_chat_with_tracing(question))
 
             print("\n📊 Results:")
             print(f"  • Context Fragments: {result['context_count']}")
