@@ -1260,6 +1260,14 @@ div.mermaid svg {
 
 /* Remove problematic overrides that might block functionality */
 
+/* Screenshot Utility */
+.screenshot {
+  border: 2px solid var(--rhesis-primary-dark);
+  border-radius: 8px;
+  display: block;
+  width: 100%;
+}
+
 /* Details/Summary Component Styles - Clean and Simple */
 .nextra-content details,
 details {
