@@ -469,7 +469,8 @@ export default function GarakImportDialog({
   const allProbesCount = modules.flatMap(m => getModuleProbes(m)).length;
 
   const isCompleteWithDynamic =
-    !!importProgress?.isComplete && importProgress.dynamicResults.length > 0;
+    !!importProgress?.isComplete &&
+    (importProgress?.dynamicResults.length ?? 0) > 0;
 
   return (
     <Dialog
