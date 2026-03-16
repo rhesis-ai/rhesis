@@ -1,0 +1,165 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Multi-Agent Tracing
+
+Multi-agent tracing captures how agents in a system interact — which agent ran, what it received and produced, and when control passed from one agent to another. Each agent becomes a distinct span in the trace, with handoffs recorded as first-class events.
+
+There are two ways to instrument a multi-agent system: **auto-instrumentation** (zero-config for supported frameworks) and **manual decoration** (works with any framework or custom code).
+
+## Auto-Instrumentation
+
+For supported frameworks, [`auto_instrument()`](/tracing/auto-instrumentation) handles all span creation automatically — no decorator changes required.
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient
+from rhesis.sdk.telemetry import auto_instrument
+
+client = RhesisClient(api_key="your-api-key", project_id="your-project-id")
+auto_instrument("langgraph")`}
+</CodeBlock>
+
+### LangGraph
+
+With LangGraph auto-instrumentation, every `graph.invoke()`, `graph.ainvoke()`, `graph.stream()`, and `graph.astream()` call is traced automatically. Nodes are classified as agents based on their name.
+
+A node is treated as an agent if its name contains one of these keywords (case-insensitive):
+
+| Keyword | Example node name |
+|---|---|
+| `agent` | `research_agent`, `agent_node` |
+| `specialist` | `billing_specialist` |
+| `orchestrator` | `main_orchestrator` |
+| `coordinator` | `task_coordinator` |
+| `supervisor` | `supervisor` |
+
+Nodes that don't match are traced as regular spans. To explicitly mark a node, set `agent_name` or `is_agent` in the invocation metadata:
+
+<CodeBlock filename="app.py" language="python">
+{`# Explicit agent name — overrides the node name in traces
+graph.invoke(state, config={"metadata": {"agent_name": "researcher"}})
+
+# Mark as agent without renaming
+graph.invoke(state, config={"metadata": {"is_agent": True}})`}
+</CodeBlock>
+
+Handoffs are detected automatically in two ways:
+- **`transfer_to_*` tools** — any tool named `transfer_to_<agent>` creates an `ai.agent.handoff` span
+- **Sequential transitions** — when one agent ends and another starts, a handoff span is created between them
+
+### More Frameworks
+
+LangGraph is the first framework with native `ai.agent.invoke` and `ai.agent.handoff` span support. LangChain is also supported for general tracing (LLM calls, tools, chains), but agent and handoff span detection currently requires LangGraph node naming conventions. Support for additional frameworks will be added over time. Use [manual decoration](#manual-decoration) for any framework not yet covered.
+
+## Manual Decoration
+
+Use `@observe` with the `ai.agent.invoke` span name to instrument any agent function, regardless of how it's built:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk import RhesisClient, observe
+from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.sdk.telemetry.attributes import AIAttributes
+
+client = RhesisClient(api_key="your-api-key", project_id="your-project-id")
+
+@observe(
+    span_name=AIOperationType.AGENT_INVOKE,
+    **{AIAttributes.AGENT_NAME: "research_agent"}
+)
+def research_agent(query: str) -> str:
+    # Your agent logic here — LLM calls, tool use, etc.
+    return run_research(query)
+
+@observe(
+    span_name=AIOperationType.AGENT_INVOKE,
+    **{AIAttributes.AGENT_NAME: "analyst_agent"}
+)
+def analyst_agent(findings: str) -> str:
+    return run_analysis(findings)`}
+</CodeBlock>
+
+### Recording Handoffs
+
+To explicitly record when one agent hands off to another, create a handoff span around the transition:
+
+<CodeBlock filename="app.py" language="python">
+{`from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.sdk.telemetry.attributes import AIAttributes
+
+@observe(
+    span_name=AIOperationType.AGENT_HANDOFF,
+    **{
+        AIAttributes.AGENT_HANDOFF_FROM: "research_agent",
+        AIAttributes.AGENT_HANDOFF_TO: "analyst_agent",
+    }
+)
+def handoff_to_analyst(findings: str) -> str:
+    return analyst_agent(findings)`}
+</CodeBlock>
+
+### Full Manual Example
+
+<CodeBlock filename="multi_agent.py" language="python">
+{`from rhesis.sdk import RhesisClient, endpoint, observe
+from rhesis.sdk.telemetry.schemas import AIOperationType
+from rhesis.sdk.telemetry.attributes import AIAttributes
+
+client = RhesisClient(api_key="your-api-key", project_id="your-project-id")
+
+@observe(span_name=AIOperationType.AGENT_INVOKE,
+         **{AIAttributes.AGENT_NAME: "research_agent"})
+def research_agent(query: str) -> str:
+    return call_llm(f"Research this topic: {query}")
+
+@observe(span_name=AIOperationType.AGENT_HANDOFF,
+         **{AIAttributes.AGENT_HANDOFF_FROM: "research_agent",
+            AIAttributes.AGENT_HANDOFF_TO: "analyst_agent"})
+def handoff(findings: str) -> str:
+    return analyst_agent(findings)
+
+@observe(span_name=AIOperationType.AGENT_INVOKE,
+         **{AIAttributes.AGENT_NAME: "analyst_agent"})
+def analyst_agent(findings: str) -> str:
+    return call_llm(f"Analyze these findings: {findings}")
+
+@endpoint()
+def run_pipeline(input: str) -> dict:
+    research = research_agent(input)
+    result = handoff(research)
+    return {"output": result}`}
+</CodeBlock>
+
+## Trace Visualization
+
+The Graph View in Rhesis renders agents, tools, and handoffs as nodes and edges, with turn markers for multi-turn conversations:
+
+<img src="/screenshots/rhesis-ai-tracing-graph-view.png" alt="Multi-agent trace graph view" style={{ border: "2px solid var(--rhesis-primary-dark)", borderRadius: "8px", width: "100%" }} />
+
+## Span Reference
+
+### `ai.agent.invoke`
+
+| Attribute | Key | Description |
+|---|---|---|
+| Operation type | `ai.operation.type` | `agent.invoke` |
+| Agent name | `ai.agent.name` | Agent identifier |
+| Event: input | `ai.agent.input` | Agent input |
+| Event: output | `ai.agent.output` | Agent output |
+
+### `ai.agent.handoff`
+
+| Attribute | Key | Description |
+|---|---|---|
+| Operation type | `ai.operation.type` | `agent.handoff` |
+| From agent | `ai.agent.handoff.from` | Agent initiating the handoff |
+| To agent | `ai.agent.handoff.to` | Agent receiving control |
+
+See [Semantic Conventions](/tracing/semantic-conventions#agent-operations) for the full attribute reference.
+
+---
+
+<Callout type="info">
+  **Related:**
+  - [Decorators](/tracing/decorators) — `@observe` and `@endpoint`
+  - [Auto-Instrumentation](/tracing/auto-instrumentation) — zero-config tracing for LangChain and LangGraph
+  - [Conversation Tracing](/tracing/conversation-tracing) — visualize full multi-turn sessions
+</Callout>

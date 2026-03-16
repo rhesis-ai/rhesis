@@ -4,26 +4,34 @@ import { CodeBlock } from "@/components/CodeBlock";
 
 Rhesis uses a semantic layer for consistent, framework-agnostic span naming across all AI operations.
 
+Semantic conventions answer a specific question: *what actually happened inside this span?* Rather than naming spans after framework constructs like chains, pipelines, or agents, Rhesis names spans after the **primitive operation** they perform — an LLM call, a tool execution, a retrieval. This makes traces readable regardless of which framework or orchestration layer produced them, and lets Rhesis correctly interpret, visualize, and evaluate spans across different stacks.
+
+The same span from LangChain, LlamaIndex, or a custom implementation looks identical in the trace viewer as long as it follows the convention.
+
 ## Naming Pattern
 
-<Mermaid chart={`flowchart TB
-    subgraph Pattern["Pattern:<br/>ai.domain.action"]
-        direction LR
-        P["ai"] --> D["domain"] --> A["action"]
-    end
-    
-    subgraph Examples["Examples"]
-        direction LR
-        E1["ai.llm.invoke"]
-        E2["ai.tool.invoke"]
-        E3["ai.retrieval"]
-    end
-    
-    Pattern --> Examples`} />
+<div style={{width: '100%', minHeight: '180px', display: 'flex', justifyContent: 'center'}}>
+<div style={{width: '60%', minWidth: '500px'}}>
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 80, 'rankSpacing': 60}, 'themeVariables': {'fontSize': '16px'}}}%%
+graph TB
+    P["ai.domain.action"]
+    E["ai.llm.invoke"]
+    P -.->|"example"| E
+
+    style P fill:#2aa1ce,color:#fff
+    style E fill:#f2f9fd,color:#2aa1ce
+```
+
+</div>
+</div>
 
 All span names follow the pattern: `ai.<domain>.<action>`
 
 ## Valid Span Names
+
+### Primitive Operations
 
 | Span Name | Constant | Description |
 |-----------|----------|-------------|
@@ -36,12 +44,19 @@ All span names follow the pattern: `ai.<domain>.<action>`
 | `ai.guardrail` | `AIOperationType.GUARDRAIL` | Safety check |
 | `ai.transform` | `AIOperationType.TRANSFORM` | Data transformation |
 
+### Agent Operations
+
+| Span Name | Constant | Description |
+|-----------|----------|-------------|
+| `ai.agent.invoke` | `AIOperationType.AGENT_INVOKE` | Agent execution |
+| `ai.agent.handoff` | `AIOperationType.AGENT_HANDOFF` | Transition between agents |
+
 ## Using Constants
 
 <CodeBlock filename="app.py" language="python">
 {`from rhesis.sdk.telemetry.schemas import AIOperationType
 
-# Span name constants
+# Primitive operations
 AIOperationType.LLM_INVOKE          # "ai.llm.invoke"
 AIOperationType.TOOL_INVOKE         # "ai.tool.invoke"
 AIOperationType.RETRIEVAL           # "ai.retrieval"
@@ -49,42 +64,24 @@ AIOperationType.EMBEDDING_GENERATE  # "ai.embedding.generate"
 AIOperationType.RERANK              # "ai.rerank"
 AIOperationType.EVALUATION          # "ai.evaluation"
 AIOperationType.GUARDRAIL           # "ai.guardrail"
-AIOperationType.TRANSFORM           # "ai.transform"`}
+AIOperationType.TRANSFORM           # "ai.transform"
+
+# Agent operations
+AIOperationType.AGENT_INVOKE        # "ai.agent.invoke"
+AIOperationType.AGENT_HANDOFF       # "ai.agent.handoff"`}
 </CodeBlock>
 
 ## Forbidden Span Names
 
-Framework concepts are **rejected** with HTTP 422:
+Framework composition concepts are **rejected** with HTTP 422:
 
 | Invalid Name | Reason |
 |--------------|--------|
-| `ai.agent.run` | "Agent" is a framework concept |
 | `ai.chain.execute` | "Chain" is an orchestration pattern |
 | `ai.workflow.start` | "Workflow" is a composition |
 | `ai.pipeline.process` | "Pipeline" is infrastructure |
 
-## Why Primitive Operations?
-
-Framework concepts are:
-- **Composite** - Made up of primitive operations
-- **Framework-specific** - Different frameworks use different terms
-- **Opaque** - They don't tell you what actually happened
-
-Instead, trace the **primitive operations**:
-
-<Mermaid chart={`flowchart TD
-    subgraph Bad["Framework Concept<br/>(Rejected)"]
-        A["ai.agent.run"]
-    end
-    
-    subgraph Good["Primitive<br/>Operations"]
-        B1["ai.llm.invoke"]
-        B2["ai.tool.invoke"]
-        B3["ai.llm.invoke"]
-        B1 --> B2 --> B3
-    end
-    
-    Bad -.->|"Breaks down into"| Good`} />
+Note: `ai.agent.*` spans are valid — see [Agent Operations](#agent-operations) above.
 
 ## Attribute Constants
 
@@ -137,6 +134,16 @@ span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, 200)`}
 | `EMBEDDING_MODEL` | `ai.embedding.model` | Model name |
 | `EMBEDDING_VECTOR_SIZE` | `ai.embedding.vector.size` | Vector dimensions |
 
+### Agent Attributes
+
+| Constant | Key | Description |
+|----------|-----|-------------|
+| `AGENT_NAME` | `ai.agent.name` | Name of the agent |
+| `AGENT_HANDOFF_FROM` | `ai.agent.handoff.from` | Agent initiating the handoff |
+| `AGENT_HANDOFF_TO` | `ai.agent.handoff.to` | Agent receiving the handoff |
+| `AGENT_INPUT_CONTENT` | `ai.agent.input` | Agent input |
+| `AGENT_OUTPUT_CONTENT` | `ai.agent.output` | Agent output |
+
 ### Operation Type Values
 
 | Constant | Value | Description |
@@ -149,6 +156,8 @@ span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, 200)`}
 | `OPERATION_EVALUATION` | `evaluation` | Evaluation operation |
 | `OPERATION_GUARDRAIL` | `guardrail` | Guardrail operation |
 | `OPERATION_TRANSFORM` | `transform` | Transform operation |
+| `OPERATION_AGENT_INVOKE` | `agent.invoke` | Agent invocation |
+| `OPERATION_AGENT_HANDOFF` | `agent.handoff` | Agent handoff |
 
 ## Events
 
@@ -188,15 +197,64 @@ with tracer.start_as_current_span("ai.llm.invoke") as span:
 | `AIEvents.TOOL_OUTPUT` | `ai.tool.output` | Tool output |
 | `AIEvents.RETRIEVAL_QUERY` | `ai.retrieval.query` | Retrieval query |
 | `AIEvents.RETRIEVAL_RESULTS` | `ai.retrieval.results` | Retrieval results |
+| `AIEvents.AGENT_INPUT` | `ai.agent.input` | Agent input |
+| `AIEvents.AGENT_OUTPUT` | `ai.agent.output` | Agent output |
 
 ## Trace Hierarchy
 
-<Mermaid chart={`flowchart TD
+Spans nest inside each other to represent how operations compose at runtime. The examples below show two common shapes — a RAG pipeline and a multi-agent system.
+
+### Single-Agent (RAG)
+
+A retrieval-augmented generation flow: the user query is first embedded, the embedding is used to retrieve relevant context, and then a single LLM call synthesizes the final response.
+
+<div style={{width: '100%', minHeight: '200px', display: 'flex', justifyContent: 'center'}}>
+<div style={{width: '50%', minWidth: '340px'}}>
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 60, 'rankSpacing': 60}, 'themeVariables': {'fontSize': '16px'}}}%%
+graph TD
     Q["User Query"] --> E["ai.embedding.generate"]
     E --> R["ai.retrieval"]
     R --> L["ai.llm.invoke"]
-    L --> T["ai.tool.invoke"]
-    T --> L2["ai.llm.invoke"]`} />
+
+    style Q fill:#e4f2fa,color:#1a1a1a
+    style E fill:#50b9e0,color:#fff
+    style R fill:#50b9e0,color:#fff
+    style L fill:#2aa1ce,color:#fff
+```
+
+</div>
+</div>
+
+### Multi-Agent
+
+An orchestrator agent plans and delegates. When it needs a specialist, it hands off via `ai.agent.handoff` — the specialist then runs its own set of operations independently.
+
+<div style={{width: '100%', minHeight: '200px', display: 'flex', justifyContent: 'center'}}>
+<div style={{width: '70%', minWidth: '400px'}}>
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 60, 'rankSpacing': 60}, 'themeVariables': {'fontSize': '16px'}}}%%
+graph TD
+    A1["ai.agent.invoke<br/><small>orchestrator</small>"] --> L1["ai.llm.invoke"]
+    A1 --> T1["ai.tool.invoke"]
+    A1 --> H["ai.agent.handoff<br/><small>orchestrator → specialist</small>"]
+    H --> A2["ai.agent.invoke<br/><small>specialist</small>"]
+    A2 --> L2["ai.llm.invoke"]
+    A2 --> T2["ai.tool.invoke"]
+
+    style A1 fill:#2aa1ce,color:#fff
+    style H fill:#9c27b0,color:#fff
+    style A2 fill:#2aa1ce,color:#fff
+    style L1 fill:#50b9e0,color:#fff
+    style T1 fill:#50b9e0,color:#fff
+    style L2 fill:#50b9e0,color:#fff
+    style T2 fill:#50b9e0,color:#fff
+```
+
+</div>
+</div>
 
 ---
 
