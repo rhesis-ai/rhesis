@@ -134,20 +134,19 @@ result = app.invoke({"messages": ["What are the benefits of LangGraph?"]})`}
 
 ## Trace Output
 
+Each node in the graph produces spans following [semantic conventions](/tracing/semantic-conventions). In this example, `researcher` and `analyst` are not named with agent keywords, so their LLM calls are traced as `ai.llm.invoke` spans directly.
+
 <Mermaid chart={`flowchart TD
     subgraph Trace["Trace: User Query"]
-        R["ai.llm.invoke\\n(researcher)"]
-        A["ai.llm.invoke\\n(analyst)"]
+        R["ai.llm.invoke\\n(researcher node)"]
+        A["ai.llm.invoke\\n(analyst node)"]
         T["ai.tool.invoke\\n(if used)"]
     end
     
     R --> A
     A --> T`} />
 
-Auto-instrumentation creates spans following semantic conventions with attributes:
-- Model name and provider
-- Token counts (input/output)
-- Tool names and types
+Spans include attributes for model name, provider, token counts (input/output), and tool names. To get `ai.agent.invoke` spans, node names must contain an agent keyword — see [Multi-Agent Tracing](/tracing/multi-agent).
 
 ## Combining with Decorators
 

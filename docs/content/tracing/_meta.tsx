@@ -7,6 +7,8 @@ const meta: MetaRecord = {
   "custom-spans": "Custom Spans",
   "semantic-conventions": "Semantic Conventions",
   "auto-instrumentation": "Auto-Instrumentation",
+  "multi-agent": "Multi-Agent Tracing",
+  "conversation-tracing": "Conversation Tracing",
 };
 
 export default meta;
