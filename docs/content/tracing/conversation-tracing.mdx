@@ -42,12 +42,11 @@ To group traces into a conversation thread, pass a consistent `conversation_id` 
 
 @endpoint()
 def chat(input: str, session_id: str = None) -> dict:
-    # session_id is used as the conversation_id to group turns
     response = your_llm_call(input)
     return {"output": response, "session_id": session_id}`}
 </CodeBlock>
 
-When the same `session_id` is returned across turns, Rhesis links all spans into a single conversation thread.
+The `session_id` field in the response is mapped to `conversation_id` internally — they refer to the same concept. When the same `session_id` is returned across turns, Rhesis links all spans into a single conversation thread.
 
 ## Filtering Traces
 

@@ -48,7 +48,7 @@ Handoffs are detected automatically in two ways:
 
 ### More Frameworks
 
-LangGraph is the first supported framework. Support for additional frameworks will be added over time. Use [manual decoration](#manual-decoration) for any framework not yet covered.
+LangGraph is the first framework with native `ai.agent.invoke` and `ai.agent.handoff` span support. LangChain is also supported for general tracing (LLM calls, tools, chains), but agent and handoff span detection currently requires LangGraph node naming conventions. Support for additional frameworks will be added over time. Use [manual decoration](#manual-decoration) for any framework not yet covered.
 
 ## Manual Decoration
 
