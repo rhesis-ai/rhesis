@@ -739,7 +739,7 @@ export default function GarakImportDialog({
                 bgcolor: alpha(theme.palette.primary.main, 0.08),
                 border: 1,
                 borderColor: alpha(theme.palette.primary.main, 0.24),
-                borderRadius: 2,
+                borderRadius: `${theme.shape.borderRadius}px`,
               })}
             >
               <Stack spacing={2}>
