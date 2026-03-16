@@ -899,7 +899,7 @@ start_worker() {
         --concurrency=8 \
         --max-tasks-per-child=500 \
         --optimization=fair \
-        -E \
+        -E 
 }
 
 # Function to run frontend tests
