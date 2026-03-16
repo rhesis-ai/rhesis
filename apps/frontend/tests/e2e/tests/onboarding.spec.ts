@@ -111,18 +111,13 @@ test.describe('Onboarding wizard — form @mocked', () => {
 
     await nextBtn.click();
 
-    // At least one required-field error should appear
-    const firstNameError = page.getByText(/first name/i).first();
-    const orgNameError = page.getByText(/organization name/i).first();
-
-    const hasError =
-      (await firstNameError.isVisible({ timeout: 5_000 }).catch(() => false)) ||
-      (await orgNameError.isVisible({ timeout: 5_000 }).catch(() => false));
-
-    expect(
-      hasError,
-      'Expected at least one validation error when submitting empty Step 0 form'
-    ).toBeTruthy();
+    // At least one input should gain aria-invalid="true" (MUI sets this when
+    // error=true on the TextField), which is distinct from the always-present
+    // field labels and only appears on actual validation failure.
+    const invalidInput = page.locator('input[aria-invalid="true"]').first();
+    await expect(invalidInput).toBeVisible({
+      timeout: 5_000,
+    });
   });
 
   test('Step 0 — can fill required fields and advance to Invite Team step', async ({

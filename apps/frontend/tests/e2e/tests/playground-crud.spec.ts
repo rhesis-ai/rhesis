@@ -1,3 +1,4 @@
+import path from 'path';
 import { test, expect, type Page } from '@playwright/test';
 import { PlaygroundPage } from '../pages/PlaygroundPage';
 
@@ -134,19 +135,20 @@ test.describe('Playground — full flow @crud', () => {
       return;
     }
 
-    // Type a message and verify the send button is enabled
+    // Before typing the send button should be disabled (input is empty)
+    // The send button is the last button inside the same Paper container as the
+    // message input — it has no aria-label, so we locate it structurally.
+    const chatPaper = page
+      .locator('.MuiPaper-root')
+      .filter({ has: messageInput });
+    const sendBtn = chatPaper.locator('button').last();
+
+    await expect(sendBtn).toBeDisabled({ timeout: 5_000 });
+
+    // After typing, the send button must become enabled
     await messageInput.fill('Hello, this is a Playwright E2E test message');
 
-    // Send button is an IconButton — look for it near the input area
-    const sendBtn = page
-      .locator('[aria-label="send"], button:has(svg)')
-      .filter({
-        has: page.locator('svg'),
-      });
-    // At minimum verify the input has the text and no errors occurred
-    await expect(messageInput).toHaveValue(
-      'Hello, this is a Playwright E2E test message'
-    );
+    await expect(sendBtn).toBeEnabled({ timeout: 5_000 });
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
@@ -361,8 +363,10 @@ test.describe('Playground — full flow @crud', () => {
     const fileInput = page.locator('input[type="file"]').first();
     await expect(fileInput).toBeAttached({ timeout: 5_000 });
 
-    // Upload the shared fixture
-    await fileInput.setInputFiles('tests/e2e/fixtures/fixture.txt');
+    // Use an absolute path so it resolves correctly in both local and CI envs
+    await fileInput.setInputFiles(
+      path.resolve(__dirname, '../fixtures/fixture.txt')
+    );
 
     // A chip with the filename should appear above the text field
     const fileChip = page.getByText(/fixture\.txt/i).first();
