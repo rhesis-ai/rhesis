@@ -53,7 +53,6 @@ Each row should have a `prompt_content`, `category`, `topic`, and `behavior`. Th
 | `behavior` | Yes | The specific behavior being evaluated |
 | `expected_response` | No | Expected output used to evaluate the response |
 | `language_code` | No | BCP-47 language code (e.g. `en`, `de`, `fr`) |
-| `metadata` | No | Arbitrary structured data stored alongside the test |
 
 #### Multi-Turn Fields
 
@@ -69,7 +68,6 @@ Multi-turn tests do not require a prompt field — the conversation is driven by
 | `restrictions` | No | Forbidden behaviors for the target system |
 | `scenario` | No | Contextual framing for the test |
 | `language_code` | No | BCP-47 language code (e.g. `en`, `de`, `fr`) |
-| `metadata` | No | Arbitrary structured data stored alongside the test |
 
 These fields can be provided in a **flat format** — as individual columns in CSV/Excel or top-level keys in JSON/JSONL — or nested inside a `test_configuration` object. Both layouts are recognised automatically.
 
