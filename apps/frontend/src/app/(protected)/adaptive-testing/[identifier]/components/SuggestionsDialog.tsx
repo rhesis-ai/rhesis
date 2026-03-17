@@ -271,9 +271,7 @@ export default function SuggestionsDialog({
       }
     } catch (err) {
       notifications.show(
-        err instanceof Error
-          ? err.message
-          : 'Failed to evaluate suggestions.',
+        err instanceof Error ? err.message : 'Failed to evaluate suggestions.',
         { severity: 'error' }
       );
     } finally {
@@ -459,11 +457,7 @@ export default function SuggestionsDialog({
           <Box>
             Suggested Tests
             {suggestions.length > 0 && (
-              <Chip
-                label={suggestions.length}
-                size="small"
-                sx={{ ml: 1 }}
-              />
+              <Chip label={suggestions.length} size="small" sx={{ ml: 1 }} />
             )}
           </Box>
           {suggestions.length > 0 && (
@@ -482,22 +476,14 @@ export default function SuggestionsDialog({
       </DialogTitle>
       <DialogContent>
         {error && (
-          <Alert
-            severity="error"
-            sx={{ mb: 2 }}
-            onClose={() => setError(null)}
-          >
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
             {error}
           </Alert>
         )}
 
         {!generated && !loading && (
           <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography
-              variant="body1"
-              color="text.secondary"
-              sx={{ mb: 2 }}
-            >
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
               Generate test suggestions using AI based on your existing tests
               {topic ? ` for topic "${topic}"` : ''}.
             </Typography>
@@ -541,9 +527,7 @@ export default function SuggestionsDialog({
                 options={endpoints}
                 getOptionLabel={option => option.name ?? ''}
                 value={selectedEndpoint}
-                onChange={(_, value) =>
-                  setSelectedEndpoint(value ?? null)
-                }
+                onChange={(_, value) => setSelectedEndpoint(value ?? null)}
                 loading={endpointsLoading}
                 renderInput={params => (
                   <TextField
@@ -555,10 +539,7 @@ export default function SuggestionsDialog({
                       endAdornment: (
                         <>
                           {endpointsLoading ? (
-                            <CircularProgress
-                              color="inherit"
-                              size={20}
-                            />
+                            <CircularProgress color="inherit" size={20} />
                           ) : null}
                           {params.InputProps.endAdornment}
                         </>
@@ -593,9 +574,7 @@ export default function SuggestionsDialog({
                 options={metrics}
                 getOptionLabel={option => option.name ?? ''}
                 value={selectedMetric}
-                onChange={(_, value) =>
-                  setSelectedMetric(value ?? null)
-                }
+                onChange={(_, value) => setSelectedMetric(value ?? null)}
                 loading={metricsLoading}
                 renderInput={params => (
                   <TextField
@@ -607,10 +586,7 @@ export default function SuggestionsDialog({
                       endAdornment: (
                         <>
                           {metricsLoading ? (
-                            <CircularProgress
-                              color="inherit"
-                              size={20}
-                            />
+                            <CircularProgress color="inherit" size={20} />
                           ) : null}
                           {params.InputProps.endAdornment}
                         </>
@@ -631,9 +607,7 @@ export default function SuggestionsDialog({
                 }
                 onClick={handleEvaluate}
                 disabled={
-                  !selectedMetric ||
-                  evaluateLoading ||
-                  suggestions.length === 0
+                  !selectedMetric || evaluateLoading || suggestions.length === 0
                 }
                 sx={{ textTransform: 'none' }}
               >
