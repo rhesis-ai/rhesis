@@ -1,5 +1,6 @@
 export default {
   index: "Home",
+  "why-rhesis": "Why Rhesis?",
   "getting-started": "Getting Started",
   concepts: "Core Concepts",
   deployment: "Deployment",
