@@ -4,7 +4,7 @@ const meta: MetaRecord = {
   index: 'Overview',
   'setup-environment': 'Setup Environment',
   'connecting-application': 'Connect Application',
-  'running-tests': 'Run Evaluations',
+  'run-evaluations': 'Run Evaluations',
 }
 
 export default meta;
