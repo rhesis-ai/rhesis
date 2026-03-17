@@ -2,9 +2,9 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: 'Overview',
-  'setup-environment': '1. Setup Environment',
-  'connecting-application': '2. Connect Application',
-  'running-tests': '3. Run Tests',
+  'setup-environment': 'Setup Environment',
+  'connecting-application': 'Connect Application',
+  'running-tests': 'Run Tests',
 }
 
 export default meta;
