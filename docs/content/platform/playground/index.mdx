@@ -1,3 +1,5 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
 # Playground
 
 Interact freely with any endpoint — send messages, attach files, view traces, and capture test cases — all without writing a line of code.
@@ -15,6 +17,45 @@ Interact freely with any endpoint — send messages, attach files, view traces, 
 Open the Playground from any endpoint page. Select the endpoint you want to test, then start typing in the message box. There's no setup required — just choose an endpoint and start a conversation.
 
 For endpoints that support file inputs, you can attach images, PDFs, or audio files directly in the message composer. See [Multi-modal Testing](/multimodal-testing) for supported formats and limits.
+
+### Chat file attachments
+
+When you test an endpoint in **Playground**, the chat composer can attach files and send them as part of the `files` request variable.
+
+Supported upload types in Playground:
+
+- `image/jpeg`, `image/png`, `image/gif`, `image/webp`
+- `application/pdf`
+- `application/json`
+- `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` (XLSX)
+- `application/vnd.ms-excel` (XLS)
+- `text/csv`
+
+Playground sends attachments over WebSocket as base64 payloads. Keep the full message payload under 10 MB, otherwise the backend rejects the message.
+
+| Playground payload field | Required | Description |
+|---|---|---|
+| `endpoint_id` | Yes | Endpoint to invoke |
+| `message` | Yes | User message text |
+| `conversation_id` | No | Conversation ID for multi-turn continuity |
+| `files` | No | List of attachments with `filename`, `content_type`, and `data` |
+
+<CodeBlock filename="playground-chat-message.json" language="json">
+  {`{
+  "type": "chat.message",
+  "payload": {
+    "endpoint_id": "8d9c...",
+    "message": "Summarize the attached spreadsheet",
+    "files": [
+      {
+        "filename": "claims.xlsx",
+        "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "data": "<base64>"
+      }
+    ]
+  }
+}`}
+</CodeBlock>
 
 ## Side-by-Side Comparison
 
