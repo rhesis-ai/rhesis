@@ -1897,8 +1897,8 @@ class TestGenerateOutputsForTests:
 # Tests for evaluate_tests_for_adaptive_set
 # ============================================================================
 
-_EVAL_MODEL_PATCH = "rhesis.backend.tasks.execution.test.get_evaluation_model"
-_EVALUATOR_PATCH = "rhesis.backend.metrics.evaluator.MetricEvaluator.evaluate"
+_FACTORY_PATCH = "rhesis.sdk.metrics.factory.MetricFactory.create"
+_RUN_METRICS_PATCH = "rhesis.backend.app.services.adaptive_testing._run_metrics_on_text"
 
 
 def _create_metric(db, name, organization_id, user_id):
@@ -1919,26 +1919,16 @@ def _create_metric(db, name, organization_id, user_id):
 def _mock_evaluator_result(metric_name, label, score):
     """Build a MetricEvaluator.evaluate()-shaped return dict."""
     is_successful = label == "pass"
-    return {
-        metric_name: {
-            "score": score,
-            "reason": f"Score: {score}",
-            "is_successful": is_successful,
-            "backend": "rhesis",
-            "name": metric_name,
-            "class_name": "StubMetric",
-            "description": "stub metric",
-            "threshold": 0.5,
-        }
-    }
+    return {metric_name: {"score": score, "is_successful": is_successful}}
 
 
+@pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.service
 class TestEvaluateTestsForAdaptiveSet:
     """Test evaluate_tests_for_adaptive_set."""
 
-    def test_evaluate_returns_shape(
+    async def test_evaluate_returns_shape(
         self,
         test_db: Session,
         adaptive_test_set,
@@ -1949,13 +1939,13 @@ class TestEvaluateTestsForAdaptiveSet:
         test_db.commit()
 
         with (
-            patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
+            patch(_FACTORY_PATCH, return_value=MagicMock()),
             patch(
-                _EVALUATOR_PATCH,
-                return_value=_mock_evaluator_result("TestMetric", "pass", 0.9),
+                _RUN_METRICS_PATCH,
+                new=AsyncMock(return_value=_mock_evaluator_result("TestMetric", "pass", 0.9)),
             ),
         ):
-            result = evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_adaptive_set(
                 db=test_db,
                 test_set_identifier=str(adaptive_test_set.id),
                 organization_id=test_org_id,
@@ -1976,7 +1966,7 @@ class TestEvaluateTestsForAdaptiveSet:
             assert item["label"] in ("pass", "fail")
             assert item["labeler"] == metric.name
 
-    def test_evaluate_persists_metadata(
+    async def test_evaluate_persists_metadata(
         self,
         test_db: Session,
         adaptive_test_set,
@@ -1992,13 +1982,13 @@ class TestEvaluateTestsForAdaptiveSet:
         test_db.commit()
 
         with (
-            patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
+            patch(_FACTORY_PATCH, return_value=MagicMock()),
             patch(
-                _EVALUATOR_PATCH,
-                return_value=_mock_evaluator_result("PersistMetric", "fail", 0.3),
+                _RUN_METRICS_PATCH,
+                new=AsyncMock(return_value=_mock_evaluator_result("PersistMetric", "fail", 0.3)),
             ),
         ):
-            result = evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_adaptive_set(
                 db=test_db,
                 test_set_identifier=str(adaptive_test_set.id),
                 organization_id=test_org_id,
@@ -2013,7 +2003,7 @@ class TestEvaluateTestsForAdaptiveSet:
             assert meta["labeler"] == "PersistMetric"
             assert meta["model_score"] == 0.3
 
-    def test_evaluate_metric_does_not_exist_raises(
+    async def test_evaluate_metric_does_not_exist_raises(
         self,
         test_db: Session,
         adaptive_test_set,
@@ -2021,7 +2011,7 @@ class TestEvaluateTestsForAdaptiveSet:
         authenticated_user_id,
     ):
         with pytest.raises(ValueError, match="[Mm]etric.*does not exist"):
-            evaluate_tests_for_adaptive_set(
+            await evaluate_tests_for_adaptive_set(
                 db=test_db,
                 test_set_identifier=str(adaptive_test_set.id),
                 organization_id=test_org_id,
@@ -2029,7 +2019,7 @@ class TestEvaluateTestsForAdaptiveSet:
                 metric_names=["NonExistentMetric"],
             )
 
-    def test_evaluate_test_set_not_found_raises(
+    async def test_evaluate_test_set_not_found_raises(
         self,
         test_db: Session,
         test_org_id,
@@ -2037,16 +2027,17 @@ class TestEvaluateTestsForAdaptiveSet:
     ):
         metric = _create_metric(test_db, "AnyMetric", test_org_id, authenticated_user_id)
         test_db.commit()
-        with pytest.raises(ValueError, match="[Tt]est set not found"):
-            evaluate_tests_for_adaptive_set(
-                db=test_db,
-                test_set_identifier=str(uuid.uuid4()),
-                organization_id=test_org_id,
-                user_id=authenticated_user_id,
-                metric_names=[metric.name],
-            )
+        with patch(_FACTORY_PATCH, return_value=MagicMock()):
+            with pytest.raises(ValueError, match="[Tt]est set not found"):
+                await evaluate_tests_for_adaptive_set(
+                    db=test_db,
+                    test_set_identifier=str(uuid.uuid4()),
+                    organization_id=test_org_id,
+                    user_id=authenticated_user_id,
+                    metric_names=[metric.name],
+                )
 
-    def test_evaluate_filter_by_test_ids(
+    async def test_evaluate_filter_by_test_ids(
         self,
         test_db: Session,
         adaptive_test_set,
@@ -2065,13 +2056,13 @@ class TestEvaluateTestsForAdaptiveSet:
         one_id = tests[0].id
 
         with (
-            patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
+            patch(_FACTORY_PATCH, return_value=MagicMock()),
             patch(
-                _EVALUATOR_PATCH,
-                return_value=_mock_evaluator_result("FilterMetric", "pass", 0.8),
+                _RUN_METRICS_PATCH,
+                new=AsyncMock(return_value=_mock_evaluator_result("FilterMetric", "pass", 0.8)),
             ),
         ):
-            result = evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_adaptive_set(
                 db=test_db,
                 test_set_identifier=str(adaptive_test_set.id),
                 organization_id=test_org_id,
@@ -2084,7 +2075,7 @@ class TestEvaluateTestsForAdaptiveSet:
         assert len(result["results"]) == 1
         assert result["results"][0]["test_id"] == one_id
 
-    def test_evaluate_filter_by_topic_include_subtopics(
+    async def test_evaluate_filter_by_topic_include_subtopics(
         self,
         test_db: Session,
         adaptive_test_set,
@@ -2095,13 +2086,13 @@ class TestEvaluateTestsForAdaptiveSet:
         test_db.commit()
 
         with (
-            patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
+            patch(_FACTORY_PATCH, return_value=MagicMock()),
             patch(
-                _EVALUATOR_PATCH,
-                return_value=_mock_evaluator_result("TopicMetric", "pass", 0.7),
+                _RUN_METRICS_PATCH,
+                new=AsyncMock(return_value=_mock_evaluator_result("TopicMetric", "pass", 0.7)),
             ),
         ):
-            result = evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_adaptive_set(
                 db=test_db,
                 test_set_identifier=str(adaptive_test_set.id),
                 organization_id=test_org_id,
@@ -2113,7 +2104,7 @@ class TestEvaluateTestsForAdaptiveSet:
 
         assert result["evaluated"] == 3
 
-    def test_evaluate_filter_by_topic_exclude_subtopics(
+    async def test_evaluate_filter_by_topic_exclude_subtopics(
         self,
         test_db: Session,
         adaptive_test_set,
@@ -2129,13 +2120,13 @@ class TestEvaluateTestsForAdaptiveSet:
         test_db.commit()
 
         with (
-            patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
+            patch(_FACTORY_PATCH, return_value=MagicMock()),
             patch(
-                _EVALUATOR_PATCH,
-                return_value=_mock_evaluator_result("TopicNoSubMetric", "pass", 0.6),
+                _RUN_METRICS_PATCH,
+                new=AsyncMock(return_value=_mock_evaluator_result("TopicNoSubMetric", "pass", 0.6)),
             ),
         ):
-            result = evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_adaptive_set(
                 db=test_db,
                 test_set_identifier=str(adaptive_test_set.id),
                 organization_id=test_org_id,
@@ -2147,7 +2138,7 @@ class TestEvaluateTestsForAdaptiveSet:
 
         assert result["evaluated"] == 1
 
-    def test_evaluate_skips_topic_markers(
+    async def test_evaluate_skips_topic_markers(
         self,
         test_db: Session,
         adaptive_test_set,
@@ -2158,13 +2149,13 @@ class TestEvaluateTestsForAdaptiveSet:
         test_db.commit()
 
         with (
-            patch(_EVAL_MODEL_PATCH, return_value="stub-model"),
+            patch(_FACTORY_PATCH, return_value=MagicMock()),
             patch(
-                _EVALUATOR_PATCH,
-                return_value=_mock_evaluator_result("SkipMarker", "pass", 1.0),
+                _RUN_METRICS_PATCH,
+                new=AsyncMock(return_value=_mock_evaluator_result("SkipMarker", "pass", 1.0)),
             ),
         ):
-            result = evaluate_tests_for_adaptive_set(
+            result = await evaluate_tests_for_adaptive_set(
                 db=test_db,
                 test_set_identifier=str(adaptive_test_set.id),
                 organization_id=test_org_id,
