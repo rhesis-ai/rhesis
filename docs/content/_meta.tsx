@@ -1,7 +1,7 @@
 export default {
   index: "Home",
-  "why-rhesis": "Why Rhesis?",
   "getting-started": "Getting Started",
+  "product-tour": "Product Tour",
   concepts: "Core Concepts",
   deployment: "Deployment",
   platform: "Platform",
