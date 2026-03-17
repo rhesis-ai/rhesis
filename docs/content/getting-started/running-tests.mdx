@@ -48,11 +48,20 @@ Using our integration with **Garak** (Generative AI Red-teaming and Assessment K
 
 - [Learn more about Adversarial Testing](/adversarial-testing).
 
-## Running the Evaluation
+## Running the Test Set
 
-Once your Test Set is ready and your Endpoint is connected, you can execute a test run from the Rhesis Platform UI.
+Once your Test Set is ready and your Endpoint is connected, you can execute a test run.
+
+1. Navigate to the **Test Sets** page in the Rhesis UI.
+2. Select your newly created Test Set.
+3. Click the **Run Test** button.
+4. Select the Endpoint you connected in Step 2.
+5. (Optional) Select any evaluation metrics you want to compute on the results.
+6. Click **Execute** to start the run.
 
 Rhesis will orchestrate the execution, sending each test case to your application in parallel, collecting the responses, and computing relevant metrics. You can then analyze the results in the interactive dashboards.
+
+For detailed information on configuring execution behavior, concurrency, and handling retries, see the [Test Execution Guide](/platform/test-execution).
 
 <Callout type="success">
 **Congratulations!** You've completed the Getting Started guide. To dive deeper, explore the [Platform Guide](/platform) or read up on our [Core Concepts](/concepts).
