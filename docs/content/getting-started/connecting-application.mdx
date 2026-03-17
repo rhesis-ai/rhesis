@@ -14,13 +14,29 @@ If your AI application is exposed as an HTTP API, you can connect it directly fr
 
 Rhesis provides flexible ways to map your HTTP requests:
 1. **Auto-Configure**: For standard OpenAI-compatible endpoints, provide your URL and API key, and Rhesis will configure the integration automatically.
-2. **Custom Mapping**: Use JSONPath expressions to precisely map inputs (prompts) to your API request body, and map the outputs (responses) back to Rhesis.
+2. **Custom Mapping**: Use JSONPath expressions and Jinja2 templates to precisely map inputs to your API request body, and map the outputs back to Rhesis.
 
-<Callout type="info">
-This approach is ideal if your AI features are already wrapped in microservices or if you use standard LLM APIs.
-</Callout>
+> **Tip:** The REST approach is ideal if your AI features are already wrapped in microservices or if you use standard LLM APIs.
 
-To learn more about setting up REST endpoints, see the [Platform Endpoints Guide](/platform/endpoints).
+### Platform-Managed Variables
+
+When using Custom Mapping, Rhesis relies on a set of standardized variables to communicate with your API. You map these to whatever specific field names your endpoint expects.
+
+**Request Variables** (Sent to your API):
+- `input` (Required): The main user query or test prompt.
+- `files`: Array of file attachments (for multimodal testing).
+- `conversation_id`: Conversation tracking identifier.
+- `messages`: Full conversation history (for stateless multi-turn endpoints).
+- `system_prompt`: System prompt text.
+
+**Response Variables** (Extracted from your API):
+- `output` (Required): The main response text to be evaluated.
+- `context`: Additional context or retrieved documents.
+- `metadata`: Structured data like token counts or model version.
+- `tool_calls`: Any tool or function calls made during generation.
+- **Conversation ID Fields**: Any recognized ID (`conversation_id`, `session_id`, etc.) to track turns.
+
+To learn more about setting up REST endpoints and variable mapping, see the [Platform Endpoints Guide](/platform/endpoints).
 
 ## Approach 2: Rhesis Connector (Python SDK)
 
@@ -46,9 +62,7 @@ if __name__ == "__main__":
     rhesis.connect()`}
 </CodeBlock>
 
-<Callout type="info">
-The SDK approach is powerful because it works even if your application is running locally behind a firewall. The connector establishes an outbound connection to Rhesis, eliminating the need for ngrok or complex port forwarding.
-</Callout>
+> **Note:** The SDK approach is powerful because it works even if your application is running locally behind a firewall. The connector establishes an outbound connection to Rhesis, eliminating the need for ngrok or complex port forwarding.
 
 To learn more about the SDK integration, see the [SDK Endpoints Guide](/platform/endpoints/sdk-endpoints).
 
