@@ -8,12 +8,15 @@ A Test Set is a collection of prompts (with optional context and expected output
 
 There are three main ways to acquire or create Test Sets in Rhesis:
 
-## 1. Generating Tests
+## Generating Tests
 
 Instead of writing test cases manually, you can use Rhesis to automatically generate them based on your application's requirements or constraints.
 
 **Using the UI:**
-You can use the Rhesis Platform to generate tests interactively. Provide a description of your application, and Rhesis will synthesize relevant test scenarios.
+You can use the Rhesis Platform to generate tests interactively. Navigate to the **Generation** menu item, provide a description of your application, and Rhesis will synthesize relevant test scenarios.
+
+![Test Generation](/screenshots/rhesis-ai-test-generation.png)
+
 - You can generate single-turn prompts or complex multi-turn conversations.
 - [Learn more about the Test Generation UI](/platform/test-sets).
 
@@ -31,13 +34,13 @@ synthesizer = PromptSynthesizer(
 test_set = synthesizer.generate(num_tests=10)`}
 </CodeBlock>
 
-## 2. Importing Existing Tests
+## Importing Existing Tests
 
 If you already have test cases stored in a file (such as a CSV or JSON file from previous evaluations), you can easily import them into Rhesis.
 
 This is useful for regression testing or when you want to evaluate your application against established benchmarks. You can upload files directly through the Platform UI.
 
-## 3. Adversarial Security Testing (Garak)
+## Adversarial Security Testing (Garak)
 
 For evaluating the security and robustness of your AI application, Rhesis integrates with specialized tools to generate adversarial tests.
 
