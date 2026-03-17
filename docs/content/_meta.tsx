@@ -1,6 +1,8 @@
 export default {
   index: "Home",
   "getting-started": "Getting Started",
+  concepts: "Core Concepts",
+  deployment: "Deployment",
   platform: "Platform",
   sdk: "SDK",
   tracing: "Tracing",

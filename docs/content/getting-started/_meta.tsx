@@ -2,9 +2,9 @@ import type { MetaRecord } from "nextra";
 
 const meta: MetaRecord = {
   index: 'Overview',
-  concepts: 'Core Concepts',
-  'running-locally': 'Running Locally',
-  'self-hosting': 'Self-Hosting',
+  'setup-environment': '1. Setup Environment',
+  'connecting-application': '2. Connect Application',
+  'running-tests': '3. Run Tests',
 }
 
 export default meta;
