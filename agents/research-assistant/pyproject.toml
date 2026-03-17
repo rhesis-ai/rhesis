@@ -49,6 +49,8 @@ packages = ["src/research_assistant"]
 [tool.uv]
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
+    "pyasn1>=0.6.3",
+    "orjson>=3.11.7",
     "tornado>=6.5.5",
 ]
 

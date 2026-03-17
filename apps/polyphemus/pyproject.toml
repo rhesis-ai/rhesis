@@ -59,6 +59,8 @@ asyncio_mode = "auto"
 [tool.uv]
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
+    "pyasn1>=0.6.3",
+    "orjson>=3.11.7",
     "tornado>=6.5.5",
 ]
 # garak>=0.14.0 declares datasets<4.0 but ragas (via rhesis-sdk) requires
