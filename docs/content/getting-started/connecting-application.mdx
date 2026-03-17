@@ -18,23 +18,39 @@ Rhesis provides flexible ways to map your HTTP requests:
 
 > **Tip:** The REST approach is ideal if your AI features are already wrapped in microservices or if you use standard LLM APIs.
 
-### Platform-Managed Variables
+### Platform-Managed Variables & Mapping Example
 
-When using Custom Mapping, Rhesis relies on a set of standardized variables to communicate with your API. You map these to whatever specific field names your endpoint expects.
+When using Custom Mapping, Rhesis requires you to map your application's request and response structures to a set of standardized **platform-managed variables**.
+
+Rhesis uses these variables to pass inputs to your API during testing and extract the outputs for evaluation.
 
 **Request Variables** (Sent to your API):
 - `input` (Required): The main user query or test prompt.
 - `files`: Array of file attachments (for multimodal testing).
 - `conversation_id`: Conversation tracking identifier.
-- `messages`: Full conversation history (for stateless multi-turn endpoints).
-- `system_prompt`: System prompt text.
 
 **Response Variables** (Extracted from your API):
 - `output` (Required): The main response text to be evaluated.
 - `context`: Additional context or retrieved documents.
 - `metadata`: Structured data like token counts or model version.
-- `tool_calls`: Any tool or function calls made during generation.
-- **Conversation ID Fields**: Any recognized ID (`conversation_id`, `session_id`, etc.) to track turns.
+
+#### Mapping Example
+
+If your API expects a body like `{"query": "Hello"}` and returns `{"data": {"answer": "Hi there"}}`, you would configure the mapping as follows:
+
+**Request Mapping (Jinja2):**
+<CodeBlock filename="JSON Request Template" language="json">
+{`{
+  "query": "{{ input }}"
+}`}
+</CodeBlock>
+
+**Response Mapping (JSONPath):**
+<CodeBlock filename="JSON Response Mapping" language="json">
+{`{
+  "output": "$.data.answer"
+}`}
+</CodeBlock>
 
 To learn more about setting up REST endpoints and variable mapping, see the [Platform Endpoints Guide](/platform/endpoints).
 
