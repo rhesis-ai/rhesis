@@ -16,7 +16,6 @@ from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.execution.results import collect_results
-from rhesis.backend.tasks.utils import increment_test_run_progress
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,8 @@ def update_test_run_start(
     **extra_attributes,
 ) -> None:
     """
-    Update test run with start information.
+    Update test run with start information and commit so other processes
+    (e.g. Celery workers) see the updated metadata immediately.
 
     Args:
         session: Database session
@@ -58,48 +58,7 @@ def update_test_run_start(
         organization_id=str(test_run.organization_id) if test_run.organization_id else None,
         user_id=str(test_run.user_id) if test_run.user_id else None,
     )
-
-
-def store_test_result(
-    session: Session,
-    test_run_id: str,
-    test_id: str,
-    result: Dict[str, Any],
-    organization_id: str = None,
-    user_id: str = None,
-) -> None:
-    """
-    Store an individual test result and update test run progress.
-
-    This ensures sequential execution creates the same database records
-    as parallel execution for consistent result processing.
-
-    Args:
-        session: Database session
-        test_run_id: Test run ID
-        test_id: Test ID
-        result: Test result dictionary
-    """
-    try:
-        # Determine if test was successful
-        was_successful = (
-            result.get("status") not in ["failed", "error"] and result.get("error") is None
-        )
-
-        # Update test run progress (this updates completed_tests/failed_tests attributes)
-        increment_test_run_progress(
-            db=session,
-            test_run_id=test_run_id,
-            test_id=test_id,
-            was_successful=was_successful,
-            organization_id=organization_id,
-            user_id=user_id,
-        )
-
-        logger.debug(f"Updated test run progress for test {test_id}, successful: {was_successful}")
-
-    except Exception as e:
-        logger.error(f"Failed to store test result for test {test_id}: {str(e)}")
+    session.commit()
 
 
 def create_execution_result(
