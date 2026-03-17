@@ -1,0 +1,101 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Supported Frameworks
+
+Rhesis supports a growing ecosystem of evaluation, testing, and red teaming frameworks natively. These tools define structured methodologies for AI red teaming, evaluation, and risk assessment. Rhesis seamlessly integrates with these tools to provide instant access to robust evaluation metrics and adversarial probes.
+
+---
+
+## DeepEval
+
+[DeepEval](https://github.com/confident-ai/deepeval) is the open-source LLM Evaluation Framework by Confident AI. It provides a comprehensive suite of metrics for both single-turn and conversational evaluation, focusing on RAG (Retrieval-Augmented Generation) applications, agentic workflows, and general response quality.
+
+Rhesis integrates deeply with DeepEval to bring these industry-standard evaluations directly into your test suites.
+
+### Key Features
+- Evaluates RAG pipelines with dedicated metrics (Contextual Precision, Contextual Recall, Answer Relevancy).
+- Provides conversational multi-turn metrics (Role Adherence, Goal Accuracy, Knowledge Retention).
+- Includes built-in checks for toxicity, bias, PII leakage, and role violations.
+
+### Example Code
+You can easily utilize DeepEval metrics within the Rhesis Python SDK. Here is an example of checking answer relevancy:
+
+<CodeBlock filename="deepeval_example.py" language="python">
+{`from rhesis.sdk.metrics import DeepEvalAnswerRelevancy
+
+# Initialize metric with custom threshold
+metric = DeepEvalAnswerRelevancy(threshold=0.7)
+
+# Evaluate model output
+result = metric.evaluate(
+    input="What is photosynthesis?",
+    output="Photosynthesis is how plants convert light into energy."
+)`}
+</CodeBlock>
+
+**Learn More:** To see the full list of DeepEval metrics, check out the [DeepEval Integration](/sdk/metrics/single-turn#deepeval-metrics) section.
+
+---
+
+## Ragas
+
+[Ragas](https://github.com/explodinggradients/ragas) (Retrieval Augmented Generation Assessment) by Exploding Gradients is a framework that helps you evaluate RAG pipelines using both referenceless and reference-based metrics.
+
+Rhesis provides seamless integration with Ragas metrics, allowing you to validate how well your AI is retrieving and summarizing information.
+
+### Key Features
+- Focused specifically on evaluating RAG systems without always requiring ground truth labels.
+- Integrates key structural metrics like Faithfulness, Context Relevance, and Answer Accuracy.
+- Supports aspect-based customized evaluations.
+
+### Example Code
+Here is an example demonstrating how to run a Ragas evaluation in your Rhesis workflow to check the faithfulness of a generation against a given context:
+
+<CodeBlock filename="ragas_example.py" language="python">
+{`from rhesis.sdk.metrics import RagasFaithfulness
+
+# Initialize metric
+metric = RagasFaithfulness(threshold=0.8)
+
+# Evaluate with context
+result = metric.evaluate(
+    input="What causes ocean tides?",
+    output="The gravitational pull of the moon causes ocean tides.",
+    contexts=["The moon's gravity pulls on Earth's oceans, causing tides."]
+)`}
+</CodeBlock>
+
+**Learn More:** For more details on the Ragas metrics available, read our [Ragas Integration Guide](/sdk/metrics/single-turn#ragas-metrics).
+
+---
+
+## Garak
+
+[Garak](https://github.com/NVIDIA/garak) (Generative AI Red-teaming and Assessment Kit) is an open-source LLM vulnerability scanner developed by NVIDIA. It probes AI models for hallucinations, data leakage, prompt injection, toxicity, and other security vulnerabilities.
+
+Rhesis integrates Garak directly into the platform so you can turn its extensive probe library into executable test sets without any CLI setup.
+
+### Key Features
+- Offers a comprehensive library of adversarial probes organized into thematic modules (e.g., DAN, XSS, prompt injection).
+- Supports both static (pre-defined) and dynamic (LLM-generated at runtime) testing sets.
+- Automatically maps Garak detectors to Rhesis evaluation metrics.
+
+### Importing Probes
+Garak probes can be directly imported via the Rhesis UI:
+
+1. Open the [Test Sets page](https://app.rhesis.ai/test-sets).
+2. Click the **Import** button and select **Import from Garak**.
+3. Browse the available modules (thematic groups) and select the probes you wish to test with.
+4. Click **Import N Probes**.
+
+When imported, Rhesis automatically creates test sets pre-populated with prompts and tags them with the corresponding category, topic, and behavior. It also creates or reuses the appropriate metric backed by Garak's own detectors.
+
+**Learn More:** To find out how Garak static and dynamic probes are imported and mapped inside the platform, view the detailed guide on [Importing from Garak](/platform/test-sets/import-from-garak).
+
+---
+
+<Callout type="info">
+  **Custom Metrics**
+
+  Beyond our built-in framework integrations, Rhesis also allows you to build custom metrics tailored to your specific use cases. You can create your own evaluation logic using `NumericJudge` and `CategoricalJudge`. [Learn more about creating custom metrics](/guides/custom-metrics).
+</Callout>
