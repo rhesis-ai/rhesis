@@ -8,7 +8,7 @@ Deploy Rhesis on your own infrastructure with proper security, authentication, a
 
 ## Overview
 
-This guide covers deploying Rhesis for production use with:
+This guide covers deploying Rhesis for production use. It covers:
 
 - **[Secure authentication](#authentication--security)** - Native authentication with JWT token management
 - **[Database encryption](#database-encryption)** - Field-level encryption for sensitive data
@@ -26,9 +26,9 @@ This guide is for production environments. For quick local testing, see the [Run
 ## Prerequisites
 
 - Docker Desktop installed and running (Docker Compose V2)
-- Git (to clone the repository)
+- Git
 - Ports 3000, 8080, 8081, 5432, and 6379 available on your system
-- (Optional) OAuth provider credentials for Google and/or GitHub sign-in
+- (Optional) OAuth provider credentials for Google or GitHub sign-in
 - AI provider account (Gemini, OpenAI, or Azure OpenAI)
 
 > **Important**: This guide uses Docker Compose V2 syntax (`docker compose` without hyphen). If you're using an older version of Docker, you may need to install Docker Compose V2 or use the legacy `docker-compose` command.
@@ -163,7 +163,7 @@ graph LR
     PostgreSQL["PostgreSQL<br/><small>Port 5432<br/>Database</small>"]
     Redis["Redis<br/><small>Port 6379<br/>Cache & Queue</small>"]
     Worker["Worker<br/><small>Port 8081<br/>Celery</small>"]
-    
+
     Frontend --> Backend
     Backend --> PostgreSQL
     Backend --> Redis

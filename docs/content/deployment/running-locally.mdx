@@ -4,11 +4,11 @@ import { FileTree } from '@/components/FileTree'
 
 # Running Locally
 
-Get Rhesis running on your local machine in under 5 minutes with zero configuration required.
+Get Rhesis running on your local machine in under 5 minutes without setup.
 
 ## Overview
 
-Perfect for quickly testing Rhesis locally without any configuration hassles. This setup includes:
+This setup is intended for quickly testing Rhesis locally without configuration steps. It includes:
 
 - ✅ **No external auth setup required** - Local authentication bypass enabled
 - ✅ **Pre-configured database** - PostgreSQL with automatic setup
@@ -25,7 +25,7 @@ This configuration is **NOT suitable for production**. It includes hardcoded sec
 ## Prerequisites
 
 - Docker Desktop installed and running
-- Git (to clone the repository)
+- Git
 - Ports 3000, 8080, 8081, 5432, and 6379 available on your system
 
 ## Quick Start
@@ -57,7 +57,7 @@ cd rhesis
 # Edit .env.docker.local and update RHESIS_API_KEY=your-actual-key`}
 </CodeBlock>
 
-That's it! The `./rh start` command automatically:
+The `./rh start` command automatically:
 - Checks if Docker is running
 - Generates a secure database encryption key
 - Creates `.env.docker.local` with all required configuration
@@ -111,7 +111,7 @@ When you run `./rh start`, the `.env.docker.local` file is automatically created
 
 **Default Services:**
 - Backend API on port 8080
-- Frontend on port 3000 
+- Frontend on port 3000
 - Worker on port 8081
 - PostgreSQL on port 5432
 - Redis on port 6379
@@ -135,7 +135,7 @@ Once running, access the platform at:
 
 ### Enable Test Generation
 
-The local setup works out-of-the-box, but to enable test generation, you need an AI provider. Two options:
+The local setup works out-of-the-box. To enable test generation, you need an AI provider. You have two options:
 
 <Callout type="info">
 By default, the system uses `rhesis/rhesis-default` as the AI model, which requires a `RHESIS_API_KEY`. If you prefer to use your own provider (e.g., OpenAI, Gemini), you must also set `DEFAULT_GENERATION_MODEL` and `DEFAULT_EVALUATION_MODEL` to that provider — otherwise the system will still try to use the Rhesis model and fail.
@@ -304,7 +304,7 @@ echo "NEXT_PUBLIC_QUICK_START=true" >> .env.docker.local
 <Callout type="info">
 **Ready for Production?**
 
-This local setup is great for testing and development. When you're ready to deploy to production, see the [Self-Hosting Guide](/deployment/self-hosting) for proper security configuration and production deployment.
+This local setup is great for testing and development. When you are ready to deploy to production, see the [Self-Hosting Guide](/deployment/self-hosting) for security configuration and production deployment.
 </Callout>
 
 For local development setup without Docker (for contributing to Rhesis), see the [Environment Setup Guide](/development/environment-setup).
