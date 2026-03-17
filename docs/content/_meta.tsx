@@ -7,6 +7,7 @@ export default {
   "conversation-simulation": "Conversation Simulation",
   "adversarial-testing": "Adversarial Testing",
   "multimodal-testing": "Multi-modal Testing",
+  frameworks: "Frameworks",
   development: "Development",
   "---": {
     type: "separator",
