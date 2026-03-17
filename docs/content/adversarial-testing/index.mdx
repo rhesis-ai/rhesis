@@ -1,19 +1,47 @@
 # Adversarial Testing
 
-Adversarial testing surfaces failures that only emerge in edge cases—scenarios that are rare, unusual, or deliberately challenging. Standard testing covers typical interactions; adversarial testing covers the rest.
+Standard software testing verifies that systems work under expected conditions. Adversarial testing probes for failures when inputs are unexpected, malicious, or complex. For conversational AI, which operates on unbounded natural language, this distinction matters. Users interact with models in unpredictable and sometimes hostile ways. This creates risks that traditional testing misses.
 
-## The Problem with Commercial Models
+## How Conversational AI Fails
 
-Commercial LLMs like ChatGPT or Gemini are heavily optimized for safety. When generating adversarial or policy-violating prompts—exactly the kind needed to stress-test another system—they often refuse. This leaves significant blind spots in robustness evaluations.
+You cannot defend a system without understanding how it breaks. Common failure modes include:
 
-## Polyphemus
+| Failure Mode | Description |
+| :--- | :--- |
+| **Jailbreaking** | Bypassing safety filters or alignment training to generate restricted content. |
+| **Prompt Injection** | Targeting the application layer with instructions that override intended behavior or system prompts. |
+| **Robustness** | Failing when inputs contain typos, paraphrasing, unusual formatting, or unexpected context. |
+| **Toxicity and Bias** | Generating harmful or biased language in response to neutral prompts. |
+| **Hallucination Under Pressure** | Fabricating information when faced with complex logic, conflicting constraints, or leading questions. |
+| **Overrefusal** | Refusing to answer benign queries due to overly sensitive safety filters. |
 
-Rhesis provides **Polyphemus**, a managed model built specifically for adversarial test generation. It produces prompts that commercial models routinely refuse, and integrates directly with the SDK as a drop-in model provider.
+## Adversarial Testing Approaches
+
+Effective adversarial testing requires more than a list of bad words.
+
+*   **Targeted Testing:** Crafting specific, high-risk prompts like known jailbreaks or prompt injections to test defenses against known vulnerabilities.
+*   **Simulation:** Deploying autonomous agents to simulate conversational flows, edge cases, and complex scenarios at scale.
+*   **Capabilities Evaluation:** Pushing the model to the limits of its reasoning, formatting, or instruction-following capabilities to see where it degrades.
+
+## Building an Adversarial Testing Strategy
+
+A robust adversarial testing strategy requires:
+
+1.  **Define the Threat Model:** Identify the risks that matter to your application. A customer service bot faces different threats than an internal coding assistant.
+2.  **Generate Test Cases at Scale:** Manual testing is insufficient. You need automated, diverse, and continuously updated test cases to cover potential failures.
+3.  **Integrate into CI/CD:** Add adversarial testing into your development pipeline to catch regressions and evaluate new model versions before deployment.
+4.  **Measure What Matters:** Track robustness, refusal rates, and failure modes over time.
+
+## The Generation Gap & Polyphemus
+
+Generating a diverse dataset of adversarial test cases is difficult. Commercial LLMs like ChatGPT or Gemini are heavily optimized for safety. When tasked with generating adversarial or policy-violating prompts, they usually refuse. This creates a generation gap, leaving blind spots in robustness evaluations because the tests themselves are sanitized.
+
+Rhesis provides **Polyphemus**, a managed model built for adversarial test generation. It produces the realistic, challenging prompts that commercial models routinely refuse. It integrates directly with the SDK as a drop-in model provider.
 
 Note: Polyphemus requires approved access. See [Requesting Access](/adversarial-testing/requesting-access).
 
 ## Next Steps
 
-- [Polyphemus](/adversarial-testing/polyphemus) — model details and capabilities
-- [Requesting Access](/adversarial-testing/requesting-access) — get approved
-- [Using Polyphemus with the SDK](/adversarial-testing/sdk-usage) — integration examples
+- [Polyphemus](/adversarial-testing/polyphemus): model details and capabilities
+- [Requesting Access](/adversarial-testing/requesting-access): get approved
+- [Using Polyphemus with the SDK](/adversarial-testing/sdk-usage): integration examples
