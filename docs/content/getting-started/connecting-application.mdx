@@ -16,9 +16,9 @@ If your AI application is exposed as an HTTP API, you can connect it directly fr
 
 ![Endpoint Creation](/screenshots/rhesis-ai-endpoints-create.png)
 
-Rhesis provides flexible ways to map your HTTP requests:
-1. **Auto-Configure**: For standard OpenAI-compatible endpoints, provide your URL and API key, and Rhesis will configure the integration automatically.
-2. **Custom Mapping**: Use JSONPath expressions and Jinja2 templates to precisely map inputs to your API request body, and map the outputs back to Rhesis.
+Rhesis provides flexible ways to define your mapping:
+1. **Auto-Configure**: A convenient shortcut for standard OpenAI-compatible endpoints. Provide your URL and API key, and Rhesis will automatically configure the required mapping for you.
+2. **Custom Mapping**: For all other APIs, you can manually use JSONPath expressions and Jinja2 templates to precisely map inputs to your API request body, and map the outputs back to Rhesis.
 
 > **Tip:** The REST approach is ideal if your AI features are already wrapped in microservices or if you use standard LLM APIs.
 
@@ -54,7 +54,7 @@ To learn more about the SDK integration, see the [SDK Endpoints Guide](/platform
 
 ## Platform-Managed Variables & Mapping Example
 
-When using Custom Mapping with REST Endpoints (Approach 1), Rhesis requires you to map your application's request and response structures to a set of standardized **platform-managed variables**.
+When creating a REST Endpoint, you'll need to define the mapping either automatically (via Auto-Configure) or manually. Manual mapping requires you to link your application's request and response structures to a set of standardized **platform-managed variables**.
 
 Rhesis uses these variables to pass inputs to your API during testing and extract the outputs for evaluation.
 
