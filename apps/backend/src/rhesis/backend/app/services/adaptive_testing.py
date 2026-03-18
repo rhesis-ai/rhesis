@@ -989,12 +989,12 @@ async def generate_outputs_for_tests(
             else:
                 if t_topic != topic:
                     continue
-                    
+
         # Filter out tests that already have an output if overwrite is False
         if not overwrite and meta.get("output", "").strip():
             skipped += 1
             continue
-            
+
         eligible.append(t)
 
     updated: List[Dict[str, str]] = []

@@ -2872,8 +2872,8 @@ export default function AdaptiveTestingDetail({
               color="text.secondary"
               sx={{ display: 'block', ml: 4, mt: -0.5 }}
             >
-              When unchecked, only tests without existing evaluation results will be
-              processed.
+              When unchecked, only tests without existing evaluation results
+              will be processed.
             </Typography>
           </Box>
         </DialogContent>
