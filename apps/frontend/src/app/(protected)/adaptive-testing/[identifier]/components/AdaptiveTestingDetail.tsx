@@ -1469,6 +1469,8 @@ export default function AdaptiveTestingDetail({
   );
   const [generateOutputsDialogOpen, setGenerateOutputsDialogOpen] =
     useState(false);
+  const [generateOutputsOverwrite, setGenerateOutputsOverwrite] =
+    useState(false);
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [endpointsLoading, setEndpointsLoading] = useState(false);
   const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(
@@ -1581,6 +1583,7 @@ export default function AdaptiveTestingDetail({
       setGenerateOutputsTopic(null);
       setGenerateOutputsIncludeSubtopics(true);
     }
+    setGenerateOutputsOverwrite(false);
     setSelectedEndpoint(endpointForGeneration);
     setSelectedMetric(metricForGeneration);
     setGenerateError(null);
@@ -1593,6 +1596,7 @@ export default function AdaptiveTestingDetail({
       setSelectedEndpoint(null);
       setSelectedMetric(null);
       setGenerateError(null);
+      setGenerateOutputsOverwrite(false);
     }
   };
 
@@ -1610,6 +1614,7 @@ export default function AdaptiveTestingDetail({
         endpoint_id: selectedEndpoint.id,
         topic: generateOutputsTopic ?? undefined,
         include_subtopics: generateOutputsIncludeSubtopics,
+        overwrite: generateOutputsOverwrite,
       });
       const [treeNodes, updatedTopics] = await Promise.all([
         client.getTree(testSetId),
@@ -1620,14 +1625,19 @@ export default function AdaptiveTestingDetail({
       setGenerateOutputsDialogOpen(false);
       setSelectedEndpoint(null);
       const failedCount = result.failed?.length ?? 0;
-      if (failedCount > 0) {
+      if (result.skipped > 0 && result.generated === 0) {
         notifications.show(
-          `Generated ${result.generated} outputs; ${failedCount} failed.`,
+          `All tests already have outputs. Enable 'Overwrite existing outputs' to regenerate.`,
+          { severity: 'warning' }
+        );
+      } else if (failedCount > 0) {
+        notifications.show(
+          `Generated ${result.generated} outputs${result.skipped > 0 ? ` (${result.skipped} skipped)` : ''}; ${failedCount} failed.`,
           { severity: 'warning' }
         );
       } else {
         notifications.show(
-          `Generated ${result.generated} output(s) successfully.`,
+          `Generated ${result.generated} output(s) successfully${result.skipped > 0 ? ` (${result.skipped} skipped)` : ''}.`,
           { severity: 'success' }
         );
       }
@@ -2701,8 +2711,28 @@ export default function AdaptiveTestingDetail({
                 />
               }
               label="Include subtopics"
+              sx={{ display: 'block' }}
             />
           )}
+          <Box sx={{ mt: 1 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={generateOutputsOverwrite}
+                  onChange={e => setGenerateOutputsOverwrite(e.target.checked)}
+                />
+              }
+              label="Overwrite existing outputs"
+            />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', ml: 4, mt: -0.5 }}
+            >
+              When unchecked, only tests without existing outputs will be
+              processed.
+            </Typography>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button

@@ -472,12 +472,14 @@ async def generate_outputs(
             test_ids=list(body.test_ids) if body.test_ids else None,
             topic=body.topic,
             include_subtopics=body.include_subtopics,
+            overwrite=body.overwrite,
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
     return GenerateOutputsResponse(
         generated=result["generated"],
+        skipped=result["skipped"],
         failed=[
             GenerateOutputsFailedItem(test_id=f["test_id"], error=f["error"])
             for f in result["failed"]

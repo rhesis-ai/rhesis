@@ -120,6 +120,7 @@ export interface GenerateOutputsRequest {
   test_ids?: string[] | null;
   topic?: string | null;
   include_subtopics?: boolean;
+  overwrite?: boolean;
 }
 
 export interface GenerateOutputsUpdatedItem {
@@ -134,6 +135,7 @@ export interface GenerateOutputsFailedItem {
 
 export interface GenerateOutputsResponse {
   generated: number;
+  skipped: number;
   failed: GenerateOutputsFailedItem[];
   updated: GenerateOutputsUpdatedItem[];
 }

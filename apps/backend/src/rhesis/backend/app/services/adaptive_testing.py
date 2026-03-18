@@ -915,6 +915,7 @@ async def generate_outputs_for_tests(
     test_ids: Optional[List[UUID]] = None,
     topic: Optional[str] = None,
     include_subtopics: bool = True,
+    overwrite: bool = False,
 ) -> Dict[str, Any]:
     """Generate outputs for adaptive testing tests by invoking an endpoint.
 
@@ -943,11 +944,14 @@ async def generate_outputs_for_tests(
     include_subtopics : bool, default True
         When topic is set: if True, include tests in the topic and all
         subtopics; if False, include only tests directly under the topic.
+    overwrite : bool, default False
+        If False, tests that already have an output will be skipped.
 
     Returns
     -------
     dict
         - generated: number of tests whose output was updated
+        - skipped: number of tests that already had an output (if overwrite=False)
         - failed: list of {"test_id": str, "error": str}
         - updated: list of {"test_id": str, "output": str}
     """
@@ -967,6 +971,7 @@ async def generate_outputs_for_tests(
 
     # Exclude topic markers; only tests with prompt content
     eligible = []
+    skipped = 0
     for t in tests:
         meta = t.test_metadata or {}
         if meta.get("label") == "topic_marker":
@@ -984,6 +989,12 @@ async def generate_outputs_for_tests(
             else:
                 if t_topic != topic:
                     continue
+                    
+        # Filter out tests that already have an output if overwrite is False
+        if not overwrite and meta.get("output", "").strip():
+            skipped += 1
+            continue
+            
         eligible.append(t)
 
     updated: List[Dict[str, str]] = []
@@ -1032,12 +1043,13 @@ async def generate_outputs_for_tests(
 
     logger.info(
         f"Generate outputs: test_set={test_set_identifier}, endpoint={endpoint_id}, "
-        f"topic={topic!r}, include_subtopics={include_subtopics}, "
-        f"generated={len(updated)}, failed={len(failed)}"
+        f"topic={topic!r}, include_subtopics={include_subtopics}, overwrite={overwrite}, "
+        f"generated={len(updated)}, skipped={skipped}, failed={len(failed)}"
     )
 
     return {
         "generated": len(updated),
+        "skipped": skipped,
         "failed": failed,
         "updated": updated,
     }

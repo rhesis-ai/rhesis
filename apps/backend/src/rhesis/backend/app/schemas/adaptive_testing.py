@@ -18,6 +18,7 @@ class GenerateOutputsRequest(Base):
     test_ids: Optional[List[UUID4]] = None
     topic: Optional[str] = None
     include_subtopics: bool = True
+    overwrite: bool = False
 
 
 class GenerateOutputsUpdatedItem(BaseModel):
@@ -38,6 +39,7 @@ class GenerateOutputsResponse(Base):
     """Response for generate outputs. Results are stored in test metadata."""
 
     generated: int
+    skipped: int = 0
     failed: List[GenerateOutputsFailedItem]
     updated: List[GenerateOutputsUpdatedItem]
 
