@@ -1898,7 +1898,7 @@ class TestGenerateOutputsForTests:
 # ============================================================================
 
 _FACTORY_PATCH = "rhesis.sdk.metrics.factory.MetricFactory.create"
-_RUN_METRICS_PATCH = "rhesis.backend.app.services.adaptive_testing._run_metrics_on_text"
+_RUN_METRICS_PATCH = "rhesis.backend.app.services.adaptive_testing.evaluation._run_metrics_on_text"
 
 
 def _create_metric(db, name, organization_id, user_id):
