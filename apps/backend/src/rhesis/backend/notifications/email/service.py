@@ -287,6 +287,7 @@ class EmailService:
         delay_hours: int,
         delay_minutes: int = 0,
         frontend_url: Optional[str] = None,
+        simulate: bool = False,
     ) -> bool:
         """
         Internal method to send a scheduled onboarding email using SendGrid Dynamic Templates.
@@ -301,20 +302,35 @@ class EmailService:
             delay_hours: Hours to delay sending
             delay_minutes: Additional minutes to delay sending
             frontend_url: URL to the frontend application
+            simulate: If True, log the payload but skip the actual SendGrid API call
 
         Returns:
-            bool: True if email was sent successfully, False otherwise
+            bool: True if email was sent successfully (or simulated), False otherwise
         """
         if not self.sendgrid_client.is_configured:
             logger.warning(
                 f"Cannot send Day {day} email to {recipient_email}: SendGrid API key not configured"
+            )
+            print(
+                f"⚠️  [EMAIL DAY {day}] Skipping — SENDGRID_API_KEY not set. "
+                f"Recipient: {recipient_email}"
             )
             return False
 
         template_id = os.getenv(template_env_var)
         if not template_id:
             logger.warning(f"Cannot send Day {day} email: {template_env_var} not configured")
+            print(
+                f"⚠️  [EMAIL DAY {day}] Skipping — {template_env_var} env var not set. "
+                f"Recipient: {recipient_email}"
+            )
             return False
+
+        mode_label = " [SIMULATE]" if simulate else ""
+        print(
+            f"📬  [EMAIL DAY {day}{mode_label}] Scheduling for {recipient_email} — "
+            f"delay: {delay_hours}h {delay_minutes}m — template: {template_id}"
+        )
 
         if not frontend_url:
             frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
@@ -335,6 +351,7 @@ class EmailService:
             dynamic_template_data=dynamic_template_data,
             delay_hours=delay_hours,
             delay_minutes=delay_minutes,
+            simulate=simulate,
         )
 
     def send_day_1_email(
@@ -422,6 +439,49 @@ class EmailService:
             delay_hours=71,
             delay_minutes=59,
             frontend_url=frontend_url,
+        )
+
+    def send_test_onboarding_email(
+        self,
+        day: int,
+        recipient_email: str,
+        recipient_name: Optional[str],
+        delay_minutes: int,
+        frontend_url: Optional[str] = None,
+        simulate: bool = False,
+    ) -> bool:
+        """
+        Send a test onboarding email with a custom minute-based delay.
+
+        Used for development/debugging — allows triggering Day 1/2/3 emails
+        with short delays (e.g. 1/2/3 minutes) instead of the production 24/48/72 h.
+
+        Args:
+            day: Day number (1, 2, or 3)
+            recipient_email: Email address of the user
+            recipient_name: Name of the user (optional)
+            delay_minutes: Minutes to delay sending (e.g. 1, 2, 3)
+            frontend_url: URL to the frontend application
+            simulate: If True, log the payload but skip the actual SendGrid API call
+
+        Returns:
+            bool: True if email was scheduled successfully (or simulated), False otherwise
+        """
+        template_env_var = f"SENDGRID_DAY_{day}_EMAIL_TEMPLATE_ID"
+        mode_label = " [SIMULATE]" if simulate else ""
+        print(
+            f"🧪  [TEST EMAIL DAY {day}{mode_label}] Triggering for {recipient_email} "
+            f"with {delay_minutes}m delay"
+        )
+        return self._send_scheduled_onboarding_email(
+            day=day,
+            recipient_email=recipient_email,
+            recipient_name=recipient_name,
+            template_env_var=template_env_var,
+            delay_hours=0,
+            delay_minutes=delay_minutes,
+            frontend_url=frontend_url,
+            simulate=simulate,
         )
 
     def send_verification_email(

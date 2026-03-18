@@ -216,27 +216,127 @@ async def initialize_organization_data(
         )
 
     # Schedule onboarding emails AFTER successful DB commit
-    # Using a loop to avoid repetitive try/except blocks
+    print(
+        f"\n{'=' * 70}\n"
+        f"  🚀  Onboarding complete — scheduling Day 1/2/3 emails\n"
+        f"      Recipient : {current_user.email}\n"
+        f"      Name      : {current_user.name or current_user.given_name or '(none)'}\n"
+        f"      Org ID    : {organization_id}\n"
+        f"{'=' * 70}\n"
+    )
+
     email_schedule = [
         (1, email_service.send_day_1_email),
         (2, email_service.send_day_2_email),
         (3, email_service.send_day_3_email),
     ]
 
+    email_results = {}
     for day, send_method in email_schedule:
         try:
             success = send_method(
                 recipient_email=current_user.email,
                 recipient_name=current_user.name or current_user.given_name,
             )
+            email_results[f"day_{day}"] = "scheduled" if success else "skipped"
             if not success:
                 logger.warning(
                     f"Day {day} email not sent for {current_user.email} (check configuration)"
                 )
+                print(
+                    f"⚠️  [ONBOARDING] Day {day} email was NOT scheduled for "
+                    f"{current_user.email} — check SENDGRID_API_KEY and "
+                    f"SENDGRID_DAY_{day}_EMAIL_TEMPLATE_ID env vars."
+                )
         except Exception:
+            email_results[f"day_{day}"] = "error"
             logger.exception(f"Failed to schedule Day {day} email for {current_user.email}")
+            print(
+                f"❌  [ONBOARDING] Exception scheduling Day {day} email for "
+                f"{current_user.email} — see traceback above."
+            )
 
+    print(
+        f"\n  📊  Email scheduling results: {email_results}\n"
+        f"{'=' * 70}\n"
+    )
+
+    response["email_schedule"] = email_results
     return response
+
+
+@router.post("/{organization_id}/trigger-test-emails", response_model=dict)
+async def trigger_test_onboarding_emails(
+    organization_id: uuid.UUID,
+    simulate: bool = Query(False, description="Log payload only; skip actual SendGrid API call"),
+    db: Session = Depends(get_tenant_db_session),
+    current_user: User = Depends(require_current_user_or_token),
+):
+    """
+    Trigger test onboarding emails with short minute-based delays.
+
+    Day 1 → sent in 1 minute, Day 2 → sent in 2 minutes, Day 3 → sent in 3 minutes.
+    Pass ?simulate=true to log the full SendGrid payload without actually calling the API.
+    Intended for development/debugging only — bypasses the is_onboarding_complete lock.
+    """
+    org = crud.get_organization(db, organization_id=organization_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    mode_label = " [SIMULATE — no emails will be sent]" if simulate else ""
+    print(
+        f"\n{'=' * 70}\n"
+        f"  🧪  Test email trigger{mode_label}\n"
+        f"      Day 1/2/3 with 1/2/3-minute delays\n"
+        f"      Recipient : {current_user.email}\n"
+        f"      Name      : {current_user.name or current_user.given_name or '(none)'}\n"
+        f"      Org ID    : {organization_id}\n"
+        f"{'=' * 70}\n"
+    )
+
+    test_schedule = [(1, 1), (2, 2), (3, 3)]
+
+    results = {}
+    for day, delay_minutes in test_schedule:
+        try:
+            success = email_service.send_test_onboarding_email(
+                day=day,
+                recipient_email=current_user.email,
+                recipient_name=current_user.name or current_user.given_name,
+                delay_minutes=delay_minutes,
+                simulate=simulate,
+            )
+            results[f"day_{day}"] = "simulated" if (simulate and success) else (
+                "scheduled" if success else "skipped"
+            )
+            if not success:
+                logger.warning(
+                    "Test Day %d email not scheduled for %s "
+                    "(check SENDGRID_API_KEY and SENDGRID_DAY_%d_EMAIL_TEMPLATE_ID)",
+                    day,
+                    current_user.email,
+                    day,
+                )
+        except Exception:
+            results[f"day_{day}"] = "error"
+            logger.exception(
+                "Failed to schedule test Day %d email for %s", day, current_user.email
+            )
+
+    print(f"\n  📊  Test email results: {results}\n{'=' * 70}\n")
+
+    message = (
+        "Simulated: payload logged, no emails sent. Day 1/2/3 templates shown above."
+        if simulate
+        else "Test emails triggered: Day 1 in 1 min, Day 2 in 2 min, Day 3 in 3 min"
+    )
+    return {
+        "status": "ok",
+        "message": message,
+        "recipient": current_user.email,
+        "simulate": simulate,
+        "results": results,
+    }
 
 
 @router.post("/{organization_id}/rollback-initial-data", response_model=dict)

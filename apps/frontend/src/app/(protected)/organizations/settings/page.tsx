@@ -11,6 +11,7 @@ import { Organization } from '@/utils/api-client/interfaces/organization';
 import OrganizationDetailsForm from './components/OrganizationDetailsForm';
 import ContactInformationForm from './components/ContactInformationForm';
 import DangerZone from './components/DangerZone';
+import EmailDebugPanel from './components/EmailDebugPanel';
 
 export default function OrganizationSettingsPage() {
   const { data: session } = useSession();
@@ -121,6 +122,23 @@ export default function OrganizationSettingsPage() {
           organization={organization}
           sessionToken={session?.session_token || ''}
           onUpdate={handleUpdate}
+        />
+      </Paper>
+
+      {/* Email Debug Section */}
+      <Paper
+        sx={{ p: 3, mb: 3, border: '1px dashed', borderColor: 'warning.main' }}
+      >
+        <Typography
+          variant="h6"
+          gutterBottom
+          sx={{ mb: 2, color: 'warning.dark' }}
+        >
+          🧪 Email Debug (Temp)
+        </Typography>
+        <EmailDebugPanel
+          organizationId={organization.id}
+          sessionToken={session?.session_token || ''}
         />
       </Paper>
 

@@ -76,4 +76,21 @@ export class OrganizationsClient extends BaseApiClient {
       }
     );
   }
+
+  async triggerTestEmails(
+    id: UUID | string,
+    simulate = false
+  ): Promise<{
+    status: string;
+    message: string;
+    recipient: string;
+    simulate: boolean;
+    results: Record<string, string>;
+  }> {
+    const qs = simulate ? '?simulate=true' : '';
+    return this.fetch(
+      `${API_ENDPOINTS.organizations}/${id}/trigger-test-emails${qs}`,
+      { method: 'POST' }
+    );
+  }
 }
