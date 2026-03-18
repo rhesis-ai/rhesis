@@ -32,6 +32,7 @@ _TEST_ENV_VARS = {
     "BROKER_URL": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/0",
     "CELERY_RESULT_BACKEND": f"redis://:rhesis-redis-pass@localhost:{REDIS_PORT}/1",
     "JWT_SECRET_KEY": "test-jwt-secret-key-for-backend-tests",
+    "SESSION_SECRET_KEY": "test-session-secret-key-for-backend-tests",
     "JWT_ALGORITHM": "HS256",
     "JWT_ACCESS_TOKEN_EXPIRE_MINUTES": "10080",
     "DB_ENCRYPTION_KEY": "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac=",
