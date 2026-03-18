@@ -165,6 +165,26 @@ spec:
             secretKeyRef:
               name: rhesis-worker-secrets
               key: SMTP_PASSWORD
+        - name: SENDGRID_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SENDGRID_API_KEY
+        - name: SENDGRID_DAY_1_EMAIL_TEMPLATE_ID
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SENDGRID_DAY_1_EMAIL_TEMPLATE_ID
+        - name: SENDGRID_DAY_2_EMAIL_TEMPLATE_ID
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SENDGRID_DAY_2_EMAIL_TEMPLATE_ID
+        - name: SENDGRID_DAY_3_EMAIL_TEMPLATE_ID
+          valueFrom:
+            secretKeyRef:
+              name: rhesis-worker-secrets
+              key: SENDGRID_DAY_3_EMAIL_TEMPLATE_ID
         - name: FRONTEND_URL
           valueFrom:
             secretKeyRef:

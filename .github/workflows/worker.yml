@@ -295,6 +295,10 @@ jobs:
             --from-literal=SMTP_PORT="${{ secrets.SMTP_PORT }}" \
             --from-literal=SMTP_USER="${{ secrets.SMTP_USER }}" \
             --from-literal=SMTP_PASSWORD="${{ secrets.SMTP_PASSWORD }}" \
+            --from-literal=SENDGRID_API_KEY="${{ secrets.SENDGRID_API_KEY }}" \
+            --from-literal=SENDGRID_DAY_1_EMAIL_TEMPLATE_ID="${{ secrets.SENDGRID_DAY_1_EMAIL_TEMPLATE_ID }}" \
+            --from-literal=SENDGRID_DAY_2_EMAIL_TEMPLATE_ID="${{ secrets.SENDGRID_DAY_2_EMAIL_TEMPLATE_ID }}" \
+            --from-literal=SENDGRID_DAY_3_EMAIL_TEMPLATE_ID="${{ secrets.SENDGRID_DAY_3_EMAIL_TEMPLATE_ID }}" \
             --from-file=FROM_EMAIL=/tmp/from_email.txt \
             --from-literal=AGENT_EMAIL_BCC="${{ secrets.AGENT_EMAIL_BCC }}" \
             --from-literal=WELCOME_CALENDAR_LINK="${{ secrets.WELCOME_CALENDAR_LINK }}" \
