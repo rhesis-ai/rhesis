@@ -396,8 +396,8 @@ app.add_middleware(
 # Get session secret securely without default fallback in production
 session_secret = os.getenv("SESSION_SECRET_KEY")
 
-from rhesis.backend.app.routers.auth import _is_running_locally
-is_local_dev = _is_running_locally()
+from rhesis.backend.app.routers.auth import is_running_locally
+is_local_dev = is_running_locally()
 
 if not session_secret:
     if is_local_dev:

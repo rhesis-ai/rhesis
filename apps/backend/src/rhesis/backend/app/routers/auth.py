@@ -179,7 +179,7 @@ class RefreshTokenRequest(BaseModel):
 _LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
 
 
-def _is_running_locally() -> bool:
+def is_running_locally() -> bool:
     """Detect local deployment using server-side environment signals only.
 
     Never uses any request-derived data. Uses three independent signals:
@@ -214,10 +214,10 @@ def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
     accepted; any other value falls back to 'localhost'. For
     production, uses RHESIS_BASE_URL.
     """
-    if _is_running_locally():
+    if is_running_locally():
         # Local: use request hostname to match session cookie domain
         # (e.g., 127.0.0.1 vs localhost). Whitelist ensures that even
-        # if _is_running_locally() fires on a misconfigured server,
+        # if is_running_locally() fires on a misconfigured server,
         # the callback can only ever point to a local address.
         hostname = request.url.hostname or "localhost"
         if hostname not in _LOCAL_HOSTNAMES:
