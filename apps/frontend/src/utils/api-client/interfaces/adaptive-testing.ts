@@ -137,3 +137,108 @@ export interface GenerateOutputsResponse {
   failed: GenerateOutputsFailedItem[];
   updated: GenerateOutputsUpdatedItem[];
 }
+
+// =============================================================================
+// Evaluate
+// =============================================================================
+
+export interface EvaluateRequest {
+  metric_names: string[];
+  test_ids?: string[] | null;
+  topic?: string | null;
+  include_subtopics?: boolean;
+}
+
+export interface EvaluateResultItem {
+  test_id: string;
+  label: string;
+  labeler: string;
+  model_score: number;
+}
+
+export interface EvaluateFailedItem {
+  test_id: string;
+  error: string;
+}
+
+export interface EvaluateResponse {
+  evaluated: number;
+  results: EvaluateResultItem[];
+  failed: EvaluateFailedItem[];
+}
+
+// =============================================================================
+// Generate Suggestions
+// =============================================================================
+
+export interface GenerateSuggestionsRequest {
+  topic?: string | null;
+  num_examples?: number;
+  num_suggestions?: number;
+}
+
+export interface SuggestedTest {
+  topic: string;
+  input: string;
+  output: string;
+  label: string;
+  labeler: string;
+  model_score: number;
+}
+
+export interface GenerateSuggestionsResponse {
+  suggestions: SuggestedTest[];
+  num_examples_used: number;
+}
+
+// =============================================================================
+// Generate Suggestion Outputs (non-persisted)
+// =============================================================================
+
+export interface SuggestionInput {
+  input: string;
+  topic?: string;
+}
+
+export interface GenerateSuggestionOutputsRequest {
+  endpoint_id: string;
+  suggestions: SuggestionInput[];
+}
+
+export interface SuggestionOutputItem {
+  input: string;
+  output: string;
+  error?: string | null;
+}
+
+export interface GenerateSuggestionOutputsResponse {
+  generated: number;
+  results: SuggestionOutputItem[];
+}
+
+// =============================================================================
+// Evaluate Suggestions (non-persisted)
+// =============================================================================
+
+export interface SuggestionForEval {
+  input: string;
+  output: string;
+}
+
+export interface EvaluateSuggestionsRequest {
+  metric_names: string[];
+  suggestions: SuggestionForEval[];
+}
+
+export interface SuggestionEvalItem {
+  input: string;
+  label: string;
+  labeler: string;
+  model_score: number;
+  error?: string | null;
+}
+
+export interface EvaluateSuggestionsResponse {
+  evaluated: number;
+  results: SuggestionEvalItem[];
+}

@@ -35,6 +35,7 @@ import {
   GridColDef,
   GridPaginationModel,
   GridRenderCellParams,
+  GridRowSelectionModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -47,6 +48,8 @@ import AddIcon from '@mui/icons-material/AddOutlined';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrowOutlined';
+import GradingIcon from '@mui/icons-material/GradingOutlined';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import {
   TestNode,
   TestNodeCreate,
@@ -57,6 +60,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import SuggestionsDialog from './SuggestionsDialog';
 
 // ============================================================================
 // Types
@@ -1201,6 +1205,9 @@ interface TestsListProps {
   loading: boolean;
   onEditTest?: (test: TestNode) => void;
   onDeleteTest?: (test: TestNode) => void;
+  checkboxSelection?: boolean;
+  rowSelectionModel?: GridRowSelectionModel;
+  onRowSelectionModelChange?: (model: GridRowSelectionModel) => void;
 }
 
 function TestsList({
@@ -1208,6 +1215,9 @@ function TestsList({
   loading,
   onEditTest,
   onDeleteTest,
+  checkboxSelection,
+  rowSelectionModel,
+  onRowSelectionModelChange,
 }: TestsListProps) {
   const gridWrapperRef = useRef<HTMLDivElement>(null);
   const [paginationModel, setPaginationModel] = useState({
@@ -1294,16 +1304,17 @@ function TestsList({
       align: 'center',
       headerAlign: 'center',
       renderCell: params => {
+        const label = params.row.label;
         const score = params.value;
-        if (score === null || score === undefined || score === 0) {
+        if (!label) {
           return <Chip label="N/A" size="small" variant="outlined" />;
         }
         return (
           <Chip
-            label={score.toFixed(2)}
+            label={score != null ? score.toFixed(2) : 'N/A'}
             size="small"
-            color={getScoreColor(score)}
-            variant="filled"
+            color={score != null ? getScoreColor(score) : 'default'}
+            variant={score != null ? 'filled' : 'outlined'}
           />
         );
       },
@@ -1314,7 +1325,7 @@ function TestsList({
       width: 100,
       renderCell: params => {
         const label = params.value;
-        if (!label) return '-';
+        if (!label) return <Chip label="N/A" size="small" variant="outlined" />;
         return (
           <Chip
             label={label}
@@ -1404,6 +1415,10 @@ function TestsList({
             pageSizeOptions={[10, 25, 50, 100]}
             disablePaperWrapper={true}
             persistState
+            checkboxSelection={checkboxSelection}
+            disableRowSelectionOnClick={checkboxSelection ? true : undefined}
+            rowSelectionModel={rowSelectionModel}
+            onRowSelectionModelChange={onRowSelectionModelChange}
             sx={{
               '& .MuiDataGrid-row': {
                 cursor: 'grab',
@@ -1431,6 +1446,7 @@ export default function AdaptiveTestingDetail({
   sessionToken,
 }: AdaptiveTestingDetailProps) {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [activeTab, setActiveTab] = useState(0);
   const [addTopicDialogOpen, setAddTopicDialogOpen] = useState(false);
   const [addTopicParent, setAddTopicParent] = useState<string | null>(null);
@@ -1441,6 +1457,8 @@ export default function AdaptiveTestingDetail({
   const [editingTest, setEditingTest] = useState<TestNode | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletingTest, setDeletingTest] = useState<TestNode | null>(null);
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [renameTopicDialogOpen, setRenameTopicDialogOpen] = useState(false);
   const [renamingTopicPath, setRenamingTopicPath] = useState<string | null>(
     null
@@ -1472,8 +1490,23 @@ export default function AdaptiveTestingDetail({
   const [selectedMetric, setSelectedMetric] = useState<MetricDetail | null>(
     null
   );
+  const [evaluateDialogOpen, setEvaluateDialogOpen] = useState(false);
+  const [evaluateSubmitting, setEvaluateSubmitting] = useState(false);
+  const [evaluateError, setEvaluateError] = useState<string | null>(null);
+  const [evaluateTopic, setEvaluateTopic] = useState<string | null>(null);
+  const [evaluateIncludeSubtopics, setEvaluateIncludeSubtopics] =
+    useState(true);
+  const [evaluateMetric, setEvaluateMetric] = useState<MetricDetail | null>(
+    null
+  );
+  const [suggestionsDialogOpen, setSuggestionsDialogOpen] = useState(false);
 
   const notifications = useNotifications();
+
+  const handleTopicSelect = useCallback((topic: string | null) => {
+    setSelectedTopic(topic);
+    setSelectedRows([]);
+  }, []);
 
   // Build the topic tree
   const topicTree = useMemo(
@@ -1607,6 +1640,71 @@ export default function AdaptiveTestingDetail({
     }
   };
 
+  const handleEvaluateOpen = (fromTable?: boolean) => {
+    if (fromTable && activeTab === 0 && selectedTopic) {
+      setEvaluateTopic(selectedTopic);
+      setEvaluateIncludeSubtopics(true);
+    } else {
+      setEvaluateTopic(null);
+      setEvaluateIncludeSubtopics(true);
+    }
+    setEvaluateMetric(metricForGeneration);
+    setEvaluateError(null);
+    setEvaluateDialogOpen(true);
+  };
+
+  const handleEvaluateClose = () => {
+    if (!evaluateSubmitting) {
+      setEvaluateDialogOpen(false);
+      setEvaluateMetric(null);
+      setEvaluateError(null);
+    }
+  };
+
+  const handleEvaluateSubmit = async () => {
+    if (!evaluateMetric?.name) {
+      setEvaluateError('Please select a metric.');
+      return;
+    }
+    setEvaluateSubmitting(true);
+    setEvaluateError(null);
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+    try {
+      const result = await client.evaluate(testSetId, {
+        metric_names: [evaluateMetric.name],
+        topic: evaluateTopic ?? undefined,
+        include_subtopics: evaluateIncludeSubtopics,
+      });
+      const [treeNodes, updatedTopics] = await Promise.all([
+        client.getTree(testSetId),
+        client.getTopics(testSetId),
+      ]);
+      setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
+      setTopics(updatedTopics);
+      setEvaluateDialogOpen(false);
+      setEvaluateMetric(null);
+      const failedCount = result.failed?.length ?? 0;
+      if (failedCount > 0) {
+        notifications.show(
+          `Evaluated ${result.evaluated} tests; ${failedCount} failed.`,
+          { severity: 'warning' }
+        );
+      } else {
+        notifications.show(
+          `Evaluated ${result.evaluated} test(s) successfully.`,
+          { severity: 'success' }
+        );
+      }
+    } catch (err) {
+      setEvaluateError(
+        err instanceof Error ? err.message : 'Failed to evaluate tests.'
+      );
+    } finally {
+      setEvaluateSubmitting(false);
+    }
+  };
+
   const handleAddTopicOpen = (parentTopic: string | null) => {
     setAddTopicParent(parentTopic);
     setAddTopicDialogOpen(true);
@@ -1684,6 +1782,17 @@ export default function AdaptiveTestingDetail({
         });
       });
   };
+
+  const handleSuggestionAccepted = useCallback(() => {
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+    Promise.all([client.getTree(testSetId), client.getTopics(testSetId)]).then(
+      ([treeNodes, updatedTopics]) => {
+        setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
+        setTopics(updatedTopics);
+      }
+    );
+  }, [sessionToken, testSetId]);
 
   const handleEditTestOpen = (test: TestNode) => {
     setEditingTest(test);
@@ -1928,6 +2037,67 @@ export default function AdaptiveTestingDetail({
     });
   };
 
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedRows.length === 0) return;
+
+    setIsBulkDeleting(true);
+    const testsToDelete = selectedRows as string[];
+
+    // Save previous state for rollback
+    const previousTests = tests;
+
+    // Optimistically remove from local state
+    setTests(prev => prev.filter(t => !testsToDelete.includes(t.id)));
+    setBulkDeleteConfirmOpen(false);
+
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+
+    try {
+      const results = await Promise.allSettled(
+        testsToDelete.map(id => client.deleteTest(testSetId, id))
+      );
+
+      const failures = results.filter(r => r.status === 'rejected');
+
+      if (failures.length > 0) {
+        // Rollback by fetching full state from server to ensure consistency
+        const [treeNodes, updatedTopics] = await Promise.all([
+          client.getTree(testSetId),
+          client.getTopics(testSetId),
+        ]);
+        setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
+        setTopics(updatedTopics);
+
+        notifications.show(
+          `Failed to delete ${failures.length} tests. State refreshed.`,
+          {
+            severity: 'error',
+          }
+        );
+      } else {
+        notifications.show(
+          `Successfully deleted ${testsToDelete.length} tests.`,
+          {
+            severity: 'success',
+          }
+        );
+      }
+    } catch (err) {
+      // Complete failure fallback
+      setTests(previousTests);
+      notifications.show(
+        'Failed to delete tests. Changes have been reverted.',
+        {
+          severity: 'error',
+        }
+      );
+    } finally {
+      setIsBulkDeleting(false);
+      setSelectedRows([]);
+    }
+  };
+
   // Filter tests by selected topic
   const filteredTests = useMemo(() => {
     if (selectedTopic === null) {
@@ -2056,7 +2226,10 @@ export default function AdaptiveTestingDetail({
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <Tabs
           value={activeTab}
-          onChange={(_, newValue) => setActiveTab(newValue)}
+          onChange={(_, newValue) => {
+            setActiveTab(newValue);
+            setSelectedRows([]);
+          }}
         >
           <Tab
             icon={<AccountTreeIcon />}
@@ -2106,7 +2279,7 @@ export default function AdaptiveTestingDetail({
                 topicTree={topicTree}
                 tests={tests}
                 selectedTopic={selectedTopic}
-                onTopicSelect={setSelectedTopic}
+                onTopicSelect={handleTopicSelect}
                 onAddTopic={handleAddTopicOpen}
                 onDropTest={handleDropTestOnTopic}
                 onEditTopic={handleEditTopicOpen}
@@ -2148,12 +2321,41 @@ export default function AdaptiveTestingDetail({
               </Button>
               <Button
                 size="small"
+                startIcon={<GradingIcon />}
+                onClick={() => handleEvaluateOpen(true)}
+                sx={{ textTransform: 'none' }}
+              >
+                Evaluate
+              </Button>
+              <Button
+                size="small"
                 startIcon={<AddIcon />}
                 onClick={() => setAddTestDialogOpen(true)}
                 sx={{ textTransform: 'none' }}
               >
                 Add test
               </Button>
+              <Button
+                size="small"
+                startIcon={<AutoAwesomeIcon />}
+                onClick={() => setSuggestionsDialogOpen(true)}
+                sx={{ textTransform: 'none' }}
+              >
+                Suggest tests
+              </Button>
+              {selectedRows.length > 0 && (
+                <Button
+                  size="small"
+                  startIcon={<DeleteIcon />}
+                  color="error"
+                  variant="outlined"
+                  onClick={() => setBulkDeleteConfirmOpen(true)}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Delete {selectedRows.length}{' '}
+                  {selectedRows.length === 1 ? 'test' : 'tests'}
+                </Button>
+              )}
             </Box>
             <Paper variant="outlined" sx={{ p: 1 }}>
               <TestsList
@@ -2161,6 +2363,9 @@ export default function AdaptiveTestingDetail({
                 loading={false}
                 onEditTest={handleEditTestOpen}
                 onDeleteTest={handleDeleteTestOpen}
+                checkboxSelection
+                rowSelectionModel={selectedRows}
+                onRowSelectionModelChange={setSelectedRows}
               />
             </Paper>
           </Box>
@@ -2188,12 +2393,41 @@ export default function AdaptiveTestingDetail({
             </Button>
             <Button
               size="small"
+              startIcon={<GradingIcon />}
+              onClick={() => handleEvaluateOpen(true)}
+              sx={{ textTransform: 'none' }}
+            >
+              Evaluate
+            </Button>
+            <Button
+              size="small"
               startIcon={<AddIcon />}
               onClick={() => setAddTestDialogOpen(true)}
               sx={{ textTransform: 'none' }}
             >
               Add test
             </Button>
+            <Button
+              size="small"
+              startIcon={<AutoAwesomeIcon />}
+              onClick={() => setSuggestionsDialogOpen(true)}
+              sx={{ textTransform: 'none' }}
+            >
+              Suggest tests
+            </Button>
+            {selectedRows.length > 0 && (
+              <Button
+                size="small"
+                startIcon={<DeleteIcon />}
+                color="error"
+                variant="outlined"
+                onClick={() => setBulkDeleteConfirmOpen(true)}
+                sx={{ textTransform: 'none' }}
+              >
+                Delete {selectedRows.length}{' '}
+                {selectedRows.length === 1 ? 'test' : 'tests'}
+              </Button>
+            )}
           </Box>
           <Paper variant="outlined" sx={{ p: 2 }}>
             <TestsList
@@ -2201,6 +2435,9 @@ export default function AdaptiveTestingDetail({
               loading={false}
               onEditTest={handleEditTestOpen}
               onDeleteTest={handleDeleteTestOpen}
+              checkboxSelection
+              rowSelectionModel={selectedRows}
+              onRowSelectionModelChange={setSelectedRows}
             />
           </Paper>
         </Box>
@@ -2334,6 +2571,45 @@ export default function AdaptiveTestingDetail({
         </DialogActions>
       </Dialog>
 
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog
+        open={bulkDeleteConfirmOpen}
+        onClose={() => {
+          if (!isBulkDeleting) setBulkDeleteConfirmOpen(false);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Tests</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete {selectedRows.length}{' '}
+            {selectedRows.length === 1 ? 'test' : 'tests'}?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setBulkDeleteConfirmOpen(false)}
+            disabled={isBulkDeleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleBulkDeleteConfirm}
+            color="error"
+            variant="contained"
+            disabled={isBulkDeleting}
+            startIcon={
+              isBulkDeleting ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : undefined
+            }
+          >
+            {isBulkDeleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Generate outputs dialog */}
       <Dialog
         open={generateOutputsDialogOpen}
@@ -2356,67 +2632,32 @@ export default function AdaptiveTestingDetail({
               {generateError}
             </Alert>
           )}
-          <Box
-            sx={{
-              display: 'flex',
-              gap: 2,
-              mb: 2,
-              flexWrap: 'wrap',
-            }}
-          >
-            <Autocomplete
-              options={endpoints}
-              getOptionLabel={option => option.name ?? ''}
-              value={selectedEndpoint}
-              onChange={(_, value) => setSelectedEndpoint(value ?? null)}
-              loading={endpointsLoading}
-              renderInput={params => (
-                <TextField
-                  {...params}
-                  label="Endpoint"
-                  placeholder="Select endpoint"
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {endpointsLoading ? (
-                          <CircularProgress color="inherit" size={20} />
-                        ) : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
-              sx={{ minWidth: 240, flex: 1 }}
-            />
-            <Autocomplete
-              options={metrics}
-              getOptionLabel={option => option.name ?? ''}
-              value={selectedMetric}
-              onChange={(_, value) => setSelectedMetric(value ?? null)}
-              loading={metricsLoading}
-              renderInput={params => (
-                <TextField
-                  {...params}
-                  label="Metric"
-                  placeholder="Select metric"
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {metricsLoading ? (
-                          <CircularProgress color="inherit" size={20} />
-                        ) : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
-              sx={{ minWidth: 240, flex: 1 }}
-            />
-          </Box>
+          <Autocomplete
+            options={endpoints}
+            getOptionLabel={option => option.name ?? ''}
+            value={selectedEndpoint}
+            onChange={(_, value) => setSelectedEndpoint(value ?? null)}
+            loading={endpointsLoading}
+            renderInput={params => (
+              <TextField
+                {...params}
+                label="Endpoint"
+                placeholder="Select endpoint"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {endpointsLoading ? (
+                        <CircularProgress color="inherit" size={20} />
+                      ) : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            sx={{ mb: 2 }}
+          />
           <Autocomplete
             options={[allTestsTopicOption, ...topics]}
             getOptionLabel={option =>
@@ -2486,6 +2727,134 @@ export default function AdaptiveTestingDetail({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Evaluate dialog */}
+      <Dialog
+        open={evaluateDialogOpen}
+        onClose={handleEvaluateClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Evaluate tests</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Run the selected metric against each test and persist the evaluation
+            result in test metadata.
+          </Typography>
+          {evaluateError && (
+            <Alert
+              severity="error"
+              sx={{ mb: 2 }}
+              onClose={() => setEvaluateError(null)}
+            >
+              {evaluateError}
+            </Alert>
+          )}
+          <Autocomplete
+            options={metrics}
+            getOptionLabel={option => option.name ?? ''}
+            value={evaluateMetric}
+            onChange={(_, value) => setEvaluateMetric(value ?? null)}
+            loading={metricsLoading}
+            renderInput={params => (
+              <TextField
+                {...params}
+                label="Metric"
+                placeholder="Select metric"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {metricsLoading ? (
+                        <CircularProgress color="inherit" size={20} />
+                      ) : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            sx={{ mb: 2 }}
+          />
+          <Autocomplete
+            options={[allTestsTopicOption, ...topics]}
+            getOptionLabel={option =>
+              option.path ? (option.display_path ?? option.path) : 'All tests'
+            }
+            value={
+              evaluateTopic === null || evaluateTopic === ''
+                ? allTestsTopicOption
+                : (topics.find(t => t.path === evaluateTopic) ?? {
+                    path: evaluateTopic,
+                    name: evaluateTopic.split('/').pop() ?? evaluateTopic,
+                    parent_path: null,
+                    depth: 0,
+                    display_name: evaluateTopic,
+                    display_path: evaluateTopic,
+                    has_direct_tests: false,
+                    has_subtopics: false,
+                  })
+            }
+            onChange={(_, value) =>
+              setEvaluateTopic(
+                value?.path && value.path !== '' ? value.path : null
+              )
+            }
+            isOptionEqualToValue={(a, b) => a.path === b.path}
+            renderInput={params => (
+              <TextField {...params} label="Topic" placeholder="All tests" />
+            )}
+            sx={{ mb: 1 }}
+          />
+          {evaluateTopic != null && evaluateTopic !== '' && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={evaluateIncludeSubtopics}
+                  onChange={e => setEvaluateIncludeSubtopics(e.target.checked)}
+                />
+              }
+              label="Include subtopics"
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleEvaluateClose} disabled={evaluateSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleEvaluateSubmit}
+            disabled={!evaluateMetric || evaluateSubmitting}
+            startIcon={
+              evaluateSubmitting ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <GradingIcon />
+              )
+            }
+          >
+            {evaluateSubmitting ? 'Evaluating…' : 'Evaluate'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Suggestions dialog */}
+      <SuggestionsDialog
+        open={suggestionsDialogOpen}
+        onClose={() => setSuggestionsDialogOpen(false)}
+        testSetId={testSetId}
+        sessionToken={sessionToken}
+        topic={selectedTopic}
+        topics={topics}
+        endpoints={endpoints}
+        endpointsLoading={endpointsLoading}
+        metrics={metrics}
+        metricsLoading={metricsLoading}
+        defaultEndpoint={endpointForGeneration}
+        defaultMetric={metricForGeneration}
+        onTestAccepted={handleSuggestionAccepted}
+      />
     </Box>
   );
 }
