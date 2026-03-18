@@ -35,6 +35,7 @@ import {
   GridColDef,
   GridPaginationModel,
   GridRenderCellParams,
+  GridRowSelectionModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -1204,6 +1205,9 @@ interface TestsListProps {
   loading: boolean;
   onEditTest?: (test: TestNode) => void;
   onDeleteTest?: (test: TestNode) => void;
+  checkboxSelection?: boolean;
+  rowSelectionModel?: GridRowSelectionModel;
+  onRowSelectionModelChange?: (model: GridRowSelectionModel) => void;
 }
 
 function TestsList({
@@ -1211,6 +1215,9 @@ function TestsList({
   loading,
   onEditTest,
   onDeleteTest,
+  checkboxSelection,
+  rowSelectionModel,
+  onRowSelectionModelChange,
 }: TestsListProps) {
   const gridWrapperRef = useRef<HTMLDivElement>(null);
   const [paginationModel, setPaginationModel] = useState({
@@ -1408,6 +1415,10 @@ function TestsList({
             pageSizeOptions={[10, 25, 50, 100]}
             disablePaperWrapper={true}
             persistState
+            checkboxSelection={checkboxSelection}
+            disableRowSelectionOnClick={checkboxSelection ? true : undefined}
+            rowSelectionModel={rowSelectionModel}
+            onRowSelectionModelChange={onRowSelectionModelChange}
             sx={{
               '& .MuiDataGrid-row': {
                 cursor: 'grab',
@@ -1435,6 +1446,7 @@ export default function AdaptiveTestingDetail({
   sessionToken,
 }: AdaptiveTestingDetailProps) {
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [selectedRows, setSelectedRows] = useState<GridRowSelectionModel>([]);
   const [activeTab, setActiveTab] = useState(0);
   const [addTopicDialogOpen, setAddTopicDialogOpen] = useState(false);
   const [addTopicParent, setAddTopicParent] = useState<string | null>(null);
@@ -1445,6 +1457,8 @@ export default function AdaptiveTestingDetail({
   const [editingTest, setEditingTest] = useState<TestNode | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletingTest, setDeletingTest] = useState<TestNode | null>(null);
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [renameTopicDialogOpen, setRenameTopicDialogOpen] = useState(false);
   const [renamingTopicPath, setRenamingTopicPath] = useState<string | null>(
     null
@@ -1488,6 +1502,11 @@ export default function AdaptiveTestingDetail({
   const [suggestionsDialogOpen, setSuggestionsDialogOpen] = useState(false);
 
   const notifications = useNotifications();
+
+  const handleTopicSelect = useCallback((topic: string | null) => {
+    setSelectedTopic(topic);
+    setSelectedRows([]);
+  }, []);
 
   // Build the topic tree
   const topicTree = useMemo(
@@ -2018,6 +2037,67 @@ export default function AdaptiveTestingDetail({
     });
   };
 
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedRows.length === 0) return;
+
+    setIsBulkDeleting(true);
+    const testsToDelete = selectedRows as string[];
+
+    // Save previous state for rollback
+    const previousTests = tests;
+
+    // Optimistically remove from local state
+    setTests(prev => prev.filter(t => !testsToDelete.includes(t.id)));
+    setBulkDeleteConfirmOpen(false);
+
+    const clientFactory = new ApiClientFactory(sessionToken);
+    const client = clientFactory.getAdaptiveTestingClient();
+
+    try {
+      const results = await Promise.allSettled(
+        testsToDelete.map(id => client.deleteTest(testSetId, id))
+      );
+
+      const failures = results.filter(r => r.status === 'rejected');
+
+      if (failures.length > 0) {
+        // Rollback by fetching full state from server to ensure consistency
+        const [treeNodes, updatedTopics] = await Promise.all([
+          client.getTree(testSetId),
+          client.getTopics(testSetId),
+        ]);
+        setTests(treeNodes.filter(node => node.label !== 'topic_marker'));
+        setTopics(updatedTopics);
+
+        notifications.show(
+          `Failed to delete ${failures.length} tests. State refreshed.`,
+          {
+            severity: 'error',
+          }
+        );
+      } else {
+        notifications.show(
+          `Successfully deleted ${testsToDelete.length} tests.`,
+          {
+            severity: 'success',
+          }
+        );
+      }
+    } catch (err) {
+      // Complete failure fallback
+      setTests(previousTests);
+      notifications.show(
+        'Failed to delete tests. Changes have been reverted.',
+        {
+          severity: 'error',
+        }
+      );
+    } finally {
+      setIsBulkDeleting(false);
+      setSelectedRows([]);
+    }
+  };
+
   // Filter tests by selected topic
   const filteredTests = useMemo(() => {
     if (selectedTopic === null) {
@@ -2146,7 +2226,10 @@ export default function AdaptiveTestingDetail({
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
         <Tabs
           value={activeTab}
-          onChange={(_, newValue) => setActiveTab(newValue)}
+          onChange={(_, newValue) => {
+            setActiveTab(newValue);
+            setSelectedRows([]);
+          }}
         >
           <Tab
             icon={<AccountTreeIcon />}
@@ -2196,7 +2279,7 @@ export default function AdaptiveTestingDetail({
                 topicTree={topicTree}
                 tests={tests}
                 selectedTopic={selectedTopic}
-                onTopicSelect={setSelectedTopic}
+                onTopicSelect={handleTopicSelect}
                 onAddTopic={handleAddTopicOpen}
                 onDropTest={handleDropTestOnTopic}
                 onEditTopic={handleEditTopicOpen}
@@ -2260,6 +2343,19 @@ export default function AdaptiveTestingDetail({
               >
                 Suggest tests
               </Button>
+              {selectedRows.length > 0 && (
+                <Button
+                  size="small"
+                  startIcon={<DeleteIcon />}
+                  color="error"
+                  variant="outlined"
+                  onClick={() => setBulkDeleteConfirmOpen(true)}
+                  sx={{ textTransform: 'none' }}
+                >
+                  Delete {selectedRows.length}{' '}
+                  {selectedRows.length === 1 ? 'test' : 'tests'}
+                </Button>
+              )}
             </Box>
             <Paper variant="outlined" sx={{ p: 1 }}>
               <TestsList
@@ -2267,6 +2363,9 @@ export default function AdaptiveTestingDetail({
                 loading={false}
                 onEditTest={handleEditTestOpen}
                 onDeleteTest={handleDeleteTestOpen}
+                checkboxSelection
+                rowSelectionModel={selectedRows}
+                onRowSelectionModelChange={setSelectedRows}
               />
             </Paper>
           </Box>
@@ -2316,6 +2415,19 @@ export default function AdaptiveTestingDetail({
             >
               Suggest tests
             </Button>
+            {selectedRows.length > 0 && (
+              <Button
+                size="small"
+                startIcon={<DeleteIcon />}
+                color="error"
+                variant="outlined"
+                onClick={() => setBulkDeleteConfirmOpen(true)}
+                sx={{ textTransform: 'none' }}
+              >
+                Delete {selectedRows.length}{' '}
+                {selectedRows.length === 1 ? 'test' : 'tests'}
+              </Button>
+            )}
           </Box>
           <Paper variant="outlined" sx={{ p: 2 }}>
             <TestsList
@@ -2323,6 +2435,9 @@ export default function AdaptiveTestingDetail({
               loading={false}
               onEditTest={handleEditTestOpen}
               onDeleteTest={handleDeleteTestOpen}
+              checkboxSelection
+              rowSelectionModel={selectedRows}
+              onRowSelectionModelChange={setSelectedRows}
             />
           </Paper>
         </Box>
@@ -2452,6 +2567,45 @@ export default function AdaptiveTestingDetail({
             variant="contained"
           >
             Remove
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog
+        open={bulkDeleteConfirmOpen}
+        onClose={() => {
+          if (!isBulkDeleting) setBulkDeleteConfirmOpen(false);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Tests</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete {selectedRows.length}{' '}
+            {selectedRows.length === 1 ? 'test' : 'tests'}?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setBulkDeleteConfirmOpen(false)}
+            disabled={isBulkDeleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleBulkDeleteConfirm}
+            color="error"
+            variant="contained"
+            disabled={isBulkDeleting}
+            startIcon={
+              isBulkDeleting ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : undefined
+            }
+          >
+            {isBulkDeleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
