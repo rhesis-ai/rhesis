@@ -395,11 +395,9 @@ app.add_middleware(
 
 # Get session secret securely without default fallback in production
 session_secret = os.getenv("SESSION_SECRET_KEY")
-env = os.getenv("ENVIRONMENT", "").lower()
-backend_env = os.getenv("BACKEND_ENV", "").lower()
 
-# "dev" is a deployed Cloud Run environment, so it must use secure cookies and a real secret
-is_local_dev = env in ("development", "local", "test", "") and backend_env in ("local", "test", "")
+from rhesis.backend.app.routers.auth import _is_running_locally
+is_local_dev = _is_running_locally()
 
 if not session_secret:
     if is_local_dev:
