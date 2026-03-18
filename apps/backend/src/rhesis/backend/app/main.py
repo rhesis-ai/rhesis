@@ -396,7 +396,10 @@ app.add_middleware(
 # Get session secret securely without default fallback in production
 session_secret = os.getenv("SESSION_SECRET_KEY")
 env = os.getenv("ENVIRONMENT", "").lower()
-is_local_dev = env in ("development", "dev", "local", "test", "")
+backend_env = os.getenv("BACKEND_ENV", "").lower()
+
+# "dev" is a deployed Cloud Run environment, so it must use secure cookies and a real secret
+is_local_dev = env in ("development", "local", "test", "") and backend_env in ("local", "test", "")
 
 if not session_secret:
     if is_local_dev:
