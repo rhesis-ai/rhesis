@@ -20,7 +20,7 @@ import React from 'react'
  *   primaryText="Get Started →"
  *   primaryHref="/getting-started"
  *   secondaryText="Learn Core Concepts →"
- *   secondaryHref="/getting-started/concepts"
+ *   secondaryHref="/concepts"
  * />
  * ```
  */
@@ -28,7 +28,7 @@ export const ButtonGroup = ({
   primaryText = 'Get Started →',
   primaryHref = '/getting-started',
   secondaryText = 'Learn Core Concepts →',
-  secondaryHref = '/getting-started/concepts',
+  secondaryHref = '/concepts',
 }) => {
   const styles = {
     container: {

@@ -17,9 +17,9 @@ Rhesis is a collaborative testing platform that brings together developers, doma
 
 ### Getting Started
 - Installation and setup: https://docs.rhesis.ai/getting-started
-- Core concepts: https://docs.rhesis.ai/getting-started/concepts
-- Running locally: https://docs.rhesis.ai/getting-started/running-locally
-- Self-hosting: https://docs.rhesis.ai/getting-started/self-hosting
+- Core concepts: https://docs.rhesis.ai/concepts
+- Running locally: https://docs.rhesis.ai/deployment/running-locally
+- Self-hosting: https://docs.rhesis.ai/deployment/self-hosting
 
 ### Platform
 - Projects: https://docs.rhesis.ai/platform/projects

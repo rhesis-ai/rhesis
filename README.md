@@ -200,7 +200,7 @@ test_set = synthesizer.generate(num_tests=10)
 |--------|----------|------------|
 | **[Rhesis Cloud](https://app.rhesis.ai)** | Teams wanting managed deployment | Instant |
 | **Docker** | Local development and testing | 5 minutes |
-| **Kubernetes** | Production self-hosting | [See docs](https://docs.rhesis.ai/getting-started/self-hosting) |
+| **Kubernetes** | Production self-hosting | [See docs](https://docs.rhesis.ai/deployment/self-hosting) |
 
 ### Quick Start
 
@@ -215,7 +215,7 @@ git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
 
 **Commands:** `./rh logs` · `./rh stop` · `./rh restart` · `./rh delete`
 
-> **Note:** This setup enables auto-login for local testing. For production, see [Self-hosting Documentation](https://docs.rhesis.ai/getting-started/self-hosting).
+> **Note:** This setup enables auto-login for local testing. For production, see [Self-hosting Documentation](https://docs.rhesis.ai/deployment/self-hosting).
 
 **Option 3: Python SDK**
 ```bash

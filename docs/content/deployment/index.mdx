@@ -1,0 +1,38 @@
+
+import { NextStepCard, NextStepCardGrid } from '@/components/NextStepCard'
+
+# Deployment
+
+We recommend using **Rhesis Cloud** for the fastest, most reliable experience without operational overhead. We also understand that some teams have strict data privacy requirements or prefer to manage their own infrastructure.
+
+If you don't want to run Rhesis in the cloud, we provide these self-deployment options.
+
+<Callout type="info">
+  **Want the easiest path?**
+  Skip the infrastructure management and start testing immediately with [Rhesis Cloud](https://app.rhesis.ai). We handle the hosting, scaling, and updates so you can focus on building AI apps.
+</Callout>
+
+## Available Options
+
+<NextStepCardGrid>
+  <NextStepCard
+    emoji="💻"
+    title="Running Locally"
+    link="/deployment/running-locally"
+    description="The quickest way to get started. Run the Rhesis stack on your local machine using Docker Compose."
+    linkText="View Local Guide →"
+  />
+  <NextStepCard
+    emoji="☁️"
+    title="Self-Hosting"
+    link="/deployment/self-hosting"
+    description="Deploy Rhesis to your own infrastructure for production workloads. Covers Kubernetes and cloud environments."
+    linkText="View Self-Hosting Guide →"
+  />
+</NextStepCardGrid>
+
+## Choosing a Strategy
+
+- **Rhesis Cloud (Recommended)**: Best for most teams. Zero setup, instant access, and fully managed.
+- **Start Locally**: If you are exploring Rhesis for the first time, want to test integrations, or only need to evaluate local applications, [Running Locally](/deployment/running-locally) with Docker Compose is the recommended path. It sets up the database, message broker, backend, and frontend in minutes.
+- **Move to Production**: When you are ready to scale, need high availability, or want to make Rhesis securely available across your team on your own hardware, follow the [Self-Hosting](/deployment/self-hosting) guide. It covers advanced configurations like external databases, persistent storage, and production-ready ingress.

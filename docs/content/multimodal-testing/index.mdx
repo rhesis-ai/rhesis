@@ -1,3 +1,5 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
 # Multi-modal Testing
 
 Multi-modal testing lets you attach files to tests and have them sent to your endpoint alongside the prompt. Use this to test how your AI handles images, documents, and audio — not just text.
@@ -49,8 +51,8 @@ For your endpoint to receive files, you need to include the `\{\{ files \}\}` va
 
 Example for an Anthropic endpoint:
 
-```json
-{
+<CodeBlock filename="request_mapping.json" language="json">
+{`{
   "model": "claude-sonnet-4-6",
   "max_tokens": 1024,
   "messages": [
@@ -59,8 +61,8 @@ Example for an Anthropic endpoint:
       "content": {{ files | to_anthropic | tojson }}
     }
   ]
-}
-```
+}`}
+</CodeBlock>
 
 See [File Attachments](/platform/endpoints/mapping-examples#file-attachments) in the mapping examples for OpenAI, Gemini, and custom formats.
 
