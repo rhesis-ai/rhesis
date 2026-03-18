@@ -397,7 +397,7 @@ app.add_middleware(
 # For OAuth state preservation, we need proper cookie configuration
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("AUTH0_SECRET_KEY"),
+    secret_key=os.getenv("JWT_SECRET_KEY", "fallback-secret-for-development"),
     session_cookie="session",
     max_age=3600,  # 1 hour session lifetime
     same_site="lax",  # Required for OAuth flows
