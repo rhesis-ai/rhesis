@@ -46,6 +46,7 @@ class TemplateService:
 
         # Add custom filters
         self.jinja_env.filters["datetime_format"] = self._datetime_format
+        self.jinja_env.filters["format_number"] = lambda value: f"{int(value):,}"
 
         # Define required variables for each template
         self.template_variables = {
