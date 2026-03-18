@@ -23,6 +23,7 @@ x-frontend-redis-config: &frontend-redis-config
 
 x-frontend-backend-config: &frontend-backend-config
   JWT_SECRET_KEY: test-jwt-secret-key-for-e2e-tests
+  SESSION_SECRET_KEY: test-session-secret-key-for-e2e
   JWT_ALGORITHM: HS256
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 10080
   LOG_LEVEL: INFO
