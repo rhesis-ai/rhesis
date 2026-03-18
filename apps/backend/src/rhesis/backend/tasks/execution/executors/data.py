@@ -33,7 +33,7 @@ def get_test_and_prompt(
         ValueError: If test is not found or validation fails
     """
     # Import here to avoid circular dependency
-    from rhesis.backend.tasks.enums import TestType
+    from rhesis.backend.app.constants import TestType
     from rhesis.backend.tasks.execution.modes import get_test_type
 
     # Get the test
