@@ -397,10 +397,9 @@ app.add_middleware(
 session_secret = os.getenv("SESSION_SECRET_KEY")
 
 from rhesis.backend.app.routers.auth import is_running_locally
-is_local_dev = is_running_locally()
 
 if not session_secret:
-    if is_local_dev:
+    if is_running_locally():
         session_secret = "fallback-secret-for-development"
     else:
         raise ValueError("CRITICAL: SESSION_SECRET_KEY must be set in production environments")
@@ -413,7 +412,7 @@ app.add_middleware(
     session_cookie="session",
     max_age=3600,  # 1 hour session lifetime
     same_site="lax",  # Required for OAuth flows
-    https_only=not is_local_dev,  # Enforce HTTPS outside local development
+    https_only=not is_running_locally(),  # Enforce HTTPS outside local development
 )
 
 
