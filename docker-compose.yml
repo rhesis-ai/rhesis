@@ -26,8 +26,7 @@ x-common-auth: &common-auth
   # GitHub OAuth (optional - leave empty to disable)
   GH_CLIENT_ID: ${GH_CLIENT_ID:-}
   GH_CLIENT_SECRET: ${GH_CLIENT_SECRET:-}
-  # Session secret key (required)
-  SESSION_SECRET_KEY: ${SESSION_SECRET_KEY:-your-session-secret-key-change-in-production}
+    # Re-use JWT_SECRET_KEY as the session secret key since it's securely injected
 
 # Legacy Auth0 configuration (for migration period only)
 x-common-auth0: &common-auth0

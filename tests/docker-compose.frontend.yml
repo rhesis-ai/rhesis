@@ -25,7 +25,6 @@ x-frontend-backend-config: &frontend-backend-config
   JWT_SECRET_KEY: test-jwt-secret-key-for-e2e-tests
   JWT_ALGORITHM: HS256
   JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 10080
-  SESSION_SECRET_KEY: test-session-secret-key-for-e2e
   LOG_LEVEL: INFO
   ENVIRONMENT: test
   BACKEND_ENV: test
