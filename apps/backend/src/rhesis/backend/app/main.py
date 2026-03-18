@@ -393,15 +393,26 @@ app.add_middleware(
     expose_headers=["X-Total-Count", "X-Test-Header"],
 )
 
+# Get session secret securely without default fallback in production
+session_secret = os.getenv("SESSION_SECRET_KEY")
+env = os.getenv("ENVIRONMENT", "").lower()
+is_local_dev = env in ("development", "dev", "local", "test", "")
+
+if not session_secret:
+    if is_local_dev:
+        session_secret = "fallback-secret-for-development"
+    else:
+        raise ValueError("CRITICAL: SESSION_SECRET_KEY must be set in production environments")
+
 # Add session middleware
 # For OAuth state preservation, we need proper cookie configuration
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET_KEY", "fallback-secret-for-development"),
+    secret_key=session_secret,
     session_cookie="session",
     max_age=3600,  # 1 hour session lifetime
     same_site="lax",  # Required for OAuth flows
-    https_only=False,  # False for local development (http)
+    https_only=not is_local_dev,  # Enforce HTTPS outside local development
 )
 
 
