@@ -239,6 +239,45 @@ class EmailService:
             bcc=bcc_email,
         )
 
+    def send_feedback_email(
+        self,
+        user_name: str,
+        user_email: str,
+        feedback: str,
+        rating: Optional[float] = None,
+    ) -> bool:
+        """
+        Send a feedback email to the Rhesis team.
+
+        Args:
+            user_name: Name of the user submitting feedback
+            user_email: Email of the user submitting feedback
+            feedback: The feedback content
+            rating: Optional star rating (1-5)
+
+        Returns:
+            bool: True if email was sent successfully, False otherwise
+        """
+        if not self.is_configured:
+            logger.warning("Cannot send feedback email: SMTP not configured")
+            return False
+
+        rating_label = f"Rating: {rating}/5" if rating else "New Feedback"
+        subject = f"Rhesis AI Feedback - {rating_label}"
+
+        return self.send_email(
+            template=EmailTemplate.FEEDBACK,
+            recipient_email="hello@rhesis.ai",
+            subject=subject,
+            template_variables={
+                "user_name": user_name,
+                "user_email": user_email,
+                "feedback": feedback,
+                "rating": rating,
+            },
+            task_id="feedback",
+        )
+
     def _send_scheduled_onboarding_email(
         self,
         day: int,

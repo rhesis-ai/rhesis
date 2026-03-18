@@ -4,17 +4,14 @@ import { getServerBackendUrl } from '@/utils/url-resolver';
 
 export async function POST(req: NextRequest) {
   try {
-    // Get session to verify user is authenticated
     const session = await auth();
 
     if (!session?.session_token) {
       return NextResponse.json({ detail: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get request data from body
     const body = await req.json();
 
-    // Forward to backend API
     const backendUrl = `${getServerBackendUrl()}/users/request-polyphemus-access`;
 
     const response = await fetch(backendUrl, {
