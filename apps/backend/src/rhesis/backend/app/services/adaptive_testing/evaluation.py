@@ -27,7 +27,9 @@ def _resolve_sdk_metrics(
     Raises ``ValueError`` when a requested metric name does not exist
     or none of the resolved metrics could be instantiated.
     """
-    from rhesis.backend.metrics.evaluator import MetricEvaluator
+    import dataclasses
+
+    from rhesis.backend.metrics.metric_config import metric_model_to_config
     from rhesis.backend.tasks.execution.test import get_evaluation_model
     from rhesis.sdk.metrics import MetricFactory
 
@@ -48,12 +50,13 @@ def _resolve_sdk_metrics(
 
     sdk_metrics = []
     for m in resolved:
-        config = MetricEvaluator._metric_model_to_dict(m)
-        backend = config.get("backend", "rhesis")
-        class_name = config.get("class_name")
+        cfg = metric_model_to_config(m)
+        backend_raw = getattr(cfg.backend, "value", cfg.backend)
+        backend = backend_raw if isinstance(backend_raw, str) else "rhesis"
+        class_name = cfg.class_name
         if not class_name or not backend:
             continue
-        params = {**config}
+        params = dataclasses.asdict(cfg)
         params.pop("class_name", None)
         params.pop("backend", None)
         if model is not None:

@@ -1690,6 +1690,7 @@ class TestGenerateOutputsForTests:
                 endpoint_id=str(uuid.uuid4()),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
+                overwrite=True,
             )
 
         assert result["generated"] == 3
@@ -1757,6 +1758,7 @@ class TestGenerateOutputsForTests:
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 test_ids=[uuid.UUID(one_test_id)],
+                overwrite=True,
             )
 
         assert result["generated"] == 1
@@ -1800,6 +1802,7 @@ class TestGenerateOutputsForTests:
                 endpoint_id=str(uuid.uuid4()),
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
+                overwrite=True,
             )
 
         assert result["generated"] == 2
@@ -1829,6 +1832,7 @@ class TestGenerateOutputsForTests:
                 user_id=authenticated_user_id,
                 topic="Safety",
                 include_subtopics=True,
+                overwrite=True,
             )
         # Safety has 1 test; Safety/Violence has 2 tests -> 3 total
         assert result["generated"] == 3
@@ -1858,6 +1862,7 @@ class TestGenerateOutputsForTests:
                 user_id=authenticated_user_id,
                 topic="Safety",
                 include_subtopics=False,
+                overwrite=True,
             )
         # Only 1 test is directly under Safety (not under Safety/Violence)
         assert result["generated"] == 1
@@ -1887,10 +1892,61 @@ class TestGenerateOutputsForTests:
                 user_id=authenticated_user_id,
                 topic="Safety/Violence",
                 include_subtopics=False,
+                overwrite=True,
             )
         assert result["generated"] == 2
         assert len(result["updated"]) == 2
         assert mock_svc.invoke_endpoint.await_count == 2
+
+    async def test_skips_tests_with_existing_output(
+        self,
+        test_db: Session,
+        adaptive_test_set,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """When overwrite=False, tests that already have outputs are skipped."""
+        mock_svc = MagicMock()
+        mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "generated"})
+        with (
+            patch(_SVC_PATCH, return_value=mock_svc),
+            patch(_DB_CTX_PATCH, _mock_db_context(test_db)),
+        ):
+            result = await generate_outputs_for_tests(
+                db=test_db,
+                test_set_identifier=str(adaptive_test_set.id),
+                endpoint_id=str(uuid.uuid4()),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                overwrite=False,
+            )
+        assert result["generated"] == 0
+        assert result["skipped"] == 3
+
+    async def test_overwrite_regenerates_existing_output(
+        self,
+        test_db: Session,
+        adaptive_test_set,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """When overwrite=True, tests are regenerated even if they have outputs."""
+        mock_svc = MagicMock()
+        mock_svc.invoke_endpoint = AsyncMock(return_value={"output": "regenerated"})
+        with (
+            patch(_SVC_PATCH, return_value=mock_svc),
+            patch(_DB_CTX_PATCH, _mock_db_context(test_db)),
+        ):
+            result = await generate_outputs_for_tests(
+                db=test_db,
+                test_set_identifier=str(adaptive_test_set.id),
+                endpoint_id=str(uuid.uuid4()),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                overwrite=True,
+            )
+        assert result["generated"] == 3
+        assert result["skipped"] == 0
 
 
 # ============================================================================
@@ -1951,6 +2007,7 @@ class TestEvaluateTestsForAdaptiveSet:
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],
+                overwrite=True,
             )
 
         assert "evaluated" in result
@@ -1994,6 +2051,7 @@ class TestEvaluateTestsForAdaptiveSet:
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],
+                overwrite=True,
             )
 
         for item in result["results"]:
@@ -2069,6 +2127,7 @@ class TestEvaluateTestsForAdaptiveSet:
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],
                 test_ids=[uuid.UUID(one_id)],
+                overwrite=True,
             )
 
         assert result["evaluated"] == 1
@@ -2100,6 +2159,7 @@ class TestEvaluateTestsForAdaptiveSet:
                 metric_names=[metric.name],
                 topic="Safety",
                 include_subtopics=True,
+                overwrite=True,
             )
 
         assert result["evaluated"] == 3
@@ -2134,6 +2194,7 @@ class TestEvaluateTestsForAdaptiveSet:
                 metric_names=[metric.name],
                 topic="Safety",
                 include_subtopics=False,
+                overwrite=True,
             )
 
         assert result["evaluated"] == 1
@@ -2161,6 +2222,7 @@ class TestEvaluateTestsForAdaptiveSet:
                 organization_id=test_org_id,
                 user_id=authenticated_user_id,
                 metric_names=[metric.name],
+                overwrite=True,
             )
 
         result_ids = {r["test_id"] for r in result["results"]}
@@ -2172,3 +2234,64 @@ class TestEvaluateTestsForAdaptiveSet:
         )
         marker_ids = {n.id for n in tree if n.label == "topic_marker"}
         assert result_ids.isdisjoint(marker_ids)
+
+    async def test_evaluate_skips_already_labeled(
+        self,
+        test_db: Session,
+        adaptive_test_set,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """When overwrite=False, tests that already have labels are skipped."""
+        metric = _create_metric(test_db, "SkipMetric", test_org_id, authenticated_user_id)
+        test_db.commit()
+
+        with (
+            patch(_FACTORY_PATCH, return_value=MagicMock()),
+            patch(
+                _RUN_METRICS_PATCH,
+                new=AsyncMock(return_value=_mock_evaluator_result("SkipMetric", "pass", 1.0)),
+            ),
+        ):
+            result = await evaluate_tests_for_adaptive_set(
+                db=test_db,
+                test_set_identifier=str(adaptive_test_set.id),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                metric_names=[metric.name],
+                overwrite=False,
+            )
+
+        # The fixture has 3 tests, but 2 already have labels ("pass" and "fail")
+        assert result["evaluated"] == 1
+        assert result["skipped"] == 2
+
+    async def test_evaluate_overwrite_relabels(
+        self,
+        test_db: Session,
+        adaptive_test_set,
+        test_org_id,
+        authenticated_user_id,
+    ):
+        """When overwrite=True, tests are evaluated even if they have labels."""
+        metric = _create_metric(test_db, "OverwriteMetric", test_org_id, authenticated_user_id)
+        test_db.commit()
+
+        with (
+            patch(_FACTORY_PATCH, return_value=MagicMock()),
+            patch(
+                _RUN_METRICS_PATCH,
+                new=AsyncMock(return_value=_mock_evaluator_result("OverwriteMetric", "pass", 1.0)),
+            ),
+        ):
+            result = await evaluate_tests_for_adaptive_set(
+                db=test_db,
+                test_set_identifier=str(adaptive_test_set.id),
+                organization_id=test_org_id,
+                user_id=authenticated_user_id,
+                metric_names=[metric.name],
+                overwrite=True,
+            )
+
+        assert result["evaluated"] == 3
+        assert result["skipped"] == 0
