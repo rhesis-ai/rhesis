@@ -60,6 +60,7 @@ class EvaluateRequest(Base):
     test_ids: Optional[List[UUID4]] = None
     topic: Optional[str] = None
     include_subtopics: bool = True
+    overwrite: bool = False
 
 
 class EvaluateResultItem(BaseModel):
@@ -82,6 +83,7 @@ class EvaluateResponse(Base):
     """Response for evaluate. Results are persisted in test metadata."""
 
     evaluated: int
+    skipped: int = 0
     results: List[EvaluateResultItem]
     failed: List[EvaluateFailedItem]
 

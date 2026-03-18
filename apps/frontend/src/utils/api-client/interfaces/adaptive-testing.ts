@@ -149,6 +149,7 @@ export interface EvaluateRequest {
   test_ids?: string[] | null;
   topic?: string | null;
   include_subtopics?: boolean;
+  overwrite?: boolean;
 }
 
 export interface EvaluateResultItem {
@@ -165,6 +166,7 @@ export interface EvaluateFailedItem {
 
 export interface EvaluateResponse {
   evaluated: number;
+  skipped: number;
   results: EvaluateResultItem[];
   failed: EvaluateFailedItem[];
 }

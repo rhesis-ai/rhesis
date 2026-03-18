@@ -519,6 +519,7 @@ async def evaluate_tests(
             test_ids=list(body.test_ids) if body.test_ids else None,
             topic=body.topic,
             include_subtopics=body.include_subtopics,
+            overwrite=body.overwrite,
         )
     except ValueError as e:
         msg = str(e).lower()
@@ -528,6 +529,7 @@ async def evaluate_tests(
 
     return EvaluateResponse(
         evaluated=result["evaluated"],
+        skipped=result["skipped"],
         results=[
             EvaluateResultItem(
                 test_id=r["test_id"],

@@ -1196,6 +1196,7 @@ async def evaluate_tests_for_adaptive_set(
     test_ids: Optional[List[UUID]] = None,
     topic: Optional[str] = None,
     include_subtopics: bool = True,
+    overwrite: bool = False,
 ) -> Dict[str, Any]:
     """Evaluate adaptive testing tests with the specified metrics.
 
@@ -1220,11 +1221,14 @@ async def evaluate_tests_for_adaptive_set(
         Limit evaluation to tests under this topic path
     include_subtopics : bool, default True
         When topic is set, include subtopics or not
+    overwrite : bool, default False
+        If False, tests that already have evaluation results will be skipped.
 
     Returns
     -------
     dict
         - evaluated: number of tests evaluated
+        - skipped: number of tests skipped due to existing results
         - results: list of {test_id, label, labeler, model_score}
         - failed: list of {test_id, error}
 
@@ -1240,7 +1244,16 @@ async def evaluate_tests_for_adaptive_set(
         raise ValueError(f"Test set not found with identifier: {test_set_identifier}")
 
     tests = _get_test_set_tests_from_db(db, db_test_set.id, organization_id, user_id)
-    eligible = _build_eligible_tests(tests, test_ids, topic, include_subtopics)
+    eligible_raw = _build_eligible_tests(tests, test_ids, topic, include_subtopics)
+
+    eligible = []
+    skipped = 0
+    for t in eligible_raw:
+        meta = t.test_metadata or {}
+        if not overwrite and meta.get("label", "").strip():
+            skipped += 1
+            continue
+        eligible.append(t)
 
     async def _evaluate_test(test) -> Dict[str, Any]:
         test_id_str = str(test.id)
@@ -1342,11 +1355,12 @@ async def evaluate_tests_for_adaptive_set(
     logger.info(
         f"Evaluate: test_set={test_set_identifier}, "
         f"metrics={metric_names!r}, topic={topic!r}, "
-        f"evaluated={len(results)}, failed={len(failed)}"
+        f"evaluated={len(results)}, skipped={skipped}, failed={len(failed)}"
     )
 
     return {
         "evaluated": len(results),
+        "skipped": skipped,
         "results": results,
         "failed": failed,
     }
