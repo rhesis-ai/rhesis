@@ -32,11 +32,22 @@ export async function POST(req: NextRequest) {
       }),
     });
 
-    const data = await response.json();
+    let data: Record<string, unknown> = {};
+    try {
+      data = await response.json();
+    } catch {
+      const text = await response.text().catch(() => '');
+      if (!response.ok) {
+        return NextResponse.json(
+          { error: text || 'Failed to send feedback' },
+          { status: response.status }
+        );
+      }
+    }
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: data.message || 'Failed to send feedback' },
+        { error: data.detail || data.message || 'Failed to send feedback' },
         { status: response.status }
       );
     }

@@ -1,9 +1,10 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field
 
+from rhesis.backend.app.utils.rate_limit import FEEDBACK_RATE_LIMIT, limiter
 from rhesis.backend.notifications import email_service
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ class FeedbackRequest(BaseModel):
     feedback: str
     user_name: Optional[str] = None
     user_email: Optional[str] = None
-    rating: Optional[float] = None
+    rating: Optional[float] = Field(None, ge=1, le=5)
 
 
 class FeedbackResponse(BaseModel):
@@ -24,7 +25,8 @@ class FeedbackResponse(BaseModel):
 
 
 @router.post("/", response_model=FeedbackResponse)
-def submit_feedback(request_data: FeedbackRequest) -> FeedbackResponse:
+@limiter.limit(FEEDBACK_RATE_LIMIT)
+def submit_feedback(request: Request, request_data: FeedbackRequest) -> FeedbackResponse:
     """
     Submit user feedback and send a notification email to the Rhesis team.
 
@@ -32,7 +34,7 @@ def submit_feedback(request_data: FeedbackRequest) -> FeedbackResponse:
     anonymous users can also submit feedback.
     """
     if not request_data.feedback.strip():
-        return FeedbackResponse(success=False, message="Feedback content is required")
+        raise HTTPException(status_code=400, detail="Feedback content is required")
 
     success = email_service.send_feedback_email(
         user_name=request_data.user_name or "Anonymous User",
@@ -44,6 +46,6 @@ def submit_feedback(request_data: FeedbackRequest) -> FeedbackResponse:
     if success:
         logger.info(f"Feedback email sent from {request_data.user_email or 'anonymous'}")
         return FeedbackResponse(success=True, message="Feedback sent successfully")
-    else:
-        logger.warning("Failed to send feedback email (SMTP not configured or send error)")
-        return FeedbackResponse(success=False, message="Failed to send feedback")
+
+    logger.warning("Failed to send feedback email (SMTP not configured or send error)")
+    raise HTTPException(status_code=503, detail="Failed to send feedback")
