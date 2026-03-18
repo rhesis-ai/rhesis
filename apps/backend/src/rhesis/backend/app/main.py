@@ -393,15 +393,26 @@ app.add_middleware(
     expose_headers=["X-Total-Count", "X-Test-Header"],
 )
 
+# Get session secret securely without default fallback in production
+session_secret = os.getenv("SESSION_SECRET_KEY")
+
+from rhesis.backend.app.routers.auth import is_running_locally
+
+if not session_secret:
+    if is_running_locally():
+        session_secret = "fallback-secret-for-development"
+    else:
+        raise ValueError("CRITICAL: SESSION_SECRET_KEY must be set in production environments")
+
 # Add session middleware
 # For OAuth state preservation, we need proper cookie configuration
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("AUTH0_SECRET_KEY"),
+    secret_key=session_secret,
     session_cookie="session",
     max_age=3600,  # 1 hour session lifetime
     same_site="lax",  # Required for OAuth flows
-    https_only=False,  # False for local development (http)
+    https_only=not is_running_locally(),  # Enforce HTTPS outside local development
 )
 
 
