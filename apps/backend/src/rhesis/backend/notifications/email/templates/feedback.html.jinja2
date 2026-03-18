@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Rhesis AI Feedback</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: #e8f4fd; border-left: 4px solid #0ea5e9; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h2 style="color: #0369a1; margin-top: 0;">
+            User Feedback
+        </h2>
+        <p style="margin: 0; color: #0369a1;">
+            A user has submitted feedback for Rhesis AI.
+        </p>
+    </div>
+
+    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: #1D2939; margin-top: 0;">User Information</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold; width: 40%;">Name:</td>
+                <td style="padding: 8px 0;">{{ user_name }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Email:</td>
+                <td style="padding: 8px 0;">{{ user_email }}</td>
+            </tr>
+            {% if rating and rating != "N/A" %}
+            <tr>
+                <td style="padding: 8px 0; font-weight: bold;">Rating:</td>
+                <td style="padding: 8px 0;">{{ rating }}/5 stars</td>
+            </tr>
+            {% endif %}
+        </table>
+    </div>
+
+    <div style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="color: #1D2939; margin-top: 0;">Feedback</h3>
+        <p style="white-space: pre-wrap; margin: 0;">{{ feedback }}</p>
+    </div>
+
+    {% include '_imprint.html.jinja2' %}
+</body>
+</html>

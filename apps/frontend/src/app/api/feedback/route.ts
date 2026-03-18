@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
 import { auth } from '@/auth';
+import { getServerBackendUrl } from '@/utils/url-resolver';
 
 export async function POST(req: NextRequest) {
   try {
-    // Get feedback data from request body
     const { feedback, email, rating } = await req.json();
 
     if (!feedback || feedback.trim() === '') {
@@ -14,60 +13,51 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get session (if user is logged in)
     const session = await auth();
-    const userEmail = session?.user?.email || email || 'Anonymous User';
-    const userName = session?.user?.name || 'Anonymous User';
+    const userEmail = session?.user?.email || email || undefined;
+    const userName = session?.user?.name || undefined;
 
-    // Create transporter with SMTP configuration
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT) || 465,
-      secure: true,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
+    const backendUrl = `${getServerBackendUrl()}/feedback/`;
+
+    const response = await fetch(backendUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        feedback,
+        user_name: userName,
+        user_email: userEmail,
+        rating,
+      }),
     });
 
-    // Prepare email content
-    const emailSubject = `Rhesis AI Feedback - ${rating ? `Rating: ${rating}/5` : 'New Feedback'}`;
-    const emailText = `
-User Feedback:
---------------
-From: ${userName} (${userEmail})
-${rating ? `Rating: ${rating}/5 stars` : ''}
+    let data: Record<string, unknown> = {};
+    try {
+      data = await response.json();
+    } catch {
+      const text = await response.text().catch(() => '');
+      if (!response.ok) {
+        return NextResponse.json(
+          { error: text || 'Failed to send feedback' },
+          { status: response.status }
+        );
+      }
+    }
 
-Feedback:
-${feedback}
-    `;
-
-    const emailHtml = `
-<h2>User Feedback</h2>
-<p><strong>From:</strong> ${userName} (${userEmail})</p>
-${rating ? `<p><strong>Rating:</strong> ${rating}/5 stars</p>` : ''}
-
-<h3>Feedback:</h3>
-<p>${feedback.replace(/\n/g, '<br/>')}</p>
-    `;
-
-    // Send email
-    const mailOptions = {
-      from: 'engineering@rhesis.ai',
-      to: 'hello@rhesis.ai',
-      replyTo: email || 'noreply@rhesis.ai',
-      subject: emailSubject,
-      text: emailText,
-      html: emailHtml,
-    };
-
-    await transporter.sendMail(mailOptions);
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: data.detail || data.message || 'Failed to send feedback' },
+        { status: response.status }
+      );
+    }
 
     return NextResponse.json({
-      success: true,
-      message: 'Feedback sent successfully',
+      success: data.success,
+      message: data.message,
     });
-  } catch (_error) {
+  } catch (error) {
+    console.error('Error in feedback route:', error);
     return NextResponse.json(
       { error: 'Failed to send feedback' },
       { status: 500 }
