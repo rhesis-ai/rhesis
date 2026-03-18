@@ -1505,6 +1505,7 @@ class TestGenerateOutputsEndpoint:
         """POST with endpoint_id returns 200 and GenerateOutputsResponse shape."""
         mock_generate.return_value = {
             "generated": 2,
+            "skipped": 0,
             "failed": [{"test_id": "tid-1", "error": "timeout"}],
             "updated": [
                 {"test_id": "tid-2", "output": "out two"},
@@ -1546,6 +1547,7 @@ class TestGenerateOutputsEndpoint:
         """POST with test_ids passes them to the service."""
         mock_generate.return_value = {
             "generated": 1,
+            "skipped": 0,
             "failed": [],
             "updated": [{"test_id": "tid-1", "output": "single"}],
         }
@@ -1575,6 +1577,7 @@ class TestGenerateOutputsEndpoint:
         """POST with topic and include_subtopics passes them to the service."""
         mock_generate.return_value = {
             "generated": 1,
+            "skipped": 0,
             "failed": [],
             "updated": [{"test_id": "tid-1", "output": "out"}],
         }
@@ -1648,6 +1651,7 @@ class TestEvaluateEndpoint:
         """POST with metric_names returns 200 and EvaluateResponse."""
         mock_evaluate.return_value = {
             "evaluated": 2,
+            "skipped": 0,
             "results": [
                 {
                     "test_id": "tid-1",
@@ -1718,6 +1722,7 @@ class TestEvaluateEndpoint:
         """POST with test_ids passes them to the service."""
         mock_evaluate.return_value = {
             "evaluated": 1,
+            "skipped": 0,
             "results": [
                 {
                     "test_id": "tid-1",
@@ -1752,6 +1757,7 @@ class TestEvaluateEndpoint:
         """POST with topic and include_subtopics passes them."""
         mock_evaluate.return_value = {
             "evaluated": 1,
+            "skipped": 0,
             "results": [
                 {
                     "test_id": "tid-1",
