@@ -92,7 +92,7 @@ async def execute_test_in_place(
             expected_response = test.prompt.get("expected_response", "")
 
     # Determine test type
-    from rhesis.backend.tasks.enums import TestType
+    from rhesis.backend.app.constants import TestType
     from rhesis.backend.tasks.execution.modes import get_test_type
 
     test_type = get_test_type(test)

@@ -34,8 +34,38 @@ class EntityType(Enum):
         return entity_type
 
 
+# TestType Enum - DB-level test classification aligned with initial_data.json type_lookup
+class TestType(str, Enum):
+    """
+    Enum for test types.
+
+    These are reserved test type values in the TypeLookup table:
+    - SINGLE_TURN: Traditional single request-response tests
+    - MULTI_TURN: Agentic multi-turn conversation tests using Penelope
+    """
+    SINGLE_TURN = "Single-Turn"
+    MULTI_TURN = "Multi-Turn"
+
+    @classmethod
+    def get_value(cls, test_type):
+        """Get the string value of a test type"""
+        if isinstance(test_type, cls):
+            return test_type.value
+        return test_type
+
+    @classmethod
+    def from_string(cls, value: str):
+        """Get enum from string value (case-insensitive, accepts snake_case and hyphenated)."""
+        if not value:
+            return None
+        normalized = value.lower().replace("_", "-")
+        for test_type in cls:
+            if test_type.value.lower() == normalized:
+                return test_type
+        return None
+
 # TestSetType Enum - DB-level test set classification aligned with initial_data.json type_lookup
-class TestSetType(Enum):
+class TestSetType(str, Enum):
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
 

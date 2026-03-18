@@ -203,7 +203,7 @@ The system automatically routes tests to the appropriate executor:
 
 <CodeBlock language="python" filename="test_type_detection.py" isTerminal={false}>
 {`from rhesis.backend.tasks.execution.modes import get_test_type, is_multi_turn_test
-from rhesis.backend.tasks.enums import TestType
+from rhesis.backend.app.constants import TestType
 
 # Get test type
 test_type = get_test_type(test)
