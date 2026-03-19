@@ -26,7 +26,7 @@ from rhesis.backend.app.utils.schema_factory import create_detailed_schema
 TestResultDetailSchema = create_detailed_schema(
     schemas.TestResult,
     models.TestResult,
-    include_nested_relationships={"test": ["prompt", "behavior"]},
+    include_nested_relationships={"test": ["prompt", "behavior", "topic"]},
 )
 
 
