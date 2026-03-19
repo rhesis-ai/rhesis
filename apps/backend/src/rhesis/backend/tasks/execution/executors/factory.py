@@ -6,8 +6,8 @@ Uses the Strategy Pattern to select the correct executor based on test type.
 
 import logging
 
-from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.constants import TestType
+from rhesis.backend.app.models.test import Test
 from rhesis.backend.tasks.execution.executors.base import BaseTestExecutor
 from rhesis.backend.tasks.execution.modes import get_test_type
 

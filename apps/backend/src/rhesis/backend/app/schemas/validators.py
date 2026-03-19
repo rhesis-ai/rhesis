@@ -10,30 +10,29 @@ def format_test_type(v: Optional[str]) -> Optional[str]:
     """Format test type to title case and validate against allowed types."""
     if v is None:
         return None
-        
+
     formatted = v.title()
     allowed_types = [t.value for t in TestType]
-    
+
     if formatted not in allowed_types:
-        raise ValueError(
-            f"Invalid test type '{v}'. Allowed values are: {', '.join(allowed_types)}"
-        )
-        
+        raise ValueError(f"Invalid test type '{v}'. Allowed values are: {', '.join(allowed_types)}")
+
     return formatted
+
 
 def format_test_set_type(v: Optional[str]) -> Optional[str]:
     """Format test set type to title case and validate against allowed types."""
     if v is None:
         return None
-        
+
     formatted = v.title()
     allowed_types = [t.value for t in TestSetType]
-    
+
     if formatted not in allowed_types:
         raise ValueError(
             f"Invalid test set type '{v}'. Allowed values are: {', '.join(allowed_types)}"
         )
-        
+
     return formatted
 
 
