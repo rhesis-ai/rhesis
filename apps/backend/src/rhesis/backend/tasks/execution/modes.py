@@ -10,9 +10,9 @@ import logging
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+from rhesis.backend.app.constants import TestType
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
-from rhesis.backend.app.constants import TestType
 from rhesis.backend.tasks.enums import ExecutionMode
 from rhesis.backend.tasks.utils import safe_uuid_convert
 

@@ -85,6 +85,7 @@ class TestData(BaseModel):
     @classmethod
     def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
         from rhesis.backend.app.schemas.validators import format_test_type
+
         return format_test_type(v)
 
     @field_validator("assignee_id", "owner_id")
@@ -112,7 +113,6 @@ class TestData(BaseModel):
         - test_configuration with goal is provided (multi-turn test)
         """
 
-
         prompt = info.data.get("prompt")
 
         # If prompt is provided, it's a single-turn test - OK
@@ -127,6 +127,7 @@ class TestData(BaseModel):
             )
 
         from rhesis.backend.app.schemas.validators import validate_test_config_content
+
         return validate_test_config_content(v)
 
 
@@ -145,6 +146,7 @@ class TestSetBulkCreate(BaseModel):
     @classmethod
     def validate_test_set_type(cls, v: str) -> str:
         from rhesis.backend.app.schemas.validators import format_test_set_type
+
         return format_test_set_type(v)
 
     @field_validator("owner_id", "assignee_id")

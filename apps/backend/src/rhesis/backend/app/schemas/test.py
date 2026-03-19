@@ -116,12 +116,14 @@ class TestCreate(TestBase):
     @classmethod
     def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
         from rhesis.backend.app.schemas.validators import format_test_type
+
         return format_test_type(v)
 
     @field_validator("test_configuration")
     @classmethod
     def validate_test_configuration(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         from rhesis.backend.app.schemas.validators import validate_test_config_content
+
         return validate_test_config_content(v)
 
 
@@ -137,12 +139,14 @@ class TestUpdate(TestBase):
     @classmethod
     def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
         from rhesis.backend.app.schemas.validators import format_test_type
+
         return format_test_type(v)
 
     @field_validator("test_configuration")
     @classmethod
     def validate_test_configuration(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         from rhesis.backend.app.schemas.validators import validate_test_config_content
+
         return validate_test_config_content(v)
 
 
@@ -188,6 +192,7 @@ class TestBulkCreate(BaseModel):
     @classmethod
     def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
         from rhesis.backend.app.schemas.validators import format_test_type
+
         return format_test_type(v)
 
     @field_validator("assignee_id", "owner_id")
@@ -228,6 +233,7 @@ class TestBulkCreate(BaseModel):
             )
 
         from rhesis.backend.app.schemas.validators import validate_test_config_content
+
         return validate_test_config_content(v)
 
 
@@ -298,6 +304,7 @@ class TestExecuteRequest(BaseModel):
     @classmethod
     def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
         from rhesis.backend.app.schemas.validators import format_test_type
+
         return format_test_type(v)
 
     @field_validator("test_configuration")
@@ -305,6 +312,7 @@ class TestExecuteRequest(BaseModel):
     def validate_test_configuration(cls, v, info):
         """Validate multi-turn test configuration if provided."""
         from rhesis.backend.app.schemas.validators import validate_test_config_content
+
         return validate_test_config_content(v)
 
     def model_post_init(self, __context):
@@ -375,6 +383,7 @@ class ConversationToTestRequest(BaseModel):
     @classmethod
     def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
         from rhesis.backend.app.schemas.validators import format_test_type
+
         return format_test_type(v)
 
 

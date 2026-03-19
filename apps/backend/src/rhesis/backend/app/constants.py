@@ -43,6 +43,7 @@ class TestType(str, Enum):
     - SINGLE_TURN: Traditional single request-response tests
     - MULTI_TURN: Agentic multi-turn conversation tests using Penelope
     """
+
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
 
@@ -63,6 +64,7 @@ class TestType(str, Enum):
             if test_type.value.lower() == normalized:
                 return test_type
         return None
+
 
 # TestSetType Enum - DB-level test set classification aligned with initial_data.json type_lookup
 class TestSetType(str, Enum):
