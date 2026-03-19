@@ -94,8 +94,7 @@ class SendGridClient:
                 f"Cannot send scheduled email to {recipient_email}: SendGrid API key not configured"
             )
             print(
-                f"⚠️  [EMAIL] Skipping email to {recipient_email} — "
-                "SENDGRID_API_KEY not configured."
+                f"⚠️  [EMAIL] Skipping email to {recipient_email} — SENDGRID_API_KEY not configured."
             )
             return False
 

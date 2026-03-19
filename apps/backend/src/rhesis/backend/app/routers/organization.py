@@ -256,10 +256,7 @@ async def initialize_organization_data(
                 f"{current_user.email} — see traceback above."
             )
 
-    print(
-        f"\n  📊  Email scheduling results: {email_results}\n"
-        f"{'=' * 70}\n"
-    )
+    print(f"\n  📊  Email scheduling results: {email_results}\n{'=' * 70}\n")
 
     response["email_schedule"] = email_results
     return response
@@ -306,8 +303,8 @@ async def trigger_test_onboarding_emails(
                 delay_minutes=delay_minutes,
                 simulate=simulate,
             )
-            results[f"day_{day}"] = "simulated" if (simulate and success) else (
-                "scheduled" if success else "skipped"
+            results[f"day_{day}"] = (
+                "simulated" if (simulate and success) else ("scheduled" if success else "skipped")
             )
             if not success:
                 logger.warning(
@@ -319,9 +316,7 @@ async def trigger_test_onboarding_emails(
                 )
         except Exception:
             results[f"day_{day}"] = "error"
-            logger.exception(
-                "Failed to schedule test Day %d email for %s", day, current_user.email
-            )
+            logger.exception("Failed to schedule test Day %d email for %s", day, current_user.email)
 
     print(f"\n  📊  Test email results: {results}\n{'=' * 70}\n")
 
