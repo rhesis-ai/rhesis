@@ -47,6 +47,9 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const activeTourRef = useRef<string | null>(null);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dbLoadedRef = useRef(false);
+  // Set to true while Effect 1 is applying the DB-loaded state so Effect 2
+  // does not schedule a redundant sync for that same state change.
+  const isSyncingFromDbRef = useRef(false);
 
   // Sync with database when session is available
   useEffect(() => {
@@ -57,6 +60,10 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
           const dbProgress = await loadProgressFromDatabase(
             session.session_token
           );
+
+          // Flag that the upcoming setProgress originates from a DB load so
+          // Effect 2 skips scheduling a redundant debounced sync for it.
+          isSyncingFromDbRef.current = true;
 
           // Get current progress (already loaded from localStorage in initial state)
           setProgress(currentProgress => {
@@ -98,6 +105,14 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     if (progress.lastUpdated > 0) {
       // Save to localStorage immediately
       saveProgress(progress);
+
+      // Skip the debounced DB sync when this state change was triggered by
+      // loading from the database — Effect 1 already handles syncing back any
+      // differences, so scheduling a second sync here would be redundant.
+      if (isSyncingFromDbRef.current) {
+        isSyncingFromDbRef.current = false;
+        return;
+      }
 
       // Debounced sync to database (5 seconds after last change)
       if (session?.session_token) {
