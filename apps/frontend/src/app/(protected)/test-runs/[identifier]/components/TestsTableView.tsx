@@ -168,6 +168,12 @@ export default function TestsTableView({
     });
   }, [mergedTests]);
 
+  // Reset to page 0 when the filtered tests list changes length (e.g. after a search/filter)
+  // so the user doesn't land on an empty offset page
+  React.useEffect(() => {
+    setPage(0);
+  }, [tests.length]);
+
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
   };
