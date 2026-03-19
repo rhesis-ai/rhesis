@@ -2,20 +2,14 @@
 
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import desc, func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import Text, cast, desc, func
+from sqlalchemy.orm import Session
 
 from .common import (
-    apply_top_limit,
     build_empty_stats_response,
     build_metadata,
     build_response_data,
-    get_month_key,
-    infer_result_from_status,
     parse_date_range,
-    safe_get_name,
-    safe_get_user_display_name,
-    update_monthly_stats,
 )
 
 # Configuration for response modes
@@ -61,98 +55,29 @@ def _apply_filters(base_query, **filters):
         base_query = base_query.filter(models.TestRun.user_id.in_(filters["user_ids"]))
 
     # Test configuration filters
+    joined_test_config = False
     if filters.get("endpoint_ids"):
         base_query = base_query.join(
             models.TestConfiguration,
             models.TestRun.test_configuration_id == models.TestConfiguration.id,
         ).filter(models.TestConfiguration.endpoint_id.in_(filters["endpoint_ids"]))
+        joined_test_config = True
 
     if filters.get("test_set_ids"):
-        base_query = base_query.join(
-            models.TestConfiguration,
-            models.TestRun.test_configuration_id == models.TestConfiguration.id,
-        ).filter(models.TestConfiguration.test_set_id.in_(filters["test_set_ids"]))
+        if not joined_test_config:
+            base_query = base_query.join(
+                models.TestConfiguration,
+                models.TestRun.test_configuration_id == models.TestConfiguration.id,
+            )
+        base_query = base_query.filter(
+            models.TestConfiguration.test_set_id.in_(filters["test_set_ids"])
+        )
 
     # Status filters
     if filters.get("status_list"):
         base_query = base_query.filter(models.TestRun.status.in_(filters["status_list"]))
 
     return base_query
-
-
-def _compute_test_result_distribution(
-    db: Session, test_run_ids: List[str], organization_id: str = None
-) -> Dict[str, int]:
-    """
-    Compute the distribution of test results by analyzing their test_metrics.
-    Uses the same approach as test_result stats to determine pass/fail based on metrics.
-    """
-    from rhesis.backend.app import models
-
-    if not test_run_ids:
-        return {"passed": 0, "failed": 0, "pending": 0}
-
-    # Get all test results with their test_metrics (SECURITY: Include organization filtering)
-    query = db.query(models.TestResult).filter(models.TestResult.test_run_id.in_(test_run_ids))
-
-    # Apply organization filtering if provided (SECURITY CRITICAL)
-    if organization_id:
-        from uuid import UUID
-
-        query = query.filter(models.TestResult.organization_id == UUID(organization_id))
-
-    test_results = query.all()
-
-    # Count results by analyzing metrics (same logic as test_result.py)
-    passed = 0
-    failed = 0
-    pending = 0
-
-    for result in test_results:
-        if not result.test_metrics or "metrics" not in result.test_metrics:
-            pending += 1
-            continue
-
-        metrics = result.test_metrics["metrics"]
-        if not isinstance(metrics, dict):
-            pending += 1
-            continue
-
-        # Determine if this test result passed overall
-        test_passed_overall = True
-
-        for metric_name, metric_data in metrics.items():
-            if not isinstance(metric_data, dict) or "is_successful" not in metric_data:
-                continue
-
-            is_successful = metric_data["is_successful"]
-            if not is_successful:
-                test_passed_overall = False
-                break
-
-        # Count based on overall result
-        if test_passed_overall:
-            passed += 1
-        else:
-            failed += 1
-
-    return {"passed": passed, "failed": failed, "pending": pending}
-
-
-def _build_timeline_data(monthly_stats: Dict[str, Dict]) -> List[Dict[str, Any]]:
-    """Build timeline data from monthly statistics."""
-    timeline = []
-    for month_key in sorted(monthly_stats.keys()):
-        month_data = monthly_stats[month_key]
-        timeline.append(
-            {
-                "date": month_key,
-                "total_runs": month_data["total"],
-                "status_breakdown": month_data["statuses"],
-                "result_breakdown": month_data["results"],
-            }
-        )
-    return timeline
 
 
 def _get_optimized_aggregated_stats(
@@ -162,20 +87,30 @@ def _get_optimized_aggregated_stats(
     Get aggregated statistics using SQL for better performance.
     Only fetches the data needed for the specific mode.
     """
-    from sqlalchemy import case, extract
+    from sqlalchemy import case, cast, extract, Text
 
     from rhesis.backend.app import models
+
+    # Materialise a subquery of filtered test_run IDs so that each
+    # aggregation query can join independently without duplicate aliases.
+    run_ids_sq = (
+        base_query
+        .with_entities(models.TestRun.id)
+        .subquery("filtered_runs")
+    )
 
     stats = {}
 
     # Status distribution (needed for: all, status, summary)
     if mode in ["all", "status", "summary"]:
         status_query = (
-            base_query.join(models.Status, models.TestRun.status_id == models.Status.id)
-            .with_entities(
+            db.query(
                 models.Status.name.label("status_name"),
                 func.count(models.TestRun.id).label("count"),
             )
+            .select_from(models.TestRun)
+            .join(run_ids_sq, models.TestRun.id == run_ids_sq.c.id)
+            .join(models.Status, models.TestRun.status_id == models.Status.id)
             .group_by(models.Status.name)
         )
 
@@ -184,21 +119,28 @@ def _get_optimized_aggregated_stats(
 
         status_results = status_query.all()
         stats["status_distribution"] = [
-            {"status": row.status_name, "count": row.count} for row in status_results
+            {"status": row.status_name, "count": row.count}
+            for row in status_results
         ]
 
     # Test sets (needed for: all, test_sets)
     if mode in ["all", "test_sets"]:
         test_sets_query = (
-            base_query.join(
-                models.TestConfiguration,
-                models.TestRun.test_configuration_id == models.TestConfiguration.id,
-            )
-            .join(models.TestSet, models.TestConfiguration.test_set_id == models.TestSet.id)
-            .with_entities(
+            db.query(
                 models.TestSet.name.label("test_set_name"),
                 func.count(models.TestRun.id).label("run_count"),
             )
+            .select_from(models.TestRun)
+            .join(run_ids_sq, models.TestRun.id == run_ids_sq.c.id)
+            .join(
+                models.TestConfiguration,
+                models.TestRun.test_configuration_id == models.TestConfiguration.id,
+            )
+            .join(
+                models.TestSet,
+                models.TestConfiguration.test_set_id == models.TestSet.id,
+            )
+            .filter(models.TestSet.deleted_at.is_(None))
             .group_by(models.TestSet.name)
             .order_by(desc("run_count"))
         )
@@ -214,15 +156,21 @@ def _get_optimized_aggregated_stats(
 
     # Executors (needed for: all, executors)
     if mode in ["all", "executors"]:
+        executor_name_expr = func.coalesce(
+            models.User.email, models.User.name, cast(models.User.id, Text)
+        )
+
         executors_query = (
-            base_query.join(models.User, models.TestRun.user_id == models.User.id)
-            .with_entities(
-                func.coalesce(models.User.email, models.User.name, models.User.id).label(
-                    "executor_name"
-                ),
+            db.query(
+                executor_name_expr.label("executor_name"),
                 func.count(models.TestRun.id).label("run_count"),
             )
-            .group_by(func.coalesce(models.User.email, models.User.name, models.User.id))
+            .select_from(models.TestRun)
+            .join(run_ids_sq, models.TestRun.id == run_ids_sq.c.id)
+            .join(models.User, models.TestRun.user_id == models.User.id)
+            .group_by(
+                models.User.email, models.User.name, cast(models.User.id, Text)
+            )
             .order_by(desc("run_count"))
         )
 
@@ -237,18 +185,14 @@ def _get_optimized_aggregated_stats(
 
     # Result distribution (needed for: all, results, summary)
     if mode in ["all", "results", "summary"]:
-        # This is more complex as we need to infer results from status
-        # For now, let's use a simplified approach
         result_query = (
-            base_query.join(
-                models.Status, models.TestRun.status_id == models.Status.id
-            ).with_entities(
-                func.count(case((models.Status.name.ilike("%complet%"), 1), else_=None)).label(
-                    "passed"
-                ),
-                func.count(case((models.Status.name.ilike("%fail%"), 1), else_=None)).label(
-                    "failed"
-                ),
+            db.query(
+                func.count(
+                    case((models.Status.name.ilike("%complet%"), 1), else_=None)
+                ).label("passed"),
+                func.count(
+                    case((models.Status.name.ilike("%fail%"), 1), else_=None)
+                ).label("failed"),
                 func.count(
                     case(
                         (
@@ -260,14 +204,22 @@ def _get_optimized_aggregated_stats(
                     )
                 ).label("pending"),
             )
+            .select_from(models.TestRun)
+            .join(run_ids_sq, models.TestRun.id == run_ids_sq.c.id)
+            .join(models.Status, models.TestRun.status_id == models.Status.id)
         ).first()
 
-        total_results = result_query.passed + result_query.failed + result_query.pending
+        total_results = (
+            result_query.passed + result_query.failed + result_query.pending
+        )
         pass_rate = (
-            round((result_query.passed / total_results) * 100, 2) if total_results > 0 else 0
+            round((result_query.passed / total_results) * 100, 2)
+            if total_results > 0
+            else 0
         )
 
         stats["result_distribution"] = {
+            "total": total_results,
             "passed": result_query.passed,
             "failed": result_query.failed,
             "pending": result_query.pending,
@@ -277,18 +229,24 @@ def _get_optimized_aggregated_stats(
     # Timeline data (needed for: all, timeline)
     if mode in ["all", "timeline"]:
         timeline_query = (
-            base_query.join(models.Status, models.TestRun.status_id == models.Status.id)
-            .with_entities(
+            db.query(
                 extract("year", models.TestRun.created_at).label("year"),
                 extract("month", models.TestRun.created_at).label("month"),
                 func.count(models.TestRun.id).label("total_runs"),
-                func.count(case((models.Status.name.ilike("%complet%"), 1), else_=None)).label(
-                    "passed"
-                ),
-                func.count(case((models.Status.name.ilike("%fail%"), 1), else_=None)).label(
-                    "failed"
-                ),
+                func.count(
+                    case(
+                        (models.Status.name.ilike("%complet%"), 1), else_=None
+                    )
+                ).label("passed"),
+                func.count(
+                    case(
+                        (models.Status.name.ilike("%fail%"), 1), else_=None
+                    )
+                ).label("failed"),
             )
+            .select_from(models.TestRun)
+            .join(run_ids_sq, models.TestRun.id == run_ids_sq.c.id)
+            .join(models.Status, models.TestRun.status_id == models.Status.id)
             .group_by(
                 extract("year", models.TestRun.created_at),
                 extract("month", models.TestRun.created_at),
@@ -306,14 +264,14 @@ def _get_optimized_aggregated_stats(
             pending = row.total_runs - row.passed - row.failed
             timeline_data.append(
                 {
-                    "month": month_key,
+                    "date": month_key,
                     "total_runs": row.total_runs,
-                    "passed": row.passed,
-                    "failed": row.failed,
-                    "pending": pending,
-                    "pass_rate": round((row.passed / row.total_runs) * 100, 2)
-                    if row.total_runs > 0
-                    else 0,
+                    "status_breakdown": {"Completed": row.passed, "Failed": row.failed},
+                    "result_breakdown": {
+                        "passed": row.passed,
+                        "failed": row.failed,
+                        "pending": pending,
+                    },
                 }
             )
 
@@ -385,23 +343,8 @@ def get_test_run_stats(
     # Handle date range - custom dates override months parameter
     start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
 
-    # Base query for test runs with selective eager loading (excluding test results for performance)
-    base_query = (
-        db.query(models.TestRun)
-        .options(
-            # Eager load essential relationships but NOT test results (too many)
-            joinedload(models.TestRun.status),
-            joinedload(models.TestRun.user),
-            joinedload(models.TestRun.test_configuration).joinedload(
-                models.TestConfiguration.test_set
-            ),
-        )
-        .join(
-            models.TestConfiguration,
-            models.TestRun.test_configuration_id == models.TestConfiguration.id,
-        )
-        .join(models.TestSet, models.TestConfiguration.test_set_id == models.TestSet.id)
-    )
+    # Base query for test runs — lightweight, no eager loads needed for SQL aggregation
+    base_query = db.query(models.TestRun)
 
     # Apply all filters using the helper function
     filter_params = {
@@ -417,16 +360,25 @@ def get_test_run_stats(
 
     base_query = _apply_filters(base_query, **filter_params)
 
-    # Add ordering for consistent results
-    base_query = base_query.order_by(models.TestRun.created_at.desc())
+    # Get aggregated statistics using SQL for better performance
+    aggregated_stats = _get_optimized_aggregated_stats(db, base_query, mode, top)
 
-    # Note: Removed LIMIT clause to ensure complete data accuracy
-    # Performance is optimized through eager loading and efficient queries
+    # Check if there are any results to determine if we should return empty response
+    total_runs = 0
+    if (
+        "overall_summary" in aggregated_stats
+        and "total_runs" in aggregated_stats["overall_summary"]
+    ):
+        total_runs = aggregated_stats["overall_summary"]["total_runs"]
+    elif "timeline" in aggregated_stats:
+        total_runs = sum(month["total_runs"] for month in aggregated_stats["timeline"])
+    elif "status_distribution" in aggregated_stats:
+        total_runs = sum(status["count"] for status in aggregated_stats["status_distribution"])
+    else:
+        # Fallback to a count query if we can't infer total runs from requested mode
+        total_runs = base_query.count()
 
-    # Get all test runs with eager loading to prevent N+1 queries
-    test_runs = base_query.all()
-
-    if not test_runs:
+    if total_runs == 0:
         return build_empty_stats_response(
             mode=mode,
             mode_definitions=MODE_DEFINITIONS,
@@ -440,119 +392,59 @@ def get_test_run_stats(
             available_executors=[],
         )
 
-    # Efficiently compute test result distribution using SQL aggregation
-    test_run_ids = [str(test_run.id) for test_run in test_runs]
-    result_stats = _compute_test_result_distribution(db, test_run_ids, organization_id)
-
-    # Initialize other statistics containers
-    status_stats = {}  # status -> count
-    test_stats = {}  # test_set_name -> count
-    executor_stats = {}  # user_name -> count
-    monthly_stats = {}  # "YYYY-MM" -> {total, statuses: {}, results: {}}
-
-    for test_run in test_runs:
-        # Status distribution - use the actual status name from the relationship
-        status_name = safe_get_name(test_run.status)
-        if status_name not in status_stats:
-            status_stats[status_name] = 0
-        status_stats[status_name] += 1
-
-        # Note: Result distribution will be computed separately from all test results
-        # This loop only handles test run-level statistics
-
-        # Most run tests (by test set)
-        if test_run.test_configuration and test_run.test_configuration.test_set:
-            test_set_name = safe_get_name(test_run.test_configuration.test_set)
-            if test_set_name not in test_stats:
-                test_stats[test_set_name] = 0
-            test_stats[test_set_name] += 1
-
-        # Top executors
-        executor_name = safe_get_user_display_name(test_run.user)
-        if executor_name not in executor_stats:
-            executor_stats[executor_name] = 0
-        executor_stats[executor_name] += 1
-
-        # Monthly timeline data (for test run counts, not test result counts)
-        if test_run.created_at:
-            month_key = get_month_key(test_run.created_at)
-            # For timeline, we track test run status, not test result status
-            # Test result distribution is computed separately above
-            result = infer_result_from_status(status_name)
-            update_monthly_stats(monthly_stats, month_key, status_name, result)
-
-    # Apply top limit if specified
-    if top:
-        test_stats = apply_top_limit(test_stats, top)
-        executor_stats = apply_top_limit(executor_stats, top)
-
-    # Build status distribution
-    status_distribution = [
-        {"status": status, "count": count, "percentage": round((count / len(test_runs)) * 100, 2)}
-        for status, count in status_stats.items()
-    ]
-
-    # Build result distribution
-    total_results = sum(result_stats.values())
-    result_distribution = {
-        "total": total_results,
-        "passed": result_stats["passed"],
-        "failed": result_stats["failed"],
-        "pending": result_stats["pending"],
-        "pass_rate": round((result_stats["passed"] / total_results) * 100, 2)
-        if total_results > 0
-        else 0,
-    }
-
-    # Build most run test sets
-    most_run_test_sets = [
-        {"test_set_name": name, "run_count": count}
-        for name, count in sorted(test_stats.items(), key=lambda x: x[1], reverse=True)
-    ]
-
-    # Build top executors
-    top_executors = [
-        {"executor_name": name, "run_count": count}
-        for name, count in sorted(executor_stats.items(), key=lambda x: x[1], reverse=True)
-    ]
-
-    # Build timeline data using helper function
-    timeline = _build_timeline_data(monthly_stats)
+    # Add percentages to status distribution if present
+    if "status_distribution" in aggregated_stats:
+        for status_item in aggregated_stats["status_distribution"]:
+            status_item["percentage"] = (
+                round((status_item["count"] / total_runs) * 100, 2) if total_runs > 0 else 0
+            )
 
     # Build overall summary
-    overall_summary = {
-        "total_runs": len(test_runs),
-        "unique_test_sets": len(test_stats),
-        "unique_executors": len(executor_stats),
-        "most_common_status": max(status_stats.items(), key=lambda x: x[1])[0]
-        if status_stats
-        else "unknown",
-        "pass_rate": result_distribution["pass_rate"],
-    }
+    if mode in ["all", "summary"]:
+        most_common_status = "unknown"
+        if "status_distribution" in aggregated_stats and aggregated_stats["status_distribution"]:
+            most_common_status = max(
+                aggregated_stats["status_distribution"], key=lambda x: x["count"]
+            )["status"]
+
+        overall_summary = {
+            "total_runs": total_runs,
+            "unique_test_sets": len(aggregated_stats.get("most_run_test_sets", [])),
+            "unique_executors": len(aggregated_stats.get("top_executors", [])),
+            "most_common_status": most_common_status,
+            "pass_rate": aggregated_stats.get("result_distribution", {}).get("pass_rate", 0),
+        }
+        aggregated_stats["overall_summary"] = overall_summary
 
     # Build metadata
+    available_statuses = [s["status"] for s in aggregated_stats.get("status_distribution", [])]
+    available_test_sets = [
+        ts["test_set_name"] for ts in aggregated_stats.get("most_run_test_sets", [])
+    ]
+    available_executors = [e["executor_name"] for e in aggregated_stats.get("top_executors", [])]
+
     metadata = build_metadata(
         organization_id=organization_id,
         start_date_obj=start_date_obj,
         end_date_obj=end_date_obj,
         months=months,
         mode=mode,
-        total_items=len(test_runs),
-        total_test_runs=len(test_runs),
-        available_statuses=list(status_stats.keys()),
-        available_test_sets=list(test_stats.keys()),
-        available_executors=list(executor_stats.keys()),
+        total_items=total_runs,
+        total_test_runs=total_runs,
+        available_statuses=available_statuses,
+        available_test_sets=available_test_sets,
+        available_executors=available_executors,
     )
 
     # Return data based on mode using shared helper function
     return build_response_data(
         mode,
         MODE_DEFINITIONS,
-        status_distribution=status_distribution,
-        result_distribution=result_distribution,
-        most_run_test_sets=most_run_test_sets,
-        top_executors=top_executors,
-        timeline=timeline,
-        overall_summary=overall_summary,
+        status_distribution=aggregated_stats.get("status_distribution", []),
+        result_distribution=aggregated_stats.get("result_distribution", {}),
+        most_run_test_sets=aggregated_stats.get("most_run_test_sets", []),
+        top_executors=aggregated_stats.get("top_executors", []),
+        timeline=aggregated_stats.get("timeline", []),
+        overall_summary=aggregated_stats.get("overall_summary", {}),
         metadata=metadata,
     )
