@@ -137,10 +137,11 @@ class SendGridClient:
                 "delay": f"{delay_hours}h {delay_minutes}m",
                 "dynamic_template_data": dynamic_template_data,
             }
-            _print_banner(
-                f"SendGrid payload — {subject}",
-                json.dumps(payload_summary, indent=2),
-            )
+            try:
+                banner_body = json.dumps(payload_summary, indent=2, default=str)
+            except Exception:
+                banner_body = str(payload_summary)
+            _print_banner(f"SendGrid payload — {subject}", banner_body)
 
             if simulate:
                 logger.info(

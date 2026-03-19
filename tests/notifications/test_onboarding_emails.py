@@ -6,7 +6,7 @@ email architecture review: missing env vars causing emails to be quietly dropped
 with no indication in the HTTP response.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 
@@ -168,13 +168,20 @@ class TestOnboardingEmailService:
     """EmailService.send_day_X_email must handle all failure cases explicitly."""
 
     def _make_service_with_mock_client(self, is_configured=True):
-        """Create an EmailService with a mocked SendGridClient."""
-        service = EmailService.__new__(EmailService)
-        mock_sg = MagicMock(spec=SendGridClient)
+        """Create an EmailService with all dependencies patched at construction time."""
+        mock_sg = create_autospec(SendGridClient, instance=True)
         mock_sg.is_configured = is_configured
-        service.sendgrid_client = mock_sg
-        service.smtp_service = MagicMock()
-        service.template_service = MagicMock()
+
+        with (
+            patch(
+                "rhesis.backend.notifications.email.service.SendGridClient",
+                return_value=mock_sg,
+            ),
+            patch("rhesis.backend.notifications.email.service.SMTPService"),
+            patch("rhesis.backend.notifications.email.service.TemplateService"),
+        ):
+            service = EmailService()
+
         return service, mock_sg
 
     def test_send_day_1_returns_false_when_api_key_missing(self):
