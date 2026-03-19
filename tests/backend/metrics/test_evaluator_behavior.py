@@ -1,5 +1,5 @@
 """
-Test current MetricEvaluator behavior (baseline regression tests).
+Test MetricEvaluator orchestration and LocalStrategy behavior.
 
 These tests validate the evaluator orchestration logic in the backend
 and will serve as regression guards during the migration to SDK metrics.
@@ -8,33 +8,39 @@ and will serve as regression guards during the migration to SDK metrics.
 from unittest.mock import MagicMock, patch
 
 from rhesis.backend.metrics import Evaluator, MetricResult
+from rhesis.backend.metrics.strategies.local import LocalStrategy
+
+
+class TestLocalStrategyInit:
+    """Test LocalStrategy stores constructor args correctly."""
+
+    def test_defaults_to_none(self):
+        strategy = LocalStrategy()
+
+        assert strategy._model is None
+        assert strategy._db is None
+        assert strategy._organization_id is None
+
+    def test_with_model(self):
+        strategy = LocalStrategy(model="gpt-4")
+
+        assert strategy._model == "gpt-4"
+
+    def test_with_db_and_org(self):
+        sentinel_db = MagicMock()
+        strategy = LocalStrategy(db=sentinel_db, organization_id="org-123")
+
+        assert strategy._db is sentinel_db
+        assert strategy._organization_id == "org-123"
+
+    def test_backend_value(self):
+        strategy = LocalStrategy()
+
+        assert strategy.backend_value() == "__local__"
 
 
 class TestEvaluatorBehavior:
-    """Test current MetricEvaluator behavior (baseline)."""
-
-    def test_evaluator_initialization(self):
-        """Test MetricEvaluator initialization."""
-        evaluator = Evaluator()
-
-        assert evaluator is not None
-        assert evaluator.model is None  # No model specified
-        assert evaluator.db is None  # No db specified
-        assert evaluator.organization_id is None
-
-    def test_evaluator_with_model(self):
-        """Test evaluator with custom model parameter."""
-        model = "gpt-4"
-        evaluator = Evaluator(model=model)
-
-        assert evaluator.model == model
-
-    def test_evaluator_with_db_and_org(self, test_db, test_org_id):
-        """Test evaluator with database and organization."""
-        evaluator = Evaluator(db=test_db, organization_id=test_org_id)
-
-        assert evaluator.db is test_db
-        assert evaluator.organization_id == test_org_id
+    """Test MetricEvaluator orchestration."""
 
     @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluator_evaluate_single_metric(self, mock_create_metric, numeric_metric_config):
@@ -210,14 +216,6 @@ class TestEvaluatorBehavior:
         assert results is not None
         # Verify context was passed (implicitly through mock being called)
         mock_create_metric.assert_called_once()
-
-    def test_evaluator_no_longer_uses_factory(self):
-        """Test that evaluator no longer has a factory (uses adapter instead)."""
-        evaluator = Evaluator()
-
-        # Factory should not exist anymore
-        assert not hasattr(evaluator, "factory") or evaluator.factory is None
-        # Evaluator uses adapter pattern now, not factory
 
     @patch("rhesis.sdk.metrics.MetricFactory.create")
     def test_evaluator_with_empty_metrics_list(self, mock_create_metric):
