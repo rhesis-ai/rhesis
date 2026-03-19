@@ -47,91 +47,68 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const activeTourRef = useRef<string | null>(null);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dbLoadedRef = useRef(false);
-  // Set to true while Effect 1 is applying the DB-loaded state so Effect 2
-  // does not schedule a redundant sync for that same state change.
-  const isSyncingFromDbRef = useRef(false);
 
-  // Sync with database when session is available
+  // Load from database once when session becomes available, merge with
+  // localStorage, and sync differences back in a single round-trip.
   useEffect(() => {
+    if (!session?.session_token || dbLoadedRef.current) return;
+
     const loadInitialProgress = async () => {
-      // Load from database if user is authenticated
-      if (session?.session_token && !dbLoadedRef.current) {
-        try {
-          const dbProgress = await loadProgressFromDatabase(
+      try {
+        const dbProgress = await loadProgressFromDatabase(
+          session.session_token
+        );
+
+        setProgress(currentProgress => {
+          const mergedProgress = mergeProgress(currentProgress, dbProgress);
+          saveProgress(mergedProgress);
+
+          if (
+            JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress) &&
             session.session_token
-          );
+          ) {
+            syncProgressToDatabase(
+              session.session_token,
+              mergedProgress
+            ).catch(error => {
+              console.error('Error syncing progress to database:', error);
+            });
+          }
 
-          // Flag that the upcoming setProgress originates from a DB load so
-          // Effect 2 skips scheduling a redundant debounced sync for it.
-          isSyncingFromDbRef.current = true;
+          return mergedProgress;
+        });
 
-          // Get current progress (already loaded from localStorage in initial state)
-          setProgress(currentProgress => {
-            // Merge local and remote progress (once complete = always complete)
-            const mergedProgress = mergeProgress(currentProgress, dbProgress);
-
-            // Update localStorage with merged progress
-            saveProgress(mergedProgress);
-
-            // Sync merged progress back to DB if there were any changes
-            if (
-              JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress) &&
-              session.session_token
-            ) {
-              syncProgressToDatabase(
-                session.session_token,
-                mergedProgress
-              ).catch(error => {
-                console.error('Error syncing progress to database:', error);
-              });
-            }
-
-            return mergedProgress;
-          });
-
-          dbLoadedRef.current = true;
-        } catch (error) {
-          console.error('Error loading progress from database:', error);
-          // Continue with localStorage data on error
-        }
+        dbLoadedRef.current = true;
+      } catch (error) {
+        console.error('Error loading progress from database:', error);
+        dbLoadedRef.current = true;
       }
     };
 
     loadInitialProgress();
   }, [session?.session_token]);
 
-  // Save progress to localStorage and debounced sync to database
+  // Persist user-initiated progress changes: save to localStorage
+  // immediately and debounce-sync to the database. Skips until the
+  // initial DB load is complete to avoid redundant writes.
   useEffect(() => {
-    if (progress.lastUpdated > 0) {
-      // Save to localStorage immediately
-      saveProgress(progress);
+    if (progress.lastUpdated <= 0) return;
 
-      // Skip the debounced DB sync when this state change was triggered by
-      // loading from the database — Effect 1 already handles syncing back any
-      // differences, so scheduling a second sync here would be redundant.
-      if (isSyncingFromDbRef.current) {
-        isSyncingFromDbRef.current = false;
-        return;
-      }
+    saveProgress(progress);
 
-      // Debounced sync to database (5 seconds after last change)
-      if (session?.session_token) {
-        const sessionToken = session.session_token; // Capture value for closure
-        // Clear any existing timeout
-        if (syncTimeoutRef.current) {
-          clearTimeout(syncTimeoutRef.current);
-        }
+    if (!dbLoadedRef.current || !session?.session_token) return;
 
-        // Set new timeout for database sync
-        syncTimeoutRef.current = setTimeout(() => {
-          syncProgressToDatabase(sessionToken, progress).catch(error => {
-            console.error('Error syncing progress to database:', error);
-          });
-        }, 5000); // 5 second debounce
-      }
+    const sessionToken = session.session_token;
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
     }
 
-    // Cleanup timeout on unmount
+    syncTimeoutRef.current = setTimeout(() => {
+      syncProgressToDatabase(sessionToken, progress).catch(error => {
+        console.error('Error syncing progress to database:', error);
+      });
+    }, 5000);
+
     return () => {
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);

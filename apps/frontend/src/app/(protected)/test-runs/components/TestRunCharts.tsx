@@ -72,36 +72,18 @@ export default function TestRunCharts({
         const clientFactory = new ApiClientFactory(sessionToken);
         const testRunsClient = clientFactory.getTestRunsClient();
 
-        // Fetch all chart data in parallel
-        const [statusStats, resultStats, testStats, executorStats] =
-          await Promise.all([
-            testRunsClient.getTestRunStats({
-              mode: 'status',
-              top: 5,
-              months: 6,
-            }),
-            testRunsClient.getTestRunStats({
-              mode: 'results',
-              top: 5,
-              months: 6,
-            }),
-            testRunsClient.getTestRunStats({
-              mode: 'test_sets',
-              top: 5,
-              months: 6,
-            }),
-            testRunsClient.getTestRunStats({
-              mode: 'executors',
-              top: 5,
-              months: 6,
-            }),
-          ]);
+        // Fetch all chart data in a single call
+        const allStats = await testRunsClient.getTestRunStats({
+          mode: 'all',
+          top: 5,
+          months: 6,
+        });
 
         if (isMounted.current) {
-          setStatusChart(statusStats as TestRunStatsStatus);
-          setResultChart(resultStats as TestRunStatsResults);
-          setTestChart(testStats as TestRunStatsTests);
-          setExecutorChart(executorStats as TestRunStatsExecutors);
+          setStatusChart(allStats as unknown as TestRunStatsStatus);
+          setResultChart(allStats as unknown as TestRunStatsResults);
+          setTestChart(allStats as unknown as TestRunStatsTests);
+          setExecutorChart(allStats as unknown as TestRunStatsExecutors);
           setIsLoading(false);
         }
       } catch (_err) {

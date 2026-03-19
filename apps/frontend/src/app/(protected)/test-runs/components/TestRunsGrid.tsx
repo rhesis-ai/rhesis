@@ -32,10 +32,6 @@ import TestRunDrawer from './TestRunDrawer';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { combineTestRunFiltersToOData } from '@/utils/odata-filter';
 
-interface ProjectCache {
-  [key: string]: string;
-}
-
 interface TestRunsTableProps {
   sessionToken: string;
   onRefresh?: () => void;
@@ -55,7 +51,6 @@ function TestRunsTable({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [_projectNames, setProjectNames] = useState<ProjectCache>({});
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -97,67 +92,6 @@ function TestRunsTable({
           setTotalCount(response.pagination.totalCount);
           onTotalCountChange?.(response.pagination.totalCount);
           setError(null);
-
-          // Fetch project names for new test runs in batch to avoid multiple state updates
-          const projectIds = response.data
-            .map(run => run.test_configuration?.endpoint?.project_id)
-            .filter((id): id is string => !!id);
-
-          const uniqueProjectIds = [...new Set(projectIds)];
-
-          if (uniqueProjectIds.length > 0) {
-            // Use functional update to check cache and fetch only uncached projects
-            // This avoids circular dependency on projectNames
-            setProjectNames(prev => {
-              const uncachedProjectIds = uniqueProjectIds.filter(
-                id => !prev[id]
-              );
-
-              if (uncachedProjectIds.length > 0) {
-                // Fetch all uncached project names in parallel
-                Promise.all(
-                  uncachedProjectIds.map(async projectId => {
-                    try {
-                      const clientFactory = new ApiClientFactory(sessionToken);
-                      const projectsClient = clientFactory.getProjectsClient();
-                      const project =
-                        await projectsClient.getProject(projectId);
-                      return { projectId, name: project.name };
-                    } catch (_err) {
-                      return null;
-                    }
-                  })
-                ).then(results => {
-                  if (isMounted.current) {
-                    const newProjects = results
-                      .filter(
-                        (
-                          result
-                        ): result is { projectId: string; name: string } =>
-                          result !== null
-                      )
-                      .reduce(
-                        (acc, { projectId, name }) => {
-                          acc[projectId] = name;
-                          return acc;
-                        },
-                        {} as Record<string, string>
-                      );
-
-                    if (Object.keys(newProjects).length > 0) {
-                      setProjectNames(current => ({
-                        ...current,
-                        ...newProjects,
-                      }));
-                    }
-                  }
-                });
-              }
-
-              // Return current state unchanged (actual update happens in Promise.then)
-              return prev;
-            });
-          }
         }
       } catch (_error) {
         if (isMounted.current) {
