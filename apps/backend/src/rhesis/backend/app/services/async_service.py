@@ -7,6 +7,7 @@ This module provides a reusable base class for services that need to:
 """
 
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
@@ -29,6 +30,9 @@ class AsyncService(ABC, Generic[T]):
     - _enqueue_async(): Async task enqueuing logic
     """
 
+    _worker_cache: dict = {"available": None, "checked_at": 0.0}
+    _worker_cache_ttl: float = 300.0  # 5 minutes TTL
+
     def __init__(self):
         """Initialize the async service."""
         pass
@@ -44,23 +48,38 @@ class AsyncService(ABC, Generic[T]):
         Returns:
             True if workers are available, False otherwise
         """
+        current_time = time.time()
+
+        # 1. Check if we have a valid cached result
+        cache = self.__class__._worker_cache
+        if (
+            cache["available"] is not None
+            and current_time - cache["checked_at"] < self._worker_cache_ttl
+        ):
+            return cache["available"]
+
+        # 2. If not, perform the actual ping
+        is_available = False
         try:
             from rhesis.backend.worker import app as celery_app
 
             inspect = celery_app.control.inspect(timeout=3.0)
             ping_result = inspect.ping()
 
-            if not ping_result:
-                return False
-
-            logger.debug(
-                f"Found {len(ping_result)} available worker(s): {list(ping_result.keys())}"
-            )
-            return True
+            if ping_result:
+                logger.debug(
+                    f"Found {len(ping_result)} available worker(s): {list(ping_result.keys())}"
+                )
+                is_available = True
 
         except Exception as e:
             logger.debug(f"Worker availability check failed: {e}")
-            return False
+
+        # 3. Update the cache
+        cache["available"] = is_available
+        cache["checked_at"] = current_time
+
+        return is_available
 
     @abstractmethod
     def _execute_sync(self, *args, **kwargs) -> T:
