@@ -1725,8 +1725,7 @@ def get_test(
 def get_test_detail(
     db: Session, test_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Test]:
-    """Get test with all relationships loaded using optimized approach.
-"""
+    """Get test with all relationships loaded using optimized approach."""
     return get_item_detail(db, models.Test, test_id, organization_id, user_id)
 
 
@@ -2127,8 +2126,7 @@ def delete_test_run(
 def get_test_result(
     db: Session, test_result_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.TestResult]:
-    """Get test_result with relationships (tags, tasks, comments) using optimized approach.
-"""
+    """Get test_result with relationships (tags, tasks, comments) using optimized approach."""
     return get_item_detail(db, models.TestResult, test_result_id, organization_id, user_id)
 
 
@@ -2142,8 +2140,7 @@ def get_test_results(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestResult]:
-    """Get test_results with relationships (tags, tasks, comments) using optimized approach.
-"""
+    """Get test_results with relationships (tags, tasks, comments) using optimized approach."""
     return get_items_detail(
         db,
         models.TestResult,
