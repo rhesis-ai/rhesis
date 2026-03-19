@@ -11,7 +11,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Union
 from uuid import UUID
 
 from sqlalchemy import and_, desc, func, text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import TestExecutionContext
@@ -1906,16 +1906,25 @@ def get_test_runs(
     organization_id: str = None,
     user_id: str = None,
 ) -> List[models.TestRun]:
-    return get_items_detail(
-        db,
-        models.TestRun,
-        skip,
-        limit,
-        sort_by,
-        sort_order,
-        filter,
-        organization_id=organization_id,
-        user_id=user_id,
+    # Defer last_token on nested Endpoint — it's a large encrypted OAuth token that is
+    # never returned in list responses and would otherwise be decrypted for every row.
+    def _defer_endpoint_last_token(q):
+        return q.options(
+            joinedload(models.TestRun.test_configuration)
+            .joinedload(models.TestConfiguration.endpoint)
+            .defer(models.Endpoint.last_token)
+        )
+
+    return (
+        QueryBuilder(db, models.TestRun)
+        .with_optimized_loads(skip_many_to_many=False, skip_one_to_many=True)
+        .with_custom_filter(_defer_endpoint_last_token)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
+        .with_odata_filter(filter)
+        .with_pagination(skip, limit)
+        .with_sorting(sort_by, sort_order)
+        .all()
     )
 
 
