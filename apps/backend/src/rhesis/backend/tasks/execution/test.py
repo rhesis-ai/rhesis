@@ -16,7 +16,9 @@ from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.utils.user_model_utils import get_user_evaluation_model
 from rhesis.backend.tasks.base import SilentTask
 from rhesis.backend.tasks.execution.test_execution import execute_test
-from rhesis.backend.tasks.utils import increment_test_run_progress  # noqa: F401 - used in commented-out progress tracking below
+from rhesis.backend.tasks.utils import (
+    increment_test_run_progress,  # noqa: F401 - used in commented-out progress tracking below
+)
 from rhesis.backend.worker import app
 
 logger = logging.getLogger(__name__)

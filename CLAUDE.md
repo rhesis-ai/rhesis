@@ -20,7 +20,7 @@
 
 ### Ruff Linting and Formatting
 
-When modifying Python files, always run ruff checks and formatting:
+Run ruff checks and formatting **only before pushing** (e.g. before `git push` or creating a pull request):
 
 ```bash
 # Check for linting issues
@@ -33,9 +33,7 @@ uvx ruff format <path/to/file.py>
 uvx ruff check <path/to/file.py>
 ```
 
-Run ruff:
-- **Always** after creating or modifying Python files
-- **Before** completing a task involving Python code
+Run ruff only when preparing to push or open a PR, not after every Python file change.
 
 ### Fixing Line Length Issues
 
