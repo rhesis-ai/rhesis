@@ -306,26 +306,18 @@ class EmailService:
             bool: True if email was sent successfully, False otherwise
         """
         if not self.sendgrid_client.is_configured:
-            logger.warning(
-                f"Cannot send Day {day} email to {recipient_email}: SendGrid API key not configured"
-            )
-            print(
-                f"⚠️  [EMAIL DAY {day}] Skipping — SENDGRID_API_KEY not set. "
-                f"Recipient: {recipient_email}"
-            )
+            logger.warning("Cannot send Day %s email: SendGrid API key not configured", day)
+            print(f"⚠️  [EMAIL DAY {day}] Skipping — SENDGRID_API_KEY not set.")
             return False
 
         template_id = os.getenv(template_env_var)
         if not template_id:
-            logger.warning(f"Cannot send Day {day} email: {template_env_var} not configured")
-            print(
-                f"⚠️  [EMAIL DAY {day}] Skipping — {template_env_var} env var not set. "
-                f"Recipient: {recipient_email}"
-            )
+            logger.warning("Cannot send Day %s email: %s not configured", day, template_env_var)
+            print(f"⚠️  [EMAIL DAY {day}] Skipping — {template_env_var} env var not set.")
             return False
 
         print(
-            f"📬  [EMAIL DAY {day}] Scheduling for {recipient_email} — "
+            f"📬  [EMAIL DAY {day}] Scheduling — "
             f"delay: {delay_hours}h {delay_minutes}m — template: {template_id}"
         )
 

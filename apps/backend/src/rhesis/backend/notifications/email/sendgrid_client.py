@@ -91,11 +91,9 @@ class SendGridClient:
         """
         if not self.is_configured:
             logger.warning(
-                f"Cannot send scheduled email to {recipient_email}: SendGrid API key not configured"
+                "Cannot send scheduled email to [recipient]: SendGrid API key not configured"
             )
-            print(
-                f"⚠️  [EMAIL] Skipping email to {recipient_email} — SENDGRID_API_KEY not configured."
-            )
+            print("⚠️  [EMAIL] Skipping — SENDGRID_API_KEY not configured.")
             return False
 
         try:
@@ -125,17 +123,11 @@ class SendGridClient:
             message.dynamic_template_data = dynamic_template_data
             message.send_at = send_at_timestamp
 
-            to_display = (
-                f"{recipient_name} <{recipient_email}>" if recipient_name else recipient_email
-            )
             payload_summary = {
-                "to": to_display,
-                "from": from_email,
                 "subject": subject,
                 "template_id": template_id,
                 "scheduled_at": send_at_time.isoformat(),
                 "delay": f"{delay_hours}h {delay_minutes}m",
-                "dynamic_template_data": dynamic_template_data,
             }
             try:
                 banner_body = json.dumps(payload_summary, indent=2, default=str)
@@ -145,8 +137,7 @@ class SendGridClient:
 
             if simulate:
                 logger.info(
-                    "[SIMULATE] Would schedule email for %s at %s via template %s",
-                    recipient_email,
+                    "[SIMULATE] Would schedule email at %s via template %s",
                     send_at_time.isoformat(),
                     template_id,
                 )
@@ -158,30 +149,29 @@ class SendGridClient:
 
             if response.status_code in [200, 201, 202]:
                 logger.info(
-                    f"Scheduled email for {recipient_email} to be sent at "
-                    f"{send_at_time.isoformat()} (timestamp: {send_at_timestamp}). "
-                    f"SendGrid response: {response.status_code}"
+                    "Scheduled email to be sent at %s (timestamp: %s). SendGrid response: %s",
+                    send_at_time.isoformat(),
+                    send_at_timestamp,
+                    response.status_code,
                 )
                 print(
-                    f"✅  [EMAIL] Scheduled OK — {recipient_email} — "
-                    f"HTTP {response.status_code} — sends at {send_at_time.isoformat()}\n"
+                    f"✅  [EMAIL] Scheduled OK — HTTP {response.status_code} — "
+                    f"sends at {send_at_time.isoformat()}\n"
                 )
             else:
                 logger.error(
-                    f"SendGrid returned unexpected status {response.status_code} "
-                    f"for {recipient_email}. Body: {response.body}"
+                    "SendGrid returned unexpected status %s. Body: %s",
+                    response.status_code,
+                    response.body,
                 )
                 print(
-                    f"❌  [EMAIL] SendGrid returned HTTP {response.status_code} "
-                    f"for {recipient_email}. Body: {response.body}\n"
+                    f"❌  [EMAIL] SendGrid returned HTTP {response.status_code}. "
+                    f"Body: {response.body}\n"
                 )
 
             return response.status_code in [200, 201, 202]
 
         except Exception as exc:
-            logger.exception(f"Failed to send scheduled email to {recipient_email}")
-            print(
-                f"❌  [EMAIL] Exception while scheduling email for {recipient_email}: "
-                f"{type(exc).__name__}: {exc}\n"
-            )
+            logger.exception("Failed to send scheduled email")
+            print(f"❌  [EMAIL] Exception while scheduling email: {type(exc).__name__}: {exc}\n")
             return False
