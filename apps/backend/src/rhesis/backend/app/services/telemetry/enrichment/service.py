@@ -5,10 +5,11 @@ Handles the coordination between async and sync enrichment strategies.
 
 import logging
 import time
-from typing import TYPE_CHECKING, List, Set
+from typing import TYPE_CHECKING, Any, List, Set
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.services.async_service import AsyncService
 from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 
 if TYPE_CHECKING:
@@ -67,11 +68,12 @@ def check_workers_available() -> bool:
         return False
 
 
-class EnrichmentService:
+class EnrichmentService(AsyncService[dict]):
     """Service for orchestrating trace enrichment with async/sync fallback."""
 
     def __init__(self, db: Session):
         """Initialize the enrichment service."""
+        super().__init__()
         self.db = db
 
     def _check_workers_available(self) -> bool:
@@ -81,6 +83,73 @@ class EnrichmentService:
         uses a TTL-cached Celery ping.
         """
         return check_workers_available()
+
+    def _execute_sync(
+        self,
+        trace_id: str,
+        project_id: str,
+        organization_id: str,
+        root_span_id: str | None = None,
+    ) -> dict | None:
+        """
+        Synchronous enrichment (development fallback).
+
+        Metric evaluation (LLM calls) is skipped — it requires Celery workers
+        and should never run in-process.
+
+        Args:
+            trace_id: Trace ID to enrich
+            project_id: Project ID for access control
+            organization_id: Organization ID for multi-tenant security
+            root_span_id: Unused in sync path; accepted for interface compatibility
+
+        Returns:
+            Enriched trace data or None if enrichment failed
+        """
+        enricher = TraceEnricher(self.db)
+        enriched_data = enricher.enrich_trace(trace_id, project_id, organization_id)
+        if enriched_data:
+            logger.info(f"Completed sync enrichment for trace {trace_id}")
+            logger.warning(
+                f"Trace metrics evaluation skipped for {trace_id} "
+                f"(requires Celery workers for async processing)"
+            )
+        else:
+            logger.warning(f"Sync enrichment returned no data for trace {trace_id}")
+        return enriched_data
+
+    def _enqueue_async(
+        self,
+        trace_id: str,
+        project_id: str,
+        organization_id: str,
+        root_span_id: str | None = None,
+    ) -> Any:
+        """
+        Enqueue async enrichment + evaluation chain.
+
+        Args:
+            trace_id: Trace ID to enrich
+            project_id: Project ID for access control
+            organization_id: Organization ID for multi-tenant security
+            root_span_id: DB primary key of the root span passed through to
+                ``evaluate_turn_trace_metrics`` for multi-turn conversation accuracy
+
+        Returns:
+            Celery AsyncResult
+        """
+        workflow = build_enrichment_chain(
+            trace_id,
+            project_id,
+            organization_id,
+            root_span_id=root_span_id,
+        )
+        result = workflow.apply_async()
+        logger.debug(
+            f"Enqueued async pipeline (enrich -> evaluate) "
+            f"for trace {trace_id} (task: {result.id})"
+        )
+        return result
 
     def enqueue_enrichment(
         self,
@@ -112,52 +181,18 @@ class EnrichmentService:
         Returns:
             True if async task was enqueued, False if sync fallback was used
         """
-        # Check if workers are available (use cached result if provided)
-        if workers_available is None:
-            workers_available = self._check_workers_available()
-
-        if workers_available:
-            try:
-                workflow = build_enrichment_chain(
-                    trace_id,
-                    project_id,
-                    organization_id,
-                    root_span_id=root_span_id,
-                )
-                result = workflow.apply_async()
-                logger.debug(
-                    f"Enqueued async pipeline (enrich -> evaluate) "
-                    f"for trace {trace_id} (task: {result.id})"
-                )
-                return True
-
-            except Exception as e:
-                logger.warning(
-                    f"Async enrichment failed for trace {trace_id}, using sync fallback: {e}"
-                )
-        else:
-            logger.info(f"No Celery workers available, using sync enrichment for trace {trace_id}")
-
-        # Fall back to synchronous enrichment (cost calculation, anomaly
-        # detection).  Metric evaluation (LLM calls) is skipped -- it
-        # requires Celery workers and should never run in-process.
         try:
-            enricher = TraceEnricher(self.db)
-            enriched_data = enricher.enrich_trace(trace_id, project_id, organization_id)
-            if enriched_data:
-                logger.info(f"Completed sync enrichment for trace {trace_id}")
-                logger.warning(
-                    f"Trace metrics evaluation skipped for {trace_id} "
-                    f"(requires Celery workers for async processing)"
-                )
-            else:
-                logger.warning(f"Sync enrichment returned no data for trace {trace_id}")
-            return False
-        except Exception as sync_error:
-            # Log but don't fail the ingestion
-            logger.error(
-                f"Sync enrichment failed for trace {trace_id}: {sync_error}", exc_info=True
+            was_async, _ = self.execute_with_fallback(
+                trace_id,
+                project_id,
+                organization_id,
+                workers_available=workers_available,
+                root_span_id=root_span_id,
             )
+            return was_async
+        except Exception as e:
+            # Log but don't fail the ingestion
+            logger.error(f"Enrichment failed for trace {trace_id}: {e}", exc_info=True)
             return False
 
     def enrich_traces(
@@ -174,20 +209,8 @@ class EnrichmentService:
         Returns:
             Tuple of (async_count, sync_count)
         """
-        async_count = 0
-        sync_count = 0
-
-        # Check worker availability once before the loop to avoid N×3 second timeout
-        # when workers are unavailable (prevents batch processing delays)
-        workers_available = self._check_workers_available()
-
-        for trace_id in trace_ids:
-            if self.enqueue_enrichment(trace_id, project_id, organization_id, workers_available):
-                async_count += 1
-            else:
-                sync_count += 1
-
-        return async_count, sync_count
+        items = [((trace_id, project_id, organization_id), {}) for trace_id in trace_ids]
+        return self.batch_execute(items)
 
     def create_and_enrich_spans(
         self,
