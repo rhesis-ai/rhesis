@@ -168,11 +168,14 @@ export default function TestsTableView({
     });
   }, [mergedTests]);
 
-  // Reset to page 0 when the filtered tests list changes length (e.g. after a search/filter)
-  // so the user doesn't land on an empty offset page
+  // Reset to page 0 only when the current page is out of range for the (filtered) tests list.
+  // This avoids overriding the deep-link page set by the initialSelectedTestId effect on mount.
   React.useEffect(() => {
-    setPage(0);
-  }, [tests.length]);
+    const maxPage = Math.max(0, Math.ceil(tests.length / rowsPerPage) - 1);
+    if (page > maxPage) {
+      setPage(0);
+    }
+  }, [tests.length, page, rowsPerPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
