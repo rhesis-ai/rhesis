@@ -49,9 +49,9 @@ class Test(
     # Configuration for test execution
     test_configuration = Column(JSONB)
     parent_id = Column(GUID(), ForeignKey("test.id"))
-    topic_id = Column(GUID(), ForeignKey("topic.id"))
-    behavior_id = Column(GUID(), ForeignKey("behavior.id"))
-    category_id = Column(GUID(), ForeignKey("category.id"))
+    topic_id = Column(GUID(), ForeignKey("topic.id"), index=True)
+    behavior_id = Column(GUID(), ForeignKey("behavior.id"), index=True)
+    category_id = Column(GUID(), ForeignKey("category.id"), index=True)
     status_id = Column(GUID(), ForeignKey("status.id"))
     source_id = Column(GUID(), ForeignKey("source.id"))
     # Test source info (origin, inputs, context)
