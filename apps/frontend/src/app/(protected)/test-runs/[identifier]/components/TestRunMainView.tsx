@@ -185,12 +185,19 @@ export default function TestRunMainView({
     if (filter.searchQuery) {
       const query = filter.searchQuery.toLowerCase();
       filtered = filtered.filter(test => {
-        const promptContent =
-          test.prompt_id && prompts[test.prompt_id]
-            ? prompts[test.prompt_id].content.toLowerCase()
-            : '';
+        const promptContent = (
+          (test.prompt_id && prompts[test.prompt_id]
+            ? prompts[test.prompt_id].content
+            : test.test?.prompt?.content) || ''
+        ).toLowerCase();
+        const goalContent =
+          test.test_output?.test_configuration?.goal?.toLowerCase() || '';
         const responseContent = test.test_output?.output?.toLowerCase() || '';
-        return promptContent.includes(query) || responseContent.includes(query);
+        return (
+          promptContent.includes(query) ||
+          goalContent.includes(query) ||
+          responseContent.includes(query)
+        );
       });
     }
 
@@ -300,6 +307,7 @@ export default function TestRunMainView({
   const handleFilterChange = useCallback(
     (newFilter: FilterState) => {
       setFilter(newFilter);
+      setPage(0);
       // If current selected test is not in filtered list, clear selection
       const testStillVisible = testResults.some(t => t.id === selectedTestId);
       if (!testStillVisible) {
