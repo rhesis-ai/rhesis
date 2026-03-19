@@ -68,7 +68,7 @@ def check_workers_available() -> bool:
         return False
 
 
-class EnrichmentService(AsyncService[dict]):
+class EnrichmentService(AsyncService[dict | None]):
     """Service for orchestrating trace enrichment with async/sync fallback."""
 
     def __init__(self, db: Session):
