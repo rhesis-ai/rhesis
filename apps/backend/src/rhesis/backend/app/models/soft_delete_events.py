@@ -59,9 +59,10 @@ def setup_soft_delete_listener():
             if entity is None:
                 continue
 
-            # Check if entity has deleted_at column (all Base models do)
-            if hasattr(entity, "deleted_at"):
-                filter_condition = entity.deleted_at.is_(None)
+            # Check if entity has a real deleted_at column (view models set it to None)
+            deleted_at = getattr(entity, "deleted_at", None)
+            if deleted_at is not None:
+                filter_condition = deleted_at.is_(None)
 
                 # Try to use .filter() first (works for most queries)
                 try:
