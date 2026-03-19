@@ -216,14 +216,7 @@ async def initialize_organization_data(
         )
 
     # Schedule onboarding emails AFTER successful DB commit
-    print(
-        f"\n{'=' * 70}\n"
-        f"  🚀  Onboarding complete — scheduling Day 1/2/3 emails\n"
-        f"      Recipient : {current_user.email}\n"
-        f"      Name      : {current_user.name or current_user.given_name or '(none)'}\n"
-        f"      Org ID    : {organization_id}\n"
-        f"{'=' * 70}\n"
-    )
+    logger.info("Onboarding complete — scheduling Day 1/2/3 emails for org_id=%s", organization_id)
 
     email_schedule = [
         (1, email_service.send_day_1_email),
@@ -241,23 +234,17 @@ async def initialize_organization_data(
             email_results[f"day_{day}"] = "scheduled" if success else "skipped"
             if not success:
                 logger.warning(
-                    f"Day {day} email not sent for {current_user.email} (check configuration)"
-                )
-                print(
-                    f"⚠️  [ONBOARDING] Day {day} email was NOT scheduled for "
-                    f"{current_user.email} — check SENDGRID_API_KEY and "
-                    f"SENDGRID_DAY_{day}_EMAIL_TEMPLATE_ID env vars."
+                    "Day %s email not scheduled for org_id=%s — check SENDGRID_API_KEY "
+                    "and SENDGRID_DAY_%s_EMAIL_TEMPLATE_ID env vars.",
+                    day,
+                    organization_id,
+                    day,
                 )
         except Exception:
             email_results[f"day_{day}"] = "error"
-            logger.exception(f"Failed to schedule Day {day} email for {current_user.email}")
-            print(
-                f"❌  [ONBOARDING] Exception scheduling Day {day} email for "
-                f"{current_user.email} — see traceback above."
-            )
+            logger.exception("Failed to schedule Day %s email for org_id=%s", day, organization_id)
 
-    print(f"\n  📊  Email scheduling results: {email_results}\n{'=' * 70}\n")
-
+    logger.info("Email scheduling results for org_id=%s: %s", organization_id, email_results)
     response["email_schedule"] = email_results
     return response
 

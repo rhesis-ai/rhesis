@@ -2,7 +2,6 @@
 SendGrid v3 API client for sending emails with dynamic templates.
 """
 
-import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -15,16 +14,6 @@ from sendgrid.helpers.mail import Email, Mail, To
 logger = logging.getLogger(__name__)
 
 
-def _print_banner(title: str, content: str) -> None:
-    """Print a clearly visible banner to stdout for dev visibility."""
-    separator = "=" * 70
-    print(f"\n{separator}")
-    print(f"  📧  {title}")
-    print(separator)
-    print(content)
-    print(separator + "\n")
-
-
 class SendGridClient:
     """Client for SendGrid v3 API operations."""
 
@@ -34,10 +23,6 @@ class SendGridClient:
 
         if not self.is_configured:
             logger.warning("SendGrid API key not configured. Dynamic template emails disabled.")
-            print(
-                "\n⚠️  [EMAIL] SENDGRID_API_KEY is not set — "
-                "Day 1/2/3 onboarding emails will be silently skipped.\n"
-            )
 
     @staticmethod
     def _parse_email_address(email_string: str) -> Tuple[str, Optional[str]]:
@@ -93,7 +78,6 @@ class SendGridClient:
             logger.warning(
                 "Cannot send scheduled email to [recipient]: SendGrid API key not configured"
             )
-            print("⚠️  [EMAIL] Skipping — SENDGRID_API_KEY not configured.")
             return False
 
         try:
@@ -123,25 +107,12 @@ class SendGridClient:
             message.dynamic_template_data = dynamic_template_data
             message.send_at = send_at_timestamp
 
-            payload_summary = {
-                "subject": subject,
-                "template_id": template_id,
-                "scheduled_at": send_at_time.isoformat(),
-                "delay": f"{delay_hours}h {delay_minutes}m",
-            }
-            try:
-                banner_body = json.dumps(payload_summary, indent=2, default=str)
-            except Exception:
-                banner_body = str(payload_summary)
-            _print_banner(f"SendGrid payload — {subject}", banner_body)
-
             if simulate:
                 logger.info(
                     "[SIMULATE] Would schedule email at %s via template %s",
                     send_at_time.isoformat(),
                     template_id,
                 )
-                print("🔵  [EMAIL SIMULATE] Not calling SendGrid — returning success.\n")
                 return True
 
             sg = SendGridAPIClient(self.api_key)
@@ -154,24 +125,15 @@ class SendGridClient:
                     send_at_timestamp,
                     response.status_code,
                 )
-                print(
-                    f"✅  [EMAIL] Scheduled OK — HTTP {response.status_code} — "
-                    f"sends at {send_at_time.isoformat()}\n"
-                )
             else:
                 logger.error(
                     "SendGrid returned unexpected status %s. Body: %s",
                     response.status_code,
                     response.body,
                 )
-                print(
-                    f"❌  [EMAIL] SendGrid returned HTTP {response.status_code}. "
-                    f"Body: {response.body}\n"
-                )
 
             return response.status_code in [200, 201, 202]
 
-        except Exception as exc:
+        except Exception:
             logger.exception("Failed to send scheduled email")
-            print(f"❌  [EMAIL] Exception while scheduling email: {type(exc).__name__}: {exc}\n")
             return False
