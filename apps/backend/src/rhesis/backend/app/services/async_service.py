@@ -166,5 +166,6 @@ class AsyncService(ABC, Generic[T]):
                 async_count += 1
             else:
                 sync_count += 1
+                workers_available = False
 
         return async_count, sync_count
