@@ -117,7 +117,6 @@ def read_comment(
 ):
     """Get a comment by ID."""
     organization_id, user_id = tenant_context
-    """Get a specific comment by ID"""
     comment = crud.get_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
     )
@@ -136,7 +135,6 @@ def update_comment(
 ):
     """Update a comment."""
     organization_id, user_id = tenant_context
-    """Update a comment"""
     # Check if comment exists
     db_comment = crud.get_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
@@ -166,7 +164,6 @@ def delete_comment(
 ):
     """Delete a comment."""
     organization_id, user_id = tenant_context
-    """Delete a comment"""
     # Check if comment exists
     db_comment = crud.get_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id

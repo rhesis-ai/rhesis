@@ -48,6 +48,7 @@ class TestResultStatsView(Base):
     test_metrics = Column(JSONB)
     status_name = Column(String)
     result = Column(String)
+    test_status_id = Column(GUID())
     behavior_id = Column(GUID())
     category_id = Column(GUID())
     topic_id = Column(GUID())

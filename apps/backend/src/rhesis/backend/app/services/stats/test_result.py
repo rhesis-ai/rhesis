@@ -57,7 +57,7 @@ def _apply_filters(query, db, **f):
         ("behavior_ids", V.behavior_id),
         ("category_ids", V.category_id),
         ("topic_ids", V.topic_id),
-        ("status_ids", None),  # handled below
+        ("status_ids", V.test_status_id),
         ("test_ids", V.test_id),
         ("test_type_ids", V.test_type_id),
         ("user_ids", V.test_user_id),
@@ -116,31 +116,50 @@ def _overall_stats(db, base_q):
 
 
 def _timeline_stats(base_q):
-    q = (
-        base_q.with_entities(
-            V.year,
-            V.month,
-            func.count().filter(V.result == "passed").label("passed"),
-            func.count().filter(V.result == "failed").label("failed"),
-        )
-        .group_by(V.year, V.month)
-        .order_by(V.year, V.month)
-    )
-    timeline = []
-    for r in q.all():
+    rows = base_q.with_entities(
+        V.year, V.month, V.result, V.test_metrics,
+    ).all()
+
+    monthly: dict = {}
+    for r in rows:
         if not r.year or not r.month:
             continue
-        total = (r.passed or 0) + (r.failed or 0)
+        key = f"{r.year:04d}-{r.month:02d}"
+        if key not in monthly:
+            monthly[key] = {"passed": 0, "failed": 0, "metrics": {}}
+        bucket = monthly[key]
+        if r.result == "passed":
+            bucket["passed"] += 1
+        elif r.result == "failed":
+            bucket["failed"] += 1
+
+        if r.test_metrics and isinstance(r.test_metrics, dict):
+            metrics = r.test_metrics.get("metrics")
+            if isinstance(metrics, dict):
+                for name, data in metrics.items():
+                    if not isinstance(data, dict) or "is_successful" not in data:
+                        continue
+                    if name not in bucket["metrics"]:
+                        bucket["metrics"][name] = {"passed": 0, "failed": 0}
+                    if data["is_successful"]:
+                        bucket["metrics"][name]["passed"] += 1
+                    else:
+                        bucket["metrics"][name]["failed"] += 1
+
+    timeline = []
+    for key in sorted(monthly):
+        b = monthly[key]
+        total = b["passed"] + b["failed"]
         timeline.append(
             {
-                "date": f"{r.year:04d}-{r.month:02d}",
+                "date": key,
                 "overall": {
                     "total": total,
-                    "passed": r.passed or 0,
-                    "failed": r.failed or 0,
-                    "pass_rate": round((r.passed / total) * 100, 2) if total > 0 else 0,
+                    "passed": b["passed"],
+                    "failed": b["failed"],
+                    "pass_rate": round((b["passed"] / total) * 100, 2) if total > 0 else 0,
                 },
-                "metrics": {},
+                "metrics": build_pass_rate_stats(b["metrics"]),
             }
         )
     return timeline

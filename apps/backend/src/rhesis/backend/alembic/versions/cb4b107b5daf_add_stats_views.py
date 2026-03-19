@@ -52,6 +52,7 @@ SELECT
             THEN 'failed'
         ELSE 'pending'
     END              AS result,
+    t.status_id      AS test_status_id,
     t.behavior_id,
     t.category_id,
     t.topic_id,
@@ -70,7 +71,7 @@ SELECT
     EXTRACT(YEAR  FROM trs.created_at)::int AS year,
     EXTRACT(MONTH FROM trs.created_at)::int AS month
 FROM test_result trs
-JOIN test t    ON trs.test_id   = t.id
+JOIN test t    ON trs.test_id = t.id AND t.deleted_at IS NULL
 JOIN status s  ON trs.status_id = s.id
 LEFT JOIN behavior b  ON t.behavior_id = b.id
 LEFT JOIN category c  ON t.category_id = c.id
