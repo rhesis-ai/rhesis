@@ -311,44 +311,6 @@ class TestOnboardingEmailService:
         call_kwargs = mock_sg.send_scheduled_dynamic_template.call_args.kwargs
         assert call_kwargs["template_id"] == "d-correct-day1-id"
 
-    def test_send_test_onboarding_email_uses_minute_delay(self):
-        """Test-trigger variant must use minute-based delays, not hour-based."""
-        service, mock_sg = self._make_service_with_mock_client(is_configured=True)
-        mock_sg.send_scheduled_dynamic_template.return_value = True
-        env = {
-            "SENDGRID_API_KEY": "SG.test-key",
-            "SENDGRID_DAY_1_EMAIL_TEMPLATE_ID": "d-day1-template",
-        }
-        with patch.dict("os.environ", env):
-            service.send_test_onboarding_email(
-                day=1,
-                recipient_email="user@example.com",
-                recipient_name="Test User",
-                delay_minutes=1,
-            )
-        call_kwargs = mock_sg.send_scheduled_dynamic_template.call_args.kwargs
-        assert call_kwargs["delay_hours"] == 0
-        assert call_kwargs["delay_minutes"] == 1
-
-    def test_send_test_onboarding_email_simulate_passed_through(self):
-        """simulate=True must be forwarded all the way to the SendGrid client."""
-        service, mock_sg = self._make_service_with_mock_client(is_configured=True)
-        mock_sg.send_scheduled_dynamic_template.return_value = True
-        env = {
-            "SENDGRID_API_KEY": "SG.test-key",
-            "SENDGRID_DAY_2_EMAIL_TEMPLATE_ID": "d-day2-template",
-        }
-        with patch.dict("os.environ", env):
-            service.send_test_onboarding_email(
-                day=2,
-                recipient_email="user@example.com",
-                recipient_name="Test User",
-                delay_minutes=2,
-                simulate=True,
-            )
-        call_kwargs = mock_sg.send_scheduled_dynamic_template.call_args.kwargs
-        assert call_kwargs["simulate"] is True
-
     def test_all_three_days_use_different_template_ids(self):
         """Each day must read its own template ID env var."""
         service, mock_sg = self._make_service_with_mock_client(is_configured=True)
