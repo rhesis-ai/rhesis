@@ -18,7 +18,14 @@ def upgrade() -> None:
     op.create_index(
         "uq_embedding_dedup",
         "embedding",
-        ["organization_id", "entity_id", "entity_type", "config_hash", "text_hash", "status_id"],
+        [
+            "organization_id",
+            "entity_id",
+            "entity_type",
+            "config_hash",
+            "text_hash",
+            "status_id",
+        ],
         unique=True,
     )
 
