@@ -87,7 +87,7 @@ class AsyncService(ABC, Generic[T]):
         pass
 
     def execute_with_fallback(
-        self, *args, workers_available: bool | None = None, **kwargs
+        self, *args, workers_available: bool | None = None, swallow_exceptions: bool = False, **kwargs
     ) -> tuple[bool, T | None]:
         """
         Execute task with async/sync fallback strategy.
@@ -102,6 +102,7 @@ class AsyncService(ABC, Generic[T]):
             workers_available: Optional cached worker availability.
                              If None, will check on this call.
             **kwargs: Keyword arguments for task
+            swallow_exceptions: If True, will swallow exceptions and return None
 
         Returns:
             Tuple of (was_async, result)
@@ -130,9 +131,12 @@ class AsyncService(ABC, Generic[T]):
             return False, result
         except Exception as sync_error:
             logger.error(f"Sync execution failed: {sync_error}", exc_info=True)
+            if swallow_exceptions:
+                return False, None
             raise
 
-    def batch_execute(self, items: list[tuple[tuple, dict]]) -> tuple[int, int]:
+    def batch_execute(self, items: list[tuple[tuple, dict]], swallow_exceptions: bool = False
+        ) -> tuple[int, int]:
         """
         Execute multiple tasks using async/sync fallback strategy.
 
@@ -153,7 +157,10 @@ class AsyncService(ABC, Generic[T]):
 
         for args, kwargs in items:
             was_async, _ = self.execute_with_fallback(
-                *args, workers_available=workers_available, **kwargs
+                *args, 
+                workers_available=workers_available, 
+                swallow_exceptions=swallow_exceptions, 
+                **kwargs
             )
             if was_async:
                 async_count += 1

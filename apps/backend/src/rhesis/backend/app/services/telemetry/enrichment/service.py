@@ -210,7 +210,7 @@ class EnrichmentService(AsyncService[dict]):
             Tuple of (async_count, sync_count)
         """
         items = [((trace_id, project_id, organization_id), {}) for trace_id in trace_ids]
-        return self.batch_execute(items)
+        return self.batch_execute(items, swallow_exceptions=True)
 
     def create_and_enrich_spans(
         self,
