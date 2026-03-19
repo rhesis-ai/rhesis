@@ -33,12 +33,10 @@ const truncateName = (name: string): string => {
 
 interface TestRunChartsProps {
   sessionToken: string;
-  totalCount?: number;
 }
 
 export default function TestRunCharts({
   sessionToken,
-  totalCount = 0,
 }: TestRunChartsProps) {
   const isMounted = useRef(false);
 
@@ -174,8 +172,9 @@ export default function TestRunCharts({
     );
   }
 
-  // Show empty state when no test runs exist
-  if (totalCount === 0) {
+  // Show empty state only when stats confirm there are no runs
+  const hasNoRuns = !statusChart?.status_distribution?.length;
+  if (hasNoRuns) {
     return (
       <Paper
         sx={{

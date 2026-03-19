@@ -13,17 +13,12 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 export default function TestRunsPage() {
   const { data: session, status } = useSession();
   const [refreshKey, setRefreshKey] = React.useState(0);
-  const [totalCount, setTotalCount] = React.useState(0);
 
   // Set document title
   useDocumentTitle('Test Runs');
 
   const handleRefresh = React.useCallback(() => {
     setRefreshKey(prev => prev + 1);
-  }, []);
-
-  const handleTotalCountChange = React.useCallback((count: number) => {
-    setTotalCount(count);
   }, []);
 
   // Handle loading state
@@ -53,7 +48,6 @@ export default function TestRunsPage() {
       {/* Charts Section */}
       <TestRunCharts
         sessionToken={session.session_token}
-        totalCount={totalCount}
         key={`charts-${refreshKey}`}
       />
 
@@ -63,7 +57,6 @@ export default function TestRunsPage() {
           <TestRunsGrid
             sessionToken={session.session_token}
             onRefresh={handleRefresh}
-            onTotalCountChange={handleTotalCountChange}
             key={`grid-${refreshKey}`}
           />
         </Box>
