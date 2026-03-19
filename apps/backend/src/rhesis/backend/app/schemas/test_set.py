@@ -81,6 +81,13 @@ class TestData(BaseModel):
     priority: Optional[int] = None
     metadata: Optional[Dict[str, Any]] = {}
 
+    @field_validator("test_type")
+    @classmethod
+    def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
+        from rhesis.backend.app.schemas.validators import format_test_type
+
+        return format_test_type(v)
+
     @field_validator("assignee_id", "owner_id")
     @classmethod
     def validate_uuid(cls, v):
@@ -105,9 +112,6 @@ class TestData(BaseModel):
         - prompt is provided (single-turn test), OR
         - test_configuration with goal is provided (multi-turn test)
         """
-        from pydantic import ValidationError
-
-        from rhesis.backend.app.schemas.multi_turn_test_config import validate_multi_turn_config
 
         prompt = info.data.get("prompt")
 
@@ -122,21 +126,9 @@ class TestData(BaseModel):
                 "or 'test_configuration' with 'goal' must be provided (for multi-turn tests)"
             )
 
-        # If 'goal' is present, validate as multi-turn config
-        if "goal" in v:
-            try:
-                validated_config = validate_multi_turn_config(v)
-                return validated_config.model_dump(exclude_none=True)
-            except ValidationError as e:
-                error_messages = []
-                for error in e.errors():
-                    field = " -> ".join(str(loc) for loc in error["loc"])
-                    error_messages.append(f"{field}: {error['msg']}")
-                raise ValueError(
-                    f"Invalid multi-turn test configuration: {'; '.join(error_messages)}"
-                )
+        from rhesis.backend.app.schemas.validators import validate_test_config_content
 
-        return v
+        return validate_test_config_content(v)
 
 
 class TestSetBulkCreate(BaseModel):
@@ -149,6 +141,13 @@ class TestSetBulkCreate(BaseModel):
     priority: Optional[int] = None
     tests: List[TestData]
     metadata: Optional[Dict[str, Any]] = None
+
+    @field_validator("test_set_type")
+    @classmethod
+    def validate_test_set_type(cls, v: str) -> str:
+        from rhesis.backend.app.schemas.validators import format_test_set_type
+
+        return format_test_set_type(v)
 
     @field_validator("owner_id", "assignee_id")
     @classmethod

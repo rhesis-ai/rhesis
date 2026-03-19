@@ -34,8 +34,39 @@ class EntityType(Enum):
         return entity_type
 
 
+# TestType Enum - DB-level test classification aligned with initial_data.json type_lookup
+class TestType(str, Enum):
+    """
+    Enum for test types.
+
+    These are reserved test type values in the TypeLookup table:
+    - SINGLE_TURN: Traditional single request-response tests
+    - MULTI_TURN: Agentic multi-turn conversation tests using Penelope
+    """
+
+    SINGLE_TURN = "Single-Turn"
+    MULTI_TURN = "Multi-Turn"
+
+    @classmethod
+    def get_value(cls, test_type):
+        """Get the string value of a test type"""
+        if isinstance(test_type, cls):
+            return test_type.value
+        return test_type
+
+    @classmethod
+    def from_string(cls, value: str):
+        """Get enum from string value (case-sensitive, accepts only allowed values)."""
+        if not value:
+            return None
+        for test_type in cls:
+            if test_type.value == value:
+                return test_type
+        return None
+
+
 # TestSetType Enum - DB-level test set classification aligned with initial_data.json type_lookup
-class TestSetType(Enum):
+class TestSetType(str, Enum):
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
 
@@ -48,17 +79,11 @@ class TestSetType(Enum):
 
     @classmethod
     def from_string(cls, value: str):
-        """Get enum from string value (case-insensitive, accepts snake_case and hyphenated).
-
-        Maps both 'single_turn' and 'Single-Turn' to TestSetType.SINGLE_TURN, so API
-        clients that use snake_case conventions are handled transparently.
-        """
+        """Get enum from string value (case-sensitive, accepts only allowed values)."""
         if not value:
             return None
-        # Normalize underscores to hyphens so snake_case aliases work (single_turn → single-turn)
-        normalized = value.lower().replace("_", "-")
         for test_set_type in cls:
-            if test_set_type.value.lower() == normalized:
+            if test_set_type.value == value:
                 return test_set_type
         return None
 

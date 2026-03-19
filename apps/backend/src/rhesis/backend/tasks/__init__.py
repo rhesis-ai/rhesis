@@ -25,7 +25,6 @@ from rhesis.backend.tasks.enums import (
     DEFAULT_RUN_STATUS_COMPLETED,
     DEFAULT_RUN_STATUS_FAILED,
     DEFAULT_RUN_STATUS_PROGRESS,
-    TestType,
 )
 
 # Import task functions after BaseTask is defined to avoid circular imports

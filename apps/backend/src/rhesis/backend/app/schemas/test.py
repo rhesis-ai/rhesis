@@ -1,10 +1,9 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, field_validator
 
 from rhesis.backend.app.schemas import Base
-from rhesis.backend.app.schemas.multi_turn_test_config import validate_multi_turn_config
 from rhesis.backend.app.schemas.user import UserReference
 
 
@@ -113,36 +112,19 @@ class TestCreate(TestBase):
     prompt: Optional[TestPromptCreate] = None
     test_type: Optional[str] = None
 
+    @field_validator("test_type")
+    @classmethod
+    def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
+        from rhesis.backend.app.schemas.validators import format_test_type
+
+        return format_test_type(v)
+
     @field_validator("test_configuration")
     @classmethod
     def validate_test_configuration(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        """
-        Validate test_configuration JSON based on content.
+        from rhesis.backend.app.schemas.validators import validate_test_config_content
 
-        For multi-turn tests (when goal is present), validates against MultiTurnTestConfig schema.
-        """
-        if v is None:
-            return None
-
-        # If 'goal' is present, this is a multi-turn test configuration
-        if "goal" in v:
-            try:
-                # Validate using multi-turn config schema
-                validated_config = validate_multi_turn_config(v)
-                # Return as dict for storage
-                return validated_config.model_dump(exclude_none=True)
-            except ValidationError as e:
-                # Re-raise with more context
-                error_messages = []
-                for error in e.errors():
-                    field = " -> ".join(str(loc) for loc in error["loc"])
-                    error_messages.append(f"{field}: {error['msg']}")
-                raise ValueError(
-                    f"Invalid multi-turn test configuration: {'; '.join(error_messages)}"
-                )
-
-        # For other configurations, allow any valid JSON
-        return v
+        return validate_test_config_content(v)
 
 
 class TestUpdate(TestBase):
@@ -153,36 +135,19 @@ class TestUpdate(TestBase):
     prompt: Optional[TestPromptCreate] = None
     test_type: Optional[str] = None
 
+    @field_validator("test_type")
+    @classmethod
+    def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
+        from rhesis.backend.app.schemas.validators import format_test_type
+
+        return format_test_type(v)
+
     @field_validator("test_configuration")
     @classmethod
     def validate_test_configuration(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        """
-        Validate test_configuration JSON based on content.
+        from rhesis.backend.app.schemas.validators import validate_test_config_content
 
-        For multi-turn tests (when goal is present), validates against MultiTurnTestConfig schema.
-        """
-        if v is None:
-            return None
-
-        # If 'goal' is present, this is a multi-turn test configuration
-        if "goal" in v:
-            try:
-                # Validate using multi-turn config schema
-                validated_config = validate_multi_turn_config(v)
-                # Return as dict for storage
-                return validated_config.model_dump(exclude_none=True)
-            except ValidationError as e:
-                # Re-raise with more context
-                error_messages = []
-                for error in e.errors():
-                    field = " -> ".join(str(loc) for loc in error["loc"])
-                    error_messages.append(f"{field}: {error['msg']}")
-                raise ValueError(
-                    f"Invalid multi-turn test configuration: {'; '.join(error_messages)}"
-                )
-
-        # For other configurations, allow any valid JSON
-        return v
+        return validate_test_config_content(v)
 
 
 class Test(TestBase):
@@ -221,6 +186,14 @@ class TestBulkCreate(BaseModel):
     owner_id: Optional[UUID4] = None
     status: Optional[str] = None
     priority: Optional[int] = None
+    test_type: Optional[str] = None
+
+    @field_validator("test_type")
+    @classmethod
+    def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
+        from rhesis.backend.app.schemas.validators import format_test_type
+
+        return format_test_type(v)
 
     @field_validator("assignee_id", "owner_id")
     @classmethod
@@ -259,21 +232,9 @@ class TestBulkCreate(BaseModel):
                 "or 'test_configuration' with 'goal' must be provided (for multi-turn tests)"
             )
 
-        # If 'goal' is present, validate as multi-turn config
-        if "goal" in v:
-            try:
-                validated_config = validate_multi_turn_config(v)
-                return validated_config.model_dump(exclude_none=True)
-            except ValidationError as e:
-                error_messages = []
-                for error in e.errors():
-                    field = " -> ".join(str(loc) for loc in error["loc"])
-                    error_messages.append(f"{field}: {error['msg']}")
-                raise ValueError(
-                    f"Invalid multi-turn test configuration: {'; '.join(error_messages)}"
-                )
+        from rhesis.backend.app.schemas.validators import validate_test_config_content
 
-        return v
+        return validate_test_config_content(v)
 
 
 class TestBulkCreateRequest(BaseModel):
@@ -339,23 +300,20 @@ class TestExecuteRequest(BaseModel):
     # Optional: Explicitly specify test type (otherwise auto-detected)
     test_type: Optional[str] = None  # "Single-Turn" or "Multi-Turn"
 
+    @field_validator("test_type")
+    @classmethod
+    def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
+        from rhesis.backend.app.schemas.validators import format_test_type
+
+        return format_test_type(v)
+
     @field_validator("test_configuration")
     @classmethod
     def validate_test_configuration(cls, v, info):
         """Validate multi-turn test configuration if provided."""
-        if v and "goal" in v:
-            try:
-                validated_config = validate_multi_turn_config(v)
-                return validated_config.model_dump(exclude_none=True)
-            except ValidationError as e:
-                error_messages = []
-                for error in e.errors():
-                    field = " -> ".join(str(loc) for loc in error["loc"])
-                    error_messages.append(f"{field}: {error['msg']}")
-                raise ValueError(
-                    f"Invalid multi-turn test configuration: {'; '.join(error_messages)}"
-                )
-        return v
+        from rhesis.backend.app.schemas.validators import validate_test_config_content
+
+        return validate_test_config_content(v)
 
     def model_post_init(self, __context):
         """Validate that either test_id or test definition is provided."""
@@ -420,6 +378,13 @@ class ConversationToTestRequest(BaseModel):
     messages: List[ConversationMessage]
     endpoint_id: Optional[UUID4] = None
     test_type: Optional[str] = "Multi-Turn"  # "Single-Turn" or "Multi-Turn"
+
+    @field_validator("test_type")
+    @classmethod
+    def validate_test_type(cls, v: Optional[str]) -> Optional[str]:
+        from rhesis.backend.app.schemas.validators import format_test_type
+
+        return format_test_type(v)
 
 
 class SingleTurnTestExtraction(BaseModel):
