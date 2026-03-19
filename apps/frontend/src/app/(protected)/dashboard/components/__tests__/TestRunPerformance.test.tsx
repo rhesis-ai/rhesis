@@ -56,16 +56,14 @@ function mockApiClientFactory(
     data: testRuns,
     pagination: { totalCount: testRuns.length },
   });
+
+  const testRunSummary = testRuns
+    .filter((run: any) => run.stats)
+    .map((run: any) => ({ id: run.id, overall: run.stats }));
+
   const mockGetStats = withStatsError
     ? jest.fn().mockRejectedValue(new Error('Stats unavailable'))
-    : jest.fn().mockResolvedValue({
-        overall_pass_rates: {
-          pass_rate: 80,
-          passed: 8,
-          failed: 2,
-          total: 10,
-        },
-      });
+    : jest.fn().mockResolvedValue({ test_run_summary: testRunSummary });
 
   (ApiClientFactory as jest.Mock).mockImplementation(() => ({
     getTestRunsClient: () => ({ getTestRuns: mockGetTestRuns }),
