@@ -1566,9 +1566,11 @@ export default function AdaptiveTestingDetail({
         const list = res?.data ?? [];
         const metricsList = Array.isArray(list) ? list : [];
         const singleTurnMetrics = metricsList.filter(metric => {
-          if (!metric.metric_scope || metric.metric_scope.length === 0) return true;
+          if (!metric.metric_scope || metric.metric_scope.length === 0)
+            return true;
           return metric.metric_scope.some(
-            scope => scope.toLowerCase() === METRIC_SCOPES.SINGLE_TURN.toLowerCase()
+            scope =>
+              scope.toLowerCase() === METRIC_SCOPES.SINGLE_TURN.toLowerCase()
           );
         });
         setMetrics(singleTurnMetrics);
