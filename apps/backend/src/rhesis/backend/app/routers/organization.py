@@ -216,26 +216,36 @@ async def initialize_organization_data(
         )
 
     # Schedule onboarding emails AFTER successful DB commit
-    # Using a loop to avoid repetitive try/except blocks
+    logger.info("Onboarding complete — scheduling Day 1/2/3 emails for org_id=%s", organization_id)
+
     email_schedule = [
         (1, email_service.send_day_1_email),
         (2, email_service.send_day_2_email),
         (3, email_service.send_day_3_email),
     ]
 
+    email_results = {}
     for day, send_method in email_schedule:
         try:
             success = send_method(
                 recipient_email=current_user.email,
                 recipient_name=current_user.name or current_user.given_name,
             )
+            email_results[f"day_{day}"] = "scheduled" if success else "skipped"
             if not success:
                 logger.warning(
-                    f"Day {day} email not sent for {current_user.email} (check configuration)"
+                    "Day %s email not scheduled for org_id=%s — check SENDGRID_API_KEY "
+                    "and SENDGRID_DAY_%s_EMAIL_TEMPLATE_ID env vars.",
+                    day,
+                    organization_id,
+                    day,
                 )
         except Exception:
-            logger.exception(f"Failed to schedule Day {day} email for {current_user.email}")
+            email_results[f"day_{day}"] = "error"
+            logger.exception("Failed to schedule Day %s email for org_id=%s", day, organization_id)
 
+    logger.info("Email scheduling results for org_id=%s: %s", organization_id, email_results)
+    response["email_schedule"] = email_results
     return response
 
 

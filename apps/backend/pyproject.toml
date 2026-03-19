@@ -138,6 +138,7 @@ allow-direct-references = true
 [tool.pytest.ini_options]
 testpaths = [
     "../../tests/backend",
+    "../../tests/notifications",
 ]
 pythonpath = [
     "src",

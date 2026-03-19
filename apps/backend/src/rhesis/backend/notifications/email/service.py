@@ -306,15 +306,21 @@ class EmailService:
             bool: True if email was sent successfully, False otherwise
         """
         if not self.sendgrid_client.is_configured:
-            logger.warning(
-                f"Cannot send Day {day} email to {recipient_email}: SendGrid API key not configured"
-            )
+            logger.warning("Cannot send Day %s email: SendGrid API key not configured", day)
             return False
 
         template_id = os.getenv(template_env_var)
         if not template_id:
-            logger.warning(f"Cannot send Day {day} email: {template_env_var} not configured")
+            logger.warning("Cannot send Day %s email: %s not configured", day, template_env_var)
             return False
+
+        logger.info(
+            "Scheduling Day %s email — delay: %sh %sm — template: %s",
+            day,
+            delay_hours,
+            delay_minutes,
+            template_id,
+        )
 
         if not frontend_url:
             frontend_url = os.getenv("FRONTEND_URL", "https://app.rhesis.ai")
