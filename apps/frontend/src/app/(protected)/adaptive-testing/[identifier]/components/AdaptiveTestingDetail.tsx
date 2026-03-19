@@ -61,6 +61,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import SuggestionsDialog from './SuggestionsDialog';
+import { METRIC_SCOPES } from '@/constants/metric-scopes';
 
 // ============================================================================
 // Types
@@ -1563,7 +1564,16 @@ export default function AdaptiveTestingDetail({
       .then(res => {
         if (cancelled) return;
         const list = res?.data ?? [];
-        setMetrics(Array.isArray(list) ? list : []);
+        const metricsList = Array.isArray(list) ? list : [];
+        const singleTurnMetrics = metricsList.filter(metric => {
+          if (!metric.metric_scope || metric.metric_scope.length === 0)
+            return true;
+          return metric.metric_scope.some(
+            scope =>
+              scope.toLowerCase() === METRIC_SCOPES.SINGLE_TURN.toLowerCase()
+          );
+        });
+        setMetrics(singleTurnMetrics);
       })
       .catch(() => {
         if (!cancelled) setMetrics([]);

@@ -1,11 +1,14 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import crud
+
+if TYPE_CHECKING:
+    from rhesis.sdk.metrics import MetricConfig
 
 from .utils import _build_eligible_tests, _get_test_set_tests_from_db
 
@@ -19,10 +22,11 @@ def _resolve_sdk_metrics(
     organization_id: str,
     user_id: str,
     metric_names: List[str],
-) -> List[Any]:
+) -> List[Tuple[Any, "MetricConfig"]]:
     """Resolve metric names from the DB and instantiate SDK metric objects.
 
-    Returns a list of ready-to-use SDK ``BaseMetric`` instances.
+    Returns a list of tuples containing the ready-to-use SDK ``BaseMetric`` instances
+    and their corresponding ``MetricConfig``.
 
     Raises ``ValueError`` when a requested metric name does not exist
     or none of the resolved metrics could be instantiated.
@@ -31,7 +35,7 @@ def _resolve_sdk_metrics(
 
     from rhesis.backend.metrics.metric_config import metric_model_to_config
     from rhesis.backend.tasks.execution.test import get_evaluation_model
-    from rhesis.sdk.metrics import MetricFactory
+    from rhesis.sdk.metrics import MetricConfig, MetricFactory
 
     name_clauses = " or ".join(f"name eq '{n}'" for n in metric_names)
     resolved = crud.get_metrics(
@@ -48,7 +52,7 @@ def _resolve_sdk_metrics(
 
     model = get_evaluation_model(db, user_id)
 
-    sdk_metrics = []
+    sdk_metrics: List[Tuple[Any, MetricConfig]] = []
     for m in resolved:
         cfg = metric_model_to_config(m)
         backend_raw = getattr(cfg.backend, "value", cfg.backend)
@@ -63,7 +67,7 @@ def _resolve_sdk_metrics(
             params["model"] = model
         try:
             metric = MetricFactory.create(backend, class_name, **params)
-            sdk_metrics.append(metric)
+            sdk_metrics.append((metric, cfg))
         except Exception as exc:
             logger.warning(f"Failed to create SDK metric {class_name}: {exc}")
 
@@ -74,7 +78,7 @@ def _resolve_sdk_metrics(
 
 
 async def _run_metrics_on_text(
-    sdk_metrics: List[Any],
+    sdk_metrics: List[Tuple[Any, "MetricConfig"]],
     input_text: str,
     output_text: str,
 ) -> Dict[str, Any]:
@@ -85,8 +89,12 @@ async def _run_metrics_on_text(
     """
     import inspect
 
+    from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
+
+    score_evaluator = ScoreEvaluator()
+
     metric_results: Dict[str, Any] = {}
-    for metric in sdk_metrics:
+    for metric, config in sdk_metrics:
         sig = inspect.signature(metric.a_evaluate)
         params = sig.parameters
         kwargs: Dict[str, Any] = {}
@@ -100,9 +108,25 @@ async def _run_metrics_on_text(
             kwargs["context"] = []
 
         result = await metric.a_evaluate(**kwargs)
-        is_successful = result.details.get("is_successful", result.score >= 0.5)
+
+        if result.details and "is_successful" in result.details:
+            is_successful = result.details["is_successful"]
+        else:
+            is_successful = score_evaluator.evaluate_score(
+                score=result.score,
+                threshold=config.threshold,
+                threshold_operator=config.threshold_operator,
+                reference_score=config.reference_score,
+                categories=config.categories,
+                passing_categories=config.passing_categories,
+            )
+
+        score = result.score
+        if score is None or not isinstance(score, (int, float)):
+            score = 0.0 if is_successful else 1.0
+
         metric_results[metric.name] = {
-            "score": result.score,
+            "score": score,
             "is_successful": is_successful,
         }
 
