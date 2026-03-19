@@ -46,15 +46,7 @@ def create_model(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create model with super optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new model."""
     organization_id, user_id = tenant_context
     return crud.create_model(db=db, model=model, organization_id=organization_id, user_id=user_id)
 
@@ -169,15 +161,7 @@ def update_model(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update model with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update an existing model."""
     organization_id, user_id = tenant_context
     try:
         db_model = crud.update_model(

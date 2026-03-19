@@ -31,15 +31,7 @@ def create_dimension(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create dimension with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new dimension."""
     organization_id, user_id = tenant_context
     return crud.create_dimension(
         db=db, dimension=dimension, organization_id=organization_id, user_id=user_id

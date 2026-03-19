@@ -35,15 +35,7 @@ async def create_project(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create project with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new project."""
     organization_id, user_id = tenant_context
 
     # Set the current user as the creator if not specified
@@ -93,15 +85,7 @@ def read_project(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Get project with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    """
+    """Get a project by ID."""
     organization_id, user_id = tenant_context
     db_project = crud.get_project(
         db, project_id=project_id, organization_id=organization_id, user_id=user_id
@@ -119,15 +103,7 @@ def update_project(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update project with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update a project by ID."""
     organization_id, user_id = tenant_context
     db_project = crud.get_project(
         db, project_id=project_id, organization_id=organization_id, user_id=user_id
@@ -147,15 +123,7 @@ def delete_project(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Delete project with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during deletion
-    - Direct tenant context injection
-    """
+    """Delete a project by ID."""
     organization_id, user_id = tenant_context
     db_project = crud.get_project(
         db, project_id=project_id, organization_id=organization_id, user_id=user_id

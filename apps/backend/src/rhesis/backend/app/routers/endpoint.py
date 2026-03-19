@@ -46,8 +46,7 @@ def create_endpoint(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create endpoint with optimized approach - no session variables needed.
+    """Create a new endpoint.
 
     If no status_id is provided, the endpoint is automatically assigned
     the "Active" status.

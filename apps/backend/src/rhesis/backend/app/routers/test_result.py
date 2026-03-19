@@ -57,14 +57,7 @@ def create_test_result(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create test result with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
+    """Create a new test result.
 
     The test result can include:
     - test_metrics: Automated metric evaluations
@@ -417,14 +410,7 @@ def update_test_result(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update test_result with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
+    """Update a test result.
 
     Supports updating:
     - test_metrics: Automated evaluations

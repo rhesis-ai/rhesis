@@ -233,15 +233,7 @@ async def create_test_set(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create test set with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new test set."""
     organization_id, user_id = tenant_context
     return crud.create_test_set(
         db=db, test_set=test_set, organization_id=organization_id, user_id=user_id
@@ -369,15 +361,7 @@ async def update_test_set(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update test_set with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update an existing test set."""
     organization_id, user_id = tenant_context
     db_test_set = crud.update_test_set(
         db,

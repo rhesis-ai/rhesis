@@ -36,15 +36,7 @@ def create_token(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create token with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new API token."""
     name = data.get("name")
     expires_in_days = data.get("expires_in_days")
 
@@ -124,15 +116,7 @@ def read_token(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Get token with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    """
+    """Get a token by ID."""
     organization_id, user_id = tenant_context
     db_token = crud.get_token(
         db, token_id=token_id, organization_id=organization_id, user_id=user_id
@@ -149,15 +133,7 @@ def delete_token(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Delete token with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during deletion
-    - Direct tenant context injection
-    """
+    """Delete (revoke) a token by ID."""
     organization_id, user_id = tenant_context
     db_token = crud.revoke_token(
         db, token_id=token_id, organization_id=organization_id, user_id=user_id
@@ -175,15 +151,7 @@ def update_token(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update token with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update a token by ID."""
     organization_id, user_id = tenant_context
     db_token = crud.update_token(
         db, token_id=token_id, token=token, organization_id=organization_id, user_id=user_id

@@ -31,15 +31,7 @@ def create_use_case(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create use case with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new use case."""
     organization_id, user_id = tenant_context
     return crud.create_use_case(
         db=db, use_case=use_case, organization_id=organization_id, user_id=user_id
@@ -80,15 +72,7 @@ def read_use_case(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Get use_case with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    """
+    """Get a use case by ID."""
     organization_id, user_id = tenant_context
     db_use_case = crud.get_use_case(
         db, use_case_id=use_case_id, organization_id=organization_id, user_id=user_id
@@ -105,15 +89,7 @@ def delete_use_case(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Delete use_case with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during deletion
-    - Direct tenant context injection
-    """
+    """Delete a use case by ID."""
     organization_id, user_id = tenant_context
     db_use_case = crud.delete_use_case(
         db, use_case_id=use_case_id, organization_id=organization_id, user_id=user_id
@@ -131,15 +107,7 @@ def update_use_case(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update use_case with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update a use case by ID."""
     organization_id, user_id = tenant_context
     db_use_case = crud.update_use_case(
         db,
