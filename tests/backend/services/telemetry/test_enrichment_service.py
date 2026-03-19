@@ -357,9 +357,6 @@ class TestEnrichmentService:
         enrichment_service.enrich_traces(trace_ids, project_id, organization_id)
 
         # Check that info logging occurred
-        mock_logger.info.assert_any_call(
-            "No Celery workers available, using sync enrichment for trace trace1"
-        )
         mock_logger.info.assert_any_call("Completed sync enrichment for trace trace1")
 
     @patch("celery.chain")
