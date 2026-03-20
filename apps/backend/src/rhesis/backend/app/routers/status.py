@@ -36,15 +36,7 @@ def create_status(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create status with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new status."""
     organization_id, user_id = tenant_context
     return crud.create_status(
         db=db, status=status, organization_id=organization_id, user_id=user_id
@@ -88,15 +80,7 @@ def read_status(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Get status with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    """
+    """Get a status by ID."""
     organization_id, user_id = tenant_context
     db_status = crud.get_status(
         db, status_id=status_id, organization_id=organization_id, user_id=user_id
@@ -113,15 +97,7 @@ def delete_status(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Delete status with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during deletion
-    - Direct tenant context injection
-    """
+    """Delete a status by ID."""
     organization_id, user_id = tenant_context
     db_status = crud.delete_status(
         db, status_id=status_id, organization_id=organization_id, user_id=user_id
@@ -139,15 +115,7 @@ def update_status(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update status with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update a status by ID."""
     organization_id, user_id = tenant_context
     db_status = crud.update_status(
         db, status_id=status_id, status=status, organization_id=organization_id, user_id=user_id

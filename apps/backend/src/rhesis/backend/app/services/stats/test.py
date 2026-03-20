@@ -88,6 +88,7 @@ def get_individual_test_stats(
         db.query(models.TestResult)
         .options(
             joinedload(models.TestResult.test_run),  # Eager load test run info
+            joinedload(models.TestResult.status),  # Eager load status for evaluation
         )
         .filter(models.TestResult.test_id == test_id)
     )
@@ -119,6 +120,8 @@ def get_individual_test_stats(
     execution_times = []
     test_run_results = {}  # test_run_id -> {run_info, overall_passed, execution_time, metrics}
 
+    from rhesis.backend.app.constants import OverallTestResult, categorize_test_result_status
+
     # Process all test results
     for result in test_results:
         if not result.test_metrics or "metrics" not in result.test_metrics:
@@ -134,7 +137,9 @@ def get_individual_test_stats(
             execution_times.append(execution_time)
 
         # Analyze metrics for this test result
-        test_passed_overall = True
+        status_name = result.status.name if result.status else None
+        test_result_status = categorize_test_result_status(status_name)
+        test_passed_overall = test_result_status == OverallTestResult.PASSED
         test_metric_results = {}
 
         for metric_name, metric_data in metrics.items():
@@ -152,7 +157,6 @@ def get_individual_test_stats(
                 metric_stats[metric_name]["passed"] += 1
             else:
                 metric_stats[metric_name]["failed"] += 1
-                test_passed_overall = False
 
             # Store metric result for this test
             test_metric_results[metric_name] = {

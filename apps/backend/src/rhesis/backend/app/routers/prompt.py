@@ -31,15 +31,7 @@ def create_prompt(
     tenant_context=Depends(get_tenant_context),
     current_user=Depends(require_current_user_or_token),
 ):
-    """
-    Create prompt with super optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new prompt."""
     organization_id, user_id = tenant_context
     return crud.create_prompt(
         db=db, prompt=prompt, organization_id=organization_id, user_id=user_id

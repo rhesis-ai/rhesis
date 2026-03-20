@@ -31,15 +31,7 @@ def create_demographic(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create demographic with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new demographic."""
     organization_id, user_id = tenant_context
     return crud.create_demographic(
         db=db, demographic=demographic, organization_id=organization_id, user_id=user_id
@@ -113,15 +105,7 @@ def update_demographic(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update demographic with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update an existing demographic."""
     organization_id, user_id = tenant_context
     db_demographic = crud.update_demographic(
         db,

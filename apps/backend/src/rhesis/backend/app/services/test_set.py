@@ -14,6 +14,7 @@ from rhesis.backend.app.constants import (
     ERROR_INVALID_UUID,
     ERROR_TEST_SET_NOT_FOUND,
     EntityType,
+    TestResultStatus,
     TestSetType,
 )
 from rhesis.backend.app.models import Prompt, TestSet
@@ -576,16 +577,15 @@ def get_last_completed_test_run(
 
     pass_count = 0
     if total_count > 0:
-        pass_status = db.query(Status).filter(Status.name == "Passed").first()
-        if pass_status:
-            pass_count = (
-                db.query(TestResult)
-                .filter(
-                    TestResult.test_run_id == test_run.id,
-                    TestResult.status_id == pass_status.id,
-                )
-                .count()
+        pass_count = (
+            db.query(TestResult)
+            .join(Status, TestResult.status_id == Status.id)
+            .filter(
+                TestResult.test_run_id == test_run.id,
+                Status.name == TestResultStatus.PASS.value,
             )
+            .count()
+        )
 
     pass_rate = round(pass_count / total_count * 100, 1) if total_count > 0 else 0.0
 

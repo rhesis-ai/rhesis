@@ -25,6 +25,9 @@ from .response_pattern import ResponsePattern
 from .risk import Risk
 from .source import Source
 
+# Import stats view models
+from .stats_views import TestResultStatsView, TestRunStatsView
+
 # Import models without dependencies first
 from .status import Status
 from .subscription import Subscription, SubscriptionPlan
@@ -90,6 +93,8 @@ __all__ = [
     "behavior_metric_association",
     "test_test_set_association",
     "test_set_metric_association",
+    "TestRunStatsView",
+    "TestResultStatsView",
 ]
 
 # Set up soft delete event listener

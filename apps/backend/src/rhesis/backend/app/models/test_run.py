@@ -26,9 +26,11 @@ class TestRun(
 ):
     __tablename__ = "test_run"
 
-    user_id = Column(GUID(), ForeignKey("user.id"))
-    status_id = Column(GUID(), ForeignKey("status.id"))
-    test_configuration_id = Column(GUID(), ForeignKey("test_configuration.id"), nullable=False)
+    user_id = Column(GUID(), ForeignKey("user.id"), index=True)
+    status_id = Column(GUID(), ForeignKey("status.id"), index=True)
+    test_configuration_id = Column(
+        GUID(), ForeignKey("test_configuration.id"), nullable=False, index=True
+    )
     name = Column(String)
     attributes = Column(JSONB)
     owner_id = Column(GUID(), ForeignKey("user.id"))

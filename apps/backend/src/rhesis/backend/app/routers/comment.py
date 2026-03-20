@@ -75,15 +75,7 @@ def create_comment(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Create comment with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during entity creation
-    - Direct tenant context injection
-    """
+    """Create a new comment."""
     organization_id, user_id = tenant_context
     return crud.create_comment(
         db=db, comment=comment, organization_id=organization_id, user_id=user_id
@@ -101,14 +93,7 @@ def read_comments(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Get all comments with filtering and pagination - optimized approach.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - Direct tenant context injection
-    """
+    """Get all comments with filtering and pagination."""
     organization_id, user_id = tenant_context
     comments = crud.get_comments(
         db=db,
@@ -130,17 +115,8 @@ def read_comment(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Get comment with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during retrieval
-    - Direct tenant context injection
-    """
+    """Get a comment by ID."""
     organization_id, user_id = tenant_context
-    """Get a specific comment by ID"""
     comment = crud.get_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
     )
@@ -157,17 +133,8 @@ def update_comment(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Update comment with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during update
-    - Direct tenant context injection
-    """
+    """Update a comment."""
     organization_id, user_id = tenant_context
-    """Update a comment"""
     # Check if comment exists
     db_comment = crud.get_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
@@ -195,17 +162,8 @@ def delete_comment(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Delete comment with optimized approach - no session variables needed.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - No SHOW queries during deletion
-    - Direct tenant context injection
-    """
+    """Delete a comment."""
     organization_id, user_id = tenant_context
-    """Delete a comment"""
     # Check if comment exists
     db_comment = crud.get_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id
@@ -234,13 +192,7 @@ def read_comments_by_entity(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Get all comments for a specific entity - optimized approach.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - Direct tenant context injection
+    """Get all comments for a specific entity.
 
     Supported entities: Test, TestSet, TestRun, TestResult, PromptTemplate,
     Metric, Model, Prompt, Behavior, Category, Source
@@ -346,14 +298,7 @@ def remove_emoji_reaction(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
 ):
-    """
-    Remove an emoji reaction from a comment - optimized approach.
-
-    Performance improvements:
-    - Completely bypasses database session variables
-    - No SET LOCAL commands needed
-    - Direct tenant context injection
-    """
+    """Remove an emoji reaction from a comment."""
     organization_id, user_id = tenant_context
     # Check if comment exists
     db_comment = crud.get_comment(
