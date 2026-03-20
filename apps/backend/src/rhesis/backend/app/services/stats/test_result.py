@@ -6,7 +6,7 @@ from typing import Dict, List
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.constants import TestResultStatus
+from rhesis.backend.app.constants import OverallTestResult
 from rhesis.backend.app.models.stats_views import TestResultStatsView
 
 from .common import build_pass_rate_stats, build_response_data, parse_date_range
@@ -102,8 +102,8 @@ def _apply_filters(query, db, **f):
 def _overall_stats(db, base_q):
     r = base_q.with_entities(
         func.count().label("total"),
-        func.count().filter(V.result == TestResultStatus.PASSED).label("passed"),
-        func.count().filter(V.result == TestResultStatus.FAILED).label("failed"),
+        func.count().filter(V.result == OverallTestResult.PASSED).label("passed"),
+        func.count().filter(V.result == OverallTestResult.FAILED).label("failed"),
     ).one()
     total = r.total or 0
     passed = r.passed or 0
@@ -118,7 +118,10 @@ def _overall_stats(db, base_q):
 
 def _timeline_stats(base_q):
     rows = base_q.with_entities(
-        V.year, V.month, V.result, V.test_metrics,
+        V.year,
+        V.month,
+        V.result,
+        V.test_metrics,
     ).all()
 
     monthly: dict = {}
@@ -126,7 +129,7 @@ def _timeline_stats(base_q):
         if not r.year or not r.month:
             continue
         key = f"{r.year:04d}-{r.month:02d}"
-        P, F = TestResultStatus.PASSED, TestResultStatus.FAILED
+        P, F = OverallTestResult.PASSED, OverallTestResult.FAILED
         if key not in monthly:
             monthly[key] = {P: 0, F: 0, "metrics": {}}
         bucket = monthly[key]
@@ -151,7 +154,7 @@ def _timeline_stats(base_q):
     timeline = []
     for key in sorted(monthly):
         b = monthly[key]
-        passed, failed = b[TestResultStatus.PASSED], b[TestResultStatus.FAILED]
+        passed, failed = b[OverallTestResult.PASSED], b[OverallTestResult.FAILED]
         total = passed + failed
         timeline.append(
             {
@@ -172,8 +175,8 @@ def _dimensional_stats(base_q, name_col):
     """Pass rate grouped by a pre-joined name column (behavior_name, category_name, topic_name)."""
     q = base_q.with_entities(
         name_col.label("name"),
-        func.count().filter(V.result == TestResultStatus.PASSED).label("passed"),
-        func.count().filter(V.result == TestResultStatus.FAILED).label("failed"),
+        func.count().filter(V.result == OverallTestResult.PASSED).label("passed"),
+        func.count().filter(V.result == OverallTestResult.FAILED).label("failed"),
     ).group_by(name_col)
 
     stats = {}
@@ -189,8 +192,8 @@ def _test_run_summary(base_q):
             V.run_id,
             V.test_run_name,
             V.test_run_created_at,
-            func.count().filter(V.result == TestResultStatus.PASSED).label("passed"),
-            func.count().filter(V.result == TestResultStatus.FAILED).label("failed"),
+            func.count().filter(V.result == OverallTestResult.PASSED).label("passed"),
+            func.count().filter(V.result == OverallTestResult.FAILED).label("failed"),
         )
         .group_by(V.run_id, V.test_run_name, V.test_run_created_at)
         .order_by(V.test_run_created_at.desc())
@@ -221,7 +224,7 @@ def _metric_stats(base_q):
     Uses a lightweight Python loop over only the JSON column — the view has
     already performed all joins so no ORM objects are loaded."""
     results = base_q.with_entities(V.test_metrics).all()
-    P, F = TestResultStatus.PASSED, TestResultStatus.FAILED
+    P, F = OverallTestResult.PASSED, OverallTestResult.FAILED
     metric_agg: dict = {}
     for (metrics_json,) in results:
         if not metrics_json or not isinstance(metrics_json, dict):

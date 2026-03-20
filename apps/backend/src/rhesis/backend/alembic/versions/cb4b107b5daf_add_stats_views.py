@@ -7,7 +7,7 @@ from rhesis.backend.app.constants import (
     TEST_RESULT_STATUS_PASSED,
     TEST_RUN_STATUS_FAILED,
     TEST_RUN_STATUS_PASSED,
-    TestResultStatus,
+    OverallTestResult,
 )
 
 # revision identifiers, used by Alembic.
@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def _sql_in_list(values: frozenset) -> str:
     """Build a SQL ``IN (...)`` clause from a frozenset of lowercase strings."""
-    quoted = ", ".join(f"''{v}''" for v in sorted(values))
+    quoted = ", ".join(f"'{v}'" for v in sorted(values))
     return f"({quoted})"
 
 
@@ -37,9 +37,9 @@ SELECT
     tr.user_id,
     s.name           AS status_name,
     CASE
-        WHEN LOWER(s.name) IN {_RUN_PASSED_IN} THEN '{TestResultStatus.PASSED}'
-        WHEN LOWER(s.name) IN {_RUN_FAILED_IN} THEN '{TestResultStatus.FAILED}'
-        ELSE '{TestResultStatus.PENDING}'
+        WHEN LOWER(s.name) IN {_RUN_PASSED_IN} THEN '{OverallTestResult.PASSED.value}'
+        WHEN LOWER(s.name) IN {_RUN_FAILED_IN} THEN '{OverallTestResult.FAILED.value}'
+        ELSE '{OverallTestResult.PENDING.value}'
     END              AS result,
     tc.test_set_id,
     tc.endpoint_id,
@@ -67,10 +67,10 @@ SELECT
     s.name           AS status_name,
     CASE
         WHEN LOWER(s.name) IN {_RESULT_PASSED_IN}
-            THEN '{TestResultStatus.PASSED}'
+            THEN '{OverallTestResult.PASSED.value}'
         WHEN LOWER(s.name) IN {_RESULT_FAILED_IN}
-            THEN '{TestResultStatus.FAILED}'
-        ELSE '{TestResultStatus.PENDING}'
+            THEN '{OverallTestResult.FAILED.value}'
+        ELSE '{OverallTestResult.PENDING.value}'
     END              AS result,
     t.status_id      AS test_status_id,
     t.behavior_id,

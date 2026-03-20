@@ -75,8 +75,8 @@ def create_test_result(
 
     # Auto-set status based on test_metrics if not provided
     if not test_result.status_id and test_result.test_metrics:
+        from rhesis.backend.app.constants import TestResultStatus
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
-        from rhesis.backend.tasks.enums import ResultStatus
 
         metrics = test_result.test_metrics.get("metrics", {})
         if metrics:
@@ -88,7 +88,7 @@ def create_test_result(
             )
 
             status_value = (
-                ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+                TestResultStatus.PASS.value if all_metrics_passed else TestResultStatus.FAIL.value
             )
             status = get_or_create_status(
                 db, status_value, "TestResult", organization_id=organization_id
@@ -429,8 +429,8 @@ def update_test_result(
 
     # Auto-update status based on test_metrics if status_id is not explicitly provided
     if test_result.test_metrics and not test_result.status_id:
+        from rhesis.backend.app.constants import TestResultStatus
         from rhesis.backend.app.utils.crud_utils import get_or_create_status
-        from rhesis.backend.tasks.enums import ResultStatus
 
         metrics = test_result.test_metrics.get("metrics", {})
         if metrics:
@@ -442,7 +442,7 @@ def update_test_result(
             )
 
             status_value = (
-                ResultStatus.PASS.value if all_metrics_passed else ResultStatus.FAIL.value
+                TestResultStatus.PASS.value if all_metrics_passed else TestResultStatus.FAIL.value
             )
             status = get_or_create_status(
                 db, status_value, "TestResult", organization_id=organization_id

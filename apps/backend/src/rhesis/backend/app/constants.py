@@ -118,17 +118,39 @@ TEST_RESULT_STATUS_ERROR = frozenset(
     ]
 )
 
-class TestResultStatus(str, Enum):
-    """Aggregated test result status categories used in stats views and reporting.
 
-    A str enum so values work directly in SQL f-strings, ORM filters, and
-    dict keys without explicit ``.value`` access.
+class TestResultStatus(str, Enum):
+    """Exact DB status names for test results (written to the status table)."""
+
+    PASS = "Pass"
+    FAIL = "Fail"
+    ERROR = "Error"
+
+
+class TestType(str, Enum):
+    """Reserved test type values in the TypeLookup table.
+
+    - SINGLE_TURN: Traditional single request-response tests
+    - MULTI_TURN: Agentic multi-turn conversation tests using Penelope
+    """
+
+    SINGLE_TURN = "Single-Turn"
+    MULTI_TURN = "Multi-Turn"
+
+
+class OverallTestResult(str, Enum):
+    """Aggregated result categories used in stats views and reporting.
+
+    Multiple DB status names collapse into each bucket via the frozensets
+    above and categorize_test_result_status(). A str enum so values work
+    directly in SQL f-strings, ORM filters, and dict keys.
     """
 
     PASSED = "passed"
     FAILED = "failed"
     PENDING = "pending"
     ERROR = "error"
+
 
 # Test Run Status Mappings (execution-level: did the run finish?)
 # A "passed" run completed execution; "failed" means execution itself failed.
@@ -139,25 +161,25 @@ TEST_RUN_STATUS_FAILED = frozenset(["failed", "fail", "error", "aborted"])
 
 
 def categorize_test_result_status(status_name: str) -> str:
-    """Categorize a test result status name into passed/failed/error.
+    """Categorize a test result status name into an OverallTestResult bucket.
 
     Args:
         status_name: The status name (case-insensitive)
 
     Returns:
-        One of TestResultStatus.PASSED, TestResultStatus.FAILED, or TestResultStatus.ERROR
+        One of OverallTestResult.PASSED, .FAILED, or .ERROR
     """
     if not status_name:
-        return TestResultStatus.ERROR
+        return OverallTestResult.ERROR
 
     status_lower = status_name.lower()
 
     if status_lower in TEST_RESULT_STATUS_PASSED:
-        return TestResultStatus.PASSED
+        return OverallTestResult.PASSED
     elif status_lower in TEST_RESULT_STATUS_FAILED:
-        return TestResultStatus.FAILED
+        return OverallTestResult.FAILED
     else:
-        return TestResultStatus.ERROR
+        return OverallTestResult.ERROR
 
 
 # OpenTelemetry Semantic Convention attribute keys for AI/LLM spans.
