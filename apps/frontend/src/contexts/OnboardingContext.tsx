@@ -67,12 +67,11 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
             JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress) &&
             session.session_token
           ) {
-            syncProgressToDatabase(
-              session.session_token,
-              mergedProgress
-            ).catch(error => {
-              console.error('Error syncing progress to database:', error);
-            });
+            syncProgressToDatabase(session.session_token, mergedProgress).catch(
+              error => {
+                console.error('Error syncing progress to database:', error);
+              }
+            );
           }
 
           return mergedProgress;

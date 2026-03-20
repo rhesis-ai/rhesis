@@ -104,14 +104,18 @@ export default function TestRunPerformance({
 
       // Fetch statistics for all test runs in a single call
       try {
-        const statsResponse = await testResultsClient.getComprehensiveTestResultsStats({
-          mode: 'test_runs',
-          test_run_ids: testRunIds,
-        });
+        const statsResponse =
+          await testResultsClient.getComprehensiveTestResultsStats({
+            mode: 'test_runs',
+            test_run_ids: testRunIds,
+          });
 
         // Map stats back to test runs
         const statsMap = new Map(
-          (statsResponse.test_run_summary || []).map((summary: any) => [summary.id, summary.overall])
+          (statsResponse.test_run_summary || []).map((summary: any) => [
+            summary.id,
+            summary.overall,
+          ])
         );
 
         const testRunsWithStats = response.data.map(testRun => ({

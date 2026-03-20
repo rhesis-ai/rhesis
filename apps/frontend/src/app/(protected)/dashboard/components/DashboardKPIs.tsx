@@ -243,20 +243,17 @@ export default function DashboardKPIs({
         setLoading(true);
         const clientFactory = new ApiClientFactory(sessionToken);
 
-        const [
-          testStatsResponse,
-          testResultsResponse,
-          testSetStatsResponse,
-        ] = await Promise.all([
-          clientFactory.getTestsClient().getTestStats({ months: 6 }),
-          clientFactory
-            .getTestResultsClient()
-            .getComprehensiveTestResultsStats({
-              mode: 'timeline',
-              months: 6,
-            }),
-          clientFactory.getTestSetsClient().getTestSetStats({ months: 6 }),
-        ]);
+        const [testStatsResponse, testResultsResponse, testSetStatsResponse] =
+          await Promise.all([
+            clientFactory.getTestsClient().getTestStats({ months: 6 }),
+            clientFactory
+              .getTestResultsClient()
+              .getComprehensiveTestResultsStats({
+                mode: 'timeline',
+                months: 6,
+              }),
+            clientFactory.getTestSetsClient().getTestSetStats({ months: 6 }),
+          ]);
 
         setTestStats(testStatsResponse);
         setTestResultsStats(testResultsResponse);
@@ -288,18 +285,15 @@ export default function DashboardKPIs({
 
   // Get current month's pass rate and counts (latest data from 6-month query)
   const currentMonthData =
-    testResultsStats?.timeline?.[
-      testResultsStats.timeline.length - 1
-    ]?.overall;
+    testResultsStats?.timeline?.[testResultsStats.timeline.length - 1]?.overall;
   const currentMonthPassRate = currentMonthData?.pass_rate || 0;
   const currentMonthPassed = currentMonthData?.passed || 0;
   const currentMonthFailed = currentMonthData?.failed || 0;
 
   // Get last month's pass rate for trend calculation
   const lastMonthPassRate =
-    testResultsStats?.timeline?.[
-      testResultsStats.timeline.length - 2
-    ]?.overall?.pass_rate || 0;
+    testResultsStats?.timeline?.[testResultsStats.timeline.length - 2]?.overall
+      ?.pass_rate || 0;
 
   // Calculate month-over-month trend
   const passRateTrend =

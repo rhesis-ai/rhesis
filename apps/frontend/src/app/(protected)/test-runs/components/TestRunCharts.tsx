@@ -35,9 +35,7 @@ interface TestRunChartsProps {
   sessionToken: string;
 }
 
-export default function TestRunCharts({
-  sessionToken,
-}: TestRunChartsProps) {
+export default function TestRunCharts({ sessionToken }: TestRunChartsProps) {
   const isMounted = useRef(false);
 
   // Global loading state for all charts
