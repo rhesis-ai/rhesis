@@ -787,8 +787,19 @@ def delete_risk(
 def get_status(
     db: Session, status_id: uuid.UUID, organization_id: str = None, user_id: str = None
 ) -> Optional[models.Status]:
-    """Get status with relationships eagerly loaded."""
-    return get_item_detail(db, models.Status, status_id, organization_id, user_id)
+    """Get a single status by ID without joining all its related entities."""
+    from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
+    from rhesis.backend.app.utils.query_utils import QueryBuilder
+
+    item = (
+        QueryBuilder(db, models.Status)
+        .with_deleted()
+        .with_optimized_loads(skip_one_to_many=True)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter()
+        .filter_by_id(status_id)
+    )
+    return _check_and_raise_if_deleted(item, models.Status, status_id, False)
 
 
 def get_statuses(
