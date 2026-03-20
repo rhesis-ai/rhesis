@@ -126,13 +126,14 @@ def _timeline_stats(base_q):
         if not r.year or not r.month:
             continue
         key = f"{r.year:04d}-{r.month:02d}"
+        P, F = TestResultStatus.PASSED, TestResultStatus.FAILED
         if key not in monthly:
-            monthly[key] = {"passed": 0, "failed": 0, "metrics": {}}
+            monthly[key] = {P: 0, F: 0, "metrics": {}}
         bucket = monthly[key]
-        if r.result == TestResultStatus.PASSED:
-            bucket["passed"] += 1
-        elif r.result == TestResultStatus.FAILED:
-            bucket["failed"] += 1
+        if r.result == P:
+            bucket[P] += 1
+        elif r.result == F:
+            bucket[F] += 1
 
         if r.test_metrics and isinstance(r.test_metrics, dict):
             metrics = r.test_metrics.get("metrics")
@@ -141,24 +142,25 @@ def _timeline_stats(base_q):
                     if not isinstance(data, dict) or "is_successful" not in data:
                         continue
                     if name not in bucket["metrics"]:
-                        bucket["metrics"][name] = {"passed": 0, "failed": 0}
+                        bucket["metrics"][name] = {P: 0, F: 0}
                     if data["is_successful"]:
-                        bucket["metrics"][name]["passed"] += 1
+                        bucket["metrics"][name][P] += 1
                     else:
-                        bucket["metrics"][name]["failed"] += 1
+                        bucket["metrics"][name][F] += 1
 
     timeline = []
     for key in sorted(monthly):
         b = monthly[key]
-        total = b["passed"] + b["failed"]
+        passed, failed = b[TestResultStatus.PASSED], b[TestResultStatus.FAILED]
+        total = passed + failed
         timeline.append(
             {
                 "date": key,
                 "overall": {
                     "total": total,
-                    "passed": b["passed"],
-                    "failed": b["failed"],
-                    "pass_rate": round((b["passed"] / total) * 100, 2) if total > 0 else 0,
+                    "passed": passed,
+                    "failed": failed,
+                    "pass_rate": round((passed / total) * 100, 2) if total > 0 else 0,
                 },
                 "metrics": build_pass_rate_stats(b["metrics"]),
             }
@@ -219,6 +221,7 @@ def _metric_stats(base_q):
     Uses a lightweight Python loop over only the JSON column — the view has
     already performed all joins so no ORM objects are loaded."""
     results = base_q.with_entities(V.test_metrics).all()
+    P, F = TestResultStatus.PASSED, TestResultStatus.FAILED
     metric_agg: dict = {}
     for (metrics_json,) in results:
         if not metrics_json or not isinstance(metrics_json, dict):
@@ -230,11 +233,11 @@ def _metric_stats(base_q):
             if not isinstance(data, dict) or "is_successful" not in data:
                 continue
             if name not in metric_agg:
-                metric_agg[name] = {"passed": 0, "failed": 0}
+                metric_agg[name] = {P: 0, F: 0}
             if data["is_successful"]:
-                metric_agg[name]["passed"] += 1
+                metric_agg[name][P] += 1
             else:
-                metric_agg[name]["failed"] += 1
+                metric_agg[name][F] += 1
     return build_pass_rate_stats(metric_agg)
 
 

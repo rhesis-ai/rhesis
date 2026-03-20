@@ -138,8 +138,8 @@ def get_individual_test_stats(
 
         # Analyze metrics for this test result
         status_name = result.status.name if result.status else None
-        status_category = categorize_test_result_status(status_name)
-        test_passed_overall = status_category == TestResultStatus.PASSED
+        test_result_status = categorize_test_result_status(status_name)
+        test_passed_overall = test_result_status == TestResultStatus.PASSED
         test_metric_results = {}
 
         for metric_name, metric_data in metrics.items():
