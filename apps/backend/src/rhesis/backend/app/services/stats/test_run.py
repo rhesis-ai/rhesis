@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.models.stats_views import TestRunStatsView
 
 from .common import (
@@ -79,9 +80,9 @@ def _get_stats(db: Session, filters: dict, mode: str, top: Optional[int]) -> Dic
     if mode in ("all", "results", "summary"):
         q = base().with_entities(
             func.count().label("total"),
-            func.count().filter(V.result == "passed").label("passed"),
-            func.count().filter(V.result == "failed").label("failed"),
-            func.count().filter(V.result == "pending").label("pending"),
+            func.count().filter(V.result == TestResultStatus.PASSED).label("passed"),
+            func.count().filter(V.result == TestResultStatus.FAILED).label("failed"),
+            func.count().filter(V.result == TestResultStatus.PENDING).label("pending"),
         )
         r = q.one()
         total = r.total or 0
@@ -131,8 +132,8 @@ def _get_stats(db: Session, filters: dict, mode: str, top: Optional[int]) -> Dic
                 V.year,
                 V.month,
                 func.count().label("total_runs"),
-                func.count().filter(V.result == "passed").label("passed"),
-                func.count().filter(V.result == "failed").label("failed"),
+                func.count().filter(V.result == TestResultStatus.PASSED).label("passed"),
+                func.count().filter(V.result == TestResultStatus.FAILED).label("failed"),
             )
             .group_by(V.year, V.month)
             .order_by(V.year, V.month)

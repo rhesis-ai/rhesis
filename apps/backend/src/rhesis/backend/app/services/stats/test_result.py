@@ -6,6 +6,7 @@ from typing import Dict, List
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.models.stats_views import TestResultStatsView
 
 from .common import build_pass_rate_stats, build_response_data, parse_date_range
@@ -101,8 +102,8 @@ def _apply_filters(query, db, **f):
 def _overall_stats(db, base_q):
     r = base_q.with_entities(
         func.count().label("total"),
-        func.count().filter(V.result == "passed").label("passed"),
-        func.count().filter(V.result == "failed").label("failed"),
+        func.count().filter(V.result == TestResultStatus.PASSED).label("passed"),
+        func.count().filter(V.result == TestResultStatus.FAILED).label("failed"),
     ).one()
     total = r.total or 0
     passed = r.passed or 0
@@ -128,9 +129,9 @@ def _timeline_stats(base_q):
         if key not in monthly:
             monthly[key] = {"passed": 0, "failed": 0, "metrics": {}}
         bucket = monthly[key]
-        if r.result == "passed":
+        if r.result == TestResultStatus.PASSED:
             bucket["passed"] += 1
-        elif r.result == "failed":
+        elif r.result == TestResultStatus.FAILED:
             bucket["failed"] += 1
 
         if r.test_metrics and isinstance(r.test_metrics, dict):
@@ -169,8 +170,8 @@ def _dimensional_stats(base_q, name_col):
     """Pass rate grouped by a pre-joined name column (behavior_name, category_name, topic_name)."""
     q = base_q.with_entities(
         name_col.label("name"),
-        func.count().filter(V.result == "passed").label("passed"),
-        func.count().filter(V.result == "failed").label("failed"),
+        func.count().filter(V.result == TestResultStatus.PASSED).label("passed"),
+        func.count().filter(V.result == TestResultStatus.FAILED).label("failed"),
     ).group_by(name_col)
 
     stats = {}
@@ -186,8 +187,8 @@ def _test_run_summary(base_q):
             V.run_id,
             V.test_run_name,
             V.test_run_created_at,
-            func.count().filter(V.result == "passed").label("passed"),
-            func.count().filter(V.result == "failed").label("failed"),
+            func.count().filter(V.result == TestResultStatus.PASSED).label("passed"),
+            func.count().filter(V.result == TestResultStatus.FAILED).label("failed"),
         )
         .group_by(V.run_id, V.test_run_name, V.test_run_created_at)
         .order_by(V.test_run_created_at.desc())

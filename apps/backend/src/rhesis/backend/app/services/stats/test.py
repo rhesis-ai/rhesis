@@ -120,7 +120,7 @@ def get_individual_test_stats(
     execution_times = []
     test_run_results = {}  # test_run_id -> {run_info, overall_passed, execution_time, metrics}
 
-    from rhesis.backend.app.constants import STATUS_CATEGORY_PASSED, categorize_test_result_status
+    from rhesis.backend.app.constants import TestResultStatus, categorize_test_result_status
 
     # Process all test results
     for result in test_results:
@@ -139,7 +139,7 @@ def get_individual_test_stats(
         # Analyze metrics for this test result
         status_name = result.status.name if result.status else None
         status_category = categorize_test_result_status(status_name)
-        test_passed_overall = status_category == STATUS_CATEGORY_PASSED
+        test_passed_overall = status_category == TestResultStatus.PASSED
         test_metric_results = {}
 
         for metric_name, metric_data in metrics.items():

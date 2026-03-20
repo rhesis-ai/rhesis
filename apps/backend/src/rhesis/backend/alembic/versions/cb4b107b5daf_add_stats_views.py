@@ -2,13 +2,33 @@ from typing import Sequence, Union
 
 from alembic import op
 
+from rhesis.backend.app.constants import (
+    TEST_RESULT_STATUS_FAILED,
+    TEST_RESULT_STATUS_PASSED,
+    TEST_RUN_STATUS_FAILED,
+    TEST_RUN_STATUS_PASSED,
+    TestResultStatus,
+)
+
 # revision identifiers, used by Alembic.
 revision: str = "cb4b107b5daf"
 down_revision: Union[str, None] = "a2b3c4d5e6f7"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-V_TEST_RUN_STATS = """
+
+def _sql_in_list(values: frozenset) -> str:
+    """Build a SQL ``IN (...)`` clause from a frozenset of lowercase strings."""
+    quoted = ", ".join(f"''{v}''" for v in sorted(values))
+    return f"({quoted})"
+
+
+_RUN_PASSED_IN = _sql_in_list(TEST_RUN_STATUS_PASSED)
+_RUN_FAILED_IN = _sql_in_list(TEST_RUN_STATUS_FAILED)
+_RESULT_PASSED_IN = _sql_in_list(TEST_RESULT_STATUS_PASSED)
+_RESULT_FAILED_IN = _sql_in_list(TEST_RESULT_STATUS_FAILED)
+
+V_TEST_RUN_STATS = f"""
 CREATE OR REPLACE VIEW v_test_run_stats AS
 SELECT
     tr.id            AS test_run_id,
@@ -17,9 +37,9 @@ SELECT
     tr.user_id,
     s.name           AS status_name,
     CASE
-        WHEN s.name ILIKE '%%complet%%' THEN 'passed'
-        WHEN s.name ILIKE '%%fail%%'    THEN 'failed'
-        ELSE 'pending'
+        WHEN LOWER(s.name) IN {_RUN_PASSED_IN} THEN '{TestResultStatus.PASSED}'
+        WHEN LOWER(s.name) IN {_RUN_FAILED_IN} THEN '{TestResultStatus.FAILED}'
+        ELSE '{TestResultStatus.PENDING}'
     END              AS result,
     tc.test_set_id,
     tc.endpoint_id,
@@ -35,7 +55,7 @@ LEFT JOIN "user" u ON tr.user_id = u.id
 WHERE tr.deleted_at IS NULL
 """
 
-V_TEST_RESULT_STATS = """
+V_TEST_RESULT_STATS = f"""
 CREATE OR REPLACE VIEW v_test_result_stats AS
 SELECT
     trs.id           AS test_result_id,
@@ -46,11 +66,11 @@ SELECT
     trs.test_metrics,
     s.name           AS status_name,
     CASE
-        WHEN s.name ILIKE ANY(ARRAY['%%pass%%','%%success%%','%%complet%%'])
-            THEN 'passed'
-        WHEN s.name ILIKE ANY(ARRAY['%%fail%%','%%error%%'])
-            THEN 'failed'
-        ELSE 'pending'
+        WHEN LOWER(s.name) IN {_RESULT_PASSED_IN}
+            THEN '{TestResultStatus.PASSED}'
+        WHEN LOWER(s.name) IN {_RESULT_FAILED_IN}
+            THEN '{TestResultStatus.FAILED}'
+        ELSE '{TestResultStatus.PENDING}'
     END              AS result,
     t.status_id      AS test_status_id,
     t.behavior_id,
