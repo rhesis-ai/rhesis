@@ -85,7 +85,7 @@ export default function MagicLinkPage() {
         justifyContent: 'center',
         minHeight: '100vh',
         p: 3,
-        bgcolor: 'background.default',
+        bgcolor: '#FFFFFF', // Intentional: auth pages are light-only
         position: 'relative',
       }}
     >
@@ -98,7 +98,7 @@ export default function MagicLinkPage() {
           flexDirection: 'column',
           alignItems: 'center',
           gap: 2,
-          bgcolor: 'background.default',
+          bgcolor: '#FFFFFF', // Intentional: auth pages are light-only
           border: `1px solid ${CARD_BORDER}`,
           borderRadius: '20px', // Intentional: auth card radius
           p: { xs: '32px 24px', sm: '44px 40px' },

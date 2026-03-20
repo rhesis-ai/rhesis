@@ -5,6 +5,7 @@ import { Box, Typography } from '@mui/material';
 import Image from 'next/image';
 import BackgroundDecoration from './BackgroundDecoration';
 
+const BG_WHITE = '#FFFFFF'; // Intentional: auth pages are light-only
 const MUTED_TEXT = '#6B7280'; // Intentional: landing page muted text
 const FEATURE_TEXT = '#374151'; // Intentional: landing page feature text
 const CARD_BORDER = '#E5E7EB'; // Intentional: landing page card border
@@ -25,7 +26,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: 'background.default',
+        bgcolor: BG_WHITE,
         position: 'relative',
         overflowX: 'hidden',
       }}
@@ -287,7 +288,7 @@ export default function AuthPageShell({ children }: AuthPageShellProps) {
               flex: '0 0 auto',
               width: { xs: '100%', sm: 420 },
               maxWidth: 420,
-              bgcolor: 'background.default',
+              bgcolor: BG_WHITE,
               border: `1px solid ${CARD_BORDER}`,
               borderRadius: { xs: '16px', sm: '20px' }, // Intentional: auth card radius
               p: { xs: '32px 24px', sm: '44px 40px' },

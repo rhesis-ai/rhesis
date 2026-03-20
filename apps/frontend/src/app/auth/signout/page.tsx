@@ -22,7 +22,7 @@ export default function SignOut() {
         justifyContent: 'center',
         minHeight: '100vh',
         gap: 2,
-        bgcolor: 'background.default',
+        bgcolor: '#FFFFFF', // Intentional: auth pages are light-only
         position: 'relative',
       }}
     >

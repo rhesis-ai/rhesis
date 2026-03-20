@@ -21,6 +21,7 @@ import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { signIn } from 'next-auth/react';
 import { getClientApiBaseUrl } from '../../utils/url-resolver';
@@ -491,12 +492,12 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                       title="Set a new password via email to use password login"
                       arrow
                     >
-                      <a
+                      <Link
                         href="/auth/forgot-password"
                         style={{ color: 'inherit' }}
                       >
                         reset your password
-                      </a>
+                      </Link>
                     </Tooltip>
                     .
                   </Typography>
@@ -535,7 +536,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   }}
                 >
                   <Typography variant="body2">
-                    <a
+                    <Link
                       href="/auth/forgot-password"
                       style={{
                         color: 'inherit',
@@ -543,7 +544,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                       }}
                     >
                       Forgot password?
-                    </a>
+                    </Link>
                   </Typography>
                   <Tooltip
                     title="We'll send you a link to sign in without typing your password"
@@ -738,6 +739,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 variant="outlined"
                 fullWidth
                 size="large"
+                component={Link}
                 href="/auth/register"
                 sx={{
                   height: 46,
@@ -765,9 +767,9 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             sx={{ color: 'text.secondary' }}
           >
             Already have an account?{' '}
-            <a href="/" style={{ color: 'inherit' }}>
+            <Link href="/" style={{ color: 'inherit' }}>
               Sign in
-            </a>
+            </Link>
           </Typography>
         )}
 
