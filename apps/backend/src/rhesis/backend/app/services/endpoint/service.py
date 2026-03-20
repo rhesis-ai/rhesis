@@ -94,8 +94,9 @@ class EndpointService:
                 enriched_input_data["user_id"] = user_id
             if test_execution_context:
                 for key in ("test_id", "test_run_id", "test_configuration_id"):
-                    if key in test_execution_context:
-                        enriched_input_data[key] = test_execution_context[key]
+                    value = test_execution_context.get(key)
+                    if value is not None:
+                        enriched_input_data[key] = value
 
             # -------------------------------------------------------
             # Stateless conversation management

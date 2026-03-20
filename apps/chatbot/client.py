@@ -432,10 +432,15 @@ async def chat(
     if not isinstance(file_contents, list):
         file_contents = None
 
+    _RHESIS_ALLOWED_KEYS = {"test_id", "test_run_id", "test_configuration_id"}
     if not isinstance(rhesis, dict):
         rhesis = None
     else:
-        rhesis = {k: v for k, v in rhesis.items() if v is not None and v != "None"}
+        rhesis = {
+            k: v
+            for k, v in rhesis.items()
+            if k in _RHESIS_ALLOWED_KEYS and v and v != "None"
+        }
         if not rhesis:
             rhesis = None
 
