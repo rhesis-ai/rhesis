@@ -51,27 +51,21 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   // Load from database once when session becomes available, merge with
   // localStorage, and sync differences back in a single round-trip.
   useEffect(() => {
-    if (!session?.session_token || dbLoadedRef.current) return;
+    const token = session?.session_token;
+    if (!token || dbLoadedRef.current) return;
 
     const loadInitialProgress = async () => {
       try {
-        const dbProgress = await loadProgressFromDatabase(
-          session.session_token
-        );
+        const dbProgress = await loadProgressFromDatabase(token);
 
         setProgress(currentProgress => {
           const mergedProgress = mergeProgress(currentProgress, dbProgress);
           saveProgress(mergedProgress);
 
-          if (
-            JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress) &&
-            session.session_token
-          ) {
-            syncProgressToDatabase(session.session_token, mergedProgress).catch(
-              error => {
-                console.error('Error syncing progress to database:', error);
-              }
-            );
+          if (JSON.stringify(mergedProgress) !== JSON.stringify(dbProgress)) {
+            syncProgressToDatabase(token, mergedProgress).catch(error => {
+              console.error('Error syncing progress to database:', error);
+            });
           }
 
           return mergedProgress;
