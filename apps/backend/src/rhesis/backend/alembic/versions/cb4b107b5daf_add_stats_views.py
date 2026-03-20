@@ -2,31 +2,20 @@ from typing import Sequence, Union
 
 from alembic import op
 
-from rhesis.backend.app.constants import (
-    TEST_RESULT_STATUS_FAILED,
-    TEST_RESULT_STATUS_PASSED,
-    TEST_RUN_STATUS_FAILED,
-    TEST_RUN_STATUS_PASSED,
-    OverallTestResult,
-)
-
 # revision identifiers, used by Alembic.
 revision: str = "cb4b107b5daf"
 down_revision: Union[str, None] = "a2b3c4d5e6f7"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-
-def _sql_in_list(values: frozenset) -> str:
-    """Build a SQL ``IN (...)`` clause from a frozenset of lowercase strings."""
-    quoted = ", ".join(f"'{v}'" for v in sorted(values))
-    return f"({quoted})"
-
-
-_RUN_PASSED_IN = _sql_in_list(TEST_RUN_STATUS_PASSED)
-_RUN_FAILED_IN = _sql_in_list(TEST_RUN_STATUS_FAILED)
-_RESULT_PASSED_IN = _sql_in_list(TEST_RESULT_STATUS_PASSED)
-_RESULT_FAILED_IN = _sql_in_list(TEST_RESULT_STATUS_FAILED)
+# Hardcoded lists of statuses to ensure migration stability
+# These originally mirror the constants at the time of this migration.
+_RUN_PASSED_IN = "('complete', 'completed', 'done', 'finished', 'success', 'successful')"
+_RUN_FAILED_IN = "('aborted', 'error', 'fail', 'failed')"
+_RESULT_PASSED_IN = (
+    "('complete', 'completed', 'done', 'finished', 'pass', 'passed', 'success', 'successful')"
+)
+_RESULT_FAILED_IN = "('fail', 'failed')"
 
 V_TEST_RUN_STATS = f"""
 CREATE OR REPLACE VIEW v_test_run_stats AS
@@ -37,9 +26,9 @@ SELECT
     tr.user_id,
     s.name           AS status_name,
     CASE
-        WHEN LOWER(s.name) IN {_RUN_PASSED_IN} THEN '{OverallTestResult.PASSED.value}'
-        WHEN LOWER(s.name) IN {_RUN_FAILED_IN} THEN '{OverallTestResult.FAILED.value}'
-        ELSE '{OverallTestResult.PENDING.value}'
+        WHEN LOWER(s.name) IN {_RUN_PASSED_IN} THEN 'passed'
+        WHEN LOWER(s.name) IN {_RUN_FAILED_IN} THEN 'failed'
+        ELSE 'pending'
     END              AS result,
     tc.test_set_id,
     tc.endpoint_id,
@@ -67,10 +56,10 @@ SELECT
     s.name           AS status_name,
     CASE
         WHEN LOWER(s.name) IN {_RESULT_PASSED_IN}
-            THEN '{OverallTestResult.PASSED.value}'
+            THEN 'passed'
         WHEN LOWER(s.name) IN {_RESULT_FAILED_IN}
-            THEN '{OverallTestResult.FAILED.value}'
-        ELSE '{OverallTestResult.PENDING.value}'
+            THEN 'failed'
+        ELSE 'pending'
     END              AS result,
     t.status_id      AS test_status_id,
     t.behavior_id,

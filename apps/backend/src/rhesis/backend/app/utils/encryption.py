@@ -130,6 +130,10 @@ def _get_fernet() -> Fernet:
     Creating a Fernet object involves key validation and HMAC key derivation,
     so constructing one per encrypt/decrypt call is wasteful. This cache
     ensures a single instance is reused for the lifetime of the process.
+
+    Note: Dynamic key rotation via environment variable reloading without
+    restarting the process is not supported. If rotation is needed, the
+    backend service must be restarted to clear this cache.
     """
     return Fernet(get_encryption_key())
 

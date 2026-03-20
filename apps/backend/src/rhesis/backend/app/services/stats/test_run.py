@@ -146,7 +146,6 @@ def _get_stats(db: Session, filters: dict, mode: str, top: Optional[int]) -> Dic
                 {
                     "date": month_key,
                     "total_runs": r.total_runs,
-                    "status_breakdown": {"Completed": r.passed, "Failed": r.failed},
                     "result_breakdown": {
                         "passed": r.passed,
                         "failed": r.failed,

@@ -101,17 +101,19 @@ def _apply_filters(query, db, **f):
 
 def _overall_stats(db, base_q):
     r = base_q.with_entities(
-        func.count().label("total"),
         func.count().filter(V.result == OverallTestResult.PASSED).label("passed"),
         func.count().filter(V.result == OverallTestResult.FAILED).label("failed"),
+        func.count().filter(V.result == OverallTestResult.PENDING).label("pending"),
     ).one()
-    total = r.total or 0
     passed = r.passed or 0
     failed = r.failed or 0
+    pending = r.pending or 0
+    total = passed + failed  # Calculate pass_rate based only on completed runs
     return {
         "total": total,
         "passed": passed,
         "failed": failed,
+        "pending": pending,
         "pass_rate": round((passed / total) * 100, 2) if total > 0 else 0,
     }
 
