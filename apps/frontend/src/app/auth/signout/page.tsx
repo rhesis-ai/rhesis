@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { handleClientSignOut } from '@/utils/client-auth';
+import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
 
 export default function SignOut() {
   const _searchParams = useSearchParams();
@@ -21,10 +22,24 @@ export default function SignOut() {
         justifyContent: 'center',
         minHeight: '100vh',
         gap: 2,
+        bgcolor: 'background.default',
+        position: 'relative',
       }}
     >
-      <CircularProgress />
-      <Typography variant="body1">Signing out...</Typography>
+      <BackgroundDecoration />
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
+        <CircularProgress />
+        <Typography variant="body1">Signing out...</Typography>
+      </Box>
     </Box>
   );
 }

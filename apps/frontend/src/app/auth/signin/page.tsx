@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { CircularProgress, Box, Typography } from '@mui/material';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
 
 export default function SignIn() {
   const searchParams = useSearchParams();
@@ -14,7 +15,6 @@ export default function SignIn() {
   useEffect(() => {
     const handleAuth = async () => {
       try {
-        // Check for session expiration error
         const errorParam = searchParams.get('error');
         const postLogout = searchParams.get('post_logout');
         const sessionExpired = searchParams.get('session_expired');
@@ -25,20 +25,16 @@ export default function SignIn() {
           sessionExpired === 'true' ||
           forceLogout === 'true'
         ) {
-          // Redirect to home page for expired sessions
           window.location.href = '/';
           return;
         }
 
         if (postLogout === 'true') {
-          // Redirect to home page after logout
           window.location.href = '/';
           return;
         }
 
-        // OAuth callback: exchange short-lived auth code for tokens
         const authCode = searchParams.get('code');
-        // Backward compatibility: also accept direct session_token
         const incomingToken = searchParams.get('session_token');
 
         let sessionToken = incomingToken;
@@ -71,7 +67,6 @@ export default function SignIn() {
         if (sessionToken) {
           setStatus('Verifying session...');
 
-          // Use NextAuth to set the httpOnly session cookie server-side.
           const result = await signIn('credentials', {
             session_token: sessionToken,
             refresh_token: refreshToken || '',
@@ -89,11 +84,9 @@ export default function SignIn() {
           return;
         }
 
-        // If no token and no special parameters, redirect to home page for unified login experience
         const returnTo = searchParams.get('return_to');
         setStatus('Redirecting to login...');
 
-        // Redirect to home page which has the unified login experience
         const homeUrl = new URL('/', window.location.origin);
         if (returnTo) {
           homeUrl.searchParams.set('return_to', returnTo);
@@ -117,17 +110,30 @@ export default function SignIn() {
         minHeight: '100vh',
         gap: 2,
         bgcolor: 'background.default',
+        position: 'relative',
       }}
     >
-      <CircularProgress />
-      <Typography variant="body1" align="center">
-        {status}
-      </Typography>
-      {error && (
-        <Typography color="error" align="center">
-          {error}
+      <BackgroundDecoration />
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
+        <CircularProgress />
+        <Typography variant="body1" align="center">
+          {status}
         </Typography>
-      )}
+        {error && (
+          <Typography color="error" align="center">
+            {error}
+          </Typography>
+        )}
+      </Box>
     </Box>
   );
 }

@@ -3,19 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Box,
-  Grid,
-  Paper,
   Typography,
   TextField,
   Button,
   Alert,
   CircularProgress,
-  useMediaQuery,
-  useTheme,
   IconButton,
   InputAdornment,
 } from '@mui/material';
-import Image from 'next/image';
 import LockResetIcon from '@mui/icons-material/LockResetOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -23,6 +18,11 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useSearchParams } from 'next/navigation';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import { DEFAULT_PASSWORD_POLICY, validatePassword } from '@/utils/validation';
+import AuthPageShell from '@/components/auth/AuthPageShell';
+import BackgroundDecoration from '@/components/auth/BackgroundDecoration';
+
+const SUBTLE_TEXT = '#6B7280'; // Intentional: auth form subtle text
+const BUTTON_HOVER = '#3aabcf'; // Intentional: auth form button hover
 
 interface PasswordPolicy {
   min_length: number;
@@ -31,8 +31,6 @@ interface PasswordPolicy {
 }
 
 export default function ResetPasswordPage() {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
@@ -45,7 +43,6 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Password visibility toggles
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
@@ -54,9 +51,7 @@ export default function ResetPasswordPage() {
   const handleTogglePasswordVisibility = () => {
     const input = passwordInputRef.current;
     const cursorPosition = input?.selectionStart ?? 0;
-
     setShowPassword(!showPassword);
-
     setTimeout(() => {
       if (input) {
         input.setSelectionRange(cursorPosition, cursorPosition);
@@ -67,9 +62,7 @@ export default function ResetPasswordPage() {
   const handleToggleConfirmPasswordVisibility = () => {
     const input = confirmPasswordInputRef.current;
     const cursorPosition = input?.selectionStart ?? 0;
-
     setShowConfirmPassword(!showConfirmPassword);
-
     setTimeout(() => {
       if (input) {
         input.setSelectionRange(cursorPosition, cursorPosition);
@@ -147,190 +140,191 @@ export default function ResetPasswordPage() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '100vh',
+          minHeight: '100vh',
           gap: 2,
+          bgcolor: 'background.default',
+          position: 'relative',
         }}
       >
-        <Alert severity="error">Invalid or missing reset token.</Alert>
-        <Button variant="text" href="/">
-          Back to sign in
-        </Button>
+        <BackgroundDecoration />
+        <Box sx={{ position: 'relative', zIndex: 10 }}>
+          <Alert severity="error">Invalid or missing reset token.</Alert>
+          <Button variant="text" href="/" sx={{ mt: 2 }}>
+            Back to sign in
+          </Button>
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Grid container component="main" sx={{ height: '100vh' }}>
-      <Grid
-        sx={{
-          backgroundColor: 'primary.dark',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        size={{ xs: false, sm: 4, md: 7 }}
-      >
-        <Image
-          src="/logos/rhesis-logo-platypus.png"
-          alt="Rhesis AI Logo"
-          width={300}
-          height={0}
-          style={{ height: 'auto' }}
-          priority
-        />
-      </Grid>
-      <Grid
-        component={Paper}
-        elevation={6}
-        square
-        size={{ xs: 12, sm: 8, md: 5 }}
-      >
+    <AuthPageShell>
+      {success ? (
         <Box
           sx={{
             display: 'flex',
             flexDirection: 'column',
+            gap: 2,
             alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            p: { xs: 3, sm: 6, md: 8 },
           }}
         >
-          {isMobile && (
-            <Box sx={{ mb: 4 }}>
-              <Image
-                src="/logos/rhesis-logo-platypus.png"
-                alt="Rhesis AI Logo"
-                width={160}
-                height={0}
-                style={{ height: 'auto' }}
-                priority
-              />
-            </Box>
-          )}
-          <Box sx={{ width: '100%', maxWidth: 400 }}>
-            <Paper
-              elevation={0}
-              sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}
+          <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main' }} />
+          <Typography
+            sx={{
+              fontSize: 24,
+              fontWeight: 700,
+              color: 'secondary.dark',
+              textAlign: 'center',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Password reset!
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: 14,
+              color: SUBTLE_TEXT,
+              textAlign: 'center',
+            }}
+          >
+            Your password has been updated. You can now sign in with your new
+            password.
+          </Typography>
+          <Button
+            variant="contained"
+            href="/"
+            fullWidth
+            sx={{
+              mt: 1,
+              height: 46,
+              borderRadius: '10px', // Intentional: button border radius
+              bgcolor: 'primary.main',
+              '&:hover': {
+                bgcolor: BUTTON_HOVER,
+                boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
+              },
+            }}
+          >
+            Sign in
+          </Button>
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}
+        >
+          <Box sx={{ textAlign: 'center', mb: 0 }}>
+            <LockResetIcon
+              sx={{ fontSize: 48, color: 'primary.main', mb: 1 }}
+            />
+            <Typography
+              sx={{
+                fontSize: 24,
+                fontWeight: 700,
+                color: 'secondary.dark',
+                letterSpacing: '-0.02em',
+              }}
             >
-              {success ? (
-                <>
-                  <Box sx={{ textAlign: 'center', mb: 1 }}>
-                    <CheckCircleIcon
-                      sx={{ fontSize: 48, color: 'success.main', mb: 1 }}
-                    />
-                    <Typography variant="h6">Password reset!</Typography>
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    align="center"
-                  >
-                    Your password has been updated. You can now sign in with
-                    your new password.
-                  </Typography>
-                  <Button variant="contained" href="/" fullWidth sx={{ mt: 2 }}>
-                    Sign in
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Box sx={{ textAlign: 'center', mb: 1 }}>
-                    <LockResetIcon
-                      sx={{ fontSize: 48, color: 'primary.main', mb: 1 }}
-                    />
-                    <Typography variant="h6">Set a new password</Typography>
-                  </Box>
-                  <Box
-                    component="form"
-                    onSubmit={handleSubmit}
-                    sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-                  >
-                    <TextField
-                      label="New password"
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      required
-                      fullWidth
+              Set a new password
+            </Typography>
+          </Box>
+
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          >
+            <TextField
+              label="New password"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              fullWidth
+              size="small"
+              autoComplete="new-password"
+              helperText={`Minimum ${passwordPolicy?.min_length ?? 12} characters`}
+              inputRef={passwordInputRef}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleTogglePasswordVisibility}
+                      edge="end"
                       size="small"
-                      autoComplete="new-password"
-                      helperText={`Minimum ${passwordPolicy?.min_length ?? 12} characters`}
-                      inputRef={passwordInputRef}
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton
-                              aria-label="toggle password visibility"
-                              onClick={handleTogglePasswordVisibility}
-                              edge="end"
-                              size="small"
-                            >
-                              {showPassword ? (
-                                <VisibilityOffIcon />
-                              ) : (
-                                <VisibilityIcon />
-                              )}
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                    <TextField
-                      label="Confirm password"
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={e => setConfirmPassword(e.target.value)}
-                      required
-                      fullWidth
-                      size="small"
-                      autoComplete="new-password"
-                      inputRef={confirmPasswordInputRef}
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton
-                              aria-label="toggle confirm password visibility"
-                              onClick={handleToggleConfirmPasswordVisibility}
-                              edge="end"
-                              size="small"
-                            >
-                              {showConfirmPassword ? (
-                                <VisibilityOffIcon />
-                              ) : (
-                                <VisibilityIcon />
-                              )}
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
-                    {error && (
-                      <Alert severity="error" sx={{ py: 0 }}>
-                        {error}
-                      </Alert>
-                    )}
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      fullWidth
-                      disabled={loading}
-                      startIcon={
-                        loading ? (
-                          <CircularProgress size={20} />
-                        ) : (
-                          <LockResetIcon />
-                        )
-                      }
                     >
-                      Reset password
-                    </Button>
-                  </Box>
-                </>
-              )}
-            </Paper>
+                      {showPassword ? (
+                        <VisibilityOffIcon />
+                      ) : (
+                        <VisibilityIcon />
+                      )}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              label="Confirm password"
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              required
+              fullWidth
+              size="small"
+              autoComplete="new-password"
+              inputRef={confirmPasswordInputRef}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle confirm password visibility"
+                      onClick={handleToggleConfirmPasswordVisibility}
+                      edge="end"
+                      size="small"
+                    >
+                      {showConfirmPassword ? (
+                        <VisibilityOffIcon />
+                      ) : (
+                        <VisibilityIcon />
+                      )}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            {error && (
+              <Alert severity="error" sx={{ py: 0 }}>
+                {error}
+              </Alert>
+            )}
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              size="large"
+              disabled={loading}
+              startIcon={
+                loading ? <CircularProgress size={20} /> : <LockResetIcon />
+              }
+              sx={{
+                height: 46,
+                borderRadius: '10px', // Intentional: button border radius
+                bgcolor: 'primary.main',
+                '&:hover': {
+                  bgcolor: BUTTON_HOVER,
+                  boxShadow: '0 4px 12px rgba(80,185,224,0.3)', // Intentional: button hover glow
+                },
+              }}
+            >
+              Reset password
+            </Button>
           </Box>
         </Box>
-      </Grid>
-    </Grid>
+      )}
+    </AuthPageShell>
   );
 }

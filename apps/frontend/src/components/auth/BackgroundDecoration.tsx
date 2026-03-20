@@ -19,6 +19,8 @@ export default function BackgroundDecoration() {
       }}
     >
       <svg
+        aria-hidden="true"
+        focusable="false"
         viewBox="0 0 1440 900"
         preserveAspectRatio="none"
         xmlns="http://www.w3.org/2000/svg"
