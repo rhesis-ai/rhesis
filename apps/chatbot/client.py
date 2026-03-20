@@ -434,6 +434,12 @@ async def chat(
 
     if not isinstance(rhesis, dict):
         rhesis = None
+    else:
+        rhesis = {k: v for k, v in rhesis.items() if v is not None and v != "None"}
+        if not rhesis:
+            rhesis = None
+
+    logger.info(f"Rhesis context received: {rhesis}")
 
     # Create single ResponseGenerator instance to avoid duplicate instantiation
     # This ensures proper trace nesting - all operations under one trace
