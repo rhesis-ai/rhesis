@@ -18,7 +18,6 @@ export default withNextra({
   async redirects() {
     const permanent = true
     return [
-      { source: '/docs', destination: '/docs/getting-started', permanent },
       {
         source: '/penelope',
         destination: '/docs/conversation-simulation',
@@ -79,112 +78,7 @@ export default withNextra({
       },
       { source: '/platform', destination: '/docs/getting-started', permanent },
       {
-        source: '/docs/projects/:path*',
-        destination: '/docs/projects/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/knowledge/:path*',
-        destination: '/docs/knowledge/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/behaviors/:path*',
-        destination: '/docs/behaviors/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/metrics/:path*',
-        destination: '/docs/metrics/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/tests-generation/:path*',
-        destination: '/docs/tests-generation/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/playground/:path*',
-        destination: '/docs/playground/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/tests/:path*',
-        destination: '/docs/tests/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/test-sets/:path*',
-        destination: '/docs/test-sets/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/test-execution/:path*',
-        destination: '/docs/test-execution/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/results-overview/:path*',
-        destination: '/docs/results-overview/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/test-runs/:path*',
-        destination: '/docs/test-runs/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/test-reviews/:path*',
-        destination: '/docs/test-reviews/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/tasks/:path*',
-        destination: '/docs/tasks/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/endpoints/:path*',
-        destination: '/docs/endpoints/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/models/:path*',
-        destination: '/docs/models/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/mcp/:path*',
-        destination: '/docs/mcp/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/api-tokens/:path*',
-        destination: '/docs/api-tokens/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/organizations/:path*',
-        destination: '/docs/organizations/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/integrations/:path*',
-        destination: '/docs/integrations/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/test-results/:path*',
-        destination: '/docs/test-results/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/test-sets-runs/:path*',
-        destination: '/docs/test-sets-runs/:path*',
-        permanent,
-      },
-      {
-        source: '/docs/:path*',
+        source: '/platform/:path*',
         destination: '/docs/:path*',
         permanent,
       },
@@ -232,7 +126,7 @@ export default withNextra({
       },
       { source: '/development', destination: '/contribute', permanent },
       {
-        source: '/contribute/:path*',
+        source: '/development/:path*',
         destination: '/contribute/:path*',
         permanent,
       },

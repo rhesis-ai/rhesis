@@ -1,6 +1,7 @@
 import type { MetaRecord } from 'nextra'
 
 const meta: MetaRecord = {
+  index: 'Overview',
   'getting-started': '🚀 Getting Started',
   concepts: '💡 Core Concepts',
   'product-tour': '🧭 Product Tour',

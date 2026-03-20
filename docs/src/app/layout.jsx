@@ -118,6 +118,8 @@ export default async function RootLayout({ children }) {
   const organizationSchema = generateOrganizationSchema()
   const websiteSchema = generateWebsiteSchema()
 
+  const pageMap = await getPageMap()
+
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       <Head />
@@ -135,7 +137,7 @@ export default async function RootLayout({ children }) {
         <Layout
           navbar={navbar}
           footer={footer}
-          pageMap={await getPageMap()}
+          pageMap={pageMap}
           sidebar={{
             defaultMenuCollapseLevel: 1,
             autoCollapse: true,
