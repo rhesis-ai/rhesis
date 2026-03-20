@@ -47,6 +47,9 @@ These variables are available in your request body templates using Jinja2 syntax
 | `conversation_id` | No | Conversation tracking identifier for multi-turn endpoints (both stateful and stateless). Rhesis uses this to track conversations across turns. |
 | `messages` | No | Full conversation history as an array of message objects. Used for stateless endpoints that require the entire history with every request. |
 | `system_prompt` | No | System prompt text. Rhesis prepends it to the `messages` array and strips it from the final request body before sending. |
+| `test_id` | No | Unique identifier of the test being executed. Only populated during test runs; renders as an empty string otherwise. Place it wherever your API expects it -- see [Test Execution Context](/platform/endpoints/mapping-examples#test-execution-context) for examples. |
+| `test_run_id` | No | Unique identifier of the current test run. Only populated during test runs; renders as an empty string otherwise. |
+| `test_configuration_id` | No | Unique identifier of the test configuration driving the run. Only populated during test runs; renders as an empty string otherwise. |
 
 <Callout type="info">
   Provider-specific Jinja filters such as `to_anthropic`, `to_openai`, and `to_gemini` are documented in
