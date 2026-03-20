@@ -1,13 +1,10 @@
+from typing import Sequence, Union
+
 from alembic import op
-import sqlalchemy as sa
-from typing import Union, Sequence
-import rhesis
-
-
 
 # revision identifiers, used by Alembic.
-revision: str = '8993eecbb913'
-down_revision: Union[str, None] = 'c5f354e261ce'
+revision: str = "8993eecbb913"
+down_revision: Union[str, None] = "c5f354e261ce"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
